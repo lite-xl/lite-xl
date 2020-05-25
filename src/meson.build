@@ -13,4 +13,5 @@ executable('lite',
     include_directories: lite_include,
     dependencies: [lua_dep, sdl_dep, stb_truetype_dep, libm, libdl],
     install: true,
+    gui_app: true,
 )
