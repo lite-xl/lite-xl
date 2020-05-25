@@ -11,6 +11,6 @@ lite_sources = [
 executable('lite',
     lite_sources,
     include_directories: lite_include,
-    dependencies: [lua_dep, sdl_dep, stb_truetype_dep, libm],
+    dependencies: [lua_dep, sdl_dep, stb_truetype_dep, libm, libdl],
     install: true,
 )
