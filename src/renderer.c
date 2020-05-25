@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <math.h>
-#include "lib/stb/stb_truetype.h"
+#include "stb_truetype.h"
 #include "renderer.h"
 
 #define MAX_GLYPHSET 256
