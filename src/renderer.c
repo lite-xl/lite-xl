@@ -4,6 +4,7 @@
 #include <math.h>
 #include "stb_truetype.h"
 #include "renderer.h"
+#include "font_render_capi.h"
 
 #define MAX_GLYPHSET 256
 
@@ -23,6 +24,7 @@ struct RenFont {
   GlyphSet *sets[MAX_GLYPHSET];
   float size;
   int height;
+  FontRenderer *renderer;
 };
 
 
@@ -193,6 +195,10 @@ RenFont* ren_load_font(const char *filename, float size) {
   g['\t'].x1 = g['\t'].x0;
   g['\n'].x1 = g['\n'].x0;
 
+  font->renderer = FontRendererNew(FONT_RENDERER_HINTING|FONT_RENDERER_SUBPIXEL, 1.8);
+  // FIXME check for errors
+  FontRendererLoadFont(font->renderer, filename);
+
   return font;
 
 fail:
@@ -328,6 +334,11 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
 
 
 int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
+  SDL_Surface *surf = SDL_GetWindowSurface(window);
+  // FIXME: pixels are arranged in bgra order while AGG::fontrender use rgb
+  RenColor *pixels = (RenColor*) surf->pixels;
+  return FontRendererDrawText(font->renderer, pixels, surf->w, surf->h, surf->pitch, text, font->height, x, y, color);
+#if 0
   RenRect rect;
   const char *p = text;
   unsigned codepoint;
@@ -343,4 +354,5 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
     x += g->xadvance;
   }
   return x;
+#endif
 }
