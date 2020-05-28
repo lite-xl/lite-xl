@@ -30,6 +30,14 @@
 #include "agg_color_rgba.h"
 #include "agg_rendering_buffer.h"
 
+static int floor_div(int a, int b) {
+    int rem = a % b;
+    if (rem < 0) {
+        rem += b;
+    }
+    return (a - rem) / b;
+}
+
 namespace agg
 {
  
@@ -77,7 +85,6 @@ namespace agg
         unsigned short m_data[256*3];
     };
 
-
     //========================================================pixfmt_bgra32_lcd
     class pixfmt_bgra32_lcd
     {
@@ -123,45 +130,33 @@ namespace agg
         }
 
         //--------------------------------------------------------------------
-        void blend_solid_hspan(int x, int y,
+        void blend_solid_hspan(int x_lcd, int y,
                                unsigned len,
                                const color_type& c,
                                const int8u* covers)
         {
+            const int pixel_size = 4;
             unsigned rowlen = width();
-            int cx = (x - 2 >= 0 ? -2 : -x);
+            int cx = (x_lcd - 2 >= 0 ? -2 : -x_lcd);
             int cx_max = (len + 2 <= rowlen ? len + 1 : rowlen - 1);
 
-            int i = (x + cx) % 3;
+            const int x_min = floor_div(x_lcd + cx, 3);
+            const int x_max = floor_div(x_lcd + cx_max, 3);
 
             const int8u rgb[3] = { c.r, c.g, c.b };
-            int8u* p = m_rbuf->row_ptr(y) + (x + cx);
+            int8u* p = m_rbuf->row_ptr(y) + x_min * pixel_size;
 
             const int pixel_index[3] = {2, 1, 0};
-            for (/* */; cx <= cx_max; cx += 3)
+            for (int x = x_min; x <= x_max; x++)
             {
-                unsigned c_conv, alpha, dst_col, src_col;
-                c_conv = m_lut->convolution(covers, cx, 0, len - 1);
-                alpha = (c_conv + 1) * (c.a + 1);
-                dst_col = rgb[i];
-                src_col = *(p + pixel_index[i]);
-                *(p + pixel_index[i]) = (int8u)((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
-                i = (i + 1) % 3;
-
-                c_conv = m_lut->convolution(covers, cx + 1, 0, len - 1);
-                alpha = (c_conv + 1) * (c.a + 1);
-                dst_col = rgb[i];
-                src_col = *(p + pixel_index[i]);
-                *(p + pixel_index[i]) = (int8u)((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
-                i = (i + 1) % 3;
-
-                c_conv = m_lut->convolution(covers, cx + 2, 0, len - 1);
-                alpha = (c_conv + 1) * (c.a + 1);
-                dst_col = rgb[i];
-                src_col = *(p + pixel_index[i]);
-                *(p + pixel_index[i]) = (int8u)((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
-                i = (i + 1) % 3;
-
+                for (int i = 0; i < 3; i++) {
+                    int new_cx = x * 3 - x_lcd + i;
+                    unsigned c_conv = m_lut->convolution(covers, new_cx, 0, len - 1);
+                    unsigned alpha = (c_conv + 1) * (c.a + 1);
+                    unsigned dst_col = rgb[i];
+                    unsigned src_col = *(p + pixel_index[i]);
+                    *(p + pixel_index[i]) = (int8u)((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
+                }
                 p[3] = 0xff;
                 p += 4;
             }
@@ -171,7 +166,6 @@ namespace agg
         rendering_buffer* m_rbuf;
         const lcd_distribution_lut* m_lut;
     };
-
 
     template <class Gamma>
     class pixfmt_bgra32_lcd_gamma
@@ -210,53 +204,41 @@ namespace agg
             int8u* p = m_rbuf->row_ptr(y) + (x / 3) * 4;
             for (int ilen = len; ilen > 0; p += 4, ilen -= 3)
             {
-                p[0] = c.r;
+                p[0] = c.b;
                 p[1] = c.g;
-                p[2] = c.b;
+                p[2] = c.r;
                 p[3] = 0xff;
             }
         }
 
         //--------------------------------------------------------------------
-        void blend_solid_hspan(int x, int y,
+        void blend_solid_hspan(int x_lcd, int y,
                                unsigned len,
                                const color_type& c,
                                const int8u* covers)
         {
+            const int pixel_size = 4;
             unsigned rowlen = width();
-            int cx = (x - 2 >= 0 ? -2 : -x);
+            int cx = (x_lcd - 2 >= 0 ? -2 : -x_lcd);
             int cx_max = (len + 2 <= rowlen ? len + 1 : rowlen - 1);
 
-            int i = (x + cx) % 3;
+            const int x_min = floor_div(x_lcd + cx, 3);
+            const int x_max = floor_div(x_lcd + cx_max, 3);
 
             const int8u rgb[3] = { c.r, c.g, c.b };
-            int8u* p = m_rbuf->row_ptr(y) + (x + cx);
+            int8u* p = m_rbuf->row_ptr(y) + x_min * pixel_size;
 
             const int pixel_index[3] = {2, 1, 0};
-            for (/* */; cx <= cx_max; cx += 3)
+            for (int x = x_min; x <= x_max; x++)
             {
-                unsigned c_conv, alpha, dst_col, src_col;
-                c_conv = m_lut->convolution(covers, cx, 0, len - 1);
-                alpha = (c_conv + 1) * (c.a + 1);
-                dst_col = m_gamma.dir(rgb[i]);
-                src_col = m_gamma.dir(*(p + pixel_index[i]));
-                *(p + pixel_index[i]) = m_gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
-                i = (i + 1) % 3;
-
-                c_conv = m_lut->convolution(covers, cx + 1, 0, len - 1);
-                alpha = (c_conv + 1) * (c.a + 1);
-                dst_col = m_gamma.dir(rgb[i]);
-                src_col = m_gamma.dir(*(p + pixel_index[i]));
-                *(p + pixel_index[i]) = m_gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
-                i = (i + 1) % 3;
-
-                c_conv = m_lut->convolution(covers, cx + 2, 0, len - 1);
-                alpha = (c_conv + 1) * (c.a + 1);
-                dst_col = m_gamma.dir(rgb[i]);
-                src_col = m_gamma.dir(*(p + pixel_index[i]));
-                *(p + pixel_index[i]) = m_gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
-                i = (i + 1) % 3;
-
+                for (int i = 0; i < 3; i++) {
+                    int new_cx = x * 3 - x_lcd + i;
+                    unsigned c_conv = m_lut->convolution(covers, new_cx, 0, len - 1);
+                    unsigned alpha = (c_conv + 1) * (c.a + 1);
+                    unsigned dst_col = m_gamma.dir(rgb[i]);
+                    unsigned src_col = m_gamma.dir(*(p + pixel_index[i]));
+                    *(p + pixel_index[i]) = m_gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
+                }
                 p[3] = 0xff;
                 p += 4;
             }

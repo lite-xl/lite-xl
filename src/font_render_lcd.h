@@ -77,8 +77,7 @@ public:
 
         const char* p = text;
 
-        // FIXME: check we need to multiply x by scale_x.
-        x *= scale_x * subpixel_scale;
+        x *= subpixel_scale;
         double start_x = x;
 
         while(*p)
