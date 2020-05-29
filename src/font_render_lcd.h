@@ -77,14 +77,15 @@ public:
 
         const char* p = text;
 
-        double x_lcd = x * subpixel_scale;
-        double start_x_lcd = x_lcd;
+        // Represent the delta in x scaled by subpixel and scale_x.
+        double x_delta = 0;
+        double start_x_lcd = x * subpixel_scale;
 
         while(*p)
         {
             if(*p == '\n')
             {
-                x_lcd = start_x_lcd;
+                x_delta = 0;
                 y -= height * 1.25;
                 ++p;
                 continue;
@@ -95,7 +96,7 @@ public:
             {
                 if(m_kerning)
                 {
-                    m_fman.add_kerning(&x_lcd, &y);
+                    m_fman.add_kerning(&x_delta, &y);
                 }
 
                 m_fman.init_embedded_adaptors(glyph, 0, 0);
@@ -105,20 +106,20 @@ public:
                     ras.reset();
                     m_mtx.reset();
                     m_mtx *= agg::trans_affine_scaling(1.0 / scale_x, 1);
-                    m_mtx *= agg::trans_affine_translation(start_x_lcd + x_lcd / scale_x, ty);
+                    m_mtx *= agg::trans_affine_translation(start_x_lcd + x_delta / scale_x, ty);
                     ras.add_path(m_trans);
                     ren_solid.color(color);
                     agg::render_scanlines(ras, sl, ren_solid);
                 }
 
                 // increment pen position
-                x_lcd += glyph->advance_x;
+                x_delta += glyph->advance_x;
                 y += glyph->advance_y;
             }
             ++p;
         }
         // Update x value befor returning.
-        x = x_lcd / subpixel_scale;
+        x += x_delta / (scale_x * subpixel_scale);
     }
 
     void clear(agg::rendering_buffer& ren_buf, const agg::rgba8 color) {
@@ -130,7 +131,7 @@ public:
     void render_text(agg::rendering_buffer& ren_buf,
         const double text_size,
         const agg::rgba8 text_color,
-        double x, double y,
+        double& x, double& y,
         const char *text)
     {
         if (!m_font_loaded) {
