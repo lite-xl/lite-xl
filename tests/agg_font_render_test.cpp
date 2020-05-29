@@ -27,8 +27,9 @@ struct RenFontA {
   int height;
 };
 
-static void* check_alloc(void *ptr) {
-  if (!ptr) {
+template <typename T>
+static T* check_alloc(T *ptr) {
+  if (ptr == 0) {
     fprintf(stderr, "Fatal error: memory allocation failed\n");
     exit(EXIT_FAILURE);
   }
@@ -37,9 +38,9 @@ static void* check_alloc(void *ptr) {
 
 RenImage* ren_new_image(int width, int height) {
   assert(width > 0 && height > 0);
-  RenImage *image = malloc(sizeof(RenImage) + width * height * sizeof(RenColor));
+  RenImage *image = (RenImage *) malloc(sizeof(RenImage) + width * height * sizeof(RenColor));
   check_alloc(image);
-  image->pixels = (void*) (image + 1);
+  image->pixels = (RenColor*) (image + 1);
   image->width = width;
   image->height = height;
   return image;
@@ -50,37 +51,53 @@ void ren_free_image(RenImage *image) {
 }
 
 RenFontA* ren_load_font_agg(const char *filename, float size) {
-  RenFont *font = NULL;
+  RenFontA *font = NULL;
 
   /* init font */
-  font = check_alloc(calloc(1, sizeof(RenFontA)));
+  font = (RenFontA *) check_alloc(calloc(1, sizeof(RenFontA)));
   font->size = size;
 
-  font->renderer = new font_renderer_lcd(true, false, true, 1.8);
+  // FIXME: we should remove the gamma correction.
+  // So that we have just the coverage.
+  font->renderer = new font_renderer_lcd(true, false, false, 1.8);
   font->renderer->load_font(filename);
 
   // FIXME: figure out correct calculation for font->height with
   // ascent, descent and linegap.
-  fit->height = size;
+  font->height = size;
   return font;
 }
 
-static GlyphSet* load_glyphset_agg(RenFont *font, int idx) {
-  GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
+static GlyphSetA* load_glyphset_agg(RenFontA *font, int idx) {
+  const int pixel_size = 4;
+  GlyphSetA *set = (GlyphSetA *) check_alloc(calloc(1, sizeof(GlyphSetA)));
 
   /* init image */
-  int width = 128;
-  int height = 128;
+  int width = 512; // 128;
+  int height = 512; // 128;
 retry:
   set->image = ren_new_image(width, height);
 
-  /* load glyphs */
-  float s =
-    stbtt_ScaleForMappingEmToPixels(&font->stbfont, 1) /
-    stbtt_ScaleForPixelHeight(&font->stbfont, 1);
-  int res = stbtt_BakeFontBitmap(
-    font->data, 0, font->size * s, (void*) set->image->pixels,
-    width, height, idx * 256, 256, set->glyphs);
+  memset(set->image->pixels, 0xff, width * height * pixel_size);
+
+  agg::rendering_buffer ren_buf((agg::int8u *) set->image->pixels, width, height, -width * pixel_size);
+  double x = 4, y = height - font->size * 3 / 2;
+  int res = 0;
+  const agg::rgba8 text_color(0x00, 0x00, 0x00);
+  for (int i = 0; i < 256; i++) {
+    if (x + font->size * 3 / 2 > width) {
+      x = 4;
+      y -= font->size * 3 / 2;
+    }
+    if (y < 0) {
+      res = -1;
+      break;
+    }
+    // FIXME: we are ignoring idx and with a char we cannot pass codepoint > 255.
+    char text[2] = {char(i % 256), 0};
+    // FIXME: using font->size below is wrong.
+    font->renderer->render_text(ren_buf, font->size, text_color, x, y, text);
+  }
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
@@ -90,24 +107,10 @@ retry:
     goto retry;
   }
 
-  /* adjust glyph yoffsets and xadvance */
-  int ascent, descent, linegap;
-  stbtt_GetFontVMetrics(&font->stbfont, &ascent, &descent, &linegap);
-  float scale = stbtt_ScaleForMappingEmToPixels(&font->stbfont, font->size);
-  int scaled_ascent = ascent * scale + 0.5;
-  for (int i = 0; i < 256; i++) {
-    set->glyphs[i].yoff += scaled_ascent;
-    set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance);
-  }
-
-  /* convert 8bit data to 32bit */
-  for (int i = width * height - 1; i >= 0; i--) {
-    uint8_t n = *((uint8_t*) set->image->pixels + i);
-    set->image->pixels[i] = (RenColor) { .r = 255, .g = 255, .b = 255, .a = n };
-  }
-
   return set;
 }
+
+extern "C" int main(int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
@@ -116,12 +119,12 @@ int main(int argc, char *argv[]) {
     }
     const char *filename = argv[1];
     const int size = atoi(argv[2]);
-    RenFont *font = ren_load_font(filename, size);
-    GlyphSet *set = load_glyphset(font, 0);
+    RenFontA *font = ren_load_font_agg(filename, size);
+    GlyphSetA *set = load_glyphset_agg(font, 0);
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(
         set->image->pixels,
         set->image->width, set->image->height, 32, set->image->width * 4,
         SDL_PIXELFORMAT_RGBA32);
-    SDL_SaveBMP(surface, "stb-glyphset.bmp");
+    SDL_SaveBMP(surface, "agg-glyphset.bmp");
     return 0;
 }
