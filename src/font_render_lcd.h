@@ -63,11 +63,11 @@ public:
     }
 
     template<class Rasterizer, class Scanline, class RenSolid>
-    double draw_text(Rasterizer& ras, Scanline& sl, 
-                     RenSolid& ren_solid, const agg::rgba8 color,
-                     const char* text,
-                     double x, double y, double height,
-                     unsigned subpixel_scale)
+    void draw_text(Rasterizer& ras, Scanline& sl, 
+                   RenSolid& ren_solid, const agg::rgba8 color,
+                   const char* text,
+                   double& x, double& y, double height,
+                   unsigned subpixel_scale)
     {
         const double scale_x = 100;
 
@@ -77,14 +77,14 @@ public:
 
         const char* p = text;
 
-        x *= subpixel_scale;
-        double start_x = x;
+        double x_lcd = x * subpixel_scale;
+        double start_x_lcd = x_lcd;
 
         while(*p)
         {
             if(*p == '\n')
             {
-                x = start_x;
+                x_lcd = start_x_lcd;
                 y -= height * 1.25;
                 ++p;
                 continue;
@@ -95,7 +95,7 @@ public:
             {
                 if(m_kerning)
                 {
-                    m_fman.add_kerning(&x, &y);
+                    m_fman.add_kerning(&x_lcd, &y);
                 }
 
                 m_fman.init_embedded_adaptors(glyph, 0, 0);
@@ -105,19 +105,20 @@ public:
                     ras.reset();
                     m_mtx.reset();
                     m_mtx *= agg::trans_affine_scaling(1.0 / scale_x, 1);
-                    m_mtx *= agg::trans_affine_translation(start_x + x/scale_x, ty);
+                    m_mtx *= agg::trans_affine_translation(start_x_lcd + x_lcd / scale_x, ty);
                     ras.add_path(m_trans);
                     ren_solid.color(color);
                     agg::render_scanlines(ras, sl, ren_solid);
                 }
 
                 // increment pen position
-                x += glyph->advance_x;
+                x_lcd += glyph->advance_x;
                 y += glyph->advance_y;
             }
             ++p;
         }
-        return x / (subpixel_scale * scale_x);
+        // Update x value befor returning.
+        x = x_lcd / subpixel_scale;
     }
 
     void clear(agg::rendering_buffer& ren_buf, const agg::rgba8 color) {
@@ -126,14 +127,14 @@ public:
         ren_base.clear(color);
     }
 
-    double render_text(agg::rendering_buffer& ren_buf,
+    void render_text(agg::rendering_buffer& ren_buf,
         const double text_size,
         const agg::rgba8 text_color,
         double x, double y,
         const char *text)
     {
         if (!m_font_loaded) {
-            return y;
+            return;
         }
 
         agg::scanline_u8 sl;
@@ -146,7 +147,7 @@ public:
             agg::pixfmt_bgra32 pf(ren_buf);
             base_ren_type ren_base(pf);
             renderer_solid ren_solid(ren_base);
-            y = draw_text(ras, sl, ren_solid, text_color, text, x, y, text_size, 1);
+            draw_text(ras, sl, ren_solid, text_color, text, x, y, text_size, 1);
         }
         else
         {
@@ -158,8 +159,7 @@ public:
             pixfmt_lcd_type pf_lcd(ren_buf, lut, m_gamma_lut);
             agg::renderer_base<pixfmt_lcd_type> ren_base_lcd(pf_lcd);
             agg::renderer_scanline_aa_solid<agg::renderer_base<pixfmt_lcd_type> > ren_solid_lcd(ren_base_lcd);
-            y = draw_text(ras, sl, ren_solid_lcd, text_color, text, x, y, text_size, 3);
+            draw_text(ras, sl, ren_solid_lcd, text_color, text, x, y, text_size, 3);
         }
-        return y;
     }
 };
