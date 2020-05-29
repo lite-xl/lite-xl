@@ -14,3 +14,4 @@ lite_include = include_directories('src')
 install_subdir('data', install_dir : 'bin')
 
 subdir('src')
+subdir('tests')
