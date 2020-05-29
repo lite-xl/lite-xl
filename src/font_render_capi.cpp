@@ -21,6 +21,6 @@ int FontRendererDrawText(FontRenderer *fr_, RenColor *pixels, int width, int hei
     font_renderer_lcd *font_renderer = (font_renderer_lcd *) fr_;
     agg::rendering_buffer ren_buf((agg::int8u *) pixels, width, height, -pitch);
     const agg::rgba8 agg_color(color.r, color.g, color.b);
-    double new_x = font_renderer->render_text(ren_buf, (double) text_size, agg_color, (double) x, (double) y, text);
+    double new_x = font_renderer->render_text(ren_buf, (double) text_size, agg_color, (double) x, (double) (height - y), text);
     return int(new_x);
 }

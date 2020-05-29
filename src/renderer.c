@@ -335,9 +335,8 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
 
 int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
   SDL_Surface *surf = SDL_GetWindowSurface(window);
-  // FIXME: pixels are arranged in bgra order while AGG::fontrender use rgb
   RenColor *pixels = (RenColor*) surf->pixels;
-  return FontRendererDrawText(font->renderer, pixels, surf->w, surf->h, surf->pitch, text, font->height, x, y, color);
+  return FontRendererDrawText(font->renderer, pixels, surf->w, surf->h, surf->pitch, text, font->height * 0.8, x, y, color);
 #if 0
   RenRect rect;
   const char *p = text;
