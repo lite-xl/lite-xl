@@ -3,7 +3,7 @@
 #include <assert.h>
 
 #include "SDL_surface.h"
-#include "font_render_lcd.h"
+#include "font_renderer_alpha.h"
 
 #define MAX_GLYPHSET 256
 
@@ -22,7 +22,7 @@ struct GlyphSetA {
 };
 
 struct RenFontA {
-  font_renderer_lcd *renderer;
+  font_renderer_alpha *renderer;
   float size;
   int height;
 };
@@ -57,9 +57,7 @@ RenFontA* ren_load_font_agg(const char *filename, float size) {
   font = (RenFontA *) check_alloc(calloc(1, sizeof(RenFontA)));
   font->size = size;
 
-  // FIXME: we should remove the gamma correction.
-  // So that we have just the coverage.
-  font->renderer = new font_renderer_lcd(true, false, false, 1.8);
+  font->renderer = new font_renderer_alpha(true, false);
   font->renderer->load_font(filename);
 
   int ascender, descender;
@@ -75,21 +73,22 @@ RenFontA* ren_load_font_agg(const char *filename, float size) {
 }
 
 static GlyphSetA* load_glyphset_agg(RenFontA *font, int idx) {
-  const int pixel_size = 4;
+  const int pixel_size = 1;
   GlyphSetA *set = (GlyphSetA *) check_alloc(calloc(1, sizeof(GlyphSetA)));
 
   /* init image */
-  int width = 512; // 128;
-  int height = 512; // 128;
+  int width = 128;
+  int height = 128;
 retry:
   set->image = ren_new_image(width, height);
 
-  memset(set->image->pixels, 0xff, width * height * pixel_size);
+  memset(set->image->pixels, 0x00, width * height * pixel_size);
 
   agg::rendering_buffer ren_buf((agg::int8u *) set->image->pixels, width, height, -width * pixel_size);
+  // FIXME: figure out how to precisely layout each glyph.
   double x = 4, y = height - font->size * 3 / 2;
   int res = 0;
-  const agg::rgba8 text_color(0x00, 0x00, 0x00);
+  const agg::alpha8 text_color(0xff);
   for (int i = 0; i < 256; i++) {
     if (x + font->size * 3 / 2 > width) {
       x = 4;
@@ -111,6 +110,13 @@ retry:
     height *= 2;
     ren_free_image(set->image);
     goto retry;
+  }
+
+  /* convert 8bit data to 32bit */
+  for (int i = width * height - 1; i >= 0; i--) {
+    uint8_t n = *((uint8_t*) set->image->pixels + i);
+    RenColor c = {0xff, 0xff, 0xff, n};
+    set->image->pixels[i] = c;
   }
 
   return set;
