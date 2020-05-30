@@ -68,6 +68,14 @@ public:
         return false;
     }
 
+    float scale_for_em_to_pixels(float size) {
+        int units_per_em = m_feng.face_units_em();
+        if (units_per_em > 0) {
+            return size / units_per_em;
+        }
+        return 0.0;
+    }
+
     bool load_font(const char *font_filename) {
         if(m_feng.load_font(font_filename, 0, agg::glyph_ren_outline)) {
             m_font_loaded = true;

@@ -66,9 +66,11 @@ RenFontA* ren_load_font_agg(const char *filename, float size) {
   font->renderer->get_font_vmetrics(ascender, descender);
   fprintf(stderr, "Font metrics ascender: %d descender: %d\n", ascender, descender);
 
-  // FIXME: figure out correct calculation for font->height with
-  // ascent, descent and linegap.
-  font->height = size;
+  float scale = font->renderer->scale_for_em_to_pixels(size);
+  font->height = (ascender - descender) * scale + 0.5;
+
+  fprintf(stderr, "Font height: %d\n", font->height);
+
   return font;
 }
 
