@@ -157,3 +157,13 @@ typedef struct  FT_FaceRec_
 
 } FT_FaceRec;
 ```
+
+## AGG font engine's font size
+
+The variable m_height is the size of the font muliplied by 64.
+It will be used to set font size with:
+
+- FT_Set_Char_Size if m_resolution is set (> 0)
+- FT_Set_Pixel_Sizes, divided by 64, if m_resolution is not set (= 0)
+
+The method height() returns m_height / 64;
