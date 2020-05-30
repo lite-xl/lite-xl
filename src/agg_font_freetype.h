@@ -83,6 +83,7 @@ namespace agg
         double      width()        const { return double(m_width) / 64.0;     }
         double      ascender()     const;
         double      descender()    const;
+        int         face_height()  const;
         bool        hinting()      const { return m_hinting;    }
         bool        flip_y()       const { return m_flip_y;     }
 
