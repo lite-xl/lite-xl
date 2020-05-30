@@ -583,6 +583,11 @@ namespace agg
         return (m_cur_face ? m_cur_face->height : -1);
     }
 
+    int font_engine_freetype_base::face_units_em() const
+    {
+        return (m_cur_face ? m_cur_face->units_per_EM : -1);
+    }
+
     //------------------------------------------------------------------------
     double font_engine_freetype_base::ascender() const
     {
