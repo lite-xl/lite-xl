@@ -62,6 +62,10 @@ RenFontA* ren_load_font_agg(const char *filename, float size) {
   font->renderer = new font_renderer_lcd(true, false, false, 1.8);
   font->renderer->load_font(filename);
 
+  int ascender, descender;
+  font->renderer->get_font_vmetrics(ascender, descender);
+  fprintf(stderr, "Font metrics ascender: %d descender: %d\n", ascender, descender);
+
   // FIXME: figure out correct calculation for font->height with
   // ascent, descent and linegap.
   font->height = size;

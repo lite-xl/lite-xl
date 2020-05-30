@@ -55,6 +55,19 @@ public:
         m_gamma_lut.gamma(m_gamma);
     }
 
+    bool get_font_vmetrics(int& ascender, int& descender) {
+        int face_height = m_feng.face_height();
+        if (face_height > 0) {
+            double current_height = m_feng.height();
+            m_feng.height(1.0);
+            ascender  = m_feng.ascender()  * face_height;
+            descender = m_feng.descender() * face_height;
+            m_feng.height(current_height);
+            return true;
+        }
+        return false;
+    }
+
     bool load_font(const char *font_filename) {
         if(m_feng.load_font(font_filename, 0, agg::glyph_ren_outline)) {
             m_font_loaded = true;
