@@ -107,6 +107,7 @@ retry:
   float s =
     stbtt_ScaleForMappingEmToPixels(&font->stbfont, 1) /
     stbtt_ScaleForPixelHeight(&font->stbfont, 1);
+  fprintf(stderr, "Using height: %g in BakeFontBitmap\n", font->size * s);
   int res = stbtt_BakeFontBitmap(
     font->data, 0, font->size * s, (void*) set->image->pixels,
     width, height, idx * 256, 256, set->glyphs);

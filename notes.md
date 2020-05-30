@@ -79,6 +79,9 @@ So BakeFontBitmap gets
 pixel_height = (ascent - descent) * font->size / unitsPerEm;
 ```
 
+In turns BakeFontBitmap passes pixel_height to ScaleForPixelHeight() and uses the
+resulting 'scale' to scale the glyphs by passing it to MakeGlyphBitmap().
+
 This is equal almost equal to font->height except the 0.5, the missing linegap calculation
 and the fact that this latter is an integer instead of a float.
 
@@ -109,54 +112,7 @@ FT_Done_FreeType (end with library)
 
 ## Freetype2's metrics related function and structs
 
-FT_New_Face
-
-```c
-typedef struct  FT_FaceRec_
-{
-  FT_Long           num_faces;
-  FT_Long           face_index;
-
-  FT_Long           face_flags;
-  FT_Long           style_flags;
-
-  FT_Long           num_glyphs;
-
-  FT_String*        family_name;
-  FT_String*        style_name;
-
-  FT_Int            num_fixed_sizes;
-  FT_Bitmap_Size*   available_sizes;
-
-  FT_Int            num_charmaps;
-  FT_CharMap*       charmaps;
-
-  FT_Generic        generic;
-
-  /*# The following member variables (down to `underline_thickness`) */
-  /*# are only relevant to scalable outlines; cf. @FT_Bitmap_Size    */
-  /*# for bitmap fonts.                                              */
-  FT_BBox           bbox;
-
-  FT_UShort         units_per_EM;
-  FT_Short          ascender;
-  FT_Short          descender;
-  FT_Short          height;
-
-  FT_Short          max_advance_width;
-  FT_Short          max_advance_height;
-
-  FT_Short          underline_position;
-  FT_Short          underline_thickness;
-
-  FT_GlyphSlot      glyph;
-  FT_Size           size;
-  FT_CharMap        charmap;
-
-  /* private part omitted. */
-
-} FT_FaceRec;
-```
+FT_New_Face return a FT_Face (a pointer) with font face information.
 
 ## AGG font engine's font size
 

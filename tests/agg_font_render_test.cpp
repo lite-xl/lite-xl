@@ -25,6 +25,9 @@ struct RenFontA {
   font_renderer_alpha *renderer;
   float size;
   int height;
+  // For some reason the font's height used in renderer.c
+  // when calling BakeFontBitmap is 0.5 off from 'height'.
+  float height_bitmap;
 };
 
 template <typename T>
@@ -57,7 +60,7 @@ RenFontA* ren_load_font_agg(const char *filename, float size) {
   font = (RenFontA *) check_alloc(calloc(1, sizeof(RenFontA)));
   font->size = size;
 
-  font->renderer = new font_renderer_alpha(true, false);
+  font->renderer = new font_renderer_alpha(false, false);
   font->renderer->load_font(filename);
 
   int ascender, descender;
@@ -66,6 +69,7 @@ RenFontA* ren_load_font_agg(const char *filename, float size) {
 
   float scale = font->renderer->scale_for_em_to_pixels(size);
   font->height = (ascender - descender) * scale + 0.5;
+  font->height_bitmap = (ascender - descender) * scale;
 
   fprintf(stderr, "Font height: %d\n", font->height);
 
@@ -84,15 +88,17 @@ retry:
 
   memset(set->image->pixels, 0x00, width * height * pixel_size);
 
+  fprintf(stderr, "Using height: %g in BakeFontBitmap\n", font->height_bitmap);
+
   agg::rendering_buffer ren_buf((agg::int8u *) set->image->pixels, width, height, -width * pixel_size);
   // FIXME: figure out how to precisely layout each glyph.
-  double x = 4, y = height - font->size * 3 / 2;
+  double x = 4, y = height - font->height * 3 / 2;
   int res = 0;
   const agg::alpha8 text_color(0xff);
   for (int i = 0; i < 256; i++) {
-    if (x + font->size * 3 / 2 > width) {
+    if (x + font->height * 3 / 2 > width) {
       x = 4;
-      y -= font->size * 3 / 2;
+      y -= font->height * 3 / 2;
     }
     if (y < 0) {
       res = -1;
@@ -101,7 +107,7 @@ retry:
     // FIXME: we are ignoring idx and with a char we cannot pass codepoint > 255.
     char text[2] = {char(i % 256), 0};
     // FIXME: using font->size below is wrong.
-    font->renderer->render_text(ren_buf, font->size, text_color, x, y, text);
+    font->renderer->render_text(ren_buf, font->height_bitmap, text_color, x, y, text);
   }
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
