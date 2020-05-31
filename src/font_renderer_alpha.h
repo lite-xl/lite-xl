@@ -46,13 +46,17 @@ public:
         m_trans(m_curves, m_mtx)
     { }
 
-    bool get_font_vmetrics(int& ascender, int& descender) {
+    int get_face_height() const {
+        return m_feng.face_height();
+    }
+
+    bool get_font_vmetrics(double& ascender, double& descender) {
         int face_height = m_feng.face_height();
         if (face_height > 0) {
             double current_height = m_feng.height();
             m_feng.height(1.0);
-            ascender  = m_feng.ascender()  * face_height;
-            descender = m_feng.descender() * face_height;
+            ascender  = m_feng.ascender();
+            descender = m_feng.descender();
             m_feng.height(current_height);
             return true;
         }

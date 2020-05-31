@@ -10,6 +10,12 @@
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 
+// Mirrors stbtt_bakedchar.
+struct GlyphBitmapInfo {
+  unsigned short x0, y0, x1, y1;
+  float xoff, yoff, xadvance;
+};
+
 struct RenImage {
   RenColor *pixels;
   int width, height;
@@ -17,14 +23,14 @@ struct RenImage {
 
 struct GlyphSetA {
   RenImage *image;
-  // FIXME: add glyphs information for AGG implementation
-  // stbtt_bakedchar glyphs[256];
+  GlyphBitmapInfo glyphs[256];
 };
 
 struct RenFontA {
   font_renderer_alpha *renderer;
   float size;
   int height;
+  float ascender, descender;
   // For some reason the font's height used in renderer.c
   // when calling BakeFontBitmap is 0.5 off from 'height'.
   float height_bitmap;
@@ -63,13 +69,20 @@ RenFontA* ren_load_font_agg(const char *filename, float size) {
   font->renderer = new font_renderer_alpha(false, false);
   font->renderer->load_font(filename);
 
-  int ascender, descender;
+  double ascender, descender;
   font->renderer->get_font_vmetrics(ascender, descender);
-  fprintf(stderr, "Font metrics ascender: %d descender: %d\n", ascender, descender);
+  int face_height = font->renderer->get_face_height();
+  // Gives the font's ascender and descender like stbtt.
+  fprintf(stderr, "Font metrics ascender: %g descender: %g\n", ascender * face_height, descender * face_height);
 
   float scale = font->renderer->scale_for_em_to_pixels(size);
-  font->height = (ascender - descender) * scale + 0.5;
-  font->height_bitmap = (ascender - descender) * scale;
+  font->height = (ascender - descender) * face_height * scale + 0.5;
+  font->height_bitmap = (ascender - descender) * face_height * scale;
+
+  font->descender = descender * font->height_bitmap;
+  font->ascender  = ascender  * font->height_bitmap;
+
+  fprintf(stderr, "Font's pixel ascender: %g descender: %g sum: %g\n", font->ascender, font->descender, font->ascender - font->descender);
 
   fprintf(stderr, "Font height: %d\n", font->height);
 
@@ -92,22 +105,32 @@ retry:
 
   agg::rendering_buffer ren_buf((agg::int8u *) set->image->pixels, width, height, -width * pixel_size);
   // FIXME: figure out how to precisely layout each glyph.
-  double x = 4, y = height - font->height * 3 / 2;
+  double x = 0, y = height;
   int res = 0;
   const agg::alpha8 text_color(0xff);
   for (int i = 0; i < 256; i++) {
-    if (x + font->height * 3 / 2 > width) {
-      x = 4;
-      y -= font->height * 3 / 2;
+    if (x + font->height > width) {
+      x = 0;
+      y -= font->height;
     }
-    if (y < 0) {
+    if (y - font->height < 0) {
       res = -1;
       break;
     }
     // FIXME: we are ignoring idx and with a char we cannot pass codepoint > 255.
     char text[2] = {char(i % 256), 0};
-    // FIXME: using font->size below is wrong.
-    font->renderer->render_text(ren_buf, font->height_bitmap, text_color, x, y, text);
+    // FIXME: using font->height_bitmap below seems logically correct but
+    // the font size is bigger than what printed by BakeFontBitmap.
+    double x_next = x, y_next = y - font->height;
+    font->renderer->render_text(ren_buf, font->height_bitmap, text_color, x_next, y_next, text);
+    set->glyphs[i].x0 = x - 1;
+    set->glyphs[i].y0 = y - font->descender;
+    set->glyphs[i].x1 = x_next - 1;
+    set->glyphs[i].y1 = y + font->ascender;
+    set->glyphs[i].xoff = -1;
+    set->glyphs[i].yoff = -font->ascender;
+    set->glyphs[i].xadvance = x_next - x;
+    x = x_next;
   }
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
