@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <math.h>
-#include "stb_truetype.h"
 #include "renderer.h"
 #include "font_renderer.h"
 
@@ -21,7 +20,6 @@ typedef struct GlyphSet GlyphSet;
 
 struct RenFont {
   void *data;
-  stbtt_fontinfo stbfont;
   GlyphSet *sets[MAX_GLYPHSET];
   float size;
   int height;
@@ -161,28 +159,6 @@ RenFont* ren_load_font(const char *filename, float size) {
   font = check_alloc(calloc(1, sizeof(RenFont)));
   font->size = size;
 
-  /* load font into buffer */
-  fp = fopen(filename, "rb");
-  if (!fp) { return NULL; }
-  /* get size */
-  fseek(fp, 0, SEEK_END); int buf_size = ftell(fp); fseek(fp, 0, SEEK_SET);
-  /* load */
-  font->data = check_alloc(malloc(buf_size));
-  int _ = fread(font->data, 1, buf_size, fp); (void) _;
-  fclose(fp);
-  fp = NULL;
-
-  /* init stbfont */
-  int ok = stbtt_InitFont(&font->stbfont, font->data, 0);
-  if (!ok) { goto fail; }
-
-  // FIXME: remove, font's height is recalculated using new FontRenderer.
-  /* get height and scale */
-  int ascent, descent, linegap;
-  stbtt_GetFontVMetrics(&font->stbfont, &ascent, &descent, &linegap);
-  float scale = stbtt_ScaleForMappingEmToPixels(&font->stbfont, size);
-  font->height = (ascent - descent + linegap) * scale + 0.5;
-
   font->renderer = FontRendererNew(FONT_RENDERER_HINTING);
   // FIXME check for errors
   FontRendererLoadFont(font->renderer, filename);
@@ -194,12 +170,6 @@ RenFont* ren_load_font(const char *filename, float size) {
   g['\n'].x1 = g['\n'].x0;
 
   return font;
-
-fail:
-  if (fp) { fclose(fp); }
-  if (font) { free(font->data); }
-  free(font);
-  return NULL;
 }
 
 
@@ -211,7 +181,6 @@ void ren_free_font(RenFont *font) {
       free(set);
     }
   }
-  free(font->data);
   FontRendererFree(font->renderer);
   free(font);
 }
