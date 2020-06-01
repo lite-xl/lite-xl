@@ -13,7 +13,7 @@ lite_sources = [
 executable('lite',
     lite_sources,
     include_directories: lite_include,
-    dependencies: [lua_dep, sdl_dep, stb_truetype_dep, libagg_dep, freetype_dep, libm, libdl],
+    dependencies: [lua_dep, sdl_dep, libagg_dep, freetype_dep, libm, libdl],
     install: true,
     gui_app: true,
 )
