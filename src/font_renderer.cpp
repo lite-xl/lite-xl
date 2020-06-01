@@ -67,6 +67,7 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
         double x_next = x, y_next = y_baseline;
         font_renderer->render_codepoint(ren_buf, font_height, text_color, x_next, y_next, codepoint);
         int x_next_i = int(x_next + 0.5);
+
         GlyphBitmapInfo& glyph_info = glyphs[i];
         glyph_info.x0 = x;
         glyph_info.y0 = pixels_height - (y_baseline + ascender_px  + pad_y);
@@ -75,14 +76,7 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
         glyph_info.xoff = 0;
         glyph_info.yoff = -pad_y;
         glyph_info.xadvance = x_next - x;
-#if 0
-        fprintf(stderr,
-            "glyph codepoint %3d (ascii: %1c), BOX (%3d, %3d) (%3d, %3d), "
-            "OFFSET (%.5g, %.5g), X ADVANCE %.5g\n",
-            codepoint, i,
-            glyph_info.x0, glyph_info.y0, glyph_info.x1, glyph_info.y1,
-            glyph_info.xoff, glyph_info.yoff, glyph_info.xadvance);
-#endif
+
         x = x_next_i;
     }
     return res;
