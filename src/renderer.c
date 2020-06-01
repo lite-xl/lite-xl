@@ -160,8 +160,10 @@ RenFont* ren_load_font(const char *filename, float size) {
   font->size = size;
 
   font->renderer = FontRendererNew(FONT_RENDERER_HINTING);
-  // FIXME check for errors
-  FontRendererLoadFont(font->renderer, filename);
+  if (FontRendererLoadFont(font->renderer, filename)) {
+    free(font);
+    return NULL;
+  }
   font->height = FontRendererGetFontHeight(font->renderer, size);
 
   /* make tab and newline glyphs invisible */
