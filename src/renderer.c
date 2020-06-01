@@ -13,16 +13,16 @@ struct RenImage {
   int width, height;
 };
 
-struct GlyphSetA {
+struct GlyphSet {
   RenImage *image;
   GlyphBitmapInfo glyphs[256];
 };
-typedef struct GlyphSetA GlyphSetA;
+typedef struct GlyphSet GlyphSet;
 
 struct RenFont {
   void *data;
   stbtt_fontinfo stbfont;
-  GlyphSetA *sets[MAX_GLYPHSET];
+  GlyphSet *sets[MAX_GLYPHSET];
   float size;
   int height;
   FontRenderer *renderer;
@@ -108,8 +108,8 @@ void ren_free_image(RenImage *image) {
 }
 
 
-static GlyphSetA* load_glyphset(RenFont *font, int idx) {
-  GlyphSetA *set = check_alloc(calloc(1, sizeof(GlyphSetA)));
+static GlyphSet* load_glyphset(RenFont *font, int idx) {
+  GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
 
   /* init image */
   int width = 128;
@@ -150,7 +150,7 @@ retry:
 }
 
 
-static GlyphSetA* get_glyphset(RenFont *font, int codepoint) {
+static GlyphSet* get_glyphset(RenFont *font, int codepoint) {
   int idx = (codepoint >> 8) % MAX_GLYPHSET;
   if (!font->sets[idx]) {
     font->sets[idx] = load_glyphset(font, idx);
@@ -211,7 +211,7 @@ fail:
 
 void ren_free_font(RenFont *font) {
   for (int i = 0; i < MAX_GLYPHSET; i++) {
-    GlyphSetA *set = font->sets[i];
+    GlyphSet *set = font->sets[i];
     if (set) {
       ren_free_image(set->image);
       free(set);
@@ -223,7 +223,7 @@ void ren_free_font(RenFont *font) {
 
 
 void ren_set_font_tab_width(RenFont *font, int n) {
-  GlyphSetA *set = get_glyphset(font, '\t');
+  GlyphSet *set = get_glyphset(font, '\t');
   set->glyphs['\t'].xadvance = n;
 }
 
@@ -234,7 +234,7 @@ int ren_get_font_width(RenFont *font, const char *text) {
   unsigned codepoint;
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
-    GlyphSetA *set = get_glyphset(font, codepoint);
+    GlyphSet *set = get_glyphset(font, codepoint);
     GlyphBitmapInfo *g = &set->glyphs[codepoint & 0xff];
     x += g->xadvance;
   }
@@ -339,7 +339,7 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
   unsigned codepoint;
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
-    GlyphSetA *set = get_glyphset(font, codepoint);
+    GlyphSet *set = get_glyphset(font, codepoint);
     GlyphBitmapInfo *g = &set->glyphs[codepoint & 0xff];
     rect.x = g->x0;
     rect.y = g->y0;
