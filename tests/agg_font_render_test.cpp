@@ -101,36 +101,49 @@ retry:
 
   memset(set->image->pixels, 0x00, width * height * pixel_size);
 
-  fprintf(stderr, "Using height: %g in BakeFontBitmap\n", font->height_bitmap);
+  // NOTE here that render.c with stb_truetype is really using font->height_bitmap.
+  fprintf(stderr, "Using height: %d in BakeFontBitmap\n", font->height);
+
+  const int pad_y = font->height * 2 / 10;
+  const int ascender_px = int(font->ascender + 0.5), descender_px = int(font->descender + 0.5);
+  const int y_step = font->height + 2 * pad_y;
 
   agg::rendering_buffer ren_buf((agg::int8u *) set->image->pixels, width, height, -width * pixel_size);
-  // FIXME: figure out how to precisely layout each glyph.
-  double x = 0, y = height;
+  int x = 0, y = height;
   int res = 0;
   const agg::alpha8 text_color(0xff);
   for (int i = 0; i < 256; i++) {
+    int codepoint = (idx << 8) | i;
     if (x + font->height > width) {
       x = 0;
-      y -= font->height;
+      y -= y_step;
     }
-    if (y - font->height < 0) {
+    if (y - font->height - 2 * pad_y < 0) {
       res = -1;
       break;
     }
-    // FIXME: we are ignoring idx and with a char we cannot pass codepoint > 255.
-    char text[2] = {char(i % 256), 0};
+    const int y_baseline = y - pad_y - font->height;
+
     // FIXME: using font->height_bitmap below seems logically correct but
     // the font size is bigger than what printed by BakeFontBitmap.
-    double x_next = x, y_next = y - font->height;
-    font->renderer->render_text(ren_buf, font->height_bitmap, text_color, x_next, y_next, text);
-    set->glyphs[i].x0 = x - 1;
-    set->glyphs[i].y0 = y - font->descender;
-    set->glyphs[i].x1 = x_next - 1;
-    set->glyphs[i].y1 = y + font->ascender;
-    set->glyphs[i].xoff = -1;
-    set->glyphs[i].yoff = -font->ascender;
-    set->glyphs[i].xadvance = x_next - x;
-    x = x_next;
+    double x_next = x, y_next = y_baseline;
+    font->renderer->render_codepoint(ren_buf, font->height, text_color, x_next, y_next, codepoint);
+    int x_next_i = int(x_next + 0.5);
+    GlyphBitmapInfo& glyph_info = set->glyphs[i];
+    glyph_info.x0 = x;
+    glyph_info.y0 = height - (y_baseline + ascender_px  + pad_y);
+    glyph_info.x1 = x_next_i;
+    glyph_info.y1 = height - (y_baseline + descender_px - pad_y);
+    glyph_info.xoff = 0;
+    glyph_info.yoff = -font->ascender;
+    glyph_info.xadvance = x_next - x;
+    fprintf(stderr,
+      "glyph codepoint %3d (ascii: %1c), BOX (%3d, %3d) (%3d, %3d), "
+      "OFFSET (%.5g, %.5g), X ADVANCE %.5g\n",
+      codepoint, i,
+      glyph_info.x0, glyph_info.y0, glyph_info.x1, glyph_info.y1,
+      glyph_info.xoff, glyph_info.yoff, glyph_info.xadvance);
+    x = x_next_i;
   }
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
