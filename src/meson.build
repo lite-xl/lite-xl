@@ -5,7 +5,7 @@ lite_sources = [
     'api/system.c',
     'renderer.c',
     'agg_font_freetype.cpp',
-    'font_render_capi.cpp',
+    'font_renderer.cpp',
     'rencache.c',
     'main.c',
 ]

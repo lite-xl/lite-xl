@@ -4,7 +4,7 @@
 #include <math.h>
 #include "stb_truetype.h"
 #include "renderer.h"
-#include "font_render_capi.h"
+#include "font_renderer.h"
 
 #define MAX_GLYPHSET 256
 
@@ -13,15 +13,16 @@ struct RenImage {
   int width, height;
 };
 
-typedef struct {
+struct GlyphSetA {
   RenImage *image;
-  stbtt_bakedchar glyphs[256];
-} GlyphSet;
+  GlyphBitmapInfo glyphs[256];
+};
+typedef struct GlyphSetA GlyphSetA;
 
 struct RenFont {
   void *data;
   stbtt_fontinfo stbfont;
-  GlyphSet *sets[MAX_GLYPHSET];
+  GlyphSetA *sets[MAX_GLYPHSET];
   float size;
   int height;
   FontRenderer *renderer;
@@ -107,8 +108,8 @@ void ren_free_image(RenImage *image) {
 }
 
 
-static GlyphSet* load_glyphset(RenFont *font, int idx) {
-  GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
+static GlyphSetA* load_glyphset(RenFont *font, int idx) {
+  GlyphSetA *set = check_alloc(calloc(1, sizeof(GlyphSetA)));
 
   /* init image */
   int width = 128;
@@ -116,13 +117,9 @@ static GlyphSet* load_glyphset(RenFont *font, int idx) {
 retry:
   set->image = ren_new_image(width, height);
 
-  /* load glyphs */
-  float s =
-    stbtt_ScaleForMappingEmToPixels(&font->stbfont, 1) /
-    stbtt_ScaleForPixelHeight(&font->stbfont, 1);
-  int res = stbtt_BakeFontBitmap(
-    font->data, 0, font->size * s, (void*) set->image->pixels,
-    width, height, idx * 256, 256, set->glyphs);
+  int res = FontRendererBakeFontBitmap(font->renderer, font->height,
+    (void *) set->image->pixels, width, height,
+    idx << 8, 256, set->glyphs);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
@@ -132,6 +129,7 @@ retry:
     goto retry;
   }
 
+  // TODO: consider if this is still needed.
   /* adjust glyph yoffsets and xadvance */
   int ascent, descent, linegap;
   stbtt_GetFontVMetrics(&font->stbfont, &ascent, &descent, &linegap);
@@ -152,7 +150,7 @@ retry:
 }
 
 
-static GlyphSet* get_glyphset(RenFont *font, int codepoint) {
+static GlyphSetA* get_glyphset(RenFont *font, int codepoint) {
   int idx = (codepoint >> 8) % MAX_GLYPHSET;
   if (!font->sets[idx]) {
     font->sets[idx] = load_glyphset(font, idx);
@@ -184,20 +182,22 @@ RenFont* ren_load_font(const char *filename, float size) {
   int ok = stbtt_InitFont(&font->stbfont, font->data, 0);
   if (!ok) { goto fail; }
 
+  // FIXME: remove, font's height is recalculated using new FontRenderer.
   /* get height and scale */
   int ascent, descent, linegap;
   stbtt_GetFontVMetrics(&font->stbfont, &ascent, &descent, &linegap);
   float scale = stbtt_ScaleForMappingEmToPixels(&font->stbfont, size);
   font->height = (ascent - descent + linegap) * scale + 0.5;
 
-  /* make tab and newline glyphs invisible */
-  stbtt_bakedchar *g = get_glyphset(font, '\n')->glyphs;
-  g['\t'].x1 = g['\t'].x0;
-  g['\n'].x1 = g['\n'].x0;
-
-  font->renderer = FontRendererNew(FONT_RENDERER_HINTING|FONT_RENDERER_SUBPIXEL, 1.8);
+  font->renderer = FontRendererNew(FONT_RENDERER_HINTING);
   // FIXME check for errors
   FontRendererLoadFont(font->renderer, filename);
+  font->height = FontRendererGetFontHeight(font->renderer, size);
+
+  /* make tab and newline glyphs invisible */
+  GlyphBitmapInfo *g = get_glyphset(font, '\n')->glyphs;
+  g['\t'].x1 = g['\t'].x0;
+  g['\n'].x1 = g['\n'].x0;
 
   return font;
 
@@ -211,7 +211,7 @@ fail:
 
 void ren_free_font(RenFont *font) {
   for (int i = 0; i < MAX_GLYPHSET; i++) {
-    GlyphSet *set = font->sets[i];
+    GlyphSetA *set = font->sets[i];
     if (set) {
       ren_free_image(set->image);
       free(set);
@@ -223,7 +223,7 @@ void ren_free_font(RenFont *font) {
 
 
 void ren_set_font_tab_width(RenFont *font, int n) {
-  GlyphSet *set = get_glyphset(font, '\t');
+  GlyphSetA *set = get_glyphset(font, '\t');
   set->glyphs['\t'].xadvance = n;
 }
 
@@ -234,8 +234,8 @@ int ren_get_font_width(RenFont *font, const char *text) {
   unsigned codepoint;
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
-    GlyphSet *set = get_glyphset(font, codepoint);
-    stbtt_bakedchar *g = &set->glyphs[codepoint & 0xff];
+    GlyphSetA *set = get_glyphset(font, codepoint);
+    GlyphBitmapInfo *g = &set->glyphs[codepoint & 0xff];
     x += g->xadvance;
   }
   return x;
@@ -334,17 +334,13 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
 
 
 int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
-  SDL_Surface *surf = SDL_GetWindowSurface(window);
-  RenColor *pixels = (RenColor*) surf->pixels;
-  return FontRendererDrawText(font->renderer, pixels, surf->w, surf->h, surf->pitch, text, font->height * 0.8, x, y, color);
-#if 0
   RenRect rect;
   const char *p = text;
   unsigned codepoint;
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
-    GlyphSet *set = get_glyphset(font, codepoint);
-    stbtt_bakedchar *g = &set->glyphs[codepoint & 0xff];
+    GlyphSetA *set = get_glyphset(font, codepoint);
+    GlyphBitmapInfo *g = &set->glyphs[codepoint & 0xff];
     rect.x = g->x0;
     rect.y = g->y0;
     rect.width = g->x1 - g->x0;
@@ -353,5 +349,4 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
     x += g->xadvance;
   }
   return x;
-#endif
 }
