@@ -129,14 +129,8 @@ retry:
     goto retry;
   }
 
-  // TODO: consider if this is still needed.
-  /* adjust glyph yoffsets and xadvance */
-  int ascent, descent, linegap;
-  stbtt_GetFontVMetrics(&font->stbfont, &ascent, &descent, &linegap);
-  float scale = stbtt_ScaleForMappingEmToPixels(&font->stbfont, font->size);
-  int scaled_ascent = ascent * scale + 0.5;
+  /* adjust glyph's xadvance */
   for (int i = 0; i < 256; i++) {
-    set->glyphs[i].yoff += scaled_ascent;
     set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance);
   }
 

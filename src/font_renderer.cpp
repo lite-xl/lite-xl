@@ -68,7 +68,7 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
         glyph_info.x1 = x_next_i;
         glyph_info.y1 = pixels_height - (y_baseline + descender_px - pad_y);
         glyph_info.xoff = 0;
-        glyph_info.yoff = -ascender * font_height;
+        glyph_info.yoff = -pad_y;
         glyph_info.xadvance = x_next - x;
 #if 0
         fprintf(stderr,
