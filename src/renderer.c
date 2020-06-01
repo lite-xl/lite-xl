@@ -212,6 +212,7 @@ void ren_free_font(RenFont *font) {
     }
   }
   free(font->data);
+  FontRendererFree(font->renderer);
   free(font);
 }
 

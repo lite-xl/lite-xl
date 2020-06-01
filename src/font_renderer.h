@@ -21,6 +21,7 @@ enum {
 };
 
 FontRenderer *FontRendererNew(unsigned int flags);
+void FontRendererFree(FontRenderer *);
 int FontRendererLoadFont(FontRenderer *, const char *filename);
 int FontRendererGetFontHeight(FontRenderer *, float size);
 int FontRendererBakeFontBitmap(FontRenderer *, int font_height,

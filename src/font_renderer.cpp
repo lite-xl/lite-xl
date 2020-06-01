@@ -9,6 +9,11 @@ FontRenderer *FontRendererNew(unsigned int flags) {
     return (FontRenderer *) font_renderer;
 }
 
+void FontRendererFree(FontRenderer *fr_) {
+    font_renderer_alpha *font_renderer = (font_renderer_alpha *) fr_;
+    delete font_renderer;    
+}
+
 int FontRendererLoadFont(FontRenderer *fr_, const char *filename) {
     font_renderer_alpha *font_renderer = (font_renderer_alpha *) fr_;
     bool success = font_renderer->load_font(filename);
