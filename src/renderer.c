@@ -153,7 +153,6 @@ static GlyphSet* get_glyphset(RenFont *font, int codepoint) {
 
 RenFont* ren_load_font(const char *filename, float size) {
   RenFont *font = NULL;
-  FILE *fp = NULL;
 
   /* init font */
   font = check_alloc(calloc(1, sizeof(RenFont)));
