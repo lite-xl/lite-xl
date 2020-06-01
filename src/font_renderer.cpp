@@ -52,6 +52,7 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
     int x = 0, y = pixels_height;
     int res = 0;
     const agg::alpha8 text_color(0xff);
+    const int font_height_reduced = (font_height * 86) / 100;
     for (int i = 0; i < num_chars; i++) {
         int codepoint = first_char + i;
         if (x + font_height > pixels_width) {
@@ -65,7 +66,7 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
         const int y_baseline = y - pad_y - font_height;
 
         double x_next = x, y_next = y_baseline;
-        font_renderer->render_codepoint(ren_buf, font_height, text_color, x_next, y_next, codepoint);
+        font_renderer->render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint);
         int x_next_i = int(x_next + 0.5);
 
         GlyphBitmapInfo& glyph_info = glyphs[i];
