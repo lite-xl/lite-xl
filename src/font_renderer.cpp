@@ -79,6 +79,15 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
         glyph_info.xadvance = x_next - x;
 
         x = x_next_i;
+
+#ifdef DEBUG_FONT_RENDERER
+        fprintf(stderr,
+          "glyph codepoint %3d (ascii: %1c), BOX (%3d, %3d) (%3d, %3d), "
+          "OFFSET (%.5g, %.5g), X ADVANCE %.5g\n",
+          codepoint, i,
+          glyph_info.x0, glyph_info.y0, glyph_info.x1, glyph_info.y1,
+          glyph_info.xoff, glyph_info.yoff, glyph_info.xadvance);
+#endif
     }
     return res;
 }

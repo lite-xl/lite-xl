@@ -6,7 +6,7 @@ executable('stb-font-render-test',
 )
 
 executable('agg-font-render-test',
-    ['agg_font_render_test.cpp', '../src/agg_font_freetype.cpp'],
+    ['../src/agg_font_freetype.cpp', '../src/font_renderer.cpp', 'agg_font_render_test.c'],
     include_directories: lite_include,
     dependencies: [sdl_dep, libagg_dep, freetype_dep, libm, libdl],
     install: false,
