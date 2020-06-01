@@ -45,14 +45,18 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
     const int ascender_px  = int(ascender  * font_height + 0.5);
     const int descender_px = int(descender * font_height + 0.5);
 
-    const int pad_y = font_height * 2 / 10;
+    const int pad_y = font_height * 2 / 10, pad_x = 1;
     const int y_step = font_height + 2 * pad_y;
 
     agg::rendering_buffer ren_buf((agg::int8u *) pixels, pixels_width, pixels_height, -pixels_width * pixel_size);
     int x = 0, y = pixels_height;
     int res = 0;
     const agg::alpha8 text_color(0xff);
+#ifdef FONT_RENDERER_HEIGHT_HACK
     const int font_height_reduced = (font_height * 86) / 100;
+#else
+    const int font_height_reduced = font_height;
+#endif
     for (int i = 0; i < num_chars; i++) {
         int codepoint = first_char + i;
         if (x + font_height > pixels_width) {
@@ -67,7 +71,7 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
 
         double x_next = x, y_next = y_baseline;
         font_renderer->render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint);
-        int x_next_i = int(x_next + 0.5);
+        int x_next_i = int(x_next + 1.0);
 
         GlyphBitmapInfo& glyph_info = glyphs[i];
         glyph_info.x0 = x;
@@ -78,9 +82,9 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
         glyph_info.yoff = -pad_y;
         glyph_info.xadvance = x_next - x;
 
-        x = x_next_i;
+        x = x_next_i + pad_x;
 
-#ifdef DEBUG_FONT_RENDERER
+#ifdef FONT_RENDERER_DEBUG
         fprintf(stderr,
           "glyph codepoint %3d (ascii: %1c), BOX (%3d, %3d) (%3d, %3d), "
           "OFFSET (%.5g, %.5g), X ADVANCE %.5g\n",

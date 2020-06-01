@@ -127,7 +127,6 @@ retry:
     goto retry;
   }
 
-  // FIXME: to be removed.
   /* adjust glyph's xadvance */
   for (int i = 0; i < 256; i++) {
     set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance);

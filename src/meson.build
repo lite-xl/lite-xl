@@ -10,10 +10,13 @@ lite_sources = [
     'main.c',
 ]
 
+renderer_cdefs = ['-DFONT_RENDERER_HEIGHT_HACK']
+
 executable('lite',
     lite_sources,
     include_directories: lite_include,
     dependencies: [lua_dep, sdl_dep, libagg_dep, freetype_dep, libm, libdl],
+    cpp_args: renderer_cdefs,
     install: true,
     gui_app: true,
 )
