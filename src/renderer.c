@@ -146,16 +146,8 @@ retry:
 
   /* adjust glyph's xadvance */
   for (int i = 0; i < 256; i++) {
-    set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance);
+    set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance + 0.5);
   }
-
-#if 0
-  /* convert 8bit data to 32bit */
-  for (int i = width * height - 1; i >= 0; i--) {
-    uint8_t n = *((uint8_t*) set->image->pixels + i);
-    set->image->pixels[i] = (RenColor) { .r = 255, .g = 255, .b = 255, .a = n };
-  }
-#endif
 
   return set;
 }
