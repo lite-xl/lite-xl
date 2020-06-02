@@ -60,9 +60,11 @@ RenFont* ren_load_font_agg(const char *filename, float size) {
   font = check_alloc(calloc(1, sizeof(RenFont)));
   font->size = size;
 
-  font->renderer = FontRendererNew(FONT_RENDERER_HINTING);
-  // FIXME check for errors
-  FontRendererLoadFont(font->renderer, filename);
+  font->renderer = FontRendererNew(FONT_RENDERER_HINTING, 1.8);
+  if (FontRendererLoadFont(font->renderer, filename)) {
+    free(font);
+    return NULL;
+  }
   font->height = FontRendererGetFontHeight(font->renderer, size);
 
   fprintf(stderr, "Font height: %d\n", font->height);

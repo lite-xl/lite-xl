@@ -13,8 +13,8 @@ typedef struct {
   float xoff, yoff, xadvance;
 } GlyphBitmapInfo;
 
-struct FontRenderer_;
-typedef struct FontRenderer_ FontRenderer;
+struct FontRendererImpl;
+typedef struct FontRendererImpl FontRenderer;
 
 enum {
     FONT_RENDERER_HINTING  = 1 << 0,
@@ -25,7 +25,7 @@ typedef struct {
     uint8_t r, g, b;
 } FontRendererColor;
 
-FontRenderer *  FontRendererNew(unsigned int flags);
+FontRenderer *  FontRendererNew(unsigned int flags, float gamma);
 
 void            FontRendererFree(FontRenderer *);
 
@@ -37,7 +37,8 @@ int             FontRendererBakeFontBitmap(FontRenderer *, int font_height,
                     void *pixels, int pixels_width, int pixels_height,
                     int first_char, int num_chars, GlyphBitmapInfo *glyph_info); 
 
-void            FontRendererBlendGamma(uint8_t *dst, int dst_stride,
+void            FontRendererBlendGamma(FontRenderer *,
+                    uint8_t *dst, int dst_stride,
                     uint8_t *src, int src_stride,
                     int region_width, int region_height,
                     FontRendererColor color);

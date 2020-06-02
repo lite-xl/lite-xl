@@ -177,7 +177,8 @@ RenFont* ren_load_font(const char *filename, float size) {
   font = check_alloc(calloc(1, sizeof(RenFont)));
   font->size = size;
 
-  font->renderer = FontRendererNew(FONT_RENDERER_HINTING);
+  const float gamma = 1.8;
+  font->renderer = FontRendererNew(FONT_RENDERER_HINTING, gamma);
   if (FontRendererLoadFont(font->renderer, filename)) {
     free(font);
     return NULL;
@@ -319,7 +320,7 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
   }
 }
 
-static void ren_draw_coverage_with_color(RenCoverageImage *image, RenRect *sub, int x, int y, RenColor color) {
+static void ren_draw_coverage_with_color(FontRenderer *renderer, RenCoverageImage *image, RenRect *sub, int x, int y, RenColor color) {
   if (color.a == 0) { return; }
 
   clip_point_inside_rect(&x, &y, sub);
@@ -336,6 +337,7 @@ static void ren_draw_coverage_with_color(RenCoverageImage *image, RenRect *sub, 
   d += x + y * surf->w;
   const int surf_pixel_size = 4;
   FontRendererBlendGamma(
+    renderer,
     (uint8_t *) d, surf->w * surf_pixel_size,
     s, image->width,
     sub->width, sub->height,
@@ -354,7 +356,7 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
     rect.y = g->y0;
     rect.width = g->x1 - g->x0;
     rect.height = g->y1 - g->y0;
-    ren_draw_coverage_with_color(set->coverage, &rect, x + g->xoff, y + g->yoff, color);
+    ren_draw_coverage_with_color(font->renderer, set->coverage, &rect, x + g->xoff, y + g->yoff, color);
     x += g->xadvance;
   }
   return x;

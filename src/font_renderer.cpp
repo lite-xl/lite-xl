@@ -6,45 +6,62 @@
 
 #include "font_renderer_alpha.h"
 
-FontRenderer *FontRendererNew(unsigned int flags) {
+typedef agg::blender_rgb_gamma<agg::rgba8, agg::order_bgra, agg::gamma_lut<> > blender_gamma_type;
+
+class FontRendererImpl {
+public:
+    FontRendererImpl(bool hinting, bool kerning, float gamma_value) :
+        m_renderer(hinting, kerning),
+        m_gamma_lut(double(gamma_value)),
+        m_blender()
+    {
+        m_blender.gamma(m_gamma_lut);
+    }
+
+    font_renderer_alpha& renderer_alpha() { return m_renderer; }
+    blender_gamma_type& blender() { return m_blender; }
+
+private:
+    font_renderer_alpha m_renderer;
+    agg::gamma_lut<> m_gamma_lut;
+    blender_gamma_type m_blender;
+};
+
+FontRenderer *FontRendererNew(unsigned int flags, float gamma) {
     bool hinting = ((flags & FONT_RENDERER_HINTING) != 0);
     bool kerning = ((flags & FONT_RENDERER_KERNING) != 0);
-    font_renderer_alpha *font_renderer = new font_renderer_alpha(hinting, kerning);
-    return (FontRenderer *) font_renderer;
+    return new FontRendererImpl(hinting, kerning, gamma);
 }
 
-void FontRendererFree(FontRenderer *fr_) {
-    font_renderer_alpha *font_renderer = (font_renderer_alpha *) fr_;
+void FontRendererFree(FontRenderer *font_renderer) {
     delete font_renderer;    
 }
 
-int FontRendererLoadFont(FontRenderer *fr_, const char *filename) {
-    font_renderer_alpha *font_renderer = (font_renderer_alpha *) fr_;
-    bool success = font_renderer->load_font(filename);
+int FontRendererLoadFont(FontRenderer *font_renderer, const char *filename) {
+    bool success = font_renderer->renderer_alpha().load_font(filename);
     return (success ? 0 : 1);
 }
 
-int FontRendererGetFontHeight(FontRenderer *fr_, float size) {
-    font_renderer_alpha *font_renderer = (font_renderer_alpha *) fr_;
+int FontRendererGetFontHeight(FontRenderer *font_renderer, float size) {
+    font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
     double ascender, descender;
-    font_renderer->get_font_vmetrics(ascender, descender);
-    int face_height = font_renderer->get_face_height();
-
-    float scale = font_renderer->scale_for_em_to_pixels(size);
+    renderer_alpha.get_font_vmetrics(ascender, descender);
+    int face_height = renderer_alpha.get_face_height();
+    float scale = renderer_alpha.scale_for_em_to_pixels(size);
     return int((ascender - descender) * face_height * scale + 0.5);
 }
 
-int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
+int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     void *pixels, int pixels_width, int pixels_height,
     int first_char, int num_chars, GlyphBitmapInfo *glyphs)
 {
-    font_renderer_alpha *font_renderer = (font_renderer_alpha *) fr_;
+    font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
 
     const int pixel_size = 1;
     memset(pixels, 0x00, pixels_width * pixels_height * pixel_size);
 
     double ascender, descender;
-    font_renderer->get_font_vmetrics(ascender, descender);
+    renderer_alpha.get_font_vmetrics(ascender, descender);
 
     const int ascender_px  = int(ascender  * font_height + 0.5);
     const int descender_px = int(descender * font_height + 0.5);
@@ -74,7 +91,7 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
         const int y_baseline = y - pad_y - font_height;
 
         double x_next = x, y_next = y_baseline;
-        font_renderer->render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint);
+        renderer_alpha.render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint);
         int x_next_i = int(x_next + 1.0);
 
         GlyphBitmapInfo& glyph_info = glyphs[i];
@@ -134,16 +151,13 @@ void blend_solid_hspan(agg::rendering_buffer& rbuf, Blender& blender,
     }
 }
 
-// destination implicitly BGRA32. Source implictly single-byte alpha coverage.
-void FontRendererBlendGamma(uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FontRendererColor color) {
-    typedef agg::blender_rgb_gamma<agg::rgba8, agg::order_bgra, agg::gamma_lut<> > blender_type;
+// destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage.
+void FontRendererBlendGamma(FontRenderer *font_renderer, uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FontRendererColor color) {
+    blender_gamma_type& blender = font_renderer->blender();
     agg::rendering_buffer dst_ren_buf(dst, region_width, region_height, dst_stride);
     const agg::rgba8 color_a(color.r, color.g, color.b);
-    // FIXME: move blender object inside FontRenderer.
-    blender_type blender;
-    blender.gamma(1.8);
     for (int x = 0, y = 0; y < region_height; y++) {
         agg::int8u *covers = src + y * src_stride;
-        blend_solid_hspan<blender_type>(dst_ren_buf, blender, x, y, region_width, color_a, covers);
+        blend_solid_hspan<blender_gamma_type>(dst_ren_buf, blender, x, y, region_width, color_a, covers);
     }
 }
