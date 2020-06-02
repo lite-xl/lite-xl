@@ -12,8 +12,13 @@ struct RenImage {
   int width, height;
 };
 
+typedef struct {
+  uint8_t *pixels;
+  int width, height;
+} RenCoverageImage;
+
 struct GlyphSet {
-  RenImage *image;
+  RenCoverageImage *coverage;
   GlyphBitmapInfo glyphs[256];
 };
 typedef struct GlyphSet GlyphSet;
@@ -100,11 +105,23 @@ RenImage* ren_new_image(int width, int height) {
   return image;
 }
 
+RenCoverageImage* ren_new_coverage(int width, int height) {
+  assert(width > 0 && height > 0);
+  RenCoverageImage *image = malloc(sizeof(RenCoverageImage) + width * height * sizeof(uint8_t));
+  check_alloc(image);
+  image->pixels = (void*) (image + 1);
+  image->width = width;
+  image->height = height;
+  return image;
+}
 
 void ren_free_image(RenImage *image) {
   free(image);
 }
 
+void ren_free_coverage(RenCoverageImage *coverage) {
+  free(coverage);
+}
 
 static GlyphSet* load_glyphset(RenFont *font, int idx) {
   GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
@@ -113,17 +130,17 @@ static GlyphSet* load_glyphset(RenFont *font, int idx) {
   int width = 128;
   int height = 128;
 retry:
-  set->image = ren_new_image(width, height);
+  set->coverage = ren_new_coverage(width, height);
 
   int res = FontRendererBakeFontBitmap(font->renderer, font->height,
-    (void *) set->image->pixels, width, height,
+    (void *) set->coverage->pixels, width, height,
     idx << 8, 256, set->glyphs);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
     width *= 2;
     height *= 2;
-    ren_free_image(set->image);
+    ren_free_coverage(set->coverage);
     goto retry;
   }
 
@@ -132,11 +149,13 @@ retry:
     set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance);
   }
 
+#if 0
   /* convert 8bit data to 32bit */
   for (int i = width * height - 1; i >= 0; i--) {
     uint8_t n = *((uint8_t*) set->image->pixels + i);
     set->image->pixels[i] = (RenColor) { .r = 255, .g = 255, .b = 255, .a = n };
   }
+#endif
 
   return set;
 }
@@ -178,7 +197,7 @@ void ren_free_font(RenFont *font) {
   for (int i = 0; i < MAX_GLYPHSET; i++) {
     GlyphSet *set = font->sets[i];
     if (set) {
-      ren_free_image(set->image);
+      ren_free_coverage(set->coverage);
       free(set);
     }
   }
@@ -262,16 +281,19 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
+static void clip_point_inside_rect(int *x, int *y, RenRect *sub) {
+  /* clip */
+  int n;
+  if ((n = clip.left - (*x)) > 0) { sub->width  -= n; sub->x += n; (*x) += n; }
+  if ((n = clip.top  - (*y)) > 0) { sub->height -= n; sub->y += n; (*y) += n; }
+  if ((n = (*x) + sub->width  - clip.right ) > 0) { sub->width  -= n; }
+  if ((n = (*y) + sub->height - clip.bottom) > 0) { sub->height -= n; }
+}
 
 void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color) {
   if (color.a == 0) { return; }
 
-  /* clip */
-  int n;
-  if ((n = clip.left - x) > 0) { sub->width  -= n; sub->x += n; x += n; }
-  if ((n = clip.top  - y) > 0) { sub->height -= n; sub->y += n; y += n; }
-  if ((n = x + sub->width  - clip.right ) > 0) { sub->width  -= n; }
-  if ((n = y + sub->height - clip.bottom) > 0) { sub->height -= n; }
+  clip_point_inside_rect(&x, &y, sub);
 
   if (sub->width <= 0 || sub->height <= 0) {
     return;
@@ -297,6 +319,28 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
   }
 }
 
+static void ren_draw_coverage_with_color(RenCoverageImage *image, RenRect *sub, int x, int y, RenColor color) {
+  if (color.a == 0) { return; }
+
+  clip_point_inside_rect(&x, &y, sub);
+
+  if (sub->width <= 0 || sub->height <= 0) {
+    return;
+  }
+
+  /* draw */
+  SDL_Surface *surf = SDL_GetWindowSurface(window);
+  uint8_t *s = image->pixels;
+  RenColor *d = (RenColor*) surf->pixels;
+  s += sub->x + sub->y * image->width;
+  d += x + y * surf->w;
+  const int surf_pixel_size = 4;
+  FontRendererBlendGamma(
+    (uint8_t *) d, surf->w * surf_pixel_size,
+    s, image->width,
+    sub->width, sub->height,
+    (FontRendererColor) { .r = color.r, .g = color.g, .b = color.b });
+}
 
 int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
   RenRect rect;
@@ -310,7 +354,7 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
     rect.y = g->y0;
     rect.width = g->x1 - g->x0;
     rect.height = g->y1 - g->y0;
-    ren_draw_image(set->image, &rect, x + g->xoff, y + g->yoff, color);
+    ren_draw_coverage_with_color(set->coverage, &rect, x + g->xoff, y + g->yoff, color);
     x += g->xadvance;
   }
   return x;

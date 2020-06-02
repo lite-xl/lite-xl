@@ -1,5 +1,9 @@
 #include "font_renderer.h"
 
+#include "agg_pixfmt_rgb.h"
+#include "agg_pixfmt_rgba.h"
+#include "agg_gamma_lut.h"
+
 #include "font_renderer_alpha.h"
 
 FontRenderer *FontRendererNew(unsigned int flags) {
@@ -94,4 +98,52 @@ int FontRendererBakeFontBitmap(FontRenderer *fr_, int font_height,
 #endif
     }
     return res;
+}
+
+template <typename Blender>
+void blend_solid_hspan(agg::rendering_buffer& rbuf, Blender& blender,
+                        int x, int y, unsigned len,
+                        const typename Blender::color_type& c, const agg::int8u* covers)
+{
+    typedef Blender  blender_type;
+    typedef typename blender_type::color_type color_type;
+    typedef typename blender_type::order_type order_type;
+    typedef typename color_type::value_type value_type;
+    typedef typename color_type::calc_type calc_type;
+
+    if (c.a)
+    {
+        value_type* p = (value_type*)rbuf.row_ptr(x, y, len) + (x << 2);
+        do 
+        {
+            calc_type alpha = (calc_type(c.a) * (calc_type(*covers) + 1)) >> 8;
+            if(alpha == color_type::base_mask)
+            {
+                p[order_type::R] = c.r;
+                p[order_type::G] = c.g;
+                p[order_type::B] = c.b;
+            }
+            else
+            {
+                blender.blend_pix(p, c.r, c.g, c.b, alpha, *covers);
+            }
+            p += 4;
+            ++covers;
+        }
+        while(--len);
+    }
+}
+
+// destination implicitly BGRA32. Source implictly single-byte alpha coverage.
+void FontRendererBlendGamma(uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FontRendererColor color) {
+    typedef agg::blender_rgb_gamma<agg::rgba8, agg::order_bgra, agg::gamma_lut<> > blender_type;
+    agg::rendering_buffer dst_ren_buf(dst, region_width, region_height, dst_stride);
+    const agg::rgba8 color_a(color.r, color.g, color.b);
+    // FIXME: move blender object inside FontRenderer.
+    blender_type blender;
+    blender.gamma(1.8);
+    for (int x = 0, y = 0; y < region_height; y++) {
+        agg::int8u *covers = src + y * src_stride;
+        blend_solid_hspan<blender_type>(dst_ren_buf, blender, x, y, region_width, color_a, covers);
+    }
 }
