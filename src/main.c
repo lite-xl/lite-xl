@@ -20,8 +20,6 @@ static double get_scale(void) {
   SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
 #if _WIN32
   return dpi / 96.0;
-#elif __APPLE__
-  return 1.0; /* dpi / 72.0; */
 #else
   return 1.0;
 #endif
@@ -100,7 +98,7 @@ int main(int argc, char **argv) {
   }
   lua_setglobal(L, "ARGS");
 
-  lua_pushstring(L, "1.05");
+  lua_pushstring(L, "1.06");
   lua_setglobal(L, "VERSION");
 
   lua_pushstring(L, SDL_GetPlatform());

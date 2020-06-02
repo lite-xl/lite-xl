@@ -82,6 +82,19 @@ function core.init()
   CommandView = require "core.commandview"
   Doc = require "core.doc"
 
+  local project_dir = "."
+  local files = {}
+  for i = 2, #ARGS do
+    local info = system.get_file_info(ARGS[i]) or {}
+    if info.type == "file" then
+      table.insert(files, system.absolute_path(ARGS[i]))
+    elseif info.type == "dir" then
+      project_dir = ARGS[i]
+    end
+  end
+
+  system.chdir(project_dir)
+
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
@@ -103,25 +116,38 @@ function core.init()
   local got_user_error = not core.try(require, "user")
   local got_project_error = not core.load_project_module()
 
-  for i = 2, #ARGS do
-    local filename = ARGS[i]
-    local info = system.get_file_info(filename)
-    if info and info.type == "file" then
-      core.root_view:open_doc(core.open_doc(filename))
-    end
+  for _, filename in ipairs(files) do
+    core.root_view:open_doc(core.open_doc(filename))
   end
 
   if got_plugin_error or got_user_error or got_project_error then
     command.perform("core:open-log")
   end
+end
 
-  local info = ARGS[2] and system.get_file_info(ARGS[2])
-  system.chdir(info and info.type == "dir" and ARGS[2] or ".")
+
+local temp_uid = (system.get_time() * 1000) % 0xffffffff
+local temp_file_prefix = string.format(".lite_temp_%08x", temp_uid)
+local temp_file_counter = 0
+
+local function delete_temp_files()
+  for _, filename in ipairs(system.list_dir(EXEDIR)) do
+    if filename:find(temp_file_prefix, 1, true) == 1 then
+      os.remove(EXEDIR .. PATHSEP .. filename)
+    end
+  end
+end
+
+function core.temp_filename(ext)
+  temp_file_counter = temp_file_counter + 1
+  return EXEDIR .. PATHSEP .. temp_file_prefix
+      .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
 
 function core.quit(force)
   if force then
+    delete_temp_files()
     os.exit()
   end
   local dirty_count = 0
@@ -374,10 +400,10 @@ function core.step()
 
   -- update window title
   local name = core.active_view:get_name()
-  if name ~= "---" then
-    system.set_window_title(name .. " - lite")
-  else
-    system.set_window_title("lite")
+  local title = (name ~= "---") and (name .. " - lite") or  "lite"
+  if title ~= core.window_title then
+    system.set_window_title(title)
+    core.window_title = title
   end
 
   -- draw
