@@ -13,5 +13,11 @@ stb_truetype_dep = dependency('stb_truetype')
 lite_include = include_directories('src')
 install_subdir('data', install_dir : 'bin')
 
+lite_cdefs = []
+lite_link_args = []
+if get_option('buildtype') == 'release'
+  lite_link_args += ['-static-libgcc', '-static-libstdc++']
+endif
+
 subdir('src')
 subdir('tests')
