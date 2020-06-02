@@ -51,6 +51,57 @@ int FontRendererGetFontHeight(FontRenderer *font_renderer, float size) {
     return int((ascender - descender) * face_height * scale + 0.5);
 }
 
+static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli) {
+    const int height = ren_buf.height();
+    int x0 = gli->x0, y0 = gli->y0, x1 = gli->x1, y1 = gli->y1;
+    for (int y = gli->y0; y < gli->y1; y++) {
+        uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+        unsigned int row_bitsum = 0;
+        for (int x = x0; x < x1; x++) {
+            row_bitsum |= row[x];
+        }
+        if (row_bitsum == 0) {
+            y0++;
+        } else {
+            break;
+        }
+    }
+    for (int y = gli->y1 - 1; y >= gli->y0; y--) {
+        uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+        unsigned int row_bitsum = 0;
+        for (int x = x0; x < x1; x++) {
+            row_bitsum |= row[x];
+        }
+        if (row_bitsum == 0) {
+            y1--;
+        } else {
+            break;
+        }
+    }
+    int xtriml = x0, xtrimr = x1;
+    for (int y = y0; y < y1; y++) {
+        uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+        for (int x = x0; x < x1; x++) {
+            if (row[x]) {
+                if (x < xtriml) xtriml = x;
+                break;
+            }
+        }
+        for (int x = x1 - 1; x >= x0; x--) {
+            if (row[x]) {
+                if (x > xtrimr) xtrimr = x + 1;
+                break;
+            }
+        }
+    }
+    gli->xoff += (xtriml - x0);
+    gli->yoff += (y0 - gli->y0);
+    gli->x0 = xtriml;
+    gli->y0 = y0;
+    gli->x1 = xtrimr;
+    gli->y1 = y1;
+}
+
 int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     void *pixels, int pixels_width, int pixels_height,
     int first_char, int num_chars, GlyphBitmapInfo *glyphs)
@@ -99,9 +150,12 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         glyph_info.y0 = pixels_height - (y_baseline + ascender_px  + pad_y);
         glyph_info.x1 = x_next_i;
         glyph_info.y1 = pixels_height - (y_baseline + descender_px - pad_y);
+
         glyph_info.xoff = 0;
         glyph_info.yoff = -pad_y;
         glyph_info.xadvance = x_next - x;
+
+        glyph_trim_rect(ren_buf, &glyph_info);
 
         x = x_next_i + pad_x;
 
