@@ -66,7 +66,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     const int ascender_px  = int(ascender  * font_height + 0.5);
     const int descender_px = int(descender * font_height + 0.5);
 
-    const int pad_y = font_height * 2 / 10, pad_x = 1;
+    const int pad_y = font_height / 10, pad_x = 1;
     const int y_step = font_height + 2 * pad_y;
 
     agg::rendering_buffer ren_buf((agg::int8u *) pixels, pixels_width, pixels_height, -pixels_width * pixel_size);
