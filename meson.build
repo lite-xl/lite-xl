@@ -19,5 +19,11 @@ if get_option('buildtype') == 'release'
   lite_link_args += ['-static-libgcc', '-static-libstdc++']
 endif
 
+lite_rc = []
+if host_machine.system() == 'windows'
+    windows = import('windows')
+    lite_rc += windows.compile_resources('res.rc')
+endif
+
 subdir('src')
 subdir('tests')
