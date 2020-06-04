@@ -42,7 +42,7 @@ FontRenderer *FontRendererNew(unsigned int flags, float gamma) {
 }
 
 void FontRendererFree(FontRenderer *font_renderer) {
-    delete font_renderer;    
+    delete font_renderer;
 }
 
 int FontRendererLoadFont(FontRenderer *font_renderer, const char *filename) {
@@ -194,22 +194,19 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     return res;
 }
 
-// FIXME: remove the Blender template argument.
-template <typename Blender>
-void blend_solid_hspan(agg::rendering_buffer& rbuf, Blender& blender,
+void blend_solid_hspan(agg::rendering_buffer& rbuf, blender_gamma_type& blender,
                         int x, int y, unsigned len,
-                        const typename Blender::color_type& c, const agg::int8u* covers)
+                        const agg::rgba8& c, const agg::int8u* covers)
 {
-    typedef Blender  blender_type;
-    typedef typename blender_type::color_type color_type;
-    typedef typename blender_type::order_type order_type;
+    typedef typename blender_gamma_type::color_type color_type;
+    typedef typename blender_gamma_type::order_type order_type;
     typedef typename color_type::value_type value_type;
     typedef typename color_type::calc_type calc_type;
 
     if (c.a)
     {
         value_type* p = (value_type*)rbuf.row_ptr(x, y, len) + (x << 2);
-        do 
+        do
         {
             calc_type alpha = (calc_type(c.a) * (calc_type(*covers) + 1)) >> 8;
             if(alpha == color_type::base_mask)
@@ -282,7 +279,7 @@ void FontRendererBlendGamma(FontRenderer *font_renderer, uint8_t *dst, int dst_s
     const agg::rgba8 color_a(color.r, color.g, color.b);
     for (int x = 0, y = 0; y < region_height; y++) {
         agg::int8u *covers = src + y * src_stride;
-        blend_solid_hspan<blender_gamma_type>(dst_ren_buf, blender, x, y, region_width, color_a, covers);
+        blend_solid_hspan(dst_ren_buf, blender, x, y, region_width, color_a, covers);
     }
 }
 
