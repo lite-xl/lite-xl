@@ -12,6 +12,9 @@ struct RenImage {
   int width, height;
 };
 
+// Important: when a subpixel scale is used the width below will be the width in logical pixel.
+// As each logical pixel contains 3 subpixels it means that the 'pixels' pointer
+// will hold enough space for '3 * width' uint8_t values.
 typedef struct {
   uint8_t *pixels;
   int width, height;
@@ -323,17 +326,9 @@ static void ren_draw_coverage_with_color(FontRenderer *renderer, RenCoverageImag
     return;
   }
 
-  const int subpixel_scale = 3;
-#if 0
-  // FIXME: find a more robust solution.
-  const int sub_width_rem = sub->width % subpixel_scale;
-  if (sub_width_rem > 0) {
-    sub->width += (subpixel_scale - sub_width_rem);
-  }
-#endif
-
   /* draw */
   SDL_Surface *surf = SDL_GetWindowSurface(window);
+  const int subpixel_scale = 3;
   uint8_t *s = image->pixels;
   RenColor *d = (RenColor*) surf->pixels;
   s += (sub->x + sub->y * image->width) * subpixel_scale;
