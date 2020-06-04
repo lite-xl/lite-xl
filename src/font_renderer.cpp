@@ -146,6 +146,8 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     const int y_step = font_height + 2 * pad_y;
 
     agg::rendering_buffer ren_buf((agg::int8u *) pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
+    // When using subpixel font rendering it is needed to leave a padding pixel on the left and on the right.
+    // Since each pixel is composed by n subpixel we set below x_start to subpixel_scale instead than zero.
     const int x_start = subpixel_scale;
     int x = x_start, y = pixels_height;
     int res = 0;
@@ -233,19 +235,18 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
     const agg::rgba8& c,
     const agg::int8u* covers)
 {
-    // const int subpixel_scale = 3;
-    // FIXME: rowlen à verifier
-    // unsigned rowlen = rbuf.width() * subpixel_scale;
-    // FIXME: no correct boundary limits for cx and cx_max
-    // int cx = (x_lcd - 2 >= 0 ? -2 : -x_lcd);
-    // int cx_max = (len + 2 <= rowlen ? len + 1 : rowlen - 1);
-    const int pixel_size = 4;
+    // cx being negative here and cx_max greater than 'len' means we will
+    // adress the 'covers' array beyond its formal limits here [0, len-1] by -subpixel_scale on the
+    // left and +subpixel_scale on the right.
+    // We assume it is safe to do so because the data are coming from FontRendererBakeFontBitmap
+    // and this latter function leaves three padding pixels on the left and on the right of the buffer.
     int cx = -2;
     int cx_max = len + 1;
 
     const int x_min = floor_div(x_lcd + cx, 3);
     const int x_max = floor_div(x_lcd + cx_max, 3);
 
+    const int pixel_size = 4;
     const agg::int8u rgb[3] = { c.r, c.g, c.b };
     agg::int8u* p = rbuf.row_ptr(y) + x_min * pixel_size;
 
@@ -261,7 +262,7 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
             unsigned src_col = gamma.dir(*(p + pixel_index[i]));
             *(p + pixel_index[i]) = gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
         }
-        //p[3] = 0xff;
+        // Leave p[3], the alpha channel value unmodified.
         p += 4;
     }
 }
@@ -277,7 +278,7 @@ void FontRendererBlendGamma(FontRenderer *font_renderer, uint8_t *dst, int dst_s
     }
 }
 
-// destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage.
+// destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage with subpixel scale = 3.
 void FontRendererBlendGammaSubpixel(FontRenderer *font_renderer, uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FontRendererColor color) {
     const int subpixel_scale = 3;
     agg::gamma_lut<>& gamma = font_renderer->gamma();
