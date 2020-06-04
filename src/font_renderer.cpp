@@ -75,7 +75,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli
             break;
         }
     }
-    for (int y = gli->y1 - 1; y >= gli->y0; y--) {
+    for (int y = gli->y1 - 1; y >= y0; y--) {
         uint8_t *row = ren_buf.row_ptr(height - 1 - y);
         unsigned int row_bitsum = 0;
         for (int x = x0; x < x1; x++) {
@@ -87,36 +87,39 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli
             break;
         }
     }
-    int xtriml = x0, xtrimr = x1;
-    for (int y = y0; y < y1; y++) {
-        uint8_t *row = ren_buf.row_ptr(height - 1 - y);
-        for (int x = x0; x < x1; x += subpixel_scale) {
-            unsigned int xaccu = 0;
+    for (int x = gli->x0 * subpixel_scale; x < gli->x1 * subpixel_scale; x += subpixel_scale) {
+        unsigned int xaccu = 0;
+        for (int y = y0; y < y1; y++) {
+            uint8_t *row = ren_buf.row_ptr(height - 1 - y);
             for (int i = 0; i < subpixel_scale; i++) {
                 xaccu |= row[x + i];
-            }
-            if (xaccu > 0) {
-                // FIXME: fix xs comparaison below.
-                if (x < xtriml) xtriml = x;
-                break;
             }
         }
-        for (int x = x1 - subpixel_scale; x >= x0; x -= subpixel_scale) {
-            unsigned int xaccu = 0;
-            for (int i = 0; i < subpixel_scale; i++) {
-                xaccu |= row[x + i];
-            }
-            if (xaccu > 0) {
-                if (x > xtrimr) xtrimr = x + 1;
-                break;
-            }
+        if (xaccu == 0) {
+            x0 += subpixel_scale;
+        } else {
+            break;
         }
     }
-    gli->xoff += (xtriml - x0) / subpixel_scale;
+    for (int x = (gli->x1 - 1) * subpixel_scale; x >= x0; x -= subpixel_scale) {
+        unsigned int xaccu = 0;
+        for (int y = y0; y < y1; y++) {
+            uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+            for (int i = 0; i < subpixel_scale; i++) {
+                xaccu |= row[x + i];
+            }
+        }
+        if (xaccu == 0) {
+            x1 -= subpixel_scale;
+        } else {
+            break;
+        }
+    }
+    gli->xoff += (x0 / subpixel_scale) - gli->x0;
     gli->yoff += (y0 - gli->y0);
-    gli->x0 = xtriml / subpixel_scale;
+    gli->x0 = x0 / subpixel_scale;
     gli->y0 = y0;
-    gli->x1 = xtrimr / subpixel_scale;
+    gli->x1 = x1 / subpixel_scale;
     gli->y1 = y1;
 }
 
@@ -181,15 +184,6 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         glyph_trim_rect(ren_buf, &glyph_info, subpixel_scale);
 
         x = x_next_i;
-
-#ifdef FONT_RENDERER_DEBUG
-        fprintf(stderr,
-          "glyph codepoint %3d (ascii: %1c), BOX (%3d, %3d) (%3d, %3d), "
-          "OFFSET (%.5g, %.5g), X ADVANCE %.5g\n",
-          codepoint, i,
-          glyph_info.x0, glyph_info.y0, glyph_info.x1, glyph_info.y1,
-          glyph_info.xoff, glyph_info.yoff, glyph_info.xadvance);
-#endif
     }
     return res;
 }
