@@ -105,9 +105,9 @@ RenImage* ren_new_image(int width, int height) {
   return image;
 }
 
-RenCoverageImage* ren_new_coverage(int width, int height) {
+RenCoverageImage* ren_new_coverage(int width, int height, int subpixel_scale) {
   assert(width > 0 && height > 0);
-  RenCoverageImage *image = malloc(sizeof(RenCoverageImage) + width * height * sizeof(uint8_t));
+  RenCoverageImage *image = malloc(sizeof(RenCoverageImage) + width * height * subpixel_scale * sizeof(uint8_t));
   check_alloc(image);
   image->pixels = (void*) (image + 1);
   image->width = width;
@@ -126,15 +126,17 @@ void ren_free_coverage(RenCoverageImage *coverage) {
 static GlyphSet* load_glyphset(RenFont *font, int idx) {
   GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
 
+  const int subpixel_scale = 3;
+
   /* init image */
   int width = 128;
   int height = 128;
 retry:
-  set->coverage = ren_new_coverage(width, height);
+  set->coverage = ren_new_coverage(width, height, subpixel_scale);
 
   int res = FontRendererBakeFontBitmap(font->renderer, font->height,
     (void *) set->coverage->pixels, width, height,
-    idx << 8, 256, set->glyphs);
+    idx << 8, 256, set->glyphs, subpixel_scale);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
@@ -169,7 +171,7 @@ RenFont* ren_load_font(const char *filename, float size) {
   font = check_alloc(calloc(1, sizeof(RenFont)));
   font->size = size;
 
-  const float gamma = 1.8;
+  const float gamma = 1.5;
   font->renderer = FontRendererNew(FONT_RENDERER_HINTING, gamma);
   if (FontRendererLoadFont(font->renderer, filename)) {
     free(font);
@@ -321,17 +323,26 @@ static void ren_draw_coverage_with_color(FontRenderer *renderer, RenCoverageImag
     return;
   }
 
+  const int subpixel_scale = 3;
+#if 0
+  // FIXME: find a more robust solution.
+  const int sub_width_rem = sub->width % subpixel_scale;
+  if (sub_width_rem > 0) {
+    sub->width += (subpixel_scale - sub_width_rem);
+  }
+#endif
+
   /* draw */
   SDL_Surface *surf = SDL_GetWindowSurface(window);
   uint8_t *s = image->pixels;
   RenColor *d = (RenColor*) surf->pixels;
-  s += sub->x + sub->y * image->width;
+  s += (sub->x + sub->y * image->width) * subpixel_scale;
   d += x + y * surf->w;
   const int surf_pixel_size = 4;
-  FontRendererBlendGamma(
+  FontRendererBlendGammaSubpixel(
     renderer,
     (uint8_t *) d, surf->w * surf_pixel_size,
-    s, image->width,
+    s, image->width * subpixel_scale,
     sub->width, sub->height,
     (FontRendererColor) { .r = color.r, .g = color.g, .b = color.b });
 }

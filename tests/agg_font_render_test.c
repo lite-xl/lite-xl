@@ -81,9 +81,10 @@ static GlyphSet* load_glyphset_agg(RenFont *font, int idx) {
 retry:
   set->image = ren_new_image(width, height);
 
+  const int subpixel_scale = 3;
   int res = FontRendererBakeFontBitmap(font->renderer, font->height,
     (void *) set->image->pixels, width, height,
-    idx << 8, 256, set->glyphs);
+    idx << 8, 256, set->glyphs, subpixel_scale);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {

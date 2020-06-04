@@ -79,73 +79,14 @@ public:
     }
 
     template<class Rasterizer, class Scanline, class RenSolid>
-    void draw_text(Rasterizer& ras, Scanline& sl, 
-                   RenSolid& ren_solid, const color_type color,
-                   const char* text,
-                   double& x, double& y, double height)
-    {
-        const double scale_x = 100;
-
-        m_feng.height(height);
-        m_feng.width(height * scale_x);
-        m_feng.hinting(m_hinting);
-
-        const char* p = text;
-
-        // Represent the delta in x scaled by scale_x.
-        double x_delta = 0;
-        double start_x = x;
-
-        while(*p)
-        {
-            if(*p == '\n')
-            {
-                x_delta = 0;
-                y -= height * 1.25;
-                ++p;
-                continue;
-            }
-
-            const agg::glyph_cache* glyph = m_fman.glyph(*p);
-            if(glyph)
-            {
-                if(m_kerning)
-                {
-                    m_fman.add_kerning(&x_delta, &y);
-                }
-
-                m_fman.init_embedded_adaptors(glyph, 0, 0);
-                if(glyph->data_type == agg::glyph_data_outline)
-                {
-                    double ty = m_hinting ? floor(y + 0.5) : y;
-                    ras.reset();
-                    m_mtx.reset();
-                    m_mtx *= agg::trans_affine_scaling(1.0 / scale_x, 1);
-                    m_mtx *= agg::trans_affine_translation(start_x + x_delta / scale_x, ty);
-                    ras.add_path(m_trans);
-                    ren_solid.color(color);
-                    agg::render_scanlines(ras, sl, ren_solid);
-                }
-
-                // increment pen position
-                x_delta += glyph->advance_x;
-                y += glyph->advance_y;
-            }
-            ++p;
-        }
-        // Update x value befor returning.
-        x += x_delta / scale_x;
-    }
-
-    template<class Rasterizer, class Scanline, class RenSolid>
     void draw_codepoint(Rasterizer& ras, Scanline& sl, 
         RenSolid& ren_solid, const color_type color,
-        int codepoint, double& x, double& y, double height)
+        int codepoint, double& x, double& y, double height, int subpixel_scale)
     {
         const double scale_x = 100;
 
         m_feng.height(height);
-        m_feng.width(height * scale_x);
+        m_feng.width(height * scale_x * subpixel_scale);
         m_feng.hinting(m_hinting);
 
         // Represent the delta in x scaled by scale_x.
@@ -184,30 +125,11 @@ public:
         ren_base.clear(color);
     }
 
-    void render_text(agg::rendering_buffer& ren_buf,
-        const double text_size,
-        const color_type text_color,
-        double& x, double& y,
-        const char *text)
-    {
-        if (!m_font_loaded) {
-            return;
-        }
-        agg::scanline_u8 sl;
-        agg::rasterizer_scanline_aa<> ras;
-        ras.clip_box(0, 0, ren_buf.width(), ren_buf.height());
-
-        agg::pixfmt_alpha8 pf(ren_buf);
-        base_ren_type ren_base(pf);
-        renderer_solid ren_solid(ren_base);
-        draw_text(ras, sl, ren_solid, text_color, text, x, y, text_size);
-    }
-
     void render_codepoint(agg::rendering_buffer& ren_buf,
         const double text_size,
         const color_type text_color,
         double& x, double& y,
-        int codepoint)
+        int codepoint, int subpixel_scale)
     {
         if (!m_font_loaded) {
             return;
@@ -219,6 +141,6 @@ public:
         agg::pixfmt_alpha8 pf(ren_buf);
         base_ren_type ren_base(pf);
         renderer_solid ren_solid(ren_base);
-        draw_codepoint(ras, sl, ren_solid, text_color, codepoint, x, y, text_size);
+        draw_codepoint(ras, sl, ren_solid, text_color, codepoint, x, y, text_size, subpixel_scale);
     }
 };

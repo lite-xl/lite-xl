@@ -35,9 +35,16 @@ int             FontRendererGetFontHeight(FontRenderer *, float size);
 
 int             FontRendererBakeFontBitmap(FontRenderer *, int font_height,
                     void *pixels, int pixels_width, int pixels_height,
-                    int first_char, int num_chars, GlyphBitmapInfo *glyph_info); 
+                    int first_char, int num_chars, GlyphBitmapInfo *glyph_info,
+                    int subpixel_scale);
 
 void            FontRendererBlendGamma(FontRenderer *,
+                    uint8_t *dst, int dst_stride,
+                    uint8_t *src, int src_stride,
+                    int region_width, int region_height,
+                    FontRendererColor color);
+
+void            FontRendererBlendGammaSubpixel(FontRenderer *,
                     uint8_t *dst, int dst_stride,
                     uint8_t *src, int src_stride,
                     int region_width, int region_height,
