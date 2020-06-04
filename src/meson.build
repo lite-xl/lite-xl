@@ -4,20 +4,17 @@ lite_sources = [
     'api/renderer_font.c',
     'api/system.c',
     'renderer.c',
-    'agg_font_freetype.cpp',
-    'font_renderer.cpp',
     'rencache.c',
     'main.c',
 ]
 
-lite_cdefs += ['-DFONT_RENDERER_HEIGHT_HACK']
-
 executable('lite',
     lite_sources + lite_rc,
-    include_directories: lite_include,
-    dependencies: [lua_dep, sdl_dep, libagg_dep, freetype_dep, libm, libdl],
+    include_directories: [lite_include, font_renderer_include],
+    dependencies: [lua_dep, sdl_dep, libm, libdl],
+    link_with: libfontrenderer,
     link_args: lite_link_args,
-    cpp_args: lite_cdefs,
     install: true,
     gui_app: true,
 )
+
