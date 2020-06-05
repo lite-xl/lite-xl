@@ -145,11 +145,10 @@ static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distri
     const int x0 = gli.x0, y0 = gli.y0, x1 = gli.x1, y1 = gli.y1;
     const int len = (x1 - x0) * subpixel;
     const int height = ren_buf.height();
-    memset(covers_buf, 0, len + 2 * subpixel);
     for (int y = y0; y < y1; y++) {
         // FIXME: clarify why we do not use height - 1 below.
         agg::int8u *covers = ren_buf.row_ptr(height - y) + x0 * subpixel;
-        memcpy(covers_buf + subpixel, covers, len);
+        memcpy(covers_buf, covers, len);
 #if 0
         if (len >= 24) {
         debug_print_covers("BUF   ", covers_buf, 0, len + 2 * subpixel, 0);
@@ -159,7 +158,7 @@ static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distri
         for (int x = x0 - 1; x < x1 + 1; x++) {
             for (int i = 0; i < subpixel; i++) {
                 const int cx = (x - x0) * subpixel + i;
-                covers[cx] = lcd_lut.convolution(covers_buf + subpixel, cx, 0, len - 1);
+                covers[cx] = lcd_lut.convolution(covers, cx, 0, len - 1);
             }
         }
 #if 0
