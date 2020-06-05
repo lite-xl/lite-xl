@@ -123,24 +123,56 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli
     gli.y1 = y1;
 }
 
-static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distribution_lut& lcd_lut, GlyphBitmapInfo& gli) {
+static void debug_print_covers(const char *msg, agg::int8u *b, int n_pre, int n, int n_post) {
+    fprintf(stderr, "%s", msg);
+    for (int i = 0; i < n_pre; i++) {
+        if (i % 3 == 0) fprintf(stderr, "|");
+        fprintf(stderr, "   ");
+    }
+    for (int i = 0; i < n; i++) {
+        if (i % 3 == 0) fprintf(stderr, "|");
+        fprintf(stderr, " %02x", b[i]);
+    }
+    for (int i = 0; i < n_post; i++) {
+        if (i % 3 == 0) fprintf(stderr, "|");
+        fprintf(stderr, "   ");
+    }
+    fprintf(stderr, "\n");
+}
+
+static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distribution_lut& lcd_lut, agg::int8u *covers_buf, GlyphBitmapInfo& gli) {
     const int subpixel = 3;
     const int x0 = gli.x0, y0 = gli.y0, x1 = gli.x1, y1 = gli.y1;
     const int len = (x1 - x0) * subpixel;
     const int height = ren_buf.height();
-    agg::int8u *covers_buf = new agg::int8u[len + 2 * subpixel];
     memset(covers_buf, 0, len + 2 * subpixel);
     for (int y = y0; y < y1; y++) {
-        agg::int8u *covers = ren_buf.row_ptr(height - 1 - y) + x0 * subpixel;
+        // FIXME: clarify why we do not use height - 1 below.
+        agg::int8u *covers = ren_buf.row_ptr(height - y) + x0 * subpixel;
         memcpy(covers_buf + subpixel, covers, len);
+#if 0
+        if (len >= 24) {
+        debug_print_covers("BUF   ", covers_buf, 0, len + 2 * subpixel, 0);
+        debug_print_covers("BEFORE", covers - subpixel, 0, len + 2 * subpixel, 0);
+        }
+#endif
         for (int x = x0 - 1; x < x1 + 1; x++) {
             for (int i = 0; i < subpixel; i++) {
                 const int cx = (x - x0) * subpixel + i;
-                covers[cx] = lcd_lut.convolution(covers_buf + subpixel, cx, -2, len + 2 - 1);
+                covers[cx] = lcd_lut.convolution(covers_buf + subpixel, cx, 0, len - 1);
             }
         }
+#if 0
+        if (len >= 24) {
+        debug_print_covers("AFTER ", covers - subpixel, 0, len + 2 * subpixel, 0);
+        char c;
+        scanf("%c", &c);
+        }
+#endif
     }
-    delete [] covers_buf;
+    gli.x0 -= 1;
+    gli.x1 += 1;
+    gli.xoff -= 1;
 }
 
 static int ceil_to_multiple(int n, int p) {
@@ -197,20 +229,22 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         // Below x and x_next_i will always be integer multiples of subpixel_scale.
         GlyphBitmapInfo& glyph_info = glyphs[i];
         glyph_info.x0 = x / subpixel_scale;
-        glyph_info.y0 = pixels_height - 1 - (y_baseline + ascender_px  + pad_y); // FIXME: add -1 ?
+        glyph_info.y0 = pixels_height - (y_baseline + ascender_px  + pad_y); // FIXME: add -1 ?
         glyph_info.x1 = x_next_i / subpixel_scale;
-        glyph_info.y1 = pixels_height - 1 - (y_baseline + descender_px - pad_y); // FIXME: add -1 ?
+        glyph_info.y1 = pixels_height - (y_baseline + descender_px - pad_y); // FIXME: add -1 ?
 
         glyph_info.xoff = 0;
         glyph_info.yoff = -pad_y;
         glyph_info.xadvance = (x_next - x) / subpixel_scale;
 
-        glyph_lut_convolution(ren_buf, lcd_lut, glyph_info);
+        if (glyph_info.x1 > glyph_info.x0) {
+            agg::int8u *covers_buf = ren_buf.row_ptr(0);
+            glyph_lut_convolution(ren_buf, lcd_lut, covers_buf, glyph_info);
+        }
         glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
 
-        // FIXME: check if we don't need to add to x.
         // When subpixel is activated we need at least two more subpixels on the right.
-        x = x_next_i;
+        x = x_next_i + 2 * subpixel_scale;
     }
     return res;
 }
@@ -246,14 +280,7 @@ void blend_solid_hspan(agg::rendering_buffer& rbuf, blender_gamma_type& blender,
         while(--len);
     }
 }
-#if 0
-static int floor_div(int a, int b) {
-    if (a < 0) {
-        return -((-a + b - 1) / b);
-    }
-    return a / b;
-}
-#endif
+
 void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma, agg::lcd_distribution_lut& lcd_lut,
     int x, int y, unsigned len,
     const agg::rgba8& c,
@@ -272,7 +299,6 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
     {
         for (int i = 0; i < 3; i++) {
             int cx = xp * 3 - x + i;
-            // unsigned c_conv = lcd_lut.convolution(covers, new_cx, 0, len - 1);
             unsigned cover_value = covers[cx];
             unsigned alpha = (cover_value + 1) * (c.a + 1);
             unsigned dst_col = gamma.dir(rgb[i]);
