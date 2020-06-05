@@ -223,11 +223,10 @@ void blend_solid_hspan(agg::rendering_buffer& rbuf, blender_gamma_type& blender,
 }
 
 static int floor_div(int a, int b) {
-    int rem = a % b;
-    if (rem < 0) {
-        rem += b;
+    if (a < 0) {
+        return -((-a + b - 1) / b);
     }
-    return (a - rem) / b;
+    return a / b;
 }
 
 void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma, agg::lcd_distribution_lut& lcd_lut,
