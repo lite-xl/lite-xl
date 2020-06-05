@@ -59,11 +59,11 @@ int FontRendererGetFontHeight(FontRenderer *font_renderer, float size) {
     return int((ascender - descender) * face_height * scale + 0.5);
 }
 
-static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli, int subpixel_scale) {
+static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli, int subpixel_scale) {
     const int height = ren_buf.height();
-    int x0 = gli->x0 * subpixel_scale, x1 = gli->x1 * subpixel_scale;
-    int y0 = gli->y0, y1 = gli->y1;
-    for (int y = gli->y0; y < gli->y1; y++) {
+    int x0 = gli.x0 * subpixel_scale, x1 = gli.x1 * subpixel_scale;
+    int y0 = gli.y0, y1 = gli.y1;
+    for (int y = gli.y0; y < gli.y1; y++) {
         uint8_t *row = ren_buf.row_ptr(height - 1 - y);
         unsigned int row_bitsum = 0;
         for (int x = x0; x < x1; x++) {
@@ -75,7 +75,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli
             break;
         }
     }
-    for (int y = gli->y1 - 1; y >= y0; y--) {
+    for (int y = gli.y1 - 1; y >= y0; y--) {
         uint8_t *row = ren_buf.row_ptr(height - 1 - y);
         unsigned int row_bitsum = 0;
         for (int x = x0; x < x1; x++) {
@@ -87,7 +87,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli
             break;
         }
     }
-    for (int x = gli->x0 * subpixel_scale; x < gli->x1 * subpixel_scale; x += subpixel_scale) {
+    for (int x = gli.x0 * subpixel_scale; x < gli.x1 * subpixel_scale; x += subpixel_scale) {
         unsigned int xaccu = 0;
         for (int y = y0; y < y1; y++) {
             uint8_t *row = ren_buf.row_ptr(height - 1 - y);
@@ -101,7 +101,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli
             break;
         }
     }
-    for (int x = (gli->x1 - 1) * subpixel_scale; x >= x0; x -= subpixel_scale) {
+    for (int x = (gli.x1 - 1) * subpixel_scale; x >= x0; x -= subpixel_scale) {
         unsigned int xaccu = 0;
         for (int y = y0; y < y1; y++) {
             uint8_t *row = ren_buf.row_ptr(height - 1 - y);
@@ -115,12 +115,32 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo *gli
             break;
         }
     }
-    gli->xoff += (x0 / subpixel_scale) - gli->x0;
-    gli->yoff += (y0 - gli->y0);
-    gli->x0 = x0 / subpixel_scale;
-    gli->y0 = y0;
-    gli->x1 = x1 / subpixel_scale;
-    gli->y1 = y1;
+    gli.xoff += (x0 / subpixel_scale) - gli.x0;
+    gli.yoff += (y0 - gli.y0);
+    gli.x0 = x0 / subpixel_scale;
+    gli.y0 = y0;
+    gli.x1 = x1 / subpixel_scale;
+    gli.y1 = y1;
+}
+
+static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distribution_lut& lcd_lut, GlyphBitmapInfo& gli) {
+    const int subpixel = 3;
+    const int x0 = gli.x0, y0 = gli.y0, x1 = gli.x1, y1 = gli.y1;
+    const int len = (x1 - x0) * subpixel;
+    const int height = ren_buf.height();
+    agg::int8u *covers_buf = new agg::int8u[len + 2 * subpixel];
+    memset(covers_buf, 0, len + 2 * subpixel);
+    for (int y = y0; y < y1; y++) {
+        agg::int8u *covers = ren_buf.row_ptr(height - 1 - y) + x0 * subpixel;
+        memcpy(covers_buf + subpixel, covers, len);
+        for (int x = x0 - 1; x < x1 + 1; x++) {
+            for (int i = 0; i < subpixel; i++) {
+                const int cx = (x - x0) * subpixel + i;
+                covers[cx] = lcd_lut.convolution(covers_buf + subpixel, cx, -2, len + 2 - 1);
+            }
+        }
+    }
+    delete [] covers_buf;
 }
 
 static int ceil_to_multiple(int n, int p) {
@@ -145,6 +165,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     const int pad_y = font_height / 10;
     const int y_step = font_height + 2 * pad_y;
 
+    agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     agg::rendering_buffer ren_buf((agg::int8u *) pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
     // When using subpixel font rendering it is needed to leave a padding pixel on the left and on the right.
     // Since each pixel is composed by n subpixel we set below x_start to subpixel_scale instead than zero.
@@ -173,18 +194,22 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         renderer_alpha.render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint, subpixel_scale);
         int x_next_i = (subpixel_scale == 1 ? int(x_next + 1.0) : ceil_to_multiple(x_next + 0.5, subpixel_scale));
 
+        // Below x and x_next_i will always be integer multiples of subpixel_scale.
         GlyphBitmapInfo& glyph_info = glyphs[i];
         glyph_info.x0 = x / subpixel_scale;
-        glyph_info.y0 = pixels_height - (y_baseline + ascender_px  + pad_y);
+        glyph_info.y0 = pixels_height - 1 - (y_baseline + ascender_px  + pad_y); // FIXME: add -1 ?
         glyph_info.x1 = x_next_i / subpixel_scale;
-        glyph_info.y1 = pixels_height - (y_baseline + descender_px - pad_y);
+        glyph_info.y1 = pixels_height - 1 - (y_baseline + descender_px - pad_y); // FIXME: add -1 ?
 
         glyph_info.xoff = 0;
         glyph_info.yoff = -pad_y;
         glyph_info.xadvance = (x_next - x) / subpixel_scale;
 
-        glyph_trim_rect(ren_buf, &glyph_info, subpixel_scale);
+        glyph_lut_convolution(ren_buf, lcd_lut, glyph_info);
+        glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
 
+        // FIXME: check if we don't need to add to x.
+        // When subpixel is activated we need at least two more subpixels on the right.
         x = x_next_i;
     }
     return res;
@@ -221,29 +246,21 @@ void blend_solid_hspan(agg::rendering_buffer& rbuf, blender_gamma_type& blender,
         while(--len);
     }
 }
-
+#if 0
 static int floor_div(int a, int b) {
     if (a < 0) {
         return -((-a + b - 1) / b);
     }
     return a / b;
 }
-
+#endif
 void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma, agg::lcd_distribution_lut& lcd_lut,
-    int x_lcd, int y, unsigned len,
+    int x, int y, unsigned len,
     const agg::rgba8& c,
     const agg::int8u* covers)
 {
-    // cx being negative here and cx_max greater than 'len' means we will
-    // adress the 'covers' array beyond its formal limits here [0, len-1] by -subpixel_scale on the
-    // left and +subpixel_scale on the right.
-    // We assume it is safe to do so because the data are coming from FontRendererBakeFontBitmap
-    // and this latter function leaves three padding pixels on the left and on the right of the buffer.
-    int cx = -2;
-    int cx_max = len + 1;
-
-    const int x_min = floor_div(x_lcd + cx, 3);
-    const int x_max = floor_div(x_lcd + cx_max, 3);
+    const int x_min = x;
+    const int x_max = x + len / 3;
 
     const int pixel_size = 4;
     const agg::int8u rgb[3] = { c.r, c.g, c.b };
@@ -251,12 +268,13 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
 
     // Indexes to adress RGB colors in a BGRA32 format.
     const int pixel_index[3] = {2, 1, 0};
-    for (int x = x_min; x <= x_max; x++)
+    for (int xp = x_min; xp <= x_max; xp++)
     {
         for (int i = 0; i < 3; i++) {
-            int new_cx = x * 3 - x_lcd + i;
-            unsigned c_conv = lcd_lut.convolution(covers, new_cx, 0, len - 1);
-            unsigned alpha = (c_conv + 1) * (c.a + 1);
+            int cx = xp * 3 - x + i;
+            // unsigned c_conv = lcd_lut.convolution(covers, new_cx, 0, len - 1);
+            unsigned cover_value = covers[cx];
+            unsigned alpha = (cover_value + 1) * (c.a + 1);
             unsigned dst_col = gamma.dir(rgb[i]);
             unsigned src_col = gamma.dir(*(p + pixel_index[i]));
             *(p + pixel_index[i]) = gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
