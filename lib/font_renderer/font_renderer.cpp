@@ -208,6 +208,9 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         glyph_info.yoff = -pad_y;
         glyph_info.xadvance = (x_next - x) / subpixel_scale;
 
+#ifdef FONT_RENDERER_DEBUG
+        glyph_info.ybaseline = pixels_height - 1 - y_baseline;
+#endif
         if (glyph_info.x1 > glyph_info.x0) {
             glyph_lut_convolution(ren_buf, lcd_lut, cover_swap_buffer, glyph_info);
         }

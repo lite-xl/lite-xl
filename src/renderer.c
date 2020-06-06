@@ -152,6 +152,22 @@ void debug_bitmap_draw_rect(RenImage *image, GlyphBitmapInfo *glyph) {
     c[y * w].g = c[y * w].g >> 1;
     c[y * w].b = c[y * w].b >> 1;
   }
+  c = image->pixels + glyph->ybaseline * w;
+  for (int x = x0 * subpixel; x < x1 * subpixel; x++) {
+    c[x].g = c[x].g >> 1;
+    c[x].r = c[x].r >> 1;
+  }
+  const int x_or = x0 - glyph->xoff, y_or = y0 - glyph->yoff;
+  c = image->pixels + y_or * w;
+  for (int x = x_or * subpixel; x < x1 * subpixel; x++) {
+    c[x].b = c[x].b >> 1;
+    c[x].r = c[x].r >> 1;
+  }
+  c = image->pixels + x_or * subpixel;
+  for (int y = y_or; y < y1; y++) {
+    c[y * w].b = c[y * w].b >> 1;
+    c[y * w].r = c[y * w].r >> 1;
+  }
 }
 #endif
 

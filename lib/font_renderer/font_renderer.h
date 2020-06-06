@@ -11,6 +11,9 @@ extern "C" {
 typedef struct {
   unsigned short x0, y0, x1, y1;
   float xoff, yoff, xadvance;
+#ifdef FONT_RENDERER_DEBUG
+  int ybaseline;
+#endif
 } GlyphBitmapInfo;
 
 struct FontRendererImpl;
