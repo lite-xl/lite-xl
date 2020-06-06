@@ -147,7 +147,7 @@ static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distri
     const int height = ren_buf.height();
     for (int y = y0; y < y1; y++) {
         // FIXME: clarify why we do not use height - 1 below.
-        agg::int8u *covers = ren_buf.row_ptr(height - y) + x0 * subpixel;
+        agg::int8u *covers = ren_buf.row_ptr(height - 1 - y) + x0 * subpixel;
         memcpy(covers_buf, covers, len);
 #if 0
         if (len >= 24) {
@@ -190,18 +190,20 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     double ascender, descender;
     renderer_alpha.get_font_vmetrics(ascender, descender);
 
-    const int ascender_px  = int(ascender  * font_height + 0.5);
-    const int descender_px = int(descender * font_height + 0.5);
+    // FIXME: depending how we approximate ascender - descender could differ from font_height
+    const int ascender_px  =  int( ascender  * font_height + 1.0);
+    const int descender_px = -int(-descender * font_height + 1.0);
+    const int font_height_ext = ascender_px - descender_px;
 
     const int pad_y = font_height / 10;
-    const int y_step = font_height + 2 * pad_y;
+    const int y_step = font_height_ext + 2 * pad_y;
 
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     agg::rendering_buffer ren_buf((agg::int8u *) pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
     // When using subpixel font rendering it is needed to leave a padding pixel on the left and on the right.
     // Since each pixel is composed by n subpixel we set below x_start to subpixel_scale instead than zero.
     const int x_start = subpixel_scale;
-    int x = x_start, y = pixels_height;
+    int x = x_start, y = pixels_height - 1; // - 20; // -20 is for debug
     int res = 0;
     const agg::alpha8 text_color(0xff);
 #ifdef FONT_RENDERER_HEIGHT_HACK
@@ -209,28 +211,30 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
 #else
     const int font_height_reduced = font_height;
 #endif
+    fprintf(stderr, "FONT HEIGHT %d, ASCENDER: %d DESCENDER: %d\n", font_height, ascender_px, descender_px);
     for (int i = 0; i < num_chars; i++) {
         int codepoint = first_char + i;
         if (x + font_height * subpixel_scale > pixels_width * subpixel_scale) {
             x = x_start;
             y -= y_step;
         }
-        if (y - font_height - 2 * pad_y < 0) {
+        if (y - y_step < 0) {
             res = -1;
             break;
         }
-        const int y_baseline = y - pad_y - font_height;
+        const int y_baseline = y - pad_y - ascender_px;
 
         double x_next = x, y_next = y_baseline;
+        fprintf(stderr, "GLYPH (%d, %d)\n", x, y_baseline);
         renderer_alpha.render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint, subpixel_scale);
         int x_next_i = (subpixel_scale == 1 ? int(x_next + 1.0) : ceil_to_multiple(x_next + 0.5, subpixel_scale));
 
         // Below x and x_next_i will always be integer multiples of subpixel_scale.
         GlyphBitmapInfo& glyph_info = glyphs[i];
         glyph_info.x0 = x / subpixel_scale;
-        glyph_info.y0 = pixels_height - (y_baseline + ascender_px  + pad_y); // FIXME: add -1 ?
+        glyph_info.y0 = pixels_height - 1 - (y_baseline + ascender_px  + pad_y); // FIXME: add -1 ?
         glyph_info.x1 = x_next_i / subpixel_scale;
-        glyph_info.y1 = pixels_height - (y_baseline + descender_px - pad_y); // FIXME: add -1 ?
+        glyph_info.y1 = pixels_height - 1 - (y_baseline + descender_px - pad_y); // FIXME: add -1 ?
 
         glyph_info.xoff = 0;
         glyph_info.yoff = -pad_y;
@@ -240,7 +244,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
             agg::int8u *covers_buf = ren_buf.row_ptr(0);
             glyph_lut_convolution(ren_buf, lcd_lut, covers_buf, glyph_info);
         }
-        glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
+        // glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
 
         // When subpixel is activated we need at least two more subpixels on the right.
         x = x_next_i + 2 * subpixel_scale;
