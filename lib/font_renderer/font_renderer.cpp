@@ -160,13 +160,11 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     double ascender, descender;
     renderer_alpha.get_font_vmetrics(ascender, descender);
 
-    // FIXME: depending how we approximate ascender - descender could differ from font_height
-    const int ascender_px  =  int( ascender  * font_height + 1.0);
-    const int descender_px = -int(-descender * font_height + 1.0);
-    const int font_height_ext = ascender_px - descender_px;
+    const int ascender_px  = int(ascender * font_height);
+    const int descender_px = ascender_px - font_height;
 
     const int pad_y = font_height / 10;
-    const int y_step = font_height_ext + 2 * pad_y;
+    const int y_step = font_height + 2 * pad_y;
 
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     agg::rendering_buffer ren_buf((agg::int8u *) pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
