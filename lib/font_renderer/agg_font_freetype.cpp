@@ -413,6 +413,7 @@ namespace agg
     {
         int i;
         const int8u* buf = (const int8u*)bitmap.buffer;
+        const int bitmap_rows = bitmap.rows, bitmap_width = bitmap.width;
         int pitch = bitmap.pitch;
         sl.reset(x, x + bitmap.width);
         storage.prepare();
@@ -422,12 +423,12 @@ namespace agg
             y += bitmap.rows;
             pitch = -pitch;
         }
-        for(i = 0; i < bitmap.rows; i++)
+        for(i = 0; i < bitmap_rows; i++)
         {
             sl.reset_spans();
             bitset_iterator bits(buf, 0);
             int j;
-            for(j = 0; j < bitmap.width; j++)
+            for(j = 0; j < bitmap_width; j++)
             {
                 if(bits.bit()) sl.add_cell(x + j, cover_full);
                 ++bits;
@@ -454,6 +455,7 @@ namespace agg
     {
         int i, j;
         const int8u* buf = (const int8u*)bitmap.buffer;
+        const int bitmap_rows = bitmap.rows, bitmap_width = bitmap.width;
         int pitch = bitmap.pitch;
         sl.reset(x, x + bitmap.width);
         storage.prepare();
@@ -463,11 +465,11 @@ namespace agg
             y += bitmap.rows;
             pitch = -pitch;
         }
-        for(i = 0; i < bitmap.rows; i++)
+        for(i = 0; i < bitmap_rows; i++)
         {
             sl.reset_spans();
             const int8u* p = buf;
-            for(j = 0; j < bitmap.width; j++)
+            for(j = 0; j < bitmap_width; j++)
             {
                 if(*p) sl.add_cell(x + j, ras.apply_gamma(*p));
                 ++p;
