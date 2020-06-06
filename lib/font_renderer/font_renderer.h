@@ -19,6 +19,7 @@ typedef struct FontRendererImpl FontRenderer;
 enum {
     FONT_RENDERER_HINTING  = 1 << 0,
     FONT_RENDERER_KERNING  = 1 << 1,
+    FONT_RENDERER_SUBPIXEL = 1 << 2,
 };
 
 typedef struct {

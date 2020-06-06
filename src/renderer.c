@@ -232,7 +232,7 @@ RenFont* ren_load_font(const char *filename, float size) {
   font->size = size;
 
   const float gamma = 1.5;
-  font->renderer = FontRendererNew(FONT_RENDERER_HINTING, gamma);
+  font->renderer = FontRendererNew(FONT_RENDERER_HINTING|FONT_RENDERER_SUBPIXEL, gamma);
   if (FontRendererLoadFont(font->renderer, filename)) {
     free(font);
     return NULL;

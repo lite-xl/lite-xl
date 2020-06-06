@@ -14,8 +14,8 @@ public:
     // Conventional LUT values: (1./3., 2./9., 1./9.)
     // The values below are fine tuned as in the Elementary Plot library.
 
-    FontRendererImpl(bool hinting, bool kerning, float gamma_value) :
-        m_renderer(hinting, kerning),
+    FontRendererImpl(bool hinting, bool kerning, bool subpixel, float gamma_value) :
+        m_renderer(hinting, kerning, subpixel),
         m_gamma_lut(double(gamma_value)),
         m_blender(),
         m_lcd_lut(0.448, 0.184, 0.092)
@@ -38,7 +38,8 @@ private:
 FontRenderer *FontRendererNew(unsigned int flags, float gamma) {
     bool hinting = ((flags & FONT_RENDERER_HINTING) != 0);
     bool kerning = ((flags & FONT_RENDERER_KERNING) != 0);
-    return new FontRendererImpl(hinting, kerning, gamma);
+    bool subpixel = ((flags & FONT_RENDERER_SUBPIXEL) != 0);
+    return new FontRendererImpl(hinting, kerning, subpixel, gamma);
 }
 
 void FontRendererFree(FontRenderer *font_renderer) {
@@ -180,6 +181,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
 #else
     const int font_height_reduced = font_height;
 #endif
+    renderer_alpha.set_font_height(font_height_reduced);
     agg::int8u *cover_swap_buffer = new agg::int8u[pixels_width * subpixel_scale];
     for (int i = 0; i < num_chars; i++) {
         int codepoint = first_char + i;
@@ -194,7 +196,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         const int y_baseline = y - pad_y - ascender_px;
 
         double x_next = x, y_next = y_baseline;
-        renderer_alpha.render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint, subpixel_scale);
+        renderer_alpha.render_codepoint(ren_buf, text_color, x_next, y_next, codepoint, subpixel_scale);
         int x_next_i = (subpixel_scale == 1 ? int(x_next + 1.0) : ceil_to_multiple(x_next + 0.5, subpixel_scale));
 
         // Below x and x_next_i will always be integer multiples of subpixel_scale.

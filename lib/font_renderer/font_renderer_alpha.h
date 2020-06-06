@@ -26,6 +26,7 @@ class font_renderer_alpha
     // Font rendering options.
     bool m_hinting;
     bool m_kerning;
+    bool m_subpixel;
 
     bool m_font_loaded;
 
@@ -36,11 +37,12 @@ class font_renderer_alpha
 public:
     typedef agg::pixfmt_alpha8::color_type color_type;
 
-    font_renderer_alpha(bool hinting, bool kerning):
+    font_renderer_alpha(bool hinting, bool kerning, bool subpixel):
         m_feng(),
         m_fman(m_feng),
         m_hinting(hinting),
         m_kerning(kerning),
+        m_subpixel(subpixel),
         m_font_loaded(false),
         m_curves(m_fman.path_adaptor()),
         m_trans(m_curves, m_mtx)
@@ -74,20 +76,28 @@ public:
     bool load_font(const char *font_filename) {
         if(m_feng.load_font(font_filename, 0, agg::glyph_ren_outline)) {
             m_font_loaded = true;
+            m_feng.hinting(m_hinting);
         }
         return m_font_loaded;
+    }
+
+    void set_font_height(double height) {
+        const double scale_x = 100.0;
+        m_feng.height(height);
+        if (m_subpixel) {
+            const int subpixel_scale = 3;
+            m_feng.width(height * scale_x * subpixel_scale);
+        } else {
+            m_feng.width(height * scale_x);
+        }
     }
 
     template<class Rasterizer, class Scanline, class RenSolid>
     void draw_codepoint(Rasterizer& ras, Scanline& sl, 
         RenSolid& ren_solid, const color_type color,
-        int codepoint, double& x, double& y, double height, int subpixel_scale)
+        int codepoint, double& x, double& y, int subpixel_scale)
     {
         const double scale_x = 100;
-
-        m_feng.height(height);
-        m_feng.width(height * scale_x * subpixel_scale);
-        m_feng.hinting(m_hinting);
 
         // Represent the delta in x scaled by scale_x.
         double x_delta = 0;
@@ -126,7 +136,6 @@ public:
     }
 
     void render_codepoint(agg::rendering_buffer& ren_buf,
-        const double text_size,
         const color_type text_color,
         double& x, double& y,
         int codepoint, int subpixel_scale)
@@ -141,6 +150,6 @@ public:
         agg::pixfmt_alpha8 pf(ren_buf);
         base_ren_type ren_base(pf);
         renderer_solid ren_solid(ren_base);
-        draw_codepoint(ras, sl, ren_solid, text_color, codepoint, x, y, text_size, subpixel_scale);
+        draw_codepoint(ras, sl, ren_solid, text_color, codepoint, x, y, subpixel_scale);
     }
 };
