@@ -151,7 +151,7 @@ static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distri
         for (int x = x0 - 1; x < x1 + 1; x++) {
             for (int i = 0; i < subpixel; i++) {
                 const int cx = (x - x0) * subpixel + i;
-                covers[cx] = lcd_lut.convolution(covers, cx, 0, len - 1);
+                covers[cx] = lcd_lut.convolution(covers_buf, cx, 0, len - 1);
             }
         }
     }
