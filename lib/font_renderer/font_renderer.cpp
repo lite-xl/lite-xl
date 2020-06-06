@@ -123,23 +123,6 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli
     gli.y1 = y1;
 }
 
-static void debug_print_covers(const char *msg, agg::int8u *b, int n_pre, int n, int n_post) {
-    fprintf(stderr, "%s", msg);
-    for (int i = 0; i < n_pre; i++) {
-        if (i % 3 == 0) fprintf(stderr, "|");
-        fprintf(stderr, "   ");
-    }
-    for (int i = 0; i < n; i++) {
-        if (i % 3 == 0) fprintf(stderr, "|");
-        fprintf(stderr, " %02x", b[i]);
-    }
-    for (int i = 0; i < n_post; i++) {
-        if (i % 3 == 0) fprintf(stderr, "|");
-        fprintf(stderr, "   ");
-    }
-    fprintf(stderr, "\n");
-}
-
 static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distribution_lut& lcd_lut, agg::int8u *covers_buf, GlyphBitmapInfo& gli) {
     const int subpixel = 3;
     const int x0 = gli.x0, y0 = gli.y0, x1 = gli.x1, y1 = gli.y1;
