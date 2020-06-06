@@ -146,28 +146,14 @@ static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distri
     const int len = (x1 - x0) * subpixel;
     const int height = ren_buf.height();
     for (int y = y0; y < y1; y++) {
-        // FIXME: clarify why we do not use height - 1 below.
         agg::int8u *covers = ren_buf.row_ptr(height - 1 - y) + x0 * subpixel;
         memcpy(covers_buf, covers, len);
-#if 0
-        if (len >= 24) {
-        debug_print_covers("BUF   ", covers_buf, 0, len + 2 * subpixel, 0);
-        debug_print_covers("BEFORE", covers - subpixel, 0, len + 2 * subpixel, 0);
-        }
-#endif
         for (int x = x0 - 1; x < x1 + 1; x++) {
             for (int i = 0; i < subpixel; i++) {
                 const int cx = (x - x0) * subpixel + i;
                 covers[cx] = lcd_lut.convolution(covers, cx, 0, len - 1);
             }
         }
-#if 0
-        if (len >= 24) {
-        debug_print_covers("AFTER ", covers - subpixel, 0, len + 2 * subpixel, 0);
-        char c;
-        scanf("%c", &c);
-        }
-#endif
     }
     gli.x0 -= 1;
     gli.x1 += 1;
@@ -203,7 +189,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     // When using subpixel font rendering it is needed to leave a padding pixel on the left and on the right.
     // Since each pixel is composed by n subpixel we set below x_start to subpixel_scale instead than zero.
     const int x_start = subpixel_scale;
-    int x = x_start, y = pixels_height - 1; // - 20; // -20 is for debug
+    int x = x_start, y = pixels_height - 1;
     int res = 0;
     const agg::alpha8 text_color(0xff);
 #ifdef FONT_RENDERER_HEIGHT_HACK
@@ -211,7 +197,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
 #else
     const int font_height_reduced = font_height;
 #endif
-    fprintf(stderr, "FONT HEIGHT %d, ASCENDER: %d DESCENDER: %d\n", font_height, ascender_px, descender_px);
+    agg::int8u *cover_swap_buffer = new agg::int8u[pixels_width * subpixel_scale];
     for (int i = 0; i < num_chars; i++) {
         int codepoint = first_char + i;
         if (x + font_height * subpixel_scale > pixels_width * subpixel_scale) {
@@ -225,7 +211,6 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         const int y_baseline = y - pad_y - ascender_px;
 
         double x_next = x, y_next = y_baseline;
-        fprintf(stderr, "GLYPH (%d, %d)\n", x, y_baseline);
         renderer_alpha.render_codepoint(ren_buf, font_height_reduced, text_color, x_next, y_next, codepoint, subpixel_scale);
         int x_next_i = (subpixel_scale == 1 ? int(x_next + 1.0) : ceil_to_multiple(x_next + 0.5, subpixel_scale));
 
@@ -241,14 +226,14 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         glyph_info.xadvance = (x_next - x) / subpixel_scale;
 
         if (glyph_info.x1 > glyph_info.x0) {
-            agg::int8u *covers_buf = ren_buf.row_ptr(0);
-            glyph_lut_convolution(ren_buf, lcd_lut, covers_buf, glyph_info);
+            glyph_lut_convolution(ren_buf, lcd_lut, cover_swap_buffer, glyph_info);
         }
-        // glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
+        glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
 
-        // When subpixel is activated we need at least two more subpixels on the right.
+        // When subpixel is activated we need one padding pixel on the left and on the right.
         x = x_next_i + 2 * subpixel_scale;
     }
+    delete [] cover_swap_buffer;
     return res;
 }
 

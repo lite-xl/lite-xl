@@ -126,6 +126,7 @@ void ren_free_coverage(RenCoverageImage *coverage) {
   free(coverage);
 }
 
+#ifdef FONT_RENDERER_DEBUG
 void debug_bitmap_draw_rect(RenImage *image, GlyphBitmapInfo *glyph) {
   const int subpixel = 3;
   const int x0 = glyph->x0, x1 = glyph->x1;
@@ -152,6 +153,7 @@ void debug_bitmap_draw_rect(RenImage *image, GlyphBitmapInfo *glyph) {
     c[y * w].b = c[y * w].b >> 1;
   }
 }
+#endif
 
 static GlyphSet* load_glyphset(RenFont *font, int idx) {
   GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
@@ -176,32 +178,34 @@ retry:
     goto retry;
   }
 
+#ifdef FONT_RENDERER_DEBUG
   static int debug_image_index = 1;
   if (idx == 0) {
-  // DEBUG CODE
-  RenImage *debug_cov_image = ren_new_image(width * subpixel_scale, height);
-  for (int h = 0; h < height; h++) {
-    RenColor *d = debug_cov_image->pixels + h * width * subpixel_scale;
-    uint8_t *s = set->coverage->pixels + h * subpixel_scale * width;
-    for (int w = 0; w < width * subpixel_scale; w++) {
-      uint8_t cover = s[w];
-      d[w] = (RenColor) {.b = 0xff - cover, .g = 0xff - cover, .r = 0xff - cover, .a = 0xff};
+    RenImage *debug_cov_image = ren_new_image(width * subpixel_scale, height);
+    for (int h = 0; h < height; h++) {
+      RenColor *d = debug_cov_image->pixels + h * width * subpixel_scale;
+      uint8_t *s = set->coverage->pixels + h * subpixel_scale * width;
+      for (int w = 0; w < width * subpixel_scale; w++) {
+        uint8_t cover = s[w];
+        d[w] = (RenColor) {.b = 0xff - cover, .g = 0xff - cover, .r = 0xff - cover, .a = 0xff};
+      }
     }
+    for (int i = 0; i < 256; i++) {
+      debug_bitmap_draw_rect(debug_cov_image, &set->glyphs[i]);
+    }
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(
+        debug_cov_image->pixels,
+        width * subpixel_scale, height, 32, width * subpixel_scale * 4,
+        SDL_PIXELFORMAT_RGBA32);
+    char img_filename[64];
+    sprintf(img_filename, "agg-glyphset-%03d.bmp", debug_image_index);
+    SDL_SaveBMP(surface, img_filename);
+    SDL_FreeSurface(surface);
+    ren_free_image(debug_cov_image);
+    debug_image_index++;
   }
-  for (int i = 0; i < 256; i++) {
-    debug_bitmap_draw_rect(debug_cov_image, &set->glyphs[i]);
-  }
-  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(
-      debug_cov_image->pixels,
-      width * subpixel_scale, height, 32, width * subpixel_scale * 4,
-      SDL_PIXELFORMAT_RGBA32);
-  char img_filename[64];
-  sprintf(img_filename, "agg-glyphset-%03d.bmp", debug_image_index);
-  SDL_SaveBMP(surface, img_filename);
-  SDL_FreeSurface(surface);
-  ren_free_image(debug_cov_image);
-  debug_image_index++;
-  }
+#endif
+
   /* adjust glyph's xadvance */
   for (int i = 0; i < 256; i++) {
     set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance + 0.5);
