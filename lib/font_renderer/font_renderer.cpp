@@ -64,7 +64,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli
     int x0 = gli.x0 * subpixel_scale, x1 = gli.x1 * subpixel_scale;
     int y0 = gli.y0, y1 = gli.y1;
     for (int y = gli.y0; y < gli.y1; y++) {
-        uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+        const uint8_t *row = ren_buf.row_ptr(height - 1 - y);
         unsigned int row_bitsum = 0;
         for (int x = x0; x < x1; x++) {
             row_bitsum |= row[x];
@@ -76,7 +76,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli
         }
     }
     for (int y = gli.y1 - 1; y >= y0; y--) {
-        uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+        const uint8_t *row = ren_buf.row_ptr(height - 1 - y);
         unsigned int row_bitsum = 0;
         for (int x = x0; x < x1; x++) {
             row_bitsum |= row[x];
@@ -90,7 +90,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli
     for (int x = gli.x0 * subpixel_scale; x < gli.x1 * subpixel_scale; x += subpixel_scale) {
         unsigned int xaccu = 0;
         for (int y = y0; y < y1; y++) {
-            uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+            const uint8_t *row = ren_buf.row_ptr(height - 1 - y);
             for (int i = 0; i < subpixel_scale; i++) {
                 xaccu |= row[x + i];
             }
@@ -104,7 +104,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli
     for (int x = (gli.x1 - 1) * subpixel_scale; x >= x0; x -= subpixel_scale) {
         unsigned int xaccu = 0;
         for (int y = y0; y < y1; y++) {
-            uint8_t *row = ren_buf.row_ptr(height - 1 - y);
+            const uint8_t *row = ren_buf.row_ptr(height - 1 - y);
             for (int i = 0; i < subpixel_scale; i++) {
                 xaccu |= row[x + i];
             }
