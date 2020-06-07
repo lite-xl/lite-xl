@@ -6,7 +6,6 @@ libdl = cc.find_library('dl', required : false)
 
 lua_dep = dependency('lua')
 sdl_dep = dependency('sdl2', method: 'config-tool')
-stb_truetype_dep = dependency('stb_truetype')
 
 lite_include = include_directories('src')
 install_subdir('data', install_dir : 'bin')
@@ -24,4 +23,4 @@ endif
 
 subdir('lib/font_renderer')
 subdir('src')
-subdir('tests')
+
