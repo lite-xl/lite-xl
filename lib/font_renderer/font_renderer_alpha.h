@@ -52,18 +52,13 @@ public:
         return m_feng.face_height();
     }
 
-    bool get_font_vmetrics(double& ascender, double& descender) {
-        int face_height = m_feng.face_height();
-        if (face_height > 0) {
-            double current_height = m_feng.height();
-            m_feng.height(1.0);
-            ascender  = m_feng.ascender();
-            descender = m_feng.descender();
-            m_feng.height(current_height);
-            return true;
-        }
-        return false;
-    }
+    void get_font_vmetrics(double& ascender, double& descender) {
+        double current_height = m_feng.height();
+        m_feng.height(1.0);
+        ascender  = m_feng.ascender();
+        descender = m_feng.descender();
+        m_feng.height(current_height);
+}
 
     float scale_for_em_to_pixels(float size) {
         int units_per_em = m_feng.face_units_em();
