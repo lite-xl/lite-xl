@@ -256,27 +256,23 @@ void blend_solid_hspan(agg::rendering_buffer& rbuf, blender_gamma_type& blender,
 }
 
 void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma, agg::lcd_distribution_lut& lcd_lut,
-    int x, int y, unsigned len,
+    const int x, const int y, unsigned len,
     const agg::rgba8& c,
     const agg::int8u* covers)
 {
-    const int x_min = x;
-    const int x_max = x + len / 3;
-
     const int pixel_size = 4;
     const agg::int8u rgb[3] = { c.r, c.g, c.b };
-    agg::int8u* p = rbuf.row_ptr(y) + x_min * pixel_size;
+    agg::int8u* p = rbuf.row_ptr(y) + x * pixel_size;
 
     // Indexes to adress RGB colors in a BGRA32 format.
     const int pixel_index[3] = {2, 1, 0};
-    for (int xp = x_min; xp <= x_max; xp++)
+    for (unsigned cx = 0; cx < len; cx += 3)
     {
         for (int i = 0; i < 3; i++) {
-            int cx = xp * 3 - x + i;
-            unsigned cover_value = covers[cx];
-            unsigned alpha = (cover_value + 1) * (c.a + 1);
-            unsigned dst_col = gamma.dir(rgb[i]);
-            unsigned src_col = gamma.dir(*(p + pixel_index[i]));
+            const unsigned cover_value = covers[cx + i];
+            const unsigned alpha = (cover_value + 1) * (c.a + 1);
+            const unsigned dst_col = gamma.dir(rgb[i]);
+            const unsigned src_col = gamma.dir(*(p + pixel_index[i]));
             *(p + pixel_index[i]) = gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
         }
         // Leave p[3], the alpha channel value unmodified.
