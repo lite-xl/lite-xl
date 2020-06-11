@@ -7,8 +7,6 @@
   #include <windows.h>
 #elif __linux__
   #include <unistd.h>
-#elif __APPLE__
-  #include <mach-o/dyld.h>
 #endif
 
 
@@ -102,7 +100,7 @@ int main(int argc, char **argv) {
   }
   lua_setglobal(L, "ARGS");
 
-  lua_pushstring(L, "1.06");
+  lua_pushstring(L, "1.07");
   lua_setglobal(L, "VERSION");
 
   lua_pushstring(L, SDL_GetPlatform());
