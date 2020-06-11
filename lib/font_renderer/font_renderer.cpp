@@ -7,7 +7,28 @@
 
 #include "font_renderer_alpha.h"
 
+// Important: when a subpixel scale is used the width below will be the width in logical pixel.
+// As each logical pixel contains 3 subpixels it means that the 'pixels' pointer
+// will hold enough space for '3 * width' uint8_t values.
+struct FontRendererBitmap {
+  agg::int8u *pixels;
+  int width, height;
+};
+
 typedef agg::blender_rgb_gamma<agg::rgba8, agg::order_bgra, agg::gamma_lut<> > blender_gamma_type;
+
+FontRendererBitmap* FontRendererBitmapNew(int width, int height, int subpixel_scale) {
+    FontRendererBitmap *image = (FontRendererBitmap *) malloc(sizeof(FontRendererBitmap) + width * height * subpixel_scale);
+    if (!image) { return NULL; }
+    image->pixels = (agg::int8u *) (image + 1);
+    image->width = width;
+    image->height = height;
+    return image;
+}
+
+void FontRendererBitmapFree(FontRendererBitmap *image) {
+  free(image);
+}
 
 class FontRendererImpl {
 public:
@@ -149,10 +170,13 @@ static int ceil_to_multiple(int n, int p) {
 }
 
 int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
-    void *pixels, int pixels_width, int pixels_height,
+    FontRendererBitmap *image,
     int first_char, int num_chars, GlyphBitmapInfo *glyphs, int subpixel_scale)
 {
     font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
+
+    agg::int8u *pixels = image->pixels;
+    const int pixels_width = image->width, pixels_height = image->height;
 
     const int pixel_size = 1;
     memset(pixels, 0x00, pixels_width * pixels_height * subpixel_scale * pixel_size);
@@ -167,7 +191,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
     const int y_step = font_height + 2 * pad_y;
 
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
-    agg::rendering_buffer ren_buf((agg::int8u *) pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
+    agg::rendering_buffer ren_buf(pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
     // When using subpixel font rendering it is needed to leave a padding pixel on the left and on the right.
     // Since each pixel is composed by n subpixel we set below x_start to subpixel_scale instead than zero.
     const int x_start = subpixel_scale;

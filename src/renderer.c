@@ -104,21 +104,6 @@ void ren_free_image(RenImage *image) {
   free(image);
 }
 
-// FIXME: move this function into FontRenderer and change name.
-FontRendererBitmap* ren_new_coverage_image(int width, int height, int subpixel_scale) {
-  assert(width > 0 && height > 0);
-  FontRendererBitmap *image = malloc(sizeof(FontRendererBitmap) + width * height * subpixel_scale * sizeof(uint8_t));
-  check_alloc(image);
-  image->pixels = (void*) (image + 1);
-  image->width = width;
-  image->height = height;
-  return image;
-}
-
-void ren_free_coverage_image(FontRendererBitmap *image) {
-  free(image);
-}
-
 static GlyphSet* load_glyphset(RenFont *font, int idx) {
   GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
 
@@ -128,17 +113,17 @@ static GlyphSet* load_glyphset(RenFont *font, int idx) {
   int width = 128;
   int height = 128;
 retry:
-  set->image = ren_new_coverage_image(width, height, subpixel_scale);
+  set->image = FontRendererBitmapNew(width, height, subpixel_scale);
+  check_alloc(set->image);
 
   int res = FontRendererBakeFontBitmap(font->renderer, font->height,
-    (void *) set->image->pixels, width, height,
-    idx << 8, 256, set->glyphs, subpixel_scale);
+    set->image, idx << 8, 256, set->glyphs, subpixel_scale);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
     width *= 2;
     height *= 2;
-    ren_free_coverage_image(set->image);
+    FontRendererBitmapFree(set->image);
     goto retry;
   }
 
@@ -188,7 +173,7 @@ void ren_free_font(RenFont *font) {
   for (int i = 0; i < MAX_GLYPHSET; i++) {
     GlyphSet *set = font->sets[i];
     if (set) {
-      ren_free_coverage_image(set->image);
+      FontRendererBitmapFree(set->image);
       free(set);
     }
   }
