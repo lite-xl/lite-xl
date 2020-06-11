@@ -10,15 +10,15 @@
 // Important: when a subpixel scale is used the width below will be the width in logical pixel.
 // As each logical pixel contains 3 subpixels it means that the 'pixels' pointer
 // will hold enough space for '3 * width' uint8_t values.
-struct FontRendererBitmap {
+struct FR_Bitmap {
   agg::int8u *pixels;
   int width, height;
 };
 
 typedef agg::blender_rgb_gamma<agg::rgba8, agg::order_bgra, agg::gamma_lut<> > blender_gamma_type;
 
-FontRendererBitmap* FontRendererBitmapNew(int width, int height, int subpixel_scale) {
-    FontRendererBitmap *image = (FontRendererBitmap *) malloc(sizeof(FontRendererBitmap) + width * height * subpixel_scale);
+FR_Bitmap* FR_Bitmap_New(int width, int height, int subpixel_scale) {
+    FR_Bitmap *image = (FR_Bitmap *) malloc(sizeof(FR_Bitmap) + width * height * subpixel_scale);
     if (!image) { return NULL; }
     image->pixels = (agg::int8u *) (image + 1);
     image->width = width;
@@ -26,16 +26,16 @@ FontRendererBitmap* FontRendererBitmapNew(int width, int height, int subpixel_sc
     return image;
 }
 
-void FontRendererBitmapFree(FontRendererBitmap *image) {
+void FR_Bitmap_Free(FR_Bitmap *image) {
   free(image);
 }
 
-class FontRendererImpl {
+class FR_Impl {
 public:
     // Conventional LUT values: (1./3., 2./9., 1./9.)
     // The values below are fine tuned as in the Elementary Plot library.
 
-    FontRendererImpl(bool hinting, bool kerning, bool subpixel, float gamma_value) :
+    FR_Impl(bool hinting, bool kerning, bool subpixel, float gamma_value) :
         m_renderer(hinting, kerning, subpixel),
         m_gamma_lut(double(gamma_value)),
         m_blender(),
@@ -56,23 +56,23 @@ private:
     agg::lcd_distribution_lut m_lcd_lut;
 };
 
-FontRenderer *FontRendererNew(unsigned int flags, float gamma) {
+FontRenderer *FR_New(unsigned int flags, float gamma) {
     bool hinting = ((flags & FONT_RENDERER_HINTING) != 0);
     bool kerning = ((flags & FONT_RENDERER_KERNING) != 0);
     bool subpixel = ((flags & FONT_RENDERER_SUBPIXEL) != 0);
-    return new FontRendererImpl(hinting, kerning, subpixel, gamma);
+    return new FR_Impl(hinting, kerning, subpixel, gamma);
 }
 
-void FontRendererFree(FontRenderer *font_renderer) {
+void FR_Free(FontRenderer *font_renderer) {
     delete font_renderer;
 }
 
-int FontRendererLoadFont(FontRenderer *font_renderer, const char *filename) {
+int FR_Load_Font(FontRenderer *font_renderer, const char *filename) {
     bool success = font_renderer->renderer_alpha().load_font(filename);
     return (success ? 0 : 1);
 }
 
-int FontRendererGetFontHeight(FontRenderer *font_renderer, float size) {
+int FR_Get_Font_Height(FontRenderer *font_renderer, float size) {
     font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
     double ascender, descender;
     renderer_alpha.get_font_vmetrics(ascender, descender);
@@ -81,7 +81,7 @@ int FontRendererGetFontHeight(FontRenderer *font_renderer, float size) {
     return int((ascender - descender) * face_height * scale + 0.5);
 }
 
-static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli, int subpixel_scale) {
+static void glyph_trim_rect(agg::rendering_buffer& ren_buf, FR_Bitmap_Glyph_Metrics& gli, int subpixel_scale) {
     const int height = ren_buf.height();
     int x0 = gli.x0 * subpixel_scale, x1 = gli.x1 * subpixel_scale;
     int y0 = gli.y0, y1 = gli.y1;
@@ -145,7 +145,7 @@ static void glyph_trim_rect(agg::rendering_buffer& ren_buf, GlyphBitmapInfo& gli
     gli.y1 = y1;
 }
 
-static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distribution_lut& lcd_lut, agg::int8u *covers_buf, GlyphBitmapInfo& gli) {
+static void glyph_lut_convolution(agg::rendering_buffer ren_buf, agg::lcd_distribution_lut& lcd_lut, agg::int8u *covers_buf, FR_Bitmap_Glyph_Metrics& gli) {
     const int subpixel = 3;
     const int x0 = gli.x0, y0 = gli.y0, x1 = gli.x1, y1 = gli.y1;
     const int len = (x1 - x0) * subpixel;
@@ -169,9 +169,9 @@ static int ceil_to_multiple(int n, int p) {
     return p * ((n + p - 1) / p);
 }
 
-int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
-    FontRendererBitmap *image,
-    int first_char, int num_chars, GlyphBitmapInfo *glyphs, int subpixel_scale)
+int FR_Bake_Font_Bitmap(FontRenderer *font_renderer, int font_height,
+    FR_Bitmap *image,
+    int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyphs, int subpixel_scale)
 {
     font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
 
@@ -222,7 +222,7 @@ int FontRendererBakeFontBitmap(FontRenderer *font_renderer, int font_height,
         int x_next_i = (subpixel_scale == 1 ? int(x_next + 1.0) : ceil_to_multiple(x_next + 0.5, subpixel_scale));
 
         // Below x and x_next_i will always be integer multiples of subpixel_scale.
-        GlyphBitmapInfo& glyph_info = glyphs[i];
+        FR_Bitmap_Glyph_Metrics& glyph_info = glyphs[i];
         glyph_info.x0 = x / subpixel_scale;
         glyph_info.y0 = pixels_height - 1 - (y_baseline + ascender_px  + pad_y); // FIXME: add -1 ?
         glyph_info.x1 = x_next_i / subpixel_scale;
@@ -303,7 +303,7 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
 
 #if 0
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage.
-void FontRendererBlendGamma(FontRenderer *font_renderer, uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FontRendererColor color) {
+void FR_Blend_Gamma(FontRenderer *font_renderer, uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FR_Color color) {
     blender_gamma_type& blender = font_renderer->blender();
     agg::rendering_buffer dst_ren_buf(dst, region_width, region_height, dst_stride);
     const agg::rgba8 color_a(color.r, color.g, color.b);
@@ -316,7 +316,7 @@ void FontRendererBlendGamma(FontRenderer *font_renderer, uint8_t *dst, int dst_s
 
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage with subpixel scale = 3.
 // FIXME: consider using something like RenColor* instead of uint8_t * for dst.
-void FontRendererBlendGammaSubpixel(FontRenderer *font_renderer, FontRendererClipArea *clip, int x, int y, uint8_t *dst, int dst_width, const FontRendererBitmap *glyphs_bitmap, const GlyphBitmapInfo *glyph, FontRendererColor color) {
+void FR_Blend_Gamma_Subpixel(FontRenderer *font_renderer, FR_Clip_Area *clip, int x, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
     agg::gamma_lut<>& gamma = font_renderer->gamma();
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     const int subpixel_scale = 3;

@@ -13,8 +13,8 @@ struct RenImage {
 };
 
 struct GlyphSet {
-  FontRendererBitmap *image;
-  GlyphBitmapInfo glyphs[256];
+  FR_Bitmap *image;
+  FR_Bitmap_Glyph_Metrics glyphs[256];
 };
 typedef struct GlyphSet GlyphSet;
 
@@ -29,7 +29,7 @@ struct RenFont {
 
 static SDL_Window *window;
 //static struct { int left, top, right, bottom; } clip;
-static FontRendererClipArea clip;
+static FR_Clip_Area clip;
 
 static void* check_alloc(void *ptr) {
   if (!ptr) {
@@ -113,17 +113,16 @@ static GlyphSet* load_glyphset(RenFont *font, int idx) {
   int width = 128;
   int height = 128;
 retry:
-  set->image = FontRendererBitmapNew(width, height, subpixel_scale);
-  check_alloc(set->image);
+  set->image = check_alloc(FR_Bitmap_New(width, height, subpixel_scale));
 
-  int res = FontRendererBakeFontBitmap(font->renderer, font->height,
+  int res = FR_Bake_Font_Bitmap(font->renderer, font->height,
     set->image, idx << 8, 256, set->glyphs, subpixel_scale);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
     width *= 2;
     height *= 2;
-    FontRendererBitmapFree(set->image);
+    FR_Bitmap_Free(set->image);
     goto retry;
   }
 
@@ -153,15 +152,15 @@ RenFont* ren_load_font(const char *filename, float size) {
   font->size = size;
 
   const float gamma = 1.5;
-  font->renderer = FontRendererNew(FONT_RENDERER_HINTING|FONT_RENDERER_SUBPIXEL, gamma);
-  if (FontRendererLoadFont(font->renderer, filename)) {
+  font->renderer = FR_New(FONT_RENDERER_HINTING|FONT_RENDERER_SUBPIXEL, gamma);
+  if (FR_Load_Font(font->renderer, filename)) {
     free(font);
     return NULL;
   }
-  font->height = FontRendererGetFontHeight(font->renderer, size);
+  font->height = FR_Get_Font_Height(font->renderer, size);
 
   /* make tab and newline glyphs invisible */
-  GlyphBitmapInfo *g = get_glyphset(font, '\n')->glyphs;
+  FR_Bitmap_Glyph_Metrics *g = get_glyphset(font, '\n')->glyphs;
   g['\t'].x1 = g['\t'].x0;
   g['\n'].x1 = g['\n'].x0;
 
@@ -173,11 +172,11 @@ void ren_free_font(RenFont *font) {
   for (int i = 0; i < MAX_GLYPHSET; i++) {
     GlyphSet *set = font->sets[i];
     if (set) {
-      FontRendererBitmapFree(set->image);
+      FR_Bitmap_Free(set->image);
       free(set);
     }
   }
-  FontRendererFree(font->renderer);
+  FR_Free(font->renderer);
   free(font);
 }
 
@@ -195,7 +194,7 @@ int ren_get_font_width(RenFont *font, const char *text) {
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
-    GlyphBitmapInfo *g = &set->glyphs[codepoint & 0xff];
+    FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     x += g->xadvance;
   }
   return x;
@@ -294,17 +293,14 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
   const char *p = text;
   unsigned codepoint;
   SDL_Surface *surf = SDL_GetWindowSurface(window);
-  FontRendererColor color_fr = { .r = color.r, .g = color.g, .b = color.b };
+  FR_Color color_fr = { .r = color.r, .g = color.g, .b = color.b };
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
-    GlyphBitmapInfo *g = &set->glyphs[codepoint & 0xff];
+    FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     if (color.a != 0) {
-      FontRendererBlendGammaSubpixel(
-        font->renderer, &clip,
-        x, y,
-        (uint8_t *) surf->pixels, surf->w,
-        set->image, g, color_fr);
+      FR_Blend_Gamma_Subpixel(font->renderer, &clip,
+        x, y, (uint8_t *) surf->pixels, surf->w, set->image, g, color_fr);
     }
     x += g->xadvance;
   }

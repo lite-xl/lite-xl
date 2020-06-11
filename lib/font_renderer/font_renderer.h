@@ -10,12 +10,12 @@ extern "C" {
 typedef struct {
   unsigned short x0, y0, x1, y1;
   float xoff, yoff, xadvance;
-} GlyphBitmapInfo;
+} FR_Bitmap_Glyph_Metrics;
 
-typedef struct FontRendererBitmap FontRendererBitmap;
+typedef struct FR_Bitmap FR_Bitmap;
 
-struct FontRendererImpl;
-typedef struct FontRendererImpl FontRenderer;
+struct FR_Impl;
+typedef struct FR_Impl FontRenderer;
 
 enum {
     FONT_RENDERER_HINTING  = 1 << 0,
@@ -25,43 +25,43 @@ enum {
 
 typedef struct {
     uint8_t r, g, b;
-} FontRendererColor;
+} FR_Color;
 
 typedef struct {
   int left, top, right, bottom;
-} FontRendererClipArea;
+} FR_Clip_Area;
 
-FontRenderer *  FontRendererNew(unsigned int flags, float gamma);
+FontRenderer *  FR_New(unsigned int flags, float gamma);
 
-void            FontRendererFree(FontRenderer *);
+void            FR_Free(FontRenderer *);
 
-int             FontRendererLoadFont(FontRenderer *, const char *filename);
+int             FR_Load_Font(FontRenderer *, const char *filename);
 
-int             FontRendererGetFontHeight(FontRenderer *, float size);
+int             FR_Get_Font_Height(FontRenderer *, float size);
 
-int             FontRendererBakeFontBitmap(FontRenderer *, int font_height,
-                    FontRendererBitmap *image,
-                    int first_char, int num_chars, GlyphBitmapInfo *glyph_info,
+int             FR_Bake_Font_Bitmap(FontRenderer *, int font_height,
+                    FR_Bitmap *image,
+                    int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyph_info,
                     int subpixel_scale);
 
 #if 0
 // FIXME: this function needs to be updated to match BlendGammaSubpixel.
-void            FontRendererBlendGamma(FontRenderer *,
+void            FR_Blend_Gamma(FontRenderer *,
                     uint8_t *dst, int dst_stride,
                     uint8_t *src, int src_stride,
                     int region_width, int region_height,
-                    FontRendererColor color);
+                    FR_Color color);
 #endif
 
-void            FontRendererBlendGammaSubpixel(FontRenderer *font_renderer,
-                    FontRendererClipArea *clip, int x, int y,
+void            FR_Blend_Gamma_Subpixel(FontRenderer *font_renderer,
+                    FR_Clip_Area *clip, int x, int y,
                     uint8_t *dst, int dst_width,
-                    const FontRendererBitmap *glyphs_bitmap,
-                    const GlyphBitmapInfo *glyph, FontRendererColor color);
+                    const FR_Bitmap *glyphs_bitmap,
+                    const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color);
 
-FontRendererBitmap* FontRendererBitmapNew(int width, int height, int subpixel_scale);
+FR_Bitmap* FR_Bitmap_New(int width, int height, int subpixel_scale);
 
-void FontRendererBitmapFree(FontRendererBitmap *image);
+void FR_Bitmap_Free(FR_Bitmap *image);
 
 #ifdef __cplusplus
 }
