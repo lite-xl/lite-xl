@@ -23,7 +23,7 @@ struct RenFont {
   GlyphSet *sets[MAX_GLYPHSET];
   float size;
   int height;
-  FontRenderer *renderer;
+  FR_Renderer *renderer;
 };
 
 
@@ -149,7 +149,7 @@ RenFont* ren_load_font(const char *filename, float size) {
   font->size = size;
 
   const float gamma = 1.5;
-  font->renderer = FR_New(FR_HINTING | FR_SUBPIXEL, gamma);
+  font->renderer = FR_Renderer_New(FR_HINTING | FR_SUBPIXEL, gamma);
   if (FR_Load_Font(font->renderer, filename)) {
     free(font);
     return NULL;
@@ -173,7 +173,7 @@ void ren_free_font(RenFont *font) {
       free(set);
     }
   }
-  FR_Free(font->renderer);
+  FR_Renderer_Free(font->renderer);
   free(font);
 }
 

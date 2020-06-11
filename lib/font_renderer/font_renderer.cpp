@@ -39,14 +39,14 @@ private:
     int m_subpixel;
 };
 
-FontRenderer *FR_New(unsigned int flags, float gamma) {
+FR_Renderer *FR_Renderer_New(unsigned int flags, float gamma) {
     bool hinting  = ((flags & FR_HINTING) != 0);
     bool kerning  = ((flags & FR_KERNING) != 0);
     bool subpixel = ((flags & FR_SUBPIXEL) != 0);
     return new FR_Impl(hinting, kerning, subpixel, gamma);
 }
 
-FR_Bitmap* FR_Bitmap_New(FontRenderer *font_renderer, int width, int height) {
+FR_Bitmap* FR_Bitmap_New(FR_Renderer *font_renderer, int width, int height) {
     const int subpixel_scale = font_renderer->subpixel_scale();
     FR_Bitmap *image = (FR_Bitmap *) malloc(sizeof(FR_Bitmap) + width * height * subpixel_scale);
     if (!image) { return NULL; }
@@ -60,16 +60,16 @@ void FR_Bitmap_Free(FR_Bitmap *image) {
   free(image);
 }
 
-void FR_Free(FontRenderer *font_renderer) {
+void FR_Renderer_Free(FR_Renderer *font_renderer) {
     delete font_renderer;
 }
 
-int FR_Load_Font(FontRenderer *font_renderer, const char *filename) {
+int FR_Load_Font(FR_Renderer *font_renderer, const char *filename) {
     bool success = font_renderer->renderer_alpha().load_font(filename);
     return (success ? 0 : 1);
 }
 
-int FR_Get_Font_Height(FontRenderer *font_renderer, float size) {
+int FR_Get_Font_Height(FR_Renderer *font_renderer, float size) {
     font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
     double ascender, descender;
     renderer_alpha.get_font_vmetrics(ascender, descender);
@@ -166,7 +166,7 @@ static int ceil_to_multiple(int n, int p) {
     return p * ((n + p - 1) / p);
 }
 
-int FR_Bake_Font_Bitmap(FontRenderer *font_renderer, int font_height,
+int FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     FR_Bitmap *image,
     int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyphs)
 {
@@ -291,7 +291,7 @@ void blend_solid_hspan_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& g
 
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage with subpixel scale = 3.
 // FIXME: consider using something like RenColor* instead of uint8_t * for dst.
-void FR_Blend_Glyph(FontRenderer *font_renderer, FR_Clip_Area *clip, int x, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
+void FR_Blend_Glyph(FR_Renderer *font_renderer, FR_Clip_Area *clip, int x, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
     agg::gamma_lut<>& gamma = font_renderer->gamma();
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     const int subpixel_scale = font_renderer->subpixel_scale();
