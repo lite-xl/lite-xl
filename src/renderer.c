@@ -28,7 +28,6 @@ struct RenFont {
 
 
 static SDL_Window *window;
-//static struct { int left, top, right, bottom; } clip;
 static FR_Clip_Area clip;
 
 static void* check_alloc(void *ptr) {
@@ -107,16 +106,14 @@ void ren_free_image(RenImage *image) {
 static GlyphSet* load_glyphset(RenFont *font, int idx) {
   GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
 
-  const int subpixel_scale = 3;
-
   /* init image */
   int width = 128;
   int height = 128;
 retry:
-  set->image = check_alloc(FR_Bitmap_New(width, height, subpixel_scale));
+  set->image = check_alloc(FR_Bitmap_New(font->renderer, width, height));
 
   int res = FR_Bake_Font_Bitmap(font->renderer, font->height,
-    set->image, idx << 8, 256, set->glyphs, subpixel_scale);
+    set->image, idx << 8, 256, set->glyphs);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
@@ -152,7 +149,7 @@ RenFont* ren_load_font(const char *filename, float size) {
   font->size = size;
 
   const float gamma = 1.5;
-  font->renderer = FR_New(FONT_RENDERER_HINTING|FONT_RENDERER_SUBPIXEL, gamma);
+  font->renderer = FR_New(FR_HINTING | FR_SUBPIXEL, gamma);
   if (FR_Load_Font(font->renderer, filename)) {
     free(font);
     return NULL;
@@ -299,7 +296,7 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
     GlyphSet *set = get_glyphset(font, codepoint);
     FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     if (color.a != 0) {
-      FR_Blend_Gamma_Subpixel(font->renderer, &clip,
+      FR_Blend_Glyph(font->renderer, &clip,
         x, y, (uint8_t *) surf->pixels, surf->w, set->image, g, color_fr);
     }
     x += g->xadvance;

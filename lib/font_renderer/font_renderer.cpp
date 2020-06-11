@@ -15,9 +15,39 @@ struct FR_Bitmap {
   int width, height;
 };
 
-typedef agg::blender_rgb_gamma<agg::rgba8, agg::order_bgra, agg::gamma_lut<> > blender_gamma_type;
+class FR_Impl {
+public:
+    // Conventional LUT values: (1./3., 2./9., 1./9.)
+    // The values below are fine tuned as in the Elementary Plot library.
 
-FR_Bitmap* FR_Bitmap_New(int width, int height, int subpixel_scale) {
+    FR_Impl(bool hinting, bool kerning, bool subpixel, float gamma_value) :
+        m_renderer(hinting, kerning, subpixel),
+        m_gamma_lut(double(gamma_value)),
+        m_lcd_lut(0.448, 0.184, 0.092),
+        m_subpixel(subpixel)
+    { }
+
+    font_renderer_alpha& renderer_alpha() { return m_renderer; }
+    agg::gamma_lut<>& gamma() { return m_gamma_lut; }
+    agg::lcd_distribution_lut& lcd_distribution_lut() { return m_lcd_lut; }
+    int subpixel_scale() const { return (m_subpixel ? 3 : 1); }
+
+private:
+    font_renderer_alpha m_renderer;
+    agg::gamma_lut<> m_gamma_lut;
+    agg::lcd_distribution_lut m_lcd_lut;
+    int m_subpixel;
+};
+
+FontRenderer *FR_New(unsigned int flags, float gamma) {
+    bool hinting  = ((flags & FR_HINTING) != 0);
+    bool kerning  = ((flags & FR_KERNING) != 0);
+    bool subpixel = ((flags & FR_SUBPIXEL) != 0);
+    return new FR_Impl(hinting, kerning, subpixel, gamma);
+}
+
+FR_Bitmap* FR_Bitmap_New(FontRenderer *font_renderer, int width, int height) {
+    const int subpixel_scale = font_renderer->subpixel_scale();
     FR_Bitmap *image = (FR_Bitmap *) malloc(sizeof(FR_Bitmap) + width * height * subpixel_scale);
     if (!image) { return NULL; }
     image->pixels = (agg::int8u *) (image + 1);
@@ -28,39 +58,6 @@ FR_Bitmap* FR_Bitmap_New(int width, int height, int subpixel_scale) {
 
 void FR_Bitmap_Free(FR_Bitmap *image) {
   free(image);
-}
-
-class FR_Impl {
-public:
-    // Conventional LUT values: (1./3., 2./9., 1./9.)
-    // The values below are fine tuned as in the Elementary Plot library.
-
-    FR_Impl(bool hinting, bool kerning, bool subpixel, float gamma_value) :
-        m_renderer(hinting, kerning, subpixel),
-        m_gamma_lut(double(gamma_value)),
-        m_blender(),
-        m_lcd_lut(0.448, 0.184, 0.092)
-    {
-        m_blender.gamma(m_gamma_lut);
-    }
-
-    font_renderer_alpha& renderer_alpha() { return m_renderer; }
-    blender_gamma_type& blender() { return m_blender; }
-    agg::gamma_lut<>& gamma() { return m_gamma_lut; }
-    agg::lcd_distribution_lut& lcd_distribution_lut() { return m_lcd_lut; }
-
-private:
-    font_renderer_alpha m_renderer;
-    agg::gamma_lut<> m_gamma_lut;
-    blender_gamma_type m_blender;
-    agg::lcd_distribution_lut m_lcd_lut;
-};
-
-FontRenderer *FR_New(unsigned int flags, float gamma) {
-    bool hinting = ((flags & FONT_RENDERER_HINTING) != 0);
-    bool kerning = ((flags & FONT_RENDERER_KERNING) != 0);
-    bool subpixel = ((flags & FONT_RENDERER_SUBPIXEL) != 0);
-    return new FR_Impl(hinting, kerning, subpixel, gamma);
 }
 
 void FR_Free(FontRenderer *font_renderer) {
@@ -171,9 +168,11 @@ static int ceil_to_multiple(int n, int p) {
 
 int FR_Bake_Font_Bitmap(FontRenderer *font_renderer, int font_height,
     FR_Bitmap *image,
-    int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyphs, int subpixel_scale)
+    int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyphs)
 {
     font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
+    agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
+    const int subpixel_scale = font_renderer->subpixel_scale();
 
     agg::int8u *pixels = image->pixels;
     const int pixels_width = image->width, pixels_height = image->height;
@@ -190,7 +189,6 @@ int FR_Bake_Font_Bitmap(FontRenderer *font_renderer, int font_height,
     const int pad_y = font_height / 10;
     const int y_step = font_height + 2 * pad_y;
 
-    agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     agg::rendering_buffer ren_buf(pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
     // When using subpixel font rendering it is needed to leave a padding pixel on the left and on the right.
     // Since each pixel is composed by n subpixel we set below x_start to subpixel_scale instead than zero.
@@ -232,7 +230,7 @@ int FR_Bake_Font_Bitmap(FontRenderer *font_renderer, int font_height,
         glyph_info.yoff = -pad_y;
         glyph_info.xadvance = (x_next - x) / subpixel_scale;
 
-        if (glyph_info.x1 > glyph_info.x0) {
+        if (subpixel_scale != 1 && glyph_info.x1 > glyph_info.x0) {
             glyph_lut_convolution(ren_buf, lcd_lut, cover_swap_buffer, glyph_info);
         }
         glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
@@ -244,39 +242,29 @@ int FR_Bake_Font_Bitmap(FontRenderer *font_renderer, int font_height,
     return res;
 }
 
-void blend_solid_hspan(agg::rendering_buffer& rbuf, blender_gamma_type& blender,
+template <typename Order>
+void blend_solid_hspan(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma,
                         int x, int y, unsigned len,
                         const agg::rgba8& c, const agg::int8u* covers)
 {
-    typedef typename blender_gamma_type::color_type color_type;
-    typedef typename blender_gamma_type::order_type order_type;
-    typedef typename color_type::value_type value_type;
-    typedef typename color_type::calc_type calc_type;
-
-    if (c.a)
+    const int pixel_size = 4;
+    agg::int8u* p = rbuf.row_ptr(y) + x * pixel_size;
+    do
     {
-        value_type* p = (value_type*)rbuf.row_ptr(x, y, len) + (x << 2);
-        do
-        {
-            calc_type alpha = (calc_type(c.a) * (calc_type(*covers) + 1)) >> 8;
-            if(alpha == color_type::base_mask)
-            {
-                p[order_type::R] = c.r;
-                p[order_type::G] = c.g;
-                p[order_type::B] = c.b;
-            }
-            else
-            {
-                blender.blend_pix(p, c.r, c.g, c.b, alpha, *covers);
-            }
-            p += 4;
-            ++covers;
-        }
-        while(--len);
+        const unsigned alpha = *covers;
+        const unsigned r = gamma.dir(p[Order::R]), g = gamma.dir(p[Order::G]), b = gamma.dir(p[Order::B]);
+        p[Order::R] = gamma.inv((((gamma.dir(c.r) - r) * alpha) >> 8) + r);
+        p[Order::G] = gamma.inv((((gamma.dir(c.g) - g) * alpha) >> 8) + g);
+        p[Order::B] = gamma.inv((((gamma.dir(c.b) - b) * alpha) >> 8) + b);
+        // Leave p[3], the alpha channel value unmodified.
+        p += 4;
+        ++covers;
     }
+    while(--len);
 }
 
-void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma, agg::lcd_distribution_lut& lcd_lut,
+template <typename Order>
+void blend_solid_hspan_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma, agg::lcd_distribution_lut& lcd_lut,
     const int x, const int y, unsigned len,
     const agg::rgba8& c,
     const agg::int8u* covers)
@@ -286,7 +274,7 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
     agg::int8u* p = rbuf.row_ptr(y) + x * pixel_size;
 
     // Indexes to adress RGB colors in a BGRA32 format.
-    const int pixel_index[3] = {2, 1, 0};
+    const int pixel_index[3] = {Order::R, Order::G, Order::B};
     for (unsigned cx = 0; cx < len; cx += 3)
     {
         for (int i = 0; i < 3; i++) {
@@ -301,25 +289,12 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
     }
 }
 
-#if 0
-// destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage.
-void FR_Blend_Gamma(FontRenderer *font_renderer, uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FR_Color color) {
-    blender_gamma_type& blender = font_renderer->blender();
-    agg::rendering_buffer dst_ren_buf(dst, region_width, region_height, dst_stride);
-    const agg::rgba8 color_a(color.r, color.g, color.b);
-    for (int x = 0, y = 0; y < region_height; y++) {
-        agg::int8u *covers = src + y * src_stride;
-        blend_solid_hspan(dst_ren_buf, blender, x, y, region_width, color_a, covers);
-    }
-}
-#endif
-
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage with subpixel scale = 3.
 // FIXME: consider using something like RenColor* instead of uint8_t * for dst.
-void FR_Blend_Gamma_Subpixel(FontRenderer *font_renderer, FR_Clip_Area *clip, int x, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
+void FR_Blend_Glyph(FontRenderer *font_renderer, FR_Clip_Area *clip, int x, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
     agg::gamma_lut<>& gamma = font_renderer->gamma();
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
-    const int subpixel_scale = 3;
+    const int subpixel_scale = font_renderer->subpixel_scale();
     const int pixel_size = 4; // Pixel size for BGRA32 format.
 
     x += glyph->xoff;
@@ -348,7 +323,11 @@ void FR_Blend_Gamma_Subpixel(FontRenderer *font_renderer, FR_Clip_Area *clip, in
     const agg::rgba8 color_a(color.r, color.g, color.b);
     for (int x = 0, y = 0; y < glyph_height; y++) {
         agg::int8u *covers = src + y * src_stride;
-        blend_solid_hspan_rgb_subpixel(dst_ren_buf, gamma, lcd_lut, x, y, glyph_width * subpixel_scale, color_a, covers);
+        if (subpixel_scale == 1) {
+            blend_solid_hspan<agg::order_bgra>(dst_ren_buf, gamma, x, y, glyph_width, color_a, covers);
+        } else {
+            blend_solid_hspan_subpixel<agg::order_bgra>(dst_ren_buf, gamma, lcd_lut, x, y, glyph_width * subpixel_scale, color_a, covers);
+        }
     }
 }
 
