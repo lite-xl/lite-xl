@@ -12,16 +12,8 @@ struct RenImage {
   int width, height;
 };
 
-// Important: when a subpixel scale is used the width below will be the width in logical pixel.
-// As each logical pixel contains 3 subpixels it means that the 'pixels' pointer
-// will hold enough space for '3 * width' uint8_t values.
-typedef struct {
-  uint8_t *pixels;
-  int width, height;
-} RenCoverageImage;
-
 struct GlyphSet {
-  RenCoverageImage *coverage;
+  FontRendererBitmap *image;
   GlyphBitmapInfo glyphs[256];
 };
 typedef struct GlyphSet GlyphSet;
@@ -36,8 +28,8 @@ struct RenFont {
 
 
 static SDL_Window *window;
-static struct { int left, top, right, bottom; } clip;
-
+//static struct { int left, top, right, bottom; } clip;
+static FontRendererClipArea clip;
 
 static void* check_alloc(void *ptr) {
   if (!ptr) {
@@ -108,9 +100,14 @@ RenImage* ren_new_image(int width, int height) {
   return image;
 }
 
-RenCoverageImage* ren_new_coverage(int width, int height, int subpixel_scale) {
+void ren_free_image(RenImage *image) {
+  free(image);
+}
+
+// FIXME: move this function into FontRenderer and change name.
+FontRendererBitmap* ren_new_coverage_image(int width, int height, int subpixel_scale) {
   assert(width > 0 && height > 0);
-  RenCoverageImage *image = malloc(sizeof(RenCoverageImage) + width * height * subpixel_scale * sizeof(uint8_t));
+  FontRendererBitmap *image = malloc(sizeof(FontRendererBitmap) + width * height * subpixel_scale * sizeof(uint8_t));
   check_alloc(image);
   image->pixels = (void*) (image + 1);
   image->width = width;
@@ -118,12 +115,8 @@ RenCoverageImage* ren_new_coverage(int width, int height, int subpixel_scale) {
   return image;
 }
 
-void ren_free_image(RenImage *image) {
+void ren_free_coverage_image(FontRendererBitmap *image) {
   free(image);
-}
-
-void ren_free_coverage(RenCoverageImage *coverage) {
-  free(coverage);
 }
 
 static GlyphSet* load_glyphset(RenFont *font, int idx) {
@@ -135,17 +128,17 @@ static GlyphSet* load_glyphset(RenFont *font, int idx) {
   int width = 128;
   int height = 128;
 retry:
-  set->coverage = ren_new_coverage(width, height, subpixel_scale);
+  set->image = ren_new_coverage_image(width, height, subpixel_scale);
 
   int res = FontRendererBakeFontBitmap(font->renderer, font->height,
-    (void *) set->coverage->pixels, width, height,
+    (void *) set->image->pixels, width, height,
     idx << 8, 256, set->glyphs, subpixel_scale);
 
   /* retry with a larger image buffer if the buffer wasn't large enough */
   if (res < 0) {
     width *= 2;
     height *= 2;
-    ren_free_coverage(set->coverage);
+    ren_free_coverage_image(set->image);
     goto retry;
   }
 
@@ -195,7 +188,7 @@ void ren_free_font(RenFont *font) {
   for (int i = 0; i < MAX_GLYPHSET; i++) {
     GlyphSet *set = font->sets[i];
     if (set) {
-      ren_free_coverage(set->coverage);
+      ren_free_coverage_image(set->image);
       free(set);
     }
   }
@@ -279,19 +272,14 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-static void clip_point_inside_rect(int *x, int *y, RenRect *sub) {
-  /* clip */
-  int n;
-  if ((n = clip.left - (*x)) > 0) { sub->width  -= n; sub->x += n; (*x) += n; }
-  if ((n = clip.top  - (*y)) > 0) { sub->height -= n; sub->y += n; (*y) += n; }
-  if ((n = (*x) + sub->width  - clip.right ) > 0) { sub->width  -= n; }
-  if ((n = (*y) + sub->height - clip.bottom) > 0) { sub->height -= n; }
-}
-
 void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color) {
   if (color.a == 0) { return; }
 
-  clip_point_inside_rect(&x, &y, sub);
+  int n;
+  if ((n = clip.left - x) > 0) { sub->width  -= n; sub->x += n; x += n; }
+  if ((n = clip.top  - y) > 0) { sub->height -= n; sub->y += n; x += n; }
+  if ((n = x + sub->width  - clip.right ) > 0) { sub->width  -= n; }
+  if ((n = y + sub->height - clip.bottom) > 0) { sub->height -= n; }
 
   if (sub->width <= 0 || sub->height <= 0) {
     return;
@@ -317,44 +305,22 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
   }
 }
 
-static void ren_draw_coverage_with_color(FontRenderer *renderer, RenCoverageImage *image, RenRect *sub, int x, int y, RenColor color) {
-  if (color.a == 0) { return; }
-
-  clip_point_inside_rect(&x, &y, sub);
-
-  if (sub->width <= 0 || sub->height <= 0) {
-    return;
-  }
-
-  /* draw */
-  SDL_Surface *surf = SDL_GetWindowSurface(window);
-  const int subpixel_scale = 3;
-  uint8_t *s = image->pixels;
-  RenColor *d = (RenColor*) surf->pixels;
-  s += (sub->x + sub->y * image->width) * subpixel_scale;
-  d += x + y * surf->w;
-  const int surf_pixel_size = 4;
-  FontRendererBlendGammaSubpixel(
-    renderer,
-    (uint8_t *) d, surf->w * surf_pixel_size,
-    s, image->width * subpixel_scale,
-    sub->width, sub->height,
-    (FontRendererColor) { .r = color.r, .g = color.g, .b = color.b });
-}
-
 int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
-  RenRect rect;
   const char *p = text;
   unsigned codepoint;
+  SDL_Surface *surf = SDL_GetWindowSurface(window);
+  FontRendererColor color_fr = { .r = color.r, .g = color.g, .b = color.b };
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
     GlyphBitmapInfo *g = &set->glyphs[codepoint & 0xff];
-    rect.x = g->x0;
-    rect.y = g->y0;
-    rect.width = g->x1 - g->x0;
-    rect.height = g->y1 - g->y0;
-    ren_draw_coverage_with_color(font->renderer, set->coverage, &rect, x + g->xoff, y + g->yoff, color);
+    if (color.a != 0) {
+      FontRendererBlendGammaSubpixel(
+        font->renderer, &clip,
+        x, y,
+        (uint8_t *) surf->pixels, surf->w,
+        set->image, g, color_fr);
+    }
     x += g->xadvance;
   }
   return x;

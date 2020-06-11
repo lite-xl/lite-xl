@@ -277,6 +277,7 @@ void blend_solid_hspan_rgb_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<
     }
 }
 
+#if 0
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage.
 void FontRendererBlendGamma(FontRenderer *font_renderer, uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FontRendererColor color) {
     blender_gamma_type& blender = font_renderer->blender();
@@ -287,16 +288,43 @@ void FontRendererBlendGamma(FontRenderer *font_renderer, uint8_t *dst, int dst_s
         blend_solid_hspan(dst_ren_buf, blender, x, y, region_width, color_a, covers);
     }
 }
+#endif
 
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage with subpixel scale = 3.
-void FontRendererBlendGammaSubpixel(FontRenderer *font_renderer, uint8_t *dst, int dst_stride, uint8_t *src, int src_stride, int region_width, int region_height, FontRendererColor color) {
-    const int subpixel_scale = 3;
+// FIXME: consider using something like RenColor* instead of uint8_t * for dst.
+void FontRendererBlendGammaSubpixel(FontRenderer *font_renderer, FontRendererClipArea *clip, int x, int y, uint8_t *dst, int dst_width, const FontRendererBitmap *glyphs_bitmap, const GlyphBitmapInfo *glyph, FontRendererColor color) {
     agg::gamma_lut<>& gamma = font_renderer->gamma();
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
-    agg::rendering_buffer dst_ren_buf(dst, region_width, region_height, dst_stride);
+    const int subpixel_scale = 3;
+    const int pixel_size = 4; // Pixel size for BGRA32 format.
+
+    x += glyph->xoff;
+    y += glyph->yoff;
+
+    int glyph_x = glyph->x0, glyph_y = glyph->y0;
+    int glyph_width  = glyph->x1 - glyph->x0;
+    int glyph_height = glyph->y1 - glyph->y0;
+
+    int n;
+    if ((n = clip->left - x) > 0) { glyph_width  -= n; glyph_x += n; x += n; }
+    if ((n = clip->top  - y) > 0) { glyph_height -= n; glyph_y += n; y += n; }
+    if ((n = x + glyph_width  - clip->right ) > 0) { glyph_width  -= n; }
+    if ((n = y + glyph_height - clip->bottom) > 0) { glyph_height -= n; }
+
+    if (glyph_width <= 0 || glyph_height <= 0) {
+        return;
+    }
+
+    dst += (x + y * dst_width) * pixel_size;
+    agg::rendering_buffer dst_ren_buf(dst, glyph_width, glyph_height, dst_width * pixel_size);
+
+    uint8_t *src = glyphs_bitmap->pixels + (glyph_x + glyph_y * glyphs_bitmap->width) * subpixel_scale;
+    int src_stride = glyphs_bitmap->width * subpixel_scale;
+
     const agg::rgba8 color_a(color.r, color.g, color.b);
-    for (int x = 0, y = 0; y < region_height; y++) {
+    for (int x = 0, y = 0; y < glyph_height; y++) {
         agg::int8u *covers = src + y * src_stride;
-        blend_solid_hspan_rgb_subpixel(dst_ren_buf, gamma, lcd_lut, x, y, region_width * subpixel_scale, color_a, covers);
+        blend_solid_hspan_rgb_subpixel(dst_ren_buf, gamma, lcd_lut, x, y, glyph_width * subpixel_scale, color_a, covers);
     }
 }
+
