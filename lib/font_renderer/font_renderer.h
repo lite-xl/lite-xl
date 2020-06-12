@@ -18,9 +18,10 @@ struct FR_Impl;
 typedef struct FR_Impl FR_Renderer;
 
 enum {
-    FR_HINTING   = 1 << 0,
-    FR_KERNING   = 1 << 2,
-    FR_SUBPIXEL  = 1 << 3,
+    FR_HINTING    = 1 << 0,
+    FR_KERNING    = 1 << 1,
+    FR_SUBPIXEL   = 1 << 2,
+    FR_PRESCALE_X = 1 << 3,
 };
 
 typedef struct {

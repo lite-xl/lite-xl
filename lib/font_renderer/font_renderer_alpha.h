@@ -27,6 +27,7 @@ class font_renderer_alpha
     bool m_hinting;
     bool m_kerning;
     bool m_subpixel;
+    bool m_prescale_x;
 
     bool m_font_loaded;
 
@@ -37,12 +38,13 @@ class font_renderer_alpha
 public:
     typedef agg::pixfmt_alpha8::color_type color_type;
 
-    font_renderer_alpha(bool hinting, bool kerning, bool subpixel):
+    font_renderer_alpha(bool hinting, bool kerning, bool subpixel, bool prescale_x):
         m_feng(),
         m_fman(m_feng),
         m_hinting(hinting),
         m_kerning(kerning),
         m_subpixel(subpixel),
+        m_prescale_x(prescale_x),
         m_font_loaded(false),
         m_curves(m_fman.path_adaptor()),
         m_trans(m_curves, m_mtx)
@@ -77,7 +79,7 @@ public:
     }
 
     void set_font_height(double height) {
-        const double scale_x = 100.0;
+        const double scale_x = (m_prescale_x ? 100.0 : 1.0);
         m_feng.height(height);
         if (m_subpixel) {
             const int subpixel_scale = 3;
@@ -88,11 +90,11 @@ public:
     }
 
     template<class Rasterizer, class Scanline, class RenSolid>
-    void draw_codepoint(Rasterizer& ras, Scanline& sl, 
+    void draw_codepoint(Rasterizer& ras, Scanline& sl,
         RenSolid& ren_solid, const color_type color,
         int codepoint, double& x, double& y, int subpixel_scale)
     {
-        const double scale_x = 100;
+        const double scale_x = (m_prescale_x ? 100.0 : 1.0);
 
         // Represent the delta in x scaled by scale_x.
         double x_delta = 0;
