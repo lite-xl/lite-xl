@@ -148,8 +148,7 @@ RenFont* ren_load_font(const char *filename, float size) {
   font = check_alloc(calloc(1, sizeof(RenFont)));
   font->size = size;
 
-  const float gamma = 1.5;
-  font->renderer = FR_Renderer_New(FR_HINTING | FR_SUBPIXEL | FR_PRESCALE_X, gamma);
+  font->renderer = FR_Renderer_New(FR_HINTING | FR_SUBPIXEL | FR_PRESCALE_X);
   if (FR_Load_Font(font->renderer, filename)) {
     free(font);
     return NULL;

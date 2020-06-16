@@ -32,7 +32,7 @@ typedef struct {
   int left, top, right, bottom;
 } FR_Clip_Area;
 
-FR_Renderer *   FR_Renderer_New(unsigned int flags, float gamma);
+FR_Renderer *   FR_Renderer_New(unsigned int flags);
 void            FR_Renderer_Free(FR_Renderer *);
 int             FR_Load_Font(FR_Renderer *, const char *filename);
 FR_Bitmap*      FR_Bitmap_New(FR_Renderer *, int width, int height);

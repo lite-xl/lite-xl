@@ -3,7 +3,6 @@
 #include "agg_lcd_distribution_lut.h"
 #include "agg_pixfmt_rgb.h"
 #include "agg_pixfmt_rgba.h"
-#include "agg_gamma_lut.h"
 
 #include "font_renderer_alpha.h"
 
@@ -20,31 +19,28 @@ public:
     // Conventional LUT values: (1./3., 2./9., 1./9.)
     // The values below are fine tuned as in the Elementary Plot library.
 
-    FR_Impl(bool hinting, bool kerning, bool subpixel, bool prescale_x, float gamma_value) :
+    FR_Impl(bool hinting, bool kerning, bool subpixel, bool prescale_x) :
         m_renderer(hinting, kerning, subpixel, prescale_x),
-        m_gamma_lut(double(gamma_value)),
         m_lcd_lut(0.448, 0.184, 0.092),
         m_subpixel(subpixel)
     { }
 
     font_renderer_alpha& renderer_alpha() { return m_renderer; }
-    agg::gamma_lut<>& gamma() { return m_gamma_lut; }
     agg::lcd_distribution_lut& lcd_distribution_lut() { return m_lcd_lut; }
     int subpixel_scale() const { return (m_subpixel ? 3 : 1); }
 
 private:
     font_renderer_alpha m_renderer;
-    agg::gamma_lut<> m_gamma_lut;
     agg::lcd_distribution_lut m_lcd_lut;
     int m_subpixel;
 };
 
-FR_Renderer *FR_Renderer_New(unsigned int flags, float gamma) {
+FR_Renderer *FR_Renderer_New(unsigned int flags) {
     bool hinting    = ((flags & FR_HINTING)    != 0);
     bool kerning    = ((flags & FR_KERNING)    != 0);
     bool subpixel   = ((flags & FR_SUBPIXEL)   != 0);
     bool prescale_x = ((flags & FR_PRESCALE_X) != 0);
-    return new FR_Impl(hinting, kerning, subpixel, prescale_x, gamma);
+    return new FR_Impl(hinting, kerning, subpixel, prescale_x);
 }
 
 FR_Bitmap* FR_Bitmap_New(FR_Renderer *font_renderer, int width, int height) {
@@ -244,8 +240,7 @@ int FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
 }
 
 template <typename Order>
-void blend_solid_hspan(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma,
-                        int x, int y, unsigned len,
+void blend_solid_hspan(agg::rendering_buffer& rbuf, int x, int y, unsigned len,
                         const agg::rgba8& c, const agg::int8u* covers)
 {
     const int pixel_size = 4;
@@ -253,10 +248,10 @@ void blend_solid_hspan(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma,
     do
     {
         const unsigned alpha = *covers;
-        const unsigned r = gamma.dir(p[Order::R]), g = gamma.dir(p[Order::G]), b = gamma.dir(p[Order::B]);
-        p[Order::R] = gamma.inv((((gamma.dir(c.r) - r) * alpha) >> 8) + r);
-        p[Order::G] = gamma.inv((((gamma.dir(c.g) - g) * alpha) >> 8) + g);
-        p[Order::B] = gamma.inv((((gamma.dir(c.b) - b) * alpha) >> 8) + b);
+        const unsigned r = p[Order::R], g = p[Order::G], b = p[Order::B];
+        p[Order::R] = (((unsigned(c.r) - r) * alpha) >> 8) + r;
+        p[Order::G] = (((unsigned(c.g) - g) * alpha) >> 8) + g;
+        p[Order::B] = (((unsigned(c.b) - b) * alpha) >> 8) + b;
         // Leave p[3], the alpha channel value unmodified.
         p += 4;
         ++covers;
@@ -265,13 +260,13 @@ void blend_solid_hspan(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma,
 }
 
 template <typename Order>
-void blend_solid_hspan_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& gamma, agg::lcd_distribution_lut& lcd_lut,
+void blend_solid_hspan_subpixel(agg::rendering_buffer& rbuf, agg::lcd_distribution_lut& lcd_lut,
     const int x, const int y, unsigned len,
     const agg::rgba8& c,
     const agg::int8u* covers)
 {
     const int pixel_size = 4;
-    const agg::int8u rgb[3] = { c.r, c.g, c.b };
+    const unsigned rgb[3] = { c.r, c.g, c.b };
     agg::int8u* p = rbuf.row_ptr(y) + x * pixel_size;
 
     // Indexes to adress RGB colors in a BGRA32 format.
@@ -281,9 +276,8 @@ void blend_solid_hspan_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& g
         for (int i = 0; i < 3; i++) {
             const unsigned cover_value = covers[cx + i];
             const unsigned alpha = (cover_value + 1) * (c.a + 1);
-            const unsigned dst_col = gamma.dir(rgb[i]);
-            const unsigned src_col = gamma.dir(*(p + pixel_index[i]));
-            *(p + pixel_index[i]) = gamma.inv((((dst_col - src_col) * alpha) + (src_col << 16)) >> 16);
+            const unsigned src_col = *(p + pixel_index[i]);
+            *(p + pixel_index[i]) = (((rgb[i] - src_col) * alpha) + (src_col << 16)) >> 16;
         }
         // Leave p[3], the alpha channel value unmodified.
         p += 4;
@@ -293,7 +287,6 @@ void blend_solid_hspan_subpixel(agg::rendering_buffer& rbuf, agg::gamma_lut<>& g
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage with subpixel scale = 3.
 // FIXME: consider using something like RenColor* instead of uint8_t * for dst.
 void FR_Blend_Glyph(FR_Renderer *font_renderer, FR_Clip_Area *clip, int x, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
-    agg::gamma_lut<>& gamma = font_renderer->gamma();
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     const int subpixel_scale = font_renderer->subpixel_scale();
     const int pixel_size = 4; // Pixel size for BGRA32 format.
@@ -325,9 +318,9 @@ void FR_Blend_Glyph(FR_Renderer *font_renderer, FR_Clip_Area *clip, int x, int y
     for (int x = 0, y = 0; y < glyph_height; y++) {
         agg::int8u *covers = src + y * src_stride;
         if (subpixel_scale == 1) {
-            blend_solid_hspan<agg::order_bgra>(dst_ren_buf, gamma, x, y, glyph_width, color_a, covers);
+            blend_solid_hspan<agg::order_bgra>(dst_ren_buf, x, y, glyph_width, color_a, covers);
         } else {
-            blend_solid_hspan_subpixel<agg::order_bgra>(dst_ren_buf, gamma, lcd_lut, x, y, glyph_width * subpixel_scale, color_a, covers);
+            blend_solid_hspan_subpixel<agg::order_bgra>(dst_ren_buf, lcd_lut, x, y, glyph_width * subpixel_scale, color_a, covers);
         }
     }
 }
