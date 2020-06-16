@@ -133,8 +133,13 @@ top:
 
 
 static int f_wait_event(lua_State *L) {
-  double n = luaL_checknumber(L, 1);
-  lua_pushboolean(L, SDL_WaitEventTimeout(NULL, n * 1000));
+  int nargs = lua_gettop(L);
+  if (nargs >= 1) {
+    double n = luaL_checknumber(L, 1);
+    lua_pushboolean(L, SDL_WaitEventTimeout(NULL, n * 1000));
+  } else {
+    lua_pushboolean(L, SDL_WaitEvent(NULL));
+  }
   return 1;
 }
 
