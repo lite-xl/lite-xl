@@ -4,7 +4,7 @@ cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
 
-lua_dep = dependency('lua', version: ['>=5.2.0', '<5.3.0'])
+lua_dep = dependency('lua5.2')
 sdl_dep = dependency('sdl2', method: 'config-tool')
 
 lite_include = include_directories('src')
