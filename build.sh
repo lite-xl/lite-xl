@@ -3,7 +3,7 @@
 cflags="-Wall -O3 -g -std=gnu11 -fno-strict-aliasing -Isrc -Ilib/font_renderer"
 cxxflags="-Wall -O3 -g -std=c++03 -fno-exceptions -fno-rtti -Isrc -Ilib/font_renderer"
 libcflags=
-lflags=
+lflags="-static-libgcc -static-libstdc++"
 for package in libagg freetype2 lua5.2; do
   libcflags+=" $(pkg-config --cflags $package)"
   lflags+=" $(pkg-config --libs $package)"
