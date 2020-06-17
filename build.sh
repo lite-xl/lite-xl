@@ -1,32 +1,36 @@
 #!/bin/bash
 
-cflags="-Wall -O3 -g -std=gnu11 -fno-strict-aliasing -Isrc"
-lflags="-lSDL2 -lm"
+cflags="-Wall -O3 -g -std=gnu11 -fno-strict-aliasing -Isrc -Ilib/font_renderer"
+cxxflags="-Wall -O3 -g -std=c++03 -fno-exceptions -fno-rtti -Isrc -Ilib/font_renderer"
+libcflags=
+lflags=
+for package in libagg freetype2 lua5.2; do
+  libcflags+=" $(pkg-config --cflags $package)"
+  lflags+=" $(pkg-config --libs $package)"
+done
+libcflags+=" $(sdl2-config --cflags)"
+lflags+=" $(sdl2-config --libs) -lm"
 
 if [[ $* == *windows* ]]; then
-  platform="windows"
-  outfile="lite.exe"
-  compiler="x86_64-w64-mingw32-gcc"
-  cflags="$cflags -DLUA_USE_POPEN -Iwinlib/SDL2-2.0.10/x86_64-w64-mingw32/include"
-  lflags="$lflags -Lwinlib/SDL2-2.0.10/x86_64-w64-mingw32/lib"
-  lflags="-lmingw32 -lSDL2main $lflags -mwindows -o $outfile res.res"
-  x86_64-w64-mingw32-windres res.rc -O coff -o res.res
+  echo "cross compiling for windows is not yet supported"
+  exit 1
 else
   platform="unix"
   outfile="lite"
   compiler="gcc"
-  cflags="$cflags -DLUA_USE_POSIX"
-  lflags="$lflags -o $outfile"
+  cxxcompiler="g++"
 fi
-
-if command -v ccache >/dev/null; then
-  compiler="ccache $compiler"
-fi
-
 
 echo "compiling ($platform)..."
 for f in `find src -name "*.c"`; do
-  $compiler -c $cflags $f -o "${f//\//_}.o"
+  $compiler -c $cflags $f -o "${f//\//_}.o" $libcflags
+  if [[ $? -ne 0 ]]; then
+    got_error=true
+  fi
+done
+
+for f in `find lib -name "*.cpp"`; do
+  $cxxcompiler -c $cxxflags $f -o "${f//\//_}.o" $libcflags
   if [[ $? -ne 0 ]]; then
     got_error=true
   fi
@@ -34,10 +38,10 @@ done
 
 if [[ ! $got_error ]]; then
   echo "linking..."
-  $compiler *.o $lflags
+  $cxxcompiler -o $outfile *.o $lflags
 fi
 
 echo "cleaning up..."
 rm *.o
-rm res.res 2>/dev/null
 echo "done"
+
