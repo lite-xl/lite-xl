@@ -1,36 +1,28 @@
 #!/bin/bash
 
 cflags="-Wall -O3 -g -std=gnu11 -fno-strict-aliasing -Isrc -Ilib/font_renderer"
-cxxflags="-Wall -O3 -g -std=c++03 -fno-exceptions -fno-rtti -Isrc -Ilib/font_renderer"
-libcflags=
+cflags+=" $(pkg-config --cflags lua5.2) $(sdl2-config --cflags)"
 lflags="-static-libgcc -static-libstdc++"
 for package in libagg freetype2 lua5.2; do
-  libcflags+=" $(pkg-config --cflags $package)"
   lflags+=" $(pkg-config --libs $package)"
 done
-libcflags+=" $(sdl2-config --cflags)"
 lflags+=" $(sdl2-config --libs) -lm"
 
 if [[ $* == *windows* ]]; then
   echo "cross compiling for windows is not yet supported"
   exit 1
 else
-  platform="unix"
   outfile="lite"
   compiler="gcc"
   cxxcompiler="g++"
 fi
 
-echo "compiling ($platform)..."
-for f in `find src -name "*.c"`; do
-  $compiler -c $cflags $f -o "${f//\//_}.o" $libcflags
-  if [[ $? -ne 0 ]]; then
-    got_error=true
-  fi
-done
+lib/font_renderer/build.sh || exit 1
+libs=libfontrenderer.a
 
-for f in `find lib -name "*.cpp"`; do
-  $cxxcompiler -c $cxxflags $f -o "${f//\//_}.o" $libcflags
+echo "compiling lite..."
+for f in `find src -name "*.c"`; do
+  $compiler -c $cflags $f -o "${f//\//_}.o"
   if [[ $? -ne 0 ]]; then
     got_error=true
   fi
@@ -38,10 +30,10 @@ done
 
 if [[ ! $got_error ]]; then
   echo "linking..."
-  $cxxcompiler -o $outfile *.o $lflags
+  $cxxcompiler -o $outfile *.o $libs $lflags
 fi
 
 echo "cleaning up..."
-rm *.o
+rm *.o *.a
 echo "done"
 
