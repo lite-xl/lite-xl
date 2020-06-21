@@ -24,14 +24,26 @@ lite_build_package () {
   build="$1"
   version="$2"
   arch="$3"
+  lite_exe=lite
+  strip=strip
+  if [[ "$OSTYPE" == msys || "$OSTYPE" == win32 ]]; then
+    lite_exe=lite.exe
+    strip="strip --strip-all"
+  fi
   local pdir=".package-build/lite-xl-$version"
   mkdir -p "$pdir"
   cp -r data "$pdir"
-  cp "$build/src/lite" "$pdir"
-  strip "$pdir/lite"
+  cp "$build/src/$lite_exe" "$pdir"
+  $strip "$pdir/$lite_exe"
   pushd ".package-build"
-  local package_name="lite-xl-$version-$arch.tar.gz"
-  tar czf "$package_name" "lite-xl-$version"
+  local package_name
+  if [[ "$OSTYPE" == msys || "$OSTYPE" == win32 ]]; then
+    package_name="lite-xl-$version-$arch.zip"
+    zip "$package_name" -r "lite-xl-$version"
+  else
+    package_name="lite-xl-$version-$arch.tar.gz"
+    tar czf "$package_name" "lite-xl-$version"
+  fi
   mv "$package_name" ..
   popd
   rm -fr ".package-build"
