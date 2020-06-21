@@ -4,7 +4,7 @@
 
 A lightweight text editor written in Lua, adapted from [Lite](https://github.com/rxi/lite)
 
-* **[Get lite](https://github.com/franki/lite-xl/releases/latest)** — Download
+* **[Get lite](https://github.com/franko/lite-xl/releases/latest)** — Download
   for Windows and Linux
 * **[Get plugins](https://github.com/rxi/lite-plugins)** — Add additional
   functionality
