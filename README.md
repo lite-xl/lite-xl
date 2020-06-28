@@ -11,6 +11,8 @@ A lightweight text editor written in Lua, adapted from [Lite](https://github.com
 * **[Get color themes](https://github.com/rxi/lite-colors)** — Add additional colors
   themes
 
+The differences between Lite XL and rxi/lite are listed in the [changelog](https://github.com/franko/lite-xl/blob/master/changelog.md).
+
 ## Overview
 Lite XL is a lightweight text editor written mostly in Lua — it aims to provide
 something practical, pretty, *small* and fast easy to modify and extend, or to use without doing either.
