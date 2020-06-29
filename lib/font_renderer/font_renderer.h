@@ -14,8 +14,12 @@ typedef struct {
 
 typedef struct FR_Bitmap FR_Bitmap;
 
-struct FR_Impl;
-typedef struct FR_Impl FR_Renderer;
+#ifdef __cplusplus
+class FR_Renderer;
+#else
+struct FR_Renderer;
+typedef struct FR_Renderer FR_Renderer;
+#endif
 
 enum {
     FR_HINTING    = 1 << 0,

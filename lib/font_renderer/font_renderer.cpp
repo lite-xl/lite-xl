@@ -14,12 +14,12 @@ struct FR_Bitmap {
   int width, height;
 };
 
-class FR_Impl {
+class FR_Renderer {
 public:
     // Conventional LUT values: (1./3., 2./9., 1./9.)
     // The values below are fine tuned as in the Elementary Plot library.
 
-    FR_Impl(bool hinting, bool kerning, bool subpixel, bool prescale_x) :
+    FR_Renderer(bool hinting, bool kerning, bool subpixel, bool prescale_x) :
         m_renderer(hinting, kerning, subpixel, prescale_x),
         m_lcd_lut(0.448, 0.184, 0.092),
         m_subpixel(subpixel)
@@ -40,7 +40,7 @@ FR_Renderer *FR_Renderer_New(unsigned int flags) {
     bool kerning    = ((flags & FR_KERNING)    != 0);
     bool subpixel   = ((flags & FR_SUBPIXEL)   != 0);
     bool prescale_x = ((flags & FR_PRESCALE_X) != 0);
-    return new FR_Impl(hinting, kerning, subpixel, prescale_x);
+    return new FR_Renderer(hinting, kerning, subpixel, prescale_x);
 }
 
 FR_Bitmap* FR_Bitmap_New(FR_Renderer *font_renderer, int width, int height) {
