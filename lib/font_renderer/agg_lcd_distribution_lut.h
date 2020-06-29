@@ -18,7 +18,7 @@
 #ifndef AGG_LCD_DISTRIBUTION_LUT_INCLUDED
 #define AGG_LCD_DISTRIBUTION_LUT_INCLUDED
 
-#include <cmath>
+#include <cstdlib>
 
 #include "agg_basics.h"
 
