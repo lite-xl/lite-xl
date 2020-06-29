@@ -18,6 +18,8 @@
 #ifndef AGG_LCD_DISTRIBUTION_LUT_INCLUDED
 #define AGG_LCD_DISTRIBUTION_LUT_INCLUDED
 
+#include <cmath>
+
 #include "agg_basics.h"
 
 namespace agg
@@ -54,7 +56,7 @@ namespace agg
             for (int k = k_min; k <= k_max; k++)
             {
                 /* select the primary, secondary or tertiary channel */
-                int channel = abs(k) % 3;
+                int channel = std::abs(k) % 3;
                 int8u c = covers[i0 + k];
                 sum += m_data[3*c + channel];
             }
