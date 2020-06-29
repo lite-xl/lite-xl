@@ -35,7 +35,7 @@ namespace agg
         typedef alpha8 color_type;
         typedef int8u  value_type;
         typedef int32u calc_type;
-        typedef typename agg::rendering_buffer::row_data row_data;
+        typedef agg::rendering_buffer::row_data row_data;
 
         //--------------------------------------------------------------------
         pixfmt_alpha8(rendering_buffer& rb): m_rbuf(&rb)
