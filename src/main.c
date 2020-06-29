@@ -79,6 +79,10 @@ int main(int argc, char **argv) {
   SDL_EnableScreenSaver();
   SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
   atexit(SDL_Quit);
+
+#ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR /* Available since 2.0.8 */
+  SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+#endif
 #if SDL_VERSION_ATLEAST(2, 0, 5)
   SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 #endif
@@ -105,7 +109,7 @@ int main(int argc, char **argv) {
   }
   lua_setglobal(L, "ARGS");
 
-  lua_pushstring(L, "1.06");
+  lua_pushstring(L, "1.10");
   lua_setglobal(L, "VERSION");
 
   lua_pushstring(L, SDL_GetPlatform());
