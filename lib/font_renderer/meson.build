@@ -1,5 +1,10 @@
-libagg_dep = dependency('libagg')
 freetype_dep = dependency('freetype2')
+
+libagg_dep = dependency('libagg', required: false)
+if not libagg_dep.found()
+  libagg_subproject = subproject('libagg')
+  libagg_dep = libagg_subproject.get_variable('libagg_dep')
+endif
 
 font_renderer_sources = [
     'agg_font_freetype.cpp',
