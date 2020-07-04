@@ -1,4 +1,4 @@
-project('lite', 'c', 'cpp', version: '1.06', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
+project('lite', 'c', 'cpp', version: '1.10', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
 
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
