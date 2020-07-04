@@ -14,7 +14,7 @@ A lightweight text editor written in Lua, adapted from [Lite](https://github.com
 The differences between Lite XL and rxi/lite are listed in the [changelog](https://github.com/franko/lite-xl/blob/master/changelog.md).
 
 ## Overview
-Lite XL is a lightweight text editor written mostly in Lua — it aims to provide
+Lite XL is derived from Lite. It is a lightweight text editor written mostly in Lua — it aims to provide
 something practical, pretty, *small* and fast easy to modify and extend, or to use without doing either.
 
 The aim of Lite XL compared to Lite is to be more user friendly, improve the quality of the font rendering and reduce CPU usage.
@@ -27,26 +27,30 @@ The editor can be customized by making changes to the
 [user module](data/user/init.lua).
 
 ## Building
+
 You can build the project yourself on Linux using the provided `build.sh`
 script or using the Meson build.
+The script `build-packages.sh` can be used to compile Lite XL and create a package adapted to the OS, Linux, Windows or Mac OS X.
 
 The following libraries are required:
 
 - freetype2
-- libagg
 - SDL2
-- Lua 5.2
 
-On a debian based system the required library and Meson can be installed using the commands:
+The additional libraries libagg and Lua 5.2 are optional.
+If they are not found they will be included by the Meson build system.
+
+On a debian based systems the required library and Meson can be installed using the commands:
 
 ```sh
 # To install the required libraries:
-sudo apt install libfreetype6-dev libagg-dev libsdl2-dev liblua5.2-dev
+sudo apt install libfreetype6-dev libsdl2-dev
 
 # To install Meson:
 sudo apt install meson
 # or pip3 install --user meson
 ```
+
 To build Lite XL with Meson use the commands:
 ```sh
 # configure
@@ -55,9 +59,21 @@ meson setup build
 # build
 ninja -C build
 
-# install
+# Only of linux:
 ninja -C build install
 ```
+
+If you want to install Lite XL on Windows or Mac OS X we suggest to use the script `build-packages.sh`:
+
+```sh
+bash build-packages.sh <version> <arch>
+```
+
+It will run meson and create a Zip file that can be easily installed or uninstalled.
+
+Please note the, while compiling Lite XL on Mac OS X should work Mac OS X
+is not well supported.
+
 ## Contributing
 Any additional functionality that can be added through a plugin should be done
 so as a plugin, after which a pull request to the
