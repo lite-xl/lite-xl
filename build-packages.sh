@@ -1,5 +1,11 @@
 #!/bin/bash
 
+copy_directory_from_repo () {
+  local dirname="$1"
+  local destdir="$2"
+  git --work-tree="$destdir" checkout HEAD -f -- "$dirname"
+}
+
 # Check if build directory is ok to be used to build.
 build_dir_is_usable () {
   local build="$1"
@@ -30,7 +36,7 @@ lite_build_pgo () {
   rm -fr "$build"
   meson setup --buildtype=release -Db_pgo=generate "$build" || exit 1
   ninja -C "$build" || exit 1
-  cp -r data "$build/src"
+  copy_directory_from_repo data "$build/src"
   "$build/src/lite"
   meson configure -Db_pgo=use "$build"
   ninja -C "$build" || exit 1
@@ -40,14 +46,14 @@ lite_build_package_windows () {
   build="$1"
   version="$2"
   arch="$3"
-  local pdir=".package-build/lite-xl-$version"
+  local pdir=".package-build/lite-xl-$version-$arch"
   mkdir -p "$pdir"
-  cp -r data "$pdir"
+  copy_directory_from_repo data "$pdir"
   cp "$build/src/lite.exe" "$pdir"
   strip --strip-all "$pdir/lite.exe"
   pushd ".package-build"
   local package_name="lite-xl-$version-$arch.zip"
-  zip "$package_name" -r "lite-xl-$version"
+  zip "$package_name" -r "lite-xl-$version-$arch"
   mv "$package_name" ..
   popd
   rm -fr ".package-build"
@@ -60,7 +66,7 @@ lite_build_package_macosx () {
   arch="$3"
   local pdir=".package-build/lite-xl.app/Contents/MacOS"
   mkdir -p "$pdir"
-  cp -R data "$pdir"
+  copy_directory_from_repo data "$pdir"
   cp "$build/src/lite" "$pdir"
   strip "$pdir/lite"
   pushd ".package-build"
@@ -76,14 +82,14 @@ lite_build_package_linux () {
   build="$1"
   version="$2"
   arch="$3"
-  local pdir=".package-build/lite-xl-$version"
+  local pdir=".package-build/lite-xl-$version-$arch"
   mkdir -p "$pdir"
-  cp -r data "$pdir"
+  copy_directory_from_repo data "$pdir"
   cp "$build/src/lite" "$pdir"
   strip "$pdir/lite"
   pushd ".package-build"
   local package_name="lite-xl-$version-$arch.tar.gz"
-  tar czf "$package_name" "lite-xl-$version"
+  tar czf "$package_name" "lite-xl-$version-$arch"
   mv "$package_name" ..
   popd
   rm -fr ".package-build"
