@@ -68,8 +68,6 @@ function ReplNode:consume(node)
 end
 
 
-local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
-
 -- function ReplNode:split(dir, view, locked)
 
 
@@ -133,91 +131,48 @@ end
 
 -- local function calc_split_sizes(self, x, y, x1, x2)
 
+-- FIXME: do not hard code values. Figure out a more correct way. May be use SCALE.
+local left_margin, top_margin = 20, 20
+local spacing = { x = 20, y = 20 }
 
-function ReplNode:update_layout()
-  if self.type == "leaf" then
-    local av = self.active_view
-    if #self.views > 1 then
-      local _, _, _, th = self:get_tab_rect(1)
-      av.position.x, av.position.y = self.position.x, self.position.y + th
-      av.size.x, av.size.y = self.size.x, self.size.y - th
-    else
-      copy_position_and_size(av, self)
-    end
-  else
-    local x1, y1 = self.a:get_locked_size()
-    local x2, y2 = self.b:get_locked_size()
-    if self.type == "hsplit" then
-      calc_split_sizes(self, "x", "y", x1, x2)
-    elseif self.type == "vsplit" then
-      calc_split_sizes(self, "y", "x", y1, y2)
-    end
-    self.a:update_layout()
-    self.b:update_layout()
+function ReplNode:update_layout(x, y, w)
+  -- we assume below that self.view is a DocView
+  local doc_size = self.view:get_content_size()
+  self.position.x = x
+  self.position.y = y
+  self.size.x = w
+  self.size.y = doc_size
+  if self.next then
+    self.next:update_layout(x, y + doc_size + spacing.y, w)
   end
 end
 
 
 function ReplNode:update()
-  if self.type == "leaf" then
-    for _, view in ipairs(self.views) do
-      view:update()
-    end
-  else
-    self.a:update()
-    self.b:update()
+  self.view:update()
+  if self.next then
+    self.next:update()
   end
 end
 
 
-function ReplNode:draw_tabs()
-  local x, y, _, h = self:get_tab_rect(1)
-  local ds = style.divider_size
-  core.push_clip_rect(x, y, self.size.x, h)
-  renderer.draw_rect(x, y, self.size.x, h, style.background2)
-  renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
-
-  for i, view in ipairs(self.views) do
-    local x, y, w, h = self:get_tab_rect(i)
-    local text = view:get_name()
-    local color = style.dim
-    if view == self.active_view then
-      color = style.text
-      renderer.draw_rect(x, y, w, h, style.background)
-      renderer.draw_rect(x + w, y, ds, h, style.divider)
-      renderer.draw_rect(x - ds, y, ds, h, style.divider)
-    end
-    if i == self.hovered_tab then
-      color = style.text
-    end
-    core.push_clip_rect(x, y, w, h)
-    x, w = x + style.padding.x, w - style.padding.x * 2
-    local align = style.font:get_width(text) > w and "left" or "center"
-    common.draw_text(style.font, color, text, align, x, y, w, h)
-    core.pop_clip_rect()
-  end
-
-  core.pop_clip_rect()
-end
+-- function ReplNode:draw_tabs()
 
 
 function ReplNode:draw()
-  if self.type == "leaf" then
-    if #self.views > 1 then
-      self:draw_tabs()
-    end
-    local pos, size = self.active_view.position, self.active_view.size
-    core.push_clip_rect(pos.x, pos.y, size.x + pos.x % 1, size.y + pos.y % 1)
-    self.active_view:draw()
-    core.pop_clip_rect()
-  else
-    local x, y, w, h = self:get_divider_rect()
-    renderer.draw_rect(x, y, w, h, style.divider)
-    self:propagate("draw")
+  local pos, size = self.view.position, self.view.size
+  core.push_clip_rect(pos.x, pos.y, size.x + pos.x % 1, size.y + pos.y % 1)
+  self.view:draw()
+  core.pop_clip_rect()
+
+  if self.next then
+    self.next:draw()
   end
 end
 
 
+
+-- CONTINUE FROM HERE
 
 local ReplView = View:extend()
 
