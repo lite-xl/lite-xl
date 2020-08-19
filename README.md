@@ -6,6 +6,7 @@ A lightweight text editor written in Lua, adapted from [Lite](https://github.com
 
 * **[Get lite](https://github.com/franko/lite-xl/releases/latest)** — Download
   for Windows and Linux
+* **[Get started](doc/usage.md)** — A quick overview on how to get started
 * **[Get plugins](https://github.com/rxi/lite-plugins)** — Add additional
   functionality
 * **[Get color themes](https://github.com/rxi/lite-colors)** — Add additional colors
