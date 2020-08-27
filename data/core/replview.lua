@@ -101,9 +101,19 @@ function ReplNode:get_node_for_view(view)
   local current_node = self
   while current_node do
     if current_node.view == view then
-      return self
+      return current_node
     end
-    current_node = self.next
+    current_node = current_node.next
+  end
+end
+
+function ReplNode:get_last_node()
+  local current_node = self
+  while current_node do
+    if current_node.next == nil then
+      return current_node
+    end
+    current_node = current_node.next
   end
 end
 
@@ -117,7 +127,17 @@ end
 -- function ReplNode:get_children(t)
 -- function ReplNode:get_divider_overlapping_point(px, py)
 -- function ReplNode:get_tab_overlapping_point(px, py)
--- function ReplNode:get_child_overlapping_point(x, y)
+
+function ReplNode:get_child_overlapping_point(x, y)
+  if (y >= self.position.y) and (y <= self.position.y + self.size.y) then
+    return self
+  else
+    if self.next then
+      return self.next:get_child_overlapping_point(x, y)
+    end
+  end
+end
+
 -- function ReplNode:get_tab_rect(idx)
 -- function ReplNode:get_divider_rect()
 -- function ReplNode:get_locked_size()
@@ -171,9 +191,6 @@ function ReplNode:draw()
 end
 
 
-
--- CONTINUE FROM HERE
-
 local ReplView = View:extend()
 
 function ReplView:new()
@@ -188,25 +205,16 @@ function ReplView:defer_draw(fn, ...)
   table.insert(self.deferred_draws, 1, { fn = fn, ... })
 end
 
-
+-- FIXME: this function should be remove because it is needed only
+-- for a RootView.
 function ReplView:get_active_node()
   return self.root_node:get_node_for_view(core.active_view)
 end
 
 
-function ReplView:open_doc(doc)
-  local node = self:get_active_node()
-  if node.locked and core.last_active_view then
-    core.set_active_view(core.last_active_view)
-    node = self:get_active_node()
-  end
-  assert(not node.locked, "Cannot open doc on locked node")
-  for i, view in ipairs(node.views) do
-    if view.doc == doc then
-      node:set_active_view(node.views[i])
-      return view
-    end
-  end
+-- Previously named "open_doc"
+function ReplView:append_doc(doc)
+  local node = self.root_node:get_last_node()
   local view = DocView(doc)
   node:add_view(view)
   self.root_node:update_layout()
@@ -216,57 +224,34 @@ end
 
 
 function ReplView:on_mouse_pressed(button, x, y, clicks)
-  local div = self.root_node:get_divider_overlapping_point(x, y)
-  if div then
-    self.dragged_divider = div
-    return
-  end
   local node = self.root_node:get_child_overlapping_point(x, y)
-  local idx = node:get_tab_overlapping_point(x, y)
-  if idx then
-    node:set_active_view(node.views[idx])
-    if button == "middle" then
-      node:close_active_view(self.root_node)
-    end
-  else
-    core.set_active_view(node.active_view)
-    node.active_view:on_mouse_pressed(button, x, y, clicks)
-  end
+
+  -- FIXME: Should not be called, it is only for RootView.
+  -- Verify is set_active_view below whould be removed.
+  core.set_active_view(node.view)
+
+  node.view:on_mouse_pressed(button, x, y, clicks)
 end
 
 
 function ReplView:on_mouse_released(...)
-  if self.dragged_divider then
-    self.dragged_divider = nil
-  end
   self.root_node:on_mouse_released(...)
 end
 
 
-function ReplView:on_mouse_moved(x, y, dx, dy)
-  if self.dragged_divider then
-    local node = self.dragged_divider
-    if node.type == "hsplit" then
-      node.divider = node.divider + dx / node.size.x
-    else
-      node.divider = node.divider + dy / node.size.y
-    end
-    node.divider = common.clamp(node.divider, 0.01, 0.99)
-    return
-  end
+-- CONTINUE FROM HERE:
 
+function ReplView:on_mouse_moved(x, y, dx, dy)
   self.mouse.x, self.mouse.y = x, y
+  -- CONTINUE HERE: implement the on_mouse_moved for ReplNode
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
   local node = self.root_node:get_child_overlapping_point(x, y)
-  local div = self.root_node:get_divider_overlapping_point(x, y)
-  if div then
-    system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
-  elseif node:get_tab_overlapping_point(x, y) then
-    system.set_cursor("arrow")
-  else
+  if node then
     system.set_cursor(node.active_view.cursor)
-  end
+  else
+    system.set_cursor("arrow")
+  endif
 end
 
 
