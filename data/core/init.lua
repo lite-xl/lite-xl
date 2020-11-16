@@ -114,6 +114,7 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.project_files = {}
   core.redraw = true
+  core.visited_files = {}
 
   core.root_view = RootView()
   core.command_view = CommandView()
@@ -225,9 +226,23 @@ function core.reload_module(name)
 end
 
 
+function core.set_visited(filename)
+  for i = 1, #core.visited_files do
+    if core.visited_files[i] == filename then
+      table.remove(core.visited_files, i)
+      break
+    end
+  end
+  table.insert(core.visited_files, 1, filename)
+end
+
+
 function core.set_active_view(view)
   assert(view, "Tried to set active view to nil")
   if view ~= core.active_view then
+    if view.doc and view.doc.filename then
+      core.set_visited(view.doc.filename)
+    end
     core.last_active_view = core.active_view
     core.active_view = view
   end
