@@ -450,12 +450,20 @@ end)
 
 
 function core.run()
+  local idle_iterations = 0
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads()
     if not did_redraw and not need_more_work then
-      system.wait_event()
+      idle_iterations = idle_iterations + 1
+      -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
+      -- and set "redraw" flag.
+      if idle_iterations > 1 then
+        system.wait_event()
+      end
+    else
+      idle_iterations = 0
     end
     local elapsed = system.get_time() - core.frame_start
     system.sleep(math.max(0, 1 / config.fps - elapsed))
