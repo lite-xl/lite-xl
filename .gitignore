@@ -1,3 +1,7 @@
+build*
 .build*
+*.zip
+.lite-debug.log
+subprojects/lua
 subprojects/libagg
 sybprojects/lua
