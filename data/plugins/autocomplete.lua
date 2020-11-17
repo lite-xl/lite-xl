@@ -42,6 +42,9 @@ core.add_thread(function()
           if symbols_count > max_symbols then
             s = nil
             doc.disable_symbols = true
+            core.status_view:show_message("!", style.accent,
+              "Too many symbols in document "..doc.filename..
+              ": stopping auto-complete for this document according to config.max_symbols.")
             collectgarbage('collect')
             return {}
           end
