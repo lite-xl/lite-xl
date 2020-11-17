@@ -4,8 +4,8 @@ This files document the differences between Lite XL and rxi/lite for each versio
 
 ### 1.11
 
-- include improvements from rxi's Lite 1.11
-- fix behavior of tab to indent on multiple lines selection
+- include changes from rxi's Lite 1.11
+- fix behavior of tab to indent multiple lines
 - disable auto-complete on very big files to limit memory usage
 - limit project scan to a maximum number of files to limit memory usage
 - list recently visited files when using "Find File" command
