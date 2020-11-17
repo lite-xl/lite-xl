@@ -55,17 +55,30 @@ command.add(nil, {
   end,
 
   ["core:find-file"] = function()
+    local files = {}
+    for _, item in pairs(core.project_files) do
+      if item.type == "file" then
+        table.insert(files, item.filename)
+      end
+    end
     core.command_view:enter("Open File From Project", function(text, item)
       text = item and item.text or text
       core.root_view:open_doc(core.open_doc(text))
     end, function(text)
-      local files = {}
-      for _, item in pairs(core.project_files) do
-        if item.type == "file" then
-          table.insert(files, item.filename)
+      if text == "" then
+        local recent_files = {}
+        for i = 2, #core.visited_files do
+            table.insert(recent_files, core.visited_files[i])
         end
+        table.insert(recent_files, core.visited_files[1])
+        local other_files = common.fuzzy_match(files, "")
+        for i = 1, #other_files do
+          table.insert(recent_files, other_files[i])
+        end
+        return recent_files
+      else
+        return common.fuzzy_match(files, text)
       end
-      return common.fuzzy_match(files, text)
     end)
   end,
 

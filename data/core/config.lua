@@ -16,5 +16,7 @@ config.line_height = 1.2
 config.indent_size = 2
 config.tab_type = "soft"
 config.line_limit = 80
+config.max_symbols = 2000
+config.max_project_files = 2000
 
 return config

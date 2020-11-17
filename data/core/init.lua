@@ -34,6 +34,8 @@ local function project_scan_thread()
     local all = system.list_dir(path) or {}
     local dirs, files = {}, {}
 
+    local entries_count = 0
+    local max_entries = config.max_project_files
     for _, file in ipairs(all) do
       if not common.match_pattern(file, config.ignore_files) then
         local file = (path ~= "." and path .. PATHSEP or "") .. file
@@ -41,6 +43,8 @@ local function project_scan_thread()
         if info and info.size < size_limit then
           info.filename = file
           table.insert(info.type == "dir" and dirs or files, info)
+          entries_count = entries_count + 1
+          if entries_count > max_entries then break end
         end
       end
     end
@@ -48,7 +52,10 @@ local function project_scan_thread()
     table.sort(dirs, compare_file)
     for _, f in ipairs(dirs) do
       table.insert(t, f)
-      get_files(f.filename, t)
+      if entries_count <= max_entries then
+        local subdir_t, subdir_count = get_files(f.filename, t)
+        entries_count = entries_count + subdir_count
+      end
     end
 
     table.sort(files, compare_file)
@@ -56,14 +63,19 @@ local function project_scan_thread()
       table.insert(t, f)
     end
 
-    return t
+    return t, entries_count
   end
 
   while true do
     -- get project files and replace previous table if the new table is
     -- different
-    local t = get_files(".")
+    local t, entries_count = get_files(".")
     if diff_files(core.project_files, t) then
+      if entries_count > config.max_project_files then
+        core.status_view:show_message("!", style.accent,
+          "Too many files in project directory: stopping reading at "..
+          config.max_project_files.." files according to config.max_project_files.")
+      end
       core.project_files = t
       core.redraw = true
     end
@@ -102,6 +114,7 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.project_files = {}
   core.redraw = true
+  core.visited_files = {}
 
   core.root_view = RootView()
   core.command_view = CommandView()
@@ -213,9 +226,23 @@ function core.reload_module(name)
 end
 
 
+function core.set_visited(filename)
+  for i = 1, #core.visited_files do
+    if core.visited_files[i] == filename then
+      table.remove(core.visited_files, i)
+      break
+    end
+  end
+  table.insert(core.visited_files, 1, filename)
+end
+
+
 function core.set_active_view(view)
   assert(view, "Tried to set active view to nil")
   if view ~= core.active_view then
+    if view.doc and view.doc.filename then
+      core.set_visited(view.doc.filename)
+    end
     core.last_active_view = core.active_view
     core.active_view = view
   end
@@ -450,12 +477,20 @@ end)
 
 
 function core.run()
+  local idle_iterations = 0
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads()
     if not did_redraw and not need_more_work then
-      system.wait_event()
+      idle_iterations = idle_iterations + 1
+      -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
+      -- and set "redraw" flag.
+      if idle_iterations > 1 then
+        system.wait_event()
+      end
+    else
+      idle_iterations = 0
     end
     local elapsed = system.get_time() - core.frame_start
     system.sleep(math.max(0, 1 / config.fps - elapsed))
