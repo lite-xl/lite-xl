@@ -42,6 +42,10 @@ end
 
 local function remove_from_start_of_selected_lines(text, skip_empty)
   local line1, col1, line2, col2, swap = doc():get_selection(true)
+  if line2 > line1 and col2 == 1 then
+    line2 = line2 - 1
+    col2 = #doc().lines[line2]
+  end
   for line = line1, line2 do
     local line_text = doc().lines[line]
     if  line_text:sub(1, #text) == text
