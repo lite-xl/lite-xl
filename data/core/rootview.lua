@@ -504,6 +504,11 @@ function RootView:on_text_input(...)
 end
 
 
+function RootView:on_focus_lost(...)
+  -- We force a redraw so documents can redraw without the cursor.
+  core.redraw = true
+end
+
 function RootView:update()
   copy_position_and_size(self.root_node, self)
   self.root_node:update()

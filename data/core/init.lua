@@ -378,6 +378,8 @@ function core.on_event(type, ...)
         core.root_view:open_doc(doc)
       end
     end
+  elseif type == "focuslost" then
+    core.root_view:on_focus_lost(...)
   elseif type == "quit" then
     core.quit()
   end
@@ -487,7 +489,12 @@ function core.run()
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
       -- and set "redraw" flag.
       if idle_iterations > 1 then
-        system.wait_event()
+        if system.window_has_focus() then
+          -- keep running even with no events to make the cursor blinks
+          system.wait_event(1 / config.fps)
+        else
+          system.wait_event()
+        end
       end
     else
       idle_iterations = 0
