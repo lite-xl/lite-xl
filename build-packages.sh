@@ -53,7 +53,7 @@ lite_build_package_windows () {
   cp "$build/src/lite.exe" "$pdir"
   strip --strip-all "$pdir/lite.exe"
   pushd ".package-build"
-  local package_name="lite-xl-$version-$os-$arch.zip"
+  local package_name="lite-xl-$os-$arch.zip"
   zip "$package_name" -r "lite-xl"
   mv "$package_name" ..
   popd
@@ -72,7 +72,7 @@ lite_build_package_macosx () {
   cp "$build/src/lite" "$pdir"
   strip "$pdir/lite"
   pushd ".package-build"
-  local package_name="lite-xl-$version-$os-$arch.zip"
+  local package_name="lite-xl-$os-$arch.zip"
   zip "$package_name" -r "lite-xl.app"
   mv "$package_name" ..
   popd
@@ -91,7 +91,7 @@ lite_build_package_linux () {
   cp "$build/src/lite" "$pdir"
   strip "$pdir/lite"
   pushd ".package-build"
-  local package_name="lite-xl-$version-$os-$arch.tar.gz"
+  local package_name="lite-xl-$os-$arch.tar.gz"
   tar czf "$package_name" "lite-xl"
   mv "$package_name" ..
   popd
