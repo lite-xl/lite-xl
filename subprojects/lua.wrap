@@ -1,4 +1,0 @@
-[wrap-git]
-directory = lua
-url = https://github.com/franko/lua
-revision = v5.2.4-7

@@ -1,4 +1,5 @@
 lite_sources = [
+    'api/compat.c',
     'api/api.c',
     'api/cp_replace.c',
     'api/renderer.c',
