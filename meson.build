@@ -3,13 +3,17 @@ project('lite', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
-lua_dep = dependency('lua5.2', required : false)
 
-if not lua_dep.found()
-    lua_subproject = subproject('lua', default_options: [
-        'shared=false', 'use_readline=false', 'app=false'
-    ])
-    lua_dep = lua_subproject.get_variable('lua_dep')
+if get_option('luajit')
+    lua_dep = dependency('luajit')
+else
+    lua_dep = dependency('lua5.2', required : false)
+    if not lua_dep.found()
+        lua_subproject = subproject('lua', default_options: [
+            'shared=false', 'use_readline=false', 'app=false'
+        ])
+        lua_dep = lua_subproject.get_variable('lua_dep')
+    endif
 endif
 
 sdl_dep = dependency('sdl2', method: 'config-tool')
