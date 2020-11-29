@@ -1,5 +1,6 @@
 require "core.strict"
 require "core.regex"
+require "core.compat"
 local common = require "core.common"
 local config = require "core.config"
 local style = require "core.style"
