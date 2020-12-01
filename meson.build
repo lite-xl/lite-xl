@@ -14,8 +14,15 @@ endif
 
 sdl_dep = dependency('sdl2', method: 'config-tool')
 
+lite_cargs = []
+if host_machine.system() == 'windows'
+    lite_cargs += ['-DLITE_XL_DATA_USE_EXEDIR']
+endif
+
 lite_include = include_directories('src')
-install_subdir('data', install_dir : 'bin')
+install_subdir('data/core', install_dir : 'share/lite-xl')
+install_subdir('data/fonts', install_dir : 'share/lite-xl')
+install_subdir('data/plugins', install_dir : 'share/lite-xl')
 
 lite_link_args = []
 if get_option('buildtype') == 'release'

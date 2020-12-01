@@ -94,7 +94,7 @@ function core.init()
   CommandView = require "core.commandview"
   Doc = require "core.doc"
 
-  local project_dir = EXEDIR
+  local project_dir = "."
   local files = {}
   for i = 2, #ARGS do
     local info = system.get_file_info(ARGS[i]) or {}
@@ -187,7 +187,7 @@ end
 
 function core.load_plugins()
   local no_errors = true
-  local files = system.list_dir(EXEDIR .. "/data/plugins")
+  local files = system.list_dir(DATADIR .. "/plugins")
   for _, filename in ipairs(files) do
     local modname = "plugins." .. filename:gsub(".lua$", "")
     local ok = core.try(require, modname)
