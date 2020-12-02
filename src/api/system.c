@@ -8,6 +8,7 @@
 #include "api.h"
 #include "rencache.h"
 #ifdef _WIN32
+  #include <direct.h>
   #include <windows.h>
 #endif
 
@@ -314,6 +315,25 @@ static int f_get_file_info(lua_State *L) {
 }
 
 
+static int f_mkdir(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+
+#ifdef _WIN32
+  int err = _mkdir(path);
+#else
+  int err = mkdir(path, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+#endif
+  if (err < 0) {
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, strerror(errno));
+    return 2;
+  }
+
+  lua_pushboolean(L, 1);
+  return 1;
+}
+
+
 static int f_get_clipboard(lua_State *L) {
   char *text = SDL_GetClipboardText();
   if (!text) { return 0; }
@@ -397,6 +417,7 @@ static const luaL_Reg lib[] = {
   { "window_has_focus",    f_window_has_focus    },
   { "show_confirm_dialog", f_show_confirm_dialog },
   { "chdir",               f_chdir               },
+  { "mkdir",               f_mkdir               },
   { "list_dir",            f_list_dir            },
   { "absolute_path",       f_absolute_path       },
   { "get_file_info",       f_get_file_info       },

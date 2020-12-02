@@ -20,9 +20,9 @@ if host_machine.system() == 'windows'
 endif
 
 lite_include = include_directories('src')
-install_subdir('data/core', install_dir : 'share/lite-xl')
-install_subdir('data/fonts', install_dir : 'share/lite-xl')
-install_subdir('data/plugins', install_dir : 'share/lite-xl')
+foreach data_module : ['core', 'fonts', 'plugins', 'colors']
+  install_subdir('data' / data_module , install_dir : 'share/lite-xl')
+endforeach
 
 lite_link_args = []
 if get_option('buildtype') == 'release'

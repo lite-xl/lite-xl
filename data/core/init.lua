@@ -86,6 +86,61 @@ local function project_scan_thread()
 end
 
 
+-- create a directory using mkdir but may need to create the parent
+-- directories as well.
+local function create_user_directory()
+  local dirname_create = USERDIR
+  local basedir
+  local subdirs = {}
+  while dirname_create and dirname_create ~= "" do
+    local success_mkdir = system.mkdir(dirname_create)
+    if success_mkdir then break end
+    dirname_create, basedir = dirname_create:match("(.*)[/\\](.+)$")
+    if basedir then
+      subdirs[#subdirs + 1] = basedir
+    end
+  end
+  for _, dirname in ipairs(subdirs) do
+    dirname_create = dirname_create .. '/' .. dirname
+    local success_mkdir = system.mkdir(dirname_create)
+    if not success_mkdir then error("cannot create directory: \"" .. dirname_create .. "\"") end
+  end
+end
+
+
+local function write_user_init_file(init_filename)
+  local init_file = io.open(init_filename, "w")
+  if not init_file then error("cannot create file: \"" .. init_filename .. "\"") end
+  init_file:write([[
+-- put user settings here
+-- this module will be loaded after everything else when the application starts
+
+local keymap = require "core.keymap"
+local config = require "core.config"
+local style = require "core.style"
+
+-- light theme:
+-- require "colors.summer"
+
+-- key binding:
+-- keymap.add { ["ctrl+escape"] = "core:quit" }
+]])
+  init_file:close()
+end
+
+
+
+local function load_user_directory()
+  local init_filename = USERDIR .. "/init.lua"
+  local info = system.get_file_info(USERDIR)
+  if not info then
+    create_user_directory()
+    write_user_init_file(init_filename)
+  end
+  return dofile(init_filename)
+end
+
+
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
@@ -126,7 +181,7 @@ function core.init()
   core.add_thread(project_scan_thread)
   command.add_defaults()
   local got_plugin_error = not core.load_plugins()
-  local got_user_error = not core.try(require, "user")
+  local got_user_error = not core.try(load_user_directory)
   local got_project_error = not core.load_project_module()
 
   for _, filename in ipairs(files) do
