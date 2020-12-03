@@ -1,0 +1,31 @@
+#!/bin/bash
+rundir=".run"
+if [ ${1:-x} == "-portable" ]; then
+  bindir="$rundir"
+  datadir="$rundir/data"
+  shift
+else
+  bindir="$rundir/bin"
+  datadir="$rundir/share/lite-xl"
+fi
+
+if [ "$#" -lt 1 ]; then
+  echo "usage: $0 <build-dir>"
+  exit 1
+fi
+
+builddir="$1"
+rm -fr "$rundir"
+mkdir -p "$bindir" "$datadir"
+if [ -f "$builddir/src/lite" ]; then
+  cp "$builddir/src/lite" "$bindir"
+elif [ -f "$builddir/src/lite.exe" ]; then
+  cp "$builddir/src/lite.exe" "$bindir"
+else
+  echo "error: no lite executable found in $builddir/src"
+  exit 1
+fi
+for module_name in core plugins fonts; do
+  cp -r "data/$module_name" "$datadir"
+done
+exec "$bindir/lite"

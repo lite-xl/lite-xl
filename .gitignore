@@ -1,5 +1,6 @@
 build*
 .build*
+.run*
 *.zip
 .lite-debug.log
 subprojects/lua
