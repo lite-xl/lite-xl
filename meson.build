@@ -15,7 +15,7 @@ endif
 sdl_dep = dependency('sdl2', method: 'config-tool')
 
 lite_cargs = []
-if host_machine.system() == 'windows'
+if get_option('portable')
     lite_cargs += ['-DLITE_XL_DATA_USE_EXEDIR']
 endif
 

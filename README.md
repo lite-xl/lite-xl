@@ -64,16 +64,32 @@ ninja -C build
 ninja -C build install
 ```
 
+When performing the "meson setup" command you may enable the "portable" option.
+
+If this latter is enabled Lite XL is built to use a "data" and a "user" directory
+from the same directory of the executable.
+If "portable" is not enabled (this is the default) Lite XL will use unix-like
+directory locations.
+In this case the "data" directory will be `$prefix/share/lite-xl` and the "user"
+directory will be `$HOME/.config/lite-xl`.
+The `$prefix` is determined as the directory such as `$prefix/bin` corresponds to
+the location of the executable.
+The `$HOME` is determined from the corresponding environment variable.
+As a special case on Windows the variable `$USERPROFILE` will be used instead.
+
 If you want to install Lite XL on Windows or Mac OS X we suggest to use the script `build-packages.sh`:
 
 ```sh
 bash build-packages.sh <version> <arch>
+
+# In alternative the -portable option can be used like below:
+# bash build-packages.sh -portable <version> <arch>
 ```
 
 It will run meson and create a Zip file that can be easily installed or uninstalled.
 
 Please note the, while compiling Lite XL on Mac OS X should work Mac OS X
-is not well supported.
+is not currently supported.
 
 ## Contributing
 Any additional functionality that can be added through a plugin should be done

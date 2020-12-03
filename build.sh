@@ -1,6 +1,10 @@
 #!/bin/bash
 
-cflags="-Wall -O3 -g -std=gnu11 -fno-strict-aliasing -Isrc -Ilib/font_renderer"
+if [[ $1 == -portable ]]; then
+  cflags="-DLITE_XL_DATA_USE_EXEDIR"
+fi
+
+cflags+="-Wall -O3 -g -std=gnu11 -fno-strict-aliasing -Isrc -Ilib/font_renderer"
 cflags+=" $(pkg-config --cflags lua5.2) $(sdl2-config --cflags)"
 lflags="-static-libgcc -static-libstdc++"
 for package in libagg freetype2 lua5.2; do

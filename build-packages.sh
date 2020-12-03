@@ -22,19 +22,21 @@ build_dir_is_usable () {
 
 # Ordinary release build
 lite_build () {
-  local build="$1"
+  local meson_options=("-Dportable=$1")
+  local build="$2"
   build_dir_is_usable "$build" || exit 1
   rm -fr "$build"
-  meson setup --buildtype=release "$build" || exit 1
+  meson setup --buildtype=release "${meson_options[@]}" "$build" || exit 1
   ninja -C "$build" || exit 1
 }
 
 # Build using Profile Guided Optimizations (PGO)
 lite_build_pgo () {
-  local build="$1"
+  local meson_options=("-Dportable=$1")
+  local build="$2"
   build_dir_is_usable "$build" || exit 1
   rm -fr "$build"
-  meson setup --buildtype=release -Db_pgo=generate "$build" || exit 1
+  meson setup --buildtype=release "${meson_options[@]}" -Db_pgo=generate "$build" || exit 1
   ninja -C "$build" || exit 1
   copy_directory_from_repo data "$build/src"
   "$build/src/lite"
@@ -43,15 +45,26 @@ lite_build_pgo () {
 }
 
 lite_build_package_windows () {
-  build="$1"
-  version="$2"
-  arch="$3"
-  os="win"
+  local portable="$1"
+  local build="$2"
+  local version="$3"
+  local arch="$4"
+  local os="win"
   local pdir=".package-build/lite-xl"
-  mkdir -p "$pdir"
-  copy_directory_from_repo data "$pdir"
-  cp "$build/src/lite.exe" "$pdir"
-  strip --strip-all "$pdir/lite.exe"
+  if [ $portable == "true" ]; then
+    local bindir="$pdir"
+    local datadir="$pdir/data"
+  else
+    local bindir="$pdir/bin"
+    local datadir="$pdir/share/lite-xl"
+  fi
+  mkdir -p "$bindir"
+  mkdir -p "$datadir"
+  for module_name in core plugins fonts; do
+    copy_directory_from_repo "data/$module_name" "$datadir"
+  done
+  cp "$build/src/lite.exe" "$bindir"
+  strip --strip-all "$bindir/lite.exe"
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch.zip"
   zip "$package_name" -r "lite-xl"
@@ -62,15 +75,26 @@ lite_build_package_windows () {
 }
 
 lite_build_package_macosx () {
-  build="$1"
-  version="$2"
-  arch="$3"
-  os="macosx"
+  local portable="$1"
+  local build="$2"
+  local version="$3"
+  local arch="$4"
+  local os="macosx"
   local pdir=".package-build/lite-xl.app/Contents/MacOS"
-  mkdir -p "$pdir"
-  copy_directory_from_repo data "$pdir"
-  cp "$build/src/lite" "$pdir"
-  strip "$pdir/lite"
+  if [ $portable == "true" ]; then
+    local bindir="$pdir"
+    local datadir="$pdir/data"
+  else
+    local bindir="$pdir/bin"
+    local datadir="$pdir/share/lite-xl"
+  fi
+  mkdir -p "$bindir"
+  mkdir -p "$datadir"
+  for module_name in core plugins fonts; do
+    copy_directory_from_repo "data/$module_name" "$datadir"
+  done
+  cp "$build/src/lite" "$bindir"
+  strip "$bindir/lite"
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch.zip"
   zip "$package_name" -r "lite-xl.app"
@@ -81,15 +105,26 @@ lite_build_package_macosx () {
 }
 
 lite_build_package_linux () {
-  build="$1"
-  version="$2"
-  arch="$3"
-  os="linux"
+  local portable="$1"
+  local build="$2"
+  local version="$3"
+  local arch="$4"
+  local os="linux"
   local pdir=".package-build/lite-xl"
-  mkdir -p "$pdir"
-  copy_directory_from_repo data "$pdir"
-  cp "$build/src/lite" "$pdir"
-  strip "$pdir/lite"
+  if [ $portable == "true" ]; then
+    local bindir="$pdir"
+    local datadir="$pdir/data"
+  else
+    local bindir="$pdir/bin"
+    local datadir="$pdir/share/lite-xl"
+  fi
+  mkdir -p "$bindir"
+  mkdir -p "$datadir"
+  for module_name in core plugins fonts; do
+    copy_directory_from_repo "data/$module_name" "$datadir"
+  done
+  cp "$build/src/lite" "$bindir"
+  strip "$bindir/lite"
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch.tar.gz"
   tar czf "$package_name" "lite-xl"
@@ -113,7 +148,7 @@ lite_build_package () {
 }
 
 if [[ -z "$1" || -z "$2" ]]; then
-  echo "usage: $0 <version> <arch>"
+  echo "usage: $0 [options] <version> <arch>"
   exit 1
 fi
 
@@ -122,14 +157,20 @@ if [[ "$1" == "-pgo" ]]; then
   shift
 fi
 
+portable="false"
+if [ "$1" == "-portable" ]; then
+  portable="true"
+  shift
+fi
+
 version="$1"
 arch="$2"
 build_dir=".build-$arch"
 
 if [ -z ${pgo+set} ]; then
-  lite_build "$build_dir"
+  lite_build "$portable" "$build_dir"
 else
-  lite_build_pgo "$build_dir"
+  lite_build_pgo "$portable" "$build_dir"
 fi
-lite_build_package "$build_dir" "$version" "$arch"
+lite_build_package "$portable" "$build_dir" "$version" "$arch"
 

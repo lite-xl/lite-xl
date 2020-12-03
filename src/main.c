@@ -129,9 +129,13 @@ int main(int argc, char **argv) {
 #else
     "  do\n"
     "    local prefix = EXEDIR:match(\"^(.+)[/\\\\]bin$\")\n"
+#ifdef _WIN32
+    "    local home = os.getenv('USERPROFILE')\n"
+#else
+    "    local home = os.getenv('HOME')\n"
+#endif
     "    DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')\n"
-    "    local home = os.getenv('USERPROFILE') or os.getenv('HOME')\n"
-    "    USERDIR = home and home .. '/.config/lite-xl' or (EXEDIR .. '/user')\n"
+    "    USERDIR = home and (home .. '/.config/lite-xl') or (EXEDIR .. '/user')\n"
     "  end\n"
     "  package.path = package.path .. ';' .. USERDIR .. '/?.lua'\n"
     "  package.path = package.path .. ';' .. USERDIR .. '/?/init.lua'\n"
