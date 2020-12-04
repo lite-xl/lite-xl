@@ -141,14 +141,23 @@ static GlyphSet* get_glyphset(RenFont *font, int codepoint) {
 }
 
 
-RenFont* ren_load_font(const char *filename, float size) {
+RenFont* ren_load_font(const char *filename, float size, unsigned int renderer_flags) {
   RenFont *font = NULL;
 
   /* init font */
   font = check_alloc(calloc(1, sizeof(RenFont)));
   font->size = size;
 
-  font->renderer = FR_Renderer_New(FR_HINTING | FR_SUBPIXEL | FR_PRESCALE_X);
+  unsigned int fr_renderer_flags = 0;
+  if ((renderer_flags & RenFontAntialiasingMask) == RenFontSubpixel) {
+    fr_renderer_flags |= FR_SUBPIXEL;
+  }
+  if ((renderer_flags & RenFontHintingMask) == RenFontHintingSlight) {
+    fr_renderer_flags |= (FR_HINTING | FR_PRESCALE_X);
+  } else if ((renderer_flags & RenFontHintingMask) == RenFontHintingFull) {
+    fr_renderer_flags |= FR_HINTING;
+  }
+  font->renderer = FR_Renderer_New(fr_renderer_flags);
   if (FR_Load_Font(font->renderer, filename)) {
     free(font);
     return NULL;

@@ -7,6 +7,17 @@
 typedef struct RenImage RenImage;
 typedef struct RenFont RenFont;
 
+enum {
+  RenFontAntialiasingMask = 1,
+  RenFontGrayscale        = 1,
+  RenFontSubpixel         = 0,
+
+  RenFontHintingMask   = 3 << 1,
+  RenFontHintingSlight = 0 << 1,
+  RenFontHintingNone   = 1 << 1,
+  RenFontHintingFull   = 2 << 1,
+};
+
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 
@@ -19,7 +30,7 @@ void ren_get_size(int *x, int *y);
 RenImage* ren_new_image(int width, int height);
 void ren_free_image(RenImage *image);
 
-RenFont* ren_load_font(const char *filename, float size);
+RenFont* ren_load_font(const char *filename, float size, unsigned int renderer_flags);
 void ren_free_font(RenFont *font);
 void ren_set_font_tab_width(RenFont *font, int n);
 int ren_get_font_tab_width(RenFont *font);

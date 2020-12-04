@@ -7,9 +7,23 @@ style.scrollbar_size = common.round(4 * SCALE)
 style.caret_width = common.round(2 * SCALE)
 style.tab_width = common.round(170 * SCALE)
 
+-- The function renderer.font.load can accept an option table as a second optional argument.
+-- It shoud be like the following:
+--
+-- {antialiasing= "grayscale", hinting = "full"}
+--
+-- The possible values for each option are:
+-- - for antialiang: grayscale, subpixel
+-- - for hinting: none, slight, full
+--
+-- The defaults values are antialiang subpixel and hinting slight for optimal visualization
+-- on ordinary LCD monitor with RGB patterns.
+--
+-- On High DPI monitor or non RGB monitor you may consider using antialiang grayscale instead.
+-- The antialising grayscale with full hinting is interesting for crisp font rendering.
 style.font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 14 * SCALE)
 style.big_font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 34 * SCALE)
-style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 14 * SCALE)
+style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 14 * SCALE, {antialiasing="grayscale", hinting="full"})
 style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 13.5 * SCALE)
 
 style.background = { common.color "#2e2e32" }
