@@ -1,9 +1,16 @@
 #!/bin/bash
 
+# strip-components is normally set to 1 to strip the initial "data" from the
+# directory path.
 copy_directory_from_repo () {
+  local tar_options=()
+  if [[ $1 == --strip-components=* ]]; then
+    tar_options+=($1)
+    shift
+  fi
   local dirname="$1"
   local destdir="$2"
-  git --work-tree="$destdir" checkout HEAD -f -- "$dirname"
+  git archive master "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
 }
 
 # Check if build directory is ok to be used to build.
@@ -61,7 +68,7 @@ lite_build_package_windows () {
   mkdir -p "$bindir"
   mkdir -p "$datadir"
   for module_name in core plugins colors fonts; do
-    copy_directory_from_repo "data/$module_name" "$datadir"
+    copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
   cp "$build/src/lite.exe" "$bindir"
   strip --strip-all "$bindir/lite.exe"
@@ -91,7 +98,7 @@ lite_build_package_macosx () {
   mkdir -p "$bindir"
   mkdir -p "$datadir"
   for module_name in core plugins colors fonts; do
-    copy_directory_from_repo "data/$module_name" "$datadir"
+    copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
   cp "$build/src/lite" "$bindir"
   strip "$bindir/lite"
@@ -121,7 +128,7 @@ lite_build_package_linux () {
   mkdir -p "$bindir"
   mkdir -p "$datadir"
   for module_name in core plugins colors fonts; do
-    copy_directory_from_repo "data/$module_name" "$datadir"
+    copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
   cp "$build/src/lite" "$bindir"
   strip "$bindir/lite"
@@ -152,19 +159,24 @@ if [[ -z "$1" || -z "$2" ]]; then
   exit 1
 fi
 
-if [[ "$1" == "-pgo" ]]; then
-  pgo=true
-  shift
-fi
+portable=false
+while [ ! -z {$1+x} ]; do
+  case $1 in
+  -pgo)
+    pgo=true
+    shift
+    ;;
+  -portable)
+    portable=true
+    shift
+    ;;
+  *)
+    version="$1"
+    arch="$2"
+    break
+  esac
+done
 
-portable="false"
-if [ "$1" == "-portable" ]; then
-  portable="true"
-  shift
-fi
-
-version="$1"
-arch="$2"
 build_dir=".build-$arch"
 
 if [ -z ${pgo+set} ]; then
