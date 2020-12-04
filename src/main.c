@@ -125,21 +125,22 @@ int main(int argc, char **argv) {
     "  EXEDIR = EXEFILE:match(\"^(.+)[/\\\\].*$\")\n"
 #ifdef LITE_XL_DATA_USE_EXEDIR
     "  DATADIR = EXEDIR .. '/data'\n"
-    "  USERDIR = EXEDIR .. '/user'\n"
 #else
     "  do\n"
     "    local prefix = EXEDIR:match(\"^(.+)[/\\\\]bin$\")\n"
+    "    DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')\n"
+    "  end\n"
+#endif
+    "  do\n"
 #ifdef _WIN32
     "    local home = os.getenv('USERPROFILE')\n"
 #else
     "    local home = os.getenv('HOME')\n"
 #endif
-    "    DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')\n"
     "    USERDIR = home and (home .. '/.config/lite-xl') or (EXEDIR .. '/user')\n"
     "  end\n"
     "  package.path = package.path .. ';' .. USERDIR .. '/?.lua'\n"
     "  package.path = package.path .. ';' .. USERDIR .. '/?/init.lua'\n"
-#endif
     "  package.path = DATADIR .. '/?.lua;' .. package.path\n"
     "  package.path = DATADIR .. '/?/init.lua;' .. package.path\n"
     "  core = require('core')\n"
