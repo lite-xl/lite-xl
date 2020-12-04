@@ -60,7 +60,7 @@ lite_build_package_windows () {
   fi
   mkdir -p "$bindir"
   mkdir -p "$datadir"
-  for module_name in core plugins fonts; do
+  for module_name in core plugins colors fonts; do
     copy_directory_from_repo "data/$module_name" "$datadir"
   done
   cp "$build/src/lite.exe" "$bindir"
@@ -90,7 +90,7 @@ lite_build_package_macosx () {
   fi
   mkdir -p "$bindir"
   mkdir -p "$datadir"
-  for module_name in core plugins fonts; do
+  for module_name in core plugins colors fonts; do
     copy_directory_from_repo "data/$module_name" "$datadir"
   done
   cp "$build/src/lite" "$bindir"
@@ -120,7 +120,7 @@ lite_build_package_linux () {
   fi
   mkdir -p "$bindir"
   mkdir -p "$datadir"
-  for module_name in core plugins fonts; do
+  for module_name in core plugins colors fonts; do
     copy_directory_from_repo "data/$module_name" "$datadir"
   done
   cp "$build/src/lite" "$bindir"

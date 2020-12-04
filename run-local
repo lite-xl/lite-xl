@@ -25,7 +25,7 @@ else
   echo "error: no lite executable found in $builddir/src"
   exit 1
 fi
-for module_name in core plugins fonts; do
+for module_name in core plugins colors fonts; do
   cp -r "data/$module_name" "$datadir"
 done
 exec "$bindir/lite"
