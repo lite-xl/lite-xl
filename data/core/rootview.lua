@@ -4,6 +4,7 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local Object = require "core.object"
 local View = require "core.view"
+local CommandView = require "core.commandview"
 local DocView = require "core.docview"
 
 
@@ -376,6 +377,41 @@ function Node:draw()
 end
 
 
+function Node:is_empty()
+  if self.type == "leaf" then
+    return #self.views == 0
+  else
+    return self.a:is_empty() and self.b:is_empty()
+  end
+end
+
+
+function Node:close_all_docviews()
+  if self.type == "leaf" then
+    local i = 1
+    while i <= #self.views do
+      local view = self.views[i]
+      if view:is(DocView) and not view:is(CommandView) then
+        table.remove(self.views, i)
+      else
+        i = i + 1
+      end
+    end
+    if #self.views == 0 and self.has_documents_view then
+      self:add_view(EmptyView())
+    end
+  else
+    self.a:close_all_docviews()
+    self.b:close_all_docviews()
+    if self.a:is_empty() then
+      self:consume(self.b)
+    elseif self.b:is_empty() then
+      self:consume(self.a)
+    end
+  end
+end
+
+
 
 local RootView = View:extend()
 
@@ -434,6 +470,11 @@ function RootView:open_doc(doc)
   self.root_node:update_layout()
   view:scroll_to_line(view.doc:get_selection(), true, true)
   return view
+end
+
+
+function RootView:close_all_docviews()
+  self.root_node:close_all_docviews()
 end
 
 

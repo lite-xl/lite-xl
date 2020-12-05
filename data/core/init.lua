@@ -81,7 +81,12 @@ local function project_scan_thread()
     end
 
     -- wait for next scan
-    coroutine.yield(config.project_scan_rate)
+    if core.switch_project then
+      system.chdir(core.switch_project)
+      core.switch_project = nil
+    else
+      coroutine.yield(config.project_scan_rate)
+    end
   end
 end
 
@@ -175,6 +180,7 @@ function core.init()
   core.command_view = CommandView()
   core.status_view = StatusView()
 
+  core.root_view.root_node.has_documents_view = true
   core.root_view.root_node:split("down", core.command_view, true)
   core.root_view.root_node.b:split("down", core.status_view, true)
 
@@ -194,30 +200,7 @@ function core.init()
 end
 
 
-local temp_uid = (system.get_time() * 1000) % 0xffffffff
-local temp_file_prefix = string.format(".lite_temp_%08x", temp_uid)
-local temp_file_counter = 0
-
-local function delete_temp_files()
-  for _, filename in ipairs(system.list_dir(EXEDIR)) do
-    if filename:find(temp_file_prefix, 1, true) == 1 then
-      os.remove(EXEDIR .. PATHSEP .. filename)
-    end
-  end
-end
-
-function core.temp_filename(ext)
-  temp_file_counter = temp_file_counter + 1
-  return EXEDIR .. PATHSEP .. temp_file_prefix
-      .. string.format("%06x", temp_file_counter) .. (ext or "")
-end
-
-
-function core.quit(force)
-  if force then
-    delete_temp_files()
-    os.exit()
-  end
+function core.confirm_close_all()
   local dirty_count = 0
   local dirty_name
   for _, doc in ipairs(core.docs) do
@@ -234,9 +217,16 @@ function core.quit(force)
       text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
     end
     local confirm = system.show_confirm_dialog("Unsaved Changes", text)
-    if not confirm then return end
+    if not confirm then return false end
   end
-  core.quit(true)
+  return true
+end
+
+
+function core.quit(force)
+  if core.confirm_close_all() then
+    os.exit()
+  end
 end
 
 
