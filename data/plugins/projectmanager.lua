@@ -10,7 +10,7 @@ local projects_file = ".lite_projects.lua"
 project_manager.projects = {}
 
 local function load_projects()
-  local ok, t = pcall(dofile, EXEDIR .. "/" .. projects_file)
+  local ok, t = pcall(dofile, USERDIR .. "/" .. projects_file)
   if ok then project_manager.projects = t end
 end
 
@@ -30,7 +30,7 @@ local function serialize(val)
 end
 
 local function save_projects()
-  local fp = io.open(EXEDIR .. "/" .. projects_file, "w")
+  local fp = io.open(USERDIR .. "/" .. projects_file, "w")
   if fp then
     fp:write("return ", serialize(project_manager.projects), "\n")
     fp:close()
