@@ -28,4 +28,4 @@ fi
 for module_name in core plugins colors fonts; do
   cp -r "data/$module_name" "$datadir"
 done
-exec "$bindir/lite"
+exec "$bindir/lite" "${@:2}"
