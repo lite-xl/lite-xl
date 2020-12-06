@@ -432,20 +432,17 @@ function RootView:get_active_node()
   return self.root_node:get_node_for_view(core.active_view)
 end
 
--- Get un unlocked node with at least one view.
-local function get_node_unlocked(node)
-  if not node.locked and #node.views > 0 then
+local function get_main_document_view(node)
+  if node.has_documents_view then
     return node
   end
   if node.type ~= "leaf" then
-    local a = get_node_unlocked(node.a)
-    if a then return a end
-    return get_node_unlocked(node.b)
+    return get_main_document_view(node.a) or get_main_document_view(node.b)
   end
 end
 
-function RootView:get_document_view()
-  local node = get_node_unlocked(self.root_node)
+function RootView:get_main_document_view()
+  local node = get_main_document_view(self.root_node)
   if node then
     return node.views[1]
   end
@@ -454,8 +451,8 @@ end
 function RootView:open_doc(doc)
   local node = self:get_active_node()
   if node.locked then
-    local default_view = self:get_document_view()
-    assert(default_view, "Cannot find an unlocked node to open the document.")
+    local default_view = self:get_main_document_view()
+    assert(default_view, "internal error: cannot find original document node.")
     core.set_active_view(default_view)
     node = self:get_active_node()
   end
