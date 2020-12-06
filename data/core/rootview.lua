@@ -397,7 +397,7 @@ function Node:close_all_docviews()
         i = i + 1
       end
     end
-    if #self.views == 0 and self.has_documents_view then
+    if #self.views == 0 and self.is_primary_view then
       self:add_view(EmptyView())
     end
   else
@@ -432,17 +432,17 @@ function RootView:get_active_node()
   return self.root_node:get_node_for_view(core.active_view)
 end
 
-local function get_main_document_view(node)
-  if node.has_documents_view then
+local function get_primary_view(node)
+  if node.is_primary_view then
     return node
   end
   if node.type ~= "leaf" then
-    return get_main_document_view(node.a) or get_main_document_view(node.b)
+    return get_primary_view(node.a) or get_primary_view(node.b)
   end
 end
 
-function RootView:get_main_document_view()
-  local node = get_main_document_view(self.root_node)
+function RootView:get_primary_view()
+  local node = get_primary_view(self.root_node)
   if node then
     return node.views[1]
   end
@@ -451,7 +451,7 @@ end
 function RootView:open_doc(doc)
   local node = self:get_active_node()
   if node.locked then
-    local default_view = self:get_main_document_view()
+    local default_view = self:get_primary_view()
     assert(default_view, "internal error: cannot find original document node.")
     core.set_active_view(default_view)
     node = self:get_active_node()
