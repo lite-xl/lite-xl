@@ -106,7 +106,7 @@ local function create_user_directory()
       error("cannot create directory: \"" .. dirname_create .. "\"")
     end
   end
-  for _, modname in ipairs(['plugins', 'colors']) do
+  for _, modname in ipairs {'plugins', 'colors'} do
     local subdirname = dirname_create .. '/' .. modname
     if not system.mkdir(subdirname) then
       error("cannot create directory: \"" .. subdirname .. "\"")
@@ -249,9 +249,9 @@ end
 
 function core.load_plugins()
   local no_errors = true
-  for _, root_dir in ipairs([DATADIR, USERDIR]) do
+  for _, root_dir in ipairs {DATADIR, USERDIR} do
     local files = system.list_dir(root_dir .. "/plugins")
-    for _, filename in ipairs(files) do
+    for _, filename in ipairs(files or {}) do
       local modname = "plugins." .. filename:gsub(".lua$", "")
       local ok = core.try(require, modname)
       if ok then
