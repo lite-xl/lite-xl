@@ -41,8 +41,12 @@ The user module is loaded by lite when the application starts, after the plugins
 have been loaded.
 
 The user module can be modified by running the `core:open-user-module` command
-or otherwise directly opening the `data/user/init.lua` file.
+or otherwise directly opening the `$HOME/.config/lite-xl/init.lua` file.
+As an exception, on Windows, the variable `$USERPROFILE` will be used instead of
+`$HOME`.
 
+Please note that Lite XL differs from the standard Lite editor for the location
+of the user's module.
 
 ## Project Module
 The project module is an optional module which is loaded from the current
@@ -119,14 +123,18 @@ Plugins in lite are normal lua modules and are treated as such — no
 complicated plugin manager is provided, and, once a plugin is loaded, it is never
 expected be to have to unload itself.
 
-To install a plugin simply drop it in the `data/plugins` directory — installed
-plugins will be automatically loaded when lite starts. To uninstall a plugin the
+To install a plugin simply drop it in the `plugins` directory in the user
+module directory.
+When Lite XL starts it will first load the plugins included in the data directory
+and will then loads the plugins located in the user module directory.
+
+To uninstall a plugin the
 plugin file can be deleted — any plugin (including those included with lite's
 default installation) can be deleted to remove its functionality.
 
 If you want to load a plugin only under a certain circumstance (for example,
 only on a given project) the plugin can be placed somewhere other than the
-`data/plugins` directory so that it is not automatically loaded. The plugin can
+`plugins` directory so that it is not automatically loaded. The plugin can
 then be loaded manually as needed by using the `require` function.
 
 Plugins can be downloaded from the [plugins repository](https://github.com/rxi/lite-plugins).
@@ -134,12 +142,14 @@ Plugins can be downloaded from the [plugins repository](https://github.com/rxi/l
 
 ## Color Themes
 Colors themes in lite are lua modules which overwrite the color fields of lite's
-`core.style` module. Color themes should be placed in the `data/user/colors`
-directory.
+`core.style` module.
+Pre-defined color methods are located in the `colors` folder in the data directory.
+Additional color themes can be installed in the user's directory in a folder named
+`colors`.
 
 A color theme can be set by requiring it in your user module:
 ```lua
-require "user.colors.winter"
+require "colors.winter"
 ```
 
 Color themes can be downloaded from the [color themes repository](https://github.com/rxi/lite-colors).
