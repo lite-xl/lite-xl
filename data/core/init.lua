@@ -137,9 +137,12 @@ end
 
 local function load_user_directory()
   local init_filename = USERDIR .. "/init.lua"
-  local info = system.get_file_info(USERDIR)
-  if not info then
+  local stat_info_dir = system.get_file_info(USERDIR)
+  if not stat_info_dir then
     create_user_directory()
+  end
+  local stat_info_file = system.get_file_info(init_filename)
+  if not stat_info_file then
     write_user_init_file(init_filename)
   end
   return dofile(init_filename)
