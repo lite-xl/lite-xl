@@ -102,6 +102,21 @@ function common.path_suggest(text)
 end
 
 
+function common.dir_path_suggest(text)
+  local path, name = text:match("^(.-)([^/\\]*)$")
+  local files = system.list_dir(path == "" and "." or path) or {}
+  local res = {}
+  for _, file in ipairs(files) do
+    file = path .. file
+    local info = system.get_file_info(file)
+    if info and info.type == "dir" and file:lower():find(text:lower(), nil, true) == 1 then
+      table.insert(res, file)
+    end
+  end
+  return res
+end
+
+
 function common.match_pattern(text, pattern, ...)
   if type(pattern) == "string" then
     return text:find(pattern, ...)
