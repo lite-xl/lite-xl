@@ -19,10 +19,10 @@ local function draw_text(x, y, color)
   local lines = {
     { fmt = "%s to run a command", cmd = "core:find-command" },
     { fmt = "%s to open a file from the project", cmd = "core:find-file" },
-    { fmt = "%s to open a folder", cmd = "core:open-folder" },
+    { fmt = "%s to change project folder", cmd = "core:open-folder" },
   }
   th = style.font:get_height()
-  y = y + (dh - th * 2 - style.padding.y) / 2
+  y = y + (dh - (th + style.padding.y) * #lines) / 2
   local w = 0
   for _, line in ipairs(lines) do
     local text = string.format(line.fmt, keymap.get_binding(line.cmd))
