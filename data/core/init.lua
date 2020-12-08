@@ -51,6 +51,8 @@ function core.open_folder_project(dirname)
   core.root_view:close_all_docviews()
   add_project_to_recents(dirname)
   save_projects()
+  core.project_files = {}
+  core.redraw = true
   core.switch_project = dirname
 end
 
