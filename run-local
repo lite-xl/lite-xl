@@ -9,7 +9,7 @@ else
   datadir="$rundir/share/lite-xl"
 fi
 
-userdir="$rundir/.lite"
+userdir="$rundir"
 
 if [ "$#" -lt 1 ]; then
   echo "usage: $0 <build-dir>"
