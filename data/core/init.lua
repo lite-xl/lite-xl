@@ -55,6 +55,8 @@ function core.open_folder_project(dirname)
 end
 
 local function project_scan_thread()
+  local priority_run = true
+
   local function diff_files(a, b)
     if #a ~= #b then return true end
     for i, v in ipairs(a) do
@@ -70,7 +72,7 @@ local function project_scan_thread()
   end
 
   local function get_files(path, t)
-    coroutine.yield()
+    if not priority_run then coroutine.yield() end
     t = t or {}
     local size_limit = config.file_size_limit * 10e5
     local all = system.list_dir(path) or {}
@@ -120,11 +122,13 @@ local function project_scan_thread()
       end
       core.project_files = t
       core.redraw = true
+      priority_run = false
     end
 
     -- wait for next scan
     if core.switch_project then
       system.chdir(core.switch_project)
+      priority_run = true
       core.switch_project = nil
     else
       coroutine.yield(config.project_scan_rate)
