@@ -17,16 +17,12 @@ end
 load_projects()
 
 local function serialize(val)
-  if type(val) == "string" then
-    return string.format("%q", val)
-  elseif type(val) == "table" then
-    local t = {}
-    for k, v in pairs(val) do
-      table.insert(t, "[" .. serialize(k) .. "]=" .. serialize(v))
-    end
-    return "{" .. table.concat(t, ",") .. "}"
+  local ls = {"{"}
+  for i = 1, #val do
+    ls[#ls + 1] = "  " .. string.format("%q", val[i]) .. ","
   end
-  return tostring(val)
+  ls[#ls + 1] = "}"
+  return table.concat(ls, "\n")
 end
 
 local function save_projects()
@@ -44,17 +40,26 @@ end
 
 function project_manager.open_folder()
   core.command_view:enter("Open Folder", function(text)
+    local path_stat = system.get_file_info(text)
+    if not path_stat or path_stat.type ~= 'dir' then
+      core.error("Cannot open folder %q", text)
+      return
+    end
     if core.confirm_close_all() then
       core.root_view:close_all_docviews()
       table.insert(project_manager.recents, text)
       save_projects()
       core.switch_project = text
     end
-  end, common.dir_path_suggest)
+  end, function(text)
+    return text == "" and project_manager.recents or common.dir_path_suggest(text)
+  end)
 end
 
 command.add(nil, {
   ["project-manager:open-folder"]    = project_manager.open_folder,
 })
+
+keymap.add { ["ctrl+shift+o"] = "project-manager:open-folder" }
 
 return project_manager
