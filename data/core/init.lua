@@ -31,18 +31,18 @@ local function add_project_to_recents(dirname)
   local recents = core.recent_projects
   local n = #recents
   for i = 1, n do
-    if dirname == recents[i] then return end
+    if dirname == recents[i] then
+      table.remove(recents, i)
+      break
+    end
   end
-  recents[n + 1] = dirname
+  table.insert(recents, 1, dirname)
 end
 
 local function save_projects()
   local fp = io.open(USERDIR .. "/recent_projects.lua", "w")
   if fp then
-    local _, err = fp:write("return ", table_serialize(core.recent_projects), "\n")
-    if err then
-      core.error("Error saving recent projects, %d entries", #core.recent_projects)
-    end
+    fp:write("return ", table_serialize(core.recent_projects), "\n")
     fp:close()
   end
 end
@@ -205,7 +205,7 @@ function core.init()
 
   load_projects()
 
-  local project_dir = #core.recent_projects > 0 and core.recent_projects[#core.recent_projects] or "."
+  local project_dir = core.recent_projects[1] or "."
   local files = {}
   for i = 2, #ARGS do
     local info = system.get_file_info(ARGS[i]) or {}
@@ -241,6 +241,11 @@ function core.init()
   command.add_defaults()
   local got_plugin_error = not core.load_plugins()
   local got_user_error = not core.try(load_user_directory)
+
+  do
+    local pdir, pname = system.absolute_path(project_dir):match("(.*)[/\\\\](.*)")
+    core.log("Opening project %q from directory %q", pname, pdir)
+  end
   local got_project_error = not core.load_project_module()
 
   for _, filename in ipairs(files) do
