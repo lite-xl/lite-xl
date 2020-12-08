@@ -11,6 +11,48 @@ local Doc
 
 local core = {}
 
+local function table_serialize(t)
+  local ls = {"{"}
+  for i = 1, #t do
+    ls[#ls + 1] = string.format("  %q,", t[i])
+  end
+  ls[#ls + 1] = "}"
+  return table.concat(ls, "\n")
+end
+
+local function load_projects()
+  local ok, t = pcall(dofile, USERDIR .. "/recent_projects.lua")
+  core.recent_projects = (ok and t or {})
+end
+
+local function add_project_to_recents(dirname)
+  dirname = system.absolute_path(dirname)
+  if not dirname then return end
+  local recents = core.recent_projects
+  local n = #recents
+  for i = 1, n do
+    if dirname == recents[i] then return end
+  end
+  recents[n + 1] = dirname
+end
+
+local function save_projects()
+  local fp = io.open(USERDIR .. "/recent_projects.lua", "w")
+  if fp then
+    local _, err = fp:write("return ", table_serialize(core.recent_projects), "\n")
+    if err then
+      core.error("Error saving recent projects, %d entries", #core.recent_projects)
+    end
+    fp:close()
+  end
+end
+
+function core.open_folder_project(dirname)
+  core.root_view:close_all_docviews()
+  add_project_to_recents(dirname)
+  save_projects()
+  core.switch_project = dirname
+end
 
 local function project_scan_thread()
   local function diff_files(a, b)
@@ -157,7 +199,9 @@ function core.init()
   CommandView = require "core.commandview"
   Doc = require "core.doc"
 
-  local project_dir = "."
+  load_projects()
+
+  local project_dir = #core.recent_projects > 0 and core.recent_projects[#core.recent_projects] or "."
   local files = {}
   for i = 2, #ARGS do
     local info = system.get_file_info(ARGS[i]) or {}
@@ -165,6 +209,8 @@ function core.init()
       table.insert(files, system.absolute_path(ARGS[i]))
     elseif info.type == "dir" then
       project_dir = ARGS[i]
+      add_project_to_recents(project_dir)
+      save_projects()
     end
   end
 

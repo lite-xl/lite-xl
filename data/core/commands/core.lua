@@ -111,4 +111,19 @@ command.add(nil, {
       doc:save(filename)
     end
   end,
+
+  ["core:open-folder"] = function()
+    core.command_view:enter("Open Folder", function(text)
+      local path_stat = system.get_file_info(text)
+      if not path_stat or path_stat.type ~= 'dir' then
+        core.error("Cannot open folder %q", text)
+        return
+      end
+      if core.confirm_close_all() then
+        core.open_folder_project(text)
+      end
+    end, function(text)
+      return text == "" and core.recent_projects or common.dir_path_suggest(text)
+    end)
+  end,
 })

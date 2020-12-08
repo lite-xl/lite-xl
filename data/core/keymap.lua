@@ -181,6 +181,7 @@ keymap.add {
   ["ctrl+shift+end"] = "doc:select-to-end-of-doc",
   ["shift+pageup"] = "doc:select-to-previous-page",
   ["shift+pagedown"] = "doc:select-to-next-page",
+  ["ctrl+shift+o"] = "core:open-folder",
 }
 
 return keymap

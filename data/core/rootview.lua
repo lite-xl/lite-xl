@@ -19,7 +19,7 @@ local function draw_text(x, y, color)
   local lines = {
     { fmt = "%s to run a command", cmd = "core:find-command" },
     { fmt = "%s to open a file from the project", cmd = "core:find-file" },
-    { fmt = "%s to open a folder", cmd = "project-manager:open-folder" },
+    { fmt = "%s to open a folder", cmd = "core:open-folder" },
   }
   th = style.font:get_height()
   y = y + (dh - th * 2 - style.padding.y) / 2
