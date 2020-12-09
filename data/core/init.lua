@@ -51,9 +51,8 @@ function core.open_folder_project(dirname)
   core.root_view:close_all_docviews()
   add_project_to_recents(dirname)
   save_projects()
-  core.project_files = {}
-  core.redraw = true
   core.switch_project = dirname
+  core.threads[core.project_scan_thread_id].wake = 0
 end
 
 local function project_scan_thread()
@@ -239,7 +238,7 @@ function core.init()
   core.root_view.root_node:split("down", core.command_view, true)
   core.root_view.root_node.b:split("down", core.status_view, true)
 
-  core.add_thread(project_scan_thread)
+  core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
   local got_plugin_error = not core.load_plugins()
   local got_user_error = not core.try(load_user_directory)
@@ -358,6 +357,7 @@ function core.add_thread(f, weak_ref)
   local key = weak_ref or #core.threads + 1
   local fn = function() return core.try(f) end
   core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
+  return key
 end
 
 
@@ -585,6 +585,7 @@ end)
 
 function core.run()
   local idle_iterations = 0
+  local frame_duration = 1 / config.fps
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
@@ -596,16 +597,16 @@ function core.run()
       if idle_iterations > 1 then
         if system.window_has_focus() then
           -- keep running even with no events to make the cursor blinks
-          system.wait_event(1 / config.fps)
+          system.wait_event(frame_duration)
         else
           system.wait_event()
         end
       end
     else
       idle_iterations = 0
+      local elapsed = system.get_time() - core.frame_start
+      system.sleep(math.max(0, frame_duration - elapsed))
     end
-    local elapsed = system.get_time() - core.frame_start
-    system.sleep(math.max(0, 1 / config.fps - elapsed))
   end
 end
 
