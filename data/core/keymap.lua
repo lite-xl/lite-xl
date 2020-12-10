@@ -88,6 +88,8 @@ keymap.add {
   ["ctrl+p"] = "core:find-file",
   ["ctrl+o"] = "core:open-file",
   ["ctrl+n"] = "core:new-doc",
+  ["ctrl+shift+c"] = "core:change-project-folder",
+  ["ctrl+shift+o"] = "core:open-project-folder",
   ["alt+return"] = "core:toggle-fullscreen",
 
   ["alt+shift+j"] = "root:split-left",
@@ -181,7 +183,6 @@ keymap.add {
   ["ctrl+shift+end"] = "doc:select-to-end-of-doc",
   ["shift+pageup"] = "doc:select-to-previous-page",
   ["shift+pagedown"] = "doc:select-to-next-page",
-  ["ctrl+shift+o"] = "core:open-folder",
 }
 
 return keymap

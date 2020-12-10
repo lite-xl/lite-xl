@@ -166,33 +166,46 @@ local function write_user_init_file(init_filename)
   init_file:write([[
 -- put user settings here
 -- this module will be loaded after everything else when the application starts
+-- it will be automatically reloaded when use save it
 
 local keymap = require "core.keymap"
 local config = require "core.config"
 local style = require "core.style"
 
 -- light theme:
--- require "colors.summer"
+-- style.load("colors.summer")
 
 -- key binding:
 -- keymap.add { ["ctrl+escape"] = "core:quit" }
+
+-- customize fonts:
+-- style.font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 14 * SCALE)
+-- style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 13.5 * SCALE)
+--
+-- fonts used by the editor:
+-- style.font      : user interface
+-- style.big_font  : big text in welcome screen
+-- style.icon_font : icons
+-- style.code_font : code
 ]])
   init_file:close()
 end
 
 
 
-local function load_user_directory()
-  local init_filename = USERDIR .. "/init.lua"
-  local stat_info_dir = system.get_file_info(USERDIR)
-  if not stat_info_dir then
-    create_user_directory()
-  end
-  local stat_info_file = system.get_file_info(init_filename)
-  if not stat_info_file then
-    write_user_init_file(init_filename)
-  end
-  return dofile(init_filename)
+function core.load_user_directory()
+  return core.try(function()
+    local stat_dir = system.get_file_info(USERDIR)
+    if not stat_dir then
+      create_user_directory()
+    end
+    local init_filename = USERDIR .. "/init.lua"
+    local stat_file = system.get_file_info(init_filename)
+    if not stat_file then
+      write_user_init_file(init_filename)
+    end
+    dofile(init_filename)
+  end)
 end
 
 
@@ -242,7 +255,7 @@ function core.init()
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
   local got_plugin_error = not core.load_plugins()
-  local got_user_error = not core.try(load_user_directory)
+  local got_user_error = not core.load_user_directory()
 
   do
     local pdir, pname = system.absolute_path(project_dir):match("(.*)[/\\\\](.*)")
