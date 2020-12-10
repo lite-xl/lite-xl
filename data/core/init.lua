@@ -229,6 +229,7 @@ function core.init()
   core.project_files = {}
   core.redraw = true
   core.visited_files = {}
+  core.restart_request = false
 
   core.root_view = RootView()
   core.command_view = CommandView()
@@ -285,6 +286,13 @@ end
 function core.quit(force)
   if core.confirm_close_all() then
     os.exit()
+  end
+end
+
+
+function core.restart()
+  if core.confirm_close_all() then
+    core.restart_request = true
   end
 end
 
@@ -590,6 +598,7 @@ function core.run()
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads()
+    if core.restart_request then break end
     if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run

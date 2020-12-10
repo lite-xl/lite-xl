@@ -89,8 +89,9 @@ int main(int argc, char **argv) {
   init_window_icon();
   ren_init(window);
 
-
-  lua_State *L = luaL_newstate();
+  lua_State *L;
+init_lua:
+  L = luaL_newstate();
   luaL_openlibs(L);
   api_load_libs(L);
 
@@ -117,7 +118,7 @@ int main(int argc, char **argv) {
   lua_setglobal(L, "EXEFILE");
 
 
-  (void) luaL_dostring(L,
+  const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
     "  SCALE = tonumber(os.getenv(\"LITE_SCALE\")) or SCALE\n"
@@ -153,8 +154,18 @@ int main(int argc, char **argv) {
     "    pcall(core.on_error, err)\n"
     "  end\n"
     "  os.exit(1)\n"
-    "end)");
+    "end)\n"
+    "return core and core.restart_request\n";
 
+  if (luaL_loadstring(L, init_lite_code)) {
+    fprintf(stderr, "internal error when starting the application\n");
+    exit(1);
+  }
+  lua_pcall(L, 0, 1, 0);
+  if (lua_toboolean(L, -1)) {
+    lua_close(L);
+    goto init_lua;
+  }
 
   lua_close(L);
   SDL_DestroyWindow(window);

@@ -12,6 +12,10 @@ command.add(nil, {
     core.quit()
   end,
 
+  ["core:restart"] = function()
+    core.restart()
+  end,
+
   ["core:force-quit"] = function()
     core.quit(true)
   end,
