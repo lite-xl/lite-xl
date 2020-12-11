@@ -303,10 +303,32 @@ function core.confirm_close_all()
   return true
 end
 
+local temp_uid = (system.get_time() * 1000) % 0xffffffff
+local temp_file_prefix = string.format(".lite_temp_%08x", temp_uid)
+local temp_file_counter = 0
+
+local function delete_temp_files()
+  for _, filename in ipairs(system.list_dir(EXEDIR)) do
+    if filename:find(temp_file_prefix, 1, true) == 1 then
+      os.remove(EXEDIR .. PATHSEP .. filename)
+    end
+  end
+end
+
+function core.temp_filename(ext)
+  temp_file_counter = temp_file_counter + 1
+  return EXEDIR .. PATHSEP .. temp_file_prefix
+      .. string.format("%06x", temp_file_counter) .. (ext or "")
+end
+
 
 function core.quit(force)
-  if core.confirm_close_all() then
+  if force then
+    delete_temp_files()
     os.exit()
+  end
+  if core.confirm_close_all() then
+    core.quit(true)
   end
 end
 
