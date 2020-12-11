@@ -71,6 +71,9 @@ lite_build_package_windows () {
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  for module_name in plugins colors; do
+    cp -r "$build/third/data/$module_name" "$datadir"
+  done
   cp "$build/src/lite.exe" "$bindir"
   strip --strip-all "$bindir/lite.exe"
   pushd ".package-build"
@@ -100,6 +103,9 @@ lite_build_package_macosx () {
   mkdir -p "$datadir"
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
+  done
+  for module_name in plugins colors; do
+    cp -r "$build/third/data/$module_name" "$datadir"
   done
   cp "$build/src/lite" "$bindir"
   strip "$bindir/lite"
@@ -132,6 +138,9 @@ lite_build_package_linux () {
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  for module_name in plugins colors; do
+    cp -r "$build/third/data/$module_name" "$datadir"
+  done
   cp "$build/src/lite" "$bindir"
   strip "$bindir/lite"
   pushd ".package-build"
@@ -154,6 +163,15 @@ lite_build_package () {
     echo "Unknown OS type \"$OSTYPE\""
     exit 1
   fi
+}
+
+lite_copy_third_party_modules () {
+  local build="$1"
+  curl --insecure -L "https://github.com/rxi/lite-colors/archive/master.zip" -o "$build/rxi-lite-colors.zip"
+  mkdir -p "$build/third/data/colors" "$build/third/data/plugins"
+  unzip "$build/rxi-lite-colors.zip" -d "$build"
+  mv "$build/lite-colors-master/colors" "$build/third/data"
+  rm -fr "$build/lite-colors-master"
 }
 
 if [[ -z "$1" || -z "$2" ]]; then
@@ -186,5 +204,6 @@ if [ -z ${pgo+set} ]; then
 else
   lite_build_pgo "$portable" "$build_dir"
 fi
+lite_copy_third_party_modules "$build_dir"
 lite_build_package "$portable" "$build_dir" "$version" "$arch"
 
