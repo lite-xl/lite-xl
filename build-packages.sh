@@ -62,6 +62,7 @@ lite_build_package_windows () {
     local bindir="$pdir"
     local datadir="$pdir/data"
   else
+    echo "WARNING: using non portable option on unix-like system"
     local bindir="$pdir/bin"
     local datadir="$pdir/share/lite-xl"
   fi
@@ -119,6 +120,7 @@ lite_build_package_linux () {
   local os="linux"
   local pdir=".package-build/lite-xl"
   if [ $portable == "true" ]; then
+    echo "WARNING: using portable option on unix-like system"
     local bindir="$pdir"
     local datadir="$pdir/data"
   else
