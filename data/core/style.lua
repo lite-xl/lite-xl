@@ -53,4 +53,10 @@ style.syntax["string"] = { common.color "#f7c95c" }
 style.syntax["operator"] = { common.color "#93DDFA" }
 style.syntax["function"] = { common.color "#93DDFA" }
 
+
+style.load = function(module_name)
+  package.loaded[module_name] = nil
+  require(module_name)
+end
+
 return style

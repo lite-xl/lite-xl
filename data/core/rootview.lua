@@ -4,6 +4,7 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local Object = require "core.object"
 local View = require "core.view"
+local CommandView = require "core.commandview"
 local DocView = require "core.docview"
 
 
@@ -18,9 +19,11 @@ local function draw_text(x, y, color)
   local lines = {
     { fmt = "%s to run a command", cmd = "core:find-command" },
     { fmt = "%s to open a file from the project", cmd = "core:find-file" },
+    { fmt = "%s to change project folder", cmd = "core:change-project-folder" },
+    { fmt = "%s to open a project folder", cmd = "core:open-project-folder" },
   }
   th = style.font:get_height()
-  y = y + (dh - th * 2 - style.padding.y) / 2
+  y = y + (dh - (th + style.padding.y) * #lines) / 2
   local w = 0
   for _, line in ipairs(lines) do
     local text = string.format(line.fmt, keymap.get_binding(line.cmd))
@@ -376,6 +379,41 @@ function Node:draw()
 end
 
 
+function Node:is_empty()
+  if self.type == "leaf" then
+    return #self.views == 0
+  else
+    return self.a:is_empty() and self.b:is_empty()
+  end
+end
+
+
+function Node:close_all_docviews()
+  if self.type == "leaf" then
+    local i = 1
+    while i <= #self.views do
+      local view = self.views[i]
+      if view:is(DocView) and not view:is(CommandView) then
+        table.remove(self.views, i)
+      else
+        i = i + 1
+      end
+    end
+    if #self.views == 0 and self.is_primary_view then
+      self:add_view(EmptyView())
+    end
+  else
+    self.a:close_all_docviews()
+    self.b:close_all_docviews()
+    if self.a:is_empty() then
+      self:consume(self.b)
+    elseif self.b:is_empty() then
+      self:consume(self.a)
+    end
+  end
+end
+
+
 
 local RootView = View:extend()
 
@@ -396,20 +434,17 @@ function RootView:get_active_node()
   return self.root_node:get_node_for_view(core.active_view)
 end
 
--- Get un unlocked node with at least one view.
-local function get_node_unlocked(node)
-  if not node.locked and #node.views > 0 then
+local function get_primary_view(node)
+  if node.is_primary_view then
     return node
   end
   if node.type ~= "leaf" then
-    local a = get_node_unlocked(node.a)
-    if a then return a end
-    return get_node_unlocked(node.b)
+    return get_primary_view(node.a) or get_primary_view(node.b)
   end
 end
 
-function RootView:get_document_view()
-  local node = get_node_unlocked(self.root_node)
+function RootView:get_primary_view()
+  local node = get_primary_view(self.root_node)
   if node then
     return node.views[1]
   end
@@ -418,8 +453,8 @@ end
 function RootView:open_doc(doc)
   local node = self:get_active_node()
   if node.locked then
-    local default_view = self:get_document_view()
-    assert(default_view, "Cannot find an unlocked node to open the document.")
+    local default_view = self:get_primary_view()
+    assert(default_view, "internal error: cannot find original document node.")
     core.set_active_view(default_view)
     node = self:get_active_node()
   end
@@ -434,6 +469,11 @@ function RootView:open_doc(doc)
   self.root_node:update_layout()
   view:scroll_to_line(view.doc:get_selection(), true, true)
   return view
+end
+
+
+function RootView:close_all_docviews()
+  self.root_node:close_all_docviews()
 end
 
 

@@ -12,6 +12,10 @@ command.add(nil, {
     core.quit()
   end,
 
+  ["core:restart"] = function()
+    core.restart()
+  end,
+
   ["core:force-quit"] = function()
     core.quit(true)
   end,
@@ -98,7 +102,15 @@ command.add(nil, {
   end,
 
   ["core:open-user-module"] = function()
-    core.root_view:open_doc(core.open_doc(USERDIR .. "/init.lua"))
+    local user_module_doc = core.open_doc(USERDIR .. "/init.lua")
+    if not user_module_doc then return end
+    local doc_save = user_module_doc.save
+    user_module_doc.save = function(self)
+      doc_save(self)
+      core.reload_module("core.style")
+      core.load_user_directory()
+    end
+    core.root_view:open_doc(user_module_doc)
   end,
 
   ["core:open-project-module"] = function()
@@ -110,5 +122,33 @@ command.add(nil, {
       core.root_view:open_doc(doc)
       doc:save(filename)
     end
+  end,
+
+  ["core:change-project-folder"] = function()
+    core.command_view:enter("Change Project Folder", function(text)
+      local path_stat = system.get_file_info(text)
+      if not path_stat or path_stat.type ~= 'dir' then
+        core.error("Cannot open folder %q", text)
+        return
+      end
+      if core.confirm_close_all() then
+        core.open_folder_project(text)
+      end
+    end, function(text)
+      return text == "" and core.recent_projects or common.dir_path_suggest(text)
+    end)
+  end,
+
+  ["core:open-project-folder"] = function()
+    core.command_view:enter("Open Project", function(text)
+      local path_stat = system.get_file_info(text)
+      if not path_stat or path_stat.type ~= 'dir' then
+        core.error("Cannot open folder %q", text)
+        return
+      end
+      system.exec(string.format("%q %q", EXEFILE, text))
+    end, function(text)
+      return text == "" and core.recent_projects or common.dir_path_suggest(text)
+    end)
   end,
 })

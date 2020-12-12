@@ -11,8 +11,53 @@ local Doc
 
 local core = {}
 
+local function table_serialize(t)
+  local ls = {"{"}
+  for i = 1, #t do
+    ls[#ls + 1] = string.format("  %q,", t[i])
+  end
+  ls[#ls + 1] = "}"
+  return table.concat(ls, "\n")
+end
+
+local function load_projects()
+  local ok, t = pcall(dofile, USERDIR .. "/recent_projects.lua")
+  core.recent_projects = (ok and t or {})
+end
+
+local function add_project_to_recents(dirname)
+  dirname = system.absolute_path(dirname)
+  if not dirname then return end
+  local recents = core.recent_projects
+  local n = #recents
+  for i = 1, n do
+    if dirname == recents[i] then
+      table.remove(recents, i)
+      break
+    end
+  end
+  table.insert(recents, 1, dirname)
+end
+
+local function save_projects()
+  local fp = io.open(USERDIR .. "/recent_projects.lua", "w")
+  if fp then
+    fp:write("return ", table_serialize(core.recent_projects), "\n")
+    fp:close()
+  end
+end
+
+function core.open_folder_project(dirname)
+  core.root_view:close_all_docviews()
+  add_project_to_recents(dirname)
+  save_projects()
+  core.switch_project = dirname
+  core.threads[core.project_scan_thread_id].wake = 0
+end
 
 local function project_scan_thread()
+  local priority_run = true
+
   local function diff_files(a, b)
     if #a ~= #b then return true end
     for i, v in ipairs(a) do
@@ -28,7 +73,7 @@ local function project_scan_thread()
   end
 
   local function get_files(path, t)
-    coroutine.yield()
+    if not priority_run then coroutine.yield() end
     t = t or {}
     local size_limit = config.file_size_limit * 10e5
     local all = system.list_dir(path) or {}
@@ -78,10 +123,17 @@ local function project_scan_thread()
       end
       core.project_files = t
       core.redraw = true
+      priority_run = false
     end
 
     -- wait for next scan
-    coroutine.yield(config.project_scan_rate)
+    if core.switch_project then
+      system.chdir(core.switch_project)
+      priority_run = true
+      core.switch_project = nil
+    else
+      coroutine.yield(config.project_scan_rate)
+    end
   end
 end
 
@@ -121,30 +173,54 @@ local function write_user_init_file(init_filename)
   init_file:write([[
 -- put user settings here
 -- this module will be loaded after everything else when the application starts
+-- it will be automatically reloaded when saved
 
 local keymap = require "core.keymap"
 local config = require "core.config"
 local style = require "core.style"
 
 -- light theme:
--- require "colors.summer"
+-- style.load("colors.summer")
 
 -- key binding:
 -- keymap.add { ["ctrl+escape"] = "core:quit" }
+
+-- customize fonts:
+-- style.font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 14 * SCALE)
+-- style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 13.5 * SCALE)
+--
+-- fonts used by the editor:
+-- style.font      : user interface
+-- style.big_font  : big text in welcome screen
+-- style.icon_font : icons
+-- style.code_font : code
+--
+-- the function to load the font accept a 3rd optional argument like:
+--
+-- {antialiasing="grayscale", hinting="full"}
+--
+-- possible values are:
+-- antialiasing: grayscale, subpixel
+-- hinting: none, slight, full
 ]])
   init_file:close()
 end
 
 
 
-local function load_user_directory()
-  local init_filename = USERDIR .. "/init.lua"
-  local info = system.get_file_info(USERDIR)
-  if not info then
-    create_user_directory()
-    write_user_init_file(init_filename)
-  end
-  return dofile(init_filename)
+function core.load_user_directory()
+  return core.try(function()
+    local stat_dir = system.get_file_info(USERDIR)
+    if not stat_dir then
+      create_user_directory()
+    end
+    local init_filename = USERDIR .. "/init.lua"
+    local stat_file = system.get_file_info(init_filename)
+    if not stat_file then
+      write_user_init_file(init_filename)
+    end
+    dofile(init_filename)
+  end)
 end
 
 
@@ -156,7 +232,9 @@ function core.init()
   CommandView = require "core.commandview"
   Doc = require "core.doc"
 
-  local project_dir = "."
+  load_projects()
+
+  local project_dir = core.recent_projects[1] or "."
   local files = {}
   for i = 2, #ARGS do
     local info = system.get_file_info(ARGS[i]) or {}
@@ -164,6 +242,8 @@ function core.init()
       table.insert(files, system.absolute_path(ARGS[i]))
     elseif info.type == "dir" then
       project_dir = ARGS[i]
+      add_project_to_recents(project_dir)
+      save_projects()
     end
   end
 
@@ -177,18 +257,25 @@ function core.init()
   core.project_files = {}
   core.redraw = true
   core.visited_files = {}
+  core.restart_request = false
 
   core.root_view = RootView()
   core.command_view = CommandView()
   core.status_view = StatusView()
 
+  core.root_view.root_node.is_primary_view = true
   core.root_view.root_node:split("down", core.command_view, true)
   core.root_view.root_node.b:split("down", core.status_view, true)
 
-  core.add_thread(project_scan_thread)
+  core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
   local got_plugin_error = not core.load_plugins()
-  local got_user_error = not core.try(load_user_directory)
+  local got_user_error = not core.load_user_directory()
+
+  do
+    local pdir, pname = system.absolute_path(project_dir):match("(.*)[/\\\\](.*)")
+    core.log("Opening project %q from directory %q", pname, pdir)
+  end
   local got_project_error = not core.load_project_module()
 
   for _, filename in ipairs(files) do
@@ -200,6 +287,28 @@ function core.init()
   end
 end
 
+
+function core.confirm_close_all()
+  local dirty_count = 0
+  local dirty_name
+  for _, doc in ipairs(core.docs) do
+    if doc:is_dirty() then
+      dirty_count = dirty_count + 1
+      dirty_name = doc:get_name()
+    end
+  end
+  if dirty_count > 0 then
+    local text
+    if dirty_count == 1 then
+      text = string.format("\"%s\" has unsaved changes. Quit anyway?", dirty_name)
+    else
+      text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
+    end
+    local confirm = system.show_confirm_dialog("Unsaved Changes", text)
+    if not confirm then return false end
+  end
+  return true
+end
 
 local temp_uid = (system.get_time() * 1000) % 0xffffffff
 local temp_file_prefix = string.format(".lite_temp_%08x", temp_uid)
@@ -225,25 +334,16 @@ function core.quit(force)
     delete_temp_files()
     os.exit()
   end
-  local dirty_count = 0
-  local dirty_name
-  for _, doc in ipairs(core.docs) do
-    if doc:is_dirty() then
-      dirty_count = dirty_count + 1
-      dirty_name = doc:get_name()
-    end
+  if core.confirm_close_all() then
+    core.quit(true)
   end
-  if dirty_count > 0 then
-    local text
-    if dirty_count == 1 then
-      text = string.format("\"%s\" has unsaved changes. Quit anyway?", dirty_name)
-    else
-      text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
-    end
-    local confirm = system.show_confirm_dialog("Unsaved Changes", text)
-    if not confirm then return end
+end
+
+
+function core.restart()
+  if core.confirm_close_all() then
+    core.restart_request = true
   end
-  core.quit(true)
 end
 
 
@@ -317,6 +417,7 @@ function core.add_thread(f, weak_ref)
   local key = weak_ref or #core.threads + 1
   local fn = function() return core.try(f) end
   core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
+  return key
 end
 
 
@@ -544,10 +645,12 @@ end)
 
 function core.run()
   local idle_iterations = 0
+  local frame_duration = 1 / config.fps
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads()
+    if core.restart_request then break end
     if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
@@ -555,16 +658,16 @@ function core.run()
       if idle_iterations > 1 then
         if system.window_has_focus() then
           -- keep running even with no events to make the cursor blinks
-          system.wait_event(1 / config.fps)
+          system.wait_event(frame_duration)
         else
           system.wait_event()
         end
       end
     else
       idle_iterations = 0
+      local elapsed = system.get_time() - core.frame_start
+      system.sleep(math.max(0, frame_duration - elapsed))
     end
-    local elapsed = system.get_time() - core.frame_start
-    system.sleep(math.max(0, 1 / config.fps - elapsed))
   end
 end
 

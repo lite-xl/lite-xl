@@ -9,6 +9,8 @@ else
   datadir="$rundir/share/lite-xl"
 fi
 
+userdir="$(realpath "$rundir")"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: $0 <build-dir>"
   exit 1
@@ -16,7 +18,7 @@ fi
 
 builddir="$1"
 rm -fr "$rundir"
-mkdir -p "$bindir" "$datadir"
+mkdir -p "$bindir" "$datadir" "$userdir"
 if [ -f "$builddir/src/lite" ]; then
   cp "$builddir/src/lite" "$bindir"
 elif [ -f "$builddir/src/lite.exe" ]; then
@@ -28,4 +30,4 @@ fi
 for module_name in core plugins colors fonts; do
   cp -r "data/$module_name" "$datadir"
 done
-exec "$bindir/lite"
+HOME="$userdir" USERPROFILE="$userdir" exec "$bindir/lite" "${@:2}"

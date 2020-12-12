@@ -140,6 +140,13 @@ then be loaded manually as needed by using the `require` function.
 Plugins can be downloaded from the [plugins repository](https://github.com/rxi/lite-plugins).
 
 
+## Restarting the editor
+
+If you modifies the user configuration file or some of the Lua implementation files you may
+restart the editor using the command "Core: Restart".
+All the application will be restarting by keeping the window that is already used.
+
+
 ## Color Themes
 Colors themes in lite are lua modules which overwrite the color fields of lite's
 `core.style` module.

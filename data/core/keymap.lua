@@ -88,6 +88,8 @@ keymap.add {
   ["ctrl+p"] = "core:find-file",
   ["ctrl+o"] = "core:open-file",
   ["ctrl+n"] = "core:new-doc",
+  ["ctrl+shift+c"] = "core:change-project-folder",
+  ["ctrl+shift+o"] = "core:open-project-folder",
   ["alt+return"] = "core:toggle-fullscreen",
 
   ["alt+shift+j"] = "root:split-left",

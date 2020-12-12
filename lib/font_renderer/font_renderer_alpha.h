@@ -81,20 +81,17 @@ public:
     void set_font_height(double height) {
         const double scale_x = (m_prescale_x ? 100.0 : 1.0);
         m_feng.height(height);
-        if (m_subpixel) {
-            const int subpixel_scale = 3;
-            m_feng.width(height * scale_x * subpixel_scale);
-        } else {
-            m_feng.width(height * scale_x);
-        }
+        m_feng.width(height * scale_x);
     }
 
     template<class Rasterizer, class Scanline, class RenSolid>
     void draw_codepoint(Rasterizer& ras, Scanline& sl,
         RenSolid& ren_solid, const color_type color,
-        int codepoint, double& x, double& y, int subpixel_scale)
+        int codepoint, double& x, double& y, const int subpixel_scale)
     {
         const double scale_x = (m_prescale_x ? 100.0 : 1.0);
+        // Coefficient to scale back the glyph to the final scale.
+        const double cx_inv_scale = subpixel_scale / scale_x;
 
         // Represent the delta in x scaled by scale_x.
         double x_delta = 0;
@@ -114,15 +111,15 @@ public:
                 double ty = m_hinting ? floor(y + 0.5) : y;
                 ras.reset();
                 m_mtx.reset();
-                m_mtx *= agg::trans_affine_scaling(1.0 / scale_x, 1);
-                m_mtx *= agg::trans_affine_translation(start_x + x_delta / scale_x, ty);
+                m_mtx *= agg::trans_affine_scaling(cx_inv_scale, 1);
+                m_mtx *= agg::trans_affine_translation(start_x + cx_inv_scale * x_delta, ty);
                 ras.add_path(m_trans);
                 ren_solid.color(color);
                 agg::render_scanlines(ras, sl, ren_solid);
             }
 
             y += glyph->advance_y;
-            x += (x_delta + glyph->advance_x) / scale_x;
+            x += cx_inv_scale * (x_delta + glyph->advance_x);
         }
     }
 
@@ -135,7 +132,7 @@ public:
     void render_codepoint(agg::rendering_buffer& ren_buf,
         const color_type text_color,
         double& x, double& y,
-        int codepoint, int subpixel_scale)
+        int codepoint, const int subpixel_scale)
     {
         if (!m_font_loaded) {
             return;
