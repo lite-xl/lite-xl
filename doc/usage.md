@@ -3,21 +3,30 @@
 ![screenshot](https://user-images.githubusercontent.com/3920290/81471642-6c165880-91ea-11ea-8cd1-fae7ae8f0bc4.png)
 
 ## Overview
-lite is a lightweight text editor written mostly in Lua — it aims to provide
+Lite is a lightweight text editor written mostly in Lua — it aims to provide
 something practical, pretty, *small* and fast, implemented as simply as
 possible; easy to modify and extend, or to use without doing either.
 
+Lite XL is based on the Lite editor itself and provide some enhancements
+while remaining perfectly compatible with Lite.
+
 
 ## Getting Started
-When lite is started it's typically opened with a *project directory* — this
-is the directory where your project's code and other data resides. The project
-directory is set once when lite is started and, for the duration of the
-session, cannot be changed.
+Lite works using a *project directory* — this is the directory where your
+project's code and other data resides.
 
 To open lite with a specific project directory the directory name can be passed
 as a command-line argument *(`.` can be passed to use the current directory)* or
 the directory can be dragged onto either the lite executable or a running
 instance of lite.
+
+Once started the project directory can be changed using the command
+`core:change-project-folder`. The command will close all the documents
+currently opened and switch to the new project directory.
+
+If you want to open a project directory in a new window the command
+`core:open-project-folder` will open a new editor window with the selected
+project directory.
 
 The main way of opening files in lite is through the `core:find-file` command
 — this provides a fuzzy finder over all of the project's files and can be
@@ -42,7 +51,8 @@ have been loaded.
 
 The user module can be modified by running the `core:open-user-module` command
 or otherwise directly opening the `$HOME/.config/lite-xl/init.lua` file.
-As an exception, on Windows, the variable `$USERPROFILE` will be used instead of
+
+On Windows, the variable `$USERPROFILE` will be used instead of
 `$HOME`.
 
 Please note that Lite XL differs from the standard Lite editor for the location
@@ -143,8 +153,8 @@ Plugins can be downloaded from the [plugins repository](https://github.com/rxi/l
 ## Restarting the editor
 
 If you modifies the user configuration file or some of the Lua implementation files you may
-restart the editor using the command "Core: Restart".
-All the application will be restarting by keeping the window that is already used.
+restart the editor using the command `core:restart`.
+All the application will be restarting by keeping the window that is already in use.
 
 
 ## Color Themes
@@ -156,8 +166,13 @@ Additional color themes can be installed in the user's directory in a folder nam
 
 A color theme can be set by requiring it in your user module:
 ```lua
-require "colors.winter"
+core.reload_module "colors.winter"
 ```
 
+In the Lite editor the function `require` is used instead of `core.reload_module`.
+In Lite XL `core.reload_module` should be used to ensure that the color module
+is actually reloaded when saving the user's configuration file.
+
 Color themes can be downloaded from the [color themes repository](https://github.com/rxi/lite-colors).
+They are included with Lite XL release packages.
 

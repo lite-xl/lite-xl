@@ -2,6 +2,43 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the differences between Lite XL and rxi/lite for each version.
 
+### 1.14
+
+**Project Management**
+
+Add a new command, Core: Change Project Folder, to change project directory by staying on the same window.
+All the current opened documents will be closed.
+The new command is associated with the keyboard combination ctrl+shit+c.
+
+A similar command is also added, Core: Open Project Folder, with key binding ctrl+shift+o.
+It will open the chosen folder in a new window.
+
+In addition Lite XL will now remember the recently used projects across different sessions.
+When invoked without arguments it will now open the project more recently used.
+If a directory is specified it will behave like before and open the directory indicated as an argument.
+
+**Restart command**
+
+A Core: Restart command is added to restart the editor without leaving the current window.
+Very convenient when modifying the Lua code for the editor itself.
+
+**User's setting auto-reload**
+
+When saving the user configuration, the user's module, the changes will be automatically applied to the
+current instance.
+
+**Bundle community provided colors schemes**
+
+Included now in the release files the colors schemes from github.com/rxi/lite-colors.
+
+**Usability improvements**
+
+Improve left and right scrolling of text to behave like other editors and improves text selection with mouse.
+
+**Fixes**
+
+Correct font's rendering for full hinting mode when using subpixel antialiasing.
+
 ### 1.13
 
 **Rendering options for fonts**
