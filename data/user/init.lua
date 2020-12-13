@@ -2,12 +2,13 @@
 -- this module will be loaded after everything else when the application starts
 -- it will be automatically reloaded when saved
 
+local core = require "core"
 local keymap = require "core.keymap"
 local config = require "core.config"
 local style = require "core.style"
 
 -- light theme:
--- style.load("colors.summer")
+-- core.reload_module("colors.summer")
 
 -- key binding:
 -- keymap.add { ["ctrl+escape"] = "core:quit" }
