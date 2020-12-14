@@ -329,22 +329,29 @@ function core.temp_filename(ext)
       .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
+-- override to perform an operation before quit
+function core.on_quit()
+end
 
-function core.quit(force)
+local function quit_with_function(quit_fn, force)
   if force then
     delete_temp_files()
-    os.exit()
+    core.on_quit()
+    quit_fn()
+  else
+    if core.confirm_close_all() then
+      quit_with_function(quit_fn, true)
+    end
   end
-  if core.confirm_close_all() then
-    core.quit(true)
-  end
+end
+
+function core.quit(force)
+  quit_with_function(os.exit, force)
 end
 
 
 function core.restart()
-  if core.confirm_close_all() then
-    core.restart_request = true
-  end
+  quit_with_function(function() core.restart_request = true end)
 end
 
 
