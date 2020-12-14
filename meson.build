@@ -7,7 +7,7 @@ lua_dep = dependency('lua5.2', required : false)
 
 if not lua_dep.found()
   lua_subproject = subproject('lua', default_options: [
-    'default_library=static', 'use_readline=false'
+    'shared=disabled', 'use_readline=false'
   ])
   lua_dep = lua_subproject.get_variable('lua_dep')
 endif
