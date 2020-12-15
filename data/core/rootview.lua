@@ -131,6 +131,9 @@ function Node:close_active_view(root)
           p = p[is_a and "a" or "b"]
         end
         p:set_active_view(p.active_view)
+        if self.is_primary_node then
+          p.is_primary_node = true
+        end
       end
     end
     core.last_active_view = nil
