@@ -4,15 +4,20 @@
 
 A lightweight text editor written in Lua, adapted from [Lite](https://github.com/rxi/lite)
 
-* **[Get lite](https://github.com/franko/lite-xl/releases/latest)** — Download
+* **[Get Lite XL](https://github.com/franko/lite-xl/releases/latest)** — Download
   for Windows and Linux
 * **[Get started](doc/usage.md)** — A quick overview on how to get started
-* **[Get plugins](https://github.com/rxi/lite-plugins)** — Add additional
-  functionality
+* **[Get plugins](https://github.com/franko/lite-plugins)** — Add additional
+  functionality, adapted for Lite XL
 * **[Get color themes](https://github.com/rxi/lite-colors)** — Add additional colors
   themes
 
-The differences between Lite XL and rxi/lite are listed in the [changelog](https://github.com/franko/lite-xl/blob/master/changelog.md).
+Please note that Lite XL is compatible with Lite for all the plugins and color themes.
+Yet we provide a specific lite-plugins directory for Lite XL because in some cases some adaptations may be needed to make them work better with Lite XL.
+The address for modified plugins is http://github.com/franko/lite-plugins.
+Currently only the "workspace" plugin needs a minor adjustment to restore the workspace when the command `core:restart` is used.
+
+The changes and differences between Lite XL and rxi/lite are listed in the [changelog](https://github.com/franko/lite-xl/blob/master/changelog.md).
 
 ## Overview
 Lite XL is derived from Lite. It is a lightweight text editor written mostly in Lua — it aims to provide
@@ -22,24 +27,25 @@ The aim of Lite XL compared to Lite is to be more user friendly, improve the qua
 
 ## Customization
 Additional functionality can be added through plugins which are available from
-the [plugins repository](https://github.com/rxi/lite-plugins); additional color
+the [plugins repository](https://github.com/rxi/lite-plugins) or from the [plugin repository adapted to Lite XL](https://github.com/franko/lite-plugins); additional color
 themes can be found in the [colors repository](https://github.com/rxi/lite-colors).
 The editor can be customized by making changes to the
 [user module](data/user/init.lua).
 
 ## Building
 
-You can build the project yourself on Linux using the provided `build.sh`
-script or using the Meson build.
-The script `build-packages.sh` can be used to compile Lite XL and create a package adapted to the OS, Linux, Windows or Mac OS X.
+You can build the project yourself using the Meson build.
+
+In addition the script `build-packages.sh` can be used to compile Lite XL and create a package adapted to the OS, Linux, Windows or Mac OS X.
 
 The following libraries are required:
 
 - freetype2
 - SDL2
 
-The additional libraries libagg and Lua 5.2 are optional.
-If they are not found they will be included by the Meson build system.
+The libraries libagg and Lua 5.2 are optional.
+If they are not found they will be automatically downloaded and compiled by the Meson build system.
+Otherwise, if they are present they will be used to compile Lite XL.
 
 On a debian based systems the required library and Meson can be installed using the commands:
 
@@ -54,14 +60,9 @@ sudo apt install meson
 
 To build Lite XL with Meson use the commands:
 ```sh
-# configure
 meson setup build
-
-# build
-ninja -C build
-
-# Only of linux:
-ninja -C build install
+meson compile -C build
+meson install -C build
 ```
 
 When performing the "meson setup" command you may enable the "portable" option.
