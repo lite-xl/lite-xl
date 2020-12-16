@@ -42,6 +42,11 @@ for filename in $(ls -1 *.zip *.tar.*); do
         tar xf "$filename"
     fi
     rm "$filename"
+    if [ -f lite-xl/bin/lite ]; then
+      chmod a+x lite-xl/bin/lite
+    elif [ -f lite-xl/lite ]; then
+      chmod a+x lite-xl/lite
+    fi
     xcoredir="$(find lite-xl -type d -name 'core')"
     coredir="$(dirname $xcoredir)"
     echo "coredir: $coredir"
