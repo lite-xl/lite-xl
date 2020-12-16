@@ -17,11 +17,14 @@ sdl_dep = dependency('sdl2', method: 'config-tool')
 lite_cargs = []
 if get_option('portable')
     lite_cargs += ['-DLITE_XL_DATA_USE_EXEDIR']
+    lite_datadir = 'data'
+else
+    lite_datadir = 'share/lite-xl'
 endif
 
 lite_include = include_directories('src')
 foreach data_module : ['core', 'fonts', 'plugins', 'colors']
-  install_subdir('data' / data_module , install_dir : 'share/lite-xl')
+  install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
 
 lite_link_args = []
