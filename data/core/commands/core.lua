@@ -7,31 +7,22 @@ local LogView = require "core.logview"
 
 local fullscreen = false
 
-local function home_encode(paths)
-  if not HOME then return paths end
-  local home = HOME
-  local t = {}
-  local n = #home
-  for i = 1, #paths do
-    if paths[i]:sub(1, n) == home and paths[i]:sub(n + 1, n + 1):match("[/\\\\]") then
-      t[i] = "~" .. paths[i]:sub(#home + 1)
-    else
-      t[i] = paths[i]
-    end
-  end
-  return t
-end
-
-local function home_expand(text)
+local function home_encode_list(paths)
   if HOME then
-    return text:gsub("^~", HOME)
+    local t = {}
+    for i = 1, #paths do
+      t[i] = common.home_encode(paths[i])
+    end
+    return t
   end
-  return text
+  return paths
 end
 
 local function suggest_directory(text)
-  text = home_expand(text)
-  return home_encode(text == "" and core.recent_projects or common.dir_path_suggest(text))
+  if HOME then
+    text = common.home_expand(text)
+  end
+  return home_encode_list(text == "" and core.recent_projects or common.dir_path_suggest(text))
 end
 
 command.add(nil, {
@@ -153,7 +144,7 @@ command.add(nil, {
 
   ["core:change-project-folder"] = function()
     core.command_view:enter("Change Project Folder", function(text)
-      text = home_expand (text)
+      text = common.home_expand(text)
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)
@@ -167,7 +158,7 @@ command.add(nil, {
 
   ["core:open-project-folder"] = function()
     core.command_view:enter("Open Project", function(text)
-      text = home_expand (text)
+      text = common.home_expand(text)
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)

@@ -152,4 +152,18 @@ function common.bench(name, fn, ...)
 end
 
 
+function common.home_encode(text)
+  local n = #HOME
+  if text:sub(1, n) == HOME and text:sub(n + 1, n + 1):match("[/\\\\]") then
+    return "~" .. text:sub(n + 1)
+  end
+  return text
+end
+
+
+function common.home_expand(text)
+  return text:gsub("^~", HOME)
+end
+
+
 return common
