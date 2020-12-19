@@ -132,14 +132,12 @@ init_lua:
     "    DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')\n"
     "  end\n"
 #endif
-    "  do\n"
 #ifdef _WIN32
-    "    local home = os.getenv('USERPROFILE')\n"
+    " HOME = os.getenv('USERPROFILE')"
 #else
-    "    local home = os.getenv('HOME')\n"
+    " HOME = os.getenv('HOME')"
 #endif
-    "    USERDIR = home and (home .. '/.config/lite-xl') or (EXEDIR .. '/user')\n"
-    "  end\n"
+    "  USERDIR = HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user')\n"
     "  package.path = package.path .. ';' .. USERDIR .. '/?.lua'\n"
     "  package.path = package.path .. ';' .. USERDIR .. '/?/init.lua'\n"
     "  package.path = DATADIR .. '/?.lua;' .. package.path\n"
