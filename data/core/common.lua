@@ -153,16 +153,18 @@ end
 
 
 function common.home_encode(text)
-  local n = #HOME
-  if text:sub(1, n) == HOME and text:sub(n + 1, n + 1):match("[/\\\\]") then
-    return "~" .. text:sub(n + 1)
+  if HOME then
+    local n = #HOME
+    if text:sub(1, n) == HOME and text:sub(n + 1, n + 1):match("[/\\\\]") then
+      return "~" .. text:sub(n + 1)
+    end
   end
   return text
 end
 
 
 function common.home_expand(text)
-  return text:gsub("^~", HOME)
+  return HOME and text:gsub("^~", HOME) or text
 end
 
 

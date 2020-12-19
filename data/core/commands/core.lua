@@ -8,20 +8,15 @@ local LogView = require "core.logview"
 local fullscreen = false
 
 local function home_encode_list(paths)
-  if HOME then
-    local t = {}
-    for i = 1, #paths do
-      t[i] = common.home_encode(paths[i])
-    end
-    return t
+  local t = {}
+  for i = 1, #paths do
+    t[i] = common.home_encode(paths[i])
   end
-  return paths
+  return t
 end
 
 local function suggest_directory(text)
-  if HOME then
-    text = common.home_expand(text)
-  end
+  text = common.home_expand(text)
   return home_encode_list(text == "" and core.recent_projects or common.dir_path_suggest(text))
 end
 
@@ -110,8 +105,10 @@ command.add(nil, {
 
   ["core:open-file"] = function()
     core.command_view:enter("Open File", function(text)
-      core.root_view:open_doc(core.open_doc(text))
-    end, common.path_suggest)
+      core.root_view:open_doc(core.open_doc(common.home_expand(text)))
+    end, function (text)
+      return home_encode_list(common.path_suggest(common.home_expand(text)))
+    end)
   end,
 
   ["core:open-log"] = function()
