@@ -1,33 +1,84 @@
 #!/bin/bash
+
+set -o errexit
+
+option_portable=off
+option_copy=on
+pargs=()
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    -portable)
+    option_portable=on
+    ;;
+    -keep)
+    option_copy=off
+    ;;
+    -global)
+    option_global=on
+    ;;
+    -*)
+    echo "error: unknown option \"$1\""
+    exit 1
+    ;;
+    *)
+    pargs+=("$1")
+    ;;
+  esac
+  shift
+done
+
+if [ "${#pargs[@]}" -lt 1 ]; then
+  echo "usage: $0 [options] <build-dir>"
+  exit 1
+fi
+
+if [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "mingw"* ]]; then
+  run_windows=yes
+fi
+
 rundir=".run"
-if [ ${1:-x} == "-portable" ]; then
+if [ "$option_portable" == on ]; then
   bindir="$rundir"
   datadir="$rundir/data"
-  shift
 else
   bindir="$rundir/bin"
   datadir="$rundir/share/lite-xl"
 fi
 
 userdir="$(realpath "$rundir")"
+builddir="${pargs[0]}"
 
-if [ "$#" -lt 1 ]; then
-  echo "usage: $0 <build-dir>"
-  exit 1
-fi
+copy_lite_build () {
+  echo "copying lite executable and data"
+  rm -fr "$rundir"
+  mkdir -p "$bindir" "$datadir"
+  if [ ! -z ${run_windows+x} ]; then
+    cp "$builddir/src/lite.exe" "$bindir"
+  else
+    cp "$builddir/src/lite" "$bindir"
+  fi
+  for module_name in core plugins colors fonts; do
+    cp -r "data/$module_name" "$datadir"
+  done
+}
 
-builddir="$1"
-rm -fr "$rundir"
-mkdir -p "$bindir" "$datadir" "$userdir"
-if [ -f "$builddir/src/lite" ]; then
-  cp "$builddir/src/lite" "$bindir"
-elif [ -f "$builddir/src/lite.exe" ]; then
-  cp "$builddir/src/lite.exe" "$bindir"
-else
-  echo "error: no lite executable found in $builddir/src"
-  exit 1
+run_lite () {
+  if [ ! -z ${option_global+x} ]; then
+    echo "running \"lite ${pargs[@]:1}\""
+    exec "$bindir/lite" "${pargs[@]:1}"
+  else
+    echo "running \"lite ${pargs[@]:1}\" with local HOME"
+    if [ ! -z ${run_windows+x} ]; then
+      USERPROFILE="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+    else
+      HOME="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+    fi
+  fi
+}
+
+if [ $option_copy == on ]; then
+  echo "running ninja"
+  ninja -C "$builddir"
+  copy_lite_build
 fi
-for module_name in core plugins colors fonts; do
-  cp -r "data/$module_name" "$datadir"
-done
-HOME="$userdir" USERPROFILE="$userdir" exec "$bindir/lite" "${@:2}"
+run_lite
