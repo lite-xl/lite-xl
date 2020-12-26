@@ -9,7 +9,7 @@ local View = require "core.view"
 config.treeview_size = 200 * SCALE
 
 local function get_depth(filename)
-  local n = 0
+  local n = 1
   for sep in filename:gmatch("[\\/]") do
     n = n + 1
   end
@@ -28,16 +28,36 @@ function TreeView:new()
 end
 
 
-function TreeView:get_cached(item)
+local function relative_filename(filename, dirname)
+  local n = #dirname
+  if filename:sub(1, n) == dirname then
+    return filename:sub(n + 1):match('[/\\](.*)')
+  end
+end
+
+
+local function belongs_to_directory(item, dirname)
+  return relative_filename(item.filename, dirname)
+end
+
+
+function TreeView:get_cached(item, dirname)
   local t = self.cache[item.filename]
   if not t then
     t = {}
-    t.filename = item.filename
-    t.abs_filename = system.absolute_path(item.filename)
+    if dirname then
+      local rel = relative_filename(item.filename, dirname)
+      -- FIXME: rel should never be nil here. to be verified.
+      t.filename = rel or item.filename
+      t.depth = get_depth(t.filename)
+    else
+      t.filename = item.filename:match("[^\\/]+$")
+      t.depth = 0
+    end
+    t.abs_filename = item.filename
     t.name = t.filename:match("[^\\/]+$")
-    t.depth = get_depth(t.filename)
     t.type = item.type
-    self.cache[t.filename] = t
+    self.cache[item.filename] = t
   end
   return t
 end
@@ -73,28 +93,41 @@ function TreeView:each_item()
     local h = self:get_item_height()
 
     local i = 1
-    while i <= #core.project_files do
-      local item = core.project_files[i]
-      local cached = self:get_cached(item)
-
-      coroutine.yield(cached, ox, y, w, h)
+    -- FIXME: make this loop more efficient. Currently it takes O(M * N)
+    -- where M = (directories number) and N = (files number)
+    -- It should take O(N).
+    for idir, dir_item in ipairs(core.project_directories) do
+      local dir_entry = self:get_cached(dir_item)
+      local dir_name = dir_item.filename
+      coroutine.yield(dir_entry, ox, y, w, h)
       y = y + h
-      i = i + 1
+      while i <= #core.project_files do
+        local item = core.project_files[i]
+        if belongs_to_directory(item, dir_name) then
+          local cached = self:get_cached(item, dir_name)
 
-      if not cached.expanded then
-        if cached.skip then
-          i = cached.skip
-        else
-          local depth = cached.depth
-          while i <= #core.project_files do
-            local filename = core.project_files[i].filename
-            if get_depth(filename) <= depth then break end
-            i = i + 1
+          coroutine.yield(cached, ox, y, w, h)
+          y = y + h
+          i = i + 1
+
+          if not cached.expanded then
+            if cached.skip then
+              i = cached.skip
+            else
+              local depth = cached.depth
+              while i <= #core.project_files do
+                local filename = relative_filename(core.project_files[i].filename, dir_name)
+                if get_depth(filename) <= depth then break end
+                i = i + 1
+              end
+              cached.skip = i
+            end
           end
-          cached.skip = i
+        else
+          i = i + 1
         end
-      end
-    end
+      end -- while files
+    end -- for directories
   end)
 end
 

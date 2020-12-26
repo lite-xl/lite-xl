@@ -84,7 +84,7 @@ local function project_scan_thread()
         local file = (path ~= "." and path .. PATHSEP or "") .. file
         local info = system.get_file_info(file)
         if info and info.size < size_limit then
-          info.filename = file
+          info.filename = system.absolute_path(file)
           table.insert(info.type == "dir" and dirs or files, info)
           entries_count = entries_count + 1
           if entries_count > max_entries then break end
@@ -120,6 +120,7 @@ local function project_scan_thread()
           config.max_project_files.." files according to config.max_project_files.")
       end
       core.project_files = t
+      core.project_directories[1] = {filename = system.absolute_path("."), type = "dir"}
       core.redraw = true
     end
 
@@ -252,6 +253,7 @@ function core.init()
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
   core.project_files = {}
+  core.project_directories = {}
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
