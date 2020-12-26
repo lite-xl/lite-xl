@@ -25,6 +25,7 @@ function TreeView:new()
   self.visible = true
   self.init_size = true
   self.cache = {}
+  self.last = {}
 end
 
 
@@ -42,22 +43,27 @@ end
 
 
 function TreeView:get_cached(item, dirname)
-  local t = self.cache[item.filename]
+  local dir_cache = self.cache[dirname]
+  if not dir_cache then
+    dir_cache = {}
+    self.cache[dirname] = dir_cache
+  end
+  local t = dir_cache[item.filename]
   if not t then
     t = {}
-    if dirname then
-      local rel = relative_filename(item.filename, dirname)
-      -- FIXME: rel should never be nil here. to be verified.
-      t.filename = rel or item.filename
-      t.depth = get_depth(t.filename)
-    else
+    local rel = relative_filename(item.filename, dirname)
+    -- FIXME: rel should never be nil here. to be verified.
+    if item.top_dir then
       t.filename = item.filename:match("[^\\/]+$")
       t.depth = 0
+    else
+      t.filename = rel or item.filename
+      t.depth = get_depth(t.filename)
     end
     t.abs_filename = item.filename
     t.name = t.filename:match("[^\\/]+$")
     t.type = item.type
-    self.cache[item.filename] = t
+    dir_cache[item.filename] = t
   end
   return t
 end
@@ -75,11 +81,20 @@ end
 
 function TreeView:check_cache()
   -- invalidate cache's skip values if project_files has changed
-  if core.project_files ~= self.last_project_files then
-    for _, v in pairs(self.cache) do
-      v.skip = nil
+  for i = 1, #core.project_directories do
+    local dir = core.project_directories[i]
+    local last_files = self.last[dir.filename]
+    if not last_files then
+      self.last[dir.filename] = dir.files
+    else
+      if dir.files ~= last_files then
+        for _, v in pairs(self.cache[dir.filename]) do
+          v.skip = nil
+        end
+        self.last[dir.filename] = dir.files
+        -- self.last_project_files = core.project_files
+      end
     end
-    self.last_project_files = core.project_files
   end
 end
 
@@ -92,39 +107,34 @@ function TreeView:each_item()
     local w = self.size.x
     local h = self:get_item_height()
 
-    local i = 1
-    -- FIXME: make this loop more efficient. Currently it takes O(M * N)
-    -- where M = (directories number) and N = (files number)
-    -- It should take O(N).
-    for idir, dir_item in ipairs(core.project_directories) do
-      local dir_entry = self:get_cached(dir_item)
-      local dir_name = dir_item.filename
-      coroutine.yield(dir_entry, ox, y, w, h)
+    for k = 1, #core.project_directories do
+      local dir = core.project_directories[k]
+      local dir_cached = self:get_cached(dir.item, dir.filename)
+      local dir_name = dir.filename
+      coroutine.yield(dir_cached, ox, y, w, h)
       y = y + h
-      while i <= #core.project_files do
-        local item = core.project_files[i]
-        if belongs_to_directory(item, dir_name) then
-          local cached = self:get_cached(item, dir_name)
+      local i = 1
+      while i <= #dir.files do
+        local item = dir.files[i]
+        -- if belongs_to_directory(item, dir_name) then
+        local cached = self:get_cached(item, dir_name)
 
-          coroutine.yield(cached, ox, y, w, h)
-          y = y + h
-          i = i + 1
+        coroutine.yield(cached, ox, y, w, h)
+        y = y + h
+        i = i + 1
 
-          if not cached.expanded then
-            if cached.skip then
-              i = cached.skip
-            else
-              local depth = cached.depth
-              while i <= #core.project_files do
-                local filename = relative_filename(core.project_files[i].filename, dir_name)
-                if get_depth(filename) <= depth then break end
-                i = i + 1
-              end
-              cached.skip = i
+        if not cached.expanded then
+          if cached.skip then
+            i = cached.skip
+          else
+            local depth = cached.depth
+            while i <= #dir.files do
+              local filename = relative_filename(dir.files[i].filename, dir_name)
+              if get_depth(filename) <= depth then break end
+              i = i + 1
             end
+            cached.skip = i
           end
-        else
-          i = i + 1
         end
       end -- while files
     end -- for directories

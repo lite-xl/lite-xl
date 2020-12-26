@@ -112,16 +112,19 @@ local function project_scan_thread()
   while true do
     -- get project files and replace previous table if the new table is
     -- different
-    local t, entries_count = get_files(".")
-    if diff_files(core.project_files, t) then
-      if entries_count > config.max_project_files then
-        core.status_view:show_message("!", style.accent,
-          "Too many files in project directory: stopping reading at "..
-          config.max_project_files.." files according to config.max_project_files.")
+    for i = 1, #core.project_directories do
+      local dir = core.project_directories[i]
+      local t, entries_count = get_files(dir.filename)
+      if diff_files(dir.files, t) then
+        if entries_count > config.max_project_files then
+          core.status_view:show_message("!", style.accent,
+            "Too many files in project directory: stopping reading at "..
+            config.max_project_files.." files according to config.max_project_files.")
+        end
+        dir.files = t
+        -- core.project_directories[1] = {filename = system.absolute_path("."), type = "dir"}
+        core.redraw = true
       end
-      core.project_files = t
-      core.project_directories[1] = {filename = system.absolute_path("."), type = "dir"}
-      core.redraw = true
     end
 
     -- wait for next scan
@@ -252,8 +255,14 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
-  core.project_files = {}
-  core.project_directories = {}
+  local dir_abs_path = system.absolute_path(".")
+  core.project_directories = {
+    {
+      filename = dir_abs_path,
+      item = {filename = dir_abs_path, type = "dir", top_dir = true},
+      files = {},
+    }
+  }
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
