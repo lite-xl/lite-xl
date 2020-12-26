@@ -83,16 +83,15 @@ function TreeView:check_cache()
   -- invalidate cache's skip values if project_files has changed
   for i = 1, #core.project_directories do
     local dir = core.project_directories[i]
-    local last_files = self.last[dir.filename]
+    local last_files = self.last[dir.name]
     if not last_files then
-      self.last[dir.filename] = dir.files
+      self.last[dir.name] = dir.files
     else
       if dir.files ~= last_files then
-        for _, v in pairs(self.cache[dir.filename]) do
+        for _, v in pairs(self.cache[dir.name]) do
           v.skip = nil
         end
-        self.last[dir.filename] = dir.files
-        -- self.last_project_files = core.project_files
+        self.last[dir.name] = dir.files
       end
     end
   end
@@ -109,15 +108,13 @@ function TreeView:each_item()
 
     for k = 1, #core.project_directories do
       local dir = core.project_directories[k]
-      local dir_cached = self:get_cached(dir.item, dir.filename)
-      local dir_name = dir.filename
+      local dir_cached = self:get_cached(dir.item, dir.name)
       coroutine.yield(dir_cached, ox, y, w, h)
       y = y + h
       local i = 1
       while i <= #dir.files do
         local item = dir.files[i]
-        -- if belongs_to_directory(item, dir_name) then
-        local cached = self:get_cached(item, dir_name)
+        local cached = self:get_cached(item, dir.name)
 
         coroutine.yield(cached, ox, y, w, h)
         y = y + h
@@ -129,7 +126,7 @@ function TreeView:each_item()
           else
             local depth = cached.depth
             while i <= #dir.files do
-              local filename = relative_filename(dir.files[i].filename, dir_name)
+              local filename = relative_filename(dir.files[i].filename, dir.name)
               if get_depth(filename) <= depth then break end
               i = i + 1
             end

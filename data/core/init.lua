@@ -114,7 +114,7 @@ local function project_scan_thread()
     -- different
     for i = 1, #core.project_directories do
       local dir = core.project_directories[i]
-      local t, entries_count = get_files(dir.filename)
+      local t, entries_count = get_files(dir.name)
       if diff_files(dir.files, t) then
         if entries_count > config.max_project_files then
           core.status_view:show_message("!", style.accent,
@@ -122,7 +122,6 @@ local function project_scan_thread()
             config.max_project_files.." files according to config.max_project_files.")
         end
         dir.files = t
-        -- core.project_directories[1] = {filename = system.absolute_path("."), type = "dir"}
         core.redraw = true
       end
     end
@@ -255,11 +254,11 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
-  local dir_abs_path = system.absolute_path(".")
+  local dir_path = system.absolute_path(".")
   core.project_directories = {
     {
-      filename = dir_abs_path,
-      item = {filename = dir_abs_path, type = "dir", top_dir = true},
+      name = dir_path,
+      item = {filename = dir_path, type = "dir", top_dir = true},
       files = {},
     }
   }
