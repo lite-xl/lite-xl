@@ -48,6 +48,11 @@ fi
 userdir="$(realpath "$rundir")"
 builddir="${pargs[0]}"
 
+build_lite () {
+  echo "running ninja"
+  ninja -C "$builddir"
+}
+
 copy_lite_build () {
   echo "copying lite executable and data"
   rm -fr "$rundir"
@@ -77,8 +82,7 @@ run_lite () {
 }
 
 if [ $option_copy == on ]; then
-  echo "running ninja"
-  ninja -C "$builddir"
+  build_lite
   copy_lite_build
 fi
 run_lite
