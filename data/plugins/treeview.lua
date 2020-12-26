@@ -37,10 +37,6 @@ local function relative_filename(filename, dirname)
 end
 
 
-local function belongs_to_directory(item, dirname)
-  return relative_filename(item.filename, dirname)
-end
-
 
 function TreeView:get_cached(item, dirname)
   local dir_cache = self.cache[dirname]

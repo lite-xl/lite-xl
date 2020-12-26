@@ -81,10 +81,10 @@ local function project_scan_thread()
     local max_entries = config.max_project_files
     for _, file in ipairs(all) do
       if not common.match_pattern(file, config.ignore_files) then
-        local file = (path ~= "." and path .. PATHSEP or "") .. file
+        local file = path .. PATHSEP .. file
         local info = system.get_file_info(file)
         if info and info.size < size_limit then
-          info.filename = system.absolute_path(file)
+          info.filename = file
           table.insert(info.type == "dir" and dirs or files, info)
           entries_count = entries_count + 1
           if entries_count > max_entries then break end
