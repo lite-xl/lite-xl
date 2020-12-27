@@ -155,9 +155,19 @@ local function project_files_iter(state)
   return dir.name, dir.files[state.file_index]
 end
 
-function core.project_files()
+
+function core.get_project_files()
   local state = { dir_index = 1, file_index = 0 }
   return project_files_iter, state
+end
+
+
+function core.project_files_number()
+  local n = 0
+  for i = 1, #core.project_directories do
+    n = n + #core.project_directories[i].files
+  end
+  return n
 end
 
 

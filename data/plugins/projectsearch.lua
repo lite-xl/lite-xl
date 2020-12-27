@@ -49,11 +49,13 @@ function ResultsView:begin_search(text, fn)
   self.selected_idx = 0
 
   core.add_thread(function()
-    for i, file in ipairs(core.project_files) do
+    local i = 1
+    for dir_name, file in core.get_project_files() do
       if file.type == "file" then
-        find_all_matches_in_file(self.results, file.filename, fn)
+        find_all_matches_in_file(self.results, dir_name .. file.filename, fn)
       end
       self.last_file_idx = i
+      i = i + 1
     end
     self.searching = false
     self.brightness = 100
@@ -162,11 +164,12 @@ function ResultsView:draw()
   -- status
   local ox, oy = self:get_content_offset()
   local x, y = ox + style.padding.x, oy + style.padding.y
-  local per = self.last_file_idx / #core.project_files
+  local files_number = core.project_files_number()
+  local per = self.last_file_idx / files_number
   local text
   if self.searching then
     text = string.format("Searching %d%% (%d of %d files, %d matches) for %q...",
-      per * 100, self.last_file_idx, #core.project_files,
+      per * 100, self.last_file_idx, files_number,
       #self.results, self.query)
   else
     text = string.format("Found %d matches for %q",

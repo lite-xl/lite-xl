@@ -73,7 +73,7 @@ command.add(nil, {
 
   ["core:find-file"] = function()
     local files = {}
-    for dir, item in core.project_files() do
+    for dir, item in core.get_project_files() do
       if item.type == "file" then
         local filename = dir == core.project_dir and item.filename:match('^[/\\](.+)') or dir .. item.filename
         table.insert(files, common.home_encode(filename))

@@ -120,9 +120,7 @@ function StatusView:get_items()
     style.icon_font, "g",
     style.font, style.dim, self.separator2,
     #core.docs, style.text, " / ",
-    -- FIXME: the number of file should be calculated
-    -- across directories.
-    #core.project_directories[1].files, " files"
+    core.project_files_number(), " files"
   }
 end
 
