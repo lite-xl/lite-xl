@@ -70,11 +70,11 @@ local function project_scan_thread()
     return a.filename < b.filename
   end
 
-  local function get_files(path, t)
+  local function get_files(root, path, t)
     coroutine.yield()
     t = t or {}
     local size_limit = config.file_size_limit * 10e5
-    local all = system.list_dir(path) or {}
+    local all = system.list_dir(root .. path) or {}
     local dirs, files = {}, {}
 
     local entries_count = 0
@@ -82,7 +82,7 @@ local function project_scan_thread()
     for _, file in ipairs(all) do
       if not common.match_pattern(file, config.ignore_files) then
         local file = path .. PATHSEP .. file
-        local info = system.get_file_info(file)
+        local info = system.get_file_info(root .. file)
         if info and info.size < size_limit then
           info.filename = file
           table.insert(info.type == "dir" and dirs or files, info)
@@ -96,7 +96,7 @@ local function project_scan_thread()
     for _, f in ipairs(dirs) do
       table.insert(t, f)
       if entries_count <= max_entries then
-        local subdir_t, subdir_count = get_files(f.filename, t)
+        local subdir_t, subdir_count = get_files(root, f.filename, t)
         entries_count = entries_count + subdir_count
       end
     end
@@ -114,7 +114,7 @@ local function project_scan_thread()
     -- different
     for i = 1, #core.project_directories do
       local dir = core.project_directories[i]
-      local t, entries_count = get_files(dir.name)
+      local t, entries_count = get_files(dir.name, "")
       if diff_files(dir.files, t) then
         if entries_count > config.max_project_files then
           core.status_view:show_message("!", style.accent,
@@ -255,10 +255,11 @@ function core.init()
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
   local dir_path = system.absolute_path(".")
+  local dir_name = dir_path:match("[^\\/]+$")
   core.project_directories = {
     {
       name = dir_path,
-      item = {filename = dir_path, type = "dir", top_dir = true},
+      item = {filename = dir_name, type = "dir"},
       files = {},
     }
   }

@@ -9,7 +9,7 @@ local View = require "core.view"
 config.treeview_size = 200 * SCALE
 
 local function get_depth(filename)
-  local n = 1
+  local n = 0
   for sep in filename:gmatch("[\\/]") do
     n = n + 1
   end
@@ -28,14 +28,9 @@ function TreeView:new()
   self.last = {}
 end
 
-
-local function relative_filename(filename, dirname)
-  local n = #dirname
-  if filename:sub(1, n) == dirname then
-    return filename:sub(n + 1):match('[/\\](.*)')
-  end
+local function strip_leading_path(filename)
+    return filename:sub(2)
 end
-
 
 
 function TreeView:get_cached(item, dirname)
@@ -47,17 +42,11 @@ function TreeView:get_cached(item, dirname)
   local t = dir_cache[item.filename]
   if not t then
     t = {}
-    local rel = relative_filename(item.filename, dirname)
-    -- FIXME: rel should never be nil here. to be verified.
-    if item.top_dir then
-      t.filename = item.filename:match("[^\\/]+$")
-      t.depth = 0
-    else
-      t.filename = rel or item.filename
-      t.depth = get_depth(t.filename)
-    end
-    t.abs_filename = item.filename
-    t.name = t.filename:match("[^\\/]+$")
+    local basename = item.filename:match("[^\\/]+$")
+    t.filename = item.filename:match('^[/\\]') and strip_leading_path(item.filename) or basename
+    t.depth = get_depth(item.filename)
+    t.abs_filename = dirname .. item.filename
+    t.name = basename
     t.type = item.type
     dir_cache[item.filename] = t
   end
@@ -122,8 +111,7 @@ function TreeView:each_item()
           else
             local depth = cached.depth
             while i <= #dir.files do
-              local filename = relative_filename(dir.files[i].filename, dir.name)
-              if get_depth(filename) <= depth then break end
+              if get_depth(dir.files[i].filename) <= depth then break end
               i = i + 1
             end
             cached.skip = i
@@ -153,7 +141,7 @@ function TreeView:on_mouse_pressed(button, x, y)
     self.hovered_item.expanded = not self.hovered_item.expanded
   else
     core.try(function()
-      core.root_view:open_doc(core.open_doc(self.hovered_item.filename))
+      core.root_view:open_doc(core.open_doc(self.hovered_item.abs_filename))
     end)
   end
 end
