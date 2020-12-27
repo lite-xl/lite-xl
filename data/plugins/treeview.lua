@@ -43,7 +43,12 @@ function TreeView:get_cached(item, dirname)
   if not t then
     t = {}
     local basename = item.filename:match("[^\\/]+$")
-    t.filename = item.filename:match('^[/\\]') and strip_leading_path(item.filename) or basename
+    if item.filename:match('^[/\\]') then
+      t.filename = strip_leading_path(item.filename)
+    else
+      t.filename = basename
+      t.expanded = true
+    end
     t.depth = get_depth(item.filename)
     t.abs_filename = dirname .. item.filename
     t.name = basename
@@ -97,7 +102,7 @@ function TreeView:each_item()
       coroutine.yield(dir_cached, ox, y, w, h)
       y = y + h
       local i = 1
-      while i <= #dir.files do
+      while i <= #dir.files and dir_cached.expanded do
         local item = dir.files[i]
         local cached = self:get_cached(item, dir.name)
 

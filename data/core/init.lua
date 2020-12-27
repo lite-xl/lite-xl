@@ -47,12 +47,18 @@ local function save_projects()
   end
 end
 
+
+function core.request_project_scan()
+  core.threads[core.project_scan_thread_id].wake = 0
+end
+
+
 function core.open_folder_project(dirname)
   core.root_view:close_all_docviews()
   add_project_to_recents(dirname)
   save_projects()
   core.switch_project = dirname
-  core.threads[core.project_scan_thread_id].wake = 0
+  core.request_project_scan()
 end
 
 local function project_scan_thread()
@@ -134,6 +140,24 @@ local function project_scan_thread()
       coroutine.yield(config.project_scan_rate)
     end
   end
+end
+
+
+local function project_files_iter(state)
+  local dir = core.project_directories[state.dir_index]
+  state.file_index = state.file_index + 1
+  while dir and state.file_index > #dir.files do
+    state.dir_index = state.dir_index + 1
+    state.file_index = 1
+    dir = core.project_directories[state.dir_index]
+  end
+  if not dir then return end
+  return dir.name, dir.files[state.file_index]
+end
+
+function core.project_files()
+  local state = { dir_index = 1, file_index = 0 }
+  return project_files_iter, state
 end
 
 
@@ -223,6 +247,13 @@ function core.load_user_directory()
   end)
 end
 
+function core.add_project_directory(path)
+  table.insert(core.project_directories, {
+    name = path,
+    item = {filename = path:match("[^\\/]+$"), type = "dir"},
+    files = {}
+  })
+end
 
 function core.init()
   command = require "core.command"
@@ -254,15 +285,9 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
-  local dir_path = system.absolute_path(".")
-  local dir_name = dir_path:match("[^\\/]+$")
-  core.project_directories = {
-    {
-      name = dir_path,
-      item = {filename = dir_name, type = "dir"},
-      files = {},
-    }
-  }
+  core.project_dir = system.absolute_path(".")
+  core.project_directories = {}
+  core.add_project_directory(core.project_dir)
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false

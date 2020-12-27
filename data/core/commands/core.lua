@@ -73,14 +73,14 @@ command.add(nil, {
 
   ["core:find-file"] = function()
     local files = {}
-    for _, item in pairs(core.project_files) do
+    for dir, item in core.project_files() do
       if item.type == "file" then
-        table.insert(files, item.filename)
+        local filename = dir == core.project_dir and item.filename:match('^[/\\](.+)') or dir .. item.filename
+        table.insert(files, common.home_encode(filename))
       end
     end
     core.command_view:enter("Open File From Project", function(text, item)
-      text = item and item.text or text
-      core.root_view:open_doc(core.open_doc(text))
+      core.root_view:open_doc(core.open_doc(common.home_expand(text)))
     end, function(text)
       if text == "" then
         local recent_files = {}
@@ -164,4 +164,21 @@ command.add(nil, {
       system.exec(string.format("%q %q", EXEFILE, text))
     end, suggest_directory)
   end,
+
+  ["core:add-directory"] = function()
+    core.command_view:enter("Open Project", function(text)
+      text = common.home_expand(text)
+      local path_stat, err = system.get_file_info(text)
+      if not path_stat then
+        core.error("cannot open %q: %s", text, err)
+        return
+      elseif path_stat.type ~= 'dir' then
+        core.error("%q is not a directory", text)
+        return
+      end
+      core.add_project_directory(system.absolute_path(text))
+      core.request_project_scan()
+    end, suggest_directory)
+  end,
+
 })
