@@ -43,11 +43,12 @@ function TreeView:get_cached(item, dirname)
       t.filename = basename
       t.expanded = true
       t.depth = 0
+      t.abs_filename = dirname
     else
       t.filename = item.filename
       t.depth = get_depth(item.filename)
+      t.abs_filename = dirname .. PATHSEP .. item.filename
     end
-    t.abs_filename = dirname .. PATHSEP .. item.filename
     t.name = basename
     t.type = item.type
     dir_cache[item.filename] = t
@@ -140,7 +141,11 @@ function TreeView:on_mouse_pressed(button, x, y)
   if not self.hovered_item then
     return
   elseif self.hovered_item.type == "dir" then
-    self.hovered_item.expanded = not self.hovered_item.expanded
+    if button == "middle" and self.hovered_item.depth == 0 then
+      core.remove_project_directory(self.hovered_item.abs_filename)
+    else
+      self.hovered_item.expanded = not self.hovered_item.expanded
+    end
   else
     core.try(function()
       core.root_view:open_doc(core.open_doc(self.hovered_item.abs_filename))

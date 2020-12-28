@@ -117,6 +117,18 @@ function common.dir_path_suggest(text)
 end
 
 
+function common.dir_list_suggest(text, dir_list)
+  local path, name = text:match("^(.-)([^/\\]*)$")
+  local res = {}
+  for _, dir_path in ipairs(dir_list) do
+    if dir_path:lower():find(text:lower(), nil, true) == 1 then
+      table.insert(res, dir_path)
+    end
+  end
+  return res
+end
+
+
 function common.match_pattern(text, pattern, ...)
   if type(pattern) == "string" then
     return text:find(pattern, ...)

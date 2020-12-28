@@ -274,6 +274,7 @@ function core.load_user_directory()
   end)
 end
 
+
 function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
@@ -284,6 +285,18 @@ function core.add_project_directory(path)
     files = {}
   })
 end
+
+
+function core.remove_project_directory(path)
+  for i, dir in ipairs(core.project_directories) do
+    if dir.name == path then
+      table.remove(core.project_directories, i)
+      return true
+    end
+  end
+  return false
+end
+
 
 function core.init()
   command = require "core.command"

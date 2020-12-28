@@ -166,7 +166,7 @@ command.add(nil, {
   end,
 
   ["core:add-directory"] = function()
-    core.command_view:enter("Open Project", function(text)
+    core.command_view:enter("Add Directory", function(text)
       text = common.home_expand(text)
       local path_stat, err = system.get_file_info(text)
       if not path_stat then
@@ -182,4 +182,19 @@ command.add(nil, {
     end, suggest_directory)
   end,
 
+  ["core:remove-directory"] = function()
+    local dir_list = {}
+    local n = #core.project_directories
+    for i = n, 1, -1 do
+      dir_list[n - i + 1] = core.project_directories[i].name
+    end
+    core.command_view:enter("Remove Directory", function(text)
+      if not core.remove_project_directory(text) then
+        core.error("The project has no directory %q", text)
+      end
+    end, function(text)
+      text = common.home_expand(text)
+      return home_encode_list(common.dir_list_suggest(text, dir_list))
+    end)
+  end,
 })
