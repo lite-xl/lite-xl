@@ -61,6 +61,12 @@ function core.open_folder_project(dirname)
   core.request_project_scan()
 end
 
+
+local function strip_leading_path(filename)
+    return filename:sub(2)
+end
+
+
 local function project_scan_thread()
   local function diff_files(a, b)
     if #a ~= #b then return true end
@@ -76,6 +82,14 @@ local function project_scan_thread()
     return a.filename < b.filename
   end
 
+  -- "root" will by an absolute path without trailing '/'
+  -- "path" will be a path starting with '/' and without trailing '/'
+  --    or the empty string.
+  --    It will identifies a sub-path within "root.
+  -- The current path location will therefore always be: root .. path.
+  -- When recursing "root" will always be the same, only "path" will change.
+  -- Returns a list of file "items". In eash item the "filename" will be the
+  -- complete file path relative to "root" *without* the trailing '/'.
   local function get_files(root, path, t)
     coroutine.yield()
     t = t or {}
@@ -90,7 +104,7 @@ local function project_scan_thread()
         local file = path .. PATHSEP .. file
         local info = system.get_file_info(root .. file)
         if info and info.size < size_limit then
-          info.filename = file
+          info.filename = strip_leading_path(file)
           table.insert(info.type == "dir" and dirs or files, info)
           entries_count = entries_count + 1
           if entries_count > max_entries then break end
@@ -102,7 +116,7 @@ local function project_scan_thread()
     for _, f in ipairs(dirs) do
       table.insert(t, f)
       if entries_count <= max_entries then
-        local subdir_t, subdir_count = get_files(root, f.filename, t)
+        local subdir_t, subdir_count = get_files(root, PATHSEP .. f.filename, t)
         entries_count = entries_count + subdir_count
       end
     end
@@ -128,6 +142,9 @@ local function project_scan_thread()
             config.max_project_files.." files according to config.max_project_files.")
         end
         dir.files = t
+        if i == 1 then
+          core.project_files = t
+        end
         core.redraw = true
       end
     end
@@ -258,9 +275,12 @@ function core.load_user_directory()
 end
 
 function core.add_project_directory(path)
+  -- top directories has a file-like "item" but the item.filename
+  -- will be simply the name of the directory, without its path.
+  -- The field item.topdir will identify it as a top level directory.
   table.insert(core.project_directories, {
     name = path,
-    item = {filename = path:match("[^\\/]+$"), type = "dir"},
+    item = {filename = path:match("[^\\/]+$"), type = "dir", topdir = true},
     files = {}
   })
 end
@@ -295,9 +315,17 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
+
+  -- core.project_files will always point to the files of
+  -- core.project_directories[1]. We assume the first entry of
+  -- project_directories will always be the project's directory.
+  -- core.project_files will therefore not include any of the added
+  -- directories.
   core.project_dir = system.absolute_path(".")
   core.project_directories = {}
   core.add_project_directory(core.project_dir)
+  core.project_files = core.project_directories[1].files
+
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false

@@ -9,7 +9,7 @@ local View = require "core.view"
 config.treeview_size = 200 * SCALE
 
 local function get_depth(filename)
-  local n = 0
+  local n = 1
   for sep in filename:gmatch("[\\/]") do
     n = n + 1
   end
@@ -28,10 +28,6 @@ function TreeView:new()
   self.last = {}
 end
 
-local function strip_leading_path(filename)
-    return filename:sub(2)
-end
-
 
 function TreeView:get_cached(item, dirname)
   local dir_cache = self.cache[dirname]
@@ -43,14 +39,15 @@ function TreeView:get_cached(item, dirname)
   if not t then
     t = {}
     local basename = item.filename:match("[^\\/]+$")
-    if item.filename:match('^[/\\]') then
-      t.filename = strip_leading_path(item.filename)
-    else
+    if item.topdir then
       t.filename = basename
       t.expanded = true
+      t.depth = 0
+    else
+      t.filename = item.filename
+      t.depth = get_depth(item.filename)
     end
-    t.depth = get_depth(item.filename)
-    t.abs_filename = dirname .. item.filename
+    t.abs_filename = dirname .. PATHSEP .. item.filename
     t.name = basename
     t.type = item.type
     dir_cache[item.filename] = t

@@ -75,8 +75,8 @@ command.add(nil, {
     local files = {}
     for dir, item in core.get_project_files() do
       if item.type == "file" then
-        local filename = dir == core.project_dir and item.filename:match('^[/\\](.+)') or dir .. item.filename
-        table.insert(files, common.home_encode(filename))
+        local path = (dir == core.project_dir and "" or dir .. PATHSEP)
+        table.insert(files, common.home_encode(path .. item.filename))
       end
     end
     core.command_view:enter("Open File From Project", function(text, item)
