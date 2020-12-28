@@ -213,7 +213,7 @@ local function begin_search(text, fn)
     return
   end
   local rv = ResultsView(text, fn)
-  core.root_view:get_active_node():add_view(rv)
+  core.root_view:get_active_node_default():add_view(rv)
 end
 
 
