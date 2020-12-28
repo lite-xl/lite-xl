@@ -59,7 +59,7 @@ end
 
 
 function command.add_defaults()
-  local reg = { "core", "root", "command", "doc", "findreplace" }
+  local reg = { "core", "root", "command", "doc", "findreplace", "files" }
   for _, name in ipairs(reg) do
     require("core.commands." .. name)
   end
