@@ -123,11 +123,50 @@ local function load_node(node, t)
 end
 
 
+local function split_on_slash(s, sep_pattern)
+  local t = {}
+  for fragment in string.gmatch(s, "([^/\\]+)") do
+    t[#t + 1] = fragment
+  end
+  return t
+end
+
+
+local function relative_path(ref_dir, dir)
+  local ref_ls = split_on_slash(ref_dir)
+  local dir_ls = split_on_slash(dir)
+  local i = 1
+  while i <= #ref_ls do
+    if dir_ls[i] ~= ref_ls[i] then
+      break
+    end
+    i = i + 1
+  end
+  local ups = ""
+  for k = i, #ref_ls do
+    ups = ups .. "../"
+  end
+  return ups .. table.concat(dir_ls, "/", i)
+end
+
+
+local function save_directories()
+  local project_dir = core.project_dir
+  local dir_list = {}
+  for i, dir in ipairs(core.project_directories) do
+    dir_list[i] = relative_path(project_dir, dir.name)
+  end
+  return dir_list
+end
+
+
 local function save_workspace()
   local root = get_unlocked_root(core.root_view.root_node)
   local fp = io.open(workspace_filename, "w")
   if fp then
-    fp:write("return ", serialize(save_node(root)), "\n")
+    local node_text = serialize(save_node(root))
+    local dir_text = serialize(save_directories())
+    fp:write(string.format("return { documents = %s, directories = %s }\n", node_text, dir_text))
     fp:close()
   end
 end
@@ -138,9 +177,14 @@ local function load_workspace()
   os.remove(workspace_filename)
   if ok then
     local root = get_unlocked_root(core.root_view.root_node)
-    local active_view = load_node(root, t)
+    local active_view = load_node(root, t.documents)
     if active_view then
       core.set_active_view(active_view)
+    end
+    for i, dir_name in ipairs(t.directories) do
+      if dir_name ~= "" then
+        core.add_project_directory(system.absolute_path(dir_name))
+      end
     end
   end
 end
