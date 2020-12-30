@@ -1,21 +1,8 @@
 local core = require "core"
+local common = require "core.common"
 local DocView = require "core.docview"
 
 local workspace_filename = ".lite_workspace.lua"
-
-
-local function serialize(val)
-  if type(val) == "string" then
-    return string.format("%q", val)
-  elseif type(val) == "table" then
-    local t = {}
-    for k, v in pairs(val) do
-      table.insert(t, "[" .. serialize(k) .. "]=" .. serialize(v))
-    end
-    return "{" .. table.concat(t, ",") .. "}"
-  end
-  return tostring(val)
-end
 
 
 local function has_no_locked_children(node)
@@ -164,8 +151,8 @@ local function save_workspace()
   local root = get_unlocked_root(core.root_view.root_node)
   local fp = io.open(workspace_filename, "w")
   if fp then
-    local node_text = serialize(save_node(root))
-    local dir_text = serialize(save_directories())
+    local node_text = common.serialize(save_node(root))
+    local dir_text = common.serialize(save_directories())
     fp:write(string.format("return { documents = %s, directories = %s }\n", node_text, dir_text))
     fp:close()
   end

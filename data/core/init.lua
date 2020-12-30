@@ -11,15 +11,6 @@ local Doc
 
 local core = {}
 
-local function table_serialize(t)
-  local ls = {"{"}
-  for i = 1, #t do
-    ls[#ls + 1] = string.format("  %q,", t[i])
-  end
-  ls[#ls + 1] = "}"
-  return table.concat(ls, "\n")
-end
-
 local function load_projects()
   local ok, t = pcall(dofile, USERDIR .. "/recent_projects.lua")
   core.recent_projects = (ok and t or {})
@@ -42,7 +33,7 @@ end
 local function save_projects()
   local fp = io.open(USERDIR .. "/recent_projects.lua", "w")
   if fp then
-    fp:write("return ", table_serialize(core.recent_projects), "\n")
+    fp:write("return ", common.serialize(core.recent_projects), "\n")
     fp:close()
   end
 end

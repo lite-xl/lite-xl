@@ -164,6 +164,20 @@ function common.bench(name, fn, ...)
 end
 
 
+function common.serialize(val)
+  if type(val) == "string" then
+    return string.format("%q", val)
+  elseif type(val) == "table" then
+    local t = {}
+    for k, v in pairs(val) do
+      table.insert(t, "[" .. common.serialize(k) .. "]=" .. common.serialize(v))
+    end
+    return "{" .. table.concat(t, ",") .. "}"
+  end
+  return tostring(val)
+end
+
+
 function common.home_encode(text)
   if HOME then
     local n = #HOME
