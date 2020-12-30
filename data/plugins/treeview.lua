@@ -89,6 +89,7 @@ end
 function TreeView:each_item()
   return coroutine.wrap(function()
     self:check_cache()
+    local count_lines = 0
     local ox, oy = self:get_content_offset()
     local y = oy + style.padding.y
     local w = self.size.x
@@ -98,6 +99,7 @@ function TreeView:each_item()
       local dir = core.project_directories[k]
       local dir_cached = self:get_cached(dir.item, dir.name)
       coroutine.yield(dir_cached, ox, y, w, h)
+      count_lines = count_lines + 1
       y = y + h
       local i = 1
       while i <= #dir.files and dir_cached.expanded do
@@ -105,6 +107,7 @@ function TreeView:each_item()
         local cached = self:get_cached(item, dir.name)
 
         coroutine.yield(cached, ox, y, w, h)
+        count_lines = count_lines + 1
         y = y + h
         i = i + 1
 
@@ -122,11 +125,14 @@ function TreeView:each_item()
         end
       end -- while files
     end -- for directories
+    self.count_lines = count_lines
   end)
 end
 
 
-function TreeView:on_mouse_moved(px, py)
+function TreeView:on_mouse_moved(px, py, ...)
+  TreeView.super.on_mouse_moved(self, px, py, ...)
+  if self.dragging_scrollbar then return end
   self.hovered_item = nil
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
@@ -152,7 +158,11 @@ local function create_directory_in(item)
 end
 
 
-function TreeView:on_mouse_pressed(button, x, y)
+function TreeView:on_mouse_pressed(button, x, y, clicks)
+  local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
+  if caught then
+    return
+  end
   if not self.hovered_item then
     return
   elseif self.hovered_item.type == "dir" then
@@ -180,6 +190,11 @@ function TreeView:update()
   end
 
   TreeView.super.update(self)
+end
+
+
+function TreeView:get_scrollable_size()
+  return self.count_lines and self:get_item_height() * (self.count_lines + 1) or math.huge
 end
 
 
@@ -225,6 +240,8 @@ function TreeView:draw()
     x = x + spacing
     x = common.draw_text(style.font, color, item.name, nil, x, y, 0, h)
   end
+
+  self:draw_scrollbar()
 end
 
 
