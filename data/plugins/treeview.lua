@@ -140,7 +140,7 @@ end
 local function create_directory_in(item)
   local path = item.abs_filename
   local basename = path:match("[^\\/]+$")
-  core.command_view:enter("Create directory in " .. basename, function(text)
+  core.command_view:enter("Create directory in " .. path, function(text)
     local dirname = path .. PATHSEP .. text
     local success, err = system.mkdir(dirname)
     if not success then
@@ -156,9 +156,7 @@ function TreeView:on_mouse_pressed(button, x, y)
   if not self.hovered_item then
     return
   elseif self.hovered_item.type == "dir" then
-    if keymap.modkeys["shift"] and button == "middle" and self.hovered_item.depth == 0 then
-      core.remove_project_directory(self.hovered_item.abs_filename)
-    elseif keymap.modkeys["alt"] and button == "left" then
+    if keymap.modkeys["ctrl"] and button == "left" then
       create_directory_in(self.hovered_item)
     else
       self.hovered_item.expanded = not self.hovered_item.expanded
