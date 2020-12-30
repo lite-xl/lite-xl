@@ -2,6 +2,15 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the differences between Lite XL and rxi/lite for each version.
 
+### 1.15
+
+**Files and Directories**
+
+Add command to create a new directory within the project using the command
+`files:create-directory`.
+In addition a control-click on a project directory will prompt the user to create
+a new directory inside the directory pointed.
+
 ### 1.14
 
 **Project Management**
