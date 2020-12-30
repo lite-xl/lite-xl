@@ -141,7 +141,7 @@ command.add(nil, {
 
   ["core:change-project-folder"] = function()
     core.command_view:enter("Change Project Folder", function(text)
-      text = common.home_expand(text)
+      text = system.absolute_path(common.home_expand(text))
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)
