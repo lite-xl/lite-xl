@@ -178,7 +178,7 @@ command.add(nil, {
       end
       core.add_project_directory(system.absolute_path(text))
       -- TODO: add the name of directory to prioritize
-      core.request_project_scan()
+      core.reschedule_project_scan()
     end, suggest_directory)
   end,
 

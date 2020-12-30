@@ -183,10 +183,16 @@ function core.run(...)
   if #core.docs == 0 then
     core.try(load_workspace)
 
-    local original_on_quit = core.on_quit
-    function core.on_quit()
+    local on_quit_project = core.on_quit_project
+    function core.on_quit_project()
       save_workspace()
-      original_on_quit()
+      on_quit_project()
+    end
+
+    local on_enter_project = core.on_enter_project
+    function core.on_enter_project(new_dir)
+      on_enter_project(new_dir)
+      core.try(load_workspace)
     end
   end
 

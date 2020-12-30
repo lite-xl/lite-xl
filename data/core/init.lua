@@ -39,17 +39,37 @@ local function save_projects()
 end
 
 
-function core.request_project_scan()
-  core.threads[core.project_scan_thread_id].wake = 0
+function core.reschedule_project_scan()
+  if core.project_scan_thread_id then
+    core.threads[core.project_scan_thread_id].wake = 0
+  end
+end
+
+
+core.project_files_empty = {}
+
+
+function core.set_project_dir(new_dir)
+  core.project_dir = new_dir
+  system.chdir(new_dir)
+  core.project_directories = {}
+  core.add_project_directory(new_dir)
+  -- core.project_files will be set during the project files scan
+  -- to point to the files of the project directory.
+  -- core.project_files will therefore not include any of the added
+  -- directories.
+  core.project_files = core.project_files_empty
+  core.reschedule_project_scan()
 end
 
 
 function core.open_folder_project(dirname)
+  core.on_quit_project()
   core.root_view:close_all_docviews()
   add_project_to_recents(dirname)
   save_projects()
-  core.switch_project = dirname
-  core.request_project_scan()
+  core.set_project_dir(dirname)
+  core.on_enter_project(dirname)
 end
 
 
@@ -123,6 +143,7 @@ local function project_scan_thread()
   while true do
     -- get project files and replace previous table if the new table is
     -- different
+    local include_project_dir = false
     for i = 1, #core.project_directories do
       local dir = core.project_directories[i]
       local t, entries_count = get_files(dir.name, "")
@@ -133,20 +154,19 @@ local function project_scan_thread()
             config.max_project_files.." files according to config.max_project_files.")
         end
         dir.files = t
-        if i == 1 then
+        if dir.name == core.project_dir then
+          include_project_dir = true
           core.project_files = t
         end
         core.redraw = true
       end
     end
+    if not include_project_dir then
+      core.project_files = core.project_files_empty
+    end
 
     -- wait for next scan
-    if core.switch_project then
-      system.chdir(core.switch_project)
-      core.switch_project = nil
-    else
-      coroutine.yield(config.project_scan_rate)
-    end
+    coroutine.yield(config.project_scan_rate)
   end
 end
 
@@ -312,23 +332,13 @@ function core.init()
     end
   end
 
-  system.chdir(project_dir)
-
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
 
-  -- core.project_files will always point to the files of
-  -- core.project_directories[1]. We assume the first entry of
-  -- project_directories will always be the project's directory.
-  -- core.project_files will therefore not include any of the added
-  -- directories.
-  core.project_dir = system.absolute_path(".")
-  core.project_directories = {}
-  core.add_project_directory(core.project_dir)
-  core.project_files = core.project_directories[1].files
+  core.set_project_dir(system.absolute_path(project_dir))
 
   core.redraw = true
   core.visited_files = {}
@@ -403,14 +413,18 @@ function core.temp_filename(ext)
       .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
--- override to perform an operation before quit
-function core.on_quit()
+-- override to perform an operation before quitting or entering the
+-- current project
+do
+  local do_nothing = function() end
+  core.on_quit_project = do_nothing
+  core.on_enter_project = do_nothing
 end
 
 local function quit_with_function(quit_fn, force)
   if force then
     delete_temp_files()
-    core.on_quit()
+    core.on_quit_project()
     quit_fn()
   else
     if core.confirm_close_all() then
