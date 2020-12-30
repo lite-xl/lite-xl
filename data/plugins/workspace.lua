@@ -168,10 +168,9 @@ local function load_workspace()
     if active_view then
       core.set_active_view(active_view)
     end
+    core.project_directories = {}
     for i, dir_name in ipairs(t.directories) do
-      if dir_name ~= "" then
-        core.add_project_directory(system.absolute_path(dir_name))
-      end
+      core.add_project_directory(system.absolute_path(dir_name))
     end
   end
 end

@@ -154,11 +154,11 @@ local function project_scan_thread()
             config.max_project_files.." files according to config.max_project_files.")
         end
         dir.files = t
-        if dir.name == core.project_dir then
-          include_project_dir = true
-          core.project_files = t
-        end
         core.redraw = true
+      end
+      if dir.name == core.project_dir then
+        include_project_dir = true
+        core.project_files = dir.files
       end
     end
     if not include_project_dir then
