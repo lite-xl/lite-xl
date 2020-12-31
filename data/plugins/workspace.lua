@@ -133,7 +133,8 @@ local function relative_path(ref_dir, dir)
   for k = i, #ref_ls do
     ups = ups .. "../"
   end
-  return ups .. table.concat(dir_ls, "/", i)
+  local rel_path = ups .. table.concat(dir_ls, "/", i)
+  return rel_path ~= "" and rel_path or "."
 end
 
 
