@@ -61,7 +61,7 @@ local function normalize_path(s)
 end
 
 function core.set_project_dir(new_dir)
-  core.project_dir = new_dir
+  core.project_dir = normalize_path(new_dir)
   system.chdir(new_dir)
   core.project_directories = {}
   core.add_project_directory(new_dir)
