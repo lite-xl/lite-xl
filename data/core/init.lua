@@ -11,10 +11,27 @@ local Doc
 
 local core = {}
 
-local function load_projects()
-  local ok, t = pcall(dofile, USERDIR .. "/recent_projects.lua")
-  core.recent_projects = (ok and t or {})
+core.project_files_empty = {}
+
+local function load_session()
+  local ok, t = pcall(dofile, USERDIR .. "/session.lua")
+  if ok then
+    return t.recents, t.window
+  end
+  return {}
 end
+
+
+local function save_session()
+  local fp = io.open(USERDIR .. "/session.lua", "w")
+  if fp then
+    fp:write("return {recents=", common.serialize(core.recent_projects),
+      ", window=", common.serialize(table.pack(system.get_window_size())),
+      "}\n")
+    fp:close()
+  end
+end
+
 
 local function add_project_to_recents(dirname)
   dirname = system.absolute_path(dirname)
@@ -30,14 +47,6 @@ local function add_project_to_recents(dirname)
   table.insert(recents, 1, dirname)
 end
 
-local function save_projects()
-  local fp = io.open(USERDIR .. "/recent_projects.lua", "w")
-  if fp then
-    fp:write("return ", common.serialize(core.recent_projects), "\n")
-    fp:close()
-  end
-end
-
 
 function core.reschedule_project_scan()
   if core.project_scan_thread_id then
@@ -46,8 +55,10 @@ function core.reschedule_project_scan()
 end
 
 
-core.project_files_empty = {}
-
+local function normalize_path(s)
+  local drive, path = s:match("^([a-z]):([/\\].*)")
+  return drive and drive:upper() .. ":" .. path or s
+end
 
 function core.set_project_dir(new_dir)
   core.project_dir = new_dir
@@ -67,7 +78,6 @@ function core.open_folder_project(dirname)
   core.on_quit_project()
   core.root_view:close_all_docviews()
   add_project_to_recents(dirname)
-  save_projects()
   core.set_project_dir(dirname)
   core.on_enter_project(dirname)
 end
@@ -290,6 +300,7 @@ function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
+  path = normalize_path(path)
   table.insert(core.project_directories, {
     name = path,
     item = {filename = path:match("[^\\/]+$"), type = "dir", topdir = true},
@@ -317,7 +328,13 @@ function core.init()
   CommandView = require "core.commandview"
   Doc = require "core.doc"
 
-  load_projects()
+  do
+    local recent_projects, window_position = load_session()
+    if window_position then
+      system.set_window_size(table.unpack(window_position))
+    end
+    core.recent_projects = recent_projects
+  end
 
   local project_dir = core.recent_projects[1] or "."
   local files = {}
@@ -328,7 +345,6 @@ function core.init()
     elseif info.type == "dir" then
       project_dir = ARGS[i]
       add_project_to_recents(project_dir)
-      save_projects()
     end
   end
 
@@ -425,6 +441,7 @@ local function quit_with_function(quit_fn, force)
   if force then
     delete_temp_files()
     core.on_quit_project()
+    save_session()
     quit_fn()
   else
     if core.confirm_close_all() then
