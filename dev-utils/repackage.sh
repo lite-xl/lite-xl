@@ -23,15 +23,43 @@ lite_copy_third_party_modules () {
     rm "$build/rxi-lite-colors.zip"
 }
 
-assets=($(wget --no-check-certificate -q -nv -O- https://api.github.com/repos/franko/lite-xl/releases/latest | grep "browser_download_url" | cut -d '"' -f 4))
+while [ ! -z ${1+x} ]; do
+  case "$1" in
+    -dir)
+    use_dir="$2"
+    shift 2
+    ;;
+    *)
+    echo "unknown option: $1"
+    exit 1
+    ;;
+  esac
+done
 
 workdir=".repackage"
 rm -fr "$workdir" && mkdir "$workdir" && pushd "$workdir"
 
-for url in "${assets[@]}"; do
+fetch_packages_from_github () {
+  assets=($(wget --no-check-certificate -q -nv -O- https://api.github.com/repos/franko/lite-xl/releases/latest | grep "browser_download_url" | cut -d '"' -f 4))
+
+  for url in "${assets[@]}"; do
     echo "getting: $url"
     wget -q --no-check-certificate "$url"
-done
+  done
+}
+
+fetch_packages_from_dir () {
+  for file in "$1"/*.zip "$1"/*.tar.* ; do
+    echo "copying file $file"
+    cp "$file" .
+  done
+}
+
+if [ -z ${use_dir+x} ]; then
+  fetch_packages_from_github
+else
+  fetch_packages_from_dir "$use_dir"
+fi
 
 lite_copy_third_party_modules "."
 
@@ -42,11 +70,7 @@ for filename in $(ls -1 *.zip *.tar.*); do
         tar xf "$filename"
     fi
     rm "$filename"
-    if [ -f lite-xl/bin/lite ]; then
-      chmod a+x lite-xl/bin/lite
-    elif [ -f lite-xl/lite ]; then
-      chmod a+x lite-xl/lite
-    fi
+    find lite-xl -name lite -exec chmod a+x '{}' \;
     xcoredir="$(find lite-xl -type d -name 'core')"
     coredir="$(dirname $xcoredir)"
     echo "coredir: $coredir"
