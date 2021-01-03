@@ -178,7 +178,7 @@ command.add(nil, {
       dir_list[n - i + 1] = core.project_directories[i].name
     end
     core.command_view:enter("Remove Directory", function(text, item)
-      text = item and item.text or text
+      text = common.home_expand(item and item.text or text)
       if not core.remove_project_directory(text) then
         core.error("No directory %q to be removed", text)
       end
