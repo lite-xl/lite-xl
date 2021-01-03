@@ -82,6 +82,24 @@ function common.fuzzy_match(haystack, needle)
 end
 
 
+function common.fuzzy_match_with_recents(haystack, recents, needle)
+  if needle == "" then
+    local recents_ext = {}
+    for i = 2, #recents do
+        table.insert(recents_ext, recents[i])
+    end
+    table.insert(recents_ext, recents[1])
+    local others = common.fuzzy_match(haystack, "")
+    for i = 1, #others do
+      table.insert(recents_ext, others[i])
+    end
+    return recents_ext
+  else
+    return fuzzy_match_items(haystack, needle)
+  end
+end
+
+
 function common.path_suggest(text)
   local path, name = text:match("^(.-)([^/\\]*)$")
   local files = system.list_dir(path == "" and "." or path) or {}

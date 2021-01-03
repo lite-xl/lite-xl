@@ -80,22 +80,10 @@ command.add(nil, {
       end
     end
     core.command_view:enter("Open File From Project", function(text, item)
+      text = item and item.text or text
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
     end, function(text)
-      if text == "" then
-        local recent_files = {}
-        for i = 2, #core.visited_files do
-            table.insert(recent_files, core.visited_files[i])
-        end
-        table.insert(recent_files, core.visited_files[1])
-        local other_files = common.fuzzy_match(files, "")
-        for i = 1, #other_files do
-          table.insert(recent_files, other_files[i])
-        end
-        return recent_files
-      else
-        return common.fuzzy_match(files, text)
-      end
+      return common.fuzzy_match_with_recents(files, core.visited_files, text)
     end)
   end,
 
@@ -140,8 +128,9 @@ command.add(nil, {
   end,
 
   ["core:change-project-folder"] = function()
-    core.command_view:enter("Change Project Folder", function(text)
-      text = system.absolute_path(common.home_expand(text))
+    core.command_view:enter("Change Project Folder", function(text, item)
+      text = system.absolute_path(common.home_expand(item and item.text or text))
+      if text == core.project_dir then return end
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)
@@ -154,8 +143,8 @@ command.add(nil, {
   end,
 
   ["core:open-project-folder"] = function()
-    core.command_view:enter("Open Project", function(text)
-      text = common.home_expand(text)
+    core.command_view:enter("Open Project", function(text, item)
+      text = common.home_expand(item and item.text or text)
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)
@@ -188,9 +177,10 @@ command.add(nil, {
     for i = n, 2, -1 do
       dir_list[n - i + 1] = core.project_directories[i].name
     end
-    core.command_view:enter("Remove Directory", function(text)
+    core.command_view:enter("Remove Directory", function(text, item)
+      text = item and item.text or text
       if not core.remove_project_directory(text) then
-        core.error("No added directory %q to be removed", text)
+        core.error("No directory %q to be removed", text)
       end
     end, function(text)
       text = common.home_expand(text)
