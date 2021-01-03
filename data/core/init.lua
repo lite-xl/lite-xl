@@ -11,8 +11,6 @@ local Doc
 
 local core = {}
 
-core.project_files_empty = {}
-
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
   if ok then
@@ -65,11 +63,7 @@ function core.set_project_dir(new_dir)
   system.chdir(new_dir)
   core.project_directories = {}
   core.add_project_directory(new_dir)
-  -- core.project_files will be set during the project files scan
-  -- to point to the files of the project directory.
-  -- core.project_files will therefore not include any of the added
-  -- directories.
-  core.project_files = core.project_files_empty
+  core.project_files = {}
   core.reschedule_project_scan()
 end
 
@@ -153,7 +147,6 @@ local function project_scan_thread()
   while true do
     -- get project files and replace previous table if the new table is
     -- different
-    local include_project_dir = false
     for i = 1, #core.project_directories do
       local dir = core.project_directories[i]
       local t, entries_count = get_files(dir.name, "")
@@ -167,12 +160,8 @@ local function project_scan_thread()
         core.redraw = true
       end
       if dir.name == core.project_dir then
-        include_project_dir = true
         core.project_files = dir.files
       end
-    end
-    if not include_project_dir then
-      core.project_files = core.project_files_empty
     end
 
     -- wait for next scan
@@ -310,7 +299,9 @@ end
 
 
 function core.remove_project_directory(path)
-  for i, dir in ipairs(core.project_directories) do
+  -- skip the fist directory because it is the project's directory
+  for i = 2, #core.project_directories do
+    local dir = core.project_directories[i]
     if dir.name == path then
       table.remove(core.project_directories, i)
       return true

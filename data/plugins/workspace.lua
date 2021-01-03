@@ -141,8 +141,8 @@ end
 local function save_directories()
   local project_dir = core.project_dir
   local dir_list = {}
-  for i, dir in ipairs(core.project_directories) do
-    dir_list[i] = relative_path(project_dir, dir.name)
+  for i = 2, #core.project_directories do
+    dir_list[#dir_list + 1] = relative_path(project_dir, core.project_directories[i].name)
   end
   return dir_list
 end
@@ -169,7 +169,6 @@ local function load_workspace()
     if active_view then
       core.set_active_view(active_view)
     end
-    core.project_directories = {}
     for i, dir_name in ipairs(t.directories) do
       core.add_project_directory(system.absolute_path(dir_name))
     end
@@ -185,7 +184,7 @@ function core.run(...)
 
     local on_quit_project = core.on_quit_project
     function core.on_quit_project()
-      save_workspace()
+      core.try(save_workspace)
       on_quit_project()
     end
 
