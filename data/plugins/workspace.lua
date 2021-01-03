@@ -2,7 +2,56 @@ local core = require "core"
 local common = require "core.common"
 local DocView = require "core.docview"
 
-local workspace_filename = ".lite_workspace.lua"
+
+local function workspace_files_for(project_dir)
+  local basename = project_dir:match("[^\\/]+$")
+  local workspace_dir = USERDIR .. PATHSEP .. "ws"
+  local info_wsdir = system.get_file_info(workspace_dir)
+  if not info_wsdir then
+    local ok, err = system.mkdir(workspace_dir)
+    if not ok then
+      error("cannot create workspace directory: %s", err)
+    end
+  end
+  return coroutine.wrap(function()
+    local files = system.list_dir(workspace_dir) or {}
+    local n = #basename
+    for _, file in ipairs(files) do
+      if file:sub(1, n) == basename then
+        local id = tonumber(file:sub(n + 1):match("^-(%d+)$"))
+        if id then
+          coroutine.yield(workspace_dir .. PATHSEP .. file, id)
+        end
+      end
+    end
+  end)
+end
+
+
+local function load_workspace_file(project_dir)
+  for filename, id in workspace_files_for(project_dir) do
+    local load_f = loadfile(filename)
+    local workspace = load_f and load_f()
+    if workspace and workspace.path == project_dir then
+      os.remove(filename)
+      return workspace
+    end
+  end
+end
+
+
+local function get_workspace_filename(project_dir)
+  local id_list = {}
+  for filename, id in workspace_files_for(project_dir) do
+    id_list[id] = true
+  end
+  local id = 1
+  while id_list[id] do
+    id = id + 1
+  end
+  local basename = project_dir:match("[^\\/]+$")
+  return USERDIR .. PATHSEP .. "ws" .. PATHSEP .. basename .. "-" .. tostring(id)
+end
 
 
 local function has_no_locked_children(node)
@@ -150,26 +199,26 @@ end
 
 local function save_workspace()
   local root = get_unlocked_root(core.root_view.root_node)
+  local workspace_filename = get_workspace_filename(core.project_dir)
   local fp = io.open(workspace_filename, "w")
   if fp then
     local node_text = common.serialize(save_node(root))
     local dir_text = common.serialize(save_directories())
-    fp:write(string.format("return { documents = %s, directories = %s }\n", node_text, dir_text))
+    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.project_dir, node_text, dir_text))
     fp:close()
   end
 end
 
 
 local function load_workspace()
-  local ok, t = pcall(dofile, workspace_filename)
-  os.remove(workspace_filename)
-  if ok then
+  local workspace = load_workspace_file(core.project_dir)
+  if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
-    local active_view = load_node(root, t.documents)
+    local active_view = load_node(root, workspace.documents)
     if active_view then
       core.set_active_view(active_view)
     end
-    for i, dir_name in ipairs(t.directories) do
+    for i, dir_name in ipairs(workspace.directories) do
       core.add_project_directory(system.absolute_path(dir_name))
     end
   end
