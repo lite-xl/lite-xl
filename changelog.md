@@ -4,12 +4,42 @@ This files document the differences between Lite XL and rxi/lite for each versio
 
 ### 1.15
 
+**Project directories**
+
+Extend your project by adding more directories using the command `core:add-directory`.
+To remove them use the corresponding command `core:remove-directory`.
+
+**Workspaces**
+
+The workspace plugin from rxi/lite-plugins is now part of Lite XL.
+In addition to the functionalities of the original plugin the extended version will
+also remember the window size and position and the additonal project directories.
+To not interfere with the project's files the workspace file is saved in the personal
+Lite's configuration folder.
+On unix-like systems it will be in: `$HOME/.config/lite-xl/ws`.
+
+**Scrolling the Tree View**
+
+It is now possible to scroll the tree view when there are too many visible items.
+
+**Recognize `~` for the home directory**
+
+As in the unix shell `~` is now used to identify the home directory.
+
 **Files and Directories**
 
-Add command to create a new directory within the project using the command
+Add command to create a new empty directory within the project using the command
 `files:create-directory`.
 In addition a control-click on a project directory will prompt the user to create
 a new directory inside the directory pointed.
+
+**New welcome screen**
+
+Show 'Lite XL' instead of 'lite' and the version number.
+
+**Various fixes and improvements**
+
+A few quirks previously with some of the new features have been fixed for a better user experience.
 
 ### 1.14
 
