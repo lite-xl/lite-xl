@@ -8,7 +8,7 @@ something practical, pretty, *small* and fast, implemented as simply as
 possible; easy to modify and extend, or to use without doing either.
 
 Lite XL is based on the Lite editor itself and provide some enhancements
-while remaining perfectly compatible with Lite.
+while remaining generally compatible with Lite.
 
 
 ## Getting Started
@@ -70,6 +70,28 @@ plugins and user module have been loaded.
 The project module can be edited by running the `core:open-project-module`
 command — if the module does not exist for the current project when the
 command is run it will be created.
+
+## Add directories to a project
+
+In addition to the project directories it is possible to add other directories
+using the command `core:add-directory`.
+Once added a directory it will be shown in the tree-view on the left side and
+the additional files will be reachable using the `ctrl+p` command (find file).
+The additonal files will be also visible when searching across the project.
+
+The additional directories can be removed using the command `core:remove-directory`.
+
+When you will open again Lite XL on the same project folder the application will
+remember your workspace including the additonal project directories.
+
+Since version 1.15 Lite XL does not need a workspace plugin as it is now
+bundled with the editor.
+
+
+## Create new empty directory
+
+Using the command `files:create-directory` or control-click in a directory in the
+tree-view to create a new empty subdirectory.
 
 
 ## Commands
