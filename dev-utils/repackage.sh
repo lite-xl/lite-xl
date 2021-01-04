@@ -26,7 +26,7 @@ lite_copy_third_party_modules () {
 while [ ! -z ${1+x} ]; do
   case "$1" in
     -dir)
-    use_dir="$2"
+    use_dir="$(realpath $2)"
     shift 2
     ;;
     *)
