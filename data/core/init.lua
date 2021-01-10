@@ -31,8 +31,14 @@ local function save_session()
 end
 
 
+local function normalize_path(s)
+  local drive, path = s:match("^([a-z]):([/\\].*)")
+  return drive and drive:upper() .. ":" .. path or s
+end
+
+
 local function add_project_to_recents(dirname)
-  dirname = system.absolute_path(dirname)
+  dirname = normalize_path(system.absolute_path(dirname))
   if not dirname then return end
   local recents = core.recent_projects
   local n = #recents
@@ -52,11 +58,6 @@ function core.reschedule_project_scan()
   end
 end
 
-
-local function normalize_path(s)
-  local drive, path = s:match("^([a-z]):([/\\].*)")
-  return drive and drive:upper() .. ":" .. path or s
-end
 
 function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
@@ -86,6 +87,12 @@ local function strip_leading_path(filename)
     return filename:sub(2)
 end
 
+local function strip_trailing_slash(filename)
+  if filename:match("[^:][/\\]$") then
+    return filename:sub(1, -2)
+  end
+  return filename
+end
 
 local function project_scan_thread()
   local function diff_files(a, b)
@@ -297,7 +304,7 @@ function core.add_project_directory(path)
   path = normalize_path(path)
   table.insert(core.project_directories, {
     name = path,
-    item = {filename = path:match("[^\\/]+$"), type = "dir", topdir = true},
+    item = {filename = common.basename(path), type = "dir", topdir = true},
     files = {}
   })
 end
@@ -335,15 +342,16 @@ function core.init()
   local project_dir = core.recent_projects[1] or "."
   local files = {}
   for i = 2, #ARGS do
-    local info = system.get_file_info(ARGS[i]) or {}
+    local arg_filename = strip_trailing_slash(ARGS[i])
+    local info = system.get_file_info(arg_filename) or {}
     if info.type == "file" then
-      local file_abs = system.absolute_path(ARGS[i])
+      local file_abs = system.absolute_path(arg_filename)
       if file_abs then
         table.insert(files, file_abs)
         project_dir = file_abs:match("^(.+)[/\\].+$")
       end
     elseif info.type == "dir" then
-      project_dir = ARGS[i]
+      project_dir = arg_filename
     end
   end
 

@@ -4,7 +4,7 @@ local DocView = require "core.docview"
 
 
 local function workspace_files_for(project_dir)
-  local basename = project_dir:match("[^\\/]+$")
+  local basename = common.basename(project_dir)
   local workspace_dir = USERDIR .. PATHSEP .. "ws"
   local info_wsdir = system.get_file_info(workspace_dir)
   if not info_wsdir then
@@ -49,7 +49,7 @@ local function get_workspace_filename(project_dir)
   while id_list[id] do
     id = id + 1
   end
-  local basename = project_dir:match("[^\\/]+$")
+  local basename = common.basename(project_dir)
   return USERDIR .. PATHSEP .. "ws" .. PATHSEP .. basename .. "-" .. tostring(id)
 end
 

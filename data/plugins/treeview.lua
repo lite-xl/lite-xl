@@ -38,7 +38,7 @@ function TreeView:get_cached(item, dirname)
   local t = dir_cache[item.filename]
   if not t then
     t = {}
-    local basename = item.filename:match("[^\\/]+$")
+    local basename = common.basename(item.filename)
     if item.topdir then
       t.filename = basename
       t.expanded = true
@@ -145,7 +145,6 @@ end
 
 local function create_directory_in(item)
   local path = item.abs_filename
-  local basename = path:match("[^\\/]+$")
   core.command_view:enter("Create directory in " .. path, function(text)
     local dirname = path .. PATHSEP .. text
     local success, err = system.mkdir(dirname)

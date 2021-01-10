@@ -196,6 +196,13 @@ function common.serialize(val)
 end
 
 
+function common.basename(path)
+  -- a path should never end by / or \ except if it is '/' (unix root) or
+  -- 'X:\' (windows drive)
+  return path:match("[^\\/]+$") or path
+end
+
+
 function common.home_encode(text)
   if HOME then
     local n = #HOME
