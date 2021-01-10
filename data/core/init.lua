@@ -58,22 +58,27 @@ local function normalize_path(s)
   return drive and drive:upper() .. ":" .. path or s
 end
 
-function core.set_project_dir(new_dir)
-  core.project_dir = normalize_path(new_dir)
-  system.chdir(new_dir)
-  core.project_directories = {}
-  core.add_project_directory(new_dir)
-  core.project_files = {}
-  core.reschedule_project_scan()
+function core.set_project_dir(new_dir, change_project_fn)
+  local chdir_ok = pcall(system.chdir, new_dir)
+  if chdir_ok then
+    if change_project_fn then change_project_fn() end
+    core.project_dir = normalize_path(new_dir)
+    core.project_directories = {}
+    core.add_project_directory(new_dir)
+    core.project_files = {}
+    core.reschedule_project_scan()
+    return true
+  end
+  return false
 end
 
 
 function core.open_folder_project(dirname)
-  core.on_quit_project()
-  core.root_view:close_all_docviews()
-  add_project_to_recents(dirname)
-  core.set_project_dir(dirname)
-  core.on_enter_project(dirname)
+  if core.set_project_dir(dirname, core.on_quit_project) then
+    core.root_view:close_all_docviews()
+    add_project_to_recents(dirname)
+    core.on_enter_project(dirname)
+  end
 end
 
 
@@ -332,10 +337,13 @@ function core.init()
   for i = 2, #ARGS do
     local info = system.get_file_info(ARGS[i]) or {}
     if info.type == "file" then
-      table.insert(files, system.absolute_path(ARGS[i]))
+      local file_abs = system.absolute_path(ARGS[i])
+      if file_abs then
+        table.insert(files, file_abs)
+        project_dir = file_abs:match("^(.+)[/\\].+$")
+      end
     elseif info.type == "dir" then
       project_dir = ARGS[i]
-      add_project_to_recents(project_dir)
     end
   end
 
@@ -345,7 +353,18 @@ function core.init()
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
 
-  core.set_project_dir(system.absolute_path(project_dir))
+  local project_dir_abs = system.absolute_path(project_dir)
+  local set_project_ok = core.set_project_dir(project_dir_abs)
+  if set_project_ok then
+    add_project_to_recents(project_dir)
+  else
+    core.error("Cannot enter project directory %q", project_dir)
+    project_dir_abs = system.absolute_path(".")
+    if not core.set_project_dir(project_dir_abs) then
+      print("internal error: cannot set project directory to cwd")
+      os.exit(1)
+    end
+  end
 
   core.redraw = true
   core.visited_files = {}
@@ -365,7 +384,7 @@ function core.init()
   local got_user_error = not core.load_user_directory()
 
   do
-    local pdir, pname = system.absolute_path(project_dir):match("(.*)[/\\\\](.*)")
+    local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
     core.log("Opening project %q from directory %q", pname, pdir)
   end
   local got_project_error = not core.load_project_module()
