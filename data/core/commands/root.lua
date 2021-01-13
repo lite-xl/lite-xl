@@ -11,6 +11,12 @@ local t = {
     node:close_active_view(core.root_view.root_node)
   end,
 
+  ["root:close-all"] = function()
+    if core.confirm_close_all() then
+      core.root_view:close_all_docviews()
+    end
+  end,
+
   ["root:switch-to-previous-tab"] = function()
     local node = core.root_view:get_active_node()
     local idx = node:get_view_idx(core.active_view)

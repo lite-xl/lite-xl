@@ -7,6 +7,8 @@ This files document the differences between Lite XL and rxi/lite for each versio
 Add config mechanism to disable loading of specific plugins by setting
 `config.<plugin-name> = false`.
 
+Add command `root:close-all` to close all the documents currently opened.
+
 ### 1.15
 
 **Project directories**
