@@ -2,6 +2,11 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the differences between Lite XL and rxi/lite for each version.
 
+### 1.16
+
+Add config mechanism to disable loading of specific plugins by setting
+`config.<plugin-name> = false`.
+
 ### 1.15
 
 **Project directories**

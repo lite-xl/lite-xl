@@ -252,17 +252,24 @@ local keymap = require "core.keymap"
 local config = require "core.config"
 local style = require "core.style"
 
+------------------------------ Themes ----------------------------------------
+
 -- light theme:
 -- core.reload_module("colors.summer")
 
+--------------------------- Key bindings -------------------------------------
+
 -- key binding:
 -- keymap.add { ["ctrl+escape"] = "core:quit" }
+
+
+------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
 -- style.font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 14 * SCALE)
 -- style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 13.5 * SCALE)
 --
--- fonts used by the editor:
+-- font names used by lite:
 -- style.font      : user interface
 -- style.big_font  : big text in welcome screen
 -- style.icon_font : icons
@@ -275,6 +282,16 @@ local style = require "core.style"
 -- possible values are:
 -- antialiasing: grayscale, subpixel
 -- hinting: none, slight, full
+
+------------------------------ Plugins ----------------------------------------
+
+-- enable or disable plugin loading setting config entries:
+
+-- enable trimwhitespace, otherwise it is disable by default:
+-- config.trimwhitespace = true
+--
+-- disable detectindent, otherwise it is enabled by default
+-- config.detectindent = false
 ]])
   init_file:close()
 end
@@ -483,12 +500,15 @@ function core.load_plugins()
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local files = system.list_dir(root_dir .. "/plugins")
     for _, filename in ipairs(files or {}) do
-      local modname = "plugins." .. filename:gsub(".lua$", "")
-      local ok = core.try(require, modname)
-      if ok then
-        core.log_quiet("Loaded plugin %q", modname)
-      else
-        no_errors = false
+      local basename = filename:gsub(".lua$", "")
+      if config[basename] ~= false then
+        local modname = "plugins." .. basename
+        local ok = core.try(require, modname)
+        if ok then
+          core.log_quiet("Loaded plugin %q", modname)
+        else
+          no_errors = false
+        end
       end
     end
   end
