@@ -52,7 +52,8 @@ function ResultsView:begin_search(text, fn)
     local i = 1
     for dir_name, file in core.get_project_files() do
       if file.type == "file" then
-        find_all_matches_in_file(self.results, dir_name .. PATHSEP .. file.filename, fn)
+        local path = (dir_name == core.project_dir and "" or (dir_name .. PATHSEP))
+        find_all_matches_in_file(self.results, path .. file.filename, fn)
       end
       self.last_file_idx = i
       i = i + 1
