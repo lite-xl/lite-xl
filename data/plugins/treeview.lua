@@ -35,7 +35,11 @@ function TreeView:get_cached(item, dirname)
     dir_cache = {}
     self.cache[dirname] = dir_cache
   end
-  local t = dir_cache[item.filename]
+  -- to discriminate top directories from regular files or subdirectories
+  -- we add ':' at the end of the top directories' filename. it will be
+  -- used only to identify the entry into the cache.
+  local cache_name = item.filename .. (item.topdir and ":" or "")
+  local t = dir_cache[cache_name]
   if not t then
     t = {}
     local basename = common.basename(item.filename)
@@ -51,7 +55,7 @@ function TreeView:get_cached(item, dirname)
     end
     t.name = basename
     t.type = item.type
-    dir_cache[item.filename] = t
+    dir_cache[cache_name] = t
   end
   return t
 end
