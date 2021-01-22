@@ -443,7 +443,7 @@ end
 
 function core.temp_filename(ext)
   temp_file_counter = temp_file_counter + 1
-  return EXEDIR .. PATHSEP .. temp_file_prefix
+  return USERDIR .. PATHSEP .. temp_file_prefix
       .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
