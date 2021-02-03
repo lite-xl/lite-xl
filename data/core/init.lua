@@ -37,8 +37,8 @@ local function normalize_path(s)
 end
 
 
-local function add_project_to_recents(dirname)
-  dirname = normalize_path(system.absolute_path(dirname))
+local function add_project_to_recents(dir_path_abs)
+  local dirname = normalize_path(dir_path_abs)
   if not dirname then return end
   local recents = core.recent_projects
   local n = #recents
@@ -74,11 +74,11 @@ function core.set_project_dir(new_dir, change_project_fn)
 end
 
 
-function core.open_folder_project(dirname)
+function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dirname, core.on_quit_project) then
     core.root_view:close_all_docviews()
-    add_project_to_recents(dirname)
-    core.on_enter_project(dirname)
+    add_project_to_recents(dir_path_abs)
+    core.on_enter_project(dir_path_abs)
   end
 end
 
@@ -364,7 +364,7 @@ function core.init()
   local project_dir_abs = system.absolute_path(project_dir)
   local set_project_ok = core.set_project_dir(project_dir_abs)
   if set_project_ok then
-    add_project_to_recents(project_dir)
+    add_project_to_recents(project_dir_abs)
   else
     core.error("Cannot enter project directory %q", project_dir)
     project_dir_abs = system.absolute_path(".")
