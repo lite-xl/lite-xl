@@ -75,7 +75,7 @@ end
 
 
 function core.open_folder_project(dir_path_abs)
-  if core.set_project_dir(dirname, core.on_quit_project) then
+  if core.set_project_dir(dir_path_abs, core.on_quit_project) then
     core.root_view:close_all_docviews()
     add_project_to_recents(dir_path_abs)
     core.on_enter_project(dir_path_abs)
