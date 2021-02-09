@@ -188,8 +188,6 @@ function TreeView:update()
   if self.init_size then
     self.size.x = dest
     self.init_size = false
-  else
-    self:move_towards(self.size, "x", dest)
   end
 
   TreeView.super.update(self)
@@ -251,7 +249,9 @@ end
 -- init
 local view = TreeView()
 local node = core.root_view:get_active_node()
-node:split("left", view, true)
+local treeview_node = node:split("left", view, true)
+treeview_node.resizable = true
+
 
 -- register commands and keymap
 command.add(nil, {

@@ -108,8 +108,9 @@ function Node:split(dir, view, locked)
   end
   if dir == "up" or dir == "left" then
     self.a, self.b = self.b, self.a
+    return self.a
   end
-  return child
+  return self.b
 end
 
 
@@ -520,6 +521,13 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   if self.dragged_divider then
     local node = self.dragged_divider
     if node.type == "hsplit" then
+      if node.a.resizable then
+        local size = node.a.active_view.size
+        size.x = size.x + dx
+      elseif node.b.resizable then
+        local size = node.b.active_view.size
+        size.x = size.x + dx
+      end
       node.divider = node.divider + dx / node.size.x
     else
       node.divider = node.divider + dy / node.size.y
