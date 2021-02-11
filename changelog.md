@@ -4,6 +4,9 @@ This files document the differences between Lite XL and rxi/lite for each versio
 
 ### 1.16
 
+Make the treeview actually resizable and shows the resize cursor only when panes
+are actually resizable.
+
 Add config mechanism to disable loading of specific plugins by setting
 `config.<plugin-name> = false`.
 
