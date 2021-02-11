@@ -517,20 +517,26 @@ function RootView:on_mouse_released(...)
 end
 
 
+local function resize_child_node(node, axis, value, delta)
+  if node.a.resizable then
+    local view = node.a.active_view
+    view.size[axis] = value
+  elseif node.b.resizable then
+    local view = node.b.active_view
+    view.size[axis] = node.size[axis] - value
+  else
+    node.divider = node.divider + delta / node.size[axis]
+  end
+end
+
+
 function RootView:on_mouse_moved(x, y, dx, dy)
   if self.dragged_divider then
     local node = self.dragged_divider
     if node.type == "hsplit" then
-      if node.a.resizable then
-        local size = node.a.active_view.size
-        size.x = size.x + dx
-      elseif node.b.resizable then
-        local size = node.b.active_view.size
-        size.x = size.x + dx
-      end
-      node.divider = node.divider + dx / node.size.x
-    else
-      node.divider = node.divider + dy / node.size.y
+      resize_child_node(node, "x", x, dx)
+    elseif node.type == "vsplit" then
+      resize_child_node(node, "y", y, dy)
     end
     node.divider = common.clamp(node.divider, 0.01, 0.99)
     return
@@ -542,7 +548,11 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   local node = self.root_node:get_child_overlapping_point(x, y)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
-    system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
+    local a_is_fixed = div.a.locked and not div.a.resizable
+    local b_is_fixed = div.b.locked and not div.b.resizable
+    if not a_is_fixed and not b_is_fixed then
+      system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
+    end
   elseif node:get_tab_overlapping_point(x, y) then
     system.set_cursor("arrow")
   else
