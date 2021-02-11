@@ -92,7 +92,7 @@ end
 
 local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
 
-function Node:split(dir, view, locked)
+function Node:split(dir, view, locked, resizable)
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local type = assert(type_map[dir], "Invalid direction")
   local last_active = core.active_view
@@ -104,6 +104,7 @@ function Node:split(dir, view, locked)
   if view then self.b:add_view(view) end
   if locked then
     self.b.locked = locked
+    self.b.resizable = resizable or false
     core.set_active_view(last_active)
   end
   if dir == "up" or dir == "left" then

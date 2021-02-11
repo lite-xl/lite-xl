@@ -399,9 +399,10 @@ function core.init()
   core.command_view = CommandView()
   core.status_view = StatusView()
 
-  core.root_view.root_node.is_primary_node = true
-  core.root_view.root_node:split("down", core.command_view, true)
-  core.root_view.root_node.b:split("down", core.status_view, true)
+  local cur_node = core.root_view.root_node
+  cur_node.is_primary_node = true
+  cur_node = cur_node:split("down", core.command_view, true)
+  cur_node = cur_node:split("down", core.status_view, true)
 
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()

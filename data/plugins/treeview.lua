@@ -249,8 +249,7 @@ end
 -- init
 local view = TreeView()
 local node = core.root_view:get_active_node()
-local treeview_node = node:split("left", view, true)
-treeview_node.resizable = true
+local treeview_node = node:split("left", view, true, true)
 
 
 -- register commands and keymap
