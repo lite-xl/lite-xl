@@ -421,6 +421,16 @@ function Node:close_all_docviews()
 end
 
 
+function Node:is_resizable()
+  if self.type == 'leaf' then
+    return not self.locked or self.resizable
+  else
+    local a_resizable = self.a:is_resizable()
+    local b_resizable = self.b:is_resizable()
+    return a_resizable and b_resizable
+  end
+end
+
 
 local RootView = View:extend()
 
@@ -549,9 +559,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   local node = self.root_node:get_child_overlapping_point(x, y)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
-    local a_is_fixed = div.a.locked and not div.a.resizable
-    local b_is_fixed = div.b.locked and not div.b.resizable
-    if not a_is_fixed and not b_is_fixed then
+    if div.a:is_resizable() and div.b:is_resizable() then
       system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
     end
   elseif node:get_tab_overlapping_point(x, y) then
