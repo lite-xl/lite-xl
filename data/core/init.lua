@@ -402,6 +402,10 @@ function core.init()
   local cur_node = core.root_view.root_node
   cur_node.is_primary_node = true
   cur_node = cur_node:split("down", core.command_view, true)
+  local got_toolbar, ToolbarView = core.try(require, "plugins.toolbarview")
+  if got_toolbar then
+    cur_node = cur_node:split("up", ToolbarView(), true)
+  end
   cur_node = cur_node:split("down", core.status_view, true)
 
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
