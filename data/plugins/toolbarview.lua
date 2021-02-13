@@ -7,16 +7,17 @@ local View = require "core.view"
 local icon_h, icon_w = style.icon_big_font:get_height(), style.icon_big_font:get_width("D")
 
 local spacing = {
-  margin = {x = icon_w / 2, y = icon_h / 3},
-  padding = {x = icon_w / 2, y = 0},
+  -- FIXME: simplifies as y is not really needed.
+  margin = {x = icon_w / 2},
+  padding = {x = icon_w / 4},
 }
 
 local ToolbarView = View:extend()
 
 local toolbar_commands = {
-  {"f", "core:open-file"},
-  {"S", "doc:save"},
-  {"L", "core:find-file"},
+  {symbol = "f", command = "core:open-file"},
+  {symbol = "S", command = "doc:save"},
+  {symbol = "L", command = "core:find-file"},
 }
 
 function ToolbarView:new()
@@ -24,19 +25,52 @@ function ToolbarView:new()
 end
 
 function ToolbarView:update()
-  self.size.x = (icon_w + spacing.padding.x) * #toolbar_commands - spacing.padding.x + 2 * spacing.margin.x
+  -- FIXME: remove size.x variable if not really needed.
+  -- self.size.x = (icon_w + spacing.padding.x) * #toolbar_commands - spacing.padding.x + 2 * spacing.margin.x
   self.size.y = style.icon_big_font:get_height() + style.padding.y * 2
   ToolbarView.super.update(self)
+end
+
+function ToolbarView:each_item()
+  local ox, oy = self:get_content_offset()
+  local index = 0
+  local iter = function()
+    index = index + 1
+    if index <= #toolbar_commands then
+      local dx = spacing.margin.x + (icon_w + spacing.padding.x) * (index - 1)
+      return toolbar_commands[index], ox + dx, oy, icon_w, icon_h
+    end
+  end
+  return iter
 end
 
 function ToolbarView:draw()
   self:draw_background(style.background2)
 
-  local x, y = self:get_content_offset()
-  x = x + spacing.margin.x
-  for i, item in ipairs(toolbar_commands) do
-    x = common.draw_text(style.icon_big_font, style.text, item[1], nil, x, y, 0, self.size.y)
-    x = x + spacing.padding.x
+  for item, x, y in self:each_item() do
+    local color = item == self.hovered_item and style.text or style.dim
+    common.draw_text(style.icon_big_font, color, item.symbol, nil, x, y, 0, self.size.y)
+  end
+end
+
+function ToolbarView:on_mouse_pressed(button, x, y, clicks)
+  local caught = ToolbarView.super.on_mouse_pressed(self, button, x, y, clicks)
+  if caught then return end
+  core.set_active_view(core.last_active_view)
+  if self.hovered_item then
+    command.perform(self.hovered_item.command)
+  end
+end
+
+
+function ToolbarView:on_mouse_moved(px, py, ...)
+  ToolbarView.super.on_mouse_moved(self, px, py, ...)
+  self.hovered_item = nil
+  for item, x, y, w, h in self:each_item() do
+    if px > x and py > y and px <= x + w and py <= y + h then
+      self.hovered_item = item
+      break
+    end
   end
 end
 
