@@ -74,12 +74,6 @@ function ToolbarView:on_mouse_moved(px, py, ...)
   end
 end
 
--- init
-if false then
-  local view = ToolbarView()
-  local node = core.root_view:get_active_node()
-  node:split("up", view, true)
-end
 
 -- register commands and keymap
 --[[command.add(nil, {

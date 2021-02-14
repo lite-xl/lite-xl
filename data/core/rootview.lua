@@ -93,6 +93,7 @@ end
 local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
 
 function Node:split(dir, view, locked, resizable)
+  assert(type(locked) == 'table')
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local type = assert(type_map[dir], "Invalid direction")
   local last_active = core.active_view
@@ -255,20 +256,36 @@ function Node:get_divider_rect()
 end
 
 
+-- Return two values for x and y axis and each of them is either falsy or a number.
+-- A falsy value indicate no fixed size along the corresponding direction.
 function Node:get_locked_size()
   if self.type == "leaf" then
     if self.locked then
       local size = self.active_view.size
-      return size.x, size.y
+      -- The values below should be either a falsy value or a number
+      local sx = (self.locked and self.locked.x) and size.x
+      local sy = (self.locked and self.locked.y) and size.y
+      return sx, sy
     end
   else
     local x1, y1 = self.a:get_locked_size()
     local x2, y2 = self.b:get_locked_size()
-    if x1 and x2 then
-      local dsx = (x1 < 1 or x2 < 1) and 0 or style.divider_size
-      local dsy = (y1 < 1 or y2 < 1) and 0 or style.divider_size
-      return x1 + x2 + dsx, y1 + y2 + dsy
+    -- The values below should be either a falsy value or a number
+    local sx, sy
+    if self.type == 'hsplit' then
+      if x1 and x2 then
+        local dsx = (x1 < 1 or x2 < 1) and 0 or style.divider_size
+        sx = x1 + x2 + dsx
+      end
+      sy = y1 or y2
+    else
+      if y1 and y2 then
+        local dsy = (y1 < 1 or y2 < 1) and 0 or style.divider_size
+        sy = y1 + y2 + dsy
+      end
+      sx = x1 or x2
     end
+    return sx, sy
   end
 end
 
@@ -281,9 +298,9 @@ end
 
 -- calculating the sizes is the same for hsplits and vsplits, except the x/y
 -- axis are swapped; this function lets us use the same code for both
-local function calc_split_sizes(self, x, y, x1, x2)
+local function calc_split_sizes(self, x, y, x1, x2, y1, y2)
   local n
-  local ds = (x1 and x1 < 1 or x2 and x2 < 1) and 0 or style.divider_size
+  local ds = ((x1 and x1 < 1) or (x2 and x2 < 1)) and 0 or style.divider_size
   if x1 then
     n = x1 + ds
   elseif x2 then
@@ -421,13 +438,32 @@ function Node:close_all_docviews()
 end
 
 
-function Node:is_resizable()
+function Node:is_resizable(axis)
   if self.type == 'leaf' then
-    return not self.locked or self.resizable
+    return not self.locked or not self.locked[axis] or self.resizable
   else
-    local a_resizable = self.a:is_resizable()
-    local b_resizable = self.b:is_resizable()
+    local a_resizable = self.a:is_resizable(axis)
+    local b_resizable = self.b:is_resizable(axis)
     return a_resizable and b_resizable
+  end
+end
+
+
+function Node:resize(axis, value)
+  if self.type == 'leaf' then
+    -- FIXME: repeated logic with Node:is_resizable()
+    if not self.locked or not self.locked[axis] or self.resizable then
+      local view = self.active_view
+      view.size[axis] = value
+      return true
+    end
+  else
+    local a_resizable = self.a:is_resizable(axis)
+    local b_resizable = self.b:is_resizable(axis)
+    if a_resizable and b_resizable then
+      self.a:resize(axis, value)
+      self.b:resize(axis, value)
+    end
   end
 end
 
@@ -529,13 +565,8 @@ end
 
 
 local function resize_child_node(node, axis, value, delta)
-  if node.a.resizable then
-    local view = node.a.active_view
-    view.size[axis] = value
-  elseif node.b.resizable then
-    local view = node.b.active_view
-    view.size[axis] = node.size[axis] - value
-  else
+  local accept_resize = node.a:resize(axis, value) or node.b:resize(axis, node.size[axis] - value)
+  if not accept_resize then
     node.divider = node.divider + delta / node.size[axis]
   end
 end
@@ -559,7 +590,8 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   local node = self.root_node:get_child_overlapping_point(x, y)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
-    if div.a:is_resizable() and div.b:is_resizable() then
+    local axis = (div.type == "hsplit" and "x" or "y")
+    if div.a:is_resizable(axis) and div.b:is_resizable(axis) then
       system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
     end
   elseif node:get_tab_overlapping_point(x, y) then

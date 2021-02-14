@@ -188,6 +188,9 @@ function TreeView:update()
   if self.init_size then
     self.size.x = dest
     self.init_size = false
+ -- FIXME: bring back the visibility toggle and animation
+  -- else
+  --   self:move_towards(self.size, "x", dest)
   end
 
   TreeView.super.update(self)
@@ -249,7 +252,12 @@ end
 -- init
 local view = TreeView()
 local node = core.root_view:get_active_node()
-local treeview_node = node:split("left", view, true, true)
+local treeview_node = node:split("left", view, {x = true}, true)
+
+local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
+if toolbar_plugin then
+  treeview_node:split("down", ToolbarView(), {y = true})
+end
 
 
 -- register commands and keymap
