@@ -23,8 +23,8 @@ style.tab_width = common.round(170 * SCALE)
 -- The antialiasing grayscale with full hinting is interesting for crisp font rendering.
 style.font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 14 * SCALE)
 style.big_font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 34 * SCALE)
-style.icon_font = renderer.font.load(DATADIR .. "/fonts/fontello.ttf", 14 * SCALE, {antialiasing="grayscale", hinting="full"})
-style.icon_big_font = renderer.font.load(DATADIR .. "/fonts/fontello.ttf", 20 * SCALE, {antialiasing="grayscale", hinting="full"})
+style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 14 * SCALE, {antialiasing="grayscale", hinting="full"})
+style.icon_big_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 20 * SCALE, {antialiasing="grayscale", hinting="full"})
 style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 13.5 * SCALE)
 
 style.background = { common.color "#2e2e32" }
