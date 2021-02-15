@@ -23,7 +23,7 @@ function TreeView:new()
   TreeView.super.new(self)
   self.scrollable = true
   self.visible = true
-  self.init_size = true
+  self.init_size = config.treeview_size
   self.cache = {}
   self.last = {}
 end
@@ -184,13 +184,15 @@ end
 
 function TreeView:update()
   -- update width
-  local dest = self.visible and config.treeview_size or 0
   if self.init_size then
-    self.size.x = dest
-    self.init_size = false
- -- FIXME: bring back the visibility toggle and animation
-  -- else
-  --   self:move_towards(self.size, "x", dest)
+    self.size.x = self.init_size
+    self.init_size = nil
+  elseif self.goto_size then
+    if self.goto_size ~= self.size.x then
+      self:move_towards(self.size, "x", self.goto_size)
+    else
+      self.goto_size = nil
+    end
   end
 
   TreeView.super.update(self)
@@ -263,8 +265,15 @@ end
 -- register commands and keymap
 command.add(nil, {
   ["treeview:toggle"] = function()
-    view.visible = not view.visible
+    if view.visible then
+      view.previous_size = view.size.x
+      view.visible = false
+      view.goto_size = 0
+    else
+      view.visible = true
+      view.goto_size = view.previous_size
+    end
   end,
 })
 
-keymap.add { ["ctrl+\\"] = "treeview:toggle" }
+keymap.add { ["ctrl+t"] = "treeview:toggle" }
