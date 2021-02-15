@@ -4,10 +4,14 @@ This files document the differences between Lite XL and rxi/lite for each versio
 
 ### 1.16
 
+Implement a toolbar shown in the bottom part of the tree-view.
+The toolbar is especially meant for new users to give an easy, visual, access
+to the more important commands.
+
 Make the treeview actually resizable and shows the resize cursor only when panes
 are actually resizable.
 
-Add config mechanism to disable loading of specific plugins by setting
+Add config mechanism to disable a plugin by setting
 `config.<plugin-name> = false`.
 
 Add command `root:close-all` to close all the documents currently opened.
