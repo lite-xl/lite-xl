@@ -256,9 +256,21 @@ local view = TreeView()
 local node = core.root_view:get_active_node()
 local treeview_node = node:split("left", view, {x = true}, true)
 
+-- The toolbarview plugin is special because it is plugged inside
+-- a treeview pane which is itelf provided in a plugin.
+-- We therefore break the usual plugin's logic that would require each
+-- plugin to be independent of each other. In addition it is not the
+-- plugin module that plug itself in the active node but it is plugged here
+-- in the treeview node.
 local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
-if toolbar_plugin then
-  treeview_node:split("down", ToolbarView(), {y = true})
+if config.toolbarview ~= false and toolbar_plugin then
+  local toolbar_view = ToolbarView()
+  treeview_node:split("down", toolbar_view, {y = true})
+  command.add(nil, {
+    ["toolbar:toggle"] = function()
+      toolbar_view:toggle_visible()
+    end,
+  })
 end
 
 

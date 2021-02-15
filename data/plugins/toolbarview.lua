@@ -5,31 +5,46 @@ local style = require "core.style"
 local View = require "core.view"
 
 local icon_h, icon_w = style.icon_big_font:get_height(), style.icon_big_font:get_width("D")
-
-local spacing = {
-  -- FIXME: simplifies as y is not really needed.
-  margin = {x = icon_w / 2},
-  padding = {x = icon_w / 4},
-}
+local toolbar_spacing = icon_w / 2
+local toolbar_height = icon_h + style.padding.y * 2
 
 local ToolbarView = View:extend()
 
 local toolbar_commands = {
-  {symbol = "f", command = "core:open-file"},
+  {symbol = "f", command = "core:new-doc"},
+  {symbol = "D", command = "core:open-file"},
   {symbol = "S", command = "doc:save"},
   {symbol = "L", command = "core:find-file"},
 }
 
+
 function ToolbarView:new()
   ToolbarView.super.new(self)
+  self.visible = true
+  self.init_size = toolbar_height
 end
 
+
 function ToolbarView:update()
-  -- FIXME: remove size.x variable if not really needed.
-  -- self.size.x = (icon_w + spacing.padding.x) * #toolbar_commands - spacing.padding.x + 2 * spacing.margin.x
-  self.size.y = style.icon_big_font:get_height() + style.padding.y * 2
+  if self.init_size then
+    self.size.y = self.init_size
+    self.init_size = nil
+  elseif self.goto_size then
+    if self.goto_size ~= self.size.y then
+      self:move_towards(self.size, "y", self.goto_size)
+    else
+      self.goto_size = nil
+    end
+  end
   ToolbarView.super.update(self)
 end
+
+
+function ToolbarView:toggle_visible()
+  self.goto_size = self.visible and 0 or toolbar_height
+  self.visible = not self.visible
+end
+
 
 function ToolbarView:each_item()
   local ox, oy = self:get_content_offset()
@@ -37,21 +52,24 @@ function ToolbarView:each_item()
   local iter = function()
     index = index + 1
     if index <= #toolbar_commands then
-      local dx = spacing.margin.x + (icon_w + spacing.padding.x) * (index - 1)
-      return toolbar_commands[index], ox + dx, oy, icon_w, icon_h
+      local dx = style.padding.x + (icon_w + toolbar_spacing) * (index - 1)
+      local dy = style.padding.y
+      return toolbar_commands[index], ox + dx, oy + dy, icon_w, icon_h
     end
   end
   return iter
 end
+
 
 function ToolbarView:draw()
   self:draw_background(style.background2)
 
   for item, x, y in self:each_item() do
     local color = item == self.hovered_item and style.text or style.dim
-    common.draw_text(style.icon_big_font, color, item.symbol, nil, x, y, 0, self.size.y)
+    common.draw_text(style.icon_big_font, color, item.symbol, nil, x, y, 0, icon_h)
   end
 end
+
 
 function ToolbarView:on_mouse_pressed(button, x, y, clicks)
   local caught = ToolbarView.super.on_mouse_pressed(self, button, x, y, clicks)
@@ -74,15 +92,7 @@ function ToolbarView:on_mouse_moved(px, py, ...)
   end
 end
 
-
--- register commands and keymap
---[[command.add(nil, {
-  ["toolbar:toggle"] = function()
-    view.visible = not view.visible
-  end,
-})
-
-keymap.add { ["ctrl+\\"] = "treeview:toggle" }
-]]
+-- The toolbarview pane is not plugged here but it is added in the
+-- treeview plugin.
 
 return ToolbarView
