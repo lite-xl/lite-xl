@@ -103,9 +103,6 @@ init_lua:
   }
   lua_setglobal(L, "ARGS");
 
-  lua_pushstring(L, "1.16");
-  lua_setglobal(L, "VERSION");
-
   lua_pushstring(L, SDL_GetPlatform());
   lua_setglobal(L, "PLATFORM");
 
