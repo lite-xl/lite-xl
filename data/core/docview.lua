@@ -93,7 +93,7 @@ end
 function DocView:get_fullname()
   local post = self.doc:is_dirty() and "*" or ""
   local filename = self.doc.filename
-  return filename and common.home_encode(system.absolute_path(filename)) .. post or "unsaved"
+  return not filename and "---" or filename .. post
 end
 
 

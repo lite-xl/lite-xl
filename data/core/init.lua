@@ -686,8 +686,12 @@ end
 
 
 local function window_title_for_view(view)
-  local doc_filename = view:is(DocView) and view:get_fullname() or view:get_name()
-  return (doc_filename ~= "---") and doc_filename .. " - lite" or "lite"
+  if core.active_view:is(CommandView) then
+    return core.window_title
+  else
+    local doc_filename = view:is(DocView) and view:get_fullname() or view:get_name()
+    return (doc_filename ~= "---") and doc_filename .. " - lite" or "lite"
+  end
 end
 
 
@@ -735,8 +739,9 @@ function core.step()
   -- update window title
   local title = window_title_for_view(core.active_view)
   if title ~= core.window_title then
-    system.set_window_title(title)
     core.window_title = title
+    title = common.home_encode(title)
+    system.set_window_title(title)
   end
 
   -- draw
