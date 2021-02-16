@@ -685,6 +685,12 @@ function core.on_event(type, ...)
 end
 
 
+local function window_title_for_view(view)
+  local doc_filename = view:is(DocView) and view:get_fullname() or view:get_name()
+  return (doc_filename ~= "---") and doc_filename .. " - lite" or "lite"
+end
+
+
 function core.step()
   -- handle events
   local did_keymap = false
@@ -727,8 +733,7 @@ function core.step()
   end
 
   -- update window title
-  local name = core.active_view:get_name()
-  local title = (name ~= "---") and ( (core.active_view:is(DocView) and core.active_view.doc.filename or name) .. " - lite") or  "lite"
+  local title = window_title_for_view(core.active_view)
   if title ~= core.window_title then
     system.set_window_title(title)
     core.window_title = title

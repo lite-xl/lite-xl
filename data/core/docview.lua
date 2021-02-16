@@ -90,6 +90,13 @@ function DocView:get_name()
 end
 
 
+function DocView:get_fullname()
+  local post = self.doc:is_dirty() and "*" or ""
+  local filename = self.doc.filename
+  return filename and common.home_encode(system.absolute_path(filename)) .. post or "unsaved"
+end
+
+
 function DocView:get_scrollable_size()
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
