@@ -18,6 +18,5 @@ config.tab_type = "soft"
 config.line_limit = 80
 config.max_symbols = 4000
 config.max_project_files = 2000
-config.full_path_in_window_title = false
 
 return config
