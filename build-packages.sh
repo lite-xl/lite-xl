@@ -10,7 +10,7 @@ copy_directory_from_repo () {
   fi
   local dirname="$1"
   local destdir="$2"
-  git archive master "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
+  git archive "$use_branch" "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
 }
 
 # Check if build directory is ok to be used to build.
@@ -190,12 +190,21 @@ while [ ! -z {$1+x} ]; do
     portable=true
     shift
     ;;
+  -branch=*)
+    use_branch="${1#-branch=}"
+    shift
+    ;;
   *)
     version="$1"
     arch="$2"
     break
   esac
 done
+
+if [ -z ${use_branch+set} ]; then
+    echo "Please specify a branch with -branch=<name>"
+    exit 1
+fi
 
 build_dir=".build-$arch"
 
