@@ -457,6 +457,19 @@ do
   core.on_enter_project = do_nothing
 end
 
+
+core.doc_save_hooks = {}
+function core.add_save_hook(fn)
+  core.doc_save_hooks[#core.doc_save_hooks + 1] = fn
+end
+
+
+function core.on_doc_save(filename)
+  for _, hook in ipairs(core.doc_save_hooks) do
+    hook(filename)
+  end
+end
+
 local function quit_with_function(quit_fn, force)
   if force then
     delete_temp_files()
@@ -819,6 +832,15 @@ function core.on_error(err)
     end
   end
 end
+
+
+core.add_save_hook(function(filename)
+  local doc = core.active_view.doc
+  if doc and doc:is(Doc) and doc.filename == common.normalize_path(USERDIR .. PATHSEP .. "init.lua") then
+    core.reload_module("core.style")
+    core.load_user_directory()
+  end
+end)
 
 
 return core

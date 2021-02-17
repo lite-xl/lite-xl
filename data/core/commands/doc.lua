@@ -67,10 +67,7 @@ end
 
 local function save(filename)
   doc():save(filename)
-  if doc().filename == common.normalize_path(USERDIR .. PATHSEP .. "init.lua") then
-    core.reload_module("core.style")
-    core.load_user_directory()
-  end
+  core.on_doc_save(filename)
   core.log("Saved \"%s\"", doc().filename)
 end
 
