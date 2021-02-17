@@ -67,6 +67,7 @@ end
 
 local function save(filename)
   doc():save(filename)
+  core.on_doc_save(filename)
   core.log("Saved \"%s\"", doc().filename)
 end
 
@@ -297,8 +298,10 @@ local commands = {
       core.command_view:set_text(doc().filename)
     end
     core.command_view:enter("Save As", function(filename)
-      save(filename)
-    end, common.path_suggest)
+      save(common.home_expand(filename))
+    end, function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+    end)
   end,
 
   ["doc:save"] = function()

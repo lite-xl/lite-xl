@@ -214,8 +214,27 @@ function common.home_encode(text)
 end
 
 
+function common.home_encode_list(paths)
+  local t = {}
+  for i = 1, #paths do
+    t[i] = common.home_encode(paths[i])
+  end
+  return t
+end
+
+
 function common.home_expand(text)
   return HOME and text:gsub("^~", HOME) or text
+end
+
+
+function common.normalize_path(filename)
+  if PATHSEP == '\\' then
+    filename = filename:gsub('[/\\]', '\\')
+    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
+    return drive and drive:upper() .. rem or filename
+  end
+  return filename
 end
 
 

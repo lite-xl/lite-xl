@@ -7,17 +7,9 @@ local LogView = require "core.logview"
 
 local fullscreen = false
 
-local function home_encode_list(paths)
-  local t = {}
-  for i = 1, #paths do
-    t[i] = common.home_encode(paths[i])
-  end
-  return t
-end
-
 local function suggest_directory(text)
   text = common.home_expand(text)
-  return home_encode_list(text == "" and core.recent_projects or common.dir_path_suggest(text))
+  return common.home_encode_list(text == "" and core.recent_projects or common.dir_path_suggest(text))
 end
 
 command.add(nil, {
@@ -95,7 +87,7 @@ command.add(nil, {
     core.command_view:enter("Open File", function(text)
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
     end, function (text)
-      return home_encode_list(common.path_suggest(common.home_expand(text)))
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end)
   end,
 
@@ -107,12 +99,6 @@ command.add(nil, {
   ["core:open-user-module"] = function()
     local user_module_doc = core.open_doc(USERDIR .. "/init.lua")
     if not user_module_doc then return end
-    local doc_save = user_module_doc.save
-    user_module_doc.save = function(self)
-      doc_save(self)
-      core.reload_module("core.style")
-      core.load_user_directory()
-    end
     core.root_view:open_doc(user_module_doc)
   end,
 
@@ -184,7 +170,7 @@ command.add(nil, {
       end
     end, function(text)
       text = common.home_expand(text)
-      return home_encode_list(common.dir_list_suggest(text, dir_list))
+      return common.home_encode_list(common.dir_list_suggest(text, dir_list))
     end)
   end,
 })

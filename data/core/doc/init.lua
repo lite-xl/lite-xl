@@ -67,6 +67,7 @@ end
 
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
+  filename = common.normalize_path(filename)
   self:reset()
   self.filename = filename
   self.lines = {}
@@ -93,7 +94,7 @@ function Doc:save(filename)
     fp:write(line)
   end
   fp:close()
-  self.filename = filename or self.filename
+  self.filename = common.normalize_path(filename or self.filename)
   self:reset_syntax()
   self:clean()
 end

@@ -7,6 +7,7 @@ local keymap
 local RootView
 local StatusView
 local CommandView
+local DocView
 local Doc
 
 local core = {}
@@ -346,6 +347,7 @@ function core.init()
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   CommandView = require "core.commandview"
+  DocView = require "core.docview"
   Doc = require "core.doc"
 
   do
@@ -471,6 +473,19 @@ do
   local do_nothing = function() end
   core.on_quit_project = do_nothing
   core.on_enter_project = do_nothing
+end
+
+
+core.doc_save_hooks = {}
+function core.add_save_hook(fn)
+  core.doc_save_hooks[#core.doc_save_hooks + 1] = fn
+end
+
+
+function core.on_doc_save(filename)
+  for _, hook in ipairs(core.doc_save_hooks) do
+    hook(filename)
+  end
 end
 
 local function quit_with_function(quit_fn, force)
@@ -709,6 +724,7 @@ function core.step()
   local did_keymap = false
   local mouse_moved = false
   local mouse = { x = 0, y = 0, dx = 0, dy = 0 }
+  
 
   for type, a,b,c,d in system.poll_event do
     if type == "mousemoved" then
@@ -746,7 +762,7 @@ function core.step()
 
   -- update window title
   local name = core.active_view:get_name()
-  local title = (name ~= "---") and (name .. " - lite") or  "lite"
+  local title = (name ~= "---") and ( (core.active_view:is(DocView) and core.active_view.doc.filename or name) .. " - lite") or  "lite"
   if title ~= core.window_title then
     system.set_window_title(title)
     core.window_title = title
@@ -837,6 +853,15 @@ function core.on_error(err)
     end
   end
 end
+
+
+core.add_save_hook(function(filename)
+  local doc = core.active_view.doc
+  if doc and doc:is(Doc) and doc.filename == common.normalize_path(USERDIR .. PATHSEP .. "init.lua") then
+    core.reload_module("core.style")
+    core.load_user_directory()
+  end
+end)
 
 
 return core
