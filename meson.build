@@ -28,7 +28,7 @@ foreach data_module : ['core', 'fonts', 'plugins', 'colors']
 endforeach
 
 lite_link_args = []
-if get_option('buildtype') == 'release'
+if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
   lite_link_args += ['-static-libgcc', '-static-libstdc++']
 endif
 
