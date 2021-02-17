@@ -719,6 +719,17 @@ function core.on_event(type, ...)
 end
 
 
+local function get_title_filename(view)
+  local doc_filename = view.get_filename and view:get_filename() or view:get_name()
+  return (doc_filename ~= "---") and doc_filename or ""
+end
+
+
+local function compose_window_title(title)
+  return title == "" and "lite" or title .. " - lite"
+end
+
+
 function core.step()
   -- handle events
   local did_keymap = false
@@ -761,11 +772,10 @@ function core.step()
   end
 
   -- update window title
-  local name = core.active_view:get_name()
-  local title = (name ~= "---") and ( (core.active_view:is(DocView) and core.active_view.doc.filename or name) .. " - lite") or  "lite"
-  if title ~= core.window_title then
-    system.set_window_title(title)
-    core.window_title = title
+  local current_title = get_title_filename(core.active_view)
+  if current_title ~= core.window_title then
+    system.set_window_title(compose_window_title(current_title))
+    core.window_title = current_title
   end
 
   -- draw

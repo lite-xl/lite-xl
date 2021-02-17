@@ -65,11 +65,17 @@ function Doc:reset_syntax()
 end
 
 
+function Doc:set_filename(filename)
+  filename = common.normalize_path(filename)
+  self.filename = filename
+  self.abs_filename = common.home_encode(system.absolute_path(filename))
+end
+
+
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
-  filename = common.normalize_path(filename)
   self:reset()
-  self.filename = filename
+  self:set_filename(filename)
   self.lines = {}
   for line in fp:lines() do
     if line:byte(-1) == 13 then
@@ -94,7 +100,9 @@ function Doc:save(filename)
     fp:write(line)
   end
   fp:close()
-  self.filename = common.normalize_path(filename or self.filename)
+  if filename then
+    self:set_filename(filename)
+  end
   self:reset_syntax()
   self:clean()
 end

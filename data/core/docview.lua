@@ -90,6 +90,12 @@ function DocView:get_name()
 end
 
 
+function DocView:get_filename()
+  local post = self.doc:is_dirty() and "*" or ""
+  return (self.doc.abs_filename and self.doc.abs_filename or "unsaved") .. post
+end
+
+
 function DocView:get_scrollable_size()
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
