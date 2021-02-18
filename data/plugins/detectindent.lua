@@ -1,8 +1,10 @@
 local core = require "core"
 local command = require "core.command"
+local common = require "core.common"
 local config = require "core.config"
 local DocView = require "core.docview"
 local Doc = require "core.doc"
+local tokenizer = require "core.tokenizer"
 
 local cache = setmetatable({}, { __mode = "k" })
 
@@ -42,12 +44,42 @@ local function optimal_indent_from_stat(stat)
   return bins[1][1], bins[1][2]
 end
 
-local auto_detect_max_lines = 400
+
+-- return nil if it is a comment or blank line or the initial part of the
+-- line otherwise.
+-- we don't need to have the whole line to detect indentation.
+local function get_first_line_part(tokens)
+  local i, n = 1, #tokens
+  while i + 1 <= n do
+    local ttype, ttext = tokens[i], tokens[i + 1]
+    if ttype ~= "comment" and ttext:gsub("%s+", "") ~= "" then
+      return ttext
+    end
+    i = i + 2
+  end
+end
+
+local function get_non_empty_lines(syntax, lines)
+  return coroutine.wrap(function()
+    local tokens, state
+    for i, line in ipairs(lines) do
+      tokens, state = tokenizer.tokenize(syntax, line, state)
+      local line_start = get_first_line_part(tokens)
+      if line_start then
+        -- note that i below correpond to unfiltered lines numeber
+        coroutine.yield(i, line_start)
+      end
+    end
+  end)
+end
+
+
+local auto_detect_max_lines = 300
 
 local function detect_indent_stat(doc)
   local stat = {}
   local tab_count = 0
-  for i, text in ipairs(doc.lines) do
+  for i, text in get_non_empty_lines(doc.syntax, doc.lines) do
     local str = text:match("^ %s+%S")
     if str then add_to_stat(stat, #str - 1) end
     local str = text:match("^\t+")
