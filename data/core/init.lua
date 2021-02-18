@@ -38,7 +38,7 @@ local function normalize_path(s)
 end
 
 
-local function add_project_to_recents(dir_path_abs)
+local function update_recents_project(action, dir_path_abs)
   local dirname = normalize_path(dir_path_abs)
   if not dirname then return end
   local recents = core.recent_projects
@@ -49,7 +49,9 @@ local function add_project_to_recents(dir_path_abs)
       break
     end
   end
-  table.insert(recents, 1, dirname)
+  if action == "add" then
+    table.insert(recents, 1, dirname)
+  end
 end
 
 
@@ -78,7 +80,7 @@ end
 function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dir_path_abs, core.on_quit_project) then
     core.root_view:close_all_docviews()
-    add_project_to_recents(dir_path_abs)
+    update_recents_project("add", dir_path_abs)
     core.on_enter_project(dir_path_abs)
   end
 end
@@ -365,6 +367,7 @@ function core.init()
   end
 
   local project_dir = core.recent_projects[1] or "."
+  local project_dir_explicit = false
   local files = {}
   for i = 2, #ARGS do
     local arg_filename = strip_trailing_slash(ARGS[i])
@@ -377,6 +380,9 @@ function core.init()
       end
     elseif info.type == "dir" then
       project_dir = arg_filename
+      project_dir_explicit = true
+    else
+      print(string.format("error: invalid file or directory %q", ARGS[i]))
     end
   end
 
@@ -387,11 +393,15 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
 
   local project_dir_abs = system.absolute_path(project_dir)
-  local set_project_ok = core.set_project_dir(project_dir_abs)
+  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
   if set_project_ok then
-    add_project_to_recents(project_dir_abs)
+    if project_dir_explicit then
+      update_recents_project("add", project_dir_abs)
+    end
   else
-    core.error("Cannot enter project directory %q", project_dir)
+    if not project_dir_explicit then
+      update_recents_project("remove", project_dir)
+    end
     project_dir_abs = system.absolute_path(".")
     if not core.set_project_dir(project_dir_abs) then
       print("internal error: cannot set project directory to cwd")
