@@ -350,6 +350,12 @@ function core.init()
   DocView = require "core.docview"
   Doc = require "core.doc"
 
+  if PATHSEP == '\\' then
+    USERDIR = common.normalize_path(USERDIR)
+    DATADIR = common.normalize_path(DATADIR)
+    EXEDIR  = common.normalize_path(EXEDIR)
+  end
+
   do
     local recent_projects, window_position = load_session()
     if window_position then
@@ -867,11 +873,12 @@ end
 
 core.add_save_hook(function(filename)
   local doc = core.active_view.doc
-  if doc and doc:is(Doc) and doc.filename == common.normalize_path(USERDIR .. PATHSEP .. "init.lua") then
+  if doc and doc:is(Doc) and doc.filename == USERDIR .. PATHSEP .. "init.lua" then
     core.reload_module("core.style")
     core.load_user_directory()
   end
 end)
+
 
 
 return core
