@@ -14,7 +14,14 @@ are actually resizable.
 Add config mechanism to disable a plugin by setting
 `config.<plugin-name> = false`.
 
+Improve the "detect indent" plugin to take into account syntax and exclude comments
+for much accurate results.
+
 Add command `root:close-all` to close all the documents currently opened.
+
+Show the full path filename of the active document in the window's title.
+
+Fix problem with user's module reload not always enabled.
 
 ### 1.15
 
