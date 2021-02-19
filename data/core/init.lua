@@ -541,9 +541,12 @@ function core.load_plugins()
       if config[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
-        if ok then
-          core.log_quiet("Loaded plugin %q", modname)
-        else
+        -- Normally a log line is added for each loaded plugin which is a
+        -- good thing. Unfortunately we load the user module before the plugins
+        -- so all the messages here can fill the log screen and hide an evential
+        -- user module's error.
+        -- if ok then core.log_quiet("Loaded plugin %q", modname) end
+        if not ok then
           no_errors = false
         end
       end
