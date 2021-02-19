@@ -202,8 +202,7 @@ while [ ! -z {$1+x} ]; do
 done
 
 if [ -z ${use_branch+set} ]; then
-    echo "Please specify a branch with -branch=<name>"
-    exit 1
+  use_branch="$(git rev-parse --abbrev-ref HEAD)"
 fi
 
 build_dir=".build-$arch"
