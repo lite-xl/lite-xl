@@ -1,4 +1,4 @@
-global {VERSION = "1.16"}
+global {VERSION = "1.16.0"}
 
 local config = {}
 

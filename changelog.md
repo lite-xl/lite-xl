@@ -14,7 +14,7 @@ are actually resizable.
 Add config mechanism to disable a plugin by setting
 `config.<plugin-name> = false`.
 
-Improve the "detect indent" plugin to take into account syntax and exclude comments
+Improve the "detect indent" plugin to take into account the syntax and exclude comments
 for much accurate results.
 
 Add command `root:close-all` to close all the documents currently opened.
