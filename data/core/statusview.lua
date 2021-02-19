@@ -119,6 +119,8 @@ function StatusView:get_items()
       self.separator,
       string.format("%d%%", line / #dv.doc.lines * 100),
     }, {
+      style.text, "spaces: ", tostring(dv.doc.indent_spaces),
+      style.dim, self.separator2, style.text,
       style.icon_font, "g",
       style.font, style.dim, self.separator2, style.text,
       #dv.doc.lines, " lines",

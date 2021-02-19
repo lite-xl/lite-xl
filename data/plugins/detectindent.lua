@@ -91,19 +91,27 @@ local function detect_indent_stat(doc)
   table.sort(stat, function(a, b) return a[1] < b[1] end)
   local indent, score = optimal_indent_from_stat(stat)
   if tab_count > score then
-    core.log_quiet("Detect-indent: using tabs indentation")
-    return "hard"
-  elseif indent then
-    core.log_quiet("Detect-indent: using indentation size of %d", indent)
-    return "soft", indent
+    return "hard", nil, tab_count
+  else
+    return "soft", indent or config.indent_size, score or 0
   end
 end
 
 
+local doc_text_input = Doc.text_input
+local adjust_threshold = 5
+
 local function update_cache(doc)
-  local type, size = detect_indent_stat(doc)
-  if type then
-    cache[doc] = { type = type, size = size }
+  local type, size, score = detect_indent_stat(doc)
+  cache[doc] = { type = type, size = size }
+  doc.indent_spaces = (type == "hard" and "tab" or size) .. (score < adjust_threshold and "*" or "")
+  if score < adjust_threshold and Doc.text_input == doc_text_input then
+    Doc.text_input = function(self, ...)
+      doc_text_input(self, ...)
+      update_cache(self)
+    end
+  elseif score >= adjust_threshold and Doc.text_input ~= doc_text_input then
+    Doc.text_input = doc_text_input
   end
 end
 
