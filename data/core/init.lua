@@ -425,8 +425,8 @@ function core.init()
 
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
-  local got_plugin_error = not core.load_plugins()
   local got_user_error = not core.load_user_directory()
+  local got_plugin_error = not core.load_plugins()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
