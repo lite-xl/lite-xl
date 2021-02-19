@@ -6,10 +6,10 @@ libdl = cc.find_library('dl', required : false)
 lua_dep = dependency('lua5.2', required : false)
 
 if not lua_dep.found()
-  lua_subproject = subproject('lua', default_options: [
-    'shared=disabled', 'use_readline=false'
-  ])
-  lua_dep = lua_subproject.get_variable('lua_dep')
+    lua_subproject = subproject('lua', default_options: [
+        'shared=disabled', 'use_readline=false'
+    ])
+    lua_dep = lua_subproject.get_variable('lua_dep')
 endif
 
 sdl_dep = dependency('sdl2', method: 'config-tool')
@@ -24,12 +24,12 @@ endif
 
 lite_include = include_directories('src')
 foreach data_module : ['core', 'fonts', 'plugins', 'colors']
-  install_subdir('data' / data_module , install_dir : lite_datadir)
+    install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
 
 lite_link_args = []
 if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
-  lite_link_args += ['-static-libgcc', '-static-libstdc++']
+    lite_link_args += ['-static-libgcc', '-static-libstdc++']
 endif
 
 lite_rc = []
