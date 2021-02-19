@@ -15,6 +15,8 @@ local toolbar_commands = {
   {symbol = "D", command = "core:open-file"},
   {symbol = "S", command = "doc:save"},
   {symbol = "L", command = "core:find-file"},
+  {symbol = "B", command = "core:find-command"},
+  {symbol = "P", command = "core:open-user-module"},
 }
 
 
@@ -87,6 +89,7 @@ function ToolbarView:on_mouse_moved(px, py, ...)
   for item, x, y, w, h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
       self.hovered_item = item
+      core.log(command.prettify_name(item.command))
       break
     end
   end
