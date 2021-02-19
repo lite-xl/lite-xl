@@ -369,6 +369,7 @@ function core.init()
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
   local files = {}
+  local delayed_error
   for i = 2, #ARGS do
     local arg_filename = strip_trailing_slash(ARGS[i])
     local info = system.get_file_info(arg_filename) or {}
@@ -382,7 +383,7 @@ function core.init()
       project_dir = arg_filename
       project_dir_explicit = true
     else
-      print(string.format("error: invalid file or directory %q", ARGS[i]))
+      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
     end
   end
 
@@ -435,6 +436,10 @@ function core.init()
 
   for _, filename in ipairs(files) do
     core.root_view:open_doc(core.open_doc(filename))
+  end
+
+  if delayed_error then
+    core.error(delayed_error)
   end
 
   if got_plugin_error or got_user_error or got_project_error then
