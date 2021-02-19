@@ -62,11 +62,12 @@ end
 local function get_non_empty_lines(syntax, lines)
   return coroutine.wrap(function()
     local tokens, state
-    for i, line in ipairs(lines) do
+    local i = 0
+    for _, line in ipairs(lines) do
       tokens, state = tokenizer.tokenize(syntax, line, state)
       local line_start = get_first_line_part(tokens)
       if line_start then
-        -- note that i below correpond to unfiltered lines numeber
+        i = i + 1
         coroutine.yield(i, line_start)
       end
     end
@@ -74,7 +75,7 @@ local function get_non_empty_lines(syntax, lines)
 end
 
 
-local auto_detect_max_lines = 300
+local auto_detect_max_lines = 200
 
 local function detect_indent_stat(doc)
   local stat = {}
