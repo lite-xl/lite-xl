@@ -39,6 +39,17 @@ function StatusView:show_message(icon, icon_color, text)
 end
 
 
+function StatusView:show_tooltip(text)
+  self.message = { style.text, text }
+  self.message_timeout = system.get_time() + 1000
+end
+
+
+function StatusView:remove_tooltip()
+  self.message_timeout = 0
+end
+
+
 function StatusView:update()
   self.size.y = style.font:get_height() + style.padding.y * 2
 
