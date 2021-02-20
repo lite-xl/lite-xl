@@ -194,6 +194,7 @@ function TreeView:update()
       self.goto_size = nil
     end
   end
+  self.size.x = math.max(0, self.size.x)
 
   TreeView.super.update(self)
 end
