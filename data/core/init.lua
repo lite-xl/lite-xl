@@ -466,15 +466,26 @@ function core.confirm_close_all()
       text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
     end
 
-    core.command_view:enter(text, function(_, item)
-      if item.text:match("^[yY]") then core.quit(true) end
-    end, function(text)
-      local items = {}
-      if not text:find("^[^yY]") then table.insert(items, "Yes") end
-      if not text:find("^[^nN]") then table.insert(items, "No") end
-      return items
-    end)
+    if system.window_has_focus() then
+      core.command_view:enter(text, function(_, item)
+        if item.text:match("^[yY]") then core.quit(true) end
+      end, function(text)
+        local items = {}
+        if not text:find("^[^yY]") then table.insert(items, "Yes") end
+        if not text:find("^[^nN]") then table.insert(items, "No") end
+        return items
+      end)
+    else
+      local confirm = system.show_confirm_dialog("Unsaved Changes", text)
+      if confirm then 
+        return true
+      else
+        return false
+      end
+    end
   end
+  -- this is always reached since command_view:enter
+  -- seems to happen async...
   return false
 end
 
