@@ -71,6 +71,18 @@
       "css": "book",
       "code": 66,
       "src": "fontawesome"
+    },
+    {
+      "uid": "e82cedfa1d5f15b00c5a81c9bd731ea2",
+      "css": "info-circled-1",
+      "code": 105,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "5211af474d3a9848f67f945e2ccaf143",
+      "css": "cancel-1",
+      "code": 67,
+      "src": "fontawesome"
     }
   ]
 }
