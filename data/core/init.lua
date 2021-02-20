@@ -459,16 +459,25 @@ function core.confirm_close_all()
   end
   if dirty_count > 0 then
     local text
+    local choice
     if dirty_count == 1 then
-      text = string.format("\"%s\" has unsaved changes. Quit anyway?", dirty_name)
+      text = string.format("%s has unsaved changes. Quit anyway?", common.home_encode(dirty_name))
     else
       text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
     end
-    local confirm = system.show_confirm_dialog("Unsaved Changes", text)
-    if not confirm then return false end
+
+    core.command_view:enter(text, function(_, item)
+      if item.text:match("^[yY]") then core.quit(true) end
+    end, function(text)
+      local items = {}
+      if not text:find("^[^yY]") then table.insert(items, "Yes") end
+      if not text:find("^[^nN]") then table.insert(items, "No") end
+      return items
+    end)
   end
-  return true
+  return false
 end
+
 
 local temp_uid = (system.get_time() * 1000) % 0xffffffff
 local temp_file_prefix = string.format(".lite_temp_%08x", temp_uid)
