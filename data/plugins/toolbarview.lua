@@ -57,6 +57,7 @@ function ToolbarView:each_item()
     if index <= #toolbar_commands then
       local dx = style.padding.x + (icon_w + toolbar_spacing) * (index - 1)
       local dy = style.padding.y
+      if dx >= self.size.x then return end
       return toolbar_commands[index], ox + dx, oy + dy, icon_w, icon_h
     end
   end
