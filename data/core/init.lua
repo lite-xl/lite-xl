@@ -475,6 +475,7 @@ function core.confirm_close_all()
         if not text:find("^[^nN]") then table.insert(items, "No") end
         return items
       end)
+      return false
     else
       local confirm = system.show_confirm_dialog("Unsaved Changes", text)
       if confirm then 
@@ -484,9 +485,7 @@ function core.confirm_close_all()
       end
     end
   end
-  -- this is always reached since command_view:enter
-  -- seems to happen async...
-  return false
+  return true
 end
 
 
