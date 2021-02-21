@@ -2,6 +2,14 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the differences between Lite XL and rxi/lite for each version.
 
+### 1.16.1
+
+Introduce the `config.transitions` boolean variable.
+When false the transitions will be disabled and changes will be done immediately.
+Very useful for remote sessions where visual transitions doesn't work well.
+
+Fix many small problems related to the new toolbar and the tooptips.
+
 ### 1.16
 
 Implement a toolbar shown in the bottom part of the tree-view.
