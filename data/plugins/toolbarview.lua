@@ -99,9 +99,7 @@ function ToolbarView:on_mouse_moved(px, py, ...)
       return
     end
   end
-  if px > x_min and px <= x_max and py > y_min and py <= y_max then
-      self.tooltip = true
-  elseif self.tooltip then
+  if self.tooltip and not (px > x_min and px <= x_max and py > y_min and py <= y_max) then
     core.status_view:remove_tooltip()
     self.tooltip = false
   end
