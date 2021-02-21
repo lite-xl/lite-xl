@@ -16,13 +16,12 @@ function View:new()
   self.scrollable = false
 end
 
-
 function View:move_towards(t, k, dest, rate)
   if type(t) ~= "table" then
     return self:move_towards(self, t, k, dest, rate)
   end
   local val = t[k]
-  if math.abs(val - dest) < 0.5 then
+  if not config.transitions or math.abs(val - dest) < 0.5 then
     t[k] = dest
   else
     t[k] = common.lerp(val, dest, rate or 0.5)
