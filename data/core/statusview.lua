@@ -18,6 +18,8 @@ function StatusView:new()
   StatusView.super.new(self)
   self.message_timeout = 0
   self.message = {}
+  self.tooltip_mode = false
+  self.tooltip = {}
 end
 
 
@@ -40,13 +42,13 @@ end
 
 
 function StatusView:show_tooltip(text)
-  self.message = { style.text, text }
-  self.message_timeout = system.get_time() + 1000
+  self.tooltip = { text }
+  self.tooltip_mode = true
 end
 
 
 function StatusView:remove_tooltip()
-  self.message_timeout = 0
+  self.tooltip_mode = false
 end
 
 
@@ -148,9 +150,13 @@ function StatusView:draw()
     self:draw_items(self.message, false, self.size.y)
   end
 
-  local left, right = self:get_items()
-  self:draw_items(left)
-  self:draw_items(right, true)
+  if self.tooltip_mode then
+    self:draw_items(self.tooltip)
+  else
+    local left, right = self:get_items()
+    self:draw_items(left)
+    self:draw_items(right, true)
+  end
 end
 
 

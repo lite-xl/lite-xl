@@ -88,7 +88,10 @@ end
 function ToolbarView:on_mouse_moved(px, py, ...)
   ToolbarView.super.on_mouse_moved(self, px, py, ...)
   self.hovered_item = nil
+  local x_min, x_max, y_min, y_max = self.size.x, 0, self.size.y, 0
   for item, x, y, w, h in self:each_item() do
+    x_min, x_max = math.min(x, x_min), math.max(x + w, x_max)
+    y_min, y_max = y, y + h
     if px > x and py > y and px <= x + w and py <= y + h then
       self.hovered_item = item
       core.status_view:show_tooltip(command.prettify_name(item.command))
@@ -96,7 +99,9 @@ function ToolbarView:on_mouse_moved(px, py, ...)
       return
     end
   end
-  if self.tooltip then
+  if px > x_min and px <= x_max and py > y_min and py <= y_max then
+      self.tooltip = true
+  elseif self.tooltip then
     core.status_view:remove_tooltip()
     self.tooltip = false
   end
