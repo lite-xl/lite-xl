@@ -89,37 +89,37 @@ and the fact that this latter is an integer instead of a float.
 
 Calls
 
-FT_Init_FreeType (initialize the library)
+`FT_Init_FreeType` (initialize the library)
 
-In load_font() method:
-FT_New_Face or FT_New_Memory_Face (use FT_Done_Face when done)
+In `load_font()` method:
+`FT_New_Face` or `FT_New_Memory_Face` (use `FT_Done_Face` when done)
 
-FT_Attach_File
-FT_Select_Charmap
+`FT_Attach_File`
+`FT_Select_Charmap`
 
-In update_char_size() method:
-FT_Set_Char_Size or FT_Set_Pixel_Sizes
+In `update_char_size()` method:
+`FT_Set_Char_Size` or `FT_Set_Pixel_Sizes`
 
-In prepare_glyph() method:
-FT_Get_Char_Index
-FT_Load_Glyph
-FT_Render_Glyph (if glyph_render_native_mono or native_gray8) 
+In `prepare_glyph()` method:
+`FT_Get_Char_Index`
+`FT_Load_Glyph`
+`FT_Render_Glyph` (if glyph_render_native_mono or native_gray8) 
 
-in add_kerning() method
-FT_Get_Kerning
+in `add_kerning()` method
+`FT_Get_Kerning`
 
-FT_Done_FreeType (end with library)
+`FT_Done_FreeType` (end with library)
 
 ## Freetype2's metrics related function and structs
 
-FT_New_Face return a FT_Face (a pointer) with font face information.
+`FT_New_Face` return a `FT_Face` (a pointer) with font face information.
 
 ## AGG font engine's font size
 
-The variable m_height is the size of the font muliplied by 64.
+The variable `m_height` is the size of the font muliplied by 64.
 It will be used to set font size with:
 
-- FT_Set_Char_Size if m_resolution is set (> 0)
-- FT_Set_Pixel_Sizes, divided by 64, if m_resolution is not set (= 0)
+- `FT_Set_Char_Size` if m_resolution is set (> 0)
+- `FT_Set_Pixel_Sizes`, divided by 64, if m_resolution is not set (= 0)
 
 The method height() returns m_height / 64;
