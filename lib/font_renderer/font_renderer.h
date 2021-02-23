@@ -42,8 +42,7 @@ int             FR_Load_Font(FR_Renderer *, const char *filename);
 FR_Bitmap*      FR_Bitmap_New(FR_Renderer *, int width, int height);
 void            FR_Bitmap_Free(FR_Bitmap *image);
 int             FR_Get_Font_Height(FR_Renderer *, float size);
-int             FR_Bake_Font_Bitmap(FR_Renderer *, int font_height,
-                    FR_Bitmap *image,
+FR_Bitmap *     FR_Bake_Font_Bitmap(FR_Renderer *, int font_height,
                     int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyph_info);
 void            FR_Blend_Glyph(FR_Renderer *font_renderer,
                     FR_Clip_Area *clip, int x, int y,

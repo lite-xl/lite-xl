@@ -146,4 +146,19 @@ public:
         renderer_solid ren_solid(ren_base);
         draw_codepoint(ras, sl, ren_solid, text_color, codepoint, x, y, subpixel_scale);
     }
+
+    int codepoint_bounds(int codepoint, const int subpixel_scale, agg::rect_i& bounds)
+    {
+        if (!m_font_loaded) return 1;
+        const double scale_x = (m_prescale_x ? 100.0 : 1.0);
+        const double cx_inv_scale = subpixel_scale / scale_x;
+        const agg::glyph_cache* glyph = m_fman.glyph(codepoint);
+        if (glyph) {
+            bounds = glyph->bounds;
+            bounds.x1 *= cx_inv_scale;
+            bounds.x2 *= cx_inv_scale;
+            return 0;
+        }
+        return 1;
+  }
 };

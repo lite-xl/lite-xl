@@ -106,22 +106,7 @@ void ren_free_image(RenImage *image) {
 static GlyphSet* load_glyphset(RenFont *font, int idx) {
   GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
 
-  /* init image */
-  int width = 128;
-  int height = 128;
-retry:
-  set->image = check_alloc(FR_Bitmap_New(font->renderer, width, height));
-
-  int res = FR_Bake_Font_Bitmap(font->renderer, font->height,
-    set->image, idx << 8, 256, set->glyphs);
-
-  /* retry with a larger image buffer if the buffer wasn't large enough */
-  if (res < 0) {
-    width *= 2;
-    height *= 2;
-    FR_Bitmap_Free(set->image);
-    goto retry;
-  }
+  set->image = FR_Bake_Font_Bitmap(font->renderer, font->height, idx << 8, 256, set->glyphs);
 
   /* adjust glyph's xadvance */
   for (int i = 0; i < 256; i++) {

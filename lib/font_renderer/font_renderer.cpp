@@ -10,8 +10,8 @@
 // As each logical pixel contains 3 subpixels it means that the 'pixels' pointer
 // will hold enough space for '3 * width' uint8_t values.
 struct FR_Bitmap {
-  agg::int8u *pixels;
-  int width, height;
+    agg::int8u *pixels;
+    int width, height;
 };
 
 class FR_Renderer {
@@ -163,35 +163,23 @@ static int ceil_to_multiple(int n, int p) {
     return p * ((n + p - 1) / p);
 }
 
-int FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
-    FR_Bitmap *image,
+FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyphs)
 {
     font_renderer_alpha& renderer_alpha = font_renderer->renderer_alpha();
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     const int subpixel_scale = font_renderer->subpixel_scale();
 
-    agg::int8u *pixels = image->pixels;
-    const int pixels_width = image->width, pixels_height = image->height;
-
-    const int pixel_size = 1;
-    memset(pixels, 0x00, pixels_width * pixels_height * subpixel_scale * pixel_size);
-
     double ascender, descender;
     renderer_alpha.get_font_vmetrics(ascender, descender);
-
     const int ascender_px  = int(ascender * font_height);
-    const int descender_px = ascender_px - font_height;
+    const int pad_y = 1;
 
-    const int pad_y = font_height / 10;
-    const int y_step = font_height + 2 * pad_y;
-
-    agg::rendering_buffer ren_buf(pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
     // When using subpixel font rendering it is needed to leave a padding pixel on the left and on the right.
     // Since each pixel is composed by n subpixel we set below x_start to subpixel_scale instead than zero.
+    // Note about the coordinates: they are AGG-like so x is positive toward the right and
+    // y is positive in the upper direction.
     const int x_start = subpixel_scale;
-    int x = x_start, y = pixels_height - 1;
-    int res = 0;
     const agg::alpha8 text_color(0xff);
 #ifdef FONT_RENDERER_HEIGHT_HACK
     const int font_height_reduced = (font_height * 86) / 100;
@@ -199,32 +187,102 @@ int FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     const int font_height_reduced = font_height;
 #endif
     renderer_alpha.set_font_height(font_height_reduced);
-    agg::int8u *cover_swap_buffer = new agg::int8u[pixels_width * subpixel_scale];
+
+    int *index = new int[num_chars];
+    agg::rect_i *bounds = new agg::rect_i[num_chars];
+    int x_size_sum = 0, glyph_count = 0;
     for (int i = 0; i < num_chars; i++) {
         int codepoint = first_char + i;
-        if (x + font_height * subpixel_scale > pixels_width * subpixel_scale) {
+        index[i] = i;
+        if (renderer_alpha.codepoint_bounds(codepoint, subpixel_scale, bounds[i])) {
+            // Invalid glyph
+            bounds[i].x1 = 0;
+            bounds[i].y1 = 0;
+            bounds[i].x2 = -1;
+            bounds[i].y2 = -1;
+        } else {
+            if (bounds[i].x2 > bounds[i].x1) {
+                x_size_sum += bounds[i].x2 - bounds[i].x1;
+                glyph_count++;
+            }
+        }
+    }
+
+    // Simple insertion sort algorithm: https://en.wikipedia.org/wiki/Insertion_sort
+    int i = 1;
+    while (i < num_chars) {
+        int j = i;
+        while (j > 0 && bounds[index[j-1]].y2 - bounds[index[j-1]].y1 > bounds[index[j]].y2 - bounds[index[j]].y1) {
+            int tmp = index[j];
+            index[j] = index[j-1];
+            index[j-1] = tmp;
+            j = j - 1;
+        }
+        i = i + 1;
+    }
+
+    if (glyph_count == 0) return nullptr;
+    const int pixels_width = (x_size_sum / glyph_count) * 16;
+
+    // dry run simulating pixel position to estimate required image's height
+    int x = x_start, y = 0, y_bottom = y;
+    for (int i = 0; i < num_chars; i++) {
+        const agg::rect_i& gbounds = bounds[index[i]];
+        if (gbounds.x2 < gbounds.x1) continue;
+        if (x + gbounds.x2 + 1 >= pixels_width * subpixel_scale) {
             x = x_start;
-            y -= y_step;
+            y = y_bottom;
         }
-        if (y - y_step < 0) {
-            res = -1;
-            break;
+        const int glyph_y_bottom = y - 2 * pad_y - (gbounds.y2 - gbounds.y1);
+        y_bottom = (y_bottom > glyph_y_bottom ? glyph_y_bottom : y_bottom);
+        x = x + gbounds.x2 + 2 * subpixel_scale;
+    }
+
+    const int pixels_height = -y_bottom + 1;
+    const int pixel_size = 1;
+    FR_Bitmap *image = FR_Bitmap_New(font_renderer, pixels_width, pixels_height);
+
+    agg::int8u *pixels = image->pixels;
+    memset(pixels, 0x00, pixels_width * pixels_height * subpixel_scale * pixel_size);
+    agg::rendering_buffer ren_buf(pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
+
+    agg::int8u *cover_swap_buffer = new agg::int8u[pixels_width * subpixel_scale];
+    // The variable y_bottom will be used to go down to the next row by taking into
+    // account the space occupied by each glyph of the current row along the y direction.
+    x = x_start;
+    // Set y to the image's height minus one to begin writing glyphs in the upper part of the image.
+    y = pixels_height - 1;
+    y_bottom = y;
+    for (int i = 0; i < num_chars; i++) {
+        int codepoint = first_char + index[i];
+        const agg::rect_i& gbounds = bounds[index[i]];
+        if (gbounds.x2 < gbounds.x1) continue;
+
+        if (x + gbounds.x2 + 1 >= pixels_width * subpixel_scale) {
+            // No more space along x, begin writing the row below.
+            x = x_start;
+            y = y_bottom;
         }
-        const int y_baseline = y - pad_y - ascender_px;
+
+        const int y_baseline = y - pad_y - gbounds.y2;
+        const int glyph_y_bottom = y - 2 * pad_y - (gbounds.y2 - gbounds.y1);
+        y_bottom = (y_bottom > glyph_y_bottom ? glyph_y_bottom : y_bottom);
 
         double x_next = x, y_next = y_baseline;
         renderer_alpha.render_codepoint(ren_buf, text_color, x_next, y_next, codepoint, subpixel_scale);
         int x_next_i = (subpixel_scale == 1 ? int(x_next + 1.0) : ceil_to_multiple(x_next + 0.5, subpixel_scale));
 
         // Below x and x_next_i will always be integer multiples of subpixel_scale.
-        FR_Bitmap_Glyph_Metrics& glyph_info = glyphs[i];
+        // The y coordinate for the glyph below is positive in the bottom direction,
+        // like is used by Lite's drawing system.
+        FR_Bitmap_Glyph_Metrics& glyph_info = glyphs[index[i]];
         glyph_info.x0 = x / subpixel_scale;
-        glyph_info.y0 = pixels_height - 1 - (y_baseline + ascender_px  + pad_y); // FIXME: add -1 ?
+        glyph_info.y0 = pixels_height - 1 - (y_baseline + gbounds.y2 + pad_y);
         glyph_info.x1 = x_next_i / subpixel_scale;
-        glyph_info.y1 = pixels_height - 1 - (y_baseline + descender_px - pad_y); // FIXME: add -1 ?
+        glyph_info.y1 = pixels_height - 1 - (y_baseline + gbounds.y1 - pad_y);
 
         glyph_info.xoff = 0;
-        glyph_info.yoff = -pad_y;
+        glyph_info.yoff = -pad_y - gbounds.y2 + ascender_px;
         glyph_info.xadvance = (x_next - x) / subpixel_scale;
 
         if (subpixel_scale != 1 && glyph_info.x1 > glyph_info.x0) {
@@ -233,10 +291,12 @@ int FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
 
         // When subpixel is activated we need one padding pixel on the left and on the right.
-        x = x_next_i + 2 * subpixel_scale;
+        x = x + gbounds.x2 + 2 * subpixel_scale;
     }
+    delete [] index;
+    delete [] bounds;
     delete [] cover_swap_buffer;
-    return res;
+    return image;
 }
 
 template <typename Order>
