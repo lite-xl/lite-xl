@@ -1,2 +1,2 @@
-option('portable', type : 'boolean', value : false, description: 'Create a portable build')
+option('portable', type : 'boolean', value : false, description: 'Portable install')
 

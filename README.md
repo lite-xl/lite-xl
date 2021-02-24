@@ -58,16 +58,17 @@ sudo apt install meson
 # or pip3 install --user meson
 ```
 
-To build Lite XL with Meson use the commands:
+To build Lite XL with Meson the commands below can be used:
 ```sh
 meson setup build
 meson compile -C build
 meson install -C build
 ```
 
-When performing the "meson setup" command you may enable the "portable" option.
+When performing the "meson setup" command you may enable the "portable" option to choose the
+kind of install.
 
-If this latter is enabled Lite XL is built to use a "data" and a "user" directory
+If the portable option latter is enabled Lite XL is built to use a "data" and a "user" directory
 from the same directory of the executable.
 If "portable" is not enabled (this is the default) Lite XL will use unix-like
 directory locations.
@@ -78,19 +79,23 @@ the location of the executable.
 The `$HOME` is determined from the corresponding environment variable.
 As a special case on Windows the variable `$USERPROFILE` will be used instead.
 
-If you want to install Lite XL on Windows or Mac OS X we suggest to use the script `build-packages.sh`:
+If you compile lite-xl yourself it is recommended to use the script `build-packages.sh`:
 
 ```sh
-bash build-packages.sh <version> <arch>
-
-# In alternative the -portable option can be used like below:
-# bash build-packages.sh -portable <version> <arch>
+bash build-packages.sh <arch>
 ```
 
-It will run meson and create a Zip file that can be easily installed or uninstalled.
+It will run meson and create two zip files, one for the portable version and
+one for the unix-like version. Lite XL can be easily installed by unpacking one
+of the zip archive in a directory of your choice.
 
-Please note the, while compiling Lite XL on Mac OS X should work Mac OS X
-is not currently supported.
+Please note that no directory is not hard-coded in the exectuable so that the
+package can be extracted and used in any directory.
+
+Note also that the unix-like package can work on windows as well.
+
+Please note that while compiling Lite XL on Mac OS X should work Mac OS X is not
+officially supported.
 
 ## Contributing
 Any additional functionality that can be added through a plugin should be done

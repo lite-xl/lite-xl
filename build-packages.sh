@@ -29,21 +29,19 @@ build_dir_is_usable () {
 
 # Ordinary release build
 lite_build () {
-  local meson_options=("-Dportable=$1")
-  local build="$2"
+  local build="$1"
   build_dir_is_usable "$build" || exit 1
   rm -fr "$build"
-  meson setup --buildtype=release "${meson_options[@]}" "$build" || exit 1
+  meson setup --buildtype=release "$build" || exit 1
   ninja -C "$build" || exit 1
 }
 
 # Build using Profile Guided Optimizations (PGO)
 lite_build_pgo () {
-  local meson_options=("-Dportable=$1")
-  local build="$2"
+  local build="$1"
   build_dir_is_usable "$build" || exit 1
   rm -fr "$build"
-  meson setup --buildtype=release "${meson_options[@]}" -Db_pgo=generate "$build" || exit 1
+  meson setup --buildtype=release -Db_pgo=generate "$build" || exit 1
   ninja -C "$build" || exit 1
   copy_directory_from_repo data "$build/src"
   "$build/src/lite"
@@ -52,17 +50,19 @@ lite_build_pgo () {
 }
 
 lite_build_package_windows () {
-  local portable="$1"
-  local build="$2"
-  local version="$3"
-  local arch="$4"
+  local portable=""
+  if [ "$1" == "-portable" ]; then
+    portable="-portable"
+    shift
+  fi
+  local build="$1"
+  local arch="$2"
   local os="win"
   local pdir=".package-build/lite-xl"
-  if [ $portable == "true" ]; then
+  if [ "$portable" == "-portable" ]; then
     local bindir="$pdir"
     local datadir="$pdir/data"
   else
-    echo "WARNING: using non portable option on unix-like system"
     local bindir="$pdir/bin"
     local datadir="$pdir/share/lite-xl"
   fi
@@ -77,7 +77,7 @@ lite_build_package_windows () {
   cp "$build/src/lite.exe" "$bindir"
   strip --strip-all "$bindir/lite.exe"
   pushd ".package-build"
-  local package_name="lite-xl-$os-$arch.zip"
+  local package_name="lite-xl-$os-$arch$portable.zip"
   zip "$package_name" -r "lite-xl"
   mv "$package_name" ..
   popd
@@ -86,10 +86,13 @@ lite_build_package_windows () {
 }
 
 lite_build_package_macosx () {
-  local portable="$1"
-  local build="$2"
-  local version="$3"
-  local arch="$4"
+  local portable=""
+  if [ "$1" == "-portable" ]; then
+    portable="-portable"
+    shift
+  fi
+  local build="$1"
+  local arch="$2"
   local os="macosx"
   local pdir=".package-build/lite-xl.app/Contents/MacOS"
   if [ $portable == "true" ]; then
@@ -110,7 +113,7 @@ lite_build_package_macosx () {
   cp "$build/src/lite" "$bindir"
   strip "$bindir/lite"
   pushd ".package-build"
-  local package_name="lite-xl-$os-$arch.zip"
+  local package_name="lite-xl-$os-$arch$portable.zip"
   zip "$package_name" -r "lite-xl.app"
   mv "$package_name" ..
   popd
@@ -119,10 +122,13 @@ lite_build_package_macosx () {
 }
 
 lite_build_package_linux () {
-  local portable="$1"
-  local build="$2"
-  local version="$3"
-  local arch="$4"
+  local portable=""
+  if [ "$1" == "-portable" ]; then
+    portable="-portable"
+    shift
+  fi
+  local build="$1"
+  local arch="$2"
   local os="linux"
   local pdir=".package-build/lite-xl"
   if [ $portable == "true" ]; then
@@ -144,7 +150,7 @@ lite_build_package_linux () {
   cp "$build/src/lite" "$bindir"
   strip "$bindir/lite"
   pushd ".package-build"
-  local package_name="lite-xl-$os-$arch.tar.gz"
+  local package_name="lite-xl-$os-$arch$portable.tar.gz"
   tar czf "$package_name" "lite-xl"
   mv "$package_name" ..
   popd
@@ -174,20 +180,11 @@ lite_copy_third_party_modules () {
   rm -fr "$build/lite-colors-master"
 }
 
-if [[ -z "$1" || -z "$2" ]]; then
-  echo "usage: $0 [options] <version> <arch>"
-  exit 1
-fi
-
-portable=false
+unset arch
 while [ ! -z {$1+x} ]; do
   case $1 in
   -pgo)
     pgo=true
-    shift
-    ;;
-  -portable)
-    portable=true
     shift
     ;;
   -branch=*)
@@ -195,11 +192,15 @@ while [ ! -z {$1+x} ]; do
     shift
     ;;
   *)
-    version="$1"
-    arch="$2"
+    arch="$1"
     break
   esac
 done
+
+if [ -z ${arch+set} ]; then
+  echo "usage: $0 [options] <arch>"
+  exit 1
+fi
 
 if [ -z ${use_branch+set} ]; then
   use_branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -208,10 +209,11 @@ fi
 build_dir=".build-$arch"
 
 if [ -z ${pgo+set} ]; then
-  lite_build "$portable" "$build_dir"
+  lite_build "$build_dir"
 else
-  lite_build_pgo "$portable" "$build_dir"
+  lite_build_pgo "$build_dir"
 fi
 lite_copy_third_party_modules "$build_dir"
-lite_build_package "$portable" "$build_dir" "$version" "$arch"
+lite_build_package "$build_dir" "$arch"
+lite_build_package -portable "$build_dir" "$arch"
 
