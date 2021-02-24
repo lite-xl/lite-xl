@@ -107,6 +107,7 @@ static GlyphSet* load_glyphset(RenFont *font, int idx) {
   GlyphSet *set = check_alloc(calloc(1, sizeof(GlyphSet)));
 
   set->image = FR_Bake_Font_Bitmap(font->renderer, font->height, idx << 8, 256, set->glyphs);
+  check_alloc(set->image);
 
   /* adjust glyph's xadvance */
   for (int i = 0; i < 256; i++) {

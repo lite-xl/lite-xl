@@ -221,7 +221,7 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         i = i + 1;
     }
 
-    if (glyph_count == 0) return nullptr;
+    if (glyph_count == 0) return NULL;
     const int pixels_width = (x_size_sum / glyph_count) * 16;
 
     // dry run simulating pixel position to estimate required image's height
