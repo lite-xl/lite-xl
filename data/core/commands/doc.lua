@@ -24,12 +24,18 @@ local function get_indent_string()
 end
 
 
-local function insert_at_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc():get_selection(true)
+local function doc_multiline_selection(sort)
+  local line1, col1, line2, col2, swap = doc():get_selection(sort)
   if line2 > line1 and col2 == 1 then
     line2 = line2 - 1
     col2 = #doc().lines[line2]
   end
+  return line1, col1, line2, col2, swap
+end
+
+
+local function insert_at_start_of_selected_lines(text, skip_empty)
+  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
   for line = line1, line2 do
     local line_text = doc().lines[line]
     if (not skip_empty or line_text:find("%S")) then
@@ -41,11 +47,7 @@ end
 
 
 local function remove_from_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc():get_selection(true)
-  if line2 > line1 and col2 == 1 then
-    line2 = line2 - 1
-    col2 = #doc().lines[line2]
-  end
+  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
   for line = line1, line2 do
     local line_text = doc().lines[line]
     if  line_text:sub(1, #text) == text
@@ -194,7 +196,7 @@ local commands = {
   end,
 
   ["doc:duplicate-lines"] = function()
-    local line1, col1, line2, col2, swap = doc():get_selection(true)
+    local line1, col1, line2, col2, swap = doc_multiline_selection(true)
     append_line_if_last_line(line2)
     local text = doc():get_text(line1, 1, line2 + 1, 1)
     doc():insert(line2 + 1, 1, text)
@@ -203,14 +205,14 @@ local commands = {
   end,
 
   ["doc:delete-lines"] = function()
-    local line1, col1, line2 = doc():get_selection(true)
+    local line1, col1, line2 = doc_multiline_selection(true)
     append_line_if_last_line(line2)
     doc():remove(line1, 1, line2 + 1, 1)
     doc():set_selection(line1, col1)
   end,
 
   ["doc:move-lines-up"] = function()
-    local line1, col1, line2, col2, swap = doc():get_selection(true)
+    local line1, col1, line2, col2, swap = doc_multiline_selection(true)
     append_line_if_last_line(line2)
     if line1 > 1 then
       local text = doc().lines[line1 - 1]
@@ -221,7 +223,7 @@ local commands = {
   end,
 
   ["doc:move-lines-down"] = function()
-    local line1, col1, line2, col2, swap = doc():get_selection(true)
+    local line1, col1, line2, col2, swap = doc_multiline_selection(true)
     append_line_if_last_line(line2 + 1)
     if line2 < #doc().lines then
       local text = doc().lines[line2 + 1]
