@@ -114,31 +114,16 @@ init_lua:
   lua_pushstring(L, exename);
   lua_setglobal(L, "EXEFILE");
 
-
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
-    "  SCALE = tonumber(os.getenv(\"LITE_SCALE\")) or SCALE\n"
-    "  PATHSEP = package.config:sub(1, 1)\n"
-    "  EXEDIR = EXEFILE:match(\"^(.+)[/\\\\].*$\")\n"
-#ifdef LITE_XL_DATA_USE_EXEDIR
-    "  DATADIR = EXEDIR .. '/data'\n"
-#else
-    "  do\n"
-    "    local prefix = EXEDIR:match(\"^(.+)[/\\\\]bin$\")\n"
-    "    DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')\n"
-    "  end\n"
-#endif
 #ifdef _WIN32
-    " HOME = os.getenv('USERPROFILE')"
+    "  HOME = os.getenv('USERPROFILE')\n"
 #else
-    " HOME = os.getenv('HOME')"
+    "  HOME = os.getenv('HOME')\n"
 #endif
-    "  USERDIR = HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user')\n"
-    "  package.path = package.path .. ';' .. USERDIR .. '/?.lua'\n"
-    "  package.path = package.path .. ';' .. USERDIR .. '/?/init.lua'\n"
-    "  package.path = DATADIR .. '/?.lua;' .. package.path\n"
-    "  package.path = DATADIR .. '/?/init.lua;' .. package.path\n"
+    "  local prefix = EXEFILE:match(\"^(.+)[/\\\\]bin[/\\\\][^/\\\\]+$\")\n"
+    "  dofile((prefix and prefix .. '/share/lite-xl' or 'data') .. '/core/start.lua')\n"
     "  core = require('core')\n"
     "  core.init()\n"
     "  core.run()\n"

@@ -1,4 +1,4 @@
-project('lite', 'c', 'cpp', version: '1.0', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
+project('lite', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
 
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
@@ -16,7 +16,6 @@ sdl_dep = dependency('sdl2', method: 'config-tool')
 
 lite_cargs = []
 if get_option('portable')
-    lite_cargs += ['-DLITE_XL_DATA_USE_EXEDIR']
     lite_datadir = 'data'
 else
     lite_datadir = 'share/lite-xl'

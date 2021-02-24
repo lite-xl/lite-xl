@@ -1,5 +1,3 @@
-global {VERSION = "1.16.0"}
-
 local config = {}
 
 config.project_scan_rate = 5
