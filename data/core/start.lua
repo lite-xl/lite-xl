@@ -1,6 +1,6 @@
 -- this file is used by lite-xl to setup the Lua environment
 -- when starting
-VERSION = "1.16.0"
+VERSION = "1.16.1"
 
 SCALE = tonumber(os.getenv("LITE_SCALE")) or SCALE
 PATHSEP = package.config:sub(1, 1)

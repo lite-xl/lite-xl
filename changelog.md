@@ -4,11 +4,17 @@ This files document the differences between Lite XL and rxi/lite for each versio
 
 ### 1.16.1
 
+Improve behavior of commands to move, delete and duplicate multiple lines:
+no longer include the last line if it does not contain any selection.
+
+Fix graphical artefacts when rendering some fonts like FiraSans.
+
 Introduce the `config.transitions` boolean variable.
 When false the transitions will be disabled and changes will be done immediately.
 Very useful for remote sessions where visual transitions doesn't work well.
 
 Fix many small problems related to the new toolbar and the tooptips.
+Fix problem with spacing in treeview when using monospace fonts.
 
 ### 1.16
 
