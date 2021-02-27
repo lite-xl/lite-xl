@@ -273,10 +273,11 @@ local style = require "core.style"
 -- style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 12 * SCALE)
 --
 -- font names used by lite:
--- style.font      : user interface
--- style.big_font  : big text in welcome screen
--- style.icon_font : icons
--- style.code_font : code
+-- style.font          : user interface
+-- style.big_font      : big text in welcome screen
+-- style.icon_font     : icons
+-- style.icon_big_font : toolbar icons
+-- style.code_font     : code
 --
 -- the function to load the font accept a 3rd optional argument like:
 --
