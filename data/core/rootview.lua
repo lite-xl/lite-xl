@@ -403,11 +403,11 @@ function Node:draw_tabs()
     local x, y, w, h = self:get_tab_rect(i)
     local text = view:get_name()
     local color = style.dim
+    renderer.draw_rect(x + w, y, ds, h, style.divider)
+    renderer.draw_rect(x - ds, y, ds, h, style.divider)
     if view == self.active_view then
       color = style.text
       renderer.draw_rect(x, y, w, h, style.background)
-      renderer.draw_rect(x + w, y, ds, h, style.divider)
-      renderer.draw_rect(x - ds, y, ds, h, style.divider)
     end
     local cx, cw, cspace = close_button_location(x, w)
     if view == self.active_view or i == self.hovered_tab then
