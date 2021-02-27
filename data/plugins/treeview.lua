@@ -6,7 +6,7 @@ local keymap = require "core.keymap"
 local style = require "core.style"
 local View = require "core.view"
 
-config.treeview_size = 200 * SCALE
+local treeview_size = 200 * SCALE
 
 local function get_depth(filename)
   local n = 1
@@ -23,9 +23,18 @@ function TreeView:new()
   TreeView.super.new(self)
   self.scrollable = true
   self.visible = true
-  self.init_size = config.treeview_size
+  self.init_size = true
+  self.target_size = treeview_size
   self.cache = {}
   self.last = {}
+end
+
+
+function TreeView:set_target_size(axis, value)
+  if axis == "x" then
+    self.target_size = value
+    return true
+  end
 end
 
 
@@ -184,15 +193,12 @@ end
 
 function TreeView:update()
   -- update width
+  local dest = self.visible and self.target_size or 0
   if self.init_size then
-    self.size.x = self.init_size
-    self.init_size = nil
-  elseif self.goto_size then
-    if self.goto_size ~= self.size.x then
-      self:move_towards(self.size, "x", self.goto_size)
-    else
-      self.goto_size = nil
-    end
+    self.size.x = dest
+    self.init_size = false
+  else
+    self:move_towards(self.size, "x", dest)
   end
 
   TreeView.super.update(self)
@@ -277,14 +283,7 @@ end
 -- register commands and keymap
 command.add(nil, {
   ["treeview:toggle"] = function()
-    if view.visible then
-      view.previous_size = view.size.x
-      view.visible = false
-      view.goto_size = 0
-    else
-      view.visible = true
-      view.goto_size = view.previous_size
-    end
+    view.visible = not view.visible
   end,
 })
 

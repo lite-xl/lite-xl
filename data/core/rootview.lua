@@ -96,7 +96,8 @@ local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
 -- and it indicates if the node want to have a fixed size along the axis where the
 -- boolean is true. If not it will be expanded to take all the available space.
 -- The "resizable" flag indicates if, along the "locked" axis the node can be resized
--- by the user.
+-- by the user. If the node is marked as resizable their view should provide a
+-- set_target_size method.
 function Node:split(dir, view, locked, resizable)
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local node_type = assert(type_map[dir], "Invalid direction")
@@ -461,9 +462,8 @@ function Node:resize(axis, value)
     -- resize operation here because for proportional panes the resize is
     -- done using the "divider" value of the parent node.
     if (self.locked and self.locked[axis]) and self.resizable then
-      local view = self.active_view
-      view.size[axis] = value
-      return true
+      assert(self.active_view.set_target_size, "internal error: the view of a resizable \"locked\" node do not provide a set_target_size method")
+      return self.active_view:set_target_size(axis, value)
     end
   else
     local a_resizable = self.a:is_resizable(axis)
