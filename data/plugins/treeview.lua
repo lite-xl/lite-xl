@@ -6,7 +6,7 @@ local keymap = require "core.keymap"
 local style = require "core.style"
 local View = require "core.view"
 
-local treeview_size = 200 * SCALE
+local default_treeview_size = 200 * SCALE
 
 local function get_depth(filename)
   local n = 1
@@ -24,7 +24,7 @@ function TreeView:new()
   self.scrollable = true
   self.visible = true
   self.init_size = true
-  self.target_size = treeview_size
+  self.target_size = default_treeview_size
   self.cache = {}
   self.last = {}
 end
@@ -272,6 +272,8 @@ local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
 if config.toolbarview ~= false and toolbar_plugin then
   local toolbar_view = ToolbarView()
   treeview_node:split("down", toolbar_view, {y = true})
+  local min_toolbar_width = toolbar_view:get_min_width()
+  view:set_target_size("x", math.max(default_treeview_size, min_toolbar_width))
   command.add(nil, {
     ["toolbar:toggle"] = function()
       toolbar_view:toggle_visible()

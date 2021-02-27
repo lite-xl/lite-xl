@@ -64,6 +64,13 @@ function ToolbarView:each_item()
 end
 
 
+function ToolbarView:get_min_width()
+  local icon_w = style.icon_big_font:get_width("D")
+  local space = icon_w / 2
+  return 2 * style.padding.x + (icon_w + space) * #toolbar_commands - space
+end
+
+
 function ToolbarView:draw()
   self:draw_background(style.background2)
 
