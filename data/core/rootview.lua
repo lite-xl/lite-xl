@@ -68,6 +68,7 @@ end
 function Node:on_mouse_moved(x, y, ...)
   self.hovered_tab = self:get_tab_overlapping_point(x, y)
   if self.type == "leaf" then
+    self:tab_mouse_moved(x, y)
     self.active_view:on_mouse_moved(x, y, ...)
   else
     self:propagate("on_mouse_moved", x, y, ...)
@@ -232,6 +233,20 @@ function Node:get_tab_overlapping_point(px, py)
 end
 
 
+function Node:tab_mouse_moved(px, py)
+  local tab_index = self:get_tab_overlapping_point(px, py)
+  if tab_index and self.views[tab_index] == self.active_view then
+    local x, y, w, h = self:get_tab_rect(tab_index)
+    local pad, icon_w = style.padding.y, style.icon_font:get_width("C")
+    if px >= x + w - icon_w - pad and px < x + w - pad and py >= y and py < y + h then
+      self.hovered_close = true
+      return
+    end
+  end
+  self.hovered_close = false
+end
+
+
 function Node:get_child_overlapping_point(x, y)
   local child
   if self.type == "leaf" then
@@ -377,6 +392,9 @@ function Node:draw_tabs()
       renderer.draw_rect(x, y, w, h, style.background)
       renderer.draw_rect(x + w, y, ds, h, style.divider)
       renderer.draw_rect(x - ds, y, ds, h, style.divider)
+      local pad = style.padding.y
+      local close_style = self.hovered_close and style.text or style.dim
+      common.draw_text(style.icon_font, close_style, "C", "right", x + pad, y, w - 2 * pad, h)
     end
     if i == self.hovered_tab then
       color = style.text
@@ -554,7 +572,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     node:set_active_view(node.views[idx])
-    if button == "middle" then
+    if button == "middle" or node.hovered_close then
       node:close_active_view(self.root_node)
     end
   else
