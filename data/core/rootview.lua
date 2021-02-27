@@ -124,12 +124,15 @@ function Node:split(dir, view, locked, resizable)
 end
 
 
-function Node:close_active_view(root)
+function Node:close_view(root, view)
+  local new_active_view = view == self.active_view
   local do_close = function()
     if #self.views > 1 then
-      local idx = self:get_view_idx(self.active_view)
+      local idx = self:get_view_idx(view)
       table.remove(self.views, idx)
-      self:set_active_view(self.views[idx] or self.views[#self.views])
+      if new_active_view then
+        self:set_active_view(self.views[idx] or self.views[#self.views])
+      end
     else
       local parent = self:get_parent_node(root)
       local is_a = (parent.a == self)
@@ -151,7 +154,12 @@ function Node:close_active_view(root)
     end
     core.last_active_view = nil
   end
-  self.active_view:try_close(do_close)
+  view:try_close(do_close)
+end
+
+
+function Node:close_active_view(root)
+  self:close_view(root, self.active_view)
 end
 
 
@@ -581,9 +589,10 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   local node = self.root_node:get_child_overlapping_point(x, y)
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
-    node:set_active_view(node.views[idx])
     if button == "middle" or node.hovered_close == idx then
-      node:close_active_view(self.root_node)
+      node:close_view(self.root_node, node.views[idx])
+    else
+      node:set_active_view(node.views[idx])
     end
   else
     core.set_active_view(node.active_view)
