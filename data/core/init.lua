@@ -751,7 +751,7 @@ end
 
 
 local function compose_window_title(title)
-  return title == "" and "lite" or title .. " - lite"
+  return title == "" and "Lite XL" or title .. " - Lite XL"
 end
 
 
