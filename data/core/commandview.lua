@@ -29,7 +29,6 @@ local default_state = {
 function CommandView:new()
   CommandView.super.new(self, SingleLineDoc())
   self.suggestion_idx = 1
-  self.suggestion_offset = 0
   self.suggestions = {}
   self.suggestions_height = 0
   self.last_change_id = 0
@@ -83,11 +82,6 @@ end
 function CommandView:move_suggestion_idx(dir)
   local n = self.suggestion_idx + dir
   self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
-  if self.suggestion_idx > max_suggestions then
-    self.suggestion_offset = self.suggestion_idx - max_suggestions
-  else
-    self.suggestion_offset = 0
-  end
   self:complete()
   self.last_change_id = self.doc:get_change_id()
 end
@@ -158,7 +152,6 @@ function CommandView:update_suggestions()
   end
   self.suggestions = res
   self.suggestion_idx = 1
-  self.suggestion_offset = 0
 end
 
 
@@ -192,7 +185,7 @@ function CommandView:update()
   self:move_towards("suggestions_height", dest)
 
   -- update suggestion cursor offset
-  local dest = (self.suggestion_idx - self.suggestion_offset) * self:get_suggestion_line_height()
+  local dest = math.min(self.suggestion_idx, max_suggestions) * self:get_suggestion_line_height()
   self:move_towards("selection_offset", dest)
 
   -- update size based on whether this is the active_view
@@ -236,19 +229,20 @@ local function draw_suggestions_box(self)
   end
 
   -- draw suggestion text
+  local suggestion_offset = math.max(self.suggestion_idx - max_suggestions, 0)
   core.push_clip_rect(rx, ry, rw, rh)
-  for i, item in ipairs(self.suggestions) do
-    local irel = (i - self.suggestion_offset)
-    if irel >= 0 then
-      local color = (i == self.suggestion_idx) and style.accent or style.text
-      local y = self.position.y - irel * lh - dh
-      common.draw_text(self:get_font(), color, item.text, nil, x, y, 0, lh)
+  local i = 1 + suggestion_offset
+  while i <= #self.suggestions do
+    local item = self.suggestions[i]
+    local color = (i == self.suggestion_idx) and style.accent or style.text
+    local y = self.position.y - (i - suggestion_offset) * lh - dh
+    common.draw_text(self:get_font(), color, item.text, nil, x, y, 0, lh)
 
-      if item.info then
-        local w = self.size.x - x - style.padding.x
-        common.draw_text(self:get_font(), style.dim, item.info, "right", x, y, w, lh)
-      end
+    if item.info then
+      local w = self.size.x - x - style.padding.x
+      common.draw_text(self:get_font(), style.dim, item.info, "right", x, y, w, lh)
     end
+    i = i + 1
   end
   core.pop_clip_rect()
 end
