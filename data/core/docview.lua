@@ -91,8 +91,11 @@ end
 
 
 function DocView:get_filename()
-  local post = self.doc:is_dirty() and "*" or ""
-  return (self.doc.abs_filename and self.doc.abs_filename or "unsaved") .. post
+  if self.doc.abs_filename then
+    local post = self.doc:is_dirty() and "*" or ""
+    return self.doc.abs_filename .. post
+  end
+  return self:get_name()
 end
 
 
