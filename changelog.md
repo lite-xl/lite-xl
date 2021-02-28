@@ -1,6 +1,14 @@
 Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with some enhancements.
 
-This files document the differences between Lite XL and rxi/lite for each version.
+This files document the changes done in Lite XL for each release.
+
+### 1.16.2
+
+Implement close button for tabs.
+
+Make the command view list of suggestion scrollable to see all the items.
+
+Improve update/resize behavior of treeview and toolbar.
 
 ### 1.16.1
 
