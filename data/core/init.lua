@@ -58,27 +58,14 @@ function core.reschedule_project_scan()
 end
 
 
-function core.set_project_dir(new_dir, change_project_fn)
-  local chdir_ok = pcall(system.chdir, new_dir)
-  if chdir_ok then
-    if change_project_fn then change_project_fn() end
-    core.project_dir = common.normalize_path(new_dir)
-    core.project_directories = {}
-    core.add_project_directory(new_dir)
-    core.project_files = {}
-    core.reschedule_project_scan()
-    return true
-  end
-  return false
-end
-
-
 function core.open_folder_project(dir_path_abs)
-  if core.set_project_dir(dir_path_abs, core.on_quit_project) then
-    core.root_view:close_all_docviews()
-    update_recents_project("add", dir_path_abs)
-    core.on_enter_project(dir_path_abs)
-  end
+  -- if core.set_project_dir(dir_path_abs, core.on_quit_project) then
+  core.root_view:close_all_docviews()
+  core.project_entries = {}
+  -- FIXME: check stat info to verify is a directory
+  core.add_project_directory(dir_path_abs)
+  update_recents_project("add", dir_path_abs)
+  -- core.on_enter_project(dir_path_abs)
 end
 
 
@@ -158,23 +145,22 @@ local function project_scan_thread()
   while true do
     -- get project files and replace previous table if the new table is
     -- different
-    for i = 1, #core.project_directories do
-      local dir = core.project_directories[i]
-      local t, entries_count = get_files(dir.name, "")
-      if diff_files(dir.files, t) then
-        if entries_count > config.max_project_files then
-          core.status_view:show_message("!", style.accent,
-            "Too many files in project directory: stopping reading at "..
-            config.max_project_files.." files according to config.max_project_files. "..
-            "Either tweak this variable, or ignore certain files/directories by "..
-            "using the config.ignore_files variable in your user plugin or "..
-            "project config.")
+    for i = 1, #core.project_entries do
+      local dir = core.project_entries[i]
+      if dir.item.type == 'dir' then
+        local t, entries_count = get_files(dir.name, "")
+        if diff_files(dir.files, t) then
+          if entries_count > config.max_project_files then
+            core.status_view:show_message("!", style.accent,
+              "Too many files in project directory: stopping reading at "..
+              config.max_project_files.." files according to config.max_project_files. "..
+              "Either tweak this variable, or ignore certain files/directories by "..
+              "using the config.ignore_files variable in your user plugin or "..
+              "project config.")
+          end
+          dir.files = t
+          core.redraw = true
         end
-        dir.files = t
-        core.redraw = true
-      end
-      if dir.name == core.project_dir then
-        core.project_files = dir.files
       end
     end
 
@@ -185,12 +171,12 @@ end
 
 
 local function project_files_iter(state)
-  local dir = core.project_directories[state.dir_index]
+  local dir = core.project_entries[state.dir_index]
   state.file_index = state.file_index + 1
   while dir and state.file_index > #dir.files do
     state.dir_index = state.dir_index + 1
     state.file_index = 1
-    dir = core.project_directories[state.dir_index]
+    dir = core.project_entries[state.dir_index]
   end
   if not dir then return end
   return dir.name, dir.files[state.file_index]
@@ -205,8 +191,8 @@ end
 
 function core.project_files_number()
   local n = 0
-  for i = 1, #core.project_directories do
-    n = n + #core.project_directories[i].files
+  for i = 1, #core.project_entries do
+    n = n + #core.project_entries[i].files
   end
   return n
 end
@@ -317,12 +303,24 @@ function core.load_user_directory()
 end
 
 
+function core.add_project_file(path)
+  path = normalize_path(path)
+  table.insert(core.project_entries, {
+    -- type = 'file',
+    name = path,
+    item = {filename = common.basename(path), type = "file", topdir = true},
+    files = {path}
+  })
+end
+
+
 function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = common.normalize_path(path)
-  table.insert(core.project_directories, {
+  table.insert(core.project_entries, {
+    -- type = 'dir',
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files = {}
@@ -330,12 +328,12 @@ function core.add_project_directory(path)
 end
 
 
-function core.remove_project_directory(path)
+function core.remove_project_entry(path)
   -- skip the fist directory because it is the project's directory
-  for i = 2, #core.project_directories do
-    local dir = core.project_directories[i]
+  for i = 2, #core.project_entries do
+    local dir = core.project_entries[i]
     if dir.name == path then
-      table.remove(core.project_directories, i)
+      table.remove(core.project_entries, i)
       return true
     end
   end
@@ -402,12 +400,18 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.window_mode = "normal"
+  core.project_entries = {}
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
 
   local project_dir_abs = system.absolute_path(project_dir)
-  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
+  if project_dir_abs then
+    core.add_project_directory(project_dir_abs)
+    update_recents_project("add", project_dir_abs)
+  end
+  -- FIXME: below, check if project_dir_abs is ok as a project directory
+  local set_project_ok = project_dir_abs --and core.open_folder_project(project_dir_abs) --core.set_project_dir(project_dir_abs)
   if set_project_ok then
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
@@ -415,11 +419,6 @@ function core.init()
   else
     if not project_dir_explicit then
       update_recents_project("remove", project_dir)
-    end
-    project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs) then
-      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
-      os.exit(1)
     end
   end
 
