@@ -98,9 +98,20 @@ command.add(nil, {
         core.command_view:set_text(text)
       end
     end
-    core.command_view:enter("Open File", function(text)
-      local filename = system.absolute_path(common.home_expand(text))
-      core.root_view:open_doc(core.open_doc(filename))
+    core.command_view:enter("Open File", function(text, item)
+      local filename = common.home_expand(item and item.text or text)
+      local info = system.get_file_info(filename)
+      print('file', filename, common.serialize(info))
+      if info then
+        if info.type == "file" then
+          core.add_project_file(filename)
+          print('done add_project_file')
+          core.root_view:open_doc(core.open_doc(filename))
+          print('done open_doc')
+        else
+          core.add_project_directory(filename)
+        end
+      end
     end, function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end, nil, function(text)
@@ -172,8 +183,8 @@ command.add(nil, {
   end,
 
   ["core:add-directory"] = function()
-    core.command_view:enter("Add Directory", function(text)
-      text = common.home_expand(text)
+    core.command_view:enter("Add Directory", function(text, item)
+      text = common.home_expand(item and item.text or text)
       local path_stat, err = system.get_file_info(text)
       if not path_stat then
         core.error("cannot open %q: %s", text, err)
