@@ -5,6 +5,15 @@ libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
 lua_dep = dependency('lua5.2', required : false)
 
+lite_link_args = []
+if get_option('buildtype') == 'release'
+    if cc.get_id() == 'gcc'
+        lite_link_args += ['-static-libgcc', '-static-libstdc++']
+    endif
+    add_global_arguments('-fdata-sections', '-ffunction-sections', language : ['c', 'cpp'])
+    add_global_link_arguments('-Wl,--gc-sections', language : ['c', 'cpp'])
+endif
+
 if not lua_dep.found()
     lua_subproject = subproject('lua', default_options: [
         'shared=false', 'use_readline=false', 'app=false'
@@ -25,11 +34,6 @@ lite_include = include_directories('src')
 foreach data_module : ['core', 'fonts', 'plugins', 'colors']
     install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
-
-lite_link_args = []
-if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
-    lite_link_args += ['-static-libgcc', '-static-libstdc++']
-endif
 
 lite_rc = []
 if host_machine.system() == 'windows'
