@@ -8,9 +8,10 @@ lua_dep = dependency('lua5.2', required : false)
 lite_link_args = []
 if get_option('buildtype') == 'release'
     if cc.get_id() == 'gcc'
-        lite_link_args += ['-static-libgcc', '-static-libstdc++']
+        lite_link_args += ['-static-libgcc'] #, '-static-libstdc++']
     endif
     add_global_arguments('-fdata-sections', '-ffunction-sections', language : ['c', 'cpp'])
+    add_global_arguments('-fno-rtti', '-fno-exceptions', language : 'cpp')
     add_global_link_arguments('-Wl,--gc-sections', language : ['c', 'cpp'])
 endif
 

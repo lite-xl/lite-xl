@@ -9,6 +9,7 @@ endif
 font_renderer_sources = [
     'agg_font_freetype.cpp',
     'font_renderer.cpp',
+    'libstdcpp-replace.cpp',
 ]
 
 font_renderer_cdefs = ['-DFONT_RENDERER_HEIGHT_HACK']
