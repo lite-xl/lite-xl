@@ -410,15 +410,17 @@ function Node:draw_tabs()
       renderer.draw_rect(x, y, w, h, style.background)
     end
     local cx, cw, cspace = close_button_location(x, w)
-    if view == self.active_view or i == self.hovered_tab then
+    local show_close_button = (view == self.active_view or i == self.hovered_tab)
+    if show_close_button then
       local close_style = self.hovered_close == i and style.text or style.dim
       common.draw_text(style.icon_font, close_style, "C", nil, cx, y, 0, h)
     end
     if i == self.hovered_tab then
       color = style.text
     end
-    core.push_clip_rect(x, y, cx - x - cspace, h)
-    x, w = x + style.padding.x, w - style.padding.x * 2
+    local padx = style.padding.x
+    core.push_clip_rect(x, y, show_close_button and cx - x - cspace or w - padx, h)
+    x, w = x + padx, w - padx * 2
     local align = style.font:get_width(text) > w and "left" or "center"
     common.draw_text(style.font, color, text, align, x, y, w, h)
     core.pop_clip_rect()
