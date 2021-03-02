@@ -10,8 +10,8 @@ local prefix = EXEDIR:match("^(.+)[/\\]bin$")
 DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')
 USERDIR = HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user')
 
-package.path = package.path .. ';' .. USERDIR .. '/?.lua'
-package.path = package.path .. ';' .. USERDIR .. '/?/init.lua'
 package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path
+package.path = USERDIR .. '/?.lua;' .. package.path
+package.path = USERDIR .. '/?/init.lua;' .. package.path
 
