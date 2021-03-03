@@ -542,7 +542,7 @@ function core.load_plugins()
       if system.get_file_info(plugin_path).type == "file" then
         basename = basename:match("(.-)%.lua$")
       end
-      if config[basename] ~= false then
+      if basename ~= nil and config[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
         -- Normally a log line is added for each loaded plugin which is a
