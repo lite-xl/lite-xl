@@ -188,8 +188,14 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
 #endif
     renderer_alpha.set_font_height(font_height_reduced);
 
-    int *index = new int[num_chars];
-    agg::rect_i *bounds = new agg::rect_i[num_chars];
+    int *index = (int *) malloc(num_chars * sizeof(int));
+    agg::rect_i *bounds = (agg::rect_i *) malloc(num_chars * sizeof(agg::rect_i));
+    if (!index || !bounds) {
+        free(index);
+        free(bounds);
+        return NULL;
+    }
+
     int x_size_sum = 0, glyph_count = 0;
     for (int i = 0; i < num_chars; i++) {
         int codepoint = first_char + i;
@@ -221,8 +227,7 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         i = i + 1;
     }
 
-    if (glyph_count == 0) return NULL;
-    const int pixels_width = (x_size_sum / glyph_count) * 16;
+    const int pixels_width = glyph_count > 0 ? (x_size_sum / glyph_count) * 16 : 12;
 
     // dry run simulating pixel position to estimate required image's height
     int x = x_start, y = 0, y_bottom = y;
@@ -238,15 +243,27 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         x = x + gbounds.x2 + 2 * subpixel_scale;
     }
 
+    agg::int8u *cover_swap_buffer = (agg::int8u *) malloc(sizeof(agg::int8u) * (pixels_width * subpixel_scale));
+    if (!cover_swap_buffer) {
+        free(index);
+        free(bounds);
+        return NULL;
+    }
+
     const int pixels_height = -y_bottom + 1;
     const int pixel_size = 1;
     FR_Bitmap *image = FR_Bitmap_New(font_renderer, pixels_width, pixels_height);
+    if (!image) {
+        free(index);
+        free(bounds);
+        free(cover_swap_buffer);
+        return NULL;
+    }
 
     agg::int8u *pixels = image->pixels;
     memset(pixels, 0x00, pixels_width * pixels_height * subpixel_scale * pixel_size);
     agg::rendering_buffer ren_buf(pixels, pixels_width * subpixel_scale, pixels_height, -pixels_width * subpixel_scale * pixel_size);
 
-    agg::int8u *cover_swap_buffer = new agg::int8u[pixels_width * subpixel_scale];
     // The variable y_bottom will be used to go down to the next row by taking into
     // account the space occupied by each glyph of the current row along the y direction.
     x = x_start;
@@ -293,9 +310,10 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         // When subpixel is activated we need one padding pixel on the left and on the right.
         x = x + gbounds.x2 + 2 * subpixel_scale;
     }
-    delete [] index;
-    delete [] bounds;
-    delete [] cover_swap_buffer;
+
+    free(index);
+    free(bounds);
+    free(cover_swap_buffer);
     return image;
 }
 
