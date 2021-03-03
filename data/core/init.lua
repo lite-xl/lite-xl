@@ -537,8 +537,11 @@ function core.load_plugins()
   local no_errors = true
   for _, root_dir in ipairs {USERDIR, DATADIR} do
     local files = system.list_dir(root_dir .. "/plugins")
-    for _, filename in ipairs(files or {}) do
-      local basename = filename:gsub(".lua$", "")
+    for _, plugin_path in ipairs(files or {}) do
+      local basename = common.basename(plugin_path)
+      if system.get_file_info(plugin_path).type == "file" then
+        basename = basename:match("(.-)%.lua$")
+      end
       if config[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
