@@ -535,16 +535,19 @@ end
 
 function core.load_plugins()
   local no_errors = true
-  for _, root_dir in ipairs {DATADIR, USERDIR} do
+  for _, root_dir in ipairs {USERDIR, DATADIR} do
     local files = system.list_dir(root_dir .. "/plugins")
-    for _, filename in ipairs(files or {}) do
-      local basename = filename:gsub(".lua$", "")
-      if config[basename] ~= false then
+    for _, plugin_path in ipairs(files or {}) do
+      local basename = common.basename(plugin_path)
+      if system.get_file_info(plugin_path).type == "file" then
+        basename = basename:match("(.-)%.lua$")
+      end
+      if basename ~= nil and config[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
         -- Normally a log line is added for each loaded plugin which is a
         -- good thing. Unfortunately we load the user module before the plugins
-        -- so all the messages here can fill the log screen and hide an evential
+        -- so all the messages here can fill the log screen and hide an eventual
         -- user module's error.
         -- if ok then core.log_quiet("Loaded plugin %q", modname) end
         if not ok then
@@ -760,7 +763,7 @@ function core.step()
   local did_keymap = false
   local mouse_moved = false
   local mouse = { x = 0, y = 0, dx = 0, dy = 0 }
-  
+
 
   for type, a,b,c,d in system.poll_event do
     if type == "mousemoved" then
