@@ -109,11 +109,6 @@ static GlyphSet* load_glyphset(RenFont *font, int idx) {
   set->image = FR_Bake_Font_Bitmap(font->renderer, font->height, idx << 8, 256, set->glyphs);
   check_alloc(set->image);
 
-  /* adjust glyph's xadvance */
-  for (int i = 0; i < 256; i++) {
-    set->glyphs[i].xadvance = floor(set->glyphs[i].xadvance + 0.5);
-  }
-
   return set;
 }
 
@@ -188,13 +183,14 @@ int ren_get_font_width(RenFont *font, const char *text) {
   int x = 0;
   const char *p = text;
   unsigned codepoint;
+  const int subpixel_scale = FR_Subpixel_Scale(font->renderer);
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
     FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     x += g->xadvance;
   }
-  return x;
+  return FR_XADVANCE_TO_PIXELS(x, subpixel_scale);
 }
 
 
@@ -291,15 +287,17 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
   unsigned codepoint;
   SDL_Surface *surf = SDL_GetWindowSurface(window);
   FR_Color color_fr = { .r = color.r, .g = color.g, .b = color.b };
+  const int subpixel_scale = FR_Subpixel_Scale(font->renderer);
+  int x_mult = subpixel_scale * x;
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
     FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     if (color.a != 0) {
       FR_Blend_Glyph(font->renderer, &clip,
-        x, y, (uint8_t *) surf->pixels, surf->w, set->image, g, color_fr);
+        x_mult, y, (uint8_t *) surf->pixels, surf->w, set->image, g, color_fr);
     }
-    x += g->xadvance;
+    x_mult += g->xadvance;
   }
-  return x;
+  return FR_XADVANCE_TO_PIXELS(x_mult, subpixel_scale);
 }
