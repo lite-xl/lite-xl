@@ -535,15 +535,13 @@ end
 
 function core.load_plugins()
   local no_errors = true
-  local loaded = {}
   for _, root_dir in ipairs {USERDIR, DATADIR} do
     local files = system.list_dir(root_dir .. "/plugins")
     for _, filename in ipairs(files or {}) do
       local basename = filename:gsub(".lua$", "")
-      if config[basename] ~= false and not loaded[basename] then
+      if config[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
-        loaded[basename] = ok
         -- Normally a log line is added for each loaded plugin which is a
         -- good thing. Unfortunately we load the user module before the plugins
         -- so all the messages here can fill the log screen and hide an eventual
