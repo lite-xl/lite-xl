@@ -233,13 +233,17 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     for (int i = 0; i < num_chars; i++) {
         const agg::rect_i& gbounds = bounds[index[i]];
         if (gbounds.x2 < gbounds.x1) continue;
-        if (x + gbounds.x2 + 1 >= pixels_width * subpixel_scale) {
+        // 1. It is very important to ensure that the x's increment below (1) and in
+        // (2), (3) and (4) are perfectly the same.
+        if (x + gbounds.x2 + 3 * subpixel_scale >= pixels_width * subpixel_scale) {
             x = x_start;
             y = y_bottom;
         }
+        // 5. Ensure that y's increment below is exactly the same to the one used in (6)
         const int glyph_y_bottom = y - 2 * pad_y - (gbounds.y2 - gbounds.y1);
         y_bottom = (y_bottom > glyph_y_bottom ? glyph_y_bottom : y_bottom);
-        x = x + gbounds.x2 + 2 * subpixel_scale;
+        // 2. Ensure x's increment is aligned with (1)
+        x = x + gbounds.x2 + 3 * subpixel_scale;
     }
 
     const int pixels_height = -y_bottom + 1;
@@ -262,13 +266,15 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         const agg::rect_i& gbounds = bounds[index[i]];
         if (gbounds.x2 < gbounds.x1) continue;
 
-        if (x + gbounds.x2 + 1 >= pixels_width * subpixel_scale) {
+        // 3. Ensure x's increment is aligned with (1)
+        if (x + gbounds.x2 + 3 * subpixel_scale >= pixels_width * subpixel_scale) {
             // No more space along x, begin writing the row below.
             x = x_start;
             y = y_bottom;
         }
 
         const int y_baseline = y - pad_y - gbounds.y2;
+        // 6. Ensure the y's increment below is aligned with the increment used in (5)
         const int glyph_y_bottom = y - 2 * pad_y - (gbounds.y2 - gbounds.y1);
         y_bottom = (y_bottom > glyph_y_bottom ? glyph_y_bottom : y_bottom);
 
@@ -296,8 +302,10 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         }
         glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
 
-        // When subpixel is activated we need one padding pixel on the left and on the right.
-        x = x + gbounds.x2 + 2 * subpixel_scale;
+        // When subpixel is activated we need one padding pixel on the left and on the right
+        // and one more because of subpixel positioning.
+        // 4. Ensure x's increment is aligned with (1)
+        x = x + gbounds.x2 + 3 * subpixel_scale;
     }
     delete [] index;
     delete [] bounds;
