@@ -108,8 +108,8 @@ function StatusView:get_items()
     local line, col = dv.doc:get_selection()
     local dirty = dv.doc:is_dirty()
     local indent = dv.doc.indent_info
-    local indent_label = indent.type == "hard" and "tabs: " or "spaces: "
-    local indent_size = tostring(indent.size) .. (indent.confirmed and "" or "*")
+    local indent_label = (indent and indent.type == "hard") and "tabs: " or "spaces: "
+    local indent_size = indent and tostring(indent.size) .. (indent.confirmed and "" or "*") or "unknown"
 
     return {
       dirty and style.accent or style.text, style.icon_font, "f",
