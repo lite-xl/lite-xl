@@ -60,6 +60,15 @@ static void init_window_icon(void) {
 #endif
 }
 
+#ifdef _WIN32
+#define LITE_OS_HOME "USERPROFILE"
+#define LITE_PATHSEP_PATTERN "\\\\"
+#define LITE_NONPATHSEP_PATTERN "[^\\\\]"
+#else
+#define LITE_OS_HOME "HOME"
+#define LITE_PATHSEP_PATTERN "/"
+#define LITE_NONPATHSEP_PATTERN "[^/]"
+#endif
 
 int main(int argc, char **argv) {
 #ifdef _WIN32
@@ -117,13 +126,9 @@ init_lua:
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
-#ifdef _WIN32
-    "  HOME = os.getenv('USERPROFILE')\n"
-#else
-    "  HOME = os.getenv('HOME')\n"
-#endif
-    "  local prefix = EXEFILE:match(\"^(.+)[/\\\\]bin[/\\\\][^/\\\\]+$\")\n"
-    "  local exedir = EXEFILE:match(\"^(.+)[/\\\\][^/\\\\]+$\")\n"
+    "  HOME = os.getenv('" LITE_OS_HOME "')\n"
+    "  local exedir = EXEFILE:match(\"^(.+)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "+$\")\n"
+    "  local prefix = exedir:match(\"^(.+)" LITE_PATHSEP_PATTERN "bin$\")\n"
     "  dofile((prefix and prefix .. '/share/lite-xl' or exedir .. '/data') .. '/core/start.lua')\n"
     "  core = require('core')\n"
     "  core.init()\n"
