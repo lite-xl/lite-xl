@@ -123,7 +123,8 @@ init_lua:
     "  HOME = os.getenv('HOME')\n"
 #endif
     "  local prefix = EXEFILE:match(\"^(.+)[/\\\\]bin[/\\\\][^/\\\\]+$\")\n"
-    "  dofile((prefix and prefix .. '/share/lite-xl' or 'data') .. '/core/start.lua')\n"
+    "  local exedir = EXEFILE:match(\"^(.+)[/\\\\][^/\\\\]+$\")\n"
+    "  dofile((prefix and prefix .. '/share/lite-xl' or exedir .. '/data') .. '/core/start.lua')\n"
     "  core = require('core')\n"
     "  core.init()\n"
     "  core.run()\n"
