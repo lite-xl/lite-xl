@@ -258,6 +258,30 @@ static int f_show_confirm_dialog(lua_State *L) {
 }
 
 
+static int f_show_fatal_error(lua_State *L) {
+  const char *title = luaL_checkstring(L, 1);
+  const char *msg = luaL_checkstring(L, 2);
+
+#ifdef _WIN32
+  MessageBox(0, msg, title, MB_OK | MB_ICONERROR);
+
+#else
+  SDL_MessageBoxButtonData buttons[] = {
+    { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Ok" },
+  };
+  SDL_MessageBoxData data = {
+    .title = title,
+    .message = msg,
+    .numbuttons = 1,
+    .buttons = buttons,
+  };
+  int buttonid;
+  SDL_ShowMessageBox(&data, &buttonid);
+#endif
+  return 0;
+}
+
+
 static int f_chdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
   int err = chdir(path);
@@ -441,6 +465,7 @@ static const luaL_Reg lib[] = {
   { "set_window_size",     f_set_window_size     },
   { "window_has_focus",    f_window_has_focus    },
   { "show_confirm_dialog", f_show_confirm_dialog },
+  { "show_fatal_error",    f_show_fatal_error    },
   { "chdir",               f_chdir               },
   { "mkdir",               f_mkdir               },
   { "list_dir",            f_list_dir            },

@@ -406,7 +406,7 @@ function core.init()
     end
     project_dir_abs = system.absolute_path(".")
     if not core.set_project_dir(project_dir_abs) then
-      print("internal error: cannot set project directory to cwd")
+      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
       os.exit(1)
     end
   end
