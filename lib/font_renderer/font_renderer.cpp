@@ -61,6 +61,10 @@ void FR_Renderer_Free(FR_Renderer *font_renderer) {
     delete font_renderer;
 }
 
+int FR_Subpixel_Scale(FR_Renderer *font_renderer) {
+    return font_renderer->subpixel_scale();
+}
+
 int FR_Load_Font(FR_Renderer *font_renderer, const char *filename) {
     bool success = font_renderer->renderer_alpha().load_font(filename);
     return (success ? 0 : 1);
@@ -234,13 +238,17 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     for (int i = 0; i < num_chars; i++) {
         const agg::rect_i& gbounds = bounds[index[i]];
         if (gbounds.x2 < gbounds.x1) continue;
-        if (x + gbounds.x2 + 1 >= pixels_width * subpixel_scale) {
+        // 1. It is very important to ensure that the x's increment below (1) and in
+        // (2), (3) and (4) are perfectly the same.
+        if (x + gbounds.x2 + 3 * subpixel_scale >= pixels_width * subpixel_scale) {
             x = x_start;
             y = y_bottom;
         }
+        // 5. Ensure that y's increment below is exactly the same to the one used in (6)
         const int glyph_y_bottom = y - 2 * pad_y - (gbounds.y2 - gbounds.y1);
         y_bottom = (y_bottom > glyph_y_bottom ? glyph_y_bottom : y_bottom);
-        x = x + gbounds.x2 + 2 * subpixel_scale;
+        // 2. Ensure x's increment is aligned with (1)
+        x = x + gbounds.x2 + 3 * subpixel_scale;
     }
 
     agg::int8u *cover_swap_buffer = (agg::int8u *) malloc(sizeof(agg::int8u) * (pixels_width * subpixel_scale));
@@ -275,13 +283,15 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         const agg::rect_i& gbounds = bounds[index[i]];
         if (gbounds.x2 < gbounds.x1) continue;
 
-        if (x + gbounds.x2 + 1 >= pixels_width * subpixel_scale) {
+        // 3. Ensure x's increment is aligned with (1)
+        if (x + gbounds.x2 + 3 * subpixel_scale >= pixels_width * subpixel_scale) {
             // No more space along x, begin writing the row below.
             x = x_start;
             y = y_bottom;
         }
 
         const int y_baseline = y - pad_y - gbounds.y2;
+        // 6. Ensure the y's increment below is aligned with the increment used in (5)
         const int glyph_y_bottom = y - 2 * pad_y - (gbounds.y2 - gbounds.y1);
         y_bottom = (y_bottom > glyph_y_bottom ? glyph_y_bottom : y_bottom);
 
@@ -300,15 +310,19 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
 
         glyph_info.xoff = 0;
         glyph_info.yoff = -pad_y - gbounds.y2 + ascender_px;
-        glyph_info.xadvance = (x_next - x) / subpixel_scale;
+        // Note that below the xadvance is in pixels times the subpixel_scale.
+        // This is meant for subpixel positioning.
+        glyph_info.xadvance = roundf(x_next - x);
 
         if (subpixel_scale != 1 && glyph_info.x1 > glyph_info.x0) {
             glyph_lut_convolution(ren_buf, lcd_lut, cover_swap_buffer, glyph_info);
         }
         glyph_trim_rect(ren_buf, glyph_info, subpixel_scale);
 
-        // When subpixel is activated we need one padding pixel on the left and on the right.
-        x = x + gbounds.x2 + 2 * subpixel_scale;
+        // When subpixel is activated we need one padding pixel on the left and on the right
+        // and one more because of subpixel positioning.
+        // 4. Ensure x's increment is aligned with (1)
+        x = x + gbounds.x2 + 3 * subpixel_scale;
     }
 
     free(index);
@@ -364,15 +378,18 @@ void blend_solid_hspan_subpixel(agg::rendering_buffer& rbuf, agg::lcd_distributi
 
 // destination implicitly BGRA32. Source implictly single-byte renderer_alpha coverage with subpixel scale = 3.
 // FIXME: consider using something like RenColor* instead of uint8_t * for dst.
-void FR_Blend_Glyph(FR_Renderer *font_renderer, FR_Clip_Area *clip, int x, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
+void FR_Blend_Glyph(FR_Renderer *font_renderer, FR_Clip_Area *clip, int x_mult, int y, uint8_t *dst, int dst_width, const FR_Bitmap *glyphs_bitmap, const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color) {
     agg::lcd_distribution_lut& lcd_lut = font_renderer->lcd_distribution_lut();
     const int subpixel_scale = font_renderer->subpixel_scale();
     const int pixel_size = 4; // Pixel size for BGRA32 format.
+
+    int x = x_mult / subpixel_scale;
 
     x += glyph->xoff;
     y += glyph->yoff;
 
     int glyph_x = glyph->x0, glyph_y = glyph->y0;
+    int glyph_x_subpixel = -(x_mult % subpixel_scale);
     int glyph_width  = glyph->x1 - glyph->x0;
     int glyph_height = glyph->y1 - glyph->y0;
 
@@ -389,7 +406,7 @@ void FR_Blend_Glyph(FR_Renderer *font_renderer, FR_Clip_Area *clip, int x, int y
     dst += (x + y * dst_width) * pixel_size;
     agg::rendering_buffer dst_ren_buf(dst, glyph_width, glyph_height, dst_width * pixel_size);
 
-    uint8_t *src = glyphs_bitmap->pixels + (glyph_x + glyph_y * glyphs_bitmap->width) * subpixel_scale;
+    uint8_t *src = glyphs_bitmap->pixels + (glyph_x + glyph_y * glyphs_bitmap->width) * subpixel_scale + glyph_x_subpixel;
     int src_stride = glyphs_bitmap->width * subpixel_scale;
 
     const agg::rgba8 color_a(color.r, color.g, color.b);

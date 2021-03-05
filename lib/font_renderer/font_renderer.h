@@ -49,6 +49,9 @@ void            FR_Blend_Glyph(FR_Renderer *font_renderer,
                     uint8_t *dst, int dst_width,
                     const FR_Bitmap *glyphs_bitmap,
                     const FR_Bitmap_Glyph_Metrics *glyph, FR_Color color);
+int             FR_Subpixel_Scale(FR_Renderer *);
+
+#define FR_XADVANCE_TO_PIXELS(x, scale) (((x) + (scale) / 2) / (scale))
 
 #ifdef __cplusplus
 }
