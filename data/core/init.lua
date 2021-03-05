@@ -877,7 +877,7 @@ end
 
 function core.on_error(err)
   -- write error to file
-  local fp = io.open(EXEDIR .. "/error.txt", "wb")
+  local fp = io.open(USERDIR .. "/error.txt", "wb")
   fp:write("Error: " .. tostring(err) .. "\n")
   fp:write(debug.traceback(nil, 4))
   fp:close()
