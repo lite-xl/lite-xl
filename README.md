@@ -60,9 +60,12 @@ sudo apt install meson
 
 To build Lite XL with Meson the commands below can be used:
 ```sh
+git clone https://github.com/franko/lite-xl
+cd lite-xl/
 meson setup build
-meson compile -C build
-meson install -C build
+meson compile
+cd build
+meson install
 ```
 
 When performing the "meson setup" command you may enable the "portable" option to choose the
