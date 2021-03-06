@@ -179,18 +179,20 @@ int ren_get_font_tab_width(RenFont *font) {
 }
 
 
-int ren_get_font_width(RenFont *font, const char *text) {
+int ren_get_font_width(RenFont *font, const char *text, int *subpixel_scale) {
   int x = 0;
   const char *p = text;
   unsigned codepoint;
-  const int subpixel_scale = FR_Subpixel_Scale(font->renderer);
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
     FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     x += g->xadvance;
   }
-  return FR_XADVANCE_TO_PIXELS(x, subpixel_scale);
+  if (subpixel_scale) {
+    *subpixel_scale = FR_Subpixel_Scale(font->renderer);
+  }
+  return x;
 }
 
 
@@ -282,7 +284,7 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
   }
 }
 
-int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
+void ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
   const char *p = text;
   unsigned codepoint;
   SDL_Surface *surf = SDL_GetWindowSurface(window);
@@ -299,5 +301,22 @@ int ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color)
     }
     x_mult += g->xadvance;
   }
-  return FR_XADVANCE_TO_PIXELS(x_mult, subpixel_scale);
+}
+
+
+int ren_font_subpixel_round(int width, int subpixel_scale, int orientation) {
+  int w_mult;
+  if (orientation < 0) {
+    w_mult = width;
+  } else if (orientation == 0) {
+    w_mult = width + subpixel_scale / 2;
+  } else {
+    w_mult = width + subpixel_scale - 1;
+  }
+  return w_mult / subpixel_scale;
+}
+
+
+int ren_get_font_subpixel_scale(RenFont *font) {
+  return FR_Subpixel_Scale(font->renderer);
 }

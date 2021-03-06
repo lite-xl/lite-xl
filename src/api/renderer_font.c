@@ -66,7 +66,24 @@ static int f_gc(lua_State *L) {
 static int f_get_width(lua_State *L) {
   RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
   const char *text = luaL_checkstring(L, 2);
-  lua_pushnumber(L, ren_get_font_width(*self, text) );
+  int subpixel_scale;
+  int w = ren_get_font_width(*self, text, &subpixel_scale);
+  lua_pushnumber(L, ren_font_subpixel_round(w, subpixel_scale, 0));
+  return 1;
+}
+
+
+static int f_subpixel_scale(lua_State *L) {
+  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  lua_pushnumber(L, ren_get_font_subpixel_scale(*self));
+  return 1;
+}
+
+
+static int f_get_width_subpixel(lua_State *L) {
+  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  const char *text = luaL_checkstring(L, 2);
+  lua_pushnumber(L, ren_get_font_width(*self, text, NULL));
   return 1;
 }
 
@@ -79,11 +96,13 @@ static int f_get_height(lua_State *L) {
 
 
 static const luaL_Reg lib[] = {
-  { "__gc",          f_gc            },
-  { "load",          f_load          },
-  { "set_tab_width", f_set_tab_width },
-  { "get_width",     f_get_width     },
-  { "get_height",    f_get_height    },
+  { "__gc",               f_gc                 },
+  { "load",               f_load               },
+  { "set_tab_width",      f_set_tab_width      },
+  { "get_width",          f_get_width          },
+  { "get_width_subpixel", f_get_width_subpixel },
+  { "get_height",         f_get_height         },
+  { "subpixel_scale",     f_subpixel_scale     },
   { NULL, NULL }
 };
 

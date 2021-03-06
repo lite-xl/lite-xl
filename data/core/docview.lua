@@ -152,10 +152,12 @@ function DocView:get_x_offset_col(line, x)
   local text = self.doc.lines[line]
 
   local xoffset, last_i, i = 0, 1, 1
+  local subpixel_scale = self:get_font():subpixel_scale();
+  local x_subpixel = subpixel_scale * x + subpixel_scale / 2
   for char in common.utf8_chars(text) do
-    local w = self:get_font():get_width(char)
-    if xoffset >= x then
-      return (xoffset - x > w / 2) and last_i or i
+    local w = self:get_font():get_width_subpixel(char)
+    if xoffset >= subpixel_scale * x then
+      return (xoffset - x_subpixel > w / 2) and last_i or i
     end
     xoffset = xoffset + w
     last_i = i

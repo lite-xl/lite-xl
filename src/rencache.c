@@ -130,10 +130,12 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
 
 
 int rencache_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
+  int subpixel_scale;
   RenRect rect;
   rect.x = x;
   rect.y = y;
-  rect.width = ren_get_font_width(font, text);
+  int w = ren_get_font_width(font, text, &subpixel_scale);
+  rect.width = ren_font_subpixel_round(w, subpixel_scale, 0);
   rect.height = ren_get_font_height(font);
 
   if (rects_overlap(screen_rect, rect)) {
