@@ -47,8 +47,6 @@ DocView.translate = {
   end,
 }
 
-local blink_period = 0.8
-
 
 function DocView:new(doc)
   DocView.super.new(self)
@@ -290,9 +288,9 @@ function DocView:update()
 
   -- update blink timer
   if self == core.active_view and not self.mouse_selecting then
-    local n = blink_period / 2
+    local n = config.blink_period / 2
     local prev = self.blink_timer
-    self.blink_timer = (self.blink_timer + 1 / config.fps) % blink_period
+    self.blink_timer = (self.blink_timer + 1 / config.fps) % config.blink_period
     if (self.blink_timer > n) ~= (prev > n) then
       core.redraw = true
     end
@@ -344,7 +342,7 @@ function DocView:draw_line_body(idx, x, y)
 
   -- draw caret if it overlaps this line
   if line == idx and core.active_view == self
-  and self.blink_timer < blink_period / 2
+  and self.blink_timer < config.blink_period / 2
   and system.window_has_focus() then
     local lh = self:get_line_height()
     local x1 = x + self:get_col_x_offset(line, col)
