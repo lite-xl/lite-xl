@@ -626,7 +626,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
       x = common.clamp(x, 0, self.root_node.size.x * 0.95)
       resize_child_node(node, "x", x, dx)
     elseif node.type == "vsplit" then
-      y = common.clamp(x, 0, self.root_node.size.y * 0.95)
+      y = common.clamp(y, 0, self.root_node.size.y * 0.95)
       resize_child_node(node, "y", y, dy)
     end
     node.divider = common.clamp(node.divider, 0.01, 0.99)
