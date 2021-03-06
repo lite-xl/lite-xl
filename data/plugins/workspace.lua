@@ -159,39 +159,11 @@ local function load_node(node, t)
 end
 
 
-local function split_on_slash(s, sep_pattern)
-  local t = {}
-  for fragment in string.gmatch(s, "([^/\\]+)") do
-    t[#t + 1] = fragment
-  end
-  return t
-end
-
-
-local function relative_path(ref_dir, dir)
-  local ref_ls = split_on_slash(ref_dir)
-  local dir_ls = split_on_slash(dir)
-  local i = 1
-  while i <= #ref_ls do
-    if dir_ls[i] ~= ref_ls[i] then
-      break
-    end
-    i = i + 1
-  end
-  local ups = ""
-  for k = i, #ref_ls do
-    ups = ups .. "../"
-  end
-  local rel_path = ups .. table.concat(dir_ls, "/", i)
-  return rel_path ~= "" and rel_path or "."
-end
-
-
 local function save_directories()
   local project_dir = core.project_dir
   local dir_list = {}
   for i = 2, #core.project_directories do
-    dir_list[#dir_list + 1] = relative_path(project_dir, core.project_directories[i].name)
+    dir_list[#dir_list + 1] = common.relative_path(project_dir, core.project_directories[i].name)
   end
   return dir_list
 end

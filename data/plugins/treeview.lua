@@ -185,7 +185,8 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     core.try(function()
-      core.root_view:open_doc(core.open_doc(self.hovered_item.abs_filename))
+      local doc_filename = common.relative_path(core.project_dir, self.hovered_item.abs_filename)
+      core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
 end
