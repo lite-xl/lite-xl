@@ -42,5 +42,6 @@ int ren_font_subpixel_round(int width, int subpixel_scale, int orientation);
 void ren_draw_rect(RenRect rect, RenColor color);
 void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color);
 void ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color);
+void ren_draw_text_subpixel(RenFont *font, const char *text, int x_subpixel, int y, RenColor color);
 
 #endif

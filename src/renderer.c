@@ -284,23 +284,28 @@ void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color)
   }
 }
 
-void ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
+
+void ren_draw_text_subpixel(RenFont *font, const char *text, int x_subpixel, int y, RenColor color) {
   const char *p = text;
   unsigned codepoint;
   SDL_Surface *surf = SDL_GetWindowSurface(window);
   FR_Color color_fr = { .r = color.r, .g = color.g, .b = color.b };
-  const int subpixel_scale = FR_Subpixel_Scale(font->renderer);
-  int x_mult = subpixel_scale * x;
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
     FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     if (color.a != 0) {
       FR_Blend_Glyph(font->renderer, &clip,
-        x_mult, y, (uint8_t *) surf->pixels, surf->w, set->image, g, color_fr);
+        x_subpixel, y, (uint8_t *) surf->pixels, surf->w, set->image, g, color_fr);
     }
-    x_mult += g->xadvance;
+    x_subpixel += g->xadvance;
   }
+}
+
+
+void ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color) {
+  const int subpixel_scale = FR_Subpixel_Scale(font->renderer);
+  ren_draw_text_subpixel(font, text, subpixel_scale * x, y, color);
 }
 
 

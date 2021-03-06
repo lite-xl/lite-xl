@@ -78,20 +78,33 @@ static int f_draw_text(lua_State *L) {
   int x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(*font, text, x, y, color);
+  x = rencache_draw_text(*font, text, x, y, color, false);
   lua_pushnumber(L, x);
   return 1;
 }
 
 
+static int f_draw_text_subpixel(lua_State *L) {
+  RenFont **font = luaL_checkudata(L, 1, API_TYPE_FONT);
+  const char *text = luaL_checkstring(L, 2);
+  int x_subpixel = luaL_checknumber(L, 3);
+  int y = luaL_checknumber(L, 4);
+  RenColor color = checkcolor(L, 5, 255);
+  x_subpixel = rencache_draw_text(*font, text, x_subpixel, y, color, true);
+  lua_pushnumber(L, x_subpixel);
+  return 1;
+}
+
+
 static const luaL_Reg lib[] = {
-  { "show_debug",    f_show_debug    },
-  { "get_size",      f_get_size      },
-  { "begin_frame",   f_begin_frame   },
-  { "end_frame",     f_end_frame     },
-  { "set_clip_rect", f_set_clip_rect },
-  { "draw_rect",     f_draw_rect     },
-  { "draw_text",     f_draw_text     },
+  { "show_debug",         f_show_debug         },
+  { "get_size",           f_get_size           },
+  { "begin_frame",        f_begin_frame        },
+  { "end_frame",          f_end_frame          },
+  { "set_clip_rect",      f_set_clip_rect      },
+  { "draw_rect",          f_draw_rect          },
+  { "draw_text",          f_draw_text          },
+  { "draw_text_subpixel", f_draw_text_subpixel },
   { NULL,            NULL            }
 };
 
