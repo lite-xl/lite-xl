@@ -2,9 +2,15 @@
 
 set -o errexit
 
+# accept argument in the form
+github_raw_content () {
+  echo "https://raw.githubusercontent.com/$1"
+}
+
 option_portable=off
 option_copy=on
 pargs=()
+plugins=()
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     -portable)
@@ -12,6 +18,10 @@ while [[ "$#" -gt 0 ]]; do
     ;;
     -keep)
     option_copy=off
+    ;;
+    -plugin=*)
+    # should be like -plugin=franko/lite-plugins/master/plugins/autowrap.lua
+    plugins+=("$(github_raw_content "${1#-plugin=}")")
     ;;
     -global)
     option_global=on
@@ -81,8 +91,15 @@ run_lite () {
   fi
 }
 
+fetch_plugins () {
+  for name in "$@"; do
+    curl --insecure -L "$name" -o "$datadir/plugins/${name##*/}"
+  done
+}
+
 if [ $option_copy == on ]; then
   build_lite
   copy_lite_build
 fi
+fetch_plugins "${plugins[@]}"
 run_lite
