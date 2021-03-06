@@ -13,6 +13,10 @@ while [[ "$#" -gt 0 ]]; do
     -keep)
     option_copy=off
     ;;
+    -plugin=*)
+    # should be like -plugin=franko/lite-plugins/master/plugins/autowrap.lua
+    plugins+=("${1#-plugin=}")
+    ;;
     -global)
     option_global=on
     ;;
@@ -81,8 +85,22 @@ run_lite () {
   fi
 }
 
+fetch_plugins () {
+  for name in "$@"; do
+    local url="$(github_raw_content "$name")"
+    local modname="${url##*/}"
+    if [ "$modname" == init.lua ]; then
+      local m1="${name#*/}"
+      modname="${m1%%/*}.lua"
+    fi
+    echo "installed $name as $modname from $url"
+    curl --insecure -L "$url" -o "$datadir/plugins/${modname}"
+  done
+}
+
 if [ $option_copy == on ]; then
   build_lite
   copy_lite_build
 fi
+fetch_plugins "${plugins[@]}"
 run_lite
