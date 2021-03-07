@@ -66,9 +66,8 @@ function keymap.on_key_pressed(k)
     if commands then
       for _, cmd in ipairs(commands) do
         local performed = command.perform(cmd)
-        if performed then break end
+        if performed then return true end
       end
-      return true
     end
   end
   return false
