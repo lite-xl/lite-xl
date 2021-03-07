@@ -245,7 +245,7 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     }
 
     const int glyph_avg_width = glyph_count > 0 ? x_size_sum / (glyph_count * subpixel_scale) : font_height;
-    const int pixels_width = glyph_avg_width * 20;
+    const int pixels_width = glyph_avg_width * 28;
 
     // dry run simulating pixel position to estimate required image's height
     int x = x_start, y = 0, y_bottom = y;
@@ -255,7 +255,7 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         // 1. It is very important to ensure that the x's increment below (1) and in
         // (2), (3) and (4) are perfectly the same.
         // Note that x_step below is always an integer multiple of subpixel_scale.
-        const int x_step = gbounds.x2 + 2 * subpixel_scale;
+        const int x_step = gbounds.x2 + 3 * subpixel_scale;
         if (x + x_step >= pixels_width * subpixel_scale) {
             x = x_start;
             y = y_bottom;
@@ -303,7 +303,12 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
 
         // 3. Ensure x's increment is aligned with (1)
         // Note that x_step below is always an integer multiple of subpixel_scale.
-        const int x_step = gbounds.x2 + 2 * subpixel_scale;
+        // We need 3 * subpixel_scale because:
+        // . +1 pixel on the left, because of RGB color filter
+        // . +1 pixel on the right, because of RGB color filter
+        // . +1 pixel on the right, because of subpixel positioning
+        // and each pixel requires "subpixel_scale" sub-pixels.
+        const int x_step = gbounds.x2 + 3 * subpixel_scale;
         if (x + x_step >= pixels_width * subpixel_scale) {
             // No more space along x, begin writing the row below.
             x = x_start;
