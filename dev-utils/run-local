@@ -85,6 +85,10 @@ run_lite () {
   fi
 }
 
+github_raw_content () {
+  echo "https://raw.githubusercontent.com/$1"
+}
+
 fetch_plugins () {
   for name in "$@"; do
     local url="$(github_raw_content "$name")"
