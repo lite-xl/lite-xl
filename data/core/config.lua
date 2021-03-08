@@ -19,6 +19,7 @@ config.line_limit = 80
 config.max_symbols = 4000
 config.max_project_files = 2000
 config.transitions = true
+config.animation_rate = 1.0
 config.blink_period = 0.8
 
 -- Disable plugin loading setting to false the config entry

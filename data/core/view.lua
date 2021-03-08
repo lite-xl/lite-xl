@@ -17,6 +17,7 @@ function View:new()
 end
 
 function View:move_towards(t, k, dest, rate)
+  rate = rate * config.animation_rate
   if type(t) ~= "table" then
     return self:move_towards(self, t, k, dest, rate)
   end
