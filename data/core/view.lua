@@ -17,15 +17,16 @@ function View:new()
 end
 
 function View:move_towards(t, k, dest, rate)
-  rate = rate * config.animation_rate
   if type(t) ~= "table" then
     return self:move_towards(self, t, k, dest, rate)
   end
+  rate = rate or 0.5
+  rate = common.clamp(rate * (60/config.fps) * config.animation_rate, 0.0, 1.0)
   local val = t[k]
   if not config.transitions or math.abs(val - dest) < 0.5 then
     t[k] = dest
   else
-    t[k] = common.lerp(val, dest, rate or 0.5)
+    t[k] = common.lerp(val, dest, rate)
   end
   if val ~= dest then
     core.redraw = true
