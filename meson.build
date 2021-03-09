@@ -1,4 +1,4 @@
-project('lite', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
+project('lite', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++11'])
 
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
@@ -13,6 +13,9 @@ if not lua_dep.found()
 endif
 
 sdl_dep = dependency('sdl2', method: 'config-tool')
+
+stb_image_dep = dependency('stb_image')
+fmt_dep = dependency('fmt')
 
 lite_cargs = []
 if get_option('portable')

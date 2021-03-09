@@ -17,7 +17,7 @@ font_renderer_include = include_directories('.')
 
 libfontrenderer = static_library('fontrenderer',
     font_renderer_sources,
-    dependencies: [libagg_dep, freetype_dep],
+    dependencies: [libagg_dep, freetype_dep, stb_image_dep, fmt_dep],
     cpp_args: font_renderer_cdefs,
 )
 

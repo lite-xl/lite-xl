@@ -1,3 +1,5 @@
+#include <fmt/core.h>
+
 #include "font_renderer.h"
 
 #include "agg_lcd_distribution_lut.h"
@@ -6,6 +8,9 @@
 
 #include "font_renderer_alpha.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 // Important: when a subpixel scale is used the width below will be the width in logical pixel.
 // As each logical pixel contains 3 subpixels it means that the 'pixels' pointer
 // will hold enough space for '3 * width' uint8_t values.
@@ -13,6 +18,62 @@ struct FR_Bitmap {
     agg::int8u *pixels;
     int width, height;
 };
+
+static FR_Bitmap *debug_bitmap_to_image_rgb(FR_Bitmap *alpha_bitmap, const int subpixel_scale) {
+    const int w = alpha_bitmap->width, h = alpha_bitmap->height;
+    const int rgb_comp = 3;
+
+    fmt::print("W: {} H: {}\n", w, h);
+
+    FR_Bitmap *rgb_image = (FR_Bitmap *) malloc(sizeof(FR_Bitmap) + w * h * rgb_comp);
+    if (!rgb_image) { return nullptr; }
+    rgb_image->pixels = (agg::int8u *) (rgb_image + 1);
+    rgb_image->width = w;
+    rgb_image->height = h;
+
+    agg::int8u *dst_ptr = rgb_image->pixels, *src_ptr = alpha_bitmap->pixels;
+    for (int y = 0; y < alpha_bitmap->height; y++) {
+        for (int x = 0; x < alpha_bitmap->width; x++) {
+            if (subpixel_scale == 3) {
+                dst_ptr[0] = 0xff - src_ptr[0];
+                dst_ptr[1] = 0xff - src_ptr[1];
+                dst_ptr[2] = 0xff - src_ptr[2];
+            } else {
+                dst_ptr[0] = 0xff - src_ptr[0];
+                dst_ptr[1] = 0xff - src_ptr[0];
+                dst_ptr[2] = 0xff - src_ptr[0];
+            }
+            src_ptr += subpixel_scale;
+            dst_ptr += rgb_comp;
+        }
+    }
+    return rgb_image;
+}
+
+static FR_Bitmap *debug_bitmap_to_image_rgb_subpixel(FR_Bitmap *alpha_bitmap, const int subpixel_scale) {
+    const int w = alpha_bitmap->width, h = alpha_bitmap->height;
+    const int rgb_comp = 3;
+
+    FR_Bitmap *rgb_image = (FR_Bitmap *) malloc(sizeof(FR_Bitmap) + subpixel_scale * w * h * rgb_comp);
+    if (!rgb_image) { return nullptr; }
+    rgb_image->pixels = (agg::int8u *) (rgb_image + 1);
+    rgb_image->width = subpixel_scale * w;
+    rgb_image->height = h;
+
+    agg::int8u *dst_ptr = rgb_image->pixels, *src_ptr = alpha_bitmap->pixels;
+    for (int y = 0; y < alpha_bitmap->height; y++) {
+        for (int x = 0; x < alpha_bitmap->width; x++) {
+            for (int sub = 0; sub < subpixel_scale; sub++) {
+                dst_ptr[0] = 0xff - src_ptr[sub];
+                dst_ptr[1] = 0xff - src_ptr[sub];
+                dst_ptr[2] = 0xff - src_ptr[sub];
+                dst_ptr += rgb_comp;
+            }
+            src_ptr += subpixel_scale;
+        }
+    }
+    return rgb_image;
+}
 
 class FR_Renderer {
 public:
@@ -28,6 +89,8 @@ public:
     font_renderer_alpha& renderer_alpha() { return m_renderer; }
     agg::lcd_distribution_lut& lcd_distribution_lut() { return m_lcd_lut; }
     int subpixel_scale() const { return (m_subpixel ? 3 : 1); }
+
+    std::string debug_font_name;
 
 private:
     font_renderer_alpha m_renderer;
@@ -67,6 +130,12 @@ int FR_Subpixel_Scale(FR_Renderer *font_renderer) {
 
 int FR_Load_Font(FR_Renderer *font_renderer, const char *filename) {
     bool success = font_renderer->renderer_alpha().load_font(filename);
+    if (success) {
+        std::string fullname = filename;
+        size_t a = fullname.find_last_of("/");
+        size_t b = fullname.find_last_of(".");
+        font_renderer->debug_font_name = fullname.substr(a + 1, b - a - 1);
+    }
     return (success ? 0 : 1);
 }
 
@@ -176,6 +245,97 @@ static int div_neg(int n, int p) {
     return n >= 0 ? (n / p) : ((n - p + 1) / p);
 }
 
+static void debug_image_write_glyphs(FR_Bitmap *rgb_image,
+    int subpixel_scale, int num_chars,
+    FR_Bitmap_Glyph_Metrics *glyphs, agg::int32u color)
+{
+    const int rgb_comp = 3;
+    for (int i = 0; i < num_chars; i++) {
+        FR_Bitmap_Glyph_Metrics& gi = glyphs[i];
+
+        int y = gi.y0;
+        agg::int8u *row = rgb_image->pixels + (rgb_image->width * y + gi.x0) * rgb_comp;
+        for (int x = gi.x0; x < gi.x1; x++) {
+            row[0] = (agg::int32u) row[0] * (((color >> 0 ) & 0xff) + 1) / 256;
+            row[1] = (agg::int32u) row[1] * (((color >> 8 ) & 0xff) + 1) / 256;
+            row[2] = (agg::int32u) row[2] * (((color >> 16) & 0xff) + 1) / 256;
+            row += rgb_comp;
+        }
+
+        y = gi.y1;
+        row = rgb_image->pixels + (rgb_image->width * y + gi.x0) * rgb_comp;
+        for (int x = gi.x0; x < gi.x1; x++) {
+            row[0] = (agg::int32u) row[0] * (((color >> 0 ) & 0xff) + 1) / 256;
+            row[1] = (agg::int32u) row[1] * (((color >> 8 ) & 0xff) + 1) / 256;
+            row[2] = (agg::int32u) row[2] * (((color >> 16) & 0xff) + 1) / 256;
+            row += rgb_comp;
+        }
+
+        int x = gi.x0 - gi.xoff;
+        agg::int32u color_off = 0x0000ff;
+        for (int y = gi.y0; y < gi.y1; y++) {
+            row = rgb_image->pixels + (rgb_image->width * y + x) * rgb_comp;
+            row[0] = (agg::int32u) row[0] * (((color_off >> 0 ) & 0xff) + 1) / 256;
+            row[1] = (agg::int32u) row[1] * (((color_off >> 8 ) & 0xff) + 1) / 256;
+            row[2] = (agg::int32u) row[2] * (((color_off >> 16) & 0xff) + 1) / 256;
+        }
+    }
+}
+
+static void debug_image_write_glyphs_subpixel(FR_Bitmap *rgb_image,
+    int subpixel_scale, int num_chars,
+    FR_Bitmap_Glyph_Metrics *glyphs, agg::int32u color)
+{
+    const int rgb_comp = 3;
+    for (int i = 0; i < num_chars; i++) {
+        FR_Bitmap_Glyph_Metrics& gi = glyphs[i];
+
+        int y = gi.y0;
+        agg::int8u *row = rgb_image->pixels + (rgb_image->width * y + subpixel_scale * gi.x0) * rgb_comp;
+        for (int x = gi.x0; x < gi.x1; x++) {
+            for (int sub = 0; sub < subpixel_scale; sub++) {
+                row[0] = (agg::int32u) row[0] * (((color >> 0 ) & 0xff) + 1) / 256;
+                row[1] = (agg::int32u) row[1] * (((color >> 8 ) & 0xff) + 1) / 256;
+                row[2] = (agg::int32u) row[2] * (((color >> 16) & 0xff) + 1) / 256;
+                row += rgb_comp;
+            }
+        }
+
+        y = gi.y1;
+        row = rgb_image->pixels + (rgb_image->width * y + subpixel_scale * gi.x0) * rgb_comp;
+        for (int x = gi.x0; x < gi.x1; x++) {
+            for (int sub = 0; sub < subpixel_scale; sub++) {
+                row[0] = (agg::int32u) row[0] * (((color >> 0 ) & 0xff) + 1) / 256;
+                row[1] = (agg::int32u) row[1] * (((color >> 8 ) & 0xff) + 1) / 256;
+                row[2] = (agg::int32u) row[2] * (((color >> 16) & 0xff) + 1) / 256;
+                row += rgb_comp;
+            }
+        }
+
+        int x = gi.x0 - gi.xoff;
+        agg::int32u color_off = 0x0000ff;
+        for (int y = gi.y0; y < gi.y1; y++) {
+            row = rgb_image->pixels + (rgb_image->width * y + subpixel_scale * x) * rgb_comp;
+            for (int sub = 0; sub < subpixel_scale; sub++) {
+                row[0] = (agg::int32u) row[0] * (((color_off >> 0 ) & 0xff) + 1) / 256;
+                row[1] = (agg::int32u) row[1] * (((color_off >> 8 ) & 0xff) + 1) / 256;
+                row[2] = (agg::int32u) row[2] * (((color_off >> 16) & 0xff) + 1) / 256;
+                row += rgb_comp;
+            }
+        }
+
+        x = gi.x0 - gi.xoff;
+        agg::int32u color_adv = 0xff0000;
+        for (int y = gi.y0; y < gi.y1; y++) {
+            int x_adv = lroundf(gi.xadvance);
+            row = rgb_image->pixels + (rgb_image->width * y + subpixel_scale * x + x_adv) * rgb_comp;
+            row[0] = (agg::int32u) row[0] * (((color_adv >> 0 ) & 0xff) + 1) / 256;
+            row[1] = (agg::int32u) row[1] * (((color_adv >> 8 ) & 0xff) + 1) / 256;
+            row[2] = (agg::int32u) row[2] * (((color_adv >> 16) & 0xff) + 1) / 256;
+        }
+    }
+}
+
 FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     int first_char, int num_chars, FR_Bitmap_Glyph_Metrics *glyphs)
 {
@@ -244,7 +404,8 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
         i = i + 1;
     }
 
-    const int pixels_width = glyph_count > 0 ? (x_size_sum / glyph_count) * 16 : 12;
+    const int glyph_avg_width = glyph_count > 0 ? x_size_sum / (glyph_count * subpixel_scale) : font_height;
+    const int pixels_width = glyph_avg_width * 20;
 
     // dry run simulating pixel position to estimate required image's height
     int x = x_start, y = 0, y_bottom = y;
@@ -275,6 +436,7 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
 
     const int pixels_height = -y_bottom + 1;
     const int pixel_size = 1;
+    fmt::print("image size: {} {}\n", pixels_width, pixels_height);
     FR_Bitmap *image = FR_Bitmap_New(font_renderer, pixels_width, pixels_height);
     if (!image) {
         free(index);
@@ -345,6 +507,23 @@ FR_Bitmap *FR_Bake_Font_Bitmap(FR_Renderer *font_renderer, int font_height,
     free(index);
     free(bounds);
     free(cover_swap_buffer);
+
+    std::string image_filename = fmt::format("{}-{}-{}.png", font_renderer->debug_font_name, first_char, font_height);
+    fmt::print("{}\n", image_filename);
+
+    FR_Bitmap *rgb_image = debug_bitmap_to_image_rgb(image, subpixel_scale);
+    debug_image_write_glyphs(rgb_image, subpixel_scale, num_chars, glyphs, 0x00ff00);
+    stbi_write_png(image_filename.c_str(), rgb_image->width, rgb_image->height, 3, rgb_image->pixels, rgb_image->width * 3);
+    FR_Bitmap_Free(rgb_image);
+
+    std::string image_filename_subpixel = fmt::format("{}-{}-{}-subpixel.png", font_renderer->debug_font_name, first_char, font_height);
+    fmt::print("{}\n", image_filename_subpixel);
+
+    FR_Bitmap *rgb_image_subpixel = debug_bitmap_to_image_rgb_subpixel(image, subpixel_scale);
+    debug_image_write_glyphs_subpixel(rgb_image_subpixel, subpixel_scale, num_chars, glyphs, 0x00ff00);
+    stbi_write_png(image_filename_subpixel.c_str(), rgb_image_subpixel->width, rgb_image_subpixel->height, 3, rgb_image_subpixel->pixels, rgb_image_subpixel->width * 3);
+    FR_Bitmap_Free(rgb_image_subpixel);
+
     return image;
 }
 
