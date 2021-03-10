@@ -2,6 +2,13 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
+### 1.16.x
+
+Made animations independent of framerate, and added a config setting
+`config.animation_rate` for customizing the speed of animations. [#91](https://github.com/franko/lite-xl/issues/91)
+
+Made borders between tabs look cleaner. [#71](https://github.com/franko/lite-xl/issues/71)
+
 ### 1.16.2
 
 Implement close button for tabs.
