@@ -414,6 +414,7 @@ function core.init()
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
+  core.frames_lost = 0
 
   core.root_view = RootView()
   core.command_view = CommandView()
@@ -869,7 +870,13 @@ function core.run()
     else
       idle_iterations = 0
       local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.max(0, frame_duration - elapsed))
+      local remaining = frame_duration - elapsed
+      if remaining > 0 then
+        core.frames_lost = 0
+        system.sleep(remaining)
+      else
+        core.frames_lost = math.ceil(elapsed / frame_duration) - 1
+      end
     end
   end
 end
