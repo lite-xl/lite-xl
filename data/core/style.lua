@@ -41,6 +41,9 @@ style.line_number2 = { common.color "#83838f" }
 style.line_highlight = { common.color "#343438" }
 style.scrollbar = { common.color "#414146" }
 style.scrollbar2 = { common.color "#4b4b52" }
+style.nagbar = { common.color "#FF0000" }
+style.nagbar_text = { common.color "#FFFFFF" }
+style.nagbar_dim = { common.color "rgba(0, 0, 0, 0.45)" }
 
 style.syntax = {}
 style.syntax["normal"] = { common.color "#e1e1e6" }

@@ -7,6 +7,7 @@ local keymap
 local RootView
 local StatusView
 local CommandView
+local NagView
 local DocView
 local Doc
 
@@ -350,6 +351,7 @@ function core.init()
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   CommandView = require "core.commandview"
+  NagView = require "core.nagview"
   DocView = require "core.docview"
   Doc = require "core.doc"
 
@@ -418,9 +420,12 @@ function core.init()
   core.root_view = RootView()
   core.command_view = CommandView()
   core.status_view = StatusView()
+  core.nag_view = NagView()
 
   local cur_node = core.root_view.root_node
   cur_node.is_primary_node = true
+  cur_node:split("up", core.nag_view, {y = true})
+  cur_node = cur_node.b
   cur_node = cur_node:split("down", core.command_view, {y = true})
   cur_node = cur_node:split("down", core.status_view, {y = true})
 
@@ -449,7 +454,7 @@ function core.init()
 end
 
 
-function core.confirm_close_all()
+function core.confirm_close_all(close_fn, ...)
   local dirty_count = 0
   local dirty_name
   for _, doc in ipairs(core.docs) do
@@ -465,10 +470,17 @@ function core.confirm_close_all()
     else
       text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
     end
-    local confirm = system.show_confirm_dialog("Unsaved Changes", text)
-    if not confirm then return false end
+    local args = {...}
+    local opt = {
+      { font = style.font, text = "Yes" },
+      { font = style.font, text = "No" }
+    }
+    core.nag_view:show("Unsaved Changes", text, opt, function(item)
+      if item.text == "Yes" then close_fn(table.unpack(args)) end
+    end)
+  else
+    close_fn(...)
   end
-  return true
 end
 
 local temp_uid = (system.get_time() * 1000) % 0xffffffff
@@ -517,9 +529,7 @@ local function quit_with_function(quit_fn, force)
     save_session()
     quit_fn()
   else
-    if core.confirm_close_all() then
-      quit_with_function(quit_fn, true)
-    end
+    core.confirm_close_all(quit_with_function, quit_fn, true)
   end
 end
 
@@ -595,6 +605,7 @@ end
 
 function core.set_active_view(view)
   assert(view, "Tried to set active view to nil")
+  if core.active_view and core.active_view.force_focus then return end
   if view ~= core.active_view then
     if view.doc and view.doc.filename then
       core.set_visited(view.doc.filename)
