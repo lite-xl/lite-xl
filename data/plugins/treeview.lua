@@ -7,6 +7,7 @@ local style = require "core.style"
 local View = require "core.view"
 
 local default_treeview_size = 200 * SCALE
+local tooltip_offset = 8 * SCALE
 
 local function get_depth(filename)
   local n = 1
@@ -27,6 +28,7 @@ function TreeView:new()
   self.target_size = default_treeview_size
   self.cache = {}
   self.last = {}
+  self.mouse = { x = 0, y = 0 }
 end
 
 
@@ -149,6 +151,7 @@ function TreeView:on_mouse_moved(px, py, ...)
   self.hovered_item = nil
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
+      self.mouse.x, self.mouse.y = px, py
       self.hovered_item = item
       break
     end
@@ -210,6 +213,36 @@ function TreeView:get_scrollable_size()
   return self.count_lines and self:get_item_height() * (self.count_lines + 1) or math.huge
 end
 
+function TreeView:get_item_width(item)
+  local icon_width = style.icon_font:get_width("D")
+  local spacing = style.icon_font:get_width("f") / 2
+
+  local x = self:get_content_offset()
+  x = x + item.depth * style.padding.x + style.padding.x
+  x = x + style.padding.x
+  x = x + icon_width
+  x = x + spacing
+  x = x + style.font:get_width(item.name)
+  return x
+end
+
+function TreeView:draw_tooltip()
+  if not self.hovered_item then return end
+  if self:get_item_width(self.hovered_item) < self.size.x then return end
+
+  local text = self.hovered_item.filename
+  local w, h = style.font:get_width(text), style.font:get_height(text)
+
+  local x, y = self.mouse.x + tooltip_offset, self.mouse.y + tooltip_offset
+  w = w + style.padding.x
+
+  if x + w > core.root_view.root_node.size.x then -- check if we can span right
+    x = x - w -- span left instead
+  end
+
+  renderer.draw_rect(x, y, w, h, style.background2)
+  common.draw_text(style.font, style.text, text, "center", x, y, w, h)
+end
 
 function TreeView:draw()
   self:draw_background(style.background2)
@@ -255,6 +288,7 @@ function TreeView:draw()
   end
 
   self:draw_scrollbar()
+  core.root_view:defer_draw(self.draw_tooltip, self)
 end
 
 
