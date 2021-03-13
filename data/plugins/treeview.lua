@@ -236,7 +236,7 @@ function TreeView:draw_tooltip()
   local w, h = style.font:get_width(text), style.font:get_height(text)
 
   local x, y = self.mouse.x + tooltip_offset, self.mouse.y + tooltip_offset
-  w = w + style.padding.x
+  w, h = w + style.padding.x, h + style.padding.y
 
   if x + w > core.root_view.root_node.size.x then -- check if we can span right
     x = x - w -- span left instead
