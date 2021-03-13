@@ -7,6 +7,7 @@
   #include <windows.h>
 #elif __linux__
   #include <unistd.h>
+  #include <stdlib.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
 #endif
@@ -21,7 +22,33 @@ static double get_scale(void) {
 #if _WIN32
   return dpi / 96.0;
 #else
-  return 1.0;
+  FILE *stream;
+  char *xrdb = "xrdb -query | grep dpi | cut -f 2";
+
+  // In case something goes wrong in popen (e.g., fork or exec calls) or any
+  // other calls listed below we return the dpi equal to 1.
+  if ((stream = popen(xrdb, "r")) == NULL)
+    return 1.0;
+
+  char *line = NULL;
+  size_t buffer = 0;
+  ssize_t length = getline(&line, &buffer, stream);
+
+  if (length == -1) {
+    free(line);
+    pclose(stream);
+    return 1.0;
+  }
+
+  if (pclose(stream)) {
+    free(line);
+    return 1.0;
+  }
+
+  dpi = strtol(line, NULL, 10) / 96.0;
+  free(line);
+
+  return dpi;
 #endif
 }
 
