@@ -217,8 +217,7 @@ function TreeView:get_item_width(item)
   local icon_width = style.icon_font:get_width("D")
   local spacing = style.icon_font:get_width("f") / 2
 
-  local x = self:get_content_offset()
-  x = x + item.depth * style.padding.x + style.padding.x
+  local x = item.depth * style.padding.x + style.padding.x
   x = x + style.padding.x
   x = x + icon_width
   x = x + spacing
