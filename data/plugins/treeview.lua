@@ -8,6 +8,7 @@ local View = require "core.view"
 
 local default_treeview_size = 200 * SCALE
 local tooltip_offset = 8 * SCALE
+local border_width = 1
 
 local function get_depth(filename)
   local n = 1
@@ -242,6 +243,9 @@ function TreeView:draw_tooltip()
     x = x - w -- span left instead
   end
 
+  local bx, by = x - border_width, y - border_width
+  local bw, bh = w + 2 * border_width, h + 2 * border_width
+  renderer.draw_rect(bx, by, bw, bh, style.text)
   renderer.draw_rect(x, y, w, h, style.background2)
   common.draw_text(style.font, style.text, text, "center", x, y, w, h)
 end
