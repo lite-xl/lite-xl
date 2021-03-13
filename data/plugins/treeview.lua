@@ -151,7 +151,10 @@ function TreeView:on_mouse_moved(px, py, ...)
   self.hovered_item = nil
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
-      self.mouse.x, self.mouse.y = px, py
+      if item.abs_filename ~= self.mouse.last then
+        self.mouse.x, self.mouse.y = px, py
+        self.mouse.last = item.abs_filename
+      end
       self.hovered_item = item
       break
     end
