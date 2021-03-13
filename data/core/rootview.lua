@@ -5,6 +5,7 @@ local keymap = require "core.keymap"
 local Object = require "core.object"
 local View = require "core.view"
 local CommandView = require "core.commandview"
+local NagView = require "core.nagview"
 local DocView = require "core.docview"
 
 
@@ -622,6 +623,12 @@ end
 
 
 function RootView:on_mouse_moved(x, y, dx, dy)
+  if core.active_view == core.nag_view then
+    system.set_cursor("arrow")
+    core.active_view:on_mouse_moved(x, y, dx, dy)
+    return
+  end
+
   if self.dragged_divider then
     local node = self.dragged_divider
     if node.type == "hsplit" then
