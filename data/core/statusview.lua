@@ -115,22 +115,17 @@ function StatusView:get_items()
       dirty and style.accent or style.text, style.icon_font, "f",
       style.dim, style.font, self.separator2, style.text,
       dv.doc.filename and style.text or style.dim, dv.doc:get_name(),
-      style.text,
-      self.separator,
-      "line: ", line,
-      self.separator,
+      style.text, self.separator, "line: ", line, self.separator,
       col > config.line_limit and style.accent or style.text, "col: ", col,
-      style.text,
-      self.separator,
-      string.format("%d%%", line / #dv.doc.lines * 100),
+      style.text, self.separator, string.format("%d%%", line / #dv.doc.lines * 100),
     }, {
+      style.text, (math.floor(collectgarbage("count") / 10.24) / 100) .. " MB",
+      style.dim, self.separator2,
       style.text, indent_label, indent_size,
-      style.dim, self.separator2, style.text,
-      style.icon_font, "g",
-      style.font, style.dim, self.separator2, style.text,
-      #dv.doc.lines, " lines",
-      self.separator,
-      dv.doc.crlf and "CRLF" or "LF"
+      style.dim, self.separator2,
+      style.text, style.icon_font, "g",
+      style.font, style.dim, self.separator2,
+      style.text, #dv.doc.lines, " lines", self.separator, dv.doc.crlf and "CRLF" or "LF"
     }
   end
 
