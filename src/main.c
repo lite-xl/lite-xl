@@ -21,7 +21,7 @@ static double get_scale(void) {
   SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
 #if _WIN32
   return dpi / 96.0;
-#else
+#elif __linux__
   FILE *stream;
   char *xrdb = "xrdb -query | grep dpi | cut -f 2";
 
@@ -49,6 +49,8 @@ static double get_scale(void) {
   free(line);
 
   return dpi;
+#else
+  return 1.0;
 #endif
 }
 
