@@ -70,6 +70,14 @@ meson compile -C build
 meson install -C build
 ```
 
+If you are using a version of Meson below 0.54 you need to use diffent commands to compile and install:
+
+```sh
+meson setup build
+ninja -C build
+ninja -C build install
+```
+
 When performing the `meson setup` command you may enable the `-Dportable=true` option to specify whether a portable build should be done.
 
 If `portable` is enabled, Lite XL is built to use `data` and `user` directories placed next to the executable.
