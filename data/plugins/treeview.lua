@@ -233,7 +233,7 @@ function TreeView:draw_tooltip()
   if not self.hovered_item then return end
   if self:get_item_width(self.hovered_item) < self.size.x then return end
 
-  local text = self.hovered_item.abs_filename
+  local text = common.home_encode(self.hovered_item.abs_filename)
   local w, h = style.font:get_width(text), style.font:get_height(text)
 
   local x, y = self.mouse.x + tooltip_offset, self.mouse.y + tooltip_offset
