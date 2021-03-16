@@ -166,6 +166,7 @@ init_lua:
 
   lua_close(L);
   SDL_DestroyWindow(window);
+  SDL_Quit();
 
   return EXIT_SUCCESS;
 }
