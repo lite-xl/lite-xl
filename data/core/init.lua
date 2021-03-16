@@ -860,6 +860,9 @@ function core.run()
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
       -- and set "redraw" flag.
       if idle_iterations > 1 then
+        collectgarbage()
+        local mk, mb = collectgarbage("count")
+        io.stderr:write(string.format("memory usage %g      \r", mk))
         if system.window_has_focus() then
           -- keep running even with no events to make the cursor blinks
           system.wait_event(frame_duration)

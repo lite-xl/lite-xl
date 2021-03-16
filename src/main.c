@@ -168,5 +168,7 @@ init_lua:
   SDL_DestroyWindow(window);
   SDL_Quit();
 
+  fprintf(stderr, "complete shutdown\n");
+
   return EXIT_SUCCESS;
 }

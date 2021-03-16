@@ -157,10 +157,12 @@ void ren_free_font(RenFont *font) {
   for (int i = 0; i < MAX_GLYPHSET; i++) {
     GlyphSet *set = font->sets[i];
     if (set) {
+      fprintf(stderr, "free font bitmap: %d\n", i);
       FR_Bitmap_Free(set->image);
       free(set);
     }
   }
+  fprintf(stderr, "free font renderer\n");
   FR_Renderer_Free(font->renderer);
   free(font);
 }
