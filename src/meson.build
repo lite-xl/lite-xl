@@ -5,6 +5,7 @@ lite_sources = [
     'api/system.c',
     'renderer.c',
     'rencache.c',
+    'xrdb_parse.c',
     'main.c',
 ]
 
