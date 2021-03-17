@@ -20,7 +20,7 @@ static double get_scale(void) {
   float dpi;
   SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
   return dpi / 96.0;
-#elif __linux__
+#elif __unix__
   int xft_dpi = xrdb_find_dpi();
   if (xft_dpi > 0) {
     return xft_dpi / 96.0;

@@ -1,3 +1,5 @@
+#ifdef __unix__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,16 +27,15 @@ static int xrdb_popen (int *pid_ptr) {
   int fd[2];
 
   pipe(fd);
-  int read_fd = fd[STDIN_FILENO];
-  int write_fd = fd[STDOUT_FILENO];
-
-  char *path = getenv("PATH");
+  int read_fd = fd[0];
+  int write_fd = fd[1];
 
   int pid = fork();
   if (pid == 0) {
     close(read_fd);
     dup2(write_fd, STDOUT_FILENO);
     close(write_fd);
+    char *path = getenv("PATH");
     char xrdb_filename[256];
     while (path) {
       char *xrgb_argv[3] = {"xrdb", "-query", NULL};
@@ -93,6 +94,7 @@ static int xrdb_parse_for_dpi(int read_fd) {
             xrdb_complete_reading(read_fd);
             return dpi_read;
           }
+          /* doesn't match: position after newline to search again */
           line_start = nlptr + 1;
         } else {
           /* No newline found: copy the remaining part at the beginning of buf
@@ -137,3 +139,5 @@ int xrdb_find_dpi() {
   }
   return -1;
 }
+
+#endif
