@@ -26,7 +26,7 @@ static int join_path(char buf[], int buf_size, const char *path, const char *nam
 static int xrdb_popen (int *pid_ptr) {
   int fd[2];
 
-  pipe(fd);
+  if (pipe(fd) != 0) return -1;
   int read_fd = fd[0];
   int write_fd = fd[1];
 
@@ -104,10 +104,8 @@ static int xrdb_parse_for_dpi(int read_fd) {
             /* Line is too long for the buffer: skip. */
             read_buf_offset = 0;
           } else {
-            int c = 0;
-            while (c < rem) {
+            for (int c = 0; c < rem; c++) {
               buf[c] = line_start[c];
-              c++;
             }
             read_buf_offset = rem;
           }
