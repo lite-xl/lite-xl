@@ -57,11 +57,13 @@ static int xrdb_popen (int *pid_ptr) {
 
 
 static int xrdb_try_dpi_match(const char *line, int len) {
-  if (len >= 8 && strncmp(line, "Xft.dpi:", 8) == 0 && len - 8 + 1 <= 64) {
-    char buf[64];
-    memcpy(buf, line + 8, len - 8);
-    buf[len - 8] = 0;
-    return strtol(buf, NULL, 10);
+  if (len >= 8 && strncmp(line, "Xft.dpi:", 8) == 0) {
+    for (line += 8; *line && (*line == '\t' || *line == ' '); line++) { }
+    int dpi = 0;
+    for ( ; *line >= '0' && *line <= '9'; line++) {
+      dpi = dpi * 10 + ((int) (*line) - (int) '0');
+    }
+    return dpi;
   }
   return -1;
 }
@@ -104,7 +106,7 @@ static int xrdb_parse_for_dpi(int read_fd) {
             /* Line is too long for the buffer: skip. */
             buf_remaining = 0;
           } else {
-            memmove(buf, line_start, rem);
+            memmove(buf, line_start, buf_remaining);
           }
           break;
         }
