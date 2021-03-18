@@ -7,8 +7,12 @@ local style = require "core.style"
 local View = require "core.view"
 
 local default_treeview_size = 200 * SCALE
-local tooltip_offset = 8 * SCALE
-local border_width = 1
+local tooltip_offset = style.font:get_height("A")
+local tooltip_border = 1
+local tooltip_delay = 1
+local tooltip_alpha = 255
+local tooltip_alpha_step = 0.45
+
 
 local function get_depth(filename)
   local n = 1
@@ -16,6 +20,11 @@ local function get_depth(filename)
     n = n + 1
   end
   return n
+end
+
+local function replace_alpha(color, alpha)
+  local r, g, b = table.unpack(color)
+  return { r, g, b, alpha }
 end
 
 
@@ -29,7 +38,7 @@ function TreeView:new()
   self.target_size = default_treeview_size
   self.cache = {}
   self.last = {}
-  self.mouse = { x = 0, y = 0 }
+  self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
 end
 
 
@@ -149,16 +158,19 @@ end
 function TreeView:on_mouse_moved(px, py, ...)
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
-  self.hovered_item = nil
+  
+  local selected = false
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
-      if item.abs_filename ~= self.mouse.last then
-        self.mouse.x, self.mouse.y = px, py
-        self.mouse.last = item.abs_filename
-      end
+      selected = true
       self.hovered_item = item
+      self.tooltip.x, self.tooltip.y = px, py
+      self.tooltip.begin = system.get_time()
       break
     end
+  end
+  if not selected then
+    self.hovered_item = nil
   end
 end
 
@@ -208,6 +220,13 @@ function TreeView:update()
   else
     self:move_towards(self.size, "x", dest)
   end
+  
+  local duration = system.get_time() - self.tooltip.begin
+  if self.hovered_item and duration > tooltip_delay then
+    self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_step)
+  else
+    self.tooltip.alpha = 0
+  end
 
   TreeView.super.update(self)
 end
@@ -217,38 +236,25 @@ function TreeView:get_scrollable_size()
   return self.count_lines and self:get_item_height() * (self.count_lines + 1) or math.huge
 end
 
-function TreeView:get_item_width(item)
-  local icon_width = style.icon_font:get_width("D")
-  local spacing = style.icon_font:get_width("f") / 2
-
-  local x = item.depth * style.padding.x + style.padding.x
-  x = x + style.padding.x
-  x = x + icon_width
-  x = x + spacing
-  x = x + style.font:get_width(item.name)
-  return x
-end
 
 function TreeView:draw_tooltip()
-  if not self.hovered_item then return end
-  if self:get_item_width(self.hovered_item) < self.size.x then return end
-
   local text = common.home_encode(self.hovered_item.abs_filename)
   local w, h = style.font:get_width(text), style.font:get_height(text)
 
-  local x, y = self.mouse.x + tooltip_offset, self.mouse.y + tooltip_offset
+  local x, y = self.tooltip.x + tooltip_offset, self.tooltip.y + tooltip_offset
   w, h = w + style.padding.x, h + style.padding.y
 
   if x + w > core.root_view.root_node.size.x then -- check if we can span right
     x = x - w -- span left instead
   end
 
-  local bx, by = x - border_width, y - border_width
-  local bw, bh = w + 2 * border_width, h + 2 * border_width
-  renderer.draw_rect(bx, by, bw, bh, style.text)
-  renderer.draw_rect(x, y, w, h, style.background2)
-  common.draw_text(style.font, style.text, text, "center", x, y, w, h)
+  local bx, by = x - tooltip_border, y - tooltip_border
+  local bw, bh = w + 2 * tooltip_border, h + 2 * tooltip_border
+  renderer.draw_rect(bx, by, bw, bh, replace_alpha(style.text, self.tooltip.alpha))
+  renderer.draw_rect(x, y, w, h, replace_alpha(style.background2, self.tooltip.alpha))
+  common.draw_text(style.font, replace_alpha(style.text, self.tooltip.alpha), text, "center", x, y, w, h)
 end
+
 
 function TreeView:draw()
   self:draw_background(style.background2)
@@ -294,7 +300,9 @@ function TreeView:draw()
   end
 
   self:draw_scrollbar()
-  core.root_view:defer_draw(self.draw_tooltip, self)
+  if self.hovered_item then
+    core.root_view:defer_draw(self.draw_tooltip, self)
+  end
 end
 
 
