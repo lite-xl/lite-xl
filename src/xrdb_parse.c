@@ -77,11 +77,11 @@ static void xrdb_complete_reading(int read_fd) {
 
 static int xrdb_parse_for_dpi(int read_fd) {
   char buf[XRDB_READ_BUF_SIZE];
-  char read_buf_offset = 0;
+  char buf_remaining = 0;
   while (1) {
-    int nr = read(read_fd, buf + read_buf_offset, XRDB_READ_BUF_SIZE - read_buf_offset);
+    int nr = read(read_fd, buf + buf_remaining, XRDB_READ_BUF_SIZE - buf_remaining);
     if (nr > 0) {
-      const char * const buf_limit = buf + nr + read_buf_offset;
+      const char * const buf_limit = buf + nr + buf_remaining;
       char *line_start = buf;
       while (line_start < buf_limit) {
         char *nlptr = line_start;
@@ -99,22 +99,19 @@ static int xrdb_parse_for_dpi(int read_fd) {
         } else {
           /* No newline found: copy the remaining part at the beginning of buf
              and read again from file descriptor. */
-          const int rem = nr + read_buf_offset - (line_start - buf);
-          if (rem >= XRDB_READ_BUF_SIZE) {
+          buf_remaining = buf_limit - line_start;
+          if (buf_remaining >= XRDB_READ_BUF_SIZE) {
             /* Line is too long for the buffer: skip. */
-            read_buf_offset = 0;
+            buf_remaining = 0;
           } else {
-            for (int c = 0; c < rem; c++) {
-              buf[c] = line_start[c];
-            }
-            read_buf_offset = rem;
+            memmove(buf, line_start, rem);
           }
           break;
         }
       }
     } else {
-      if (nr == 0 && read_buf_offset > 0) {
-        int dpi_read = xrdb_try_dpi_match(buf, read_buf_offset);
+      if (nr == 0 && buf_remaining > 0) {
+        int dpi_read = xrdb_try_dpi_match(buf, buf_remaining);
         if (dpi_read > 0) {
           return dpi_read;
         }
