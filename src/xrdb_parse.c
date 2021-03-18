@@ -68,15 +68,14 @@ static int xrdb_try_dpi_match(const char *line, int len) {
   return -1;
 }
 
-#define XRDB_READ_BUF_SIZE 256
-static void xrdb_complete_reading(int read_fd) {
-  char buf[XRDB_READ_BUF_SIZE];
+static void xrdb_complete_reading(int read_fd, char *buf, size_t buf_size) {
   while (1) {
-    int nr = read(read_fd, buf, XRDB_READ_BUF_SIZE);
+    int nr = read(read_fd, buf, buf_size);
     if (nr <= 0) return;
   }
 }
 
+#define XRDB_READ_BUF_SIZE 256
 static int xrdb_parse_for_dpi(int read_fd) {
   char buf[XRDB_READ_BUF_SIZE];
   char buf_remaining = 0;
@@ -93,7 +92,7 @@ static int xrdb_parse_for_dpi(int read_fd) {
         if (nlptr < buf_limit) {
           int dpi_read = xrdb_try_dpi_match(line_start, nlptr - line_start);
           if (dpi_read > 0) {
-            xrdb_complete_reading(read_fd);
+            xrdb_complete_reading(read_fd, buf, XRDB_READ_BUF_SIZE);
             return dpi_read;
           }
           /* doesn't match: position after newline to search again */
