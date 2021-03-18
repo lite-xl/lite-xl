@@ -23,6 +23,7 @@ struct RenFont {
   GlyphSet *sets[MAX_GLYPHSET];
   float size;
   int height;
+  int space_advance;
   FR_Renderer *renderer;
 };
 
@@ -145,6 +146,9 @@ RenFont* ren_load_font(const char *filename, float size, unsigned int renderer_f
   }
   font->height = FR_Get_Font_Height(font->renderer, size);
 
+  FR_Bitmap_Glyph_Metrics *gs = get_glyphset(font, ' ')->glyphs;
+  font->space_advance = gs[' '].xadvance;
+
   /* make tab and newline glyphs invisible */
   FR_Bitmap_Glyph_Metrics *g = get_glyphset(font, '\n')->glyphs;
   g['\t'].x1 = g['\t'].x0;
@@ -167,15 +171,15 @@ void ren_free_font(RenFont *font) {
 }
 
 
-void ren_set_font_tab_width(RenFont *font, int n) {
+void ren_set_font_tab_size(RenFont *font, int n) {
   GlyphSet *set = get_glyphset(font, '\t');
-  set->glyphs['\t'].xadvance = n;
+  set->glyphs['\t'].xadvance = font->space_advance * n;
 }
 
 
-int ren_get_font_tab_width(RenFont *font) {
+int ren_get_font_tab_size(RenFont *font) {
   GlyphSet *set = get_glyphset(font, '\t');
-  return set->glyphs['\t'].xadvance;
+  return set->glyphs['\t'].xadvance / font->space_advance;
 }
 
 

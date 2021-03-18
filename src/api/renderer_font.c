@@ -48,10 +48,10 @@ static int f_load(lua_State *L) {
 }
 
 
-static int f_set_tab_width(lua_State *L) {
+static int f_set_tab_size(lua_State *L) {
   RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
   int n = luaL_checknumber(L, 2);
-  ren_set_font_tab_width(*self, n);
+  ren_set_font_tab_size(*self, n);
   return 0;
 }
 
@@ -98,7 +98,7 @@ static int f_get_height(lua_State *L) {
 static const luaL_Reg lib[] = {
   { "__gc",               f_gc                 },
   { "load",               f_load               },
-  { "set_tab_width",      f_set_tab_width      },
+  { "set_tab_size",       f_set_tab_size      },
   { "get_width",          f_get_width          },
   { "get_width_subpixel", f_get_width_subpixel },
   { "get_height",         f_get_height         },

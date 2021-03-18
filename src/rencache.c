@@ -20,7 +20,7 @@ typedef struct {
   RenFont *font;
   short int subpixel_scale;
   short int x_subpixel_offset;
-  int tab_width;
+  int tab_size;
   char text[0];
 } Command;
 
@@ -149,7 +149,7 @@ int rencache_draw_text(RenFont *font, const char *text, int x, int y, RenColor c
       cmd->rect = rect;
       cmd->subpixel_scale = (draw_subpixel ? subpixel_scale : 1);
       cmd->x_subpixel_offset = x - subpixel_scale * rect.x;
-      cmd->tab_width = ren_get_font_tab_width(font);
+      cmd->tab_size = ren_get_font_tab_size(font);
     }
   }
 
@@ -261,11 +261,11 @@ void rencache_end_frame(void) {
           ren_draw_rect(cmd->rect, cmd->color);
           break;
         case DRAW_TEXT:
-          ren_set_font_tab_width(cmd->font, cmd->tab_width);
+          ren_set_font_tab_size(cmd->font, cmd->tab_size);
           ren_draw_text(cmd->font, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color);
           break;
         case DRAW_TEXT_SUBPIXEL:
-          ren_set_font_tab_width(cmd->font, cmd->tab_width);
+          ren_set_font_tab_size(cmd->font, cmd->tab_size);
           ren_draw_text_subpixel(cmd->font, cmd->text, cmd->subpixel_scale * cmd->rect.x + cmd->x_subpixel_offset, cmd->rect.y, cmd->color);
           break;
       }

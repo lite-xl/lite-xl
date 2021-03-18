@@ -32,8 +32,8 @@ void ren_free_image(RenImage *image);
 
 RenFont* ren_load_font(const char *filename, float size, unsigned int renderer_flags);
 void ren_free_font(RenFont *font);
-void ren_set_font_tab_width(RenFont *font, int n);
-int ren_get_font_tab_width(RenFont *font);
+void ren_set_font_tab_size(RenFont *font, int n);
+int ren_get_font_tab_size(RenFont *font);
 int ren_get_font_width(RenFont *font, const char *text, int *subpixel_scale);
 int ren_get_font_height(RenFont *font);
 int ren_get_font_subpixel_scale(RenFont *font);
