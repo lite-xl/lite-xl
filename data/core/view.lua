@@ -24,10 +24,14 @@ function View:move_towards(t, k, dest, rate)
   if not config.transitions or math.abs(val - dest) < 0.5 then
     t[k] = dest
   else
-    rate = common.clamp(rate or 0.5, 1e-8, 1 - 1e-8)
-    local alpha = math.log(1 - rate) * config.animation_rate
-    local dt = 60 / config.fps
-    t[k] = common.lerp(val, dest, 1 - math.exp(alpha * dt))
+    rate = rate or 0.5
+    if config.fps ~= 60 then
+      local xrate = common.clamp(rate, 1e-8, 1 - 1e-8)
+      local alpha = math.log(1 - xrate) * config.animation_rate
+      local dt = 60 / config.fps
+      rate = 1 - math.exp(alpha * dt)
+    end
+    t[k] = common.lerp(val, dest, rate)
   end
   if val ~= dest then
     core.redraw = true
