@@ -7,7 +7,7 @@ local style = require "core.style"
 local View = require "core.view"
 
 local default_treeview_size = 200 * SCALE
-local tooltip_offset = 8 * SCALE
+local tooltip_offset = style.font:get_height("A")
 local tooltip_border = 1
 local tooltip_delay = 1
 local tooltip_alpha = 255
