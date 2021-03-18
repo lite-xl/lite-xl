@@ -12,9 +12,7 @@ local t = {
   end,
 
   ["root:close-all"] = function()
-    if core.confirm_close_all() then
-      core.root_view:close_all_docviews()
-    end
+    core.confirm_close_all(core.root_view.close_all_docviews, core.root_view)
   end,
 
   ["root:switch-to-previous-tab"] = function()

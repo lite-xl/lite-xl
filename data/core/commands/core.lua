@@ -122,9 +122,7 @@ command.add(nil, {
         core.error("Cannot open folder %q", text)
         return
       end
-      if core.confirm_close_all() then
-        core.open_folder_project(text)
-      end
+      core.confirm_close_all(core.open_folder_project, text)
     end, suggest_directory)
   end,
 
