@@ -370,7 +370,7 @@ function DocView:draw()
   self:draw_background(style.background)
 
   local font = self:get_font()
-  font:set_tab_width(font:get_width(" ") * config.indent_size)
+  font:set_tab_size(config.indent_size)
 
   local minline, maxline = self:get_visible_line_range()
   local lh = self:get_line_height()
