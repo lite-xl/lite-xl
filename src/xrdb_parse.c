@@ -23,7 +23,9 @@ static int join_path(char buf[], int buf_size, const char *path, const char *nam
 }
 
 
-static int xrdb_popen (int *pid_ptr) {
+/* Lauch a child process using execve and pipe its output into a file
+   descriptor (returned by the function). */
+static int process_open_output(char * const argv[], int *pid_ptr) {
   int fd[2];
 
   if (pipe(fd) != 0) return -1;
@@ -36,11 +38,10 @@ static int xrdb_popen (int *pid_ptr) {
     dup2(write_fd, STDOUT_FILENO);
     close(write_fd);
     char *path = getenv("PATH");
-    char xrdb_filename[256];
+    char exec_filename[256];
     while (path) {
-      char *xrgb_argv[3] = {"xrdb", "-query", NULL};
-      if (join_path(xrdb_filename, 256, path, "xrdb") == 0) {
-        execve(xrdb_filename, xrgb_argv, environ);
+      if (join_path(exec_filename, 256, path, argv[0]) == 0) {
+        execve(exec_filename, argv, environ);
       }
       path = strchr(path, ':');
       if (path) {
@@ -125,7 +126,7 @@ static int xrdb_parse_for_dpi(int read_fd) {
 
 int xrdb_find_dpi() {
   int xrdb_pid;
-  int read_fd = xrdb_popen(&xrdb_pid);
+  int read_fd = process_open_output((char *[]) {"xrdb", "-query", NULL}, &xrdb_pid);
   if (read_fd >= 0) {
     int dpi_read = xrdb_parse_for_dpi(read_fd);
     int child_status;
