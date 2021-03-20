@@ -1,6 +1,6 @@
 # Lite XL
 
-![screenshot-dark](https://user-images.githubusercontent.com/433545/85227778-b42abc80-b3df-11ea-9dd3-e788f6c71882.png)
+![screenshot-dark](https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png)
 
 A lightweight text editor written in Lua, adapted from [lite](https://github.com/rxi/lite)
 
