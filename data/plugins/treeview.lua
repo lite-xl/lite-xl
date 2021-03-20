@@ -155,23 +155,36 @@ function TreeView:each_item()
 end
 
 
+function TreeView:get_text_bounding_box(item, x, y, w, h)
+  local icon_width = style.icon_font:get_width("D")
+  local xoffset = item.depth * style.padding.x + style.padding.x + icon_width
+  x = x + xoffset
+  w = style.font:get_width(item.name) + 2 * style.padding.x
+  return x, y, w, h
+end
+
+
 function TreeView:on_mouse_moved(px, py, ...)
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
   
-  local selected = false
+  local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
-      selected = true
+      item_changed = true
       self.hovered_item = item
-      self.tooltip.x, self.tooltip.y = px, py
-      self.tooltip.begin = system.get_time()
+      
+      x,y,w,h = self:get_text_bounding_box(item, x,y,w,h)
+      if px > x and py > y and px <= x + w and py <= y + h then
+        tooltip_changed = true
+        self.tooltip.x, self.tooltip.y = px, py
+        self.tooltip.begin = system.get_time()
+      end
       break
     end
   end
-  if not selected then
-    self.hovered_item = nil
-  end
+  if not item_changed then self.hovered_item = nil end
+  if not tooltip_changed then self.tooltip.x, self.tooltip.y = nil, nil end
 end
 
 
@@ -222,7 +235,7 @@ function TreeView:update()
   end
   
   local duration = system.get_time() - self.tooltip.begin
-  if self.hovered_item and duration > tooltip_delay then
+  if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_step)
   else
     self.tooltip.alpha = 0
