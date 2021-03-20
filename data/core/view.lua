@@ -25,11 +25,9 @@ function View:move_towards(t, k, dest, rate)
     t[k] = dest
   else
     rate = rate or 0.5
-    if config.fps ~= 60 then
-      local xrate = common.clamp(rate, 1e-8, 1 - 1e-8)
-      local alpha = math.log(1 - xrate) * config.animation_rate
+    if config.fps ~= 60 or config.animation_rate ~= 1 then
       local dt = 60 / config.fps
-      rate = 1 - math.exp(alpha * dt)
+      rate = 1 - common.clamp(1 - rate, 1e-8, 1 - 1e-8)^(config.animation_rate * dt)
     end
     t[k] = common.lerp(val, dest, rate)
   end
