@@ -18,8 +18,11 @@ struct GlyphSet {
 };
 typedef struct GlyphSet GlyphSet;
 
+/* The field "padding" below must be there just before GlyphSet *sets[MAX_GLYPHSET]
+   because the field "sets" can be indexed and writted with an index -1. For this
+   reason the "padding" field must be there but is never explicitly used. */
 struct RenFont {
-  void *data;
+  GlyphSet *padding;
   GlyphSet *sets[MAX_GLYPHSET];
   float size;
   int height;
