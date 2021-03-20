@@ -11,7 +11,7 @@ local tooltip_offset = style.font:get_height("A")
 local tooltip_border = 1
 local tooltip_delay = 0.5
 local tooltip_alpha = 255
-local tooltip_alpha_step = 1
+local tooltip_alpha_rate = 1
 
 
 local function get_depth(filename)
@@ -236,7 +236,7 @@ function TreeView:update()
   
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
-    self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_step)
+    self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)
   else
     self.tooltip.alpha = 0
   end
