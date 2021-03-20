@@ -95,7 +95,7 @@ lite_build_package_macosx () {
   local arch="$2"
   local os="macosx"
   local pdir=".package-build/lite-xl.app/Contents/MacOS"
-  if [ $portable == "true" ]; then
+  if [ "$portable" == "-portable" ]; then
     local bindir="$pdir"
     local datadir="$pdir/data"
   else
@@ -131,8 +131,7 @@ lite_build_package_linux () {
   local arch="$2"
   local os="linux"
   local pdir=".package-build/lite-xl"
-  if [ $portable == "true" ]; then
-    echo "WARNING: using portable option on unix-like system"
+  if [ "$portable" == "-portable" ]; then
     local bindir="$pdir"
     local datadir="$pdir/data"
   else
@@ -149,6 +148,22 @@ lite_build_package_linux () {
   done
   cp "$build/src/lite" "$bindir"
   strip "$bindir/lite"
+  if [ -z "$portable" ]; then
+    mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps"
+    cat << EOF > "$pdir/share/applications/lite-xl.desktop"
+[Desktop Entry]
+Type=Application
+Name=Lite XL
+Comment=A lightweight text editor written in Lua
+Exec=lite %F
+Icon=lite-xl
+Terminal=false
+StartupNotify=false
+Categories=Utility;TextEditor;Development;
+MimeType=text/plain;
+EOF
+    cp "dev-utils/lite.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
+  fi
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch$portable.tar.gz"
   tar czf "$package_name" "lite-xl"
