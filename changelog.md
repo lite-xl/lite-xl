@@ -2,12 +2,20 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
-### 1.16.x
+### 1.16.4
+
+Add tooltips to show full file names from the tree-view.
+
+Introduce NagView to show warning dialog about unsaved files.
+
+Detect High-DPI displays on Linux using Xft.dpi entry from xrdb's output.
 
 Made animations independent of framerate, and added a config setting
-`config.animation_rate` for customizing the speed of animations. [#91](https://github.com/franko/lite-xl/issues/91)
+`config.animation_rate` for customizing the speed of animations.
 
-Made borders between tabs look cleaner. [#71](https://github.com/franko/lite-xl/issues/71)
+Made borders between tabs look cleaner.
+
+Fix problem with files using hard tabs.
 
 ### 1.16.2
 
