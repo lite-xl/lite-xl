@@ -19,6 +19,7 @@ struct GlyphSet {
 typedef struct GlyphSet GlyphSet;
 
 struct RenFont {
+  void *data;
   GlyphSet *sets[MAX_GLYPHSET];
   float size;
   int height;
