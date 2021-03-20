@@ -9,9 +9,9 @@ local View = require "core.view"
 local default_treeview_size = 200 * SCALE
 local tooltip_offset = style.font:get_height("A")
 local tooltip_border = 1
-local tooltip_delay = 1
+local tooltip_delay = 0.5
 local tooltip_alpha = 255
-local tooltip_alpha_step = 0.45
+local tooltip_alpha_step = 1
 
 
 local function get_depth(filename)
