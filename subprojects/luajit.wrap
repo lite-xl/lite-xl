@@ -1,5 +1,5 @@
 [wrap-git]
 directory = luajit
 url = https://github.com/franko/luajit
-revision = v2.0.5-lhelper2
+revision = v2.0.5-test-1
 

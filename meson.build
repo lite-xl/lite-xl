@@ -5,7 +5,11 @@ libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
 
 if get_option('luajit')
-    lua_dep = dependency('luajit')
+    lua_dep = dependency('luajit', required : false)
+    if not lua_dep.found()
+        lua_subproject = subproject('luajit', default_options: ['portable=true', 'default_library=static', 'app=false'])
+        lua_dep = lua_subproject.get_variable('lua_dep')
+    endif
 else
     lua_dep = dependency('lua5.2', required : false)
     if not lua_dep.found()
