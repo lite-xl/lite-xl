@@ -8,7 +8,7 @@ end
 
 
 function common.utf8_chars(text)
-  return text:gmatch("[\0-\x7f\xc2-\xf4][\x80-\xbf]*")
+  return text:gmatch("[\x01-\x7f\xc2-\xf4][\x80-\xbf]*")
 end
 
 
