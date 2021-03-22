@@ -62,9 +62,11 @@ lite_build_package_windows () {
   if [ "$portable" == "-portable" ]; then
     local bindir="$pdir"
     local datadir="$pdir/data"
+    local suffix=""
   else
     local bindir="$pdir/bin"
     local datadir="$pdir/share/lite-xl"
+    local suffix="-msys"
   fi
   mkdir -p "$bindir"
   mkdir -p "$datadir"
@@ -77,7 +79,7 @@ lite_build_package_windows () {
   cp "$build/src/lite.exe" "$bindir"
   strip --strip-all "$bindir/lite.exe"
   pushd ".package-build"
-  local package_name="lite-xl-$os-$arch$portable.zip"
+  local package_name="lite-xl-$os-$arch$suffix.zip"
   zip "$package_name" -r "lite-xl"
   mv "$package_name" ..
   popd
@@ -188,7 +190,12 @@ lite_build_package () {
 
 lite_copy_third_party_modules () {
   local build="$1"
-  curl --insecure -L "https://github.com/rxi/lite-colors/archive/master.zip" -o "$build/rxi-lite-colors.zip"
+  for count in 1 2 3 4 5; do
+    curl --insecure -L "https://github.com/rxi/lite-colors/archive/master.zip" -o "$build/rxi-lite-colors.zip"
+    if [ $? -eq 0 ]; then
+      break
+    fi
+  done
   mkdir -p "$build/third/data/colors" "$build/third/data/plugins"
   unzip "$build/rxi-lite-colors.zip" -d "$build"
   mv "$build/lite-colors-master/colors" "$build/third/data"
@@ -221,7 +228,7 @@ if [ -z ${use_branch+set} ]; then
   use_branch="$(git rev-parse --abbrev-ref HEAD)"
 fi
 
-build_dir=".build-$arch"
+build_dir=".rbuild-$arch"
 
 if [ -z ${pgo+set} ]; then
   lite_build "$build_dir"

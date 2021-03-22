@@ -4,8 +4,10 @@ cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
 
+lite_cargs = []
 if get_option('luajit')
     lua_dep = dependency('luajit', required : false)
+    lite_cargs += '-DLITE_USE_LUAJIT'
     if not lua_dep.found()
         lua_subproject = subproject('luajit', default_options: ['portable=true', 'default_library=static', 'app=false'])
         lua_dep = lua_subproject.get_variable('lua_dep')
@@ -22,7 +24,6 @@ endif
 
 sdl_dep = dependency('sdl2', method: 'config-tool')
 
-lite_cargs = []
 if get_option('portable')
     lite_datadir = 'data'
 else

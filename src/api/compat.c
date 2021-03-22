@@ -1,3 +1,5 @@
+#ifdef LITE_USE_LUAJIT
+
 #include <lauxlib.h>
 
 #include "compat.h"
@@ -61,4 +63,4 @@ void luaL_setmetatable (lua_State *L, const char *tname) {
   luaL_getmetatable(L, tname);
   lua_setmetatable(L, -2);
 }
-
+#endif
