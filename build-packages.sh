@@ -150,18 +150,7 @@ lite_build_package_linux () {
   strip "$bindir/lite"
   if [ -z "$portable" ]; then
     mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps"
-    cat << EOF > "$pdir/share/applications/lite-xl.desktop"
-[Desktop Entry]
-Type=Application
-Name=Lite XL
-Comment=A lightweight text editor written in Lua
-Exec=lite %F
-Icon=lite-xl
-Terminal=false
-StartupNotify=false
-Categories=Utility;TextEditor;Development;
-MimeType=text/plain;
-EOF
+    cp "dev-utils/lite-xl.desktop" "$pdir/share/applications"
     cp "dev-utils/lite.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
   fi
   pushd ".package-build"
