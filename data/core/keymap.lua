@@ -32,15 +32,17 @@ keymap.vim_verbs_imm = {'y', 'p', 'h', 'j', 'k', 'l', 'x', 'i'}
 keymap.vim_objects = {'w', '$'}
 
 local vim_object_map = {
-  ['w'] = 'end-of-word',
+  ['w'] = 'next-word-end',
   ['$'] = 'end-of-line',
 }
 
 function keymap.vim_execute(verb, mult, object)
   if verb == '.' then
-    return command.perform_many(mult, 'doc:move-to-' .. vim_object_map[object])
+    command.perform_many(mult, 'doc:move-to-' .. vim_object_map[object])
   elseif verb == 'd' then
-    return command.perform_many(mult, 'doc:delete-to-' .. vim_object_map[object])
+    command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
+    command.perform('doc:copy')
+    command.perform('doc:cut')
   elseif verb == 'c' then
     command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
     command.perform('doc:copy')
@@ -58,6 +60,8 @@ function keymap.vim_execute(verb, mult, object)
     command.perform_many(mult, 'doc:delete')
   elseif verb == 'i' then
     command.perform('core:set-insert-mode')
+  elseif verb == 'p' then
+    command.perform('doc:paste')
   else
     return false
   end
@@ -122,8 +126,8 @@ function keymap.on_key_pressed(editor_mode, k)
       elseif keymap.command_verb == '.' and table_find(keymap.vim_verbs_obj, stroke) then
         keymap.command_verb = stroke
         return true
-      elseif string.byte(stroke) >= string.byte(1) and string.byte(stroke) <= string.byte(9) then
-        keymap.command_mult = tonumber(stroke)
+      elseif string.byte(k) >= string.byte('1') and string.byte(k) <= string.byte('9') then
+        keymap.command_mult = tonumber(k)
         return true
       elseif table_find(keymap.vim_objects, stroke) then
         keymap.vim_execute(keymap.command_verb, keymap.command_mult, stroke)
