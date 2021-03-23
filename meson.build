@@ -22,7 +22,7 @@ else
 endif
 
 lite_include = include_directories('src')
-foreach data_module : ['core', 'fonts', 'plugins', 'colors']
+foreach data_module : ['core', 'fonts', 'plugins', 'colors', 'user']
     install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
 
