@@ -1,4 +1,4 @@
 [wrap-git]
 directory = libagg
 url = https://github.com/franko/agg
-revision = v2.4-lhelper3
+revision = v2.4-lhelper4
