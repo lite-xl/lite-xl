@@ -58,6 +58,18 @@ function command.perform(...)
 end
 
 
+function command.perform_many(n, name)
+  local cmd = command.map[name]
+  if not cmd or not cmd.predicate() then return false end
+  pcall(function()
+    for i = 1, n do
+      cmd.perform()
+    end
+  end)
+  return true
+end
+
+
 function command.add_defaults()
   local reg = { "core", "root", "command", "doc", "findreplace", "files" }
   for _, name in ipairs(reg) do

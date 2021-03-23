@@ -124,7 +124,8 @@ function StatusView:get_items()
       self.separator,
       string.format("%d%%", line / #dv.doc.lines * 100),
     }, {
-      style.text, indent_label, indent_size,
+      style.caret, core.mode ~= 'standard' and string.upper(core.mode) or '', style.text, self.separator2,
+      indent_label, indent_size,
       style.dim, self.separator2, style.text,
       style.icon_font, "g",
       style.font, style.dim, self.separator2, style.text,

@@ -171,4 +171,16 @@ command.add(nil, {
       return common.home_encode_list(common.dir_list_suggest(text, dir_list))
     end)
   end,
+
+  ["core:set-insert-mode"] = function()
+    core.mode = 'insert'
+  end,
+
+  ["core:set-command-mode"] = function()
+    core.mode = 'command'
+  end,
+
+  ["core:set-standard-mode"] = function()
+    core.mode = 'standard'
+  end,
 })

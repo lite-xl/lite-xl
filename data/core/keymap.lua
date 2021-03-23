@@ -1,3 +1,4 @@
+local core = require "core"
 local command = require "core.command"
 local keymap = {}
 
@@ -13,6 +14,57 @@ local modkey_map = {
   ["left alt"]    = "alt",
   ["right alt"]   = "altgr",
 }
+
+function keymap.reset_vim_command()
+  keymap.command_verb = '.'
+  keymap.command_mult = 1
+end
+
+
+local function table_find(t, e)
+  for i = 1, #t do
+    if t[i] == e then return i end
+  end
+end
+
+keymap.vim_verbs_obj = {'d', 'c'}
+keymap.vim_verbs_imm = {'y', 'p', 'h', 'j', 'k', 'l', 'x', 'i'}
+keymap.vim_objects = {'w', '$'}
+
+local vim_object_map = {
+  ['w'] = 'end-of-word',
+  ['$'] = 'end-of-line',
+}
+
+function keymap.vim_execute(verb, mult, object)
+  if verb == '.' then
+    return command.perform_many(mult, 'doc:move-to-' .. vim_object_map[object])
+  elseif verb == 'd' then
+    return command.perform_many(mult, 'doc:delete-to-' .. vim_object_map[object])
+  elseif verb == 'c' then
+    command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
+    command.perform('doc:copy')
+    command.perform('doc:cut')
+    command.perform('core:set-insert-mode')
+  elseif verb == 'h' then
+    command.perform_many(mult, 'doc:move-to-previous-char')
+  elseif verb == 'j' then
+    command.perform_many(mult, 'doc:move-to-next-line')
+  elseif verb == 'k' then
+    command.perform_many(mult, 'doc:move-to-previous-line')
+  elseif verb == 'l' then
+    command.perform_many(mult, 'doc:move-to-next-char')
+  elseif verb == 'x' then
+    command.perform_many(mult, 'doc:delete')
+  elseif verb == 'i' then
+    command.perform('core:set-insert-mode')
+  else
+    return false
+  end
+  return true
+end
+
+keymap.reset_vim_command()
 
 local modkeys = { "ctrl", "alt", "altgr", "shift" }
 
@@ -52,7 +104,7 @@ function keymap.get_binding(cmd)
 end
 
 
-function keymap.on_key_pressed(k)
+function keymap.on_key_pressed(editor_mode, k)
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
@@ -62,6 +114,29 @@ function keymap.on_key_pressed(k)
     end
   else
     local stroke = key_to_stroke(k)
+    if editor_mode == 'command' then
+      if keymap.command_verb == '.' and table_find(keymap.vim_verbs_imm, stroke) then
+        keymap.vim_execute(stroke, keymap.command_mult)
+        keymap.reset_vim_command()
+        return true
+      elseif keymap.command_verb == '.' and table_find(keymap.vim_verbs_obj, stroke) then
+        keymap.command_verb = stroke
+        return true
+      elseif string.byte(stroke) >= string.byte(1) and string.byte(stroke) <= string.byte(9) then
+        keymap.command_mult = tonumber(stroke)
+        return true
+      elseif table_find(keymap.vim_objects, stroke) then
+        keymap.vim_execute(keymap.command_verb, keymap.command_mult, stroke)
+        keymap.reset_vim_command()
+        return true
+      end
+    elseif editor_mode == 'insert' then
+      if stroke == 'escape' then
+        core.mode = 'command'
+        return true
+      end
+      return false
+    end
     local commands = keymap.map[stroke]
     if commands then
       for _, cmd in ipairs(commands) do
@@ -75,7 +150,7 @@ function keymap.on_key_pressed(k)
 end
 
 
-function keymap.on_key_released(k)
+function keymap.on_key_released(editor_mode, k)
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = false

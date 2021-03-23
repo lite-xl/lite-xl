@@ -394,6 +394,7 @@ function core.init()
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
+  core.mode = 'standard'
   core.threads = setmetatable({}, { __mode = "k" })
 
   local project_dir_abs = system.absolute_path(project_dir)
@@ -716,12 +717,12 @@ end
 
 function core.on_event(type, ...)
   local did_keymap = false
-  if type == "textinput" then
+  if type == "textinput" and (core.mode == 'insert' or core.mode == 'standard') then
     core.root_view:on_text_input(...)
   elseif type == "keypressed" then
-    did_keymap = keymap.on_key_pressed(...)
+    did_keymap = keymap.on_key_pressed(core.mode, ...)
   elseif type == "keyreleased" then
-    keymap.on_key_released(...)
+    keymap.on_key_released(core.mode, ...)
   elseif type == "mousemoved" then
     core.root_view:on_mouse_moved(...)
   elseif type == "mousepressed" then
