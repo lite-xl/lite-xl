@@ -2,6 +2,10 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
+### next release
+
+Add `system.set_window_opacity` function.
+
 ### 1.16.5
 
 Hotfix for Github's issue https://github.com/franko/lite-xl/issues/122
