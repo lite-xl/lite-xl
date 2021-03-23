@@ -219,5 +219,6 @@ else
 fi
 lite_copy_third_party_modules "$build_dir"
 lite_build_package "$build_dir" "$arch"
-lite_build_package -portable "$build_dir" "$arch"
-
+if [[ ! ( "$OSTYPE" == "linux"* || "$OSTYPE" == "freebsd"* ) ]]; then
+  lite_build_package -portable "$build_dir" "$arch"
+fi
