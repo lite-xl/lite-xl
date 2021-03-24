@@ -29,10 +29,11 @@ end
 
 keymap.vim_verbs_obj = {'d', 'c'}
 keymap.vim_verbs_imm = {'y', 'p', 'h', 'j', 'k', 'l', 'x', 'i', 'u'}
-keymap.vim_objects = {'w', '$'}
+keymap.vim_objects = {'e', 'w', '$'}
 
 local vim_object_map = {
-  ['w'] = 'next-word-end',
+  ['e'] = 'next-word-end',
+  ['w'] = 'next-word-begin',
   ['$'] = 'end-of-line',
 }
 
@@ -134,6 +135,9 @@ function keymap.on_key_pressed(k)
         return true
       elseif table_find(keymap.vim_objects, stroke) then
         keymap.vim_execute(keymap.command_verb, keymap.command_mult, stroke)
+        keymap.reset_vim_command()
+        return true
+      elseif stroke == 'escape' then
         keymap.reset_vim_command()
         return true
       end

@@ -42,7 +42,7 @@ function translate.previous_word_start(doc, line, col)
 end
 
 
-function translate.next_word_end(doc, line, col)
+function translate.up_to_word(doc, line, col)
   local prev
   local end_line, end_col = translate.end_of_doc(doc, line, col)
   while line < end_line or col < end_col do
@@ -53,7 +53,19 @@ function translate.next_word_end(doc, line, col)
     line, col = doc:position_offset(line, col, 1)
     prev = char
   end
+  return line, col
+end
+
+
+function translate.next_word_end(doc, line, col)
+  line, col = translate.up_to_word(doc, line, col)
   return translate.end_of_word(doc, line, col)
+end
+
+
+function translate.next_word_begin(doc, line, col)
+  line, col = translate.end_of_word(doc, line, col)
+  return translate.up_to_word(doc, line, col)
 end
 
 

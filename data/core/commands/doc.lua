@@ -337,6 +337,7 @@ local translations = {
   ["next-char"] = translate.next_char,
   ["previous-word-start"] = translate.previous_word_start,
   ["next-word-end"] = translate.next_word_end,
+  ["next-word-begin"] = translate.next_word_begin,
   ["previous-block-start"] = translate.previous_block_start,
   ["next-block-end"] = translate.next_block_end,
   ["start-of-doc"] = translate.start_of_doc,
