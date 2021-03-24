@@ -29,7 +29,7 @@ end
 
 keymap.vim_verbs_obj = {'d', 'c'}
 keymap.vim_verbs_imm = {'y', 'p', 'h', 'j', 'k', 'l', 'x', 'i', 'u'}
-keymap.vim_objects = {'e', 'w', '$'}
+keymap.vim_objects = {'d', 'e', 'w', '$'}
 
 local vim_object_map = {
   ['e'] = 'next-word-end',
@@ -39,9 +39,21 @@ local vim_object_map = {
 
 function keymap.vim_execute(verb, mult, object)
   if verb == '.' then
-    command.perform_many(mult, 'doc:move-to-' .. vim_object_map[object])
+    if object == '$' then
+      command.perform_many(mult - 1, 'doc:move-to-next-line')
+      command.perform('doc:move-to-end-of-line')
+    else
+      command.perform_many(mult, 'doc:move-to-' .. vim_object_map[object])
+    end
   elseif verb == 'd' then
-    command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
+    if object == '$' then
+      command.perform_many(mult, 'doc:select-to-next-line')
+    elseif object == 'd' then
+      command.perform('doc:move-to-start-of-line')
+      command.perform_many(mult, 'doc:select-to-next-line')
+    else
+      command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
+    end
     command.perform('doc:copy')
     command.perform('doc:cut')
   elseif verb == 'c' then
