@@ -28,7 +28,7 @@ local function table_find(t, e)
 end
 
 keymap.vim_verbs_obj = {'d', 'c'}
-keymap.vim_verbs_imm = {'y', 'p', 'h', 'j', 'k', 'l', 'x', 'i'}
+keymap.vim_verbs_imm = {'y', 'p', 'h', 'j', 'k', 'l', 'x', 'i', 'u'}
 keymap.vim_objects = {'w', '$'}
 
 local vim_object_map = {
@@ -62,6 +62,8 @@ function keymap.vim_execute(verb, mult, object)
     command.perform('core:set-insert-mode')
   elseif verb == 'p' then
     command.perform('doc:paste')
+  elseif verb == 'u' then
+    command.perform('doc:undo')
   else
     return false
   end

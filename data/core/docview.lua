@@ -284,7 +284,9 @@ end
 
 
 function DocView:on_text_input(text)
-  self.doc:text_input(text)
+  if self.editing_mode ~= 'command' then
+    self.doc:text_input(text)
+  end
 end
 
 
