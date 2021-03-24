@@ -394,7 +394,6 @@ function core.init()
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
-  core.mode = 'standard'
   core.threads = setmetatable({}, { __mode = "k" })
 
   local project_dir_abs = system.absolute_path(project_dir)
@@ -717,12 +716,12 @@ end
 
 function core.on_event(type, ...)
   local did_keymap = false
-  if type == "textinput" and (core.mode == 'insert' or core.mode == 'standard') then
+  if type == "textinput" then
     core.root_view:on_text_input(...)
   elseif type == "keypressed" then
-    did_keymap = keymap.on_key_pressed(core.mode, ...)
+    did_keymap = keymap.on_key_pressed(...)
   elseif type == "keyreleased" then
-    keymap.on_key_released(core.mode, ...)
+    keymap.on_key_released(...)
   elseif type == "mousemoved" then
     core.root_view:on_mouse_moved(...)
   elseif type == "mousepressed" then
@@ -907,6 +906,17 @@ core.add_save_hook(function(filename)
   end
 end)
 
+
+function core.get_editing_mode(view)
+  return view.get_editing_mode and view:get_editing_mode() or 'standard'
+end
+
+
+function core.set_editing_mode(view, mode)
+  if view.set_editing_mode then
+    view:set_editing_mode(mode)
+  end
+end
 
 
 return core

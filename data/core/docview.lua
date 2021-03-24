@@ -56,6 +56,7 @@ function DocView:new(doc)
   self.font = "code_font"
   self.last_x_offset = {}
   self.blink_timer = 0
+  self.editing_mode = 'standard'
 end
 
 
@@ -165,6 +166,16 @@ function DocView:get_x_offset_col(line, x)
   end
 
   return #text
+end
+
+
+function DocView:get_editing_mode()
+  return self.editing_mode
+end
+
+
+function DocView:set_editing_mode(mode)
+  self.editing_mode = mode
 end
 
 

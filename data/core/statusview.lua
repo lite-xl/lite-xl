@@ -110,6 +110,7 @@ function StatusView:get_items()
     local indent = dv.doc.indent_info
     local indent_label = (indent and indent.type == "hard") and "tabs: " or "spaces: "
     local indent_size = indent and tostring(indent.size) .. (indent.confirmed and "" or "*") or "unknown"
+    local editing_mode = core.get_editing_mode(dv)
 
     return {
       dirty and style.accent or style.text, style.icon_font, "f",
@@ -124,7 +125,7 @@ function StatusView:get_items()
       self.separator,
       string.format("%d%%", line / #dv.doc.lines * 100),
     }, {
-      style.caret, core.mode ~= 'standard' and string.upper(core.mode) or '', style.text, self.separator2,
+      style.caret, editing_mode ~= 'standard' and string.upper(editing_mode) or '', style.text, self.separator2,
       indent_label, indent_size,
       style.dim, self.separator2, style.text,
       style.icon_font, "g",

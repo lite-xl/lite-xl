@@ -108,7 +108,7 @@ function keymap.get_binding(cmd)
 end
 
 
-function keymap.on_key_pressed(editor_mode, k)
+function keymap.on_key_pressed(k)
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
@@ -118,7 +118,8 @@ function keymap.on_key_pressed(editor_mode, k)
     end
   else
     local stroke = key_to_stroke(k)
-    if editor_mode == 'command' then
+    local mode = core.get_editing_mode(core.active_view)
+    if mode == 'command' then
       if keymap.command_verb == '.' and table_find(keymap.vim_verbs_imm, stroke) then
         keymap.vim_execute(stroke, keymap.command_mult)
         keymap.reset_vim_command()
@@ -134,9 +135,9 @@ function keymap.on_key_pressed(editor_mode, k)
         keymap.reset_vim_command()
         return true
       end
-    elseif editor_mode == 'insert' then
+    elseif mode == 'insert' then
       if stroke == 'escape' then
-        core.mode = 'command'
+        core.set_editing_mode(core.active_view, 'command')
         return true
       end
       return false
@@ -154,7 +155,7 @@ function keymap.on_key_pressed(editor_mode, k)
 end
 
 
-function keymap.on_key_released(editor_mode, k)
+function keymap.on_key_released(k)
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = false
