@@ -154,9 +154,12 @@ function keymap.on_key_pressed(k)
         return true
       end
     elseif mode == 'insert' then
-      if stroke == 'escape' then
+      if stroke == 'escape' or stroke == 'ctrl+c' then
         core.set_editing_mode(core.active_view, 'command')
         return true
+      end
+      if stroke == 'backspace' then
+        command.perform('doc:backspace')
       end
       return false
     end
