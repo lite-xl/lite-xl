@@ -4,6 +4,9 @@ group: travis_latest
 os: linux
 language: python
 
+before_install: 
+  - sudo apt-get install -qq libsdl2-dev
+
 matrix:
   include:
     - env: CC=gcc
