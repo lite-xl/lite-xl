@@ -84,7 +84,6 @@ function keymap.vim_execute(verb, mult, object)
 end
 
 keymap.reset_vim_command()
-
 local modkeys = { "ctrl", "alt", "altgr", "shift" }
 
 local function key_to_stroke(k)
@@ -154,9 +153,12 @@ function keymap.on_key_pressed(k)
         return true
       end
     elseif mode == 'insert' then
-      if stroke == 'escape' then
+      if stroke == 'escape' or stroke == 'ctrl+c' then
         core.set_editing_mode(core.active_view, 'command')
         return true
+      end
+      if stroke == 'backspace' then
+        command.perform('doc:backspace')
       end
       return false
     end
