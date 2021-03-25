@@ -84,6 +84,7 @@ function keymap.vim_execute(verb, mult, object)
 end
 
 keymap.reset_vim_command()
+
 local modkeys = { "ctrl", "alt", "altgr", "shift" }
 
 local function key_to_stroke(k)
