@@ -1,3 +1,4 @@
+![travis](https://api.travis-ci.com/netrobert/lite-xl.svg?branch=master)
 # Lite XL
 
 ![screenshot-dark](https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png)

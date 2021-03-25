@@ -1,0 +1,19 @@
+dist: bionic
+group: travis_latest
+
+os: linux
+language: python
+
+before_install: 
+  - sudo apt-get install -qq libsdl2-dev libagg-dev libfreetype6
+  
+matrix:
+  include:
+    - env: CC=gcc
+
+install:
+  - pip install meson ninja
+
+script:
+  - meson setup build
+  - meson compile -C build
