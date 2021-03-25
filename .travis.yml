@@ -13,6 +13,6 @@ install:
   - pip install meson ninja
 
 script:
-  - meson builddir
-  - meson compile -C builddir
-  - meson test -C builddir
+  - meson setup build
+  - meson compile -C build
+  - meson test -C build
