@@ -5,8 +5,8 @@ os: linux
 language: python
 
 before_install: 
-  - sudo apt-get install -qq libsdl2-dev
-
+  - sudo apt-get install -qq libsdl2-dev libagg-dev libfreetype6
+  
 matrix:
   include:
     - env: CC=gcc
