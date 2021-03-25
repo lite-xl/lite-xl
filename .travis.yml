@@ -10,7 +10,6 @@ before_install:
 matrix:
   include:
     - env: CC=gcc
-    - env: CC=clang
 
 install:
   - pip install meson ninja
