@@ -17,9 +17,13 @@ local modkey_map = {
 
 function keymap.reset_vim_command()
   keymap.command_verb = '.'
-  keymap.command_mult = 1
+  keymap.command_mult = ''
 end
 
+
+function keymap.vim_mult()
+  return keymap.command_mult == '' and 1 or tostring(keymap.command_mult)
+end
 
 local function table_find(t, e)
   for i = 1, #t do
@@ -136,17 +140,17 @@ function keymap.on_key_pressed(k)
     local mode = core.get_editing_mode(core.active_view)
     if mode == 'command' then
       if keymap.command_verb == '.' and table_find(keymap.vim_verbs_imm, stroke) then
-        keymap.vim_execute(stroke, keymap.command_mult)
+        keymap.vim_execute(stroke, keymap.vim_mult())
         keymap.reset_vim_command()
         return true
       elseif keymap.command_verb == '.' and table_find(keymap.vim_verbs_obj, stroke) then
         keymap.command_verb = stroke
         return true
-      elseif string.byte(k) >= string.byte('1') and string.byte(k) <= string.byte('9') then
-        keymap.command_mult = tonumber(k)
+      elseif string.byte(k) >= string.byte('0') and string.byte(k) <= string.byte('9') then
+        keymap.command_mult = keymap.command_mult .. k
         return true
       elseif table_find(keymap.vim_objects, stroke) then
-        keymap.vim_execute(keymap.command_verb, keymap.command_mult, stroke)
+        keymap.vim_execute(keymap.command_verb, keymap.vim_mult(), stroke)
         keymap.reset_vim_command()
         return true
       elseif stroke == 'escape' then
