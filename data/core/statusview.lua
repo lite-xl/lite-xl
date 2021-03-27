@@ -125,7 +125,7 @@ function StatusView:get_items()
       self.separator,
       string.format("%d%%", line / #dv.doc.lines * 100),
     }, {
-      style.caret, editing_mode ~= 'standard' and string.upper(editing_mode) or '', style.text, self.separator2,
+      style.caret, core.vim_mode and string.upper(editing_mode) or '', style.text, self.separator2,
       indent_label, indent_size,
       style.dim, self.separator2, style.text,
       style.icon_font, "g",

@@ -395,6 +395,7 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
+  core.vim_mode = false
 
   local project_dir_abs = system.absolute_path(project_dir)
   local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
@@ -907,13 +908,20 @@ core.add_save_hook(function(filename)
 end)
 
 
+function core.using_vim_mode(view)
+  return core.vim_mode and getmetatable(view) == DocView
+end
+
+
 function core.get_editing_mode(view)
-  return view.get_editing_mode and view:get_editing_mode() or 'standard'
+  if core.using_vim_mode(view) then
+    return view:get_editing_mode()
+  end
 end
 
 
 function core.set_editing_mode(view, mode)
-  if view.set_editing_mode then
+  if core.using_vim_mode(view) then
     view:set_editing_mode(mode)
   end
 end

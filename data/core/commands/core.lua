@@ -173,12 +173,7 @@ command.add(nil, {
   end,
 
   ["core:toggle-vim-mode"] = function()
-    local mode = core.get_editing_mode(core.active_view)
-    if mode == 'standard' then
-      core.set_editing_mode(core.active_view, 'command')
-    else
-      core.set_editing_mode(core.active_view, 'standard')
-    end
+    core.vim_mode = not core.vim_mode
   end,
 
   ["core:set-insert-mode"] = function()

@@ -56,7 +56,7 @@ function DocView:new(doc)
   self.font = "code_font"
   self.last_x_offset = {}
   self.blink_timer = 0
-  self.editing_mode = 'standard'
+  self.editing_mode = 'command'
 end
 
 
@@ -284,7 +284,7 @@ end
 
 
 function DocView:on_text_input(text)
-  if self.editing_mode ~= 'command' then
+  if not core.using_vim_mode(self) or self.editing_mode ~= 'command' then
     self.doc:text_input(text)
   end
 end
