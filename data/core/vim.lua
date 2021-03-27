@@ -25,7 +25,7 @@ local function table_find(t, e)
 end
 
 local verbs_obj = {'c', 'd'}
-local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'p', 'u', 'x', 'y', 'left', 'right', 'up', 'down'}
+local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'x', 'y', 'O', 'left', 'right', 'up', 'down'}
 local vim_objects = {'d', 'e', 'w', '^', '0', '$'}
 
 local vim_object_map = {
@@ -81,6 +81,15 @@ local function vim_execute(verb, mult, object)
     command.perform('core:set-insert-mode')
     command.perform('doc:move-to-next-char')
   elseif verb == 'i' then
+    command.perform('core:set-insert-mode')
+  elseif verb == 'o' then
+    command.perform('doc:move-to-end-of-line')
+    command.perform('doc:newline')
+    command.perform('core:set-insert-mode')
+  elseif verb == 'O' then -- FIXME: doesn't work
+    command.perform('doc:move-to-start-of-line')
+    command.perform('doc:newline')
+    command.perform('doc:move-to-previous-line')
     command.perform('core:set-insert-mode')
   elseif verb == 'p' then
     command.perform('doc:paste')
