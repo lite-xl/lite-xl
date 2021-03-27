@@ -15,80 +15,6 @@ local modkey_map = {
   ["right alt"]   = "altgr",
 }
 
-function keymap.reset_vim_command()
-  keymap.command_verb = '.'
-  keymap.command_mult = ''
-end
-
-
-function keymap.vim_mult()
-  return keymap.command_mult == '' and 1 or tostring(keymap.command_mult)
-end
-
-local function table_find(t, e)
-  for i = 1, #t do
-    if t[i] == e then return i end
-  end
-end
-
-keymap.vim_verbs_obj = {'d', 'c'}
-keymap.vim_verbs_imm = {'y', 'p', 'h', 'j', 'k', 'l', 'x', 'i', 'u'}
-keymap.vim_objects = {'d', 'e', 'w', '$'}
-
-local vim_object_map = {
-  ['e'] = 'next-word-end',
-  ['w'] = 'next-word-begin',
-  ['$'] = 'end-of-line',
-}
-
-function keymap.vim_execute(verb, mult, object)
-  if verb == '.' then
-    if object == '$' then
-      command.perform_many(mult - 1, 'doc:move-to-next-line')
-      command.perform('doc:move-to-end-of-line')
-    else
-      command.perform_many(mult, 'doc:move-to-' .. vim_object_map[object])
-    end
-  elseif verb == 'd' then
-    if object == '$' then
-      command.perform_many(mult, 'doc:select-to-next-line')
-    elseif object == 'd' then
-      command.perform('doc:move-to-start-of-line')
-      command.perform_many(mult, 'doc:select-to-next-line')
-    else
-      command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
-    end
-    command.perform('doc:copy')
-    command.perform('doc:cut')
-  elseif verb == 'c' then
-    command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
-    command.perform('doc:copy')
-    command.perform('doc:cut')
-    command.perform('core:set-insert-mode')
-  elseif verb == 'h' then
-    command.perform_many(mult, 'doc:move-to-previous-char')
-  elseif verb == 'j' then
-    command.perform_many(mult, 'doc:move-to-next-line')
-  elseif verb == 'k' then
-    command.perform_many(mult, 'doc:move-to-previous-line')
-  elseif verb == 'l' then
-    command.perform_many(mult, 'doc:move-to-next-char')
-  elseif verb == 'x' then
-    command.perform_many(mult, 'doc:delete')
-  elseif verb == 'i' then
-    command.perform('core:set-insert-mode')
-  elseif verb == 'p' then
-    command.perform('doc:paste')
-  elseif verb == 'u' then
-    command.perform('doc:undo')
-  else
-    return false
-  end
-  return true
-end
-
-keymap.reset_vim_command()
-
 local modkeys = { "ctrl", "alt", "altgr", "shift" }
 
 local function key_to_stroke(k)
@@ -138,34 +64,9 @@ function keymap.on_key_pressed(k)
   else
     local stroke = key_to_stroke(k)
     local mode = core.get_editing_mode(core.active_view)
-    if mode == 'command' then
-      if keymap.command_verb == '.' and table_find(keymap.vim_verbs_imm, stroke) then
-        keymap.vim_execute(stroke, keymap.vim_mult())
-        keymap.reset_vim_command()
-        return true
-      elseif keymap.command_verb == '.' and table_find(keymap.vim_verbs_obj, stroke) then
-        keymap.command_verb = stroke
-        return true
-      elseif string.byte(k) >= string.byte('0') and string.byte(k) <= string.byte('9') then
-        keymap.command_mult = keymap.command_mult .. k
-        return true
-      elseif table_find(keymap.vim_objects, stroke) then
-        keymap.vim_execute(keymap.command_verb, keymap.vim_mult(), stroke)
-        keymap.reset_vim_command()
-        return true
-      elseif stroke == 'escape' then
-        keymap.reset_vim_command()
-        return true
-      end
-    elseif mode == 'insert' then
-      if stroke == 'escape' or stroke == 'ctrl+c' then
-        core.set_editing_mode(core.active_view, 'command')
-        return true
-      end
-      if stroke == 'backspace' then
-        command.perform('doc:backspace')
-      end
-      return false
+    if mode then
+      local vim = require "core.vim"
+      return vim.on_key_pressed(mode, stroke, k)
     end
     local commands = keymap.map[stroke]
     if commands then
