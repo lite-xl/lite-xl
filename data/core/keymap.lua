@@ -66,7 +66,8 @@ function keymap.on_key_pressed(k)
     local mode = core.get_editing_mode(core.active_view)
     if mode then
       local vim = require "core.vim"
-      return vim.on_key_pressed(mode, stroke, k)
+      local accepted = vim.on_key_pressed(mode, stroke, k)
+      if accepted then return true end
     end
     local commands = keymap.map[stroke]
     if commands then
