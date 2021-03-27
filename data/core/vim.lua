@@ -26,12 +26,14 @@ end
 
 local verbs_obj = {'c', 'd'}
 local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'p', 'u', 'x', 'y', 'left', 'right', 'up', 'down'}
-local vim_objects = {'d', 'e', 'w', '$'}
+local vim_objects = {'d', 'e', 'w', '^', '0', '$'}
 
 local vim_object_map = {
   ['e'] = 'next-word-end',
   ['w'] = 'next-word-begin',
   ['$'] = 'end-of-line',
+  ['^'] = 'start-of-line',
+  ['0'] = 'start-of-line',
 }
 
 local function vim_execute(verb, mult, object)

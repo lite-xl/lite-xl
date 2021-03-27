@@ -718,6 +718,7 @@ end
 function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
+    -- FIXME: send textinput event to vim key-bindings module in vim mode
     core.root_view:on_text_input(...)
   elseif type == "keypressed" then
     did_keymap = keymap.on_key_pressed(...)
