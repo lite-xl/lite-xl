@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include "rencache.h"
 
@@ -14,13 +15,16 @@
 enum { FREE_FONT, SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL };
 
 typedef struct {
-  int type, size;
+  int8_t type;
+  int8_t tab_size;
+  int8_t subpixel_scale;
+  int8_t x_subpixel_offset;
+  int32_t size;
   RenRect rect;
   RenColor color;
   RenFont *font;
-  short int subpixel_scale;
-  short int x_subpixel_offset;
-  int tab_size;
+  CPReplaceTable *replacements;
+  RenColor replace_color;
   char text[0];
 } Command;
 
@@ -130,7 +134,10 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-int rencache_draw_text(RenFont *font, const char *text, int x, int y, RenColor color, bool draw_subpixel) {
+int rencache_draw_text(RenFont *font,
+  const char *text, int x, int y, RenColor color, bool draw_subpixel,
+  CPReplaceTable *replacements, RenColor replace_color)
+{
   int subpixel_scale;
   int w_subpixel = ren_get_font_width(font, text, &subpixel_scale);
   RenRect rect;
@@ -150,6 +157,8 @@ int rencache_draw_text(RenFont *font, const char *text, int x, int y, RenColor c
       cmd->subpixel_scale = (draw_subpixel ? subpixel_scale : 1);
       cmd->x_subpixel_offset = x - subpixel_scale * rect.x;
       cmd->tab_size = ren_get_font_tab_size(font);
+      cmd->replacements = replacements;
+      cmd->replace_color = replace_color;
     }
   }
 
@@ -262,11 +271,14 @@ void rencache_end_frame(void) {
           break;
         case DRAW_TEXT:
           ren_set_font_tab_size(cmd->font, cmd->tab_size);
-          ren_draw_text(cmd->font, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color);
+          ren_draw_text(cmd->font, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color,
+            cmd->replacements, cmd->replace_color);
           break;
         case DRAW_TEXT_SUBPIXEL:
           ren_set_font_tab_size(cmd->font, cmd->tab_size);
-          ren_draw_text_subpixel(cmd->font, cmd->text, cmd->subpixel_scale * cmd->rect.x + cmd->x_subpixel_offset, cmd->rect.y, cmd->color);
+          ren_draw_text_subpixel(cmd->font, cmd->text,
+            cmd->subpixel_scale * cmd->rect.x + cmd->x_subpixel_offset, cmd->rect.y, cmd->color,
+            cmd->replacements, cmd->replace_color);
           break;
       }
     }
