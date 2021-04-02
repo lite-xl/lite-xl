@@ -24,11 +24,11 @@ local function table_find(t, e)
   end
 end
 
-local verbs_obj = {'c', 'd'}
-local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'v', 'x', 'y', 'O',
+local verbs_obj = {'c', 'd', 'y'}
+local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'v', 'x', 'O',
   'left', 'right', 'up', 'down', 'escape'}
 
-local vim_objects = {'b', 'd', 'e', 'w', '^', '0', '$'}
+local vim_objects = {'b', 'd', 'e', 'w', 'y', '^', '0', '$'}
 
 local vim_object_map = {
   ['b'] = 'start-of-word',
@@ -58,12 +58,12 @@ local function vim_execute(mode, verb, mult, object)
         command.perform(doc.command(action, 'previous-char'))
       end
     end
-  elseif verb == 'd' then
-    if mode == 'command' then
+  elseif verb == 'd' or verb == 'y' then
+    if mode == 'command' then -- d and y act as immediate mode commands in visual mode
       if object == '$' then
         command.perform_many(mult - 1, 'doc:select-to-next-line')
         command.perform('doc:select-to-end-of-line')
-      elseif object == 'd' then
+      elseif object == verb then
         command.perform('doc:move-to-start-of-line')
         command.perform_many(mult, 'doc:select-to-next-line')
       else
@@ -71,7 +71,11 @@ local function vim_execute(mode, verb, mult, object)
       end
     end
     command.perform('doc:copy')
-    command.perform('doc:cut')
+    if verb == 'd' then
+      command.perform('doc:cut')
+    else
+      command.perform('doc:move-to-start-of-selection')
+    end
     command.perform('core:set-command-mode')
   elseif verb == 'c' then
     command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
@@ -144,12 +148,13 @@ function vim.on_text_input(mode, text, stroke)
       command_buffer:reset()
       return true
     elseif stroke == 'escape' then
+      core.active_view:set_editing_mode('command')
       command_buffer:reset()
       return true
     end
   elseif mode == 'insert' then
     if stroke == 'escape' or stroke == 'ctrl+c' then
-      core.set_editing_mode(core.active_view, 'command')
+      core.active_view:set_editing_mode('command')
       return true
     end
     if stroke == 'backspace' then
