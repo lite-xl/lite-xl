@@ -26,9 +26,10 @@ end
 
 local verbs_obj = {'c', 'd'}
 local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'x', 'y', 'O', 'left', 'right', 'up', 'down'}
-local vim_objects = {'d', 'e', 'w', '^', '0', '$'}
+local vim_objects = {'b', 'd', 'e', 'w', '^', '0', '$'}
 
 local vim_object_map = {
+  ['b'] = 'start-of-word',
   ['e'] = 'next-word-end',
   ['w'] = 'next-word-begin',
   ['$'] = 'end-of-line',
