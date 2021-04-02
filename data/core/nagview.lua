@@ -1,5 +1,4 @@
 local core = require "core"
-local config = require "core.config"
 local command = require "core.command"
 local common = require "core.common"
 local View = require "core.view"

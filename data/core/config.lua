@@ -21,7 +21,6 @@ config.max_project_files = 2000
 config.transitions = true
 config.animation_rate = 1.0
 config.blink_period = 0.8
-config.yes_by_default = true
 
 -- Disable plugin loading setting to false the config entry
 -- of the same name.
