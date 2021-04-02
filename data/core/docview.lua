@@ -363,7 +363,7 @@ function DocView:draw_line_body(idx, x, y)
     local lh = self:get_line_height()
     local x1 = x + self:get_col_x_offset(line, col)
     local caret_width
-    if core.vim_mode and self.editing_mode == 'command' then
+    if core.get_editing_mode(self) == 'command' then
       caret_width = self:get_font():get_width(self.doc.lines[line1]:sub(col1, col1))
     else
       caret_width = style.caret_width
