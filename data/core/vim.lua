@@ -25,7 +25,9 @@ local function table_find(t, e)
 end
 
 local verbs_obj = {'c', 'd'}
-local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'x', 'y', 'O', 'left', 'right', 'up', 'down'}
+local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'v', 'x', 'y', 'O',
+  'left', 'right', 'up', 'down', 'escape'}
+
 local vim_objects = {'b', 'd', 'e', 'w', '^', '0', '$'}
 
 local vim_object_map = {
@@ -37,45 +39,53 @@ local vim_object_map = {
   ['0'] = 'start-of-line',
 }
 
-local function vim_execute(verb, mult, object)
+local function doc_command(action, command)
+  return 'doc:' .. action .. '-' .. command
+end
+
+local function vim_execute(mode, verb, mult, object)
+  local action = (mode == 'command' and 'move-to' or 'select-to')
   if verb == '.' then
     if object == '$' then
-      command.perform_many(mult - 1, 'doc:move-to-next-line')
-      command.perform('doc:move-to-end-of-line')
+      command.perform_many(mult - 1, doc_command(action, 'next-line'))
+      command.perform(doc_command(action, 'end-of-line'))
     else
       if object == 'e' then
-        command.perform('doc:move-to-next-char')
+        command.perform(doc_command(action, 'next-char'))
       end
-      command.perform_many(mult, 'doc:move-to-' .. vim_object_map[object])
+      command.perform_many(mult, doc_command(action, vim_object_map[object]))
       if object == 'e' then
-        command.perform('doc:move-to-previous-char')
+        command.perform(doc.command(action, 'previous-char'))
       end
     end
   elseif verb == 'd' then
-    if object == '$' then
-      command.perform_many(mult - 1, 'doc:select-to-next-line')
-      command.perform('doc:select-to-end-of-line')
-    elseif object == 'd' then
-      command.perform('doc:move-to-start-of-line')
-      command.perform_many(mult, 'doc:select-to-next-line')
-    else
-      command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
+    if mode == 'command' then
+      if object == '$' then
+        command.perform_many(mult - 1, 'doc:select-to-next-line')
+        command.perform('doc:select-to-end-of-line')
+      elseif object == 'd' then
+        command.perform('doc:move-to-start-of-line')
+        command.perform_many(mult, 'doc:select-to-next-line')
+      else
+        command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
+      end
     end
     command.perform('doc:copy')
     command.perform('doc:cut')
+    command.perform('core:set-command-mode')
   elseif verb == 'c' then
     command.perform_many(mult, 'doc:select-to-' .. vim_object_map[object])
     command.perform('doc:copy')
     command.perform('doc:cut')
     command.perform('core:set-insert-mode')
   elseif verb == 'h' or verb == 'left' then
-    command.perform_many(mult, 'doc:move-to-previous-char')
+    command.perform_many(mult, doc_command(action, 'previous-char'))
   elseif verb == 'j' or verb == 'down' then
-    command.perform_many(mult, 'doc:move-to-next-line')
+    command.perform_many(mult, doc_command(action, 'next-line'))
   elseif verb == 'k' or verb == 'up' then
-    command.perform_many(mult, 'doc:move-to-previous-line')
+    command.perform_many(mult, doc_command(action, 'previous-line'))
   elseif verb == 'l' or verb == 'right' then
-    command.perform_many(mult, 'doc:move-to-next-char')
+    command.perform_many(mult, doc_command(action, 'next-char'))
   elseif verb == 'x' then
     command.perform_many(mult, 'doc:delete')
   elseif verb == 'a' then
@@ -87,7 +97,7 @@ local function vim_execute(verb, mult, object)
     command.perform('doc:move-to-end-of-line')
     command.perform('doc:newline')
     command.perform('core:set-insert-mode')
-  elseif verb == 'O' then -- FIXME: doesn't work
+  elseif verb == 'O' then
     command.perform('doc:move-to-start-of-line')
     command.perform('doc:newline')
     command.perform('doc:move-to-previous-line')
@@ -96,6 +106,15 @@ local function vim_execute(verb, mult, object)
     command.perform('doc:paste')
   elseif verb == 'u' then
     command.perform('doc:undo')
+  elseif verb == 'v' then
+    command.perform('core:set-visual-mode')
+  elseif verb == 'y' then
+    command.perform('doc:copy')
+    command.perform('doc:move-to-start-of-selection')
+    command.perform('core:set-command-mode')
+  elseif verb == 'escape' then
+    command.perform('doc:move-to-end-of-selection')
+    command.perform('core:set-command-mode')
   else
     return false
   end
@@ -104,19 +123,24 @@ end
 
 function vim.on_text_input(mode, text, stroke)
   text = text or stroke
-  if mode == 'command' then
+  if mode == 'command' or mode == 'visual' then
     if command_buffer.verb == '.' and table_find(verbs_imm, text) then
-      vim_execute(text, command_buffer:mult())
+      vim_execute(mode, text, command_buffer:mult())
       command_buffer:reset()
       return true
     elseif command_buffer.verb == '.' and table_find(verbs_obj, text) then
-      command_buffer.verb = text
+      if mode == 'command' then
+        command_buffer.verb = text
+      else
+        vim_execute(mode, text, command_buffer:mult())
+        command_buffer:reset()
+      end
       return true
     elseif string.byte(text) >= string.byte('0') and string.byte(text) <= string.byte('9') then
       command_buffer:add_mult_char(text)
       return true
     elseif table_find(vim_objects, text) then
-      vim_execute(command_buffer.verb, command_buffer:mult(), text)
+      vim_execute(mode, command_buffer.verb, command_buffer:mult(), text)
       command_buffer:reset()
       return true
     elseif stroke == 'escape' then

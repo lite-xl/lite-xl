@@ -376,4 +376,14 @@ commands["doc:move-to-next-char"] = function()
   end
 end
 
+commands["doc:move-to-end-of-selection"] = function()
+  local _, _, line, col = doc():get_selection(true)
+  doc():set_selection(line, col)
+end
+
+commands["doc:move-to-start-of-selection"] = function()
+  local line, col = doc():get_selection(true)
+  doc():set_selection(line, col)
+end
+
 command.add("core.docview", commands)

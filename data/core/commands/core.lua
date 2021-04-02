@@ -176,7 +176,15 @@ command.add(nil, {
     core.vim_mode = not core.vim_mode
   end,
 
+  ["core:set-command-mode"] = function()
+    core.set_editing_mode(core.active_view, 'command')
+  end,
+
   ["core:set-insert-mode"] = function()
     core.set_editing_mode(core.active_view, 'insert')
+  end,
+
+  ["core:set-visual-mode"] = function()
+    core.set_editing_mode(core.active_view, 'visual')
   end,
 })
