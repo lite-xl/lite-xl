@@ -3,11 +3,12 @@ local command = require "core.command"
 
 local vim = {}
 
-local command_buffer = {verb = '.', mult_accu = ''}
+local command_buffer = {verb = '.', mult_accu = '', inside = ''}
 
 function command_buffer:reset()
   self.verb = '.'
   self.mult_accu = ''
+  self.inside = ''
 end
 
 function command_buffer:mult()
@@ -28,7 +29,7 @@ local verbs_obj = {'c', 'd', 'y'}
 local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'v', 'x', 'O',
   'left', 'right', 'up', 'down', 'escape'}
 
-local vim_objects = {'b', 'd', 'e', 'w', 'y', '^', '0', '$'}
+local vim_objects = {'a', 'b', 'd', 'e', 'i', 'w', 'y', '^', '0', '$'}
 
 local vim_object_map = {
   ['b'] = 'start-of-word',
@@ -37,6 +38,15 @@ local vim_object_map = {
   ['$'] = 'end-of-line',
   ['^'] = 'start-of-line',
   ['0'] = 'start-of-line',
+}
+
+local inside_delims = {
+  [')'] = {'(', ')'},
+  [']'] = {'[', ']'},
+  ['}'] = {'{', '}'},
+  ['>'] = {'<', '>'},
+  ['"'] = {'"', '"'},
+  ["'"] = {"'", "'"},
 }
 
 local function doc_command(action, command)
@@ -125,27 +135,48 @@ local function vim_execute(mode, verb, mult, object)
   return true
 end
 
-function vim.on_text_input(mode, text, stroke)
-  text = text or stroke
+function vim.on_text_input(mode, text_raw, stroke)
+  local text = text_raw or stroke
   if mode == 'command' or mode == 'visual' then
-    if command_buffer.verb == '.' and table_find(verbs_imm, text) then
+    if command_buffer.inside ~= '' and inside_delims[text] then
+      -- got character for inside delimiter edits
+      local view = core.active_view
+      local outer = command_buffer.inside == 'a'
+      view.doc:select_with_delimiters(inside_delims[text], outer)
+      command.perform('doc:delete')
+      if command_buffer.verb == 'c' then
+        view:set_editing_mode('insert')
+      end
+      command_buffer:reset()
+      return true
+    elseif command_buffer.verb == '.' and table_find(verbs_imm, text) then
+      -- execute immediate vim command
       vim_execute(mode, text, command_buffer:mult())
       command_buffer:reset()
       return true
     elseif command_buffer.verb == '.' and table_find(verbs_obj, text) then
+      -- vim command that takes an object
       if mode == 'command' then
+        -- store the command without executing
         command_buffer.verb = text
       else
+        -- visual mode: execute the command
         vim_execute(mode, text, command_buffer:mult())
         command_buffer:reset()
       end
       return true
-    elseif string.byte(text) >= string.byte('0') and string.byte(text) <= string.byte('9') then
-      command_buffer:add_mult_char(text)
+    elseif text_raw and string.byte(text_raw) >= string.byte('0') and string.byte(text_raw) <= string.byte('9') then
+      -- numeric command multiplier
+      command_buffer:add_mult_char(text_raw)
       return true
     elseif table_find(vim_objects, text) then
-      vim_execute(mode, command_buffer.verb, command_buffer:mult(), text)
-      command_buffer:reset()
+      -- object of a verb
+      if text == 'i' or text == 'a' then
+        command_buffer.inside = text
+      else
+        vim_execute(mode, command_buffer.verb, command_buffer:mult(), text)
+        command_buffer:reset()
+      end
       return true
     elseif stroke == 'escape' then
       core.active_view:set_editing_mode('command')

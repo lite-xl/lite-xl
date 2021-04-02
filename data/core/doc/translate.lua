@@ -145,4 +145,45 @@ function translate.end_of_doc(doc, line, col)
 end
 
 
+function translate.inside_delimiters(doc, line, col, delims, outer)
+  print('translate.inside_delimiters', delims[2], outer)
+  local line1, col1 = line, col
+  while true do
+    local lineb, colb = doc:position_offset(line1, col1, -1)
+    local char = doc:get_char(lineb, colb)
+    if char == delims[1]
+    or line1 == lineb and col1 == colb then
+      break
+    end
+    line1, col1 = lineb, colb
+  end
+
+  if outer then
+    line1, col1 = doc:position_offset(line1, col1, -1)
+  end
+
+  local line2, col2 = line, col
+  while true do
+    local linef, colf = doc:position_offset(line2, col2, 1)
+    local char = doc:get_char(line2, col2)
+    if char == delims[2]
+    or linef == line2 and colf == col2 then
+      break
+    end
+    line2, col2 = linef, colf
+  end
+
+  if outer then
+    line2, col2 = doc:position_offset(line2, col2, 1)
+    while doc:get_char(line2, col2) == ' ' do
+      local nline2, ncol2 = doc:position_offset(line2, col2, 1)
+      if nline2 == line2 and ncol2 == col2 then break end
+      line2, col2 = nline2, ncol2
+    end
+  end
+
+  return line1, col1, line2, col2
+end
+
+
 return translate

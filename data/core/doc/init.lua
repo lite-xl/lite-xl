@@ -3,6 +3,7 @@ local Highlighter = require "core.doc.highlighter"
 local syntax = require "core.syntax"
 local config = require "core.config"
 local common = require "core.common"
+local translate = require "core.doc.translate"
 
 
 local Doc = Object:extend()
@@ -396,6 +397,12 @@ function Doc:select_to(...)
   local line, col, line2, col2 = self:get_selection()
   line, col = self:position_offset(line, col, ...)
   self:set_selection(line, col, line2, col2)
+end
+
+
+function Doc:select_with_delimiters(delims, outer)
+  local line, col = self:get_selection()
+  self:set_selection(self:position_offset(line, col, translate.inside_delimiters, delims, outer))
 end
 
 
