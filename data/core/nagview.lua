@@ -97,16 +97,16 @@ function NagView:on_mouse_pressed(button, mx, my, clicks)
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
       self.hovered_item = i
-      command.perform "nag:select"
+      command.perform "dialog:select"
     end
   end
 end
 
 function NagView:on_text_input(text)
   if text:lower() == "y" then
-    command.perform "nag:select-yes"
+    command.perform "dialog:select-yes"
   elseif text:lower() == "n" then
-    command.perform "nag:select-no"
+    command.perform "dialog:select-no"
   end
 end
 
@@ -178,33 +178,33 @@ function NagView:show(title, message, options, on_select)
 end
 
 command.add(NagView, {
-  ["nag:previous-entry"] = function()
+  ["dialog:previous-entry"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
     v.hovered_item = v.hovered_item or 1
     v.hovered_item = v.hovered_item == 1 and #v.options or v.hovered_item - 1
     core.redraw = true
   end,
-  ["nag:next-entry"] = function()
+  ["dialog:next-entry"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
     v.hovered_item = v.hovered_item or 1
     v.hovered_item = v.hovered_item == #v.options and 1 or v.hovered_item + 1
     core.redraw = true
   end,
-  ["nag:select-yes"] = function()
+  ["dialog:select-yes"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
     v.hovered_item = findindex(v.options, "default_yes")
     command.perform "nag:select"
   end,
-  ["nag:select-no"] = function()
+  ["dialog:select-no"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
     v.hovered_item = findindex(v.options, "default_no")
     command.perform "nag:select"
   end,
-  ["nag:select"] = function()
+  ["dialog:select"] = function()
     local v = core.active_view
     if v.hovered_item then
       v.on_selected(v.options[v.hovered_item])
