@@ -3,6 +3,7 @@ project('lite', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
+libx11 = dependency('x11', required : false)
 lua_dep = dependency('lua5.2', required : false)
 
 if not lua_dep.found()
