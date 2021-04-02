@@ -86,7 +86,7 @@ function NagView:on_mouse_moved(mx, my, ...)
   if not self.options then return end
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
-      self.selected = i
+      self.hovered_item = i
       break
     end
   end
@@ -96,7 +96,7 @@ function NagView:on_mouse_pressed(button, mx, my, clicks)
   if NagView.super.on_mouse_pressed(self, button, mx, my, clicks) then return end
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
-      self.selected = i
+      self.hovered_item = i
       command.perform "nag:select"
     end
   end
@@ -130,12 +130,12 @@ function NagView:draw()
 
   -- draw buttons
   for i, opt, bx,by,bw,bh, fx,fy,fw,fh in self:each_option() do
-    local fill = i == self.selected and style.nagbar_text or style.nagbar
-    local text_color = i == self.selected and style.nagbar or style.nagbar_text
+    local fill = i == self.hovered_item and style.nagbar_text or style.nagbar
+    local text_color = i == self.hovered_item and style.nagbar or style.nagbar_text
 
     renderer.draw_rect(bx,by,bw,bh, style.nagbar_text)
 
-    if i ~= self.selected then
+    if i ~= self.hovered_item then
       renderer.draw_rect(fx,fy,fw,fh, fill)
     end
 
@@ -155,7 +155,7 @@ function NagView:next()
   self.message = opts.message
   self.options = opts.options
   if self.options then
-    self.selected = findindex(self.options, config.yes_by_default and "default_yes" or "default_no")
+    self.hovered_item = findindex(self.options, "default_yes")
   end
   self.on_selected = opts.on_selected
   if self.title then
@@ -181,33 +181,33 @@ command.add(NagView, {
   ["nag:previous-entry"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v.selected = v.selected or 1
-    v.selected = v.selected == 1 and #v.options or v.selected - 1
+    v.hovered_item = v.hovered_item or 1
+    v.hovered_item = v.hovered_item == 1 and #v.options or v.hovered_item - 1
     core.redraw = true
   end,
   ["nag:next-entry"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v.selected = v.selected or 1
-    v.selected = v.selected == #v.options and 1 or v.selected + 1
+    v.hovered_item = v.hovered_item or 1
+    v.hovered_item = v.hovered_item == #v.options and 1 or v.hovered_item + 1
     core.redraw = true
   end,
   ["nag:select-yes"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v.selected = findindex(v.options, "default_yes")
+    v.hovered_item = findindex(v.options, "default_yes")
     command.perform "nag:select"
   end,
   ["nag:select-no"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v.selected = findindex(v.options, "default_no")
+    v.hovered_item = findindex(v.options, "default_no")
     command.perform "nag:select"
   end,
   ["nag:select"] = function()
     local v = core.active_view
-    if v.selected then
-      v.on_selected(v.options[v.selected])
+    if v.hovered_item then
+      v.on_selected(v.options[v.hovered_item])
       v:next()
     end
   end,
