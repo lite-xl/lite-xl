@@ -101,20 +101,21 @@ local function vim_execute(verb, mult, object)
   return true
 end
 
-function vim.on_key_pressed(mode, stroke, k)
+function vim.on_text_input(mode, text, stroke)
+  text = text or stroke
   if mode == 'command' then
-    if command_buffer.verb == '.' and table_find(verbs_imm, stroke) then
-      vim_execute(stroke, command_buffer:mult())
+    if command_buffer.verb == '.' and table_find(verbs_imm, text) then
+      vim_execute(text, command_buffer:mult())
       command_buffer:reset()
       return true
-    elseif command_buffer.verb == '.' and table_find(verbs_obj, stroke) then
-      command_buffer.verb = stroke
+    elseif command_buffer.verb == '.' and table_find(verbs_obj, text) then
+      command_buffer.verb = text
       return true
-    elseif string.byte(k) >= string.byte('0') and string.byte(k) <= string.byte('9') then
-      command_buffer:add_mult_char(k)
+    elseif string.byte(text) >= string.byte('0') and string.byte(text) <= string.byte('9') then
+      command_buffer:add_mult_char(text)
       return true
-    elseif table_find(vim_objects, stroke) then
-      vim_execute(command_buffer.verb, command_buffer:mult(), stroke)
+    elseif table_find(vim_objects, text) then
+      vim_execute(command_buffer.verb, command_buffer:mult(), text)
       command_buffer:reset()
       return true
     elseif stroke == 'escape' then

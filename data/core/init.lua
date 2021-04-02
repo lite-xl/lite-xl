@@ -714,11 +714,18 @@ function core.try(fn, ...)
   return false, err
 end
 
+-- vim module but loaded only when required.
+local vim
 
 function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
-    -- FIXME: send textinput event to vim key-bindings module in vim mode
+    local vim_mode = core.get_editing_mode(core.active_view)
+    if vim_mode then
+      local vim = require "core.vim"
+      local accepted = vim.on_text_input(vim_mode, ...)
+      if accepted then return false end
+    end
     core.root_view:on_text_input(...)
   elseif type == "keypressed" then
     did_keymap = keymap.on_key_pressed(...)

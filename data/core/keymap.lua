@@ -63,11 +63,13 @@ function keymap.on_key_pressed(k)
     end
   else
     local stroke = key_to_stroke(k)
-    local mode = core.get_editing_mode(core.active_view)
-    if mode then
+    local vim_mode = core.get_editing_mode(core.active_view)
+    if vim_mode then
       local vim = require "core.vim"
-      local accepted = vim.on_key_pressed(mode, stroke, k)
+      local accepted = vim.on_text_input(vim_mode, nil, stroke)
       if accepted then return true end
+      -- if the command is not recognized by vim fall throught to process
+      -- it as an ordinary command
     end
     local commands = keymap.map[stroke]
     if commands then
