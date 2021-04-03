@@ -345,6 +345,14 @@ function core.remove_project_directory(path)
 end
 
 
+local function whitespace_replacements()
+  local r = renderer.replacements.new()
+  r:add(" ", "·")
+  r:add("\t", "»")
+  return r
+end
+
+
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
@@ -416,6 +424,7 @@ function core.init()
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
+  core.replacements = whitespace_replacements()
 
   core.root_view = RootView()
   core.command_view = CommandView()

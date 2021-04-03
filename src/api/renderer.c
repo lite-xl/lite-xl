@@ -71,28 +71,37 @@ static int f_draw_rect(lua_State *L) {
   return 0;
 }
 
-
-static int f_draw_text(lua_State *L) {
+static int draw_text_subpixel_impl(lua_State *L, bool draw_subpixel) {
   RenFont **font = luaL_checkudata(L, 1, API_TYPE_FONT);
   const char *text = luaL_checkstring(L, 2);
-  int x = luaL_checknumber(L, 3);
+  /* The coordinate below will be in subpixels iff draw_subpixel is true.
+     Otherwise it will be in pixels. */
+  int x_subpixel = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(*font, text, x, y, color, false);
-  lua_pushnumber(L, x);
+
+  CPReplaceTable *rep_table;
+  RenColor replace_color;
+  if (lua_gettop(L) >= 7) {
+    rep_table = luaL_checkudata(L, 6, API_TYPE_REPLACE);
+    replace_color = checkcolor(L, 7, 255);
+  } else {
+    rep_table = NULL;
+    replace_color = (RenColor) {0};
+  }
+
+  x_subpixel = rencache_draw_text(*font, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
+  lua_pushnumber(L, x_subpixel);
   return 1;
+}
+
+static int f_draw_text(lua_State *L) {
+  return draw_text_subpixel_impl(L, false);
 }
 
 
 static int f_draw_text_subpixel(lua_State *L) {
-  RenFont **font = luaL_checkudata(L, 1, API_TYPE_FONT);
-  const char *text = luaL_checkstring(L, 2);
-  int x_subpixel = luaL_checknumber(L, 3);
-  int y = luaL_checknumber(L, 4);
-  RenColor color = checkcolor(L, 5, 255);
-  x_subpixel = rencache_draw_text(*font, text, x_subpixel, y, color, true);
-  lua_pushnumber(L, x_subpixel);
-  return 1;
+  return draw_text_subpixel_impl(L, true);
 }
 
 
@@ -110,10 +119,13 @@ static const luaL_Reg lib[] = {
 
 
 int luaopen_renderer_font(lua_State *L);
+int luaopen_renderer_replacements(lua_State *L);
 
 int luaopen_renderer(lua_State *L) {
   luaL_newlib(L, lib);
   luaopen_renderer_font(L);
   lua_setfield(L, -2, "font");
+  luaopen_renderer_replacements(L);
+  lua_setfield(L, -2, "replacements");
   return 1;
 }
