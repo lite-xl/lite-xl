@@ -7,10 +7,12 @@ This files document the changes done in Lite XL for each release.
 Add `system.set_window_opacity` function.
 
 Add codepoint replacement API to support natively the "draw whitespaces" option.
-It replace the `drawwhitespace` plugin. If can be configured using the
+It supersedes the `drawwhitespace` plugin. If can be configured using the
 `config.draw_whitespace` boolean variable and enabled and disables using the
 commands `draw-whitespace:toggle`, `draw-whitespace:enable`,
 `draw-whitespace:disable`.
+
+Improve the NagView for unsaved changes to accept keyboard commands.
 
 ### 1.16.5
 
