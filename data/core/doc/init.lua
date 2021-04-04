@@ -242,7 +242,7 @@ local function push_undo(undo_stack, time, type, ...)
 end
 
 
-local function pop_undo(self, undo_stack, redo_stack)
+local function pop_undo(self, undo_stack, redo_stack, modified)
   -- pop command
   local cmd = undo_stack[undo_stack.idx - 1]
   if not cmd then return end
@@ -251,11 +251,11 @@ local function pop_undo(self, undo_stack, redo_stack)
   -- handle command
   if cmd.type == "insert" then
     local line, col, text = table.unpack(cmd)
-    self:raw_insert(line, col, text, redo_stack, cmd.time)
+    self:raw_insert(line, col, text, redo_stack, cmd.time, true)
 
   elseif cmd.type == "remove" then
     local line1, col1, line2, col2 = table.unpack(cmd)
-    self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
+    self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time, true)
 
   elseif cmd.type == "selection" then
     self.selection.a.line, self.selection.a.col = cmd[1], cmd[2]
@@ -266,12 +266,16 @@ local function pop_undo(self, undo_stack, redo_stack)
   -- command and continue to execute it
   local next = undo_stack[undo_stack.idx - 1]
   if next and math.abs(cmd.time - next.time) < config.undo_merge_timeout then
-    return pop_undo(self, undo_stack, redo_stack)
+    return pop_undo(self, undo_stack, redo_stack, modified or cmd.type ~= "selection")
+  end
+
+  if modified then
+    self:on_text_change("undo")
   end
 end
 
 
-function Doc:raw_insert(line, col, text, undo_stack, time)
+function Doc:raw_insert(line, col, text, undo_stack, time, quiet)
   -- split text into lines and merge with line at insertion point
   local lines = split_lines(text)
   local before = self.lines[line]:sub(1, col - 1)
@@ -293,10 +297,14 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   -- update highlighter and assure selection is in bounds
   self.highlighter:invalidate(line)
   self:sanitize_selection()
+
+  if not quiet then
+    self:on_text_change("insert")
+  end
 end
 
 
-function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
+function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time, quiet)
   -- push undo
   local text = self:get_text(line1, col1, line2, col2)
   push_undo(undo_stack, time, "selection", self:get_selection())
@@ -312,13 +320,17 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- update highlighter and assure selection is in bounds
   self.highlighter:invalidate(line1)
   self:sanitize_selection()
+
+  if not quiet then
+    self:on_text_change("remove")
+  end
 end
 
 
 function Doc:insert(line, col, text)
   self.redo_stack = { idx = 1 }
   line, col = self:sanitize_position(line, col)
-  self:raw_insert(line, col, text, self.undo_stack, system.get_time())
+  self:raw_insert(line, col, text, self.undo_stack, system.get_time(), false)
 end
 
 
@@ -327,7 +339,7 @@ function Doc:remove(line1, col1, line2, col2)
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
   line1, col1, line2, col2 = sort_positions(line1, col1, line2, col2)
-  self:raw_remove(line1, col1, line2, col2, self.undo_stack, system.get_time())
+  self:raw_remove(line1, col1, line2, col2, self.undo_stack, system.get_time(), false)
 end
 
 
@@ -396,6 +408,10 @@ function Doc:select_to(...)
   local line, col, line2, col2 = self:get_selection()
   line, col = self:position_offset(line, col, ...)
   self:set_selection(line, col, line2, col2)
+end
+
+-- For plugins to add custom actions of document change
+function Doc:on_text_change(type)
 end
 
 
