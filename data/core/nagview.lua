@@ -9,14 +9,7 @@ local BORDER_PADDING = common.round(5 * SCALE)
 local UNDERLINE_WIDTH = common.round(2 * SCALE)
 local UNDERLINE_MARGIN = common.round(1 * SCALE)
 
-local function noop() end
-local function reviter(tbl, i)
-  i = i - 1
-  if tbl[i] then return i, tbl[i] end
-end
-local function revipairs(tbl)
-  return reviter, tbl, #tbl + 1
-end
+local noop = function() end
 
 local NagView = View:extend()
 
@@ -73,30 +66,26 @@ function NagView:change_hovered(i)
 end
 
 function NagView:each_option()
-  local n = #self.options
   return coroutine.wrap(function()
-    if n == 0 then return end
-    local quart = (self.size.x - style.padding.x) / 4
+    if not self.options then return end
+    local opt, bw,bh,ox,oy
+    bh = self.max_lh + 2 * BORDER_WIDTH + 2 * BORDER_PADDING
+    ox,oy = self:get_content_offset()
+    ox = ox + self.size.x
+    oy = oy + (self.size.y / 2) - (bh / 2)
 
-    local lh = self.max_lh
-    local bw, bh = quart / n, lh + 2 * BORDER_WIDTH + 2 * BORDER_PADDING
-    local halfh = self.size.y / 2
-    local halfbh = bh / 2
+    for i = #self.options, 1, -1 do
+      opt = self.options[i]
+      bw = opt.font:get_width(opt.text) + 2 * BORDER_WIDTH + 2 * BORDER_PADDING
 
-    local ox, oy = self:get_content_offset()
-    ox = ox + self.size.x - style.padding.x
-
-    for i, opt in revipairs(self.options) do
-      local bx, by = math.max(0, ox - bw), math.max(0, oy + halfh - halfbh)
-      coroutine.yield(i, opt, bx,by,bw,bh)
       ox = ox - bw - style.padding.x
+      coroutine.yield(i, opt, ox,oy,bw,bh)
     end
   end)
 end
 
 function NagView:on_mouse_moved(mx, my, ...)
   NagView.super.on_mouse_moved(self, mx, my, ...)
-  if not self.options then return end
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
       self:change_hovered(i)
@@ -111,6 +100,7 @@ function NagView:on_mouse_pressed(button, mx, my, clicks)
     if mx >= x and my >= y and mx < x + w and my < y + h then
       self:change_hovered(i)
       command.perform "dialog:select"
+      break
     end
   end
 end
@@ -139,7 +129,7 @@ function NagView:draw()
   end
 
   -- draw message
-  common.draw_text(style.font, style.nagbar_text, message, "left", style.padding.x, oy, self.size.x, self.size.y)
+  common.draw_text(style.font, style.nagbar_text, message, "left", ox, oy, self.size.x, self.size.y)
 
   -- draw buttons
   for i, opt, bx,by,bw,bh in self:each_option() do
@@ -174,19 +164,13 @@ function NagView:next()
   self.title = opts.title
   self.message = opts.message
   self.options = opts.options
-  self.max_lh = math.max(style.font:get_height(self.message), self:get_options_line_height())
-  self.underline_progress = 0
-  if self.options then
-    self.hovered_item = findindex(self.options, "default_yes")
-  end
   self.on_selected = opts.on_selected
-  if self.title then
-    self.force_focus = true
-    core.set_active_view(self)
-  else
-    self.force_focus = false
-    core.set_active_view(core.last_active_view)
+  if self.message and self.options then
+    self.max_lh = math.max(style.font:get_height(self.message), self:get_options_line_height())
+    self:change_hovered(findindex(self.options, "default_yes"))
   end
+  self.force_focus = self.message ~= nil
+  core.set_active_view(self.message ~= nil and self or core.last_active_view)
 end
 
 function NagView:show(title, message, options, on_select)
