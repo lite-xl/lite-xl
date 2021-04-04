@@ -481,8 +481,8 @@ function core.confirm_close_all(close_fn, ...)
     end
     local args = {...}
     local opt = {
-      { font = style.font, text = "Yes" },
-      { font = style.font, text = "No" }
+      { font = style.font, text = "Yes", default_yes = true },
+      { font = style.font, text = "No" , default_no = true }
     }
     core.nag_view:show("Unsaved Changes", text, opt, function(item)
       if item.text == "Yes" then close_fn(table.unpack(args)) end

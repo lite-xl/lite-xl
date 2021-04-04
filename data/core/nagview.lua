@@ -1,11 +1,12 @@
 local core = require "core"
-local config = require "core.config"
+local command = require "core.command"
 local common = require "core.common"
 local View = require "core.view"
 local style = require "core.style"
 
-local BORDER_WIDTH = common.round(2 * SCALE)
-local BORDER_PADDING = common.round(5 * SCALE)
+local BORDER_WIDTH = common.round(1 * SCALE)
+local UNDERLINE_WIDTH = common.round(2 * SCALE)
+local UNDERLINE_MARGIN = common.round(1 * SCALE)
 
 local noop = function() end
 
@@ -15,25 +16,14 @@ function NagView:new()
   NagView.super.new(self)
   self.size.y = 0
   self.force_focus = false
-  self.title = "Warning"
-  self.message = ""
-  self.options = {}
-  self.submit = noop
+  self.queue = {}
 end
 
 function NagView:get_title()
   return self.title
 end
 
-function NagView:each_option()
-  return coroutine.wrap(function()
-    for i = #self.options, 1, -1 do
-      coroutine.yield(i, self.options[i])
-    end
-  end)
-end
-
-function NagView:get_options_height()
+function NagView:get_options_line_height()
   local max = 0
   for _, opt in ipairs(self.options) do
     local lh = style.font:get_height(opt.text)
@@ -43,15 +33,18 @@ function NagView:get_options_height()
 end
 
 function NagView:get_line_height()
-  local maxlh = math.max(style.font:get_height(self.message), self:get_options_height())
-  return 2 * BORDER_WIDTH + 2 * BORDER_PADDING + maxlh + 2 * style.padding.y
+  return self.max_lh + 2 * BORDER_WIDTH + 2 * style.padding.y
 end
 
 function NagView:update()
   NagView.super.update(self)
 
-  local dest = core.active_view == self and self:get_line_height() or 0
-  self:move_towards(self.size, "y", dest)
+  if core.active_view == self and self.title then
+    self:move_towards(self.size, "y", self:get_line_height())
+    self:move_towards(self, "underline_progress", 1)
+  else
+    self:move_towards(self.size, "y", 0)
+  end
 end
 
 function NagView:draw_overlay()
@@ -63,87 +56,163 @@ function NagView:draw_overlay()
   end)
 end
 
-function NagView:each_visible_option()
-  return coroutine.wrap(function()
-    local halfh = math.floor(self.size.y / 2)
-    local ox, oy = self:get_content_offset()
-    ox = ox + self.size.x - style.padding.x
+function NagView:change_hovered(i)
+  if i ~= self.hovered_item then
+    self.hovered_item = i
+    self.underline_progress = 0
+    core.redraw = true
+  end
+end
 
-    for i, opt in self:each_option() do
-      local lw, lh = opt.font:get_width(opt.text), opt.font:get_height(opt.text)
-      local bw, bh = (lw + 2 * BORDER_WIDTH + 2 * BORDER_PADDING), (lh + 2 * BORDER_WIDTH + 2 * BORDER_PADDING)
-      local halfbh = math.floor(bh / 2)
-      local bx, by = math.max(0, ox - bw), math.max(0, oy + halfh - halfbh)
-      local fw, fh = bw - 2 * BORDER_WIDTH, bh - 2 * BORDER_WIDTH
-      local fx, fy = bx + BORDER_WIDTH, by + BORDER_WIDTH
-      coroutine.yield(i, opt, bx,by,bw,bh, fx,fy,fw,fh)
+function NagView:each_option()
+  return coroutine.wrap(function()
+    if not self.options then return end
+    local opt, bw,bh,ox,oy
+    bh = self.max_lh + 2 * BORDER_WIDTH + style.padding.y
+    ox,oy = self:get_content_offset()
+    ox = ox + self.size.x
+    oy = oy + (self.size.y / 2) - (bh / 2)
+
+    for i = #self.options, 1, -1 do
+      opt = self.options[i]
+      bw = opt.font:get_width(opt.text) + 2 * BORDER_WIDTH + style.padding.x
+
       ox = ox - bw - style.padding.x
+      coroutine.yield(i, opt, ox,oy,bw,bh)
     end
   end)
 end
 
 function NagView:on_mouse_moved(mx, my, ...)
   NagView.super.on_mouse_moved(self, mx, my, ...)
-  local selected = false
-  for i, _, x,y,w,h in self:each_visible_option() do
+  for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
-      self.selected = i
-      selected = true
+      self:change_hovered(i)
       break
     end
   end
-
-  if not selected then self.selected = nil end
 end
 
-function NagView:on_mouse_pressed(...)
-  if not NagView.super.on_mouse_pressed(self, ...) and self.selected then
-    self.force_focus = false
-    core.set_active_view(core.last_active_view)
-    self.submit(self.options[self.selected])
+function NagView:on_mouse_pressed(button, mx, my, clicks)
+  if NagView.super.on_mouse_pressed(self, button, mx, my, clicks) then return end
+  for i, _, x,y,w,h in self:each_option() do
+    if mx >= x and my >= y and mx < x + w and my < y + h then
+      self:change_hovered(i)
+      command.perform "dialog:select"
+      break
+    end
+  end
+end
+
+function NagView:on_text_input(text)
+  if text:lower() == "y" then
+    command.perform "dialog:select-yes"
+  elseif text:lower() == "n" then
+    command.perform "dialog:select-no"
   end
 end
 
 function NagView:draw()
-  if self.size.y <= 0 then return end
+  if self.size.y <= 0 or not self.title then return end
 
   self:draw_overlay()
   self:draw_background(style.nagbar)
 
-  -- draw message
   local ox, oy = self:get_content_offset()
-  common.draw_text(style.font, style.nagbar_text, self.message, "left", ox + style.padding.x, oy, self.size.x, self.size.y)
+  ox = ox + style.padding.x
+
+  -- if there are other items, show it
+  if #self.queue > 0 then
+    local str = string.format("[%d]", #self.queue)
+    ox = common.draw_text(style.font, style.nagbar_text, str, "left", ox, oy, self.size.x, self.size.y)
+    ox = ox + style.padding.x
+  end
+
+  -- draw message
+  common.draw_text(style.font, style.nagbar_text, self.message, "left", ox, oy, self.size.x, self.size.y)
 
   -- draw buttons
-  for i, opt, bx,by,bw,bh, fx,fy,fw,fh in self:each_visible_option() do
-    local fill = i == self.selected and style.nagbar_text or style.nagbar
-    local text_color = i == self.selected and style.nagbar or style.nagbar_text
+  for i, opt, bx,by,bw,bh in self:each_option() do
+    local fw,fh = bw - 2 * BORDER_WIDTH, bh - 2 * BORDER_WIDTH
+    local fx,fy = bx + BORDER_WIDTH, by + BORDER_WIDTH
 
+    -- draw the button
     renderer.draw_rect(bx,by,bw,bh, style.nagbar_text)
+    renderer.draw_rect(fx,fy,fw,fh, style.nagbar)
 
-    if i ~= self.selected then
-      renderer.draw_rect(fx,fy,fw,fh, fill)
+    if i == self.hovered_item then -- draw underline
+      local uw = fw - 2 * UNDERLINE_MARGIN
+      local halfuw = uw / 2
+      local lx = fx + UNDERLINE_MARGIN + halfuw - (halfuw * self.underline_progress)
+      local ly = fy + fh - UNDERLINE_MARGIN - UNDERLINE_WIDTH
+      uw = uw * self.underline_progress
+      renderer.draw_rect(lx,ly,uw,UNDERLINE_WIDTH, style.nagbar_text)
     end
 
-    common.draw_text(opt.font, text_color, opt.text, "center", fx,fy,fw,fh)
+    common.draw_text(opt.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
   end
 end
 
-function NagView:show(title, message, options, on_select, on_cancel)
-  self.title = title or "Warning"
-  self.message = message or "Empty?"
-  self.options = options or {}
-  if on_cancel then table.insert(options, { key = "cancel", font = style.icon_font, text = "C" }) end
-  self.force_focus = true
-  self.submit = function(item)
-    self.submit = noop -- reset the submit function
-    if item.key == "cancel" and on_cancel then
-      on_cancel()
-    elseif on_select then
-      on_select(item)
-    end
+local function findindex(tbl, prop)
+  for i, o in ipairs(tbl) do
+    if o[prop] then return i end
   end
-  core.set_active_view(self)
 end
+
+function NagView:next()
+  local opts = table.remove(self.queue, 1) or {}
+  self.title = opts.title
+  self.message = opts.message
+  self.options = opts.options
+  self.on_selected = opts.on_selected
+  if self.message and self.options then
+    self.max_lh = math.max(style.font:get_height(self.message), self:get_options_line_height())
+    self:change_hovered(findindex(self.options, "default_yes"))
+  end
+  self.force_focus = self.message ~= nil
+  core.set_active_view(self.message ~= nil and self or core.last_active_view)
+end
+
+function NagView:show(title, message, options, on_select)
+  local opts = {}
+  opts.title = assert(title, "No title")
+  opts.message = assert(message, "No message")
+  opts.options = assert(options, "No options")
+  opts.on_selected = on_select or noop
+  table.insert(self.queue, opts)
+  if #self.queue > 0 and not self.title then self:next() end
+end
+
+command.add(NagView, {
+  ["dialog:previous-entry"] = function()
+    local v = core.active_view
+    local hover = v.hovered_item or 1
+    v:change_hovered(hover == 1 and #v.options or hover - 1)
+  end,
+  ["dialog:next-entry"] = function()
+    local v = core.active_view
+    local hover = v.hovered_item or 1
+    v:change_hovered(hover == #v.options and 1 or hover + 1)
+  end,
+  ["dialog:select-yes"] = function()
+    local v = core.active_view
+    if v ~= core.nag_view then return end
+    v:change_hovered(findindex(v.options, "default_yes"))
+    command.perform "dialog:select"
+  end,
+  ["dialog:select-no"] = function()
+    local v = core.active_view
+    if v ~= core.nag_view then return end
+    v:change_hovered(findindex(v.options, "default_no"))
+    command.perform "dialog:select"
+  end,
+  ["dialog:select"] = function()
+    local v = core.active_view
+    if v.hovered_item then
+      v.on_selected(v.options[v.hovered_item])
+      v:next()
+    end
+  end,
+})
 
 return NagView
