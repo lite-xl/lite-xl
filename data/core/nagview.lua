@@ -4,8 +4,10 @@ local common = require "core.common"
 local View = require "core.view"
 local style = require "core.style"
 
-local BORDER_WIDTH = common.round(2 * SCALE)
+local BORDER_WIDTH = common.round(1 * SCALE)
 local BORDER_PADDING = common.round(5 * SCALE)
+local UNDERLINE_WIDTH = common.round(2 * SCALE)
+local UNDERLINE_MARGIN = common.round(1 * SCALE)
 
 local function noop() end
 local function reviter(tbl, i)
@@ -29,7 +31,7 @@ function NagView:get_title()
   return self.title
 end
 
-function NagView:get_options_height()
+function NagView:get_options_line_height()
   local max = 0
   for _, opt in ipairs(self.options) do
     local lh = style.font:get_height(opt.text)
@@ -39,8 +41,7 @@ function NagView:get_options_height()
 end
 
 function NagView:get_line_height()
-  local maxlh = math.max(style.font:get_height(self.message), self:get_options_height())
-  return 2 * BORDER_WIDTH + 2 * BORDER_PADDING + maxlh + 2 * style.padding.y
+  return 2 * BORDER_WIDTH + 2 * BORDER_PADDING + self.max_lh + 2 * style.padding.y
 end
 
 function NagView:update()
@@ -48,6 +49,7 @@ function NagView:update()
 
   if core.active_view == self and self.title then
     self:move_towards(self.size, "y", self:get_line_height())
+    self:move_towards(self, "underline_progress", 1)
   else
     self:move_towards(self.size, "y", 0)
   end
@@ -62,20 +64,31 @@ function NagView:draw_overlay()
   end)
 end
 
+function NagView:change_hovered(i)
+  if i ~= self.hovered_item then
+    self.hovered_item = i
+    self.underline_progress = 0
+    core.redraw = true
+  end
+end
+
 function NagView:each_option()
+  local n = #self.options
   return coroutine.wrap(function()
-    local halfh = math.floor(self.size.y / 2)
+    if n == 0 then return end
+    local quart = (self.size.x - style.padding.x) / 4
+
+    local lh = self.max_lh
+    local bw, bh = quart / n, lh + 2 * BORDER_WIDTH + 2 * BORDER_PADDING
+    local halfh = self.size.y / 2
+    local halfbh = bh / 2
+
     local ox, oy = self:get_content_offset()
     ox = ox + self.size.x - style.padding.x
 
     for i, opt in revipairs(self.options) do
-      local lw, lh = opt.font:get_width(opt.text), opt.font:get_height(opt.text)
-      local bw, bh = (lw + 2 * BORDER_WIDTH + 2 * BORDER_PADDING), (lh + 2 * BORDER_WIDTH + 2 * BORDER_PADDING)
-      local halfbh = math.floor(bh / 2)
       local bx, by = math.max(0, ox - bw), math.max(0, oy + halfh - halfbh)
-      local fw, fh = bw - 2 * BORDER_WIDTH, bh - 2 * BORDER_WIDTH
-      local fx, fy = bx + BORDER_WIDTH, by + BORDER_WIDTH
-      coroutine.yield(i, opt, bx,by,bw,bh, fx,fy,fw,fh)
+      coroutine.yield(i, opt, bx,by,bw,bh)
       ox = ox - bw - style.padding.x
     end
   end)
@@ -86,7 +99,7 @@ function NagView:on_mouse_moved(mx, my, ...)
   if not self.options then return end
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
-      self.hovered_item = i
+      self:change_hovered(i)
       break
     end
   end
@@ -96,7 +109,7 @@ function NagView:on_mouse_pressed(button, mx, my, clicks)
   if NagView.super.on_mouse_pressed(self, button, mx, my, clicks) then return end
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
-      self.hovered_item = i
+      self:change_hovered(i)
       command.perform "dialog:select"
     end
   end
@@ -129,17 +142,24 @@ function NagView:draw()
   common.draw_text(style.font, style.nagbar_text, message, "left", style.padding.x, oy, self.size.x, self.size.y)
 
   -- draw buttons
-  for i, opt, bx,by,bw,bh, fx,fy,fw,fh in self:each_option() do
-    local fill = i == self.hovered_item and style.nagbar_text or style.nagbar
-    local text_color = i == self.hovered_item and style.nagbar or style.nagbar_text
+  for i, opt, bx,by,bw,bh in self:each_option() do
+    local fw,fh = bw - 2 * BORDER_WIDTH, bh - 2 * BORDER_WIDTH
+    local fx,fy = bx + BORDER_WIDTH, by + BORDER_WIDTH
 
+    -- draw the button
     renderer.draw_rect(bx,by,bw,bh, style.nagbar_text)
+    renderer.draw_rect(fx,fy,fw,fh, style.nagbar)
 
-    if i ~= self.hovered_item then
-      renderer.draw_rect(fx,fy,fw,fh, fill)
+    if i == self.hovered_item then -- draw underline
+      local uw = fw - 2 * UNDERLINE_MARGIN
+      local halfuw = uw / 2
+      local lx = fx + UNDERLINE_MARGIN + halfuw - (halfuw * self.underline_progress)
+      local ly = fy + fh - UNDERLINE_MARGIN - UNDERLINE_WIDTH
+      uw = uw * self.underline_progress
+      renderer.draw_rect(lx,ly,uw,UNDERLINE_WIDTH, style.nagbar_text)
     end
 
-    common.draw_text(opt.font, text_color, opt.text, "center", fx,fy,fw,fh)
+    common.draw_text(opt.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
   end
 end
 
@@ -154,6 +174,8 @@ function NagView:next()
   self.title = opts.title
   self.message = opts.message
   self.options = opts.options
+  self.max_lh = math.max(style.font:get_height(self.message), self:get_options_line_height())
+  self.underline_progress = 0
   if self.options then
     self.hovered_item = findindex(self.options, "default_yes")
   end
@@ -180,29 +202,25 @@ end
 command.add(NagView, {
   ["dialog:previous-entry"] = function()
     local v = core.active_view
-    if v ~= core.nag_view then return end
-    v.hovered_item = v.hovered_item or 1
-    v.hovered_item = v.hovered_item == 1 and #v.options or v.hovered_item - 1
-    core.redraw = true
+    local hover = v.hovered_item or 1
+    v:change_hovered(hover == 1 and #v.options or hover - 1)
   end,
   ["dialog:next-entry"] = function()
     local v = core.active_view
-    if v ~= core.nag_view then return end
-    v.hovered_item = v.hovered_item or 1
-    v.hovered_item = v.hovered_item == #v.options and 1 or v.hovered_item + 1
-    core.redraw = true
+    local hover = v.hovered_item or 1
+    v:change_hovered(hover == #v.options and 1 or hover + 1)
   end,
   ["dialog:select-yes"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v.hovered_item = findindex(v.options, "default_yes")
-    command.perform "nag:select"
+    v:change_hovered(findindex(v.options, "default_yes"))
+    command.perform "dialog:select"
   end,
   ["dialog:select-no"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v.hovered_item = findindex(v.options, "default_no")
-    command.perform "nag:select"
+    v:change_hovered(findindex(v.options, "default_no"))
+    command.perform "dialog:select"
   end,
   ["dialog:select"] = function()
     local v = core.active_view
