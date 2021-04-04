@@ -5,7 +5,6 @@ local View = require "core.view"
 local style = require "core.style"
 
 local BORDER_WIDTH = common.round(1 * SCALE)
-local BORDER_PADDING = common.round(5 * SCALE)
 local UNDERLINE_WIDTH = common.round(2 * SCALE)
 local UNDERLINE_MARGIN = common.round(1 * SCALE)
 
@@ -34,7 +33,7 @@ function NagView:get_options_line_height()
 end
 
 function NagView:get_line_height()
-  return 2 * BORDER_WIDTH + 2 * BORDER_PADDING + self.max_lh + 2 * style.padding.y
+  return self.max_lh + 2 * BORDER_WIDTH + 2 * style.padding.y
 end
 
 function NagView:update()
@@ -69,14 +68,14 @@ function NagView:each_option()
   return coroutine.wrap(function()
     if not self.options then return end
     local opt, bw,bh,ox,oy
-    bh = self.max_lh + 2 * BORDER_WIDTH + 2 * BORDER_PADDING
+    bh = self.max_lh + 2 * BORDER_WIDTH + style.padding.y
     ox,oy = self:get_content_offset()
     ox = ox + self.size.x
     oy = oy + (self.size.y / 2) - (bh / 2)
 
     for i = #self.options, 1, -1 do
       opt = self.options[i]
-      bw = opt.font:get_width(opt.text) + 2 * BORDER_WIDTH + 2 * BORDER_PADDING
+      bw = opt.font:get_width(opt.text) + 2 * BORDER_WIDTH + style.padding.x
 
       ox = ox - bw - style.padding.x
       coroutine.yield(i, opt, ox,oy,bw,bh)
@@ -123,13 +122,14 @@ function NagView:draw()
   ox = ox + style.padding.x
 
   -- if there are other items, show it
-  local message = self.message
   if #self.queue > 0 then
-    message = string.format("[%d] %s", #self.queue, message)
+    local str = string.format("[%d]", #self.queue)
+    ox = common.draw_text(style.font, style.nagbar_text, str, "left", ox, oy, self.size.x, self.size.y)
+    ox = ox + style.padding.x
   end
 
   -- draw message
-  common.draw_text(style.font, style.nagbar_text, message, "left", ox, oy, self.size.x, self.size.y)
+  common.draw_text(style.font, style.nagbar_text, self.message, "left", ox, oy, self.size.x, self.size.y)
 
   -- draw buttons
   for i, opt, bx,by,bw,bh in self:each_option() do
