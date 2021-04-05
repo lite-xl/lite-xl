@@ -25,7 +25,7 @@ local function table_find(t, e)
   end
 end
 
-local verbs_obj = {'c', 'd', 'y'}
+local verbs_obj = {'c', 'd', 'r', 'y'}
 local verbs_imm = {'a', 'h', 'i', 'j', 'k', 'l', 'o', 'p', 'u', 'v', 'x', 'O',
   'left', 'right', 'up', 'down', 'escape'}
 
@@ -36,7 +36,7 @@ local vim_object_map = {
   ['e'] = 'next-word-end',
   ['w'] = 'next-word-begin',
   ['$'] = 'end-of-line',
-  ['^'] = 'start-of-line',
+  ['^'] = 'start-of-line-content',
   ['0'] = 'start-of-line',
 }
 
@@ -137,18 +137,29 @@ end
 
 function vim.on_text_input(mode, text_raw, stroke)
   local text = text_raw or stroke
+  local byte = text_raw and string.byte(text_raw)
+  local byte0, byte9 = string.byte('0'), string.byte('9')
+  local view = core.active_view
+  local doc = view.doc
   if mode == 'command' or mode == 'visual' then
     if command_buffer.inside ~= '' and inside_delims[text] then
       -- got character for inside delimiter edits
-      local view = core.active_view
       local outer = command_buffer.inside == 'a'
-      view.doc:select_with_delimiters(inside_delims[text], outer)
+      doc:select_with_delimiters(inside_delims[text], outer)
       command.perform('doc:delete')
       if command_buffer.verb == 'c' then
         view:set_editing_mode('insert')
       end
       command_buffer:reset()
       return true
+    elseif command_buffer.verb == 'r' then
+      if text_raw then
+        command.perform('doc:delete')
+        local line, col = doc:get_selection()
+        doc:insert(line, col, text_raw)
+        command_buffer:reset()
+        return true
+      end
     elseif command_buffer.verb == '.' and table_find(verbs_imm, text) then
       -- execute immediate vim command
       vim_execute(mode, text, command_buffer:mult())
@@ -165,7 +176,9 @@ function vim.on_text_input(mode, text_raw, stroke)
         command_buffer:reset()
       end
       return true
-    elseif text_raw and string.byte(text_raw) >= string.byte('0') and string.byte(text_raw) <= string.byte('9') then
+    elseif text_raw and byte
+    and (byte > byte0 or command_buffer.mult_accu ~= '' and byte == byte0)
+    and byte <= byte9 then
       -- numeric command multiplier
       command_buffer:add_mult_char(text_raw)
       return true

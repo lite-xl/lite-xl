@@ -343,6 +343,7 @@ local translations = {
   ["start-of-doc"] = translate.start_of_doc,
   ["end-of-doc"] = translate.end_of_doc,
   ["start-of-line"] = translate.start_of_line,
+  ["start-of-line-content"] = translate.start_of_line_content,
   ["end-of-line"] = translate.end_of_line,
   ["start-of-word"] = translate.start_of_word,
   ["end-of-word"] = translate.end_of_word,

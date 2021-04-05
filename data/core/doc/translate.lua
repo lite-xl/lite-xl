@@ -130,6 +130,11 @@ function translate.start_of_line(doc, line, col)
 end
 
 
+function translate.start_of_line_content(doc, line, col)
+  return translate.up_to_word(doc, line, 1)
+end
+
+
 function translate.end_of_line(doc, line, col)
   return line, math.huge
 end
