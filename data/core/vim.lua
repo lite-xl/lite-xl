@@ -3,10 +3,10 @@ local command = require "core.command"
 
 local vim = {}
 
-local command_buffer = {verb = '.', mult_accu = '', inside = ''}
+local command_buffer = {verb = '', mult_accu = '', inside = ''}
 
 function command_buffer:reset()
-  self.verb = '.'
+  self.verb = ''
   self.mult_accu = ''
   self.inside = ''
 end
@@ -49,13 +49,16 @@ local inside_delims = {
   ["'"] = {"'", "'"},
 }
 
+local vim_previous_command
+
 local function doc_command(action, command)
   return 'doc:' .. action .. '-' .. command
 end
 
 local function vim_execute(mode, verb, mult, object)
+  vim_previous_command = {verb, mult, object}
   local action = (mode == 'command' and 'move-to' or 'select-to')
-  if verb == '.' then
+  if verb == '' then
     if object == '$' then
       command.perform_many(mult - 1, doc_command(action, 'next-line'))
       command.perform(doc_command(action, 'end-of-line'))
@@ -160,12 +163,17 @@ function vim.on_text_input(mode, text_raw, stroke)
         command_buffer:reset()
         return true
       end
-    elseif command_buffer.verb == '.' and table_find(verbs_imm, text) then
+    elseif text == '.' then
+      if vim_previous_command then
+        vim_execute(mode, unpack(vim_previous_command))
+        return true
+      end
+    elseif command_buffer.verb == '' and table_find(verbs_imm, text) then
       -- execute immediate vim command
       vim_execute(mode, text, command_buffer:mult())
       command_buffer:reset()
       return true
-    elseif command_buffer.verb == '.' and table_find(verbs_obj, text) then
+    elseif command_buffer.verb == '' and table_find(verbs_obj, text) then
       -- vim command that takes an object
       if mode == 'command' then
         -- store the command without executing
