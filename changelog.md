@@ -14,6 +14,8 @@ commands `draw-whitespace:toggle`, `draw-whitespace:enable`,
 
 Improve the NagView to accept keyboard commands and introduce dialog commands.
 
+Add hook function `Doc:on_text_change` called on document changes, to be used by plugins.
+
 ### 1.16.5
 
 Hotfix for Github's issue https://github.com/franko/lite-xl/issues/122
