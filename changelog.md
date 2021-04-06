@@ -12,7 +12,7 @@ It supersedes the `drawwhitespace` plugin. If can be configured using the
 commands `draw-whitespace:toggle`, `draw-whitespace:enable`,
 `draw-whitespace:disable`.
 
-Improve the NagView for unsaved changes to accept keyboard commands.
+Improve the NagView to accept keyboard commands and introduce dialog commands.
 
 ### 1.16.5
 
