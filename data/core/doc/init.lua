@@ -262,11 +262,13 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
     self.selection.b.line, self.selection.b.col = cmd[3], cmd[4]
   end
 
+  modified = modified or (cmd.type ~= "selection")
+
   -- if next undo command is within the merge timeout then treat as a single
   -- command and continue to execute it
   local next = undo_stack[undo_stack.idx - 1]
   if next and math.abs(cmd.time - next.time) < config.undo_merge_timeout then
-    return pop_undo(self, undo_stack, redo_stack, modified or cmd.type ~= "selection")
+    return pop_undo(self, undo_stack, redo_stack, modified)
   end
 
   if modified then
