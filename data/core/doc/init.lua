@@ -242,7 +242,7 @@ local function push_undo(undo_stack, time, type, ...)
 end
 
 
-local function pop_undo(self, undo_stack, redo_stack)
+local function pop_undo(self, undo_stack, redo_stack, modified)
   -- pop command
   local cmd = undo_stack[undo_stack.idx - 1]
   if not cmd then return end
@@ -262,11 +262,17 @@ local function pop_undo(self, undo_stack, redo_stack)
     self.selection.b.line, self.selection.b.col = cmd[3], cmd[4]
   end
 
+  modified = modified or (cmd.type ~= "selection")
+
   -- if next undo command is within the merge timeout then treat as a single
   -- command and continue to execute it
   local next = undo_stack[undo_stack.idx - 1]
   if next and math.abs(cmd.time - next.time) < config.undo_merge_timeout then
-    return pop_undo(self, undo_stack, redo_stack)
+    return pop_undo(self, undo_stack, redo_stack, modified)
+  end
+
+  if modified then
+    self:on_text_change("undo")
   end
 end
 
@@ -319,6 +325,7 @@ function Doc:insert(line, col, text)
   self.redo_stack = { idx = 1 }
   line, col = self:sanitize_position(line, col)
   self:raw_insert(line, col, text, self.undo_stack, system.get_time())
+  self:on_text_change("insert")
 end
 
 
@@ -328,16 +335,17 @@ function Doc:remove(line1, col1, line2, col2)
   line2, col2 = self:sanitize_position(line2, col2)
   line1, col1, line2, col2 = sort_positions(line1, col1, line2, col2)
   self:raw_remove(line1, col1, line2, col2, self.undo_stack, system.get_time())
+  self:on_text_change("remove")
 end
 
 
 function Doc:undo()
-  pop_undo(self, self.undo_stack, self.redo_stack)
+  pop_undo(self, self.undo_stack, self.redo_stack, false)
 end
 
 
 function Doc:redo()
-  pop_undo(self, self.redo_stack, self.undo_stack)
+  pop_undo(self, self.redo_stack, self.undo_stack, false)
 end
 
 
@@ -396,6 +404,10 @@ function Doc:select_to(...)
   local line, col, line2, col2 = self:get_selection()
   line, col = self:position_offset(line, col, ...)
   self:set_selection(line, col, line2, col2)
+end
+
+-- For plugins to add custom actions of document change
+function Doc:on_text_change(type)
 end
 
 
