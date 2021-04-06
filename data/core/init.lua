@@ -552,6 +552,35 @@ function core.restart()
 end
 
 
+local function version_components(version)
+  local a, b, c = version:match('(%d+)%.(%d+)%.(%d+)')
+  if a then
+    return tonumber(a), tonumber(b), tonumber(c)
+  end
+  a, b = version:match('(%d+)%.(%d+)')
+  if a then
+    return tonumber(a), tonumber(b)
+  end
+end
+
+
+local function check_plugin_version(filename)
+  local f = io.open(filename, "r")
+  if not f then return false end
+  local version_match = false
+  for line in f:lines() do
+    local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)%s*$')
+    if not version then break end
+    local ver_major, ver_minor = version_components(version)
+    local ref_major, ref_minor = version_components(VERSION)
+    version_match = (ver_major == ref_major and ver_minor == ref_minor)
+    break
+  end
+  f:close()
+  return version_match
+end
+
+
 function core.load_plugins()
   local no_errors = true
   for _, root_dir in ipairs {USERDIR, DATADIR} do
@@ -559,7 +588,12 @@ function core.load_plugins()
     local files = system.list_dir(plugin_dir)
     for _, filename in ipairs(files or {}) do
       local basename = filename:match("(.-)%.lua$") or filename
-      if config[basename] ~= false then
+      local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+      if not version_match then
+        core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
+        no_errors = false
+      end
+      if version_match and config[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
         if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
