@@ -469,12 +469,15 @@ function core.init()
     local msg = {}
     for _, entry in pairs(plugins_refuse_list) do
       if #entry.plugins > 0 then
-        msg[#msg + 1] = string.format("from %s: %s", common.home_encode(entry.dir), table.concat(entry.plugins, ", "))
+        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(entry.plugins, "\n"))
       end
     end
     core.nag_view:show(
       "Refused Plugins",
-      string.format("Refused plugins %s", table.concat(msg, " and ")),
+      string.format(
+        "Some plugins are not loaded due to version mismatch.\n\n%s.\n\n" ..
+        "Please download a recent version from https://github.com/franko/lite-plugins.",
+        table.concat(msg, ".\n\n")),
       opt, function(item)
         if item.text == "Exit" then os.exit(1) end
       end)
