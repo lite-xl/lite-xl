@@ -441,7 +441,7 @@ function core.init()
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
   local got_user_error = not core.load_user_directory()
-  local got_plugin_error = not core.load_plugins()
+  local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
@@ -457,8 +457,27 @@ function core.init()
     core.error(delayed_error)
   end
 
-  if got_plugin_error or got_user_error or got_project_error then
+  if not plugins_success or got_user_error or got_project_error then
     command.perform("core:open-log")
+  end
+
+  if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
+    local opt = {
+      { font = style.font, text = "Exit", default_no = true },
+      { font = style.font, text = "Continue" , default_yes = true }
+    }
+    local msg = {}
+    for _, entry in pairs(plugins_refuse_list) do
+      if #entry.plugins > 0 then
+        msg[#msg + 1] = string.format("from %s: %s", common.home_encode(entry.dir), table.concat(entry.plugins, ", "))
+      end
+    end
+    core.nag_view:show(
+      "Refused Plugins",
+      string.format("Refused plugins %s", table.concat(msg, " and ")),
+      opt, function(item)
+        if item.text == "Exit" then os.exit(1) end
+      end)
   end
 end
 
@@ -583,6 +602,10 @@ end
 
 function core.load_plugins()
   local no_errors = true
+  local refused_list = {
+    userdir = {dir = USERDIR, plugins = {}},
+    datadir = {dir = DATADIR, plugins = {}},
+  }
   for _, root_dir in ipairs {USERDIR, DATADIR} do
     local plugin_dir = root_dir .. "/plugins"
     local files = system.list_dir(plugin_dir)
@@ -591,7 +614,8 @@ function core.load_plugins()
       local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
       if not version_match then
         core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-        no_errors = false
+        local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
+        ls[#ls + 1] = filename
       end
       if version_match and config[basename] ~= false then
         local modname = "plugins." .. basename
@@ -603,7 +627,7 @@ function core.load_plugins()
       end
     end
   end
-  return no_errors
+  return no_errors, refused_list
 end
 
 
