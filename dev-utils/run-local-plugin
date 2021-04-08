@@ -1,0 +1,91 @@
+#!/bin/bash
+
+set -o errexit
+
+option_copy=on
+pargs=()
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    -keep)
+    option_copy=off
+    ;;
+    -plugin-dir=*)
+    plugin_dir="${1#-plugin-dir=}"
+    ;;
+    -plugin=*)
+    # should be like -plugin=franko/lite-plugins/master/plugins/autowrap.lua
+    plugin+=("${1#-plugin=}")
+    ;;
+    -global)
+    option_global=on
+    ;;
+    -*)
+    echo "error: unknown option \"$1\""
+    exit 1
+    ;;
+    *)
+    pargs+=("$1")
+    ;;
+  esac
+  shift
+done
+
+if [ "${#pargs[@]}" -lt 1 ]; then
+  echo "usage: $0 [options] <build-dir>"
+  exit 1
+fi
+
+if [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "mingw"* ]]; then
+  run_windows=yes
+fi
+
+rundir=".run"
+bindir="$rundir/bin"
+datadir="$rundir/share/lite-xl"
+
+userdir="$(realpath "$rundir")"
+builddir="${pargs[0]}"
+
+build_lite () {
+  echo "running ninja"
+  ninja -C "$builddir"
+}
+
+copy_lite_build () {
+  echo "copying lite executable and data"
+  rm -fr "$rundir"
+  mkdir -p "$bindir" "$datadir"
+  if [ ! -z ${run_windows+x} ]; then
+    cp "$builddir/src/lite.exe" "$bindir"
+  else
+    cp "$builddir/src/lite" "$bindir"
+  fi
+  for module_name in core plugins colors fonts; do
+    cp -r "data/$module_name" "$datadir"
+  done
+}
+
+run_lite () {
+  if [ ! -z ${option_global+x} ]; then
+    echo "running \"lite ${pargs[@]:1}\""
+    exec "$bindir/lite" "${pargs[@]:1}"
+  else
+    echo "running \"lite ${pargs[@]:1}\" with local HOME"
+    if [ ! -z ${run_windows+x} ]; then
+      USERPROFILE="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+    else
+      HOME="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+    fi
+  fi
+}
+
+copy_plugin () {
+  echo "-- lite-xl 1.16" | cat - "$plugin_dir/$plugin.lua" > "$datadir/plugins/$plugin.lua"
+}
+
+if [ $option_copy == on ]; then
+  build_lite
+  copy_lite_build
+fi
+copy_plugin
+run_lite
