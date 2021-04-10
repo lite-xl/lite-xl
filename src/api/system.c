@@ -35,6 +35,44 @@ static char* key_name(char *dst, int sym) {
   return dst;
 }
 
+// FIXME: shouldn't be hard-coded but should depend on TitleView's height
+#define TITLE_BAR_WIDTH 100
+#define RESIZE_BORDER 40
+
+static SDL_HitTestResult SDLCALL
+hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
+  int w, h;
+
+  SDL_GetWindowSize(window, &w, &h);
+
+  if (pt->y < TITLE_BAR_WIDTH && pt->x > RESIZE_BORDER && pt->x < w - RESIZE_BORDER) {
+    return SDL_HITTEST_DRAGGABLE;
+  }
+
+  #define REPORT_RESIZE_HIT(name) { \
+    return SDL_HITTEST_RESIZE_##name; \
+  }
+
+  if (pt->x < RESIZE_BORDER && pt->y < RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(TOPLEFT);
+  } else if (pt->x > RESIZE_BORDER && pt->x < w - RESIZE_BORDER && pt->y < RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(TOP);
+  } else if (pt->x > w - RESIZE_BORDER && pt->y < RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(TOPRIGHT);
+  } else if (pt->x > w - RESIZE_BORDER && pt->y > RESIZE_BORDER && pt->y < h - RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(RIGHT);
+  } else if (pt->x > w - RESIZE_BORDER && pt->y > h - RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(BOTTOMRIGHT);
+  } else if (pt->x < w - RESIZE_BORDER && pt->x > RESIZE_BORDER && pt->y > h - RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(BOTTOM);
+  } else if (pt->x < RESIZE_BORDER && pt->y > h - RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(BOTTOMLEFT);
+  } else if (pt->x < RESIZE_BORDER && pt->y < h - RESIZE_BORDER && pt->y > RESIZE_BORDER) {
+    REPORT_RESIZE_HIT(LEFT);
+  }
+
+  return SDL_HITTEST_NORMAL;
+}
 
 static int f_poll_event(lua_State *L) {
   char buf[16];
@@ -198,6 +236,23 @@ static int f_set_window_mode(lua_State *L) {
   if (n == WIN_NORMAL) { SDL_RestoreWindow(window); }
   if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window); }
   return 0;
+}
+
+
+static int f_set_window_bordered(lua_State *L) {
+  int bordered = lua_toboolean(L, 1);
+  SDL_SetWindowBordered(window, bordered);
+  return 0;
+}
+
+
+static int f_set_window_hit_test(lua_State *L) {
+  if (SDL_SetWindowHitTest(window, hit_test, NULL) == -1) {
+    lua_pushboolean(L, 0);
+  } else {
+    lua_pushboolean(L, 1);
+  }
+  return 1;
 }
 
 
@@ -441,6 +496,8 @@ static const luaL_Reg lib[] = {
   { "set_cursor",          f_set_cursor          },
   { "set_window_title",    f_set_window_title    },
   { "set_window_mode",     f_set_window_mode     },
+  { "set_window_bordered", f_set_window_bordered },
+  { "set_window_hit_test", f_set_window_hit_test },
   { "get_window_size",     f_get_window_size     },
   { "set_window_size",     f_set_window_size     },
   { "window_has_focus",    f_window_has_focus    },

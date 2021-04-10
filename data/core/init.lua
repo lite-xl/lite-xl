@@ -6,6 +6,7 @@ local command
 local keymap
 local RootView
 local StatusView
+local TitleView
 local CommandView
 local NagView
 local DocView
@@ -358,6 +359,7 @@ function core.init()
   keymap = require "core.keymap"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
+  TitleView = require "core.titleview"
   CommandView = require "core.commandview"
   NagView = require "core.nagview"
   DocView = require "core.docview"
@@ -398,6 +400,11 @@ function core.init()
     end
   end
 
+  if config.borderless then
+    system.set_window_bordered(false)
+    system.set_window_hit_test()
+  end
+
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
@@ -430,9 +437,12 @@ function core.init()
   core.command_view = CommandView()
   core.status_view = StatusView()
   core.nag_view = NagView()
+  core.title_view = TitleView()
 
   local cur_node = core.root_view.root_node
   cur_node.is_primary_node = true
+  cur_node:split("up", core.title_view, {y = true})
+  cur_node = cur_node.b
   cur_node:split("up", core.nag_view, {y = true})
   cur_node = cur_node.b
   cur_node = cur_node:split("down", core.command_view, {y = true})
@@ -828,7 +838,7 @@ local function get_title_filename(view)
 end
 
 
-local function compose_window_title(title)
+function core.compose_window_title(title)
   return title == "" and "Lite XL" or title .. " - Lite XL"
 end
 
@@ -877,7 +887,7 @@ function core.step()
   -- update window title
   local current_title = get_title_filename(core.active_view)
   if current_title ~= core.window_title then
-    system.set_window_title(compose_window_title(current_title))
+    system.set_window_title(core.compose_window_title(current_title))
     core.window_title = current_title
   end
 
