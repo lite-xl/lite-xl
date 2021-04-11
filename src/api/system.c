@@ -37,6 +37,7 @@ static char* key_name(char *dst, int sym) {
 
 struct HitTestInfo {
   int title_height;
+  int controls_width;
   int resize_border;
 };
 typedef struct HitTestInfo HitTestInfo;
@@ -46,11 +47,13 @@ static HitTestInfo window_hit_info[1] = {{0, 0}};
 static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
   const HitTestInfo *hit_info = (HitTestInfo *) data;
   const int resize_border = hit_info->resize_border;
+  const int controls_width = hit_info->controls_width;
   int w, h;
 
   SDL_GetWindowSize(window, &w, &h);
 
-  if (pt->y < hit_info->title_height && pt->x > resize_border && pt->x < w - resize_border) {
+  if (pt->y < hit_info->title_height && pt->y > hit_info->resize_border &&
+    pt->x > resize_border && pt->x < w - controls_width) {
     return SDL_HITTEST_DRAGGABLE;
   }
 
@@ -60,7 +63,7 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
 
   if (pt->x < resize_border && pt->y < resize_border) {
     REPORT_RESIZE_HIT(TOPLEFT);
-  } else if (pt->x > resize_border && pt->x < w - resize_border && pt->y < resize_border) {
+  } else if (pt->x > resize_border && pt->x < w - controls_width && pt->y < resize_border) {
     REPORT_RESIZE_HIT(TOP);
   } else if (pt->x > w - resize_border && pt->y < resize_border) {
     REPORT_RESIZE_HIT(TOPRIGHT);
@@ -231,8 +234,8 @@ static int f_set_window_title(lua_State *L) {
 }
 
 
-static const char *window_opts[] = { "normal", "maximized", "fullscreen", 0 };
-enum { WIN_NORMAL, WIN_MAXIMIZED, WIN_FULLSCREEN };
+static const char *window_opts[] = { "normal", "minimized", "maximized", "fullscreen", 0 };
+enum { WIN_NORMAL, WIN_MINIMIZED, WIN_MAXIMIZED, WIN_FULLSCREEN };
 
 static int f_set_window_mode(lua_State *L) {
   int n = luaL_checkoption(L, 1, "normal", window_opts);
@@ -240,6 +243,7 @@ static int f_set_window_mode(lua_State *L) {
     n == WIN_FULLSCREEN ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
   if (n == WIN_NORMAL) { SDL_RestoreWindow(window); }
   if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window); }
+  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window); }
   return 0;
 }
 
@@ -253,7 +257,8 @@ static int f_set_window_bordered(lua_State *L) {
 
 static int f_set_window_hit_test(lua_State *L) {
   window_hit_info->title_height = luaL_checknumber(L, 1);
-  window_hit_info->resize_border = luaL_checknumber(L, 2);
+  window_hit_info->controls_width = luaL_checknumber(L, 2);
+  window_hit_info->resize_border = luaL_checknumber(L, 3);
   if (SDL_SetWindowHitTest(window, hit_test, window_hit_info) == -1) {
     lua_pushboolean(L, 0);
   } else {
