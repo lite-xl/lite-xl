@@ -400,9 +400,11 @@ function core.init()
     end
   end
 
+  core.window_borderless = false
+  core.hit_test_title_height = 0
   if config.borderless then
     system.set_window_bordered(false)
-    system.set_window_hit_test()
+    core.window_borderless = true
   end
 
   core.frame_start = 0

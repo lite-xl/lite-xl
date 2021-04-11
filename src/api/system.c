@@ -35,17 +35,22 @@ static char* key_name(char *dst, int sym) {
   return dst;
 }
 
-// FIXME: shouldn't be hard-coded but should depend on TitleView's height
-#define TITLE_BAR_WIDTH 100
-#define RESIZE_BORDER 40
+struct HitTestInfo {
+  int title_height;
+  int resize_border;
+};
+typedef struct HitTestInfo HitTestInfo;
 
-static SDL_HitTestResult SDLCALL
-hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
+static HitTestInfo window_hit_info[1] = {{0, 0}};
+
+static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
+  const HitTestInfo *hit_info = (HitTestInfo *) data;
+  const int resize_border = hit_info->resize_border;
   int w, h;
 
   SDL_GetWindowSize(window, &w, &h);
 
-  if (pt->y < TITLE_BAR_WIDTH && pt->x > RESIZE_BORDER && pt->x < w - RESIZE_BORDER) {
+  if (pt->y < hit_info->title_height && pt->x > resize_border && pt->x < w - resize_border) {
     return SDL_HITTEST_DRAGGABLE;
   }
 
@@ -53,21 +58,21 @@ hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
     return SDL_HITTEST_RESIZE_##name; \
   }
 
-  if (pt->x < RESIZE_BORDER && pt->y < RESIZE_BORDER) {
+  if (pt->x < resize_border && pt->y < resize_border) {
     REPORT_RESIZE_HIT(TOPLEFT);
-  } else if (pt->x > RESIZE_BORDER && pt->x < w - RESIZE_BORDER && pt->y < RESIZE_BORDER) {
+  } else if (pt->x > resize_border && pt->x < w - resize_border && pt->y < resize_border) {
     REPORT_RESIZE_HIT(TOP);
-  } else if (pt->x > w - RESIZE_BORDER && pt->y < RESIZE_BORDER) {
+  } else if (pt->x > w - resize_border && pt->y < resize_border) {
     REPORT_RESIZE_HIT(TOPRIGHT);
-  } else if (pt->x > w - RESIZE_BORDER && pt->y > RESIZE_BORDER && pt->y < h - RESIZE_BORDER) {
+  } else if (pt->x > w - resize_border && pt->y > resize_border && pt->y < h - resize_border) {
     REPORT_RESIZE_HIT(RIGHT);
-  } else if (pt->x > w - RESIZE_BORDER && pt->y > h - RESIZE_BORDER) {
+  } else if (pt->x > w - resize_border && pt->y > h - resize_border) {
     REPORT_RESIZE_HIT(BOTTOMRIGHT);
-  } else if (pt->x < w - RESIZE_BORDER && pt->x > RESIZE_BORDER && pt->y > h - RESIZE_BORDER) {
+  } else if (pt->x < w - resize_border && pt->x > resize_border && pt->y > h - resize_border) {
     REPORT_RESIZE_HIT(BOTTOM);
-  } else if (pt->x < RESIZE_BORDER && pt->y > h - RESIZE_BORDER) {
+  } else if (pt->x < resize_border && pt->y > h - resize_border) {
     REPORT_RESIZE_HIT(BOTTOMLEFT);
-  } else if (pt->x < RESIZE_BORDER && pt->y < h - RESIZE_BORDER && pt->y > RESIZE_BORDER) {
+  } else if (pt->x < resize_border && pt->y < h - resize_border && pt->y > resize_border) {
     REPORT_RESIZE_HIT(LEFT);
   }
 
@@ -247,7 +252,9 @@ static int f_set_window_bordered(lua_State *L) {
 
 
 static int f_set_window_hit_test(lua_State *L) {
-  if (SDL_SetWindowHitTest(window, hit_test, NULL) == -1) {
+  window_hit_info->title_height = luaL_checknumber(L, 1);
+  window_hit_info->resize_border = luaL_checknumber(L, 2);
+  if (SDL_SetWindowHitTest(window, hit_test, window_hit_info) == -1) {
     lua_pushboolean(L, 0);
   } else {
     lua_pushboolean(L, 1);

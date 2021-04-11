@@ -101,6 +101,12 @@
       "css": "window-close",
       "code": 87,
       "src": "fontawesome"
+    },
+    {
+      "uid": "559647a6f430b3aeadbecd67194451dd",
+      "css": "menu-1",
+      "code": 77,
+      "src": "fontawesome"
     }
   ]
 }
