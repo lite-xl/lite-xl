@@ -117,6 +117,16 @@ top:
         rencache_invalidate();
         lua_pushstring(L, "exposed");
         return 1;
+      } else if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+        lua_pushstring(L, "minimized");
+        return 1;
+      } else if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
+        fprintf(stderr, "maximized event!\n");
+        lua_pushstring(L, "maximized");
+        return 1;
+      } else if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
+        lua_pushstring(L, "restored");
+        return 1;
       }
       if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
         lua_pushstring(L, "focuslost");

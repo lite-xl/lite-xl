@@ -36,8 +36,7 @@ function TitleView:update()
     self.size.y = 0
   end
   TitleView.super.update(self)
-  local window_mode = system.get_window_mode()
-  title_commands[2] = window_mode == "maximized" and restore_command or maximize_command
+  title_commands[2] = core.window_mode == "maximized" and restore_command or maximize_command
   local title_height = self.size.y
   if core.window_borderless and title_height ~= core.hit_test_title_height then
     local icon_w = style.icon_font:get_width("_")

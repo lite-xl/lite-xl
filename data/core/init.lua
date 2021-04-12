@@ -411,6 +411,7 @@ function core.init()
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
+  core.window_mode = "normal"
   core.threads = setmetatable({}, { __mode = "k" })
 
   local project_dir_abs = system.absolute_path(project_dir)
@@ -812,6 +813,10 @@ function core.on_event(type, ...)
     core.root_view:on_mouse_released(...)
   elseif type == "mousewheel" then
     core.root_view:on_mouse_wheel(...)
+  elseif type == "resized" then
+    core.window_mode = system.get_window_mode()
+  elseif type == "minimized" or type == "maximized" or type == "restored" then
+    core.window_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
     local filename, mx, my = ...
     local info = system.get_file_info(filename)
