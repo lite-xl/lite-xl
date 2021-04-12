@@ -1,5 +1,5 @@
 {
-  "name": "",
+  "name": "icons",
   "css_prefix_text": "icon-",
   "css_use_suffix": false,
   "hinting": true,
@@ -99,13 +99,19 @@
     {
       "uid": "7394501fc0b17cb7bda99538f92e26d6",
       "css": "window-close",
-      "code": 87,
+      "code": 88,
       "src": "fontawesome"
     },
     {
       "uid": "559647a6f430b3aeadbecd67194451dd",
       "css": "menu-1",
       "code": 77,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "07f0832c07f3d9713fffb06c8bffa027",
+      "css": "window-maximize",
+      "code": 87,
       "src": "fontawesome"
     }
   ]
