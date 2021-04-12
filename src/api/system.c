@@ -276,15 +276,15 @@ static int f_set_window_bordered(lua_State *L) {
 
 
 static int f_set_window_hit_test(lua_State *L) {
+  if (lua_gettop(L) == 0) {
+    SDL_SetWindowHitTest(window, NULL, NULL);
+    return 0;
+  }
   window_hit_info->title_height = luaL_checknumber(L, 1);
   window_hit_info->controls_width = luaL_checknumber(L, 2);
   window_hit_info->resize_border = luaL_checknumber(L, 3);
-  if (SDL_SetWindowHitTest(window, hit_test, window_hit_info) == -1) {
-    lua_pushboolean(L, 0);
-  } else {
-    lua_pushboolean(L, 1);
-  }
-  return 1;
+  SDL_SetWindowHitTest(window, hit_test, window_hit_info);
+  return 0;
 }
 
 

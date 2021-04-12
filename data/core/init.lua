@@ -400,13 +400,6 @@ function core.init()
     end
   end
 
-  core.window_borderless = false
-  core.hit_test_title_height = 0
-  if config.borderless then
-    system.set_window_bordered(false)
-    core.window_borderless = true
-  end
-
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
@@ -473,6 +466,10 @@ function core.init()
   if not plugins_success or got_user_error or got_project_error then
     command.perform("core:open-log")
   end
+
+  system.set_window_bordered(not config.borderless)
+  core.title_view:configure_hit_test(config.borderless)
+  core.title_view.visible = config.borderless
 
   if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
     local opt = {
@@ -693,6 +690,11 @@ function core.set_active_view(view)
     core.last_active_view = core.active_view
     core.active_view = view
   end
+end
+
+
+function core.show_title_bar(show)
+  core.title_view.visible = show
 end
 
 

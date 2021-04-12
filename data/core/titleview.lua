@@ -25,26 +25,26 @@ end
 
 function TitleView:new()
   TitleView.super.new(self)
-  -- FIXME: decide if visible is actually needed
   self.visible = true
 end
 
-function TitleView:update()
-  if self.visible then
-    self.size.y = title_view_height()
-  else
-    self.size.y = 0
-  end
-  TitleView.super.update(self)
-  title_commands[2] = core.window_mode == "maximized" and restore_command or maximize_command
-  local title_height = self.size.y
-  if core.window_borderless and title_height ~= core.hit_test_title_height then
+function TitleView:configure_hit_test(borderless)
+  if borderless then
+    local title_height = title_view_height()
     local icon_w = style.icon_font:get_width("_")
     local icon_spacing = icon_w
     local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
     system.set_window_hit_test(title_height, controls_width, icon_spacing)
-    core.hit_test_title_height = title_height
+    -- core.hit_test_title_height = title_height
+  else
+    system.set_window_hit_test()
   end
+end
+
+function TitleView:update()
+  self.size.y = self.visible and title_view_height() or 0
+  title_commands[2] = core.window_mode == "maximized" and restore_command or maximize_command
+  TitleView.super.update(self)
 end
 
 
@@ -95,6 +95,7 @@ end
 
 
 function TitleView:on_mouse_moved(px, py, ...)
+  if self.size.y == 0 then return end
   TitleView.super.on_mouse_moved(self, px, py, ...)
   self.hovered_item = nil
   local x_min, x_max, y_min, y_max = self.size.x, 0, self.size.y, 0
