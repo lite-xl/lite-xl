@@ -9,13 +9,6 @@ while [[ "$#" -gt 0 ]]; do
     -keep)
     option_copy=off
     ;;
-    -plugin-dir=*)
-    plugin_dir="${1#-plugin-dir=}"
-    ;;
-    -plugin=*)
-    # should be like -plugin=franko/lite-plugins/master/plugins/autowrap.lua
-    plugin+=("${1#-plugin=}")
-    ;;
     -global)
     option_global=on
     ;;
@@ -30,10 +23,13 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-if [ "${#pargs[@]}" -lt 1 ]; then
-  echo "usage: $0 [options] <build-dir>"
+if [ "${#pargs[@]}" -lt 3 ]; then
+  echo "usage: $0 [options] <plugin-dir> <plugin-name> <build-dir>"
   exit 1
 fi
+
+plugin_dir="${pargs[0]}"
+plugin="${pargs[1]}"
 
 if [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "mingw"* ]]; then
   run_windows=yes
@@ -44,7 +40,7 @@ bindir="$rundir/bin"
 datadir="$rundir/share/lite-xl"
 
 userdir="$(realpath "$rundir")"
-builddir="${pargs[0]}"
+builddir="${pargs[2]}"
 
 build_lite () {
   echo "running ninja"
@@ -67,14 +63,14 @@ copy_lite_build () {
 
 run_lite () {
   if [ ! -z ${option_global+x} ]; then
-    echo "running \"lite ${pargs[@]:1}\""
-    exec "$bindir/lite" "${pargs[@]:1}"
+    echo "running \"lite ${pargs[@]:3}\""
+    exec "$bindir/lite" "${pargs[@]:3}"
   else
-    echo "running \"lite ${pargs[@]:1}\" with local HOME"
+    echo "running \"lite ${pargs[@]:3}\" with local HOME"
     if [ ! -z ${run_windows+x} ]; then
-      USERPROFILE="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+      USERPROFILE="$userdir" exec "$bindir/lite" "${pargs[@]:3}"
     else
-      HOME="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+      HOME="$userdir" exec "$bindir/lite" "${pargs[@]:3}"
     fi
   fi
 }
