@@ -121,7 +121,6 @@ top:
         lua_pushstring(L, "minimized");
         return 1;
       } else if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
-        fprintf(stderr, "maximized event!\n");
         lua_pushstring(L, "maximized");
         return 1;
       } else if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
