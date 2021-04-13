@@ -3,7 +3,7 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [ master gh-actions ]
   pull_request:
     branches: [ master ]
 
@@ -11,30 +11,61 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-18.04
     strategy:
       matrix:
-        compiler: [gcc]
-        python-version: [3.8]
+        config:
+        - { name: "GCC", cc: gcc, cxx: g++ }
+        - { name: "clang", cc: clang, cxx: clang++ }
     env:
-      CC: ${{ matrix.compiler }}
-
-    runs-on: ubuntu-latest
-
+      CC: ${{ matrix.config.cc }}
+      CXX: ${{ matrix.config.cxx }}
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so the job can access it
       - uses: actions/checkout@v2
-
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
-
+          python-version: 3.6
       - name: Install dependencies
-        run: sudo apt-get install -qq libsdl2-dev libagg-dev libfreetype6 && pip install meson ninja
+        run: |
+          sudo apt-get install -qq libsdl2-dev libfreetype6 ninja-build
+          pip3 install meson
+      - name: Build package
+        run: bash build-packages.sh x86-64
+      - name: upload packages
+        uses: actions/upload-artifact@v2
+        with:
+          name: Ubuntu Package
+          path: lite-xl-linux-*.tar.gz
 
-      - name: Meson Setup
-        run: meson setup build
+  build-macox:
+    name: Build Mac OS X
+    runs-on: macos-10.15
+    strategy:
+      matrix:
+        config:
+        - { name: "GCC", cc: gcc-10, cxx: g++-10 }
+        - { name: "clang", cc: clang, cxx: clang++ }
+    env:
+      CC: ${{ matrix.config.cc }}
+      CXX: ${{ matrix.config.cxx }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install dependencies
+        run: |
+          pip3 install meson
+          brew install ninja sdl2
+      - name: Build package
+        run: bash build-packages.sh x86-64
+      - name: upload packages
+        uses: actions/upload-artifact@v2
+        with:
+          name: Mac OS X Package
+          path: lite-xl-macosx-*.zip
 
-      - name: Meson Compile
-        run: meson compile -C build
