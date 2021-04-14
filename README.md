@@ -66,7 +66,7 @@ sudo apt install meson
 
 To build Lite XL with Meson the commands below can be used:
 ```sh
-meson setup build
+meson setup --buildtype=release build
 meson compile -C build
 meson install -C build
 ```
@@ -74,18 +74,19 @@ meson install -C build
 If you are using a version of Meson below 0.54 you need to use diffent commands to compile and install:
 
 ```sh
-meson setup build
+meson setup --buildtype=release build
 ninja -C build
 ninja -C build install
 ```
 
-When performing the `meson setup` command you may enable the `-Dportable=true` option to specify whether a portable build should be done.
+When performing the `meson setup` command you may enable the `-Dportable=true` option to specify whether files should be installed as in a portable application.
 
-If `portable` is enabled, Lite XL is built to use `data` and `user` directories placed next to the executable.
-Otherwise, Lite XL will use Unix-like directory locations.
-In this case, the `data` directory will be located in `$prefix/share/lite-xl`, and the `user`
-directory will be `$HOME/.config/lite-xl`.
-`$prefix` is determined such that `$prefix/bin` corresponds to the location of the executable.
+If `portable` is enabled, Lite XL is built to use a `data` directory placed next to the executable.
+Otherwise, Lite XL will use unix-like directory locations.
+In this case, the `data` directory will be `$prefix/share/lite-xl` and the executable will be located in `$prefix/bin`.
+`$prefix` is determined when the application starts as a directory such that `$prefix/bin` corresponds to the location of the executable.
+
+The `user` directory does not depend on the `portable` option and will always be `$HOME/.config/lite-xl`.
 `$HOME` is determined from the corresponding environment variable.
 As a special case on Windows the variable `$USERPROFILE` will be used instead.
 
