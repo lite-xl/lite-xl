@@ -1,0 +1,22 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>CFBundleExecutable</key>
+	<string>lite-xl</string>
+	<key>CFBundleGetInfoString</key>
+	<string>lite-xl</string>
+	<key>CFBundleIconFile</key>
+	<string>icon</string>
+	<key>CFBundleName</key>
+	<string>lite-xl</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>CFBundleShortVersionString</key>
+	<string>1.16.5</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2019-2021 rxi franko</string>
+</dict>
+</plist> 
