@@ -86,22 +86,16 @@ lite_build_package_windows () {
 }
 
 lite_build_package_macosx () {
-  local portable=""
-  if [ "$1" == "-portable" ]; then
-    portable="-portable"
-    shift
-  fi
   local build="$1"
   local arch="$2"
   local os="macosx"
-  local pdir=".package-build/lite-xl.app/Contents/MacOS"
-  if [ "$portable" == "-portable" ]; then
-    local bindir="$pdir"
-    local datadir="$pdir/data"
-  else
-    local bindir="$pdir/bin"
-    local datadir="$pdir/share/lite-xl"
-  fi
+
+  local appdir=".package-build/lite-xl.app"
+  mkdir -p "$appdir/Contents"/{MacOS,Resources}
+  local pdir="$appdir/Contents/MacOS"
+
+  local bindir="$pdir"
+  local datadir="$pdir/data"
   mkdir -p "$bindir"
   mkdir -p "$datadir"
   for module_name in core plugins colors fonts; do
@@ -110,10 +104,12 @@ lite_build_package_macosx () {
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
-  cp "$build/src/lite" "$bindir"
-  strip "$bindir/lite"
+  cp dev-utils/icon.icns "$appdir/Contents/Resources/icon.icns"
+  cp dev-utils/Info.plist "$appdir/Contents/Info.plist"
+  cp "$build/src/lite" "$bindir/lite-xl"
+  strip "$bindir/lite-xl"
   pushd ".package-build"
-  local package_name="lite-xl-$os-$arch$portable.zip"
+  local package_name="lite-xl-$os-$arch.zip"
   zip "$package_name" -r "lite-xl.app"
   mv "$package_name" ..
   popd
@@ -219,6 +215,6 @@ else
 fi
 lite_copy_third_party_modules "$build_dir"
 lite_build_package "$build_dir" "$arch"
-if [[ ! ( "$OSTYPE" == "linux"* || "$OSTYPE" == "freebsd"* ) ]]; then
+if [[ ! ( "$OSTYPE" == "linux"* || "$OSTYPE" == "freebsd"* || "$OSTYPE" == "darwin"* ) ]]; then
   lite_build_package -portable "$build_dir" "$arch"
 fi
