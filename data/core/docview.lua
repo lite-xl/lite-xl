@@ -55,7 +55,6 @@ function DocView:new(doc)
   self.doc = assert(doc)
   self.font = "code_font"
   self.last_x_offset = {}
-  self.blink_timer = 0
 end
 
 
@@ -244,7 +243,7 @@ function DocView:on_mouse_pressed(button, x, y, clicks)
     self.doc:set_selection(mouse_selection(self.doc, clicks, line, col, line, col))
     self.mouse_selecting = { line, col, clicks = clicks }
   end
-  self.blink_timer = 0
+  core.blink_reset()
 end
 
 
@@ -284,18 +283,18 @@ function DocView:update()
     if core.active_view == self then
       self:scroll_to_make_visible(line, col)
     end
-    self.blink_timer = 0
+    core.blink_reset()
     self.last_line, self.last_col = line, col
   end
 
   -- update blink timer
   if self == core.active_view and not self.mouse_selecting then
-    local n = config.blink_period / 2
-    local prev = self.blink_timer
-    self.blink_timer = (self.blink_timer + 1 / config.fps) % config.blink_period
-    if (self.blink_timer > n) ~= (prev > n) then
+    local T, t0 = config.blink_period, core.blink_start
+    local ta, tb = core.blink_timer, system.get_time()
+    if ((tb - t0) % T < T / 2) ~= ((ta - t0) % T < T / 2) then
       core.redraw = true
     end
+    core.blink_timer = tb
   end
 
   DocView.super.update(self)
@@ -348,8 +347,9 @@ function DocView:draw_line_body(idx, x, y)
   self:draw_line_text(idx, x, y)
 
   -- draw caret if it overlaps this line
+  local T = config.blink_period
   if line == idx and core.active_view == self
-  and self.blink_timer < config.blink_period / 2
+  and (core.blink_timer - core.blink_start) % T < T / 2
   and system.window_has_focus() then
     local lh = self:get_line_height()
     local x1 = x + self:get_col_x_offset(line, col)

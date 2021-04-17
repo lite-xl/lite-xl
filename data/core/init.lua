@@ -403,6 +403,8 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.threads = setmetatable({}, { __mode = "k" })
+  core.blink_start = system.get_time()
+  core.blink_timer = core.blink_start
 
   local project_dir_abs = system.absolute_path(project_dir)
   local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
@@ -865,7 +867,6 @@ end)
 
 function core.run()
   local idle_iterations = 0
-  local frame_duration = 1 / config.fps
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
@@ -878,7 +879,10 @@ function core.run()
       if idle_iterations > 1 then
         if system.window_has_focus() then
           -- keep running even with no events to make the cursor blinks
-          system.wait_event(frame_duration)
+          local t = system.get_time() - core.blink_start
+          local h = config.blink_period / 2
+          local dt = math.ceil(t / h) * h - t
+          system.wait_event(dt + 1 / config.fps)
         else
           system.wait_event()
         end
@@ -886,9 +890,14 @@ function core.run()
     else
       idle_iterations = 0
       local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.max(0, frame_duration - elapsed))
+      system.sleep(math.max(0, 1 / config.fps - elapsed))
     end
   end
+end
+
+
+function core.blink_reset()
+  core.blink_start = system.get_time()
 end
 
 
