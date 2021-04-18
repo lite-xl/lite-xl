@@ -13,6 +13,7 @@
   #include <X11/Xresource.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
+  #include "bundle_open.h"
 #endif
 
 
@@ -100,6 +101,12 @@ int main(int argc, char **argv) {
   HINSTANCE lib = LoadLibrary("user32.dll");
   int (*SetProcessDPIAware)() = (void*) GetProcAddress(lib, "SetProcessDPIAware");
   SetProcessDPIAware();
+#endif
+
+#ifdef __APPLE__
+  const char *resource_path = resource_path_from_bundle();
+  fprintf(stderr, "resource path: %s\n", resource_path);
+  free(resource_path);
 #endif
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);

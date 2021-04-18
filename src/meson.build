@@ -9,6 +9,10 @@ lite_sources = [
     'main.c',
 ]
 
+if host_machine.system() == 'darwin'
+    lite_sources += 'bundle_open.m'
+endif
+
 executable('lite',
     lite_sources + lite_rc,
     include_directories: [lite_include, font_renderer_include],
