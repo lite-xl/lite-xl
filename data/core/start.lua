@@ -4,10 +4,14 @@ VERSION = "1.16.5"
 
 SCALE = tonumber(os.getenv("LITE_SCALE")) or SCALE
 PATHSEP = package.config:sub(1, 1)
-EXEDIR = EXEFILE:match("^(.+)[/\\][^/\\]+$")
 
-local prefix = EXEDIR:match("^(.+)[/\\]bin$")
-DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')
+EXEDIR = EXEFILE:match("^(.+)[/\\][^/\\]+$")
+if MACOS_RESOURCES then
+  DATADIR = MACOS_RESOURCES
+else
+  local prefix = EXEDIR:match("^(.+)[/\\]bin$")
+  DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')
+end
 USERDIR = HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user')
 
 package.path = DATADIR .. '/?.lua;' .. package.path

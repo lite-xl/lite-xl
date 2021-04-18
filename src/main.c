@@ -103,12 +103,6 @@ int main(int argc, char **argv) {
   SetProcessDPIAware();
 #endif
 
-#ifdef __APPLE__
-  const char *resource_path = resource_path_from_bundle();
-  fprintf(stderr, "resource path: %s\n", resource_path);
-  free(resource_path);
-#endif
-
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
   SDL_EnableScreenSaver();
   SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
@@ -155,13 +149,17 @@ init_lua:
   lua_pushstring(L, exename);
   lua_setglobal(L, "EXEFILE");
 
+#ifdef __APPLE__
+  set_macos_bundle_resources(L);
+#endif
+
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
     "  local exedir = EXEFILE:match(\"^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$\")\n"
     "  local prefix = exedir:match(\"^(.*)" LITE_PATHSEP_PATTERN "bin$\")\n"
-    "  dofile((prefix and prefix .. '/share/lite-xl' or exedir .. '/data') .. '/core/start.lua')\n"
+    "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
     "  core = require('core')\n"
     "  core.init()\n"
     "  core.run()\n"

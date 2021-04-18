@@ -1,9 +1,8 @@
 #ifndef BUNDLE_OPEN_H
 #define BUNDLE_OPEN_H
 
-#include <stdio.h>
+#include "lua.h"
 
-const char *resource_path_from_bundle();
-FILE* open_fp_from_bundle_or_fallback(const char *file, const char *mode);
+void set_macos_bundle_resources(lua_State *L);
 
 #endif

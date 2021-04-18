@@ -91,13 +91,9 @@ lite_build_package_macosx () {
   local os="macosx"
 
   local appdir=".package-build/lite-xl.app"
-  mkdir -p "$appdir/Contents"/{MacOS,Resources}
-  local pdir="$appdir/Contents/MacOS"
-
-  local bindir="$pdir"
-  local datadir="$pdir/data"
-  mkdir -p "$bindir"
-  mkdir -p "$datadir"
+  local bindir="$appdir/Contents/MacOS"
+  local datadir="$appdir/Contents/Resources"
+  mkdir -p "$bindir" "$datadir"
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
