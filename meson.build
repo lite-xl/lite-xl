@@ -1,4 +1,8 @@
-project('lite', 'c', 'cpp', 'objc', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
+project('lite', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
+
+if host_machine.system() == 'darwin'
+    add_languages('objc')
+endif
 
 cc = meson.get_compiler('c')
 libm = cc.find_library('m', required : false)
@@ -7,9 +11,7 @@ libx11 = dependency('x11', required : false)
 lua_dep = dependency('lua5.2', required : false)
 
 if not lua_dep.found()
-    lua_subproject = subproject('lua', default_options: [
-        'shared=false', 'use_readline=false', 'app=false'
-    ])
+    lua_subproject = subproject('lua', default_options: ['shared=false', 'use_readline=false', 'app=false'])
     lua_dep = lua_subproject.get_variable('lua_dep')
 endif
 
