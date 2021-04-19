@@ -13,7 +13,6 @@
   #include <X11/Xresource.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
-  #include "bundle_open.h"
 #endif
 
 
@@ -94,6 +93,10 @@ static void init_window_icon(void) {
 #define LITE_OS_HOME "HOME"
 #define LITE_PATHSEP_PATTERN "/"
 #define LITE_NONPATHSEP_PATTERN "[^/]+"
+#endif
+
+#ifdef __APPLE__
+void set_macos_bundle_resources(lua_State *L);
 #endif
 
 int main(int argc, char **argv) {
