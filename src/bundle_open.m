@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#include "lua.h"
 
 void set_macos_bundle_resources(lua_State *L)
 { @autoreleasepool
