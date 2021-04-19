@@ -110,7 +110,10 @@ lite_build_package_macosx () {
   mv "$package_name" ..
   popd
   rm -fr ".package-build"
+  local dmg_name="lite-xl-$os-$arch.dmg"
+  rm -f "$dmg_name" && hdiutil create -volname lite-xl -srcfolder lite-xl.app -ov -format UDBZ "$dmg_name"
   echo "created package $package_name"
+  echo "created disk image $dmg_name"
 }
 
 lite_build_package_linux () {
