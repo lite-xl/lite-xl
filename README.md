@@ -38,7 +38,7 @@ The editor can be customized by making changes to the [user module](data/user/in
 
 You can build Lite XL yourself using Meson.
 
-In addition, the `build-packages.sh` script can be used to compile Lite XL and create an OS-specific package for Linux, Windows or macOS.
+In addition, the `build-packages.sh` script can be used to compile Lite XL and create an OS-specific package for Linux, Windows or Mac OS.
 
 The following libraries are required:
 
@@ -96,16 +96,19 @@ If you compile Lite XL yourself, it is recommended to use the script `build-pack
 bash build-packages.sh <arch>
 ```
 
-The script will run Meson and create two .zip files, one for the portable version, and
-another one for the Unix-like version. Lite XL can be easily installed by unpacking one
-of these .zip archives in some directory of your choice.
+The script will run Meson and create a zip file with the application or, for linux, a tar compressed archive.
+Lite XL can be easily installed by unpacking the archive in any directory of your choice.
+
+On Windows two packages will be created, one called "portable" using the "data" folder next to the executable and
+the other one using a unix-like file layout. Both packages works correctly. The one with unix-like file layout
+is meant for people using a unix-like shell and the command line.
 
 Please note that there aren't any hard-coded directories in the executable, so that the
 package can be extracted and used in any directory.
 
-Note that the Unix-like package can also work on Windows.
-
-Please note that while compiling Lite XL on macOS should work, macOS is not officially supported.
+Mac OS X is fully supported and a notarized app disk image is provided in the release page.
+In addition the application can be compiled using the generic
+instructions given above.
 
 ## Contributing
 Any additional functionality that can be added through a plugin should be done
