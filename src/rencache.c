@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include "rencache.h"
@@ -11,6 +12,7 @@
 #define CELLS_Y 50
 #define CELL_SIZE 96
 #define COMMAND_BUF_SIZE (1024 * 512)
+#define COMMAND_BARE_SIZE offsetof(Command, text)
 
 enum { FREE_FONT, SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL };
 
@@ -91,7 +93,7 @@ static Command* push_command(int type, int size) {
     return NULL;
   }
   command_buf_idx = n;
-  memset(cmd, 0, sizeof(Command));
+  memset(cmd, 0, COMMAND_BARE_SIZE);
   cmd->type = type;
   cmd->size = size;
   return cmd;
@@ -114,20 +116,20 @@ void rencache_show_debug(bool enable) {
 
 
 void rencache_free_font(RenFont *font) {
-  Command *cmd = push_command(FREE_FONT, sizeof(Command));
+  Command *cmd = push_command(FREE_FONT, COMMAND_BARE_SIZE);
   if (cmd) { cmd->font = font; }
 }
 
 
 void rencache_set_clip_rect(RenRect rect) {
-  Command *cmd = push_command(SET_CLIP, sizeof(Command));
+  Command *cmd = push_command(SET_CLIP, COMMAND_BARE_SIZE);
   if (cmd) { cmd->rect = intersect_rects(rect, screen_rect); }
 }
 
 
 void rencache_draw_rect(RenRect rect, RenColor color) {
   if (!rects_overlap(screen_rect, rect)) { return; }
-  Command *cmd = push_command(DRAW_RECT, sizeof(Command));
+  Command *cmd = push_command(DRAW_RECT, COMMAND_BARE_SIZE);
   if (cmd) {
     cmd->rect = rect;
     cmd->color = color;
@@ -148,7 +150,7 @@ int rencache_draw_text(RenFont *font,
 
   if (rects_overlap(screen_rect, rect)) {
     int sz = strlen(text) + 1;
-    Command *cmd = push_command(draw_subpixel ? DRAW_TEXT_SUBPIXEL : DRAW_TEXT, sizeof(Command) + sz);
+    Command *cmd = push_command(draw_subpixel ? DRAW_TEXT_SUBPIXEL : DRAW_TEXT, COMMAND_BARE_SIZE + sz);
     if (cmd) {
       memcpy(cmd->text, text, sz);
       cmd->color = color;
