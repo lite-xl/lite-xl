@@ -37,7 +37,7 @@ static double get_scale(void) {
   char *resource = XResourceManagerString(info.info.x11.display);
   if (resource == NULL)
     return 1.0;
-  
+
   XrmInitialize();
   db = XrmGetStringDatabase(resource);
   if (XrmGetResource(db, "Xft.dpi", "String", &type, &value) == False
@@ -97,6 +97,7 @@ static void init_window_icon(void) {
 
 #ifdef __APPLE__
 void set_macos_bundle_resources(lua_State *L);
+void enable_momentum_scroll();
 #endif
 
 int main(int argc, char **argv) {
@@ -154,6 +155,7 @@ init_lua:
 
 #ifdef __APPLE__
   set_macos_bundle_resources(L);
+  enable_momentum_scroll();
 #endif
 
   const char *init_lite_code = \
