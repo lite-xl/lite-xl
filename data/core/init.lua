@@ -6,6 +6,7 @@ local command
 local keymap
 local RootView
 local StatusView
+local TitleView
 local CommandView
 local NagView
 local DocView
@@ -358,6 +359,7 @@ function core.init()
   keymap = require "core.keymap"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
+  TitleView = require "core.titleview"
   CommandView = require "core.commandview"
   NagView = require "core.nagview"
   DocView = require "core.docview"
@@ -402,6 +404,7 @@ function core.init()
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
+  core.window_mode = "normal"
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
@@ -432,9 +435,12 @@ function core.init()
   core.command_view = CommandView()
   core.status_view = StatusView()
   core.nag_view = NagView()
+  core.title_view = TitleView()
 
   local cur_node = core.root_view.root_node
   cur_node.is_primary_node = true
+  cur_node:split("up", core.title_view, {y = true})
+  cur_node = cur_node.b
   cur_node:split("up", core.nag_view, {y = true})
   cur_node = cur_node.b
   cur_node = cur_node:split("down", core.command_view, {y = true})
@@ -443,7 +449,7 @@ function core.init()
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
   local got_user_error = not core.load_user_directory()
-  local got_plugin_error = not core.load_plugins()
+  local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
@@ -459,8 +465,34 @@ function core.init()
     core.error(delayed_error)
   end
 
-  if got_plugin_error or got_user_error or got_project_error then
+  if not plugins_success or got_user_error or got_project_error then
     command.perform("core:open-log")
+  end
+
+  system.set_window_bordered(not config.borderless)
+  core.title_view:configure_hit_test(config.borderless)
+  core.title_view.visible = config.borderless
+
+  if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
+    local opt = {
+      { font = style.font, text = "Exit", default_no = true },
+      { font = style.font, text = "Continue" , default_yes = true }
+    }
+    local msg = {}
+    for _, entry in pairs(plugins_refuse_list) do
+      if #entry.plugins > 0 then
+        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(entry.plugins, "\n"))
+      end
+    end
+    core.nag_view:show(
+      "Refused Plugins",
+      string.format(
+        "Some plugins are not loaded due to version mismatch.\n\n%s.\n\n" ..
+        "Please download a recent version from https://github.com/franko/lite-plugins.",
+        table.concat(msg, ".\n\n")),
+      opt, function(item)
+        if item.text == "Exit" then os.exit(1) end
+      end)
   end
 end
 
@@ -554,14 +586,53 @@ function core.restart()
 end
 
 
+local function version_components(version)
+  local a, b, c = version:match('(%d+)%.(%d+)%.(%d+)')
+  if a then
+    return tonumber(a), tonumber(b), tonumber(c)
+  end
+  a, b = version:match('(%d+)%.(%d+)')
+  if a then
+    return tonumber(a), tonumber(b)
+  end
+end
+
+
+local function check_plugin_version(filename)
+  local f = io.open(filename, "r")
+  if not f then return false end
+  local version_match = false
+  for line in f:lines() do
+    local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)%s*$')
+    if not version then break end
+    local ver_major, ver_minor = version_components(version)
+    local ref_major, ref_minor = version_components(VERSION)
+    version_match = (ver_major == ref_major and ver_minor == ref_minor)
+    break
+  end
+  f:close()
+  return version_match
+end
+
+
 function core.load_plugins()
   local no_errors = true
+  local refused_list = {
+    userdir = {dir = USERDIR, plugins = {}},
+    datadir = {dir = DATADIR, plugins = {}},
+  }
   for _, root_dir in ipairs {USERDIR, DATADIR} do
     local plugin_dir = root_dir .. "/plugins"
     local files = system.list_dir(plugin_dir)
     for _, filename in ipairs(files or {}) do
       local basename = filename:match("(.-)%.lua$") or filename
-      if config[basename] ~= false then
+      local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+      if not version_match then
+        core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
+        local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
+        ls[#ls + 1] = filename
+      end
+      if version_match and config[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
         if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
@@ -571,7 +642,7 @@ function core.load_plugins()
       end
     end
   end
-  return no_errors
+  return no_errors, refused_list
 end
 
 
@@ -621,6 +692,11 @@ function core.set_active_view(view)
     core.last_active_view = core.active_view
     core.active_view = view
   end
+end
+
+
+function core.show_title_bar(show)
+  core.title_view.visible = show
 end
 
 
@@ -741,6 +817,10 @@ function core.on_event(type, ...)
     core.root_view:on_mouse_released(...)
   elseif type == "mousewheel" then
     core.root_view:on_mouse_wheel(...)
+  elseif type == "resized" then
+    core.window_mode = system.get_window_mode()
+  elseif type == "minimized" or type == "maximized" or type == "restored" then
+    core.window_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
     local filename, mx, my = ...
     local info = system.get_file_info(filename)
@@ -769,7 +849,7 @@ local function get_title_filename(view)
 end
 
 
-local function compose_window_title(title)
+function core.compose_window_title(title)
   return title == "" and "Lite XL" or title .. " - Lite XL"
 end
 
@@ -818,7 +898,7 @@ function core.step()
   -- update window title
   local current_title = get_title_filename(core.active_view)
   if current_title ~= core.window_title then
-    system.set_window_title(compose_window_title(current_title))
+    system.set_window_title(core.compose_window_title(current_title))
     core.window_title = current_title
   end
 

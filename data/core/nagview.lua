@@ -1,6 +1,7 @@
 local core = require "core"
 local command = require "core.command"
 local common = require "core.common"
+local config = require "core.config"
 local View = require "core.view"
 local style = require "core.style"
 
@@ -23,24 +24,33 @@ function NagView:get_title()
   return self.title
 end
 
-function NagView:get_options_line_height()
-  local max = 0
-  for _, opt in ipairs(self.options) do
-    local lh = style.font:get_height(opt.text)
-    if lh > max then max = lh end
-  end
-  return max
+-- The two methods below are duplicated from DocView
+function NagView:get_line_height()
+  return math.floor(style.font:get_height() * config.line_height)
 end
 
-function NagView:get_line_height()
-  return self.max_lh + 2 * BORDER_WIDTH + 2 * style.padding.y
+function NagView:get_line_text_y_offset()
+  local lh = self:get_line_height()
+  local th = style.font:get_height()
+  return (lh - th) / 2
+end
+
+-- Buttons height without padding
+function NagView:get_buttons_height()
+  local lh = style.font:get_height()
+  local bt_padding = lh / 2
+  return lh + 2 * BORDER_WIDTH + 2 * bt_padding
+end
+
+function NagView:get_target_height()
+  return self.target_height + 2 * style.padding.y
 end
 
 function NagView:update()
   NagView.super.update(self)
 
   if core.active_view == self and self.title then
-    self:move_towards(self.size, "y", self:get_line_height())
+    self:move_towards(self.size, "y", self:get_target_height())
     self:move_towards(self, "underline_progress", 1)
   else
     self:move_towards(self.size, "y", 0)
@@ -68,10 +78,10 @@ function NagView:each_option()
   return coroutine.wrap(function()
     if not self.options then return end
     local opt, bw,bh,ox,oy
-    bh = self.max_lh + 2 * BORDER_WIDTH + style.padding.y
+    bh = self:get_buttons_height()
     ox,oy = self:get_content_offset()
     ox = ox + self.size.x
-    oy = oy + (self.size.y / 2) - (bh / 2)
+    oy = oy + self.size.y - bh - style.padding.y
 
     for i = #self.options, 1, -1 do
       opt = self.options[i]
@@ -112,6 +122,7 @@ function NagView:on_text_input(text)
   end
 end
 
+
 function NagView:draw()
   if self.size.y <= 0 or not self.title then return end
 
@@ -129,7 +140,13 @@ function NagView:draw()
   end
 
   -- draw message
-  common.draw_text(style.font, style.nagbar_text, self.message, "left", ox, oy, self.size.x, self.size.y)
+  local lh = style.font:get_height() * config.line_height
+  oy = oy + style.padding.y + (self.target_height - self:get_message_height()) / 2
+  for msg_line in self.message:gmatch("(.-)\n") do
+    local ty = oy + self:get_line_text_y_offset()
+    renderer.draw_text(style.font, msg_line, ox, ty, style.nagbar_text)
+    oy = oy + lh
+  end
 
   -- draw buttons
   for i, opt, bx,by,bw,bh in self:each_option() do
@@ -159,14 +176,26 @@ local function findindex(tbl, prop)
   end
 end
 
+function NagView:get_message_height()
+  local h = 0
+  for str in string.gmatch(self.message, "(.-)\n") do
+    h = h + style.font:get_height() * config.line_height
+  end
+  return h
+end
+
+
 function NagView:next()
   local opts = table.remove(self.queue, 1) or {}
   self.title = opts.title
-  self.message = opts.message
+  self.message = opts.message and opts.message .. "\n"
   self.options = opts.options
   self.on_selected = opts.on_selected
   if self.message and self.options then
-    self.max_lh = math.max(style.font:get_height(self.message), self:get_options_line_height())
+    local message_height = self:get_message_height()
+    -- self.target_height is the nagview height needed to display the message and
+    -- the buttons, excluding the top and bottom padding space.
+    self.target_height = math.max(message_height, self:get_buttons_height())
     self:change_hovered(findindex(self.options, "default_yes"))
   end
   self.force_focus = self.message ~= nil

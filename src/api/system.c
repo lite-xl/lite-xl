@@ -35,6 +35,62 @@ static char* key_name(char *dst, int sym) {
   return dst;
 }
 
+struct HitTestInfo {
+  int title_height;
+  int controls_width;
+  int resize_border;
+};
+typedef struct HitTestInfo HitTestInfo;
+
+static HitTestInfo window_hit_info[1] = {{0, 0}};
+
+#define RESIZE_FROM_TOP 0
+#define RESIZE_FROM_RIGHT 0
+
+static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
+  const HitTestInfo *hit_info = (HitTestInfo *) data;
+  const int resize_border = hit_info->resize_border;
+  const int controls_width = hit_info->controls_width;
+  int w, h;
+
+  SDL_GetWindowSize(window, &w, &h);
+
+  if (pt->y < hit_info->title_height &&
+    #if RESIZE_FROM_TOP
+    pt->y > hit_info->resize_border &&
+    #endif
+    pt->x > resize_border && pt->x < w - controls_width) {
+    return SDL_HITTEST_DRAGGABLE;
+  }
+
+  #define REPORT_RESIZE_HIT(name) { \
+    return SDL_HITTEST_RESIZE_##name; \
+  }
+
+  if (pt->x < resize_border && pt->y < resize_border) {
+    REPORT_RESIZE_HIT(TOPLEFT);
+  #if RESIZE_FROM_TOP
+  } else if (pt->x > resize_border && pt->x < w - controls_width && pt->y < resize_border) {
+    REPORT_RESIZE_HIT(TOP);
+  #endif
+  } else if (pt->x > w - resize_border && pt->y < resize_border) {
+    REPORT_RESIZE_HIT(TOPRIGHT);
+  #if RESIZE_FROM_RIGHT
+  } else if (pt->x > w - resize_border && pt->y > resize_border && pt->y < h - resize_border) {
+    REPORT_RESIZE_HIT(RIGHT);
+  #endif
+  } else if (pt->x > w - resize_border && pt->y > h - resize_border) {
+    REPORT_RESIZE_HIT(BOTTOMRIGHT);
+  } else if (pt->x < w - resize_border && pt->x > resize_border && pt->y > h - resize_border) {
+    REPORT_RESIZE_HIT(BOTTOM);
+  } else if (pt->x < resize_border && pt->y > h - resize_border) {
+    REPORT_RESIZE_HIT(BOTTOMLEFT);
+  } else if (pt->x < resize_border && pt->y < h - resize_border && pt->y > resize_border) {
+    REPORT_RESIZE_HIT(LEFT);
+  }
+
+  return SDL_HITTEST_NORMAL;
+}
 
 static int f_poll_event(lua_State *L) {
   char buf[16];
@@ -60,6 +116,15 @@ top:
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
         rencache_invalidate();
         lua_pushstring(L, "exposed");
+        return 1;
+      } else if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+        lua_pushstring(L, "minimized");
+        return 1;
+      } else if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
+        lua_pushstring(L, "maximized");
+        return 1;
+      } else if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
+        lua_pushstring(L, "restored");
         return 1;
       }
       if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
@@ -188,8 +253,8 @@ static int f_set_window_title(lua_State *L) {
 }
 
 
-static const char *window_opts[] = { "normal", "maximized", "fullscreen", 0 };
-enum { WIN_NORMAL, WIN_MAXIMIZED, WIN_FULLSCREEN };
+static const char *window_opts[] = { "normal", "minimized", "maximized", "fullscreen", 0 };
+enum { WIN_NORMAL, WIN_MINIMIZED, WIN_MAXIMIZED, WIN_FULLSCREEN };
 
 static int f_set_window_mode(lua_State *L) {
   int n = luaL_checkoption(L, 1, "normal", window_opts);
@@ -197,6 +262,27 @@ static int f_set_window_mode(lua_State *L) {
     n == WIN_FULLSCREEN ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
   if (n == WIN_NORMAL) { SDL_RestoreWindow(window); }
   if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window); }
+  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window); }
+  return 0;
+}
+
+
+static int f_set_window_bordered(lua_State *L) {
+  int bordered = lua_toboolean(L, 1);
+  SDL_SetWindowBordered(window, bordered);
+  return 0;
+}
+
+
+static int f_set_window_hit_test(lua_State *L) {
+  if (lua_gettop(L) == 0) {
+    SDL_SetWindowHitTest(window, NULL, NULL);
+    return 0;
+  }
+  window_hit_info->title_height = luaL_checknumber(L, 1);
+  window_hit_info->controls_width = luaL_checknumber(L, 2);
+  window_hit_info->resize_border = luaL_checknumber(L, 3);
+  SDL_SetWindowHitTest(window, hit_test, window_hit_info);
   return 0;
 }
 
@@ -227,6 +313,21 @@ static int f_set_window_size(lua_State *L) {
 static int f_window_has_focus(lua_State *L) {
   unsigned flags = SDL_GetWindowFlags(window);
   lua_pushboolean(L, flags & SDL_WINDOW_INPUT_FOCUS);
+  return 1;
+}
+
+
+static int f_get_window_mode(lua_State *L) {
+  unsigned flags = SDL_GetWindowFlags(window);
+  if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+    lua_pushstring(L, "fullscreen");
+  } else if (flags & SDL_WINDOW_MINIMIZED) {
+    lua_pushstring(L, "minimized");
+  } else if (flags & SDL_WINDOW_MAXIMIZED) {
+    lua_pushstring(L, "maximized");
+  } else {
+    lua_pushstring(L, "normal");
+  }
   return 1;
 }
 
@@ -441,6 +542,9 @@ static const luaL_Reg lib[] = {
   { "set_cursor",          f_set_cursor          },
   { "set_window_title",    f_set_window_title    },
   { "set_window_mode",     f_set_window_mode     },
+  { "get_window_mode",     f_get_window_mode     },
+  { "set_window_bordered", f_set_window_bordered },
+  { "set_window_hit_test", f_set_window_hit_test },
   { "get_window_size",     f_get_window_size     },
   { "set_window_size",     f_set_window_size     },
   { "window_has_focus",    f_window_has_focus    },
