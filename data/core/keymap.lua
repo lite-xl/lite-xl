@@ -5,16 +5,12 @@ keymap.modkeys = {}
 keymap.map = {}
 keymap.reverse_map = {}
 
-local modkey_map = {
-  ["left ctrl"]   = "ctrl",
-  ["right ctrl"]  = "ctrl",
-  ["left shift"]  = "shift",
-  ["right shift"] = "shift",
-  ["left alt"]    = "alt",
-  ["right alt"]   = "altgr",
-}
+local macos = rawget(_G, "MACOS_RESOURCES")
 
-local modkeys = { "ctrl", "alt", "altgr", "shift" }
+-- Thanks to mathewmariani, taken from his lite-macos github repository.
+local modkeys_os = require("core.modkeys-" .. (macos and "macos" or "generic"))
+local modkey_map = modkeys_os.map
+local modkeys = modkeys_os.keys
 
 local function key_to_stroke(k)
   local stroke = ""
@@ -82,6 +78,12 @@ function keymap.on_key_released(k)
   end
 end
 
+
+if macos then
+  local keymap_macos = require("core.keymap-macos")
+  keymap_macos(keymap)
+  return keymap
+end
 
 keymap.add {
   ["ctrl+shift+p"] = "core:find-command",
