@@ -59,6 +59,6 @@ command.add("core.docview", {
 })
 
 
-keymap.add {
+keymap.add_direct {
   ["ctrl+shift+q"] = "reflow:reflow"
 }
