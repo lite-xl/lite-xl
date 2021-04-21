@@ -23,10 +23,29 @@ local function key_to_stroke(k)
 end
 
 
-function keymap.add(map, overwrite)
+function keymap.add_direct(map)
   for stroke, commands in pairs(map) do
     if type(commands) == "string" then
       commands = { commands }
+    end
+    keymap.map[stroke] = commands
+    for _, cmd in ipairs(commands) do
+      keymap.reverse_map[cmd] = stroke
+    end
+  end
+end
+
+function keymap.add(map, overwrite)
+  local control_translate = function(s)
+    return macos and s:gsub("%f[%a]ctrl%f[%A]", "cmd") or s
+  end
+  for stroke, commands in pairs(map) do
+    if type(commands) == "string" then
+      commands = { control_translate(commands) }
+    else
+      for i = 1, #commands do
+        commands[i] = control_translate(commands[i])
+      end
     end
     if overwrite then
       keymap.map[stroke] = commands
@@ -85,7 +104,7 @@ if macos then
   return keymap
 end
 
-keymap.add {
+keymap.add_direct {
   ["ctrl+shift+p"] = "core:find-command",
   ["ctrl+p"] = "core:find-file",
   ["ctrl+o"] = "core:open-file",

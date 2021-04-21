@@ -1,5 +1,5 @@
 local function keymap_macos(keymap)
-  keymap.add {
+  keymap.add_direct {
     ["cmd+shift+p"] = "core:find-command",
     ["cmd+p"] = "core:find-file",
     ["cmd+o"] = "core:open-file",
@@ -45,7 +45,7 @@ local function keymap_macos(keymap)
     ["cmd+x"] = "doc:cut",
     ["cmd+c"] = "doc:copy",
     ["cmd+v"] = "doc:paste",
-    ["cmd+insert"] = "doc:copy",
+    ["ctrl+insert"] = "doc:copy",
     ["shift+insert"] = "doc:paste",
     ["escape"] = { "command:escape", "doc:select-none", "dialog:select-no" },
     ["tab"] = { "command:complete", "doc:indent" },
