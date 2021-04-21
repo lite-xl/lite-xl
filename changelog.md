@@ -2,7 +2,27 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
-### next release
+### 1.16.6
+
+Implement a system to check the compatibility of plugins by checking a release tag.
+Plugins that don't have the release tag will not be loaded.
+
+Improve and extend the NagView with keyboard commands.
+Special thanks to @takase1121 for the implementation and @liquidev for proposing and
+discussing the enhancements.
+
+Add support to build on Mac OS X and create an application bundle.
+Special thanks to @mathewmariani for his lite-macos fork, the Mac OS specific
+resources and his support.
+
+Add hook function `DocView.on_text_change` so that plugin can accurately react on document changes.
+Thanks to @vincens2005 for the suggestion and testing the implementation.
+
+Enable borderless window mode using the `config.borderless` variable.
+If enable the system window's bar will be replaced by a title bar provided
+by lite-xl itself.
+
+Fix a drawing engine bug that caused increased CPU usage for drawing operations.
 
 Add `system.set_window_opacity` function.
 
