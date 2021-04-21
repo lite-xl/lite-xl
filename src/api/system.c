@@ -155,6 +155,16 @@ top:
       return 2;
 
     case SDL_KEYUP:
+#ifdef __APPLE__
+      /* on macos command+w will close the current window
+      ** we want to flush this event and let the keymapper
+      ** handle this key combination.
+      ** Thanks to mathewmariani, taken from his lite-macos github repository. */
+      if ((e.key.keysym.sym == SDLK_w) && (e.key.keysym.mod & KMOD_GUI))
+      {
+        SDL_FlushEvent(SDL_QUIT);
+      }
+#endif
       lua_pushstring(L, "keyreleased");
       lua_pushstring(L, key_name(buf, e.key.keysym.sym));
       return 2;
