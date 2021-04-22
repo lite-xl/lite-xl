@@ -66,11 +66,11 @@ lite_build_package_windows () {
     local bindir="$pdir/bin"
     local datadir="$pdir/share/lite-xl"
   fi
-  mkdir -p "$bindir"
-  mkdir -p "$datadir"
+  mkdir -p "$bindir" "$datadir"
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  copy_directory_from_repo "doc" "$pdir"
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
@@ -97,6 +97,7 @@ lite_build_package_macosx () {
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  copy_directory_from_repo "doc" "$pdir"
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
@@ -133,11 +134,11 @@ lite_build_package_linux () {
     local bindir="$pdir/bin"
     local datadir="$pdir/share/lite-xl"
   fi
-  mkdir -p "$bindir"
-  mkdir -p "$datadir"
+  mkdir -p "$bindir" "$datadir"
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  copy_directory_from_repo "doc" "$pdir"
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
