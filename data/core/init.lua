@@ -271,8 +271,8 @@ local style = require "core.style"
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
--- style.font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 13 * SCALE)
--- style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 12 * SCALE)
+-- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Medium.ttf", 13 * SCALE)
+-- style.code_font = renderer.font.load(DATADIR .. "/fonts/FiraCode-Medium.ttf", 12 * SCALE)
 --
 -- font names used by lite:
 -- style.font          : user interface
