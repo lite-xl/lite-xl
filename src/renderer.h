@@ -36,9 +36,11 @@ typedef struct CPReplaceTable CPReplaceTable;
 
 
 void ren_init(SDL_Window *win);
+void ren_resize(int w, int h);
 void ren_update_rects(RenRect *rects, int count);
 void ren_set_clip_rect(RenRect rect);
 void ren_get_size(int *x, int *y);
+void ren_free_window_resources();
 
 RenImage* ren_new_image(int width, int height);
 void ren_free_image(RenImage *image);
@@ -53,7 +55,6 @@ int ren_get_font_subpixel_scale(RenFont *font);
 int ren_font_subpixel_round(int width, int subpixel_scale, int orientation);
 
 void ren_draw_rect(RenRect rect, RenColor color);
-void ren_draw_image(RenImage *image, RenRect *sub, int x, int y, RenColor color);
 void ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
 void ren_draw_text_subpixel(RenFont *font, const char *text, int x_subpixel, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
 

@@ -109,9 +109,11 @@ top:
 
     case SDL_WINDOWEVENT:
       if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+        int w = e.window.data1, h = e.window.data2;
+        ren_resize(w, h);
         lua_pushstring(L, "resized");
-        lua_pushnumber(L, e.window.data1);
-        lua_pushnumber(L, e.window.data2);
+        lua_pushnumber(L, w);
+        lua_pushnumber(L, h);
         return 3;
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
         rencache_invalidate();
