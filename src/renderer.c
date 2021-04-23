@@ -138,7 +138,7 @@ void ren_init(SDL_Window *win) {
 }
 
 
-void ren_resize(int w, int h) {
+void ren_resize() {
   int new_w, new_h;
   SDL_GL_GetDrawableSize(window, &new_w, &new_h);
   /* Note that (w, h) may differ from (new_w, new_h) on retina displays. */
@@ -175,7 +175,7 @@ void ren_set_clip_rect(RenRect rect) {
 
 
 void ren_get_size(int *x, int *y) {
-  SDL_Surface *surf = get_window_surface(window);
+  SDL_Surface *surf = get_window_surface();
   *x = surf->w;
   *y = surf->h;
 }
@@ -334,7 +334,7 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   x2 = x2 > clip.right  ? clip.right  : x2;
   y2 = y2 > clip.bottom ? clip.bottom : y2;
 
-  SDL_Surface *surf = get_window_surface(window);
+  SDL_Surface *surf = get_window_surface();
   RenColor *d = (RenColor*) surf->pixels;
   d += x1 + y1 * surf->w;
   int dr = surf->w - (x2 - x1);
@@ -364,7 +364,7 @@ void ren_draw_text_subpixel(RenFont *font, const char *text, int x_subpixel, int
 {
   const char *p = text;
   unsigned codepoint;
-  SDL_Surface *surf = get_window_surface(window);
+  SDL_Surface *surf = get_window_surface();
   const FR_Color color_fr = { .r = color.r, .g = color.g, .b = color.b };
   while (*p) {
     FR_Color color_rep;

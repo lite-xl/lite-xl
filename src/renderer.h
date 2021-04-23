@@ -36,7 +36,7 @@ typedef struct CPReplaceTable CPReplaceTable;
 
 
 void ren_init(SDL_Window *win);
-void ren_resize(int w, int h);
+void ren_resize();
 void ren_update_rects(RenRect *rects, int count);
 void ren_set_clip_rect(RenRect rect);
 void ren_get_size(int *x, int *y);

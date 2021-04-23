@@ -109,11 +109,12 @@ top:
 
     case SDL_WINDOWEVENT:
       if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
-        int w = e.window.data1, h = e.window.data2;
-        ren_resize(w, h);
+        ren_resize();
         lua_pushstring(L, "resized");
-        lua_pushnumber(L, w);
-        lua_pushnumber(L, h);
+        /* The size below can be wrong on Retina display by a multiplicative factor
+           but the size reported below is not currently used. */
+        lua_pushnumber(L, e.window.data1);
+        lua_pushnumber(L, e.window.data2);
         return 3;
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
         rencache_invalidate();
@@ -318,6 +319,7 @@ static int f_set_window_size(lua_State *L) {
   double y = luaL_checknumber(L, 4);
   SDL_SetWindowSize(window, w, h);
   SDL_SetWindowPosition(window, x, y);
+  ren_resize();
   return 0;
 }
 
