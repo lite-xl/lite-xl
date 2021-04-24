@@ -86,6 +86,15 @@ command.add(nil, {
   end,
 
   ["core:open-file"] = function()
+    local node = core.root_view:get_active_node_default()
+    local view_idx = node:get_view_idx(core.active_view)
+    if view_idx ~= nil then
+      local view = node.views[view_idx]
+      if view.doc ~= nil then
+        local directory, filename = view.doc.filename:match("(.*)[/\\](.+)$")
+        core.command_view:set_text(directory .. PATHSEP)
+      end
+    end
     core.command_view:enter("Open File", function(text)
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
     end, function (text)
