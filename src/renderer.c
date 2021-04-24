@@ -32,13 +32,16 @@ struct RenFont {
 };
 
 
-static SDL_Window *window;
-static SDL_Renderer *window_renderer = NULL;
-static SDL_Texture *window_texture = NULL;
-static SDL_Surface *window_surface = NULL;
-static int window_w = -1, window_h = -1;
+struct Renderer {
+  SDL_Window *window;
+  SDL_Renderer *renderer;
+  SDL_Texture *texture;
+  SDL_Surface *surface;
+  FR_Clip_Area clip; /* Clipping rect in pixel coordinates. */
+  int surface_scale;
+};
 
-static FR_Clip_Area clip;
+static struct Renderer renderer = {0};
 
 static void* check_alloc(void *ptr) {
   if (!ptr) {
@@ -66,18 +69,30 @@ static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
 }
 
 
-static void init_window_surface() {
-  if (window_surface) {
-    SDL_FreeSurface(window_surface);
-  }
-  SDL_GL_GetDrawableSize(window, &window_w, &window_h);
-  window_surface = SDL_CreateRGBSurfaceWithFormat(0, window_w, window_h, 32, SDL_PIXELFORMAT_BGRA32);
-  ren_set_clip_rect( (RenRect) { 0, 0, window_w, window_h } );
+static int get_surface_scale() {
+  int w_pixels, h_pixels;
+  int w_points, h_points;
+  SDL_GL_GetDrawableSize(renderer.window, &w_pixels, &h_pixels);
+  SDL_GetWindowSize(renderer.window, &w_points, &h_points);
+  // FIXME: this assert is too harsh.
+  assert(w_pixels % w_points == 0 && h_pixels % h_points == 0 && w_pixels / w_points == h_pixels / h_points);
+  return w_pixels / w_points;
 }
 
 
-static SDL_Surface *get_window_surface() {
-  return window_surface;
+static FR_Clip_Area scaled_clip(const RenRect rect, const int scale) {
+  return (FR_Clip_Area) {rect.x * scale, rect.y * scale, (rect.x + rect.width) * scale, (rect.y + rect.height) * scale};
+}
+
+
+static void init_window_surface() {
+  if (renderer.surface) {
+    SDL_FreeSurface(renderer.surface);
+  }
+  int w, h;
+  SDL_GL_GetDrawableSize(renderer.window, &w, &h);
+  renderer.surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_BGRA32);
+  renderer.clip = scaled_clip((RenRect) { 0, 0, w, h }, 1);
 }
 
 
@@ -112,37 +127,39 @@ void ren_cp_replace_add(CPReplaceTable *rep_table, const char *src, const char *
 }
 
 void ren_free_window_resources() {
-  SDL_DestroyWindow(window);
-  SDL_DestroyRenderer(window_renderer);
-  SDL_DestroyTexture(window_texture);
-  window = NULL;
-  window_renderer = NULL;
+  SDL_DestroyWindow(renderer.window);
+  SDL_DestroyRenderer(renderer.renderer);
+  SDL_DestroyTexture(renderer.texture);
+  renderer.window = NULL;
+  renderer.renderer = NULL;
 }
 
 static void setup_renderer(int w, int h) {
   /* Note that w and h here should always be in pixels and obtained from
      a call to SDL_GL_GetDrawableSize(). */
-  if (window_renderer) {
-    SDL_DestroyRenderer(window_renderer);
-    SDL_DestroyTexture(window_texture);
+  if (renderer.renderer) {
+    SDL_DestroyRenderer(renderer.renderer);
+    SDL_DestroyTexture(renderer.texture);
   }
-  window_renderer = SDL_CreateRenderer(window, -1, 0);
+  renderer.renderer = SDL_CreateRenderer(renderer.window, -1, 0);
   // May be we could use: SDL_CreateTextureFromSurface(sdlRenderer, mySurface);
-  window_texture = SDL_CreateTexture(window_renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, w, h);
+  renderer.texture = SDL_CreateTexture(renderer.renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, w, h);
+  renderer.surface_scale = get_surface_scale();
 }
 
 void ren_init(SDL_Window *win) {
   assert(win);
-  window = win;
+  renderer.window = win;
   init_window_surface();
+  renderer.surface_scale = get_surface_scale();
 }
 
 
-void ren_resize() {
+void ren_setup_renderer() {
   int new_w, new_h;
-  SDL_GL_GetDrawableSize(window, &new_w, &new_h);
+  SDL_GL_GetDrawableSize(renderer.window, &new_w, &new_h);
   /* Note that (w, h) may differ from (new_w, new_h) on retina displays. */
-  if (new_w != window_h || new_h != window_h) {
+  if (new_w != renderer.surface->w || new_h != renderer.surface->h) {
     init_window_surface();
     setup_renderer(new_w, new_h);
   }
@@ -153,31 +170,28 @@ void ren_update_rects(RenRect *rects, int count) {
   static bool initial_frame = true;
   if (initial_frame) {
     int w, h;
-    SDL_ShowWindow(window);
-    SDL_GL_GetDrawableSize(window, &w, &h);
+    SDL_ShowWindow(renderer.window);
+    SDL_GL_GetDrawableSize(renderer.window, &w, &h);
     setup_renderer(w, h);
     initial_frame = false;
   }
 
   // FIXME: we ignore the rects here.
-  SDL_UpdateTexture(window_texture, NULL, window_surface->pixels, window_w * 4);
-  SDL_RenderCopy(window_renderer, window_texture, NULL, NULL);
-  SDL_RenderPresent(window_renderer);
+  SDL_UpdateTexture(renderer.texture, NULL, renderer.surface->pixels, renderer.surface->w * 4);
+  SDL_RenderCopy(renderer.renderer, renderer.texture, NULL, NULL);
+  SDL_RenderPresent(renderer.renderer);
 }
 
 
 void ren_set_clip_rect(RenRect rect) {
-  clip.left   = rect.x;
-  clip.top    = rect.y;
-  clip.right  = rect.x + rect.width;
-  clip.bottom = rect.y + rect.height;
+  renderer.clip = scaled_clip(rect, renderer.surface_scale);
 }
 
 
 void ren_get_size(int *x, int *y) {
-  SDL_Surface *surf = get_window_surface();
-  *x = surf->w;
-  *y = surf->h;
+  const int scale = renderer.surface_scale;
+  *x = renderer.surface->w / scale;
+  *y = renderer.surface->h / scale;
 }
 
 
@@ -211,6 +225,17 @@ static GlyphSet* get_glyphset(RenFont *font, int codepoint) {
     font->sets[idx] = load_glyphset(font, idx);
   }
   return font->sets[idx];
+}
+
+
+int ren_verify_font(const char *filename) {
+  RenFont font[1];
+  font->renderer = FR_Renderer_New(0);
+  if (FR_Load_Font(font->renderer, filename)) {
+    return 1;
+  }
+  FR_Renderer_Free(font->renderer);
+  return 0;
 }
 
 
@@ -274,25 +299,34 @@ int ren_get_font_tab_size(RenFont *font) {
 }
 
 
-int ren_get_font_width(RenFont *font, const char *text, int *subpixel_scale) {
+/* Important: if subpixel_scale is NULL we will return width in points. Otherwise we will
+   return width in subpixels. */
+int ren_get_font_width(FontDesc *font_desc, const char *text, int *subpixel_scale) {
   int x = 0;
   const char *p = text;
   unsigned codepoint;
+  const int surface_scale = renderer.surface_scale;
+  RenFont *font = font_desc_get_font_at_scale(font_desc, surface_scale);
   while (*p) {
     p = utf8_to_codepoint(p, &codepoint);
     GlyphSet *set = get_glyphset(font, codepoint);
     FR_Bitmap_Glyph_Metrics *g = &set->glyphs[codepoint & 0xff];
     x += g->xadvance;
   }
+  /* At this point here x is in subpixel units */
+  const int x_scale_to_points = FR_Subpixel_Scale(font->renderer) * surface_scale;
   if (subpixel_scale) {
-    *subpixel_scale = FR_Subpixel_Scale(font->renderer);
+    *subpixel_scale = x_scale_to_points;
+    return x;
   }
-  return x;
+  return (x + x_scale_to_points / 2) / x_scale_to_points;
 }
 
 
-int ren_get_font_height(RenFont *font) {
-  return font->height;
+int ren_get_font_height(FontDesc *font_desc) {
+  const int surface_scale = renderer.surface_scale;
+  RenFont *font = font_desc_get_font_at_scale(font_desc, surface_scale);
+  return (font->height + surface_scale / 2) / surface_scale;
 }
 
 
@@ -301,16 +335,6 @@ static inline RenColor blend_pixel(RenColor dst, RenColor src) {
   dst.r = ((src.r * src.a) + (dst.r * ia)) >> 8;
   dst.g = ((src.g * src.a) + (dst.g * ia)) >> 8;
   dst.b = ((src.b * src.a) + (dst.b * ia)) >> 8;
-  return dst;
-}
-
-
-static inline RenColor blend_pixel2(RenColor dst, RenColor src, RenColor color) {
-  src.a = (src.a * color.a) >> 8;
-  int ia = 0xff - src.a;
-  dst.r = ((src.r * color.r * src.a) >> 16) + ((dst.r * ia) >> 8);
-  dst.g = ((src.g * color.g * src.a) >> 16) + ((dst.g * ia) >> 8);
-  dst.b = ((src.b * color.b * src.a) >> 16) + ((dst.b * ia) >> 8);
   return dst;
 }
 
@@ -327,17 +351,24 @@ static inline RenColor blend_pixel2(RenColor dst, RenColor src, RenColor color) 
 void ren_draw_rect(RenRect rect, RenColor color) {
   if (color.a == 0) { return; }
 
-  int x1 = rect.x < clip.left ? clip.left : rect.x;
-  int y1 = rect.y < clip.top  ? clip.top  : rect.y;
+  const int surface_scale = renderer.surface_scale;
+
+  /* transforms coordinates in pixels. */
+  rect.x      *= surface_scale;
+  rect.y      *= surface_scale;
+  rect.width  *= surface_scale;
+  rect.height *= surface_scale;
+
+  int x1 = rect.x < renderer.clip.left ? renderer.clip.left : rect.x;
+  int y1 = rect.y < renderer.clip.top  ? renderer.clip.top  : rect.y;
   int x2 = rect.x + rect.width;
   int y2 = rect.y + rect.height;
-  x2 = x2 > clip.right  ? clip.right  : x2;
-  y2 = y2 > clip.bottom ? clip.bottom : y2;
+  x2 = x2 > renderer.clip.right  ? renderer.clip.right  : x2;
+  y2 = y2 > renderer.clip.bottom ? renderer.clip.bottom : y2;
 
-  SDL_Surface *surf = get_window_surface();
-  RenColor *d = (RenColor*) surf->pixels;
-  d += x1 + y1 * surf->w;
-  int dr = surf->w - (x2 - x1);
+  RenColor *d = (RenColor*) renderer.surface->pixels;
+  d += x1 + y1 * renderer.surface->w;
+  int dr = renderer.surface->w - (x2 - x1);
 
   if (color.a == 0xff) {
     rect_draw_loop(color);
@@ -358,13 +389,12 @@ static int codepoint_replace(CPReplaceTable *rep_table, unsigned *codepoint) {
   return 0;
 }
 
-
-void ren_draw_text_subpixel(RenFont *font, const char *text, int x_subpixel, int y, RenColor color,
+static void draw_text_impl(RenFont *font, const char *text, int x_subpixel, int y_pixel, RenColor color,
   CPReplaceTable *replacements, RenColor replace_color)
 {
+  SDL_Surface *surf = renderer.surface;
   const char *p = text;
   unsigned codepoint;
-  SDL_Surface *surf = get_window_surface();
   const FR_Color color_fr = { .r = color.r, .g = color.g, .b = color.b };
   while (*p) {
     FR_Color color_rep;
@@ -381,18 +411,29 @@ void ren_draw_text_subpixel(RenFont *font, const char *text, int x_subpixel, int
       color_rep = color_fr;
     }
     if (color.a != 0) {
-      FR_Blend_Glyph(font->renderer, &clip,
-        x_subpixel, y, (uint8_t *) surf->pixels, surf->w, set->image, g, color_rep);
+      FR_Blend_Glyph(font->renderer, &renderer.clip,
+        x_subpixel, y_pixel, (uint8_t *) surf->pixels, surf->w, set->image, g, color_rep);
     }
     x_subpixel += xadvance_original_cp;
   }
 }
 
-void ren_draw_text(RenFont *font, const char *text, int x, int y, RenColor color,
+
+void ren_draw_text_subpixel(FontDesc *font_desc, const char *text, int x_subpixel, int y, RenColor color,
   CPReplaceTable *replacements, RenColor replace_color)
 {
-  const int subpixel_scale = FR_Subpixel_Scale(font->renderer);
-  ren_draw_text_subpixel(font, text, subpixel_scale * x, y, color, replacements, replace_color);
+  const int surface_scale = renderer.surface_scale;
+  RenFont *font = font_desc_get_font_at_scale(font_desc, surface_scale);
+  draw_text_impl(font, text, x_subpixel, surface_scale * y, color, replacements, replace_color);
+}
+
+void ren_draw_text(FontDesc *font_desc, const char *text, int x, int y, RenColor color,
+  CPReplaceTable *replacements, RenColor replace_color)
+{
+  const int surface_scale = renderer.surface_scale;
+  RenFont *font = font_desc_get_font_at_scale(font_desc, surface_scale);
+  const int subpixel_scale = surface_scale * FR_Subpixel_Scale(font->renderer);
+  draw_text_impl(font, text, subpixel_scale * x, surface_scale * y, color, replacements, replace_color);
 }
 
 // Could be declared as static inline
@@ -409,7 +450,8 @@ int ren_font_subpixel_round(int width, int subpixel_scale, int orientation) {
 }
 
 
-int ren_get_font_subpixel_scale(RenFont *font) {
-  return FR_Subpixel_Scale(font->renderer);
+int ren_get_font_subpixel_scale(FontDesc *font_desc) {
+  const int surface_scale = renderer.surface_scale;
+  RenFont *font = font_desc_get_font_at_scale(font_desc, surface_scale);
+  return FR_Subpixel_Scale(font->renderer) * surface_scale;
 }
-
