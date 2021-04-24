@@ -90,7 +90,7 @@ command.add(nil, {
     local view_idx = node:get_view_idx(core.active_view)
     if view_idx ~= nil then
       local view = node.views[view_idx]
-      if view.doc ~= nil and view.doc.filename then
+      if view.doc ~= nil and view.doc.filename ~= nil then
         local directory, filename = view.doc.filename:match("(.*)[/\\](.+)$")
         core.command_view:set_text(directory .. PATHSEP)
       end
