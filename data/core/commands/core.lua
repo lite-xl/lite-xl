@@ -86,19 +86,18 @@ command.add(nil, {
   end,
 
   ["core:open-file"] = function()
-    local node = core.root_view:get_active_node_default()
-    local view_idx = node:get_view_idx(core.active_view)
-    if view_idx ~= nil then
-      local view = node.views[view_idx]
-      if view.doc ~= nil and view.doc.filename ~= nil then
-        local directory, filename = view.doc.filename:match("(.*)[/\\](.+)$")
-        core.command_view:set_text(directory .. PATHSEP)
-      end
+    local suggestion = nil
+    if core.active_view ~= nil and core.active_view.doc ~= nil and core.active_view.doc.filename ~= nil then
+      suggestion = core.active_view.doc.filename:match("(.*[/\\])(.+)$")
     end
     core.command_view:enter("Open File", function(text)
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
     end, function (text)
-      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+      local list = common.home_encode_list(common.path_suggest(common.home_expand(text)))
+      if suggestion and text:match("^%s*$") then
+        table.insert(list, 1, suggestion)
+      end
+      return list
     end)
   end,
 
