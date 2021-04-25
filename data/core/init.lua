@@ -599,6 +599,10 @@ end
 
 
 local function check_plugin_version(filename)
+  local info = system.get_file_info(filename)
+  if info ~= nil and info.type == "dir" then
+    return true
+  end
   local f = io.open(filename, "r")
   if not f then return false end
   local version_match = false
@@ -625,22 +629,19 @@ function core.load_plugins()
     local plugin_dir = root_dir .. "/plugins"
     local files = system.list_dir(plugin_dir)
     for _, filename in ipairs(files or {}) do
-      local info = system.get_file_info(filename)
-      if info ~= nil and info.type == "file" then
-        local basename = filename:match("(.-)%.lua$") or filename
-        local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
-        if not version_match then
-          core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-          local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
-          ls[#ls + 1] = filename
-        end
-        if version_match and config[basename] ~= false then
-          local modname = "plugins." .. basename
-          local ok = core.try(require, modname)
-          if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
-          if not ok then
-            no_errors = false
-          end
+      local basename = filename:match("(.-)%.lua$") or filename
+      local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+      if not version_match then
+        core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
+        local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
+        ls[#ls + 1] = filename
+      end
+      if version_match and config[basename] ~= false then
+        local modname = "plugins." .. basename
+        local ok = core.try(require, modname)
+        if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
+        if not ok then
+          no_errors = false
         end
       end
     end
