@@ -86,8 +86,9 @@ command.add(nil, {
   end,
 
   ["core:open-file"] = function()
-    if core.active_view ~= nil and core.active_view.doc ~= nil and core.active_view.doc.filename ~= nil then
-      core.command_view:set_text(core.active_view.doc.filename:match("(.*[/\\])(.+)$"))
+    local view = core.active_view
+    if view and view.doc and view.doc.filename then
+      core.command_view:set_text(view.doc.filename:match("(.*[/\\])(.+)$"))
     end
     core.command_view:enter("Open File", function(text)
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
