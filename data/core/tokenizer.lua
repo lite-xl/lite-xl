@@ -1,5 +1,6 @@
-local tokenizer = {}
+local syntax = require "core.syntax"
 
+local tokenizer = {}
 
 local function push_token(t, type, text)
   local prev_type = t[#t-1]
@@ -37,45 +38,107 @@ local function find_non_escaped(text, pattern, offset, esc)
   end
 end
 
+-- State is a 32-bit number that is four separate bytes, illustrating how many differnet delimiters we have open, and which subsyntaxes we have active.
+-- At most, there are 3 subsyntaxes active at the same time. Beyond that, does not support further highlighting.
+local function retrieve_syntax_state(incoming_syntax, state)
+  local current_syntax, subsyntax_info, current_state, current_level = incoming_syntax, nil, state, 0
+  if state > 0 and (state > 255 or current_syntax.patterns[state].syntax) then
+    -- If we have higher bits, then decode them one at a time, and find which syntax we're using.
+    -- TODO: Rather than walking the bytes, and calling into `syntax` each time, we could probably cache this in a single table.
+    for i=0,2 do
+      local target = bit32.extract(state, i*8, 8)
+      if target ~= 0 then
+        if current_syntax.patterns[target].syntax then
+          subsyntax_info = current_syntax.patterns[target]
+          current_syntax = syntax.get(current_syntax.patterns[target].syntax)
+          current_state = 0
+          current_level = i+1
+        else
+          current_state = target
+          break
+        end
+      else      
+        break
+      end
+    end
+  end
+  return current_syntax, subsyntax_info, current_state, current_level
+end
 
-function tokenizer.tokenize(syntax, text, state)
+function tokenizer.tokenize(incoming_syntax, text, state)
   local res = {}
   local i = 1
 
-  if #syntax.patterns == 0 then
+  if #incoming_syntax.patterns == 0 then
     return { "normal", text }
   end
-
+ 
+  state = state or 0
+  local current_syntax, subsyntax_info, current_state, current_level = retrieve_syntax_state(incoming_syntax, state)
   while i <= #text do
     -- continue trying to match the end pattern of a pair if we have a state set
-    if state then
-      local p = syntax.patterns[state]
+    if current_state > 0 then
+      local p = current_syntax.patterns[current_state]
       local s, e = find_non_escaped(text, p.pattern[2], i, p.pattern[3])
-
+      
+      local cont = true
+      -- If we're in subsyntax mode, always check to see if we end our syntax first.
+      if subsyntax_info then
+        local ss, se = find_non_escaped(text, subsyntax_info.pattern[2], i, subsyntax_info.pattern[3])
+        if ss and (s == nil or ss < s) then
+          push_token(res, p.type, text:sub(i, ss - 1))          
+          i = ss
+          cont = false
+        end
+      end
+      if cont then
+        if s then
+          push_token(res, p.type, text:sub(i, e))
+          current_state = 0
+          state = bit32.replace(state, 0, current_level*8, 8)
+          i = e + 1
+        else
+          push_token(res, p.type, text:sub(i))
+          break
+        end
+      end
+    end
+    -- Check for end of syntax.
+    if subsyntax_info then
+      local s, e = find_non_escaped(text, "^" .. subsyntax_info.pattern[2], i, nil)
       if s then
-        push_token(res, p.type, text:sub(i, e))
-        state = nil
+        push_token(res, subsyntax_info.type, text:sub(i, e))
+        current_level = current_level - 1
+        -- Zero out the state above us, as well as our new current state.
+        state = bit32.replace(state, 0, current_level*8, 16)
+        current_syntax, subsyntax_info, current_state, current_level = retrieve_syntax_state(incoming_syntax, state)
         i = e + 1
-      else
-        push_token(res, p.type, text:sub(i))
-        break
       end
     end
 
     -- find matching pattern
     local matched = false
-    for n, p in ipairs(syntax.patterns) do
+    for n, p in ipairs(current_syntax.patterns) do
       local pattern = (type(p.pattern) == "table") and p.pattern[1] or p.pattern
       local s, e = text:find("^" .. pattern, i)
 
       if s then
         -- matched pattern; make and add token
         local t = text:sub(s, e)
-        push_token(res, syntax.symbols[t] or p.type, t)
-
+        
+        push_token(res, current_syntax.symbols[t] or p.type, t)
         -- update state if this was a start|end pattern pair
         if type(p.pattern) == "table" then
-          state = n
+          state = bit32.replace(state, n, current_level*8, 8)
+          -- If we've found a new subsyntax, bump our level, and set the appropriate variables.
+          if p.syntax then
+            current_level = current_level + 1
+            subsyntax_info = p
+            current_syntax = syntax.get(p.syntax)
+            current_state = 0
+          else        
+            current_state = n
+          end
         end
 
         -- move cursor past this token
