@@ -86,18 +86,13 @@ command.add(nil, {
   end,
 
   ["core:open-file"] = function()
-    local suggestion = nil
     if core.active_view ~= nil and core.active_view.doc ~= nil and core.active_view.doc.filename ~= nil then
-      suggestion = core.active_view.doc.filename:match("(.*[/\\])(.+)$")
+      core.command_view:set_text(core.active_view.doc.filename:match("(.*[/\\])(.+)$"))
     end
     core.command_view:enter("Open File", function(text)
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
     end, function (text)
-      local list = common.home_encode_list(common.path_suggest(common.home_expand(text)))
-      if suggestion and text:match("^%s*$") then
-        table.insert(list, 1, suggestion)
-      end
-      return list
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end)
   end,
 
