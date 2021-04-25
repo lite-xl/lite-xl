@@ -2,6 +2,7 @@ build*
 .build*
 .run*
 *.zip
+*.tar.gz
 .lite-debug.log
 subprojects/lua
 subprojects/libagg
