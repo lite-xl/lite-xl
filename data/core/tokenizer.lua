@@ -50,7 +50,7 @@ local function retrieve_syntax_state(incoming_syntax, state)
       if target ~= 0 then
         if current_syntax.patterns[target].syntax then
           subsyntax_info = current_syntax.patterns[target]
-          current_syntax = syntax.get(current_syntax.patterns[target].syntax)
+          current_syntax = type(current_syntax.patterns[target].syntax) == "table" and current_syntax.patterns[target].syntax or syntax.get(current_syntax.patterns[target].syntax)
           current_state = 0
           current_level = i+1
         else
@@ -134,7 +134,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
           if p.syntax then
             current_level = current_level + 1
             subsyntax_info = p
-            current_syntax = syntax.get(p.syntax)
+            current_syntax = type(p.syntax) == "table" and p.syntax or syntax.get(p.syntax)
             current_state = 0
           else        
             current_state = n
