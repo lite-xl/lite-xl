@@ -3,27 +3,27 @@
 
 typedef struct RenFont RenFont;
 
-// FIXME: find a better name for the struct below
-struct FontScaled {
+struct FontInstance {
   RenFont *font;
   short int scale;
 };
-typedef struct FontScaled FontScaled;
+typedef struct FontInstance FontInstance;
 
-#define FONT_SCALE_ARRAY_MAX 2
+#define FONT_CACHE_ARRAY_MAX 2
 
 struct FontDesc {
-  char *filename;
   float size;
   unsigned int options;
   short int tab_size;
-// FIXME: find a better name for the array below
-  FontScaled fonts_scale[FONT_SCALE_ARRAY_MAX];
-  short int fonts_scale_length;
-  short int recent_font_scale_index; /* More recently scale used. */
+  FontInstance cache[FONT_CACHE_ARRAY_MAX];
+  short int cache_length;
+  short int cache_last_index; /* More recently used instance. */
+  char filename[0];
 };
 typedef struct FontDesc FontDesc;
 
+void font_desc_init(FontDesc *font_desc, const char *filename, float size, unsigned int font_options);
+int font_desc_alloc_size(const char *filename);
 int font_desc_get_tab_size(FontDesc *font_desc);
 void font_desc_set_tab_size(FontDesc *font_desc, int tab_size);
 void font_desc_free(FontDesc *font_desc);

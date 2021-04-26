@@ -45,17 +45,8 @@ static int f_load(lua_State *L) {
     luaL_error(L, "failed to load font");
   }
 
-  FontDesc *font_desc = lua_newuserdata(L, sizeof(FontDesc));
-  // FIXME: implement font_desc initialization in fontdesc.c
-  int filename_sz = strlen(filename) + 1;
-  font_desc->filename = malloc(filename_sz);
-  memcpy(font_desc->filename, filename, filename_sz);
-  font_desc->size     = size;
-  font_desc->options  = font_options;
-  font_desc->tab_size = 4;
-  font_desc->fonts_scale_length = 0;
-  font_desc->recent_font_scale_index = 0; /* No need to initialize. */
-
+  FontDesc *font_desc = lua_newuserdata(L, font_desc_alloc_size(filename));
+  font_desc_init(font_desc, filename, size, font_options);
   luaL_setmetatable(L, API_TYPE_FONT);
   return 1;
 }
