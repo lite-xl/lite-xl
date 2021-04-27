@@ -177,10 +177,11 @@ void ren_update_rects(RenRect *rects, int count) {
     initial_frame = false;
   }
 
-  SDL_UpdateTexture(renderer.texture, NULL, renderer.surface->pixels, renderer.surface->w * 4);
   for (int i = 0; i < count; i++) {
     const RenRect *r = &rects[i];
     SDL_Rect sr = {.x = r->x, .y = r->y, .w = r->width, .h = r->height};
+    int32_t *pixels = ((int32_t *) renderer.surface->pixels) + r->x + renderer.surface->w * r->y;
+    SDL_UpdateTexture(renderer.texture, &sr, pixels, renderer.surface->w * 4);
     SDL_RenderCopy(renderer.renderer, renderer.texture, &sr, &sr);
   }
   SDL_RenderPresent(renderer.renderer);
