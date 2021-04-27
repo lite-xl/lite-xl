@@ -182,8 +182,8 @@ void ren_update_rects(RenRect *rects, int count) {
     SDL_Rect sr = {.x = r->x, .y = r->y, .w = r->width, .h = r->height};
     int32_t *pixels = ((int32_t *) renderer.surface->pixels) + r->x + renderer.surface->w * r->y;
     SDL_UpdateTexture(renderer.texture, &sr, pixels, renderer.surface->w * 4);
-    SDL_RenderCopy(renderer.renderer, renderer.texture, &sr, &sr);
   }
+  SDL_RenderCopy(renderer.renderer, renderer.texture, NULL, NULL);
   SDL_RenderPresent(renderer.renderer);
 }
 
