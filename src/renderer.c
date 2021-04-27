@@ -176,9 +176,12 @@ void ren_update_rects(RenRect *rects, int count) {
     initial_frame = false;
   }
 
-  // FIXME: we ignore the rects here.
   SDL_UpdateTexture(renderer.texture, NULL, renderer.surface->pixels, renderer.surface->w * 4);
-  SDL_RenderCopy(renderer.renderer, renderer.texture, NULL, NULL);
+  for (int i = 0; i < count; i++) {
+    const RenRect *r = &rects[i];
+    SDL_Rect sr = {.x = r->x, .y = r->y, .w = r->width, .h = r->height};
+    SDL_RenderCopy(renderer.renderer, renderer.texture, &sr, &sr);
+  }
   SDL_RenderPresent(renderer.renderer);
 }
 
