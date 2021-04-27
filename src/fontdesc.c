@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdlib.h>
 
 #include "fontdesc.h"
 #include "renderer.h"
@@ -37,6 +38,13 @@ int font_desc_get_tab_size(FontDesc *font_desc) {
 
 static void load_scaled_font(FontDesc *font_desc, int index, int scale) {
   RenFont *font = ren_load_font(font_desc->filename, scale * font_desc->size, font_desc->options);
+  if (!font) {
+    /* The font was able to load when initially loaded using renderer.load.font.
+       If now is no longer available we just abort the application. */
+    fprintf(stderr, "Fatal error: unable to load font %s. Application will abort.\n",
+      font_desc->filename);
+    exit(1);
+  }
   font_desc->cache[index].font = font;
   font_desc->cache[index].scale = scale;
 }

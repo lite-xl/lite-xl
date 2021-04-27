@@ -74,7 +74,8 @@ static int get_surface_scale() {
   int w_points, h_points;
   SDL_GL_GetDrawableSize(renderer.window, &w_pixels, &h_pixels);
   SDL_GetWindowSize(renderer.window, &w_points, &h_points);
-  // FIXME: this assert is too harsh.
+  /* We consider that the ratio pixel/point will always be an integer and
+     it is the same along the x and the y axis. */
   assert(w_pixels % w_points == 0 && h_pixels % h_points == 0 && w_pixels / w_points == h_pixels / h_points);
   return w_pixels / w_points;
 }
