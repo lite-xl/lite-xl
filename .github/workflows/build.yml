@@ -46,7 +46,7 @@ jobs:
     strategy:
       matrix:
         config:
-        - { name: "GCC", cc: gcc-10, cxx: g++-10 }
+        # - { name: "GCC", cc: gcc-10, cxx: g++-10 }
         - { name: "clang", cc: clang, cxx: clang++ }
     env:
       CC: ${{ matrix.config.cc }}
