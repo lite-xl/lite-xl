@@ -4,9 +4,21 @@ local syntax = require "core.syntax"
 syntax.add {
   files = { "%.html?$" },
   patterns = {
-    { pattern = { "<script type=['\"]%a+/javascript['\"]>", "</script>" }, syntax = ".js", type = "function" },
-    { pattern = { "<script>", "</script>" }, syntax = ".js", type = "function" },
-    { pattern = { "<style[^>]*>", "</style>" }, syntax = ".css", type = "function" },
+    { 
+      pattern = { "<script type=['\"]%a+/javascript['\"]>", "</script>" },
+      syntax = ".js", 
+      type = "function" 
+    },
+    { 
+      pattern = { "<script>", "</script>" },
+      syntax = ".js",
+      type = "function"
+    },
+    { 
+      pattern = { "<style[^>]*>", "</style>" },
+      syntax = ".css",
+      type = "function"
+    },
     { pattern = { "<!%-%-", "%-%->" },     type = "comment"  },
     { pattern = { '%f[^>][^<]', '%f[<]' }, type = "normal"   },
     { pattern = { '"', '"', '\\' },        type = "string"   },
