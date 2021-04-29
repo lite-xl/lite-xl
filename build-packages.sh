@@ -84,11 +84,11 @@ lite_build_package_windows () {
   rm -fr ".package-build"
   echo "created package $package_name"
 }
-
-lite_build_package_macosx () {
+  
+lite_build_package_macos () {
   local build="$1"
   local arch="$2"
-  local os="macosx"
+  local os="macos"
 
   local appdir=".package-build/lite-xl.app"
   local bindir="$appdir/Contents/MacOS"
@@ -110,10 +110,7 @@ lite_build_package_macosx () {
   mv "$package_name" ..
   popd
   rm -fr ".package-build"
-  local dmg_name="lite-xl-$os-$arch.dmg"
-  rm -f "$dmg_name" && hdiutil create -volname lite-xl -srcfolder lite-xl.app -ov -format UDBZ "$dmg_name"
   echo "created package $package_name"
-  echo "created disk image $dmg_name"
 }
 
 lite_build_package_linux () {
@@ -161,7 +158,7 @@ lite_build_package () {
   if [[ "$OSTYPE" == msys || "$OSTYPE" == win32 ]]; then
     lite_build_package_windows "$@"
   elif [[ "$OSTYPE" == "darwin"* ]]; then
-    lite_build_package_macosx "$@"
+    lite_build_package_macos "$@"
   elif [[ "$OSTYPE" == "linux"* || "$OSTYPE" == "freebsd"* ]]; then
     lite_build_package_linux "$@"
   else

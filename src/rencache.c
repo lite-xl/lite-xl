@@ -24,7 +24,7 @@ typedef struct {
   int32_t size;
   RenRect rect;
   RenColor color;
-  RenFont *font;
+  FontDesc *font_desc;
   CPReplaceTable *replacements;
   RenColor replace_color;
   char text[0];
@@ -115,9 +115,9 @@ void rencache_show_debug(bool enable) {
 }
 
 
-void rencache_free_font(RenFont *font) {
+void rencache_free_font(FontDesc *font_desc) {
   Command *cmd = push_command(FREE_FONT, COMMAND_BARE_SIZE);
-  if (cmd) { cmd->font = font; }
+  if (cmd) { cmd->font_desc = font_desc; }
 }
 
 
@@ -136,17 +136,17 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-int rencache_draw_text(RenFont *font,
+int rencache_draw_text(FontDesc *font_desc,
   const char *text, int x, int y, RenColor color, bool draw_subpixel,
   CPReplaceTable *replacements, RenColor replace_color)
 {
   int subpixel_scale;
-  int w_subpixel = ren_get_font_width(font, text, &subpixel_scale);
+  int w_subpixel = ren_get_font_width(font_desc, text, &subpixel_scale);
   RenRect rect;
   rect.x = (draw_subpixel ? ren_font_subpixel_round(x, subpixel_scale, -1) : x);
   rect.y = y;
   rect.width = ren_font_subpixel_round(w_subpixel, subpixel_scale, 0);
-  rect.height = ren_get_font_height(font);
+  rect.height = ren_get_font_height(font_desc);
 
   if (rects_overlap(screen_rect, rect)) {
     int sz = strlen(text) + 1;
@@ -154,11 +154,11 @@ int rencache_draw_text(RenFont *font,
     if (cmd) {
       memcpy(cmd->text, text, sz);
       cmd->color = color;
-      cmd->font = font;
+      cmd->font_desc = font_desc;
       cmd->rect = rect;
       cmd->subpixel_scale = (draw_subpixel ? subpixel_scale : 1);
       cmd->x_subpixel_offset = x - subpixel_scale * rect.x;
-      cmd->tab_size = ren_get_font_tab_size(font);
+      cmd->tab_size = font_desc_get_tab_size(font_desc);
       cmd->replacements = replacements;
       cmd->replace_color = replace_color;
     }
@@ -272,13 +272,13 @@ void rencache_end_frame(void) {
           ren_draw_rect(cmd->rect, cmd->color);
           break;
         case DRAW_TEXT:
-          ren_set_font_tab_size(cmd->font, cmd->tab_size);
-          ren_draw_text(cmd->font, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color,
+          font_desc_set_tab_size(cmd->font_desc, cmd->tab_size);
+          ren_draw_text(cmd->font_desc, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color,
             cmd->replacements, cmd->replace_color);
           break;
         case DRAW_TEXT_SUBPIXEL:
-          ren_set_font_tab_size(cmd->font, cmd->tab_size);
-          ren_draw_text_subpixel(cmd->font, cmd->text,
+          font_desc_set_tab_size(cmd->font_desc, cmd->tab_size);
+          ren_draw_text_subpixel(cmd->font_desc, cmd->text,
             cmd->subpixel_scale * cmd->rect.x + cmd->x_subpixel_offset, cmd->rect.y, cmd->color,
             cmd->replacements, cmd->replace_color);
           break;
@@ -301,7 +301,7 @@ void rencache_end_frame(void) {
     cmd = NULL;
     while (next_command(&cmd)) {
       if (cmd->type == FREE_FONT) {
-        ren_free_font(cmd->font);
+        font_desc_free(cmd->font_desc);
       }
     }
   }

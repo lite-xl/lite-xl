@@ -1,7 +1,7 @@
 #include "api.h"
+#include "fontdesc.h"
 #include "renderer.h"
 #include "rencache.h"
-
 
 static int f_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
@@ -40,57 +40,63 @@ static int f_load(lua_State *L) {
     }
     lua_pop(L, 1);
   }
-  RenFont **self = lua_newuserdata(L, sizeof(*self));
+
+  if (ren_verify_font(filename)) {
+    luaL_error(L, "failed to load font");
+  }
+
+  FontDesc *font_desc = lua_newuserdata(L, font_desc_alloc_size(filename));
+  font_desc_init(font_desc, filename, size, font_options);
   luaL_setmetatable(L, API_TYPE_FONT);
-  *self = ren_load_font(filename, size, font_options);
-  if (!*self) { luaL_error(L, "failed to load font"); }
   return 1;
 }
 
 
 static int f_set_tab_size(lua_State *L) {
-  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
   int n = luaL_checknumber(L, 2);
-  ren_set_font_tab_size(*self, n);
+  font_desc_set_tab_size(self, n);
   return 0;
 }
 
 
 static int f_gc(lua_State *L) {
-  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
-  if (*self) { rencache_free_font(*self); }
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  rencache_free_font(self);
   return 0;
 }
 
-
 static int f_get_width(lua_State *L) {
-  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
   const char *text = luaL_checkstring(L, 2);
-  int subpixel_scale;
-  int w = ren_get_font_width(*self, text, &subpixel_scale);
-  lua_pushnumber(L, ren_font_subpixel_round(w, subpixel_scale, 0));
+  /* By calling ren_get_font_width with NULL as third arguments
+     we will obtain the width in points. */
+  int w = ren_get_font_width(self, text, NULL);
+  lua_pushnumber(L, w);
   return 1;
 }
 
 
 static int f_subpixel_scale(lua_State *L) {
-  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
-  lua_pushnumber(L, ren_get_font_subpixel_scale(*self));
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  lua_pushnumber(L, ren_get_font_subpixel_scale(self));
   return 1;
 }
 
-
 static int f_get_width_subpixel(lua_State *L) {
-  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
   const char *text = luaL_checkstring(L, 2);
-  lua_pushnumber(L, ren_get_font_width(*self, text, NULL));
+  int subpixel_scale;
+  /* We need to pass a non-null subpixel_scale pointer to force
+     subpixel width calculation. */
+  lua_pushnumber(L, ren_get_font_width(self, text, &subpixel_scale));
   return 1;
 }
 
 
 static int f_get_height(lua_State *L) {
-  RenFont **self = luaL_checkudata(L, 1, API_TYPE_FONT);
-  lua_pushnumber(L, ren_get_font_height(*self) );
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  lua_pushnumber(L, ren_get_font_height(self) );
   return 1;
 }
 

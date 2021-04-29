@@ -200,7 +200,7 @@ init_lua:
   }
 
   lua_close(L);
-  SDL_DestroyWindow(window);
+  ren_free_window_resources();
 
   return EXIT_SUCCESS;
 }
