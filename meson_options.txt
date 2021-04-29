@@ -1,2 +1,3 @@
 option('portable', type : 'boolean', value : false, description: 'Portable install')
+option('renderer', type : 'boolean', value : false, description: 'Use SDL renderer')
 
