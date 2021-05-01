@@ -248,7 +248,7 @@ end
 
 
 function common.path_belongs_to(filename, path)
-  return string.find(filename, path .. PATHSEP, 1, true) == 1
+  return filename and string.find(filename, path .. PATHSEP, 1, true) == 1
 end
 
 
