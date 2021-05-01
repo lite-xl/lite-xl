@@ -2,6 +2,7 @@
 
 local core = require "core"
 local command = require "core.command"
+local keymap = require "core.keymap"
 
 -- Takes the following pattern: /pattern/replace/
 -- Capture groupings can be replaced using \1 through \9
@@ -51,3 +52,6 @@ command.add("core.docview", {
     initial_regex_replace = pattern
   end) end
 })
+
+
+keymap.add { ["ctrl+shift+r"] = "regex:find-replace" }
