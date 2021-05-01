@@ -17,11 +17,21 @@ static int f_pcre_compile(lua_State *L) {
   size_t len;
   PCRE2_SIZE errorOffset;
   int errorNumber;
-  const char* str = luaL_checklstring(L, -1, &len);
+  int pattern = PCRE2_UTF;
+  const char* str = luaL_checklstring(L, 1, &len);
+  if (lua_gettop(L) > 1) {
+    const char* options = luaL_checkstring(L, 2);
+    if (strstr(options,"i"))
+      pattern |= PCRE2_CASELESS;
+    if (strstr(options,"m"))
+      pattern |= PCRE2_MULTILINE;
+    if (strstr(options,"s"))
+      pattern |= PCRE2_DOTALL;
+  }
   pcre2_code* re = pcre2_compile(
     (PCRE2_SPTR)str,
     len,
-    0,
+    PCRE2_UTF,
     &errorNumber,
     &errorOffset,
     NULL
