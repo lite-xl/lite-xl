@@ -9,7 +9,8 @@ regex.match = function(pattern_string, string)
   return regex.cmatch(pattern, string)
 end
 
--- Will iterate back through any UTF-8 bytes so that we don't replace bits mid character.
+-- Will iterate back through any UTF-8 bytes so that we don't replace bits 
+-- mid character.
 local function previous_character(str, index)
   local byte
   repeat
@@ -44,12 +45,17 @@ regex.gsub = function(pattern_string, string, replacement)
       local currentReplacement = replacement
       if #indices > 2 then
         for i = 1, (#indices/2 - 1) do
-          currentReplacement = string.gsub(currentReplacement, "\\" .. i, str:sub(indices[i*2+1], end_character(str,indices[i*2+2]-1)))
+          currentReplacement = string.gsub(
+            currentReplacement, 
+            "\\" .. i, 
+            str:sub(indices[i*2+1], end_character(str,indices[i*2+2]-1))
+          )
         end
       end
       currentReplacement = string.gsub(currentReplacement, "\\%d", "")
       if indices[1] > 1 then
-        result = result .. str:sub(1, previous_character(str, indices[1])) .. currentReplacement
+        result = result .. 
+          str:sub(1, previous_character(str, indices[1])) .. currentReplacement
       else
         result = result .. currentReplacement      
       end
