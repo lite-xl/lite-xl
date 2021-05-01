@@ -732,18 +732,27 @@ function core.pop_clip_rect()
 end
 
 
+function core.normalize_to_project_dir(filename)
+  filename = common.normalize_path(filename)
+  if common.path_belongs_to(filename, core.project_dir) then
+    filename = common.relative_path(core.project_dir, filename)
+  end
+  return filename
+end
+
+
 function core.open_doc(filename)
   if filename then
     -- try to find existing doc for filename
     local abs_filename = system.absolute_path(filename)
     for _, doc in ipairs(core.docs) do
-      if doc.filename
-      and abs_filename == system.absolute_path(doc.filename) then
+      if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
       end
     end
   end
   -- no existing doc for filename; create new
+  filename = core.normalize_to_project_dir(filename)
   local doc = Doc(filename)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
