@@ -211,10 +211,10 @@ local function mouse_selection(doc, clicks, line1, col1, line2, col2)
   if swap then
     line1, col1, line2, col2 = line2, col2, line1, col1
   end
-  if clicks == 2 then
+  if clicks % 4 == 2 then
     line1, col1 = translate.start_of_word(doc, line1, col1)
     line2, col2 = translate.end_of_word(doc, line2, col2)
-  elseif clicks == 3 then
+  elseif clicks % 4 == 3 then
     if line2 == #doc.lines and doc.lines[#doc.lines] ~= "\n" then
       doc:insert(math.huge, math.huge, "\n")
     end
@@ -233,7 +233,7 @@ function DocView:on_mouse_pressed(button, x, y, clicks)
     return
   end
   if keymap.modkeys["shift"] then
-    if clicks == 1 then
+    if clicks % 2 == 1 then
       local line1, col1 = select(3, self.doc:get_selection())
       local line2, col2 = self:resolve_screen_position(x, y)
       self.doc:set_selection(line2, col2, line1, col1)
