@@ -2,6 +2,12 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
+### 1.16.7
+
+Add support for retina displays on Mac OS X.
+
+Fix a few problems related to file paths.
+
 ### 1.16.6
 
 Implement a system to check the compatibility of plugins by checking a release tag.
