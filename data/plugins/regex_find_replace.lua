@@ -47,10 +47,14 @@ local initial_regex_replace = "/"
 command.add("core.docview", {
   ["regex:find-replace"] = function()
     core.command_view:set_text(initial_regex_replace)
-    core.command_view:enter("Regex Replace (enter pattern as /old/new/)", function(pattern)
-    regex_replace_file(pattern)
-    initial_regex_replace = pattern
-  end) end
+    core.command_view:enter(
+      "Regex Replace (enter pattern as /old/new/)", 
+      function(pattern)
+        regex_replace_file(pattern)
+        initial_regex_replace = pattern
+      end
+    ) 
+  end
 })
 
 
