@@ -5,17 +5,27 @@ syntax.add {
   files = { "%.html?$" },
   patterns = {
     { 
-      pattern = { "<script type=['\"]%a+/javascript['\"]>", "</script>" },
+      pattern = { 
+        "<%s*[sS][cC][rR][iI][pP][tT]%s+[tT][yY][pP][eE]%s*=%s*" ..
+          "['\"]%a+/[jJ][aA][vV][aA][sS][cC][rR][iI][pP][tT]['\"]%s*>",
+        "<%s*/[sS][cC][rR][iI][pP][tT]>" 
+      },
       syntax = ".js", 
       type = "function" 
     },
     { 
-      pattern = { "<script>", "</script>" },
+      pattern = { 
+        "<%s*[sS][cC][rR][iI][pP][tT]%s*>",
+        "<%s*/%s*[sS][cC][rR][iI][pP][tT]>" 
+      },
       syntax = ".js",
       type = "function"
     },
     { 
-      pattern = { "<style[^>]*>", "</style>" },
+      pattern = { 
+        "<%s*[sS][tT][yY][lL][eE][^>]*>", 
+        "<%s*/%s*[sS][tT][yY][lL][eE]%s*>" 
+      },
       syntax = ".css",
       type = "function"
     },
