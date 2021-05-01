@@ -453,7 +453,7 @@ function core.init()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %q", pname, pdir)
+    core.log("Opening project %q from directory %s", pname, pdir)
   end
   local got_project_error = not core.load_project_module()
 
