@@ -31,7 +31,7 @@ static int f_pcre_compile(lua_State *L) {
   pcre2_code* re = pcre2_compile(
     (PCRE2_SPTR)str,
     len,
-    PCRE2_UTF,
+    pattern,
     &errorNumber,
     &errorOffset,
     NULL
