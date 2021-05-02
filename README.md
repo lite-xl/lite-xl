@@ -5,12 +5,14 @@
 A lightweight text editor written in Lua, adapted from [lite](https://github.com/rxi/lite)
 
 * **[Get Lite XL](https://github.com/franko/lite-xl/releases/latest)** — Download
-  for Windows, Linux and Mac OS
+  for Windows, Linux and Mac OS (notarized app).
 * **[Get started](doc/usage.md)** — A quick overview on how to get started
 * **[Get plugins](https://github.com/franko/lite-plugins)** — Add additional
   functionality, adapted for Lite XL
 * **[Get color themes](https://github.com/rxi/lite-colors)** — Add additional colors
   themes
+
+Lite XL has support for high DPI display on Windows and Linux and, since 1.16.7 release, it supports **retina displays** on Mac OS.
 
 Please note that Lite XL is compatible with lite for most plugins and all color themes.
 We provide a separate lite-plugins repository for Lite XL, because in some cases some adaptations may be needed to make them work better with Lite XL.
@@ -19,6 +21,7 @@ The repository with modified plugins is http://github.com/franko/lite-plugins.
 The changes and differences between Lite XL and rxi/lite are listed in the [changelog](https://github.com/franko/lite-xl/blob/master/changelog.md).
 
 ## Overview
+
 Lite XL is derived from lite. It is a lightweight text editor written mostly in Lua — it aims to provide
 something practical, pretty, *small* and fast easy to modify and extend, or to use without doing either.
 
@@ -44,7 +47,7 @@ The following libraries are required:
 - freetype2
 - SDL2
 
-The following libraries are optional:
+The following libraries are **optional**:
 
 - libagg
 - Lua 5.2
@@ -106,8 +109,7 @@ Please note that there aren't any hard-coded directories in the executable, so t
 package can be extracted and used in any directory.
 
 Mac OS X is fully supported and a notarized app disk image is provided in the release page.
-In addition the application can be compiled using the generic
-instructions given above.
+In addition the application can be compiled using the generic instructions given above.
 
 ## Contributing
 Any additional functionality that can be added through a plugin should be done
