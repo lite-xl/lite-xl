@@ -38,10 +38,11 @@ end
 regex.gsub = function(pattern_string, string, replacement)
   local pattern = type(pattern_string) == "table" and 
     pattern_string or regex.compile(pattern_string)
-  local result, str, indices = "", string
+  local result, str, indices, n = "", string
   repeat
     indices = { regex.cmatch(pattern, str) }
     if #indices > 0 then
+      n = n + 1
       local currentReplacement = replacement
       if #indices > 2 then
         for i = 1, (#indices/2 - 1) do
@@ -62,6 +63,6 @@ regex.gsub = function(pattern_string, string, replacement)
       str = str:sub(indices[2])
     end
   until #indices == 0 or indices[1] == indices[2]
-  return result .. str
+  return result .. str, n
 end
 
