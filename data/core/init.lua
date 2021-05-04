@@ -744,7 +744,7 @@ end
 function core.open_doc(filename)
   if filename then
     -- try to find existing doc for filename
-    local abs_filename = system.absolute_path(filename)
+    local abs_filename = common.home_encode(system.absolute_path(filename))
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
