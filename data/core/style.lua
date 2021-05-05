@@ -57,4 +57,7 @@ style.syntax["string"] = { common.color "#f7c95c" }
 style.syntax["operator"] = { common.color "#93DDFA" }
 style.syntax["function"] = { common.color "#93DDFA" }
 
+-- This can be used to override fonts per syntax group.
+style.fonts = {}
+
 return style
