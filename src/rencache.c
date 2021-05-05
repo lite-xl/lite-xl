@@ -312,3 +312,7 @@ void rencache_end_frame(void) {
   cells_prev = tmp;
   command_buf_idx = 0;
 }
+
+void rencache_clear() {
+  command_buf_idx = 0;
+}

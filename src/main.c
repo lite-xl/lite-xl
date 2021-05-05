@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <SDL.h>
 #include "api/api.h"
+#include "rencache.h"
 #include "renderer.h"
 
 #ifdef _WIN32
@@ -157,6 +158,11 @@ init_lua:
   set_macos_bundle_resources(L);
   enable_momentum_scroll();
 #endif
+
+  /* We need to clear the rencache commands because we may restarting the application
+     and it could be non-empty. It is important to clear the command buffer because it
+     stores pointers to font_desc objects and these are Lua managed. */
+  rencache_clear();
 
   const char *init_lite_code = \
     "local core\n"

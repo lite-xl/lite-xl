@@ -13,5 +13,6 @@ int  rencache_draw_text(FontDesc *font_desc, const char *text, int x, int y, Ren
 void rencache_invalidate(void);
 void rencache_begin_frame(void);
 void rencache_end_frame(void);
+void rencache_clear();
 
 #endif
