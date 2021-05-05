@@ -143,15 +143,31 @@ end
 function DocView:get_col_x_offset(line, col)
   local text = self.doc.lines[line]
   if not text then return 0 end
-  return self:get_font():get_width(text:sub(1, col - 1))
+
+  local column = 1
+  local x_subpixel = 0
+  local default_font = self:get_font()
+  for _, type, token_text in self.doc.highlighter:each_token(line) do
+    local font = style.fonts[type] or default_font
+    for char in common.utf8_chars(token_text) do
+      if column == col then
+        return x_subpixel / font:subpixel_scale()
+      end
+      x_subpixel = x_subpixel + font:get_width_subpixel(char)
+      column = column + 1
+    end
+  end
+
+  return x_subpixel / default_font:subpixel_scale()
 end
 
 
+-- testing italic testing 123412412093283092183
 function DocView:get_x_offset_col(line, x)
   local text = self.doc.lines[line]
 
   local xoffset, last_i, i = 0, 1, 1
-  local subpixel_scale = self:get_font():subpixel_scale();
+  local subpixel_scale = self:get_font():subpixel_scale()
   local x_subpixel = subpixel_scale * x + subpixel_scale / 2
   for char in common.utf8_chars(text) do
     local w = self:get_font():get_width_subpixel(char)
