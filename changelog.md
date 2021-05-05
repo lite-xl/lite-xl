@@ -9,16 +9,6 @@ The "Project Search: Find" will work by searching all the files present in the p
 
 Implemented changing fonts per syntax group by @liquidev.
 
-Example user module snippet that makes all comments italic:
-
-```lua
-local style = require "core.style"
-
--- italic.ttf must be provided by the user
-local italic = renderer.font.load("italic.ttf", 14)
-style.syntax_fonts["comment"] = italic
-```
-
 Improved indentation behavior by @adamharrison.
 
 Fix bug with close button not working in borderless window mode.
@@ -70,6 +60,10 @@ Both kind of tags can appear in new plugins in the form:
 
 where the old tag needs to appear at the end for compatibility.
 
+=======
+### 1.16.8
+
+>>>>>>> b76905e (Support for changing fonts per syntax group (#178))
 ### 1.16.7
 
 Add support for retina displays on Mac OS X.
