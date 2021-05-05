@@ -145,7 +145,7 @@ function DocView:get_col_x_offset(line, col)
   local column = 1
   local xoffset = 0
   for _, type, text in self.doc.highlighter:each_token(line) do
-    local font = style.fonts[type] or default_font
+    local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
       if column == col then
         return xoffset / font:subpixel_scale()
@@ -167,7 +167,7 @@ function DocView:get_x_offset_col(line, x)
   local subpixel_scale = default_font:subpixel_scale()
   local x_subpixel = subpixel_scale * x + subpixel_scale / 2
   for _, type, text in self.doc.highlighter:each_token(line) do
-    local font = style.fonts[type] or default_font
+    local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
       local w = font:get_width_subpixel(char)
       if xoffset >= subpixel_scale * x then
@@ -329,7 +329,7 @@ function DocView:draw_line_text(idx, x, y)
   local tx, ty = subpixel_scale * x, y + self:get_line_text_y_offset()
   for _, type, text in self.doc.highlighter:each_token(idx) do
     local color = style.syntax[type]
-    local font = style.fonts[type] or default_font
+    local font = style.syntax_fonts[type] or default_font
     if config.draw_whitespace then
       tx = renderer.draw_text_subpixel(font, text, tx, ty, color, core.replacements, style.syntax.comment)
     else
