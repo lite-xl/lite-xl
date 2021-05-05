@@ -1,4 +1,4 @@
--- lite-xl 1.16
+-- mod-version:1 -- lite-xl 1.16
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
