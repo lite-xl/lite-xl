@@ -141,45 +141,46 @@ end
 
 
 function DocView:get_col_x_offset(line, col)
-  local text = self.doc.lines[line]
-  if not text then return 0 end
-
-  local column = 1
-  local x_subpixel = 0
   local default_font = self:get_font()
-  for _, type, token_text in self.doc.highlighter:each_token(line) do
+  local column = 1
+  local xoffset = 0
+  for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.fonts[type] or default_font
-    for char in common.utf8_chars(token_text) do
+    for char in common.utf8_chars(text) do
       if column == col then
-        return x_subpixel / font:subpixel_scale()
+        return xoffset / font:subpixel_scale()
       end
-      x_subpixel = x_subpixel + font:get_width_subpixel(char)
-      column = column + 1
+      xoffset = xoffset + font:get_width_subpixel(char)
+      column = column + #char
     end
   end
 
-  return x_subpixel / default_font:subpixel_scale()
+  return xoffset / default_font:subpixel_scale()
 end
 
 
 -- testing italic testing 123412412093283092183
 function DocView:get_x_offset_col(line, x)
-  local text = self.doc.lines[line]
+  local line_text = self.doc.lines[line]
 
   local xoffset, last_i, i = 0, 1, 1
-  local subpixel_scale = self:get_font():subpixel_scale()
+  local default_font = self:get_font()
+  local subpixel_scale = default_font:subpixel_scale()
   local x_subpixel = subpixel_scale * x + subpixel_scale / 2
-  for char in common.utf8_chars(text) do
-    local w = self:get_font():get_width_subpixel(char)
-    if xoffset >= subpixel_scale * x then
-      return (xoffset - x_subpixel > w / 2) and last_i or i
+  for _, type, text in self.doc.highlighter:each_token(line) do
+    local font = style.fonts[type] or default_font
+    for char in common.utf8_chars(text) do
+      local w = font:get_width_subpixel(char)
+      if xoffset >= subpixel_scale * x then
+        return (xoffset - x_subpixel > w / 2) and last_i or i
+      end
+      xoffset = xoffset + w
+      last_i = i
+      i = i + #char
     end
-    xoffset = xoffset + w
-    last_i = i
-    i = i + #char
   end
 
-  return #text
+  return #line_text
 end
 
 
