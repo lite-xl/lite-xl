@@ -23,6 +23,7 @@ local default_state = {
   submit = noop,
   suggest = noop,
   cancel = noop,
+  validate = function() return true end
 }
 
 
@@ -97,13 +98,15 @@ end
 function CommandView:submit()
   local suggestion = self.suggestions[self.suggestion_idx]
   local text = self:get_text()
-  local submit = self.state.submit
-  self:exit(true)
-  submit(text, suggestion)
+  if self.state.validate(text) then
+    local submit = self.state.submit
+    self:exit(true)
+    submit(text, suggestion)
+  end
 end
 
 
-function CommandView:enter(text, submit, suggest, cancel)
+function CommandView:enter(text, submit, suggest, cancel, validate)
   if self.state ~= default_state then
     return
   end
@@ -111,6 +114,7 @@ function CommandView:enter(text, submit, suggest, cancel)
     submit = submit or noop,
     suggest = suggest or noop,
     cancel = cancel or noop,
+    validate = validate or function() return true end
   }
   core.set_active_view(self)
   self:update_suggestions()

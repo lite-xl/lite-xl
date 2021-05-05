@@ -94,6 +94,15 @@ command.add(nil, {
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
     end, function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+    end, nil, function(text)
+      local path_stat, err = system.get_file_info(common.home_expand(text))
+      if err then
+        core.error("Cannot open file %q: %q", text, err)
+      elseif path_stat.type == 'dir' then 
+        core.error("Cannot open %q, is a folder", text)
+      else
+        return true
+      end
     end)
   end,
 
