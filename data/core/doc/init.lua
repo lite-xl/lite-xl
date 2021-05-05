@@ -66,9 +66,8 @@ end
 
 
 function Doc:set_filename(filename)
-  filename = common.normalize_path(filename)
   self.filename = filename
-  self.abs_filename = common.home_encode(system.absolute_path(filename))
+  self.abs_filename = system.absolute_path(filename)
 end
 
 

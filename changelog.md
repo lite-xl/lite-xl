@@ -14,6 +14,13 @@ local style = require "core.style"
 local italic = renderer.font.load("italic.ttf", 14)
 style.syntax_fonts["comment"] = italic
 ```
+### 1.16.8
+
+### 1.16.7
+
+Add support for retina displays on Mac OS X.
+
+Fix a few problems related to file paths.
 
 ### 1.16.6
 

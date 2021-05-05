@@ -40,6 +40,11 @@ if host_machine.system() == 'windows'
     lite_rc += windows.compile_resources('res.rc')
 endif
 
+# On macos we need to use the SDL renderer to support retina displays
+if get_option('renderer') or host_machine.system() == 'darwin'
+    lite_cargs += '-DLITE_USE_SDL_RENDERER'
+endif
+
 subdir('lib/font_renderer')
 subdir('src')
 

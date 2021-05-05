@@ -204,10 +204,10 @@ end
 
 
 function common.home_encode(text)
-  if HOME then
-    local n = #HOME
-    if text:sub(1, n) == HOME and text:sub(n + 1, n + 1):match("[/\\\\]") then
-      return "~" .. text:sub(n + 1)
+  if HOME and string.find(text, HOME, 1, true) == 1 then
+    local dir_pos = #HOME + 1
+    if string.find(text, PATHSEP, dir_pos, true) == dir_pos then
+      return "~" .. text:sub(dir_pos)
     end
   end
   return text
@@ -247,6 +247,11 @@ local function split_on_slash(s, sep_pattern)
 end
 
 
+function common.path_belongs_to(filename, path)
+  return filename and string.find(filename, path .. PATHSEP, 1, true) == 1
+end
+
+
 function common.relative_path(ref_dir, dir)
   local ref_ls = split_on_slash(ref_dir)
   local dir_ls = split_on_slash(dir)
@@ -259,9 +264,9 @@ function common.relative_path(ref_dir, dir)
   end
   local ups = ""
   for k = i, #ref_ls do
-    ups = ups .. "../"
+    ups = ups .. ".." .. PATHSEP
   end
-  local rel_path = ups .. table.concat(dir_ls, "/", i)
+  local rel_path = ups .. table.concat(dir_ls, PATHSEP, i)
   return rel_path ~= "" and rel_path or "."
 end
 

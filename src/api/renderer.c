@@ -72,9 +72,9 @@ static int f_draw_rect(lua_State *L) {
 }
 
 static int draw_text_subpixel_impl(lua_State *L, bool draw_subpixel) {
-  RenFont **font = luaL_checkudata(L, 1, API_TYPE_FONT);
+  FontDesc *font_desc = luaL_checkudata(L, 1, API_TYPE_FONT);
   const char *text = luaL_checkstring(L, 2);
-  /* The coordinate below will be in subpixels iff draw_subpixel is true.
+  /* The coordinate below will be in subpixel iff draw_subpixel is true.
      Otherwise it will be in pixels. */
   int x_subpixel = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
@@ -90,7 +90,7 @@ static int draw_text_subpixel_impl(lua_State *L, bool draw_subpixel) {
     replace_color = (RenColor) {0};
   }
 
-  x_subpixel = rencache_draw_text(*font, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
+  x_subpixel = rencache_draw_text(font_desc, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
   lua_pushnumber(L, x_subpixel);
   return 1;
 }
@@ -114,7 +114,7 @@ static const luaL_Reg lib[] = {
   { "draw_rect",          f_draw_rect          },
   { "draw_text",          f_draw_text          },
   { "draw_text_subpixel", f_draw_text_subpixel },
-  { NULL,            NULL            }
+  { NULL,                 NULL                 }
 };
 
 

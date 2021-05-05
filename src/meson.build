@@ -5,6 +5,8 @@ lite_sources = [
     'api/renderer_font.c',
     'api/system.c',
     'renderer.c',
+    'renwindow.c',
+    'fontdesc.c',
     'rencache.c',
     'main.c',
 ]

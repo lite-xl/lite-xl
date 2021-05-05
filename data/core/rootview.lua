@@ -597,6 +597,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
     else
+      self.dragged_node = idx
       node:set_active_view(node.views[idx])
     end
   else
@@ -609,6 +610,9 @@ end
 function RootView:on_mouse_released(...)
   if self.dragged_divider then
     self.dragged_divider = nil
+  end
+  if self.dragged_node then
+    self.dragged_node = nil
   end
   self.root_node:on_mouse_released(...)
 end
@@ -641,19 +645,26 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     node.divider = common.clamp(node.divider, 0.01, 0.99)
     return
   end
-
+  
   self.mouse.x, self.mouse.y = x, y
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
   local node = self.root_node:get_child_overlapping_point(x, y)
   local div = self.root_node:get_divider_overlapping_point(x, y)
+  local tab_index = node and node:get_tab_overlapping_point(x, y)
   if div then
     local axis = (div.type == "hsplit" and "x" or "y")
     if div.a:is_resizable(axis) and div.b:is_resizable(axis) then
       system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
     end
-  elseif node:get_tab_overlapping_point(x, y) then
+  elseif tab_index then
     system.set_cursor("arrow")
+    if self.dragged_node and self.dragged_node ~= tab_index then
+      local tab = node.views[self.dragged_node]
+      table.remove(node.views, self.dragged_node)
+      table.insert(node.views, tab_index, tab)
+      self.dragged_node = tab_index
+    end
   else
     system.set_cursor(node.active_view.cursor)
   end

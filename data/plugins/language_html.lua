@@ -2,9 +2,33 @@
 local syntax = require "core.syntax"
 
 syntax.add {
-  files = { "%.xml$" },
-  headers = "<%?xml",
+  files = { "%.html?$" },
   patterns = {
+    { 
+      pattern = { 
+        "<%s*[sS][cC][rR][iI][pP][tT]%s+[tT][yY][pP][eE]%s*=%s*" ..
+          "['\"]%a+/[jJ][aA][vV][aA][sS][cC][rR][iI][pP][tT]['\"]%s*>",
+        "<%s*/[sS][cC][rR][iI][pP][tT]>" 
+      },
+      syntax = ".js", 
+      type = "function" 
+    },
+    { 
+      pattern = { 
+        "<%s*[sS][cC][rR][iI][pP][tT]%s*>",
+        "<%s*/%s*[sS][cC][rR][iI][pP][tT]>" 
+      },
+      syntax = ".js",
+      type = "function"
+    },
+    { 
+      pattern = { 
+        "<%s*[sS][tT][yY][lL][eE][^>]*>", 
+        "<%s*/%s*[sS][tT][yY][lL][eE]%s*>" 
+      },
+      syntax = ".css",
+      type = "function"
+    },
     { pattern = { "<!%-%-", "%-%->" },     type = "comment"  },
     { pattern = { '%f[^>][^<]', '%f[<]' }, type = "normal"   },
     { pattern = { '"', '"', '\\' },        type = "string"   },

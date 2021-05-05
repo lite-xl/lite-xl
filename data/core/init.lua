@@ -171,7 +171,10 @@ local function project_scan_thread()
         if entries_count > config.max_project_files then
           core.status_view:show_message("!", style.accent,
             "Too many files in project directory: stopping reading at "..
-            config.max_project_files.." files according to config.max_project_files.")
+            config.max_project_files.." files according to config.max_project_files. "..
+            "Either tweak this variable, or ignore certain files/directories by "..
+            "using the config.ignore_files variable in your user plugin or "..
+            "project config.")
         end
         dir.files = t
         core.redraw = true
@@ -453,7 +456,7 @@ function core.init()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %q", pname, pdir)
+    core.log("Opening project %q from directory %s", pname, pdir)
   end
   local got_project_error = not core.load_project_module()
 
@@ -732,18 +735,27 @@ function core.pop_clip_rect()
 end
 
 
+function core.normalize_to_project_dir(filename)
+  filename = common.normalize_path(filename)
+  if common.path_belongs_to(filename, core.project_dir) then
+    filename = common.relative_path(core.project_dir, filename)
+  end
+  return filename
+end
+
+
 function core.open_doc(filename)
   if filename then
     -- try to find existing doc for filename
     local abs_filename = system.absolute_path(filename)
     for _, doc in ipairs(core.docs) do
-      if doc.filename
-      and abs_filename == system.absolute_path(doc.filename) then
+      if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
       end
     end
   end
   -- no existing doc for filename; create new
+  filename = core.normalize_to_project_dir(filename)
   local doc = Doc(filename)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
@@ -1004,7 +1016,7 @@ end
 
 core.add_save_hook(function(filename)
   local doc = core.active_view.doc
-  if doc and doc:is(Doc) and doc.filename == USERDIR .. PATHSEP .. "init.lua" then
+  if doc and doc:is(Doc) and doc.abs_filename == USERDIR .. PATHSEP .. "init.lua" then
     core.reload_module("core.style")
     core.load_user_directory()
   end
