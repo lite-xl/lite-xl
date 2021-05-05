@@ -57,4 +57,11 @@ style.syntax["string"] = { common.color "#f7c95c" }
 style.syntax["operator"] = { common.color "#93DDFA" }
 style.syntax["function"] = { common.color "#93DDFA" }
 
+-- This can be used to override fonts per syntax group.
+-- The syntax highlighter will take existing values from this table and
+-- override style.code_font on a per-token basis, so you can choose to eg.
+-- render comments in an italic font if you want to.
+style.syntax_fonts = {}
+-- style.syntax_fonts["comment"] = renderer.font.load(path_to_font, size_of_font, rendering_options)
+
 return style

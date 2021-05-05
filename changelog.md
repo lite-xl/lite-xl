@@ -2,6 +2,19 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
+### 1.16.11
+
+[#126](https://github.com/franko/lite-xl/issues/126): Implemented changing fonts per syntax group.
+Example user module snippet that makes all comments italic:
+
+```lua
+local style = require "core.style"
+
+-- italic.ttf must be provided by the user
+local italic = renderer.font.load("italic.ttf", 14)
+style.syntax_fonts["comment"] = italic
+```
+
 ### 1.16.10
 
 Improved syntax highlight system thanks to @liquidev and @adamharrison.
