@@ -204,10 +204,10 @@ end
 
 
 function common.home_encode(text)
-  if HOME then
-    local n = #HOME
-    if text:sub(1, n) == HOME and text:sub(n + 1, n + 1):match("[/\\\\]") then
-      return "~" .. text:sub(n + 1)
+  if HOME and string.find(text, HOME, 1, true) == 1 then
+    local dir_pos = #HOME + 1
+    if string.find(text, PATHSEP, dir_pos, true) == dir_pos then
+      return "~" .. text:sub(dir_pos)
     end
   end
   return text
