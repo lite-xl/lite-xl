@@ -159,7 +159,6 @@ function DocView:get_col_x_offset(line, col)
 end
 
 
--- testing italic testing 123412412093283092183
 function DocView:get_x_offset_col(line, x)
   local line_text = self.doc.lines[line]
 
