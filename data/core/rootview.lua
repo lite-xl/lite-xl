@@ -484,7 +484,8 @@ function Node:close_all_docviews()
   end
 end
 
-
+-- Returns true for nodes that accept either "proportional" resizes (based on the
+-- node.divider) or "locked" resizable nodes (along the resize axis).
 function Node:is_resizable(axis)
   if self.type == 'leaf' then
     return not self.locked or not self.locked[axis] or self.resizable
@@ -496,22 +497,42 @@ function Node:is_resizable(axis)
 end
 
 
+-- Return true iff it is a locked pane along the rezise axis and is
+-- declared "resizable".
+function Node:is_locked_resizable(axis)
+  return self.locked and self.locked[axis] and self.resizable
+end
+
+
 function Node:resize(axis, value)
   if self.type == 'leaf' then
-    -- The logic here is: accept the resize only if locked along the axis
-    -- and is declared "resizable". If it is not locked we don't accept the
+    -- If it is not locked we don't accept the
     -- resize operation here because for proportional panes the resize is
     -- done using the "divider" value of the parent node.
-    if (self.locked and self.locked[axis]) and self.resizable then
-      assert(self.active_view.set_target_size, "internal error: the view of a resizable \"locked\" node do not provide a set_target_size method")
+    if self:is_locked_resizable(axis) then
       return self.active_view:set_target_size(axis, value)
     end
   else
-    local a_resizable = self.a:is_resizable(axis)
-    local b_resizable = self.b:is_resizable(axis)
-    if a_resizable and b_resizable then
-      self.a:resize(axis, value)
-      self.b:resize(axis, value)
+    if self.type == (axis == "x" and "hsplit" or "vsplit") then
+      -- we are resizing a node that is splitted along the resize axis
+      if self.a:is_locked_resizable(axis) and self.b:is_locked_resizable(axis) then
+        local rem_value = value - self.a.size[axis]
+        if rem_value >= 0 then
+          return self.b.active_view:set_target_size(axis, rem_value)
+        else
+          self.b.active_view:set_target_size(axis, 0)
+          return self.a.active_view:set_target_size(axis, value)
+        end
+      end
+    else
+      -- we are resizing a node that is splitted along the axis perpendicular
+      -- to the resize axis
+      local a_resizable = self.a:is_resizable(axis)
+      local b_resizable = self.b:is_resizable(axis)
+      if a_resizable and b_resizable then
+        self.a:resize(axis, value)
+        self.b:resize(axis, value)
+      end
     end
   end
 end
@@ -619,7 +640,10 @@ end
 
 
 local function resize_child_node(node, axis, value, delta)
-  local accept_resize = node.a:resize(axis, value) or node.b:resize(axis, node.size[axis] - value)
+  local accept_resize = node.a:resize(axis, value)
+  if not accept_resize then
+    accept_resize = node.b:resize(axis, node.size[axis] - value)
+  end
   if not accept_resize then
     node.divider = node.divider + delta / node.size[axis]
   end
@@ -645,7 +669,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     node.divider = common.clamp(node.divider, 0.01, 0.99)
     return
   end
-  
+
   self.mouse.x, self.mouse.y = x, y
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
