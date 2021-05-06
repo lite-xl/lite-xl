@@ -2,6 +2,12 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
+### 1.16.9
+
+Fix a bug related to nested panes resizing.
+
+Fix problem preventing creating a new file.
+
 ### 1.16.8
 
 Fix application crash when using the command `core:restart`.
