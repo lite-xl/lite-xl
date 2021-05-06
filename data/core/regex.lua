@@ -3,10 +3,10 @@
 -- pattern:gsub(string).
 regex.__index = function(table, key) return regex[key]; end
 
-regex.match = function(pattern_string, string)
+regex.match = function(pattern_string, string, offset)
   local pattern = type(pattern_string) == "table" and
     pattern_string or regex.compile(pattern_string)
-  return regex.cmatch(pattern, string)
+  return regex.cmatch(pattern, string, offset)
 end
 
 -- Will iterate back through any UTF-8 bytes so that we don't replace bits 
