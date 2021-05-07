@@ -2,7 +2,7 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
-### 1.16.9
+### next release
 
 [#126](https://github.com/franko/lite-xl/issues/126): Implemented changing fonts per syntax group.
 Example user module snippet that makes all comments italic:
@@ -14,7 +14,33 @@ local style = require "core.style"
 local italic = renderer.font.load("italic.ttf", 14)
 style.syntax_fonts["comment"] = italic
 ```
+### 1.16.9
+
+Fix a bug related to nested panes resizing.
+
+Fix problem preventing creating a new file.
+
 ### 1.16.8
+
+Fix application crash when using the command `core:restart`.
+
+Improve application startup to reduce "flashing".
+
+Move to new plugins versioning using tag `mod-version:1`.
+The mod-version is a single digit version that tracks the
+plugins compatibility version independently from the lite-xl
+version.
+
+For backward compatibility the tag `-- lite-xl 1.16` is considered equivalent to
+`mod-version:1` so users don't need to update their plugins.
+
+Both kind of tags can appear in new plugins in the form:
+
+```lua
+-- mod-version:1 -- lite-xl 1.16
+```
+
+where the old tag needs to appear at the end for compatibility.
 
 ### 1.16.7
 

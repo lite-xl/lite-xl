@@ -589,18 +589,6 @@ function core.restart()
 end
 
 
-local function version_components(version)
-  local a, b, c = version:match('(%d+)%.(%d+)%.(%d+)')
-  if a then
-    return tonumber(a), tonumber(b), tonumber(c)
-  end
-  a, b = version:match('(%d+)%.(%d+)')
-  if a then
-    return tonumber(a), tonumber(b)
-  end
-end
-
-
 local function check_plugin_version(filename)
   local info = system.get_file_info(filename)
   if info ~= nil and info.type == "dir" then
@@ -612,12 +600,19 @@ local function check_plugin_version(filename)
   if not f then return false end
   local version_match = false
   for line in f:lines() do
-    local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)%s*$')
-    if not version then break end
-    local ver_major, ver_minor = version_components(version)
-    local ref_major, ref_minor = version_components(VERSION)
-    version_match = (ver_major == ref_major and ver_minor == ref_minor)
-    break
+    local mod_version = line:match('%-%-.*%f[%a]mod%-version%s*:%s*(%d+)')
+    if mod_version then
+      version_match = (mod_version == MOD_VERSION)
+      break
+    end
+    -- The following pattern is used for backward compatibility only
+    -- Future versions will look only at the mod-version tag.
+    local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)$')
+    if version then
+      -- we consider the version tag 1.16 equivalent to mod-version:1
+      version_match = (version == '1.16' and MOD_VERSION == "1")
+      break
+    end
   end
   f:close()
   return version_match

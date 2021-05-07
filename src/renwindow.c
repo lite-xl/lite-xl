@@ -12,6 +12,18 @@ static int query_surface_scale(RenWindow *ren) {
   assert(w_pixels % w_points == 0 && h_pixels % h_points == 0 && w_pixels / w_points == h_pixels / h_points);
   return w_pixels / w_points;
 }
+
+static void setup_renderer(RenWindow *ren, int w, int h) {
+  /* Note that w and h here should always be in pixels and obtained from
+     a call to SDL_GL_GetDrawableSize(). */
+  if (ren->renderer) {
+    SDL_DestroyTexture(ren->texture);
+    SDL_DestroyRenderer(ren->renderer);
+  }
+  ren->renderer = SDL_CreateRenderer(ren->window, -1, 0);
+  ren->texture = SDL_CreateTexture(ren->renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, w, h);
+  ren->surface_scale = query_surface_scale(ren);
+}
 #endif
 
 
@@ -23,7 +35,7 @@ void renwin_init_surface(RenWindow *ren) {
   int w, h;
   SDL_GL_GetDrawableSize(ren->window, &w, &h);
   ren->surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_BGRA32);
-  ren->surface_scale = query_surface_scale(ren);
+  setup_renderer(ren, w, h);
 #endif
 }
 
@@ -60,20 +72,6 @@ SDL_Surface *renwin_get_surface(RenWindow *ren) {
 #endif
 }
 
-#ifdef LITE_USE_SDL_RENDERER
-static void setup_renderer(RenWindow *ren, int w, int h) {
-  /* Note that w and h here should always be in pixels and obtained from
-     a call to SDL_GL_GetDrawableSize(). */
-  if (ren->renderer) {
-    SDL_DestroyRenderer(ren->renderer);
-    SDL_DestroyTexture(ren->texture);
-  }
-  ren->renderer = SDL_CreateRenderer(ren->window, -1, 0);
-  ren->texture = SDL_CreateTexture(ren->renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, w, h);
-  ren->surface_scale = query_surface_scale(ren);
-}
-#endif
-
 void renwin_resize_surface(RenWindow *ren) {
 #ifdef LITE_USE_SDL_RENDERER
   int new_w, new_h;
@@ -89,11 +87,6 @@ void renwin_resize_surface(RenWindow *ren) {
 
 void renwin_show_window(RenWindow *ren) {
   SDL_ShowWindow(ren->window);
-#ifdef LITE_USE_SDL_RENDERER
-  int w, h;
-  SDL_GL_GetDrawableSize(ren->window, &w, &h);
-  setup_renderer(ren, w, h);
-#endif
 }
 
 void renwin_update_rects(RenWindow *ren, RenRect *rects, int count) {
@@ -118,8 +111,8 @@ void renwin_free(RenWindow *ren) {
   SDL_DestroyWindow(ren->window);
   ren->window = NULL;
 #ifdef LITE_USE_SDL_RENDERER
-  SDL_DestroyRenderer(ren->renderer);
   SDL_DestroyTexture(ren->texture);
+  SDL_DestroyRenderer(ren->renderer);
   SDL_FreeSurface(ren->surface);
 #endif
 }

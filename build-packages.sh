@@ -50,16 +50,16 @@ lite_build_pgo () {
 }
 
 lite_build_package_windows () {
-  local portable=""
+  local portable="-msys"
   if [ "$1" == "-portable" ]; then
-    portable="-portable"
+    portable=""
     shift
   fi
   local build="$1"
   local arch="$2"
   local os="win"
   local pdir=".package-build/lite-xl"
-  if [ "$portable" == "-portable" ]; then
+  if [ -z "$portable" ]; then
     local bindir="$pdir"
     local datadir="$pdir/data"
   else
