@@ -35,10 +35,11 @@ end
 -- transformations and stuff in lua. Currently, this takes group replacements 
 -- as \1 - \9.
 -- Should work on UTF-8 text.
-regex.gsub = function(pattern_string, string, replacement)
-  local pattern = type(pattern_string) == "table" and 
+regex.gsub = function(pattern_string, str, replacement)
+  local pattern = type(pattern_string) == "table" and
     pattern_string or regex.compile(pattern_string)
-  local result, str, indices, n = "", string
+  local result, indices = ""
+  local n = 0
   repeat
     indices = { regex.cmatch(pattern, str) }
     if #indices > 0 then
