@@ -258,7 +258,7 @@ end
 
 
 function common.normalize_path(filename)
-  if filename and PATHSEP == '\\' then
+  if PATHSEP == '\\' then
     filename = filename:gsub('[/\\]', '\\')
     local drive, rem = filename:match('^([a-zA-Z])(:.*)')
     return drive and drive:upper() .. rem or filename

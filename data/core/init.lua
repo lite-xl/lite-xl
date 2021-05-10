@@ -36,14 +36,8 @@ local function save_session()
 end
 
 
-local function normalize_path(s)
-  local drive, path = s:match("^([a-z]):([/\\].*)")
-  return drive and drive:upper() .. ":" .. path or s
-end
-
-
 local function update_recents_project(action, dir_path_abs)
-  local dirname = normalize_path(dir_path_abs)
+  local dirname = common.normalize_path(dir_path_abs)
   if not dirname then return end
   local recents = core.recent_projects
   local n = #recents
@@ -70,7 +64,7 @@ function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
   if chdir_ok then
     if change_project_fn then change_project_fn() end
-    core.project_dir = normalize_path(new_dir)
+    core.project_dir = common.normalize_path(new_dir)
     core.project_directories = {}
     core.add_project_directory(new_dir)
     core.project_files = {}
@@ -379,7 +373,7 @@ function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
-  path = normalize_path(path)
+  path = common.normalize_path(path)
   table.insert(core.project_directories, {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
@@ -826,7 +820,7 @@ function core.open_doc(filename)
     end
   end
   -- no existing doc for filename; create new
-  filename = core.normalize_to_project_dir(filename)
+  filename = filename and core.normalize_to_project_dir(filename)
   local doc = Doc(filename)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
