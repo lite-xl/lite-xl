@@ -733,10 +733,30 @@ function core.normalize_to_project_dir(filename)
 end
 
 
+-- The function below works like system.absolute_path except it
+-- doesn't fail if the file does not exist. We consider that the
+-- current dir is core.project_dir so relative filename are considered
+-- to be in core.project_dir.
+-- Please note that .. or . in the filename are not taken into account.
+-- This function should get only filenames normalized using
+-- common.normalize_path function.
+function core.project_absolute_path(filename)
+  if filename:match('^%a:\\') or filename:find('/', 1, true) then
+    return filename
+  else
+    return core.project_dir .. PATHSEP .. filename
+  end
+end
+
+
 function core.open_doc(filename)
+  local new_file = not filename or not system.get_file_info(filename)
+  local abs_filename
   if filename then
+    -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    local abs_filename = system.absolute_path(filename)
+    filename = core.normalize_to_project_dir(filename)
+    abs_filename = core.project_absolute_path(filename)
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
@@ -744,8 +764,7 @@ function core.open_doc(filename)
     end
   end
   -- no existing doc for filename; create new
-  filename = filename and core.normalize_to_project_dir(filename)
-  local doc = Doc(filename)
+  local doc = Doc(filename, abs_filename, new_file)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
   return doc
