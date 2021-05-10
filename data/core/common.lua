@@ -269,6 +269,9 @@ end
 
 local function split_on_slash(s, sep_pattern)
   local t = {}
+  if s:match("^[/\\]") then
+    t[#t + 1] = ""
+  end
   for fragment in string.gmatch(s, "([^/\\]+)") do
     t[#t + 1] = fragment
   end
