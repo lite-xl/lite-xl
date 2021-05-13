@@ -136,17 +136,8 @@ function TreeView:each_item()
 
     for k = 1, #core.project_entries do
       local dir = core.project_entries[k]
-      if dir.item.type == "file" and dir.item.topdir then
-        print('dir', common.serialize(dir))
-      end
       local dir_cached = self:get_cached(dir.item, dir.name)
-      if dir.item.type == "file" and dir.item.topdir then
-        print('cache', common.serialize(dir_cached))
-      end
       coroutine.yield(dir_cached, ox, y, w, h)
-      if dir.item.type == "file" and dir.item.topdir then
-        print('file topdir yielded')
-      end
       count_lines = count_lines + 1
       y = y + h
       local i = 1
@@ -172,9 +163,6 @@ function TreeView:each_item()
           end
         end
       end -- while files
-      if dir.item.type == "file" and dir.item.topdir then
-        print('loop over files terminated')
-      end
     end -- for directories
     self.count_lines = count_lines
   end)
@@ -343,7 +331,6 @@ function TreeView:draw()
 
     -- text
     x = x + spacing
-    print('item.name', item.name)
     x = common.draw_text(style.font, color, item.name, nil, x, y, 0, h)
   end
 
