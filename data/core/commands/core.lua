@@ -92,37 +92,31 @@ command.add(nil, {
     if view.doc and view.doc.filename then
       core.command_view:set_text(common.home_encode(view.doc.filename))
     end
-    core.command_view:enter("Open File", function(text, item)
-      local filename = common.home_expand(item and item.text or text)
+    core.command_view:enter("Open File", function(text)
+      local filename = core.working_dir_absolute_path(common.home_expand(text))
       local info = system.get_file_info(filename)
-      print('file', filename, common.serialize(info))
-      if info then
-        if info.type == "file" then
-          core.add_project_file(filename)
-          print('done add_project_file')
-          core.root_view:open_doc(core.open_doc(filename))
-          print('done open_doc')
-        else
-          core.add_project_directory(filename)
-        end
+      if info and info.type == "dir" then
+        core.add_project_directory(filename)
+        core.reschedule_project_scan()
+      else
+        core.add_project_file(filename)
+        core.root_view:open_doc(core.open_doc(filename))
       end
     end, function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end, nil, function(text)
       local filename = common.home_expand(text)
-      local path_stat, err = system.get_file_info(filename)
+      local info, err = system.get_file_info(filename)
       if err then
         if err:find("No such file", 1, true) then
           -- check if the containing directory exists
           local dirname = common.dirname(filename)
-          local dir_stat = dirname and system.get_file_info(dirname)
-          if not dirname or (dir_stat and dir_stat.type == 'dir') then
+          local dir_info = dirname and system.get_file_info(dirname)
+          if not dirname or (dir_info and dir_info.type == 'dir') then
             return true
           end
         end
         core.error("Cannot open file %s: %s", text, err)
-      elseif path_stat.type == 'dir' then
-        core.error("Cannot open %s, is a folder", text)
       else
         return true
       end
