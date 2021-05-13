@@ -193,13 +193,13 @@ end
 function TreeView:on_mouse_moved(px, py, ...)
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
-  
+
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
       item_changed = true
       self.hovered_item = item
-      
+
       x,y,w,h = self:get_text_bounding_box(item, x,y,w,h)
       if px > x and py > y and px <= x + w and py <= y + h then
         tooltip_changed = true
@@ -251,7 +251,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     core.try(function()
-      local doc_filename = common.relative_path(core.project_dir, hovered_item.abs_filename)
+      local doc_filename = self.hovered_item.abs_filename
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
@@ -267,7 +267,7 @@ function TreeView:update()
   else
     self:move_towards(self.size, "x", dest)
   end
-  
+
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)

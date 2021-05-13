@@ -61,13 +61,11 @@ end
 
 
 function core.open_folder_project(dir_path_abs)
-  -- if core.set_project_dir(dir_path_abs, core.on_quit_project) then
   core.root_view:close_all_docviews()
   core.project_entries = {}
   -- FIXME: check stat info to verify is a directory
   core.add_project_directory(dir_path_abs)
   update_recents_project("add", dir_path_abs)
-  -- core.on_enter_project(dir_path_abs)
 end
 
 
@@ -357,7 +355,7 @@ end
 
 
 function core.add_project_file(path)
-  path = normalize_path(path)
+  path = common.normalize_path(path)
   table.insert(core.project_entries, {
     -- type = 'file',
     name = path,
@@ -406,9 +404,9 @@ local function reload_on_user_module_save()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  function Doc:save(filename, abs_filename)
-    doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename then
+  function Doc:save(filename)
+    doc_save(self, filename)
+    if self.filename == user_filename then
       core.reload_module("core.style")
       core.load_user_directory()
     end
@@ -473,6 +471,7 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
+  core.working_dir = system.absolute_path(".")
 
   local project_dir_abs = system.absolute_path(project_dir)
   if project_dir_abs then
@@ -480,7 +479,7 @@ function core.init()
     update_recents_project("add", project_dir_abs)
   end
   -- FIXME: below, check if project_dir_abs is ok as a project directory
-  local set_project_ok = project_dir_abs --and core.open_folder_project(project_dir_abs) --core.set_project_dir(project_dir_abs)
+  local set_project_ok = project_dir_abs
   if set_project_ok then
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
@@ -799,16 +798,7 @@ function core.pop_clip_rect()
   renderer.set_clip_rect(x, y, w, h)
 end
 
-
-function core.normalize_to_project_dir(filename)
-  filename = common.normalize_path(filename)
-  if common.path_belongs_to(filename, core.project_dir) then
-    filename = common.relative_path(core.project_dir, filename)
-  end
-  return filename
-end
-
-
+-- FIXME: update comment
 -- The function below works like system.absolute_path except it
 -- doesn't fail if the file does not exist. We consider that the
 -- current dir is core.project_dir so relative filename are considered
@@ -816,31 +806,34 @@ end
 -- Please note that .. or . in the filename are not taken into account.
 -- This function should get only filenames normalized using
 -- common.normalize_path function.
-function core.project_absolute_path(filename)
+function core.working_dir_absolute_path(filename)
   if filename:match('^%a:\\') or filename:find('/', 1, true) then
     return filename
   else
-    return core.project_dir .. PATHSEP .. filename
+    return core.working_dir .. PATHSEP .. filename
   end
+end
+
+function core.normalize_to_working_dir(filename)
+  filename = common.normalize_path(filename)
+  return core.working_dir_absolute_path(filename)
 end
 
 
 function core.open_doc(filename)
   local new_file = not filename or not system.get_file_info(filename)
-  local abs_filename
   if filename then
     -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    filename = core.normalize_to_project_dir(filename)
-    abs_filename = core.project_absolute_path(filename)
+    filename = core.normalize_to_working_dir(filename)
     for _, doc in ipairs(core.docs) do
-      if doc.abs_filename and abs_filename == doc.abs_filename then
+      if doc.filename and filename == doc.filename then
         return doc
       end
     end
   end
   -- no existing doc for filename; create new
-  local doc = Doc(filename, abs_filename, new_file)
+  local doc = Doc(filename, new_file)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
   return doc

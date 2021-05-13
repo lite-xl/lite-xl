@@ -41,12 +41,10 @@ end
 
 
 local function save(filename)
-  local abs_filename
   if filename then
-    filename = core.normalize_to_project_dir(filename)
-    abs_filename = core.project_absolute_path(filename)
+    filename = core.normalize_to_working_dir(filename)
   end
-  doc():save(filename, abs_filename)
+  doc():save(filename)
   local saved_filename = doc().filename
   core.on_doc_save(saved_filename)
   core.log("Saved \"%s\"", saved_filename)
