@@ -108,9 +108,6 @@ function common.path_suggest(text)
     file = path .. file
     local info = system.get_file_info(file)
     if info then
-      if info.type == "dir" then
-        file = file .. PATHSEP
-      end
       if file:lower():find(text:lower(), nil, true) == 1 then
         table.insert(res, file)
       end
