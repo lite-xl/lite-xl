@@ -36,11 +36,11 @@ local function splice(t, at, remove, insert)
 end
 
 
-function Doc:new(filename, abs_filename, new_file)
+function Doc:new(filename, new_file)
   self.new_file = new_file
   self:reset()
   if filename then
-    self:set_filename(filename, abs_filename)
+    self.filename = filename
     if not new_file then
       self:load(filename)
     end
@@ -69,12 +69,6 @@ function Doc:reset_syntax()
 end
 
 
-function Doc:set_filename(filename, abs_filename)
-  self.filename = filename
-  self.abs_filename = abs_filename
-end
-
-
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
   self:reset()
@@ -94,11 +88,10 @@ function Doc:load(filename)
 end
 
 
-function Doc:save(filename, abs_filename)
+function Doc:save(filename)
   if not filename then
     assert(self.filename, "no filename set to default to")
     filename = self.filename
-    abs_filename = self.abs_filename
   end
   local fp = assert( io.open(filename, "wb") )
   for _, line in ipairs(self.lines) do
@@ -106,7 +99,7 @@ function Doc:save(filename, abs_filename)
     fp:write(line)
   end
   fp:close()
-  self:set_filename(filename, abs_filename)
+  self.filename = filename
   self.new_file = false
   self:reset_syntax()
   self:clean()
