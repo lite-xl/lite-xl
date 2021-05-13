@@ -745,6 +745,7 @@ end
 
 
 function core.set_visited(filename)
+  filename = common.home_encode(filename)
   for i = 1, #core.visited_files do
     if core.visited_files[i] == filename then
       table.remove(core.visited_files, i)
@@ -798,16 +799,15 @@ function core.pop_clip_rect()
   renderer.set_clip_rect(x, y, w, h)
 end
 
--- FIXME: update comment
 -- The function below works like system.absolute_path except it
 -- doesn't fail if the file does not exist. We consider that the
--- current dir is core.project_dir so relative filename are considered
--- to be in core.project_dir.
+-- current dir is core.working_dir so relative filename are considered
+-- to be in core.working_dir.
 -- Please note that .. or . in the filename are not taken into account.
 -- This function should get only filenames normalized using
 -- common.normalize_path function.
 function core.working_dir_absolute_path(filename)
-  if filename:match('^%a:\\') or filename:find('/', 1, true) then
+  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
     return filename
   else
     return core.working_dir .. PATHSEP .. filename

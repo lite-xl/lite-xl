@@ -41,10 +41,7 @@ end
 
 
 local function save(filename)
-  if filename then
-    filename = core.normalize_to_working_dir(filename)
-  end
-  doc():save(filename)
+  doc():save(filename and core.normalize_to_working_dir(filename))
   local saved_filename = doc().filename
   core.on_doc_save(saved_filename)
   core.log("Saved \"%s\"", saved_filename)
