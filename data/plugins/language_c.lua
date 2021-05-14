@@ -7,7 +7,6 @@ syntax.add {
   patterns = {
     { pattern = "//.-\n",               type = "comment"  },
     { pattern = { "/%*", "%*/" },       type = "comment"  },
-    { pattern = { "#", "[^\\]\n" },     type = "comment"  },
     { pattern = { '"', '"', '\\' },     type = "string"   },
     { pattern = { "'", "'", '\\' },     type = "string"   },
     { pattern = "-?0x%x+",              type = "number"   },
@@ -15,7 +14,7 @@ syntax.add {
     { pattern = "-?%.?%d+f?",           type = "number"   },
     { pattern = "[%+%-=/%*%^%%<>!~|&]", type = "operator" },
     { pattern = "[%a_][%w_]*%f[(]",     type = "function" },
-    { pattern = "[%a_][%w_]*",          type = "symbol"   },
+    { pattern = "#?[%a_][%w_]*",        type = "symbol"   },
   },
   symbols = {
     ["if"]       = "keyword",
@@ -29,7 +28,7 @@ syntax.add {
     ["continue"] = "keyword",
     ["return"]   = "keyword",
     ["goto"]     = "keyword",
-    ["struct"]   = "keyword",
+    ["struct"]   = "keyword2",
     ["union"]    = "keyword",
     ["typedef"]  = "keyword",
     ["enum"]     = "keyword",
@@ -55,6 +54,17 @@ syntax.add {
     ["true"]     = "literal",
     ["false"]    = "literal",
     ["NULL"]     = "literal",
+    ["#include"] = "keyword",
+    ["#if"] = "keyword",
+    ["#ifdef"] = "keyword",
+    ["#ifndef"] = "keyword",
+    ["#else"] = "keyword",
+    ["#elseif"] = "keyword",
+    ["#endif"] = "keyword",
+    ["#define"] = "keyword",
+    ["#warning"] = "keyword",
+    ["#error"] = "keyword",
+    ["#pragma"] = "keyword",
   },
 }
 
