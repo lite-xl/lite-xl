@@ -189,13 +189,16 @@ command.add(nil, {
 
   ["core:remove-directory"] = function()
     local dir_list = {}
-    local n = #core.project_directories
-    for i = n, 2, -1 do
-      dir_list[n - i + 1] = core.project_directories[i].name
+    local n = #core.project_entries
+    for i = n, 1, -1 do
+      local entry = core.project_entries[i]
+      if entry.item.type == "dir" then
+        dir_list[n - i + 1] = entry.name
+      end
     end
     core.command_view:enter("Remove Directory", function(text, item)
       text = common.home_expand(item and item.text or text)
-      if not core.remove_project_directory(text) then
+      if not core.remove_project_entry(text) then
         core.error("No directory %q to be removed", text)
       end
     end, function(text)
