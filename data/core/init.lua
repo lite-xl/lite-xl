@@ -51,6 +51,20 @@ local function update_recents_project(action, dir_path_abs)
 end
 
 
+local function cleanup_recent_projects()
+  local recents = core.recent_projects
+  local i = 1
+  while i <= #recents do
+    local info = system.get_file_info(recents[i])
+    if not info or info.type ~= "dir" then
+      table.remove(recents, i)
+    else
+      i = i + 1
+    end
+  end
+end
+
+
 function core.reschedule_project_scan()
   if core.project_scan_thread_id then
     core.threads[core.project_scan_thread_id].wake = 0
@@ -61,7 +75,6 @@ end
 function core.open_folder_project(dir_path_abs)
   core.root_view:close_all_docviews()
   core.project_entries = {}
-  -- FIXME: check stat info to verify is a directory
   core.add_project_directory(dir_path_abs)
   update_recents_project("add", dir_path_abs)
 end
@@ -300,15 +313,14 @@ function core.load_user_directory()
   end)
 end
 
-
 function core.add_project_file(path)
   path = common.normalize_path(path)
-  table.insert(core.project_entries, {
-    -- type = 'file',
+  local entry = {
     name = path,
     item = {filename = common.basename(path), type = "file", topdir = true},
     files = {path}
-  })
+  }
+  table.insert(core.project_entries, entry)
 end
 
 
@@ -317,12 +329,12 @@ function core.add_project_directory(path)
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = common.normalize_path(path)
-  table.insert(core.project_entries, {
-    -- type = 'dir',
+  local entry = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files = {}
-  })
+  }
+  table.insert(core.project_entries, entry)
 end
 
 
@@ -371,56 +383,51 @@ function core.init()
     end
     core.recent_projects = recent_projects
   end
+  cleanup_recent_projects()
 
-  local project_dir = core.recent_projects[1] or "."
-  local project_dir_explicit = false
-  local files = {}
-  local delayed_error
-  for i = 2, #ARGS do
-    local arg_filename = strip_trailing_slash(ARGS[i])
-    local info = system.get_file_info(arg_filename) or {}
-    if info.type == "file" then
-      local file_abs = system.absolute_path(arg_filename)
-      if file_abs then
-        table.insert(files, file_abs)
-        project_dir = file_abs:match("^(.+)[/\\].+$")
-      end
-    elseif info.type == "dir" then
-      project_dir = arg_filename
-      project_dir_explicit = true
-    else
-      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
-    end
-  end
-
-  core.frame_start = 0
-  core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
-  core.window_mode = "normal"
   core.project_entries = {}
+
+  local init_files = {}
+  local delayed_errors = {}
+  for i = 2, #ARGS do
+    local filename = strip_trailing_slash(ARGS[i])
+    local info = system.get_file_info(filename)
+    if info and info.type == "file" then
+      filename = system.absolute_path(filename)
+      if filename then
+        core.add_project_file(filename)
+        table.insert(init_files, filename)
+      end
+    elseif info and info.type == "dir" then
+      filename = system.absolute_path(filename)
+      if filename then
+        core.add_project_directory(filename)
+        update_recents_project("add", filename)
+      end
+    else
+      local error_msg = string.format("error: invalid file or directory \"%s\"", ARGS[i])
+      table.insert(delayed_errors, error_msg)
+    end
+  end
+
+  local init_message
+  if #core.project_entries == 0 then
+    if #core.recent_projects > 0 then
+      init_message = string.format("Opening project from directory \"%s\"", core.recent_projects[1])
+      core.add_project_directory(core.recent_projects[1])
+    else
+      init_message = string.format("Empty project: use the \"Core: Open File\" command to open a file or a directory.")
+    end
+  end
+
   core.threads = setmetatable({}, { __mode = "k" })
+  core.frame_start = 0
+  core.clip_rect_stack = {{ 0,0,0,0 }}
+  core.window_mode = "normal"
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
-  core.working_dir = system.absolute_path(".")
-
-  local project_dir_abs = system.absolute_path(project_dir)
-  if project_dir_abs then
-    core.add_project_directory(project_dir_abs)
-    update_recents_project("add", project_dir_abs)
-  end
-  -- FIXME: below, check if project_dir_abs is ok as a project directory
-  local set_project_ok = project_dir_abs
-  if set_project_ok then
-    if project_dir_explicit then
-      update_recents_project("add", project_dir_abs)
-    end
-  else
-    if not project_dir_explicit then
-      update_recents_project("remove", project_dir)
-    end
-  end
-
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
@@ -443,21 +450,33 @@ function core.init()
 
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
+
+  for _, project_entry in ipairs(core.project_entries) do
+    if project_entry.item.type == "dir" then
+      core.log_quiet("Setting working directory to \"%s\"", project_entry.name)
+      system.chdir(project_entry.name)
+      core.working_dir = project_entry.name
+      break
+    end
+  end
+  if not core.working_dir then
+    core.working_dir = system.absolute_path(".")
+  end
+
+  if init_message then
+    core.log(init_message)
+  end
+
   local got_user_error = not core.load_user_directory()
   local plugins_success, plugins_refuse_list = core.load_plugins()
-
-  do
-    local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %s", pname, pdir)
-  end
   local got_project_error = not core.load_project_module()
 
-  for _, filename in ipairs(files) do
+  for _, filename in ipairs(init_files) do
     core.root_view:open_doc(core.open_doc(filename))
   end
 
-  if delayed_error then
-    core.error(delayed_error)
+  for _, error_msg in ipairs(delayed_errors) do
+    core.error(error_msg)
   end
 
   if not plugins_success or got_user_error or got_project_error then
