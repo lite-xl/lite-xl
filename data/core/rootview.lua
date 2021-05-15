@@ -397,6 +397,7 @@ end
 function Node:draw_tabs()
   local x, y, _, h = self:get_tab_rect(1)
   local ds = style.divider_size
+  local dots_width = style.font:get_width("...")
   core.push_clip_rect(x, y, self.size.x, h)
   renderer.draw_rect(x, y, self.size.x, h, style.background2)
   renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
@@ -423,9 +424,20 @@ function Node:draw_tabs()
       color = style.text
     end
     local padx = style.padding.x
-    core.push_clip_rect(x, y, show_close_button and cx - x - cspace or w - padx, h)
+    core.push_clip_rect(x, y, cx - x, h)
+    local text_avail_width = cx - x - padx
     x, w = x + padx, w - padx * 2
-    local align = style.font:get_width(text) > w and "left" or "center"
+    local align = "center"
+    if style.font:get_width(text) > text_avail_width then
+      align = "left"
+      for i = 1, #text do
+        local reduced_text = text:sub(1, #text - i)
+        if style.font:get_width(reduced_text) + dots_width <= text_avail_width then
+          text = reduced_text .. "..."
+          break
+        end
+      end
+    end
     common.draw_text(style.font, color, text, align, x, y, w, h)
     core.pop_clip_rect()
   end
