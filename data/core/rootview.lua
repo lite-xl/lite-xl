@@ -278,10 +278,11 @@ end
 
 
 function Node:get_tab_rect(idx)
-  local twp = math.floor((self.size.x - style.padding.x) / #self.views + 0.5)
-  local tw = math.min(style.tab_width, twp)
+  local tw = math.min(style.tab_width, (self.size.x - style.padding.x) / #self.views)
+  local x_left = self.position.x + tw * (idx - 1)
+  local x1, x2 = math.floor(x_left), math.floor(x_left + tw)
   local h = style.font:get_height() + style.padding.y * 2
-  return self.position.x + (idx-1) * tw, self.position.y, tw, h
+  return x1, self.position.y, x2 - x1, h
 end
 
 
