@@ -398,7 +398,7 @@ end
 function Node:draw_tabs()
   local x, y, _, h = self:get_tab_rect(1)
   local ds = style.divider_size
-  local dots_width = style.font:get_width("...")
+  local dots_width = style.font:get_width("…")
   core.push_clip_rect(x, y, self.size.x, h)
   renderer.draw_rect(x, y, self.size.x, h, style.background2)
   renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
@@ -425,8 +425,13 @@ function Node:draw_tabs()
       color = style.text
     end
     local padx = style.padding.x
-    core.push_clip_rect(x, y, cx - x, h)
+    -- Normally we should substract "cspace" from text_avail_width and from the
+    -- clipping width. It is the padding space we give to the left and right of the
+    -- close button. However, since we are using dots to terminate filenames, we
+    -- choose to ignore "cspace" accepting that the text can possibly "touch" the
+    -- close button.
     local text_avail_width = cx - x - padx
+    core.push_clip_rect(x, y, cx - x, h)
     x, w = x + padx, w - padx * 2
     local align = "center"
     if style.font:get_width(text) > text_avail_width then
@@ -434,7 +439,7 @@ function Node:draw_tabs()
       for i = 1, #text do
         local reduced_text = text:sub(1, #text - i)
         if style.font:get_width(reduced_text) + dots_width <= text_avail_width then
-          text = reduced_text .. "..."
+          text = reduced_text .. "…"
           break
         end
       end
