@@ -57,7 +57,10 @@ function Node:new(type)
   if self.type == "leaf" then
     self:add_view(EmptyView())
   end
+  self.hovered = {x = -1, y = -1 }
   self.hovered_close = 0
+  self.tab_margin = style.padding.x
+  self.move_towards = View.move_towards
 end
 
 
@@ -68,9 +71,8 @@ end
 
 
 function Node:on_mouse_moved(x, y, ...)
-  self.hovered_tab = self:get_tab_overlapping_point(x, y)
   if self.type == "leaf" then
-    self:tab_mouse_moved(x, y)
+    self.hovered.x, self.hovered.y = x, y
     self.active_view:on_mouse_moved(x, y, ...)
   else
     self:propagate("on_mouse_moved", x, y, ...)
@@ -250,8 +252,9 @@ local function close_button_location(x, w)
 end
 
 
-function Node:tab_mouse_moved(px, py)
+function Node:tab_hovered_update(px, py)
   local tab_index = self:get_tab_overlapping_point(px, py)
+  self.hovered_tab = tab_index
   if tab_index then
     local x, y, w, h = self:get_tab_rect(tab_index)
     local cx, cw = close_button_location(x, w)
@@ -278,7 +281,7 @@ end
 
 
 function Node:get_tab_rect(idx)
-  local tw = math.min(style.tab_width, (self.size.x - style.padding.x) / #self.views)
+  local tw = math.min(style.tab_width, (self.size.x - self.tab_margin) / #self.views)
   local x_left = self.position.x + tw * (idx - 1)
   local x1, x2 = math.floor(x_left), math.floor(x_left + tw)
   local h = style.font:get_height() + style.padding.y * 2
@@ -388,6 +391,8 @@ function Node:update()
     for _, view in ipairs(self.views) do
       view:update()
     end
+    self:tab_hovered_update(self.hovered.x, self.hovered.y)
+    self:move_towards("tab_margin", style.padding.x)
   else
     self.a:update()
     self.b:update()
@@ -635,6 +640,8 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     if button == "middle" or node.hovered_close == idx then
+      local _, _, tw = node:get_tab_rect(idx)
+      node.tab_margin = node.tab_margin + tw
       node:close_view(self.root_node, node.views[idx])
     else
       self.dragged_node = idx
