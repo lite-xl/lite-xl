@@ -58,10 +58,10 @@ local function compare_score(a, b)
   return a.score > b.score
 end
 
-local function fuzzy_match_items(items, needle)
+local function fuzzy_match_items(items, needle, files)
   local res = {}
   for _, item in ipairs(items) do
-    local score = system.fuzzy_match(tostring(item), needle)
+    local score = system.fuzzy_match(tostring(item), needle, files)
     if score then
       table.insert(res, { text = item, score = score })
     end
@@ -74,11 +74,11 @@ local function fuzzy_match_items(items, needle)
 end
 
 
-function common.fuzzy_match(haystack, needle)
+function common.fuzzy_match(haystack, needle, files)
   if type(haystack) == "table" then
-    return fuzzy_match_items(haystack, needle)
+    return fuzzy_match_items(haystack, needle, files)
   end
-  return system.fuzzy_match(haystack, needle)
+  return system.fuzzy_match(haystack, needle, files)
 end
 
 
@@ -86,16 +86,16 @@ function common.fuzzy_match_with_recents(haystack, recents, needle)
   if needle == "" then
     local recents_ext = {}
     for i = 2, #recents do
-        table.insert(recents_ext, recents[i])
+      table.insert(recents_ext, recents[i])
     end
     table.insert(recents_ext, recents[1])
-    local others = common.fuzzy_match(haystack, "")
+    local others = common.fuzzy_match(haystack, "", true)
     for i = 1, #others do
       table.insert(recents_ext, others[i])
     end
     return recents_ext
   else
-    return fuzzy_match_items(haystack, needle)
+    return fuzzy_match_items(haystack, needle, true)
   end
 end
 
