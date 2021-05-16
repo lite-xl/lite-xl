@@ -11,6 +11,7 @@ config.symbol_pattern = "[%a_][%w_]*"
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
 config.undo_merge_timeout = 0.3
 config.max_undos = 10000
+config.max_tabs = 10
 config.highlight_current_line = true
 config.line_height = 1.2
 config.indent_size = 2
