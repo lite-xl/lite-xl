@@ -68,13 +68,22 @@ command.add(nil, {
   ["core:find-file"] = function()
     local files = {}
     for dir, item in core.get_project_files() do
+      local dirname = common.basename(dir)
       if item.type == "file" then
-        table.insert(files, common.home_encode(dir .. PATHSEP .. item.filename))
+        table.insert(files, dirname .. PATHSEP .. item.filename)
       end
     end
     core.command_view:enter("Open File From Project", function(text, item)
-      text = item and item.text or text
-      core.root_view:open_doc(core.open_doc(common.home_expand(text)))
+      local filename = common.home_expand(item and item.text or text)
+      local dirname, basename = filename:match("(.-)[/\\](.+)")
+      for i = 1, #core.project_entries do
+        local dir = core.project_entries[i]
+        if dir.item.filename == dirname then
+          filename = dir.name .. PATHSEP .. basename
+          break
+        end
+      end
+      core.root_view:open_doc(core.open_doc(filename))
     end, function(text)
       return common.fuzzy_match_with_recents(files, core.visited_files, text)
     end)
