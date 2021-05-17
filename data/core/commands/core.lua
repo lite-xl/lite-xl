@@ -88,7 +88,8 @@ command.add(nil, {
   ["core:open-file"] = function()
     local view = core.active_view
     if view.doc and view.doc.abs_filename then
-      core.command_view:set_text(common.home_encode(view.doc.abs_filename))
+      local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
+      core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
     end
     core.command_view:enter("Open File", function(text)
       core.root_view:open_doc(core.open_doc(common.home_expand(text)))
