@@ -224,6 +224,15 @@ function Node:get_children(t)
 end
 
 
+-- return the width including the padding space and separately
+-- the padding space itself
+local function get_scroll_button_width()
+  local w = style.icon_font:get_width(">")
+  local pad = w
+  return w + 2 * pad, pad
+end
+
+
 function Node:get_divider_overlapping_point(px, py)
   if self.type ~= "leaf" then
     local p = 6
@@ -247,12 +256,10 @@ end
 function Node:get_tab_overlapping_point(px, py)
   if #self.views == 1 then return nil end
   local tabs_number = self:get_visible_tabs_number()
-  -- FIXME: looping over tabs is may be not needed. Find a simpler way.
-  for i = self.tab_offset, self.tab_offset + tabs_number - 1 do
-    local x, y, w, h = self:get_tab_rect(i)
-    if px >= x and py >= y and px < x + w and py < y + h then
-      return i
-    end
+  local x1, y1, w, h = self:get_tab_rect(self.tab_offset)
+  local x2, y2 = self:get_tab_rect(self.tab_offset + tabs_number)
+  if px >= x1 and py >= y1 and px < x2 and py < y1 + h then
+    return math.floor((px - x1) / w) + self.tab_offset
   end
 end
 
@@ -308,25 +315,18 @@ end
 
 
 function Node:get_scroll_button_rect(index)
-  local w = style.icon_font:get_width(">")
-  local pad = w
+  local w, pad = get_scroll_button_width()
   local h = style.font:get_height() + style.padding.y * 2
-  if index == 1 then
-    return self.position.x, self.position.y, w + 2 * pad, h, pad
-  else
-    return self.position.x + self.size.x - w - 2 * pad, self.position.y, w + 2 * pad, h, pad
-  end
+  local x = self.position.x + (index == 1 and 0 or self.size.x - w)
+  return x, self.position.y, w, h, pad
 end
 
 
 function Node:get_tab_rect(idx)
-  -- FIXME: we may consider to create a separate method just to get the
-  -- width of the scroll button. It is needed to compute tabs placement.
-  local _, _, sbw = self:get_scroll_button_rect(1)
-  local x_left = self.position.x + sbw + self.tab_width * (idx - 1) - self.tab_shift
-  local x1, x2 = math.floor(x_left), math.floor(x_left + self.tab_width)
+  local sbw = get_scroll_button_width()
+  local x = self.position.x + sbw + self.tab_width * (idx - 1) - self.tab_shift
   local h = style.font:get_height() + style.padding.y * 2
-  return x1, self.position.y, x2 - x1, h
+  return x, self.position.y, self.tab_width, h
 end
 
 
@@ -467,7 +467,7 @@ end
 
 function Node:target_tab_width()
   local tabs_number = self:get_visible_tabs_number()
-  local _, _, sbw = self:get_scroll_button_rect(1)
+  local sbw = get_scroll_button_width()
   return math.min(style.tab_width, (self.size.x - sbw * 2) / tabs_number)
 end
 
