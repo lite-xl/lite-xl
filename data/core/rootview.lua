@@ -321,9 +321,12 @@ end
 
 function Node:get_tab_rect(idx)
   local sbw = get_scroll_button_width()
-  local x = self.position.x + sbw + self.tab_width * (idx - 1) - self.tab_shift
+  local maxw = self.size.x - 2 * sbw
+  local x0 = self.position.x + sbw
+  local x1 = x0 + common.clamp(self.tab_width * (idx - 1) - self.tab_shift, 0, maxw)
+  local x2 = x0 + common.clamp(self.tab_width * idx - self.tab_shift, 0, maxw)
   local h = style.font:get_height() + style.padding.y * 2
-  return x, self.position.y, self.tab_width, h
+  return x1, self.position.y, x2 - x1, h
 end
 
 
