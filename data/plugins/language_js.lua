@@ -7,7 +7,7 @@ syntax.add {
   patterns = {
     { pattern = "//.-\n",               type = "comment"  },
     { pattern = { "/%*", "%*/" },       type = "comment"  },
-    { pattern = { '/', '/', '\\' },     type = "string"   },
+    { pattern = { '/%g', '/', '\\' },   type = "string"   },
     { pattern = { '"', '"', '\\' },     type = "string"   },
     { pattern = { "'", "'", '\\' },     type = "string"   },
     { pattern = { "`", "`", '\\' },     type = "string"   },
@@ -41,6 +41,7 @@ syntax.add {
     ["if"]         = "keyword",
     ["import"]     = "keyword",
     ["in"]         = "keyword",
+    ["of"]         = "keyword",
     ["instanceof"] = "keyword",
     ["let"]        = "keyword",
     ["new"]        = "keyword",
