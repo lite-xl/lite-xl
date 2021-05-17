@@ -143,11 +143,12 @@ local function load_workspace()
     if active_view then
       core.set_active_view(active_view)
     end
+    core.project_entries = {}
     for _, entry in ipairs(workspace.project_entries) do
       if entry.type == "dir" then
         core.add_project_directory(entry.path)
       elseif entry.type == "dir" then
-        core.add_project_dfile(entry.path)
+        core.add_project_file(entry.path)
       end
     end
     system.chdir(workspace.working_dir)
