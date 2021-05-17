@@ -102,19 +102,26 @@ end
 local doc_on_text_change = Doc.on_text_change
 local adjust_threshold = 4
 
+local current_on_text_change = nil
+
 local function update_cache(doc)
   local type, size, score = detect_indent_stat(doc)
   cache[doc] = { type = type, size = size, confirmed = (score >= adjust_threshold) }
   doc.indent_info = cache[doc]
   if score < adjust_threshold and doc_on_text_change then
-    Doc.on_text_change = function(self, ...)
-      doc_on_text_change(self, ...)
+    current_on_text_change = function(self, ...)
       update_cache(self)
     end
   elseif score >= adjust_threshold and doc_on_text_change then
-    Doc.on_text_change = doc_on_text_change
-    doc_on_text_change = nil
+    current_on_text_change = nil
   end
+end
+
+function Doc:on_text_change(...)
+  if current_on_text_change then
+    current_on_text_change(...)
+  end
+  doc_on_text_change(...)
 end
 
 
