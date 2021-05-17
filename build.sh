@@ -3,7 +3,7 @@
 cflags+="-Wall -O3 -g -std=gnu11 -fno-strict-aliasing -Isrc -Ilib/font_renderer"
 cflags+=" $(pkg-config --cflags lua5.2) $(sdl2-config --cflags)"
 lflags="-static-libgcc -static-libstdc++"
-for package in libagg freetype2 lua5.2 x11; do
+for package in libagg freetype2 lua5.2 x11 libpcre2-8; do
   lflags+=" $(pkg-config --libs $package)"
 done
 lflags+=" $(sdl2-config --libs) -lm"
