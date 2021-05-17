@@ -30,7 +30,10 @@ local function find_all_matches_in_file(t, filename, fn)
   for line in fp:lines() do
     local s = fn(line)
     if s then
-      table.insert(t, { file = filename, text = line, line = n, col = s })
+      -- Insert maximum 256 characters. If we insert more, for compiled files, which can have very long lines
+      -- things tend to get sluggish. If our line is longer than 80 characters, begin to truncate the thing.
+      local start_index = math.max(s - 80, 1)
+      table.insert(t, { file = filename, text = (start_index > 1 and "..." or "") .. line:sub(start_index, 256 + start_index), line = n, col = s })
       core.redraw = true
     end
     if n % 100 == 0 then coroutine.yield() end
