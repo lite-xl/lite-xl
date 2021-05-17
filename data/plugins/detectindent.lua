@@ -117,7 +117,7 @@ local function update_cache(doc)
   end
 end
 
-function Doc:on_text_change(...)
+function Doc.on_text_change(...)
   if current_on_text_change then
     current_on_text_change(...)
   end
