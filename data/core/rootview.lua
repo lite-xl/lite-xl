@@ -285,7 +285,7 @@ function Node:tab_hovered_update(px, py)
   local tab_index = self:get_tab_overlapping_point(px, py)
   self.hovered_tab = tab_index
   self.hovered_close = 0
-  self.hovered_tab_scroll = 0
+  self.hovered_scroll_button = 0
   if tab_index then
     local x, y, w, h = self:get_tab_rect(tab_index)
     local cx, cw = close_button_location(x, w)
@@ -293,10 +293,7 @@ function Node:tab_hovered_update(px, py)
       self.hovered_close = tab_index
     end
   else
-    local tab_scroll_index = self:get_scroll_button_index(px, py)
-    if tab_scroll_index then
-      self.hovered_tab_scroll = tab_scroll_index
-    end
+    self.hovered_scroll_button = self:get_scroll_button_index(px, py) or 0
   end
 end
 
@@ -498,14 +495,14 @@ function Node:draw_tabs()
   renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
 
   if self.tab_offset > 1 then
-    local button_style = self.hovered_tab_scroll == 1 and style.text or style.dim
+    local button_style = self.hovered_scroll_button == 1 and style.text or style.dim
     common.draw_text(style.icon_font, button_style, "<", nil, x + scroll_padding, y, 0, h)
   end
 
   local tabs_number = self:get_visible_tabs_number()
   if #self.views > self.tab_offset + tabs_number - 1 then
     local xrb, yrb, wrb = self:get_scroll_button_rect(2)
-    local button_style = self.hovered_tab_scroll == 2 and style.text or style.dim
+    local button_style = self.hovered_scroll_button == 2 and style.text or style.dim
     common.draw_text(style.icon_font, button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
 
@@ -739,8 +736,8 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     return
   end
   local node = self.root_node:get_child_overlapping_point(x, y)
-  if node.hovered_tab_scroll > 0 then
-    node:scroll_tabs(node.hovered_tab_scroll)
+  if node.hovered_scroll_button > 0 then
+    node:scroll_tabs(node.hovered_scroll_button)
     return
   end
   local idx = node:get_tab_overlapping_point(x, y)
