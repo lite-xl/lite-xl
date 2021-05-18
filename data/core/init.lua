@@ -4,6 +4,7 @@ local common = require "core.common"
 local config = require "core.config"
 local style = require "core.style"
 local command
+local project
 local keymap
 local RootView
 local StatusView
@@ -20,40 +21,51 @@ local function load_session()
   if ok then
     return t.recents, t.window, t.window_mode
   end
-  return {}
+  return {}, {dir={}, file={}}
 end
 
 
 local function save_session()
   local fp = io.open(USERDIR .. "/session.lua", "w")
   if fp then
-    fp:write("return {recents=", common.serialize(core.recent_projects),
-      ", window=", common.serialize(table.pack(system.get_window_size())),
-      ", window_mode=", common.serialize(system.get_window_mode()),
-      "}\n")
+    fp:write(string.format(
+      "return { recent_projects= %s, recents_open= %s, window= %s, window_mode= %s}\n",
+      common.serialize(core.recent_projects),
+      common.serialize(core.recents_open),
+      common.serialize(table.pack(system.get_window_size())),
+      common.serialize(system.get_window_mode())
+    ))
     fp:close()
   end
 end
 
 
-local function update_recents_project(action, dir_path_abs)
-  local dirname = common.normalize_path(dir_path_abs)
-  if not dirname then return end
-  local recents = core.recent_projects
+local function update_recents(recents, action, name)
   local n = #recents
   for i = 1, n do
-    if dirname == recents[i] then
+    if name == recents[i] then
       table.remove(recents, i)
       break
     end
   end
   if action == "add" then
-    table.insert(recents, 1, dirname)
+    table.insert(recents, 1, name)
   end
 end
 
 
-local function cleanup_recent_projects()
+function core.set_recent_project(name)
+  update_recents(core.recent_projects, "add", name)
+end
+
+
+function core.set_recent_open(type, filename)
+  update_recents(core.recents_open[type], "add", filename)
+end
+
+
+-- FIXME: remove or adapt
+--[[ local function cleanup_recent_projects()
   local recents = core.recent_projects
   local i = 1
   while i <= #recents do
@@ -64,7 +76,7 @@ local function cleanup_recent_projects()
       i = i + 1
     end
   end
-end
+end ]]
 
 
 function core.reschedule_project_scan()
@@ -74,11 +86,14 @@ function core.reschedule_project_scan()
 end
 
 
-function core.open_folder_project(dir_path_abs)
+function core.new_project_from_directory(dir_path_abs)
   core.root_view:close_all_docviews()
   core.project_entries = {}
   core.add_project_directory(dir_path_abs)
-  update_recents_project("add", dir_path_abs)
+  system.chdir(dir_path_abs)
+  core.working_dir = dir_path_abs
+  core.set_recent_open("dir", dir_path_abs)
+  core.reschedule_project_scan()
 end
 
 
@@ -451,6 +466,7 @@ end
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
+  project = require "core.project"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
@@ -466,19 +482,21 @@ function core.init()
   end
 
   do
-    local recent_projects, window_position, window_mode = load_session()
+    -- FIXME: change the name for "recents_open"
+    local window_position
+    core.recent_projects, core.recents_open, window_position, window_mode = load_session()
     if window_mode == "normal" then
       system.set_window_size(table.unpack(window_position))
     elseif window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
-    core.recent_projects = recent_projects
   end
-  cleanup_recent_projects()
+  -- cleanup_recent_projects()
 
   core.log_items = {}
   core.docs = {}
   core.project_entries = {}
+  core.project_name = ""
 
   local init_files = {}
   local delayed_errors = {}
@@ -495,21 +513,12 @@ function core.init()
       filename = system.absolute_path(filename)
       if filename then
         core.add_project_directory(filename)
-        update_recents_project("add", filename)
+        -- FIXME
+        -- update_recents(core.recents_open.dir, "add", filename)
       end
     else
       local error_msg = string.format("error: invalid file or directory \"%s\"", ARGS[i])
       table.insert(delayed_errors, error_msg)
-    end
-  end
-
-  local init_message
-  if #core.project_entries == 0 then
-    if #core.recent_projects > 0 then
-      init_message = string.format("Opening project from directory \"%s\"", core.recent_projects[1])
-      core.add_project_directory(core.recent_projects[1])
-    else
-      init_message = string.format("Empty project: use the \"Core: Open File\" command to open a file or a directory.")
     end
   end
 
@@ -552,10 +561,6 @@ function core.init()
   end
   if not core.working_dir then
     core.working_dir = system.absolute_path(".")
-  end
-
-  if init_message then
-    core.log(init_message)
   end
 
   local got_user_error = not core.load_user_directory()
@@ -651,12 +656,16 @@ function core.temp_filename(ext)
       .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
--- override to perform an operation before quitting or entering the
--- current project
-do
-  local do_nothing = function() end
-  core.on_quit_project = do_nothing
-  core.on_enter_project = do_nothing
+
+function core.on_quit_project()
+  local filename = USERDIR .. PATHSEP .. "workspace.lua"
+  core.try(project.save_workspace, filename)
+end
+
+
+function core.on_enter_project(new_dir)
+  -- FIXME: check the logic
+  -- core.try(project.load_workspace, USERDIR .. PATHSEP .. "workspace.lua")
 end
 
 
