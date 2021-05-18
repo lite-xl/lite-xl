@@ -23,8 +23,8 @@ function ResultsView:get_name()
 end
 
 
-local function find_all_matches_in_file(t, filename, fn)
-  local fp = io.open(filename)
+local function find_all_matches_in_file(t, dirpath, dirname, filename, fn)
+  local fp = io.open(dirpath .. PATHSEP .. filename)
   if not fp then return t end
   local n = 1
   for line in fp:lines() do
@@ -33,7 +33,7 @@ local function find_all_matches_in_file(t, filename, fn)
       -- Insert maximum 256 characters. If we insert more, for compiled files, which can have very long lines
       -- things tend to get sluggish. If our line is longer than 80 characters, begin to truncate the thing.
       local start_index = math.max(s - 80, 1)
-      table.insert(t, { file = filename, text = (start_index > 1 and "..." or "") .. line:sub(start_index, 256 + start_index), line = n, col = s })
+      table.insert(t, { file = dirname .. PATHSEP .. filename, text = (start_index > 1 and "..." or "") .. line:sub(start_index, 256 + start_index), line = n, col = s })
       core.redraw = true
     end
     if n % 100 == 0 then coroutine.yield() end
@@ -54,10 +54,9 @@ function ResultsView:begin_search(text, fn)
 
   core.add_thread(function()
     local i = 1
-    for dir_name, file in core.get_project_files() do
-      if file.type == "file" then
-        local path = (dir_name == core.project_dir and "" or (dir_name .. PATHSEP))
-        find_all_matches_in_file(self.results, path .. file.filename, fn)
+    for dirpath, dirname, item in core.get_project_files() do
+      if item.type == "file" then
+        find_all_matches_in_file(self.results, dirpath, dirname, item.filename, fn)
       end
       self.last_file_idx = i
       i = i + 1
@@ -102,7 +101,8 @@ function ResultsView:open_selected_result()
     return
   end
   core.try(function()
-    local dv = core.root_view:open_doc(core.open_doc(res.file))
+    local filename = core.resolve_project_filename(res.file)
+    local dv = core.root_view:open_doc(core.open_doc(filename))
     core.root_view.root_node:update_layout()
     dv.doc:set_selection(res.line, res.col)
     dv:scroll_to_line(res.line, false, true)
@@ -241,7 +241,7 @@ command.add(nil, {
     core.command_view:enter("Find Regex In Project", function(text)
       local re = regex.compile(text, "i")
       begin_search(text, function(line_text)
-        return regex.cmatch(re, line_text) 
+        return regex.cmatch(re, line_text)
       end)
     end)
   end,
@@ -276,22 +276,22 @@ command.add(ResultsView, {
   ["project-search:refresh"] = function()
     core.active_view:refresh()
   end,
-  
+
   ["project-search:move-to-previous-page"] = function()
     local view = core.active_view
     view.scroll.to.y = view.scroll.to.y - view.size.y
   end,
-  
+
   ["project-search:move-to-next-page"] = function()
     local view = core.active_view
     view.scroll.to.y = view.scroll.to.y + view.size.y
   end,
-  
+
   ["project-search:move-to-start-of-doc"] = function()
     local view = core.active_view
     view.scroll.to.y = 0
   end,
-  
+
   ["project-search:move-to-end-of-doc"] = function()
     local view = core.active_view
     view.scroll.to.y = view:get_scrollable_size()

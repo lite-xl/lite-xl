@@ -70,22 +70,14 @@ command.add(nil, {
       return command.perform "core:open-file"
     end
     local files = {}
-    for dir, item in core.get_project_files() do
-      local dirname = common.basename(dir)
+    for dirpath, dirname, item in core.get_project_files() do
       if item.type == "file" then
         table.insert(files, dirname .. PATHSEP .. item.filename)
       end
     end
     core.command_view:enter("Open File From Project", function(text, item)
-      local filename = common.home_expand(item and item.text or text)
-      local dirname, basename = filename:match("(.-)[/\\](.+)")
-      for i = 1, #core.project_entries do
-        local dir = core.project_entries[i]
-        if dir.item.filename == dirname then
-          filename = dir.name .. PATHSEP .. basename
-          break
-        end
-      end
+      local text = item and item.text or text
+      local filename = core.resolve_project_filename(text) or common.home_expand(text)
       core.root_view:open_doc(core.open_doc(filename))
     end, function(text)
       return common.fuzzy_match_with_recents(files, core.visited_files, text)
@@ -157,7 +149,7 @@ command.add(nil, {
   ["core:change-project-folder"] = function()
     core.command_view:enter("Change Project Folder", function(text, item)
       text = system.absolute_path(common.home_expand(item and item.text or text))
-      if text == core.project_dir then return end
+      if text == core.working_dir then return end
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)
