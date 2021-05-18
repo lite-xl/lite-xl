@@ -91,13 +91,15 @@ command.add(nil, {
       core.command_view:set_text(common.home_encode(view.doc.filename))
     end
     core.command_view:enter("Open File", function(text)
-      local filename = core.working_dir_absolute_path(common.home_expand(text))
+      local filename = common.normalize_path(core.working_dir_absolute_path(common.home_expand(text)))
       local info = system.get_file_info(filename)
       if info and info.type == "dir" then
         core.add_project_directory(filename)
+        core.set_recent_open("dir", filename)
         core.reschedule_project_scan()
       else
         core.add_project_file(filename)
+        core.set_recent_open("file", filename)
         core.root_view:open_doc(core.open_doc(filename))
       end
     end, function (text)
@@ -143,7 +145,7 @@ command.add(nil, {
     end
   end,
 
-  ["core:change-project-folder"] = function()
+--[[  ["core:change-project-folder"] = function()
     core.command_view:enter("Change Project Folder", function(text, item)
       text = system.absolute_path(common.home_expand(item and item.text or text))
       if text == core.working_dir then return end
@@ -166,7 +168,7 @@ command.add(nil, {
       end
       system.exec(string.format("%q %q", EXEFILE, text))
     end, suggest_directory)
-  end,
+  end,]]
 
   ["core:add-directory"] = function()
     core.command_view:enter("Add Directory", function(text, item)

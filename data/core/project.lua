@@ -1,9 +1,9 @@
--- mod-version:1 -- lite-xl 1.16
 local core = require "core"
 local command = require "core.command"
 local common = require "core.common"
 local DocView = require "core.docview"
 
+local project = {}
 
 local function has_no_locked_children(node)
   if node.locked then return false end
@@ -110,7 +110,7 @@ local function load_node(node, t)
 end
 
 
-local function save_workspace(filename)
+function project.save_workspace(filename)
   local root = get_unlocked_root(core.root_view.root_node)
   local fp = io.open(filename, "w")
   if fp then
@@ -122,21 +122,35 @@ local function save_workspace(filename)
       end
     end
     local project_entries_text = common.serialize(topdir_entries)
-    fp:write(string.format("return { working_dir = %q, documents = %s, project_entries = %s }\n", core.working_dir, node_text, project_entries_text))
+    fp:write(string.format(
+      "return { project_name = %q, working_dir = %q, documents = %s, project_entries = %s }\n",
+      core.project_name, core.working_dir, node_text, project_entries_text))
     fp:close()
   end
 end
 
 
-local function load_workspace(filename)
+function project.load(name)
+  core.project_name = name
+  local filename = common.path_join(USERDIR, "projects", name .. ".lua")
+  project.load_workspace(filename)
+  core.log("Loaded project %s.", core.project_name)
+  core.reschedule_project_scan()
+end
+
+
+function project.load_workspace(filename)
   local load = loadfile(filename)
   local workspace = load and load()
+  -- FIXME: decide, error or return a success code
+  if not workspace then error("Cannot load workspace") end
   if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
     local active_view = load_node(root, workspace.documents)
     if active_view then
       core.set_active_view(active_view)
     end
+    core.project_name = workspace.project_name
     core.project_entries = {}
     for _, entry in ipairs(workspace.project_entries) do
       if entry.type == "dir" then
@@ -149,29 +163,9 @@ local function load_workspace(filename)
   end
 end
 
-
-local run = core.run
-
-function core.run(...)
-  if #core.docs == 0 then
-    core.try(load_workspace, USERDIR .. PATHSEP .. "workspace.lua")
-
-    local on_quit_project = core.on_quit_project
-    function core.on_quit_project()
-      local filename = USERDIR .. PATHSEP .. "workspace.lua"
-      core.try(save_workspace, filename)
-      on_quit_project()
-    end
-
-    local on_enter_project = core.on_enter_project
-    function core.on_enter_project(new_dir)
-      on_enter_project(new_dir)
-      core.try(load_workspace, USERDIR .. PATHSEP .. "workspace.lua")
-    end
-  end
-
-  core.run = run
-  return core.run(...)
+local function suggest_directory(text)
+  text = common.home_expand(text)
+  return common.home_encode_list(text == "" and core.recents_open.dir or common.dir_path_suggest(text))
 end
 
 command.add(nil, {
@@ -188,20 +182,38 @@ command.add(nil, {
       core.log("Saved project %s.", core.project_name)
     end)
   end,
+
   ["project:save"] = function()
+    if core.project_name == "" then
+      core.command_view:enter("Save Project As", function(text)
+        core.project_name = text
+      end)
+    end
     local filename = common.path_join(USERDIR, "projects", core.project_name .. ".lua")
     save_workspace(filename)
+    core.set_recent_project(core.project_name)
     core.log("Saved project %s.", core.project_name)
   end,
+
   ["project:load"] = function()
     core.command_view:enter("Load Project", function(text)
-      -- FIXME: add sanity check of project name.
-      core.project_name = text
-      local filename = common.path_join(USERDIR, "projects", text .. ".lua")
-      load_workspace(filename)
-      core.log("Loaded project %s.", core.project_name)
-      core.reschedule_project_scan()
+      project.load(text)
+      core.set_recent_project(core.project_name)
     end)
+  end,
+
+  ["project:open-directory"] = function()
+    core.command_view:enter("Open Directory", function(text, item)
+      text = system.absolute_path(common.home_expand(item and item.text or text))
+      if text == core.working_dir then return end
+      local path_stat = system.get_file_info(text)
+      if not path_stat or path_stat.type ~= 'dir' then
+        core.error("Cannot open folder %q", text)
+        return
+      end
+      core.confirm_close_all(core.new_project_from_directory, text)
+    end, suggest_directory)
   end,
 })
 
+return project
