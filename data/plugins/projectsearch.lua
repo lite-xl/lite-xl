@@ -232,9 +232,12 @@ command.add(nil, {
     end)
   end,
 
-  ["project-search:find-pattern"] = function()
-    core.command_view:enter("Find Pattern In Project", function(text)
-      begin_search(text, function(line_text) return line_text:find(text) end)
+  ["project-search:find-regex"] = function()
+    core.command_view:enter("Find Regex In Project", function(text)
+      local re = regex.compile(text, "i")
+      begin_search(text, function(line_text)
+        return regex.cmatch(re, line_text) 
+      end)
     end)
   end,
 

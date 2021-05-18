@@ -1,4 +1,5 @@
 require "core.strict"
+require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
 local style = require "core.style"
@@ -34,14 +35,8 @@ local function save_session()
 end
 
 
-local function normalize_path(s)
-  local drive, path = s:match("^([a-z]):([/\\].*)")
-  return drive and drive:upper() .. ":" .. path or s
-end
-
-
 local function update_recents_project(action, dir_path_abs)
-  local dirname = normalize_path(dir_path_abs)
+  local dirname = common.normalize_path(dir_path_abs)
   if not dirname then return end
   local recents = core.recent_projects
   local n = #recents
@@ -68,7 +63,7 @@ function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
   if chdir_ok then
     if change_project_fn then change_project_fn() end
-    core.project_dir = normalize_path(new_dir)
+    core.project_dir = common.normalize_path(new_dir)
     core.project_directories = {}
     core.add_project_directory(new_dir)
     core.project_files = {}
@@ -327,7 +322,7 @@ function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
-  path = normalize_path(path)
+  path = common.normalize_path(path)
   table.insert(core.project_directories, {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
@@ -739,10 +734,30 @@ function core.normalize_to_project_dir(filename)
 end
 
 
+-- The function below works like system.absolute_path except it
+-- doesn't fail if the file does not exist. We consider that the
+-- current dir is core.project_dir so relative filename are considered
+-- to be in core.project_dir.
+-- Please note that .. or . in the filename are not taken into account.
+-- This function should get only filenames normalized using
+-- common.normalize_path function.
+function core.project_absolute_path(filename)
+  if filename:match('^%a:\\') or filename:find('/', 1, true) then
+    return filename
+  else
+    return core.project_dir .. PATHSEP .. filename
+  end
+end
+
+
 function core.open_doc(filename)
+  local new_file = not filename or not system.get_file_info(filename)
+  local abs_filename
   if filename then
+    -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    local abs_filename = system.absolute_path(filename)
+    filename = core.normalize_to_project_dir(filename)
+    abs_filename = core.project_absolute_path(filename)
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
@@ -750,8 +765,7 @@ function core.open_doc(filename)
     end
   end
   -- no existing doc for filename; create new
-  filename = core.normalize_to_project_dir(filename)
-  local doc = Doc(filename)
+  local doc = Doc(filename, abs_filename, new_file)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
   return doc
