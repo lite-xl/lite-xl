@@ -15,6 +15,25 @@ local function push_token(t, type, text)
 end
 
 
+local function push_tokens(t, syn, pattern, full_text, find_results)
+  if #find_results > 2 then
+    -- Copy the ending index to the end of the table, so that an ending index
+    -- always follows a starting index after position 3 in the table.
+    table.insert(find_results, find_results[2])
+    for i = 3, #find_results - 1 do
+      local start = find_results[i]
+      local fin = find_results[i + 1]
+      local type = pattern.type[i - 2]
+        -- ↑ (i - 2) to convert from [3; n] to [1; n]
+      push_token(t, type, full_text:sub(start, fin))
+    end
+  else
+    local start, fin = find_results[1], find_results[2]
+    push_token(t, syn.symbols[t] or pattern.type, full_text:sub(start, fin))
+  end
+end
+
+
 local function is_escaped(text, idx, esc)
   local byte = esc:byte()
   local count = 0
@@ -28,12 +47,12 @@ end
 
 local function find_non_escaped(text, pattern, offset, esc)
   while true do
-    local s, e = text:find(pattern, offset)
-    if not s then break end
-    if esc and is_escaped(text, s, esc) then
-      offset = e + 1
+    local start, fin = text:find(pattern, offset)
+    if not start then break end
+    if esc and is_escaped(text, start, esc) then
+      offset = fin + 1
     else
-      return s, e
+      return start, fin
     end
   end
 end
@@ -49,7 +68,7 @@ local function retrieve_syntax_state(incoming_syntax, state)
     -- If we have higher bits, then decode them one at a time, and find which
     -- syntax we're using. Rather than walking the bytes, and calling into
     -- `syntax` each time, we could probably cache this in a single table.
-    for i=0,2 do
+    for i = 0, 2 do
       local target = bit32.extract(state, i*8, 8)
       if target ~= 0 then
         if current_syntax.patterns[target].syntax then
@@ -138,13 +157,16 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     local matched = false
     for n, p in ipairs(current_syntax.patterns) do
       local pattern = (type(p.pattern) == "table") and p.pattern[1] or p.pattern
-      local s, e = text:find("^" .. pattern, i)
+      local find_results = { text:find("^" .. pattern, i) }
+      local start, fin = find_results[1], find_results[2]
 
-      if s then
-        -- matched pattern; make and add token
-        local t = text:sub(s, e)
+      if start then
+        -- Matched pattern; make and add token.
 
-        push_token(res, current_syntax.symbols[t] or p.type, t)
+--         local t = text:sub(start, fin)
+
+--         push_token(res, current_syntax.symbols[t] or p.type, t)
+        push_tokens(res, current_syntax, p, text, find_results)
         -- update state if this was a start|end pattern pair
         if type(p.pattern) == "table" then
           state = bit32.replace(state, n, current_level*8, 8)
@@ -162,7 +184,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         end
 
         -- move cursor past this token
-        i = e + 1
+        i = fin + 1
         matched = true
         break
       end
