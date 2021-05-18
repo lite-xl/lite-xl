@@ -17,19 +17,32 @@ end
 
 local function push_tokens(t, syn, pattern, full_text, find_results)
   if #find_results > 2 then
+    -- We do some manipulation with find_results so that it's arranged
+    -- like this:
+    -- { start, end, i_1, i_2, i_3, …, i_last }
+    -- Each position spans characters from i_n to ((i_n+1) - 1), to form
+    -- consecutive spans of text.
+    --
+    -- If i_1 is not equal to start, start is automatically inserted at
+    -- that index.
+    if find_results[3] ~= find_results[1] then
+      table.insert(find_results, 3, find_results[1])
+    end
     -- Copy the ending index to the end of the table, so that an ending index
     -- always follows a starting index after position 3 in the table.
-    table.insert(find_results, find_results[2])
+    table.insert(find_results, find_results[2] + 1)
+    -- Then, we just iterate our modified table.
     for i = 3, #find_results - 1 do
       local start = find_results[i]
-      local fin = find_results[i + 1]
+      local fin = find_results[i + 1] - 1
       local type = pattern.type[i - 2]
         -- ↑ (i - 2) to convert from [3; n] to [1; n]
       push_token(t, type, full_text:sub(start, fin))
     end
   else
     local start, fin = find_results[1], find_results[2]
-    push_token(t, syn.symbols[t] or pattern.type, full_text:sub(start, fin))
+    local text = full_text:sub(start, fin)
+    push_token(t, syn.symbols[text] or pattern.type, text)
   end
 end
 
