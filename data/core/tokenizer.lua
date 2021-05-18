@@ -37,7 +37,8 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
       local fin = find_results[i + 1] - 1
       local type = pattern.type[i - 2]
         -- ↑ (i - 2) to convert from [3; n] to [1; n]
-      push_token(t, type, full_text:sub(start, fin))
+      local text = full_text:sub(start, fin)
+      push_token(t, syn.symbols[text] or type, text)
     end
   else
     local start, fin = find_results[1], find_results[2]
