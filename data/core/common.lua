@@ -193,6 +193,16 @@ function common.serialize(val)
 end
 
 
+function common.path_join(...)
+  local n = select('#', ...)
+  local accu = select(1, ...)
+  for i = 2, n do
+    accu = accu .. PATHSEP .. select(i, ...)
+  end
+  return accu
+end
+
+
 function common.basename(path)
   -- a path should never end by / or \ except if it is '/' (unix root) or
   -- 'X:\' (windows drive)

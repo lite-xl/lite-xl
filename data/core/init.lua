@@ -251,7 +251,7 @@ local function create_user_directory()
       error("cannot create directory: \"" .. dirname_create .. "\"")
     end
   end
-  for _, modname in ipairs {'plugins', 'colors', 'fonts'} do
+  for _, modname in ipairs {'plugins', 'projects', 'colors', 'fonts'} do
     local subdirname = dirname_create .. '/' .. modname
     if not system.mkdir(subdirname) then
       error("cannot create directory: \"" .. subdirname .. "\"")

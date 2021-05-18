@@ -1,13 +1,8 @@
 -- mod-version:1 -- lite-xl 1.16
 local core = require "core"
+local command = require "core.command"
 local common = require "core.common"
 local DocView = require "core.docview"
-
-
-local function load_workspace_file()
-  local load_f = loadfile(USERDIR .. PATHSEP .. "workspace.lua")
-  return load_f and load_f()
-end
 
 
 local function has_no_locked_children(node)
@@ -115,15 +110,13 @@ local function load_node(node, t)
 end
 
 
-local function save_workspace()
+local function save_workspace(filename)
   local root = get_unlocked_root(core.root_view.root_node)
-  local workspace_filename = USERDIR .. PATHSEP .. "workspace.lua"
-  local fp = io.open(workspace_filename, "w")
+  local fp = io.open(filename, "w")
   if fp then
     local node_text = common.serialize(save_node(root))
     local topdir_entries = {}
-    for i = 1, #core.project_entries do
-      local entry = core.project_entries[i]
+    for _, entry in ipairs(core.project_entries) do
       if entry.item.topdir then
         table.insert(topdir_entries, {path = entry.name, type = entry.item.type})
       end
@@ -135,8 +128,9 @@ local function save_workspace()
 end
 
 
-local function load_workspace()
-  local workspace = load_workspace_file()
+local function load_workspace(filename)
+  local load = loadfile(filename)
+  local workspace = load and load()
   if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
     local active_view = load_node(root, workspace.documents)
@@ -160,21 +154,54 @@ local run = core.run
 
 function core.run(...)
   if #core.docs == 0 then
-    core.try(load_workspace)
+    core.try(load_workspace, USERDIR .. PATHSEP .. "workspace.lua")
 
     local on_quit_project = core.on_quit_project
     function core.on_quit_project()
-      core.try(save_workspace)
+      local filename = USERDIR .. PATHSEP .. "workspace.lua"
+      core.try(save_workspace, filename)
       on_quit_project()
     end
 
     local on_enter_project = core.on_enter_project
     function core.on_enter_project(new_dir)
       on_enter_project(new_dir)
-      core.try(load_workspace)
+      core.try(load_workspace, USERDIR .. PATHSEP .. "workspace.lua")
     end
   end
 
   core.run = run
   return core.run(...)
 end
+
+command.add(nil, {
+  ["project:save-as"] = function()
+    local entry = core.project_entries[1]
+    if entry then
+        core.command_view:set_text(entry.item.filename)
+    end
+    core.command_view:enter("Save Project As", function(text)
+      -- FIXME: add sanity check of project name.
+      core.project_name = text
+      local filename = common.path_join(USERDIR, "projects", text .. ".lua")
+      save_workspace(filename)
+      core.log("Saved project %s.", core.project_name)
+    end)
+  end,
+  ["project:save"] = function()
+    local filename = common.path_join(USERDIR, "projects", core.project_name .. ".lua")
+    save_workspace(filename)
+    core.log("Saved project %s.", core.project_name)
+  end,
+  ["project:load"] = function()
+    core.command_view:enter("Load Project", function(text)
+      -- FIXME: add sanity check of project name.
+      core.project_name = text
+      local filename = common.path_join(USERDIR, "projects", text .. ".lua")
+      load_workspace(filename)
+      core.log("Loaded project %s.", core.project_name)
+      core.reschedule_project_scan()
+    end)
+  end,
+})
+
