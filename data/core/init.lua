@@ -190,7 +190,7 @@ local function project_files_iter(state)
     dir = core.project_entries[state.dir_index]
   end
   if not dir then return end
-  return dir.name, dir.files[state.file_index]
+  return dir.name, dir.item.filename, dir.files[state.file_index]
 end
 
 
@@ -206,6 +206,28 @@ function core.project_files_number()
     n = n + #core.project_entries[i].files
   end
   return n
+end
+
+
+function core.resolve_project_filename(filename)
+  local dirname, basename = filename:match("(.-)[/\\](.+)")
+  for i = 1, #core.project_entries do
+    local dir = core.project_entries[i]
+    if dir.item.filename == dirname then
+      return dir.name .. PATHSEP .. basename
+    end
+  end
+end
+
+
+function core.as_project_filename(filename)
+  for i = 1, #core.project_entries do
+    local dir = core.project_entries[i]
+    if common.path_belongs_to(filename, dir.name) then
+      local dirpath = common.dirname(dir.name)
+      return filename:sub(#dirpath + 2)
+    end
+  end
 end
 
 
@@ -687,14 +709,7 @@ end
 
 
 function core.set_visited(filename)
-  for i = 1, #core.project_entries do
-    local dir = core.project_entries[i]
-    if common.path_belongs_to(filename, dir.name) then
-      local dirpath = common.dirname(dir.name)
-      filename = filename:sub(#dirpath + 2)
-    end
-  end
-  filename = common.home_encode(filename)
+  filename = core.as_project_filename(filename) or common.home_encode(filename)
   for i = 1, #core.visited_files do
     if core.visited_files[i] == filename then
       table.remove(core.visited_files, i)
