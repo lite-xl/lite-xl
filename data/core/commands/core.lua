@@ -73,7 +73,7 @@ command.add(nil, {
       end
     end
     core.command_view:enter("Open File From Project", function(text, item)
-      local text = item and item.text or text
+      text = item and item.text or text
       local filename = core.resolve_project_filename(text) or common.home_expand(text)
       core.root_view:open_doc(core.open_doc(filename))
     end, function(text)
