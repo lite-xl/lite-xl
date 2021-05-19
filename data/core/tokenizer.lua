@@ -140,7 +140,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
   
   
-  local function push_subsyntax(entering_syntax)
+  local function push_subsyntax(entering_syntax, pattern_idx)
+    set_subsyntax_state(pattern_idx)
     current_level = current_level + 1
     subsyntax_info = entering_syntax
     current_syntax = type(entering_syntax) == "table" and
@@ -227,10 +228,11 @@ function tokenizer.tokenize(incoming_syntax, text, state)
 
         -- update state if this was a start|end pattern pair
         if type(p.pattern) == "table" then
-          set_subsyntax_state(n)
+          -- If we have a subsyntax, push that onto the subsyntax stack.
           if p.syntax then
-            -- If we have a subsyntax, push that onto the subsyntax stack.
-            push_subsyntax(p)
+            push_subsyntax(p, n)
+          else          
+            set_subsyntax_state(n)
           end
         end
         
