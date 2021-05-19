@@ -136,7 +136,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   -- Should be used to set the state variable. Don't modify it directly.
   local function set_subsyntax_state(pattern_idx)
     current_state = pattern_idx
-    state = bit32.replace(state, new_state, current_level*8, 8)
+    state = bit32.replace(state, pattern_idx, current_level*8, 8)
   end
   
   
