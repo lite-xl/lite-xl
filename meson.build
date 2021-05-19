@@ -17,6 +17,15 @@ if not lua_dep.found()
 endif
 
 sdl_dep = dependency('sdl2', method: 'config-tool')
+reproc_dep = dependency('reproc')
+
+lite_deps = [lua_dep, sdl_dep, reproc_dep, libm, libdl, libx11]
+
+if host_machine.system() == 'windows'
+    # Note that we need to explicitly add the windows socket DLL because
+    # the pkg-config file from reproc does not include it.
+    lite_deps += meson.get_compiler('cpp').find_library('ws2_32', required: true)
+endif
 
 lite_cargs = []
 if get_option('portable')

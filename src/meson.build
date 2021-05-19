@@ -1,8 +1,3 @@
-platform = 'posix'
-if host_machine.system() == 'windows'
-    platform = 'windows'
-endif
-
 lite_sources = [
     'api/api.c',
     'api/cp_replace.c',
@@ -11,8 +6,6 @@ lite_sources = [
     'api/regex.c',
     'api/system.c',
     'api/process.c',
-    'reproc.c',
-    'reproc.' + platform + '.c',
     'renderer.c',
     'renwindow.c',
     'fontdesc.c',
@@ -27,7 +20,7 @@ endif
 executable('lite',
     lite_sources + lite_rc,
     include_directories: [lite_include, font_renderer_include],
-    dependencies: [lua_dep, sdl_dep, pcre2_dep, libm, libdl, libx11],
+    dependencies: lite_deps,
     c_args: lite_cargs,
     link_with: libfontrenderer,
     link_args: lite_link_args,
