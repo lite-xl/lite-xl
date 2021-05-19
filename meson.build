@@ -19,7 +19,7 @@ endif
 sdl_dep = dependency('sdl2', method: 'config-tool')
 reproc_dep = dependency('reproc')
 
-lite_deps = [lua_dep, sdl_dep, reproc_dep, libm, libdl, libx11]
+lite_deps = [lua_dep, sdl_dep, pcre2_dep, reproc_dep, libm, libdl, libx11]
 
 if host_machine.system() == 'windows'
     # Note that we need to explicitly add the windows socket DLL because
