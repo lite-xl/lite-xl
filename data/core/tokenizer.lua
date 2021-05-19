@@ -128,14 +128,14 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   
   -- current_syntax : the syntax we're currently in.
   -- subsyntax_info : info about the delimiters of this subsyntax.
-  -- current_state  : the index rule we're on for this subsyntax.
+  -- current_state  : the index of the pattern we're on for this syntax.
   -- current_level  : how many subsyntaxes deep we are.
   local current_syntax, subsyntax_info, current_state, current_level =
     retrieve_syntax_state(incoming_syntax, state)
   
   -- Should be used to set the state variable. Don't modify it directly.
-  local function set_subsyntax_state(new_state)
-    current_state = new_state
+  local function set_subsyntax_state(pattern_idx)
+    current_state = pattern_idx
     state = bit32.replace(state, new_state, current_level*8, 8)
   end
   
@@ -153,7 +153,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       set_subsyntax_state(0)
       current_level = current_level - 1
       set_subsyntax_state(0)
-      current_syntax, subsyntax_info, current_state, current_level = retrieve_syntax_state(incoming_syntax, state)
+      current_syntax, subsyntax_info, current_state, current_level = 
+        retrieve_syntax_state(incoming_syntax, state)
   end
   
   while i <= #text do
