@@ -134,14 +134,14 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     retrieve_syntax_state(incoming_syntax, state)
   
   -- Should be used to set the state variable. Don't modify it directly.
-  local function set_subsyntax_state(pattern_idx)
+  local function set_subsyntax_pattern_idx(pattern_idx)
     current_pattern_idx = pattern_idx
     state = bit32.replace(state, pattern_idx, current_level*8, 8)
   end
   
   
   local function push_subsyntax(entering_syntax, pattern_idx)
-    set_subsyntax_state(pattern_idx)
+    set_subsyntax_pattern_idx(pattern_idx)
     current_level = current_level + 1
     subsyntax_info = entering_syntax
     current_syntax = type(entering_syntax) == "table" and
@@ -150,9 +150,9 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
   
   local function pop_subsyntax()
-      set_subsyntax_state(0)
+      set_subsyntax_pattern_idx(0)
       current_level = current_level - 1
-      set_subsyntax_state(0)
+      set_subsyntax_pattern_idx(0)
       current_syntax, subsyntax_info, current_pattern_idx, current_level = 
         retrieve_syntax_state(incoming_syntax, state)
   end
@@ -189,7 +189,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       if cont then
         if s then
           push_token(res, p.type, text:sub(i, e))
-          set_subsyntax_state(0)
+          set_subsyntax_pattern_idx(0)
           i = e + 1
         else
           push_token(res, p.type, text:sub(i))
@@ -232,7 +232,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
           if p.syntax then
             push_subsyntax(p, n)
           else          
-            set_subsyntax_state(n)
+            set_subsyntax_pattern_idx(n)
           end
         end
         
