@@ -8,10 +8,9 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+#include <reproc.h>
 #include <stdbool.h>
 #include <stdlib.h>
-
-#include "reproc.h"
 
 typedef struct {
     reproc_t * process;
