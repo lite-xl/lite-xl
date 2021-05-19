@@ -8,7 +8,7 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-#include <reproc.h>
+#include <reproc/reproc.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
