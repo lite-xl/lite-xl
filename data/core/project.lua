@@ -139,6 +139,14 @@ function project.load(name)
 end
 
 
+function project.save(name)
+  name = name or core.project_name
+  local filename = common.path_join(USERDIR, "projects", name .. ".lua")
+  save_workspace(filename)
+  core.log("Saved project %s.", core.project_name)
+end
+
+
 function project.load_workspace(filename)
   local load = loadfile(filename)
   local workspace = load and load()
@@ -177,9 +185,7 @@ command.add(nil, {
     core.command_view:enter("Save Project As", function(text)
       -- FIXME: add sanity check of project name.
       core.project_name = text
-      local filename = common.path_join(USERDIR, "projects", text .. ".lua")
-      save_workspace(filename)
-      core.log("Saved project %s.", core.project_name)
+      project.save()
     end)
   end,
 
@@ -189,10 +195,7 @@ command.add(nil, {
         core.project_name = text
       end)
     end
-    local filename = common.path_join(USERDIR, "projects", core.project_name .. ".lua")
-    save_workspace(filename)
-    core.set_recent_project(core.project_name)
-    core.log("Saved project %s.", core.project_name)
+    project.save()
   end,
 
   ["project:load"] = function()
@@ -205,7 +208,6 @@ command.add(nil, {
   ["project:open-directory"] = function()
     core.command_view:enter("Open Directory", function(text, item)
       text = system.absolute_path(common.home_expand(item and item.text or text))
-      if text == core.working_dir then return end
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)

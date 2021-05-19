@@ -536,7 +536,7 @@ function core.init()
       end)
   end
 
-  if #core.docs == 0 then
+  if #core.project_entries == 0 then
     local ws = core.try(project.load_workspace, USERDIR .. PATHSEP .. "workspace.lua")
     if not ws then
       core.log("Empty project: use the \"Core: Open File\" command to open a file or a directory.")
