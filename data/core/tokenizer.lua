@@ -87,7 +87,7 @@ end
 -- singificant numbers will always be 0, the stack will only ever be length 1
 -- and the state variable will only ever range from 0-255.
 local function retrieve_syntax_state(incoming_syntax, state)
-  local current_syntax, subsyntax_info, current_state, current_level =
+  local current_syntax, subsyntax_info, current_pattern_idx, current_level =
     incoming_syntax, nil, state, 0
   if state > 0 and (state > 255 or current_syntax.patterns[state].syntax) then
     -- If we have higher bits, then decode them one at a time, and find which
@@ -100,10 +100,10 @@ local function retrieve_syntax_state(incoming_syntax, state)
           subsyntax_info = current_syntax.patterns[target]
           current_syntax = type(subsyntax_info.syntax) == "table" and
             subsyntax_info.syntax or syntax.get(subsyntax_info.syntax)
-          current_state = 0
+          current_pattern_idx = 0
           current_level = i+1
         else
-          current_state = target
+          current_pattern_idx = target
           break
         end
       else
@@ -111,7 +111,7 @@ local function retrieve_syntax_state(incoming_syntax, state)
       end
     end
   end
-  return current_syntax, subsyntax_info, current_state, current_level
+  return current_syntax, subsyntax_info, current_pattern_idx, current_level
 end
 
 function tokenizer.tokenize(incoming_syntax, text, state)
@@ -123,19 +123,19 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
 
   state = state or 0
-  -- incoming_syntax: the parent syntax of the file.
-  -- state          : a 32-bit number representing syntax state (see above) 
+  -- incoming_syntax    : the parent syntax of the file.
+  -- state              : a 32-bit number representing syntax state (see above) 
   
-  -- current_syntax : the syntax we're currently in.
-  -- subsyntax_info : info about the delimiters of this subsyntax.
-  -- current_state  : the index of the pattern we're on for this syntax.
-  -- current_level  : how many subsyntaxes deep we are.
-  local current_syntax, subsyntax_info, current_state, current_level =
+  -- current_syntax     : the syntax we're currently in.
+  -- subsyntax_info     : info about the delimiters of this subsyntax.
+  -- current_pattern_idx: the index of the pattern we're on for this syntax.
+  -- current_level      : how many subsyntaxes deep we are.
+  local current_syntax, subsyntax_info, current_pattern_idx, current_level =
     retrieve_syntax_state(incoming_syntax, state)
   
   -- Should be used to set the state variable. Don't modify it directly.
   local function set_subsyntax_state(pattern_idx)
-    current_state = pattern_idx
+    current_pattern_idx = pattern_idx
     state = bit32.replace(state, pattern_idx, current_level*8, 8)
   end
   
@@ -146,21 +146,21 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     subsyntax_info = entering_syntax
     current_syntax = type(entering_syntax) == "table" and
       entering_syntax.syntax or syntax.get(entering_syntax.syntax)
-    current_state = 0
+    current_pattern_idx = 0
   end
   
   local function pop_subsyntax()
       set_subsyntax_state(0)
       current_level = current_level - 1
       set_subsyntax_state(0)
-      current_syntax, subsyntax_info, current_state, current_level = 
+      current_syntax, subsyntax_info, current_pattern_idx, current_level = 
         retrieve_syntax_state(incoming_syntax, state)
   end
   
   while i <= #text do
     -- continue trying to match the end pattern of a pair if we have a state set
-    if current_state > 0 then
-      local p = current_syntax.patterns[current_state]
+    if current_pattern_idx > 0 then
+      local p = current_syntax.patterns[current_pattern_idx]
       local s, e = find_non_escaped(text, p.pattern[2], i, p.pattern[3])
 
       local cont = true
@@ -189,7 +189,6 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       if cont then
         if s then
           push_token(res, p.type, text:sub(i, e))
-          current_state = 0
           set_subsyntax_state(0)
           i = e + 1
         else
