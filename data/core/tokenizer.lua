@@ -81,7 +81,7 @@ end
 -- `pop_subsyntax` decreases it. The integers represent the index of a pattern
 -- that we're following in the syntax. The top of the stack can be any valid 
 -- pattern index, any integer lower in the stack must represent a pattern that
--- specifies a syntax.
+-- specifies a subsyntax.
 
 -- If you do not have subsyntaxes in your syntax, the three most
 -- singificant numbers will always be 0, the stack will only ever be length 1
@@ -163,7 +163,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
 
       local cont = true
       -- If we're in subsyntax mode, always check to see if we end our syntax
-      -- first.
+      -- first, before the found delimeter, as ending the subsyntax takes
+      -- precedence over ending the delimiter in the subsyntax.
       if subsyntax_info then
         local ss, se = find_non_escaped(
           text,
@@ -171,12 +172,18 @@ function tokenizer.tokenize(incoming_syntax, text, state)
           i,
           subsyntax_info.pattern[3]
         )
+        -- If we find that we end the subsyntax before the 
+        -- delimiter, push the token, and signal we shouldn't
+        -- treat the bit after as a token to be normally parsed
+        -- (as it's the syntax delimiter).
         if ss and (s == nil or ss < s) then
           push_token(res, p.type, text:sub(i, ss - 1))
           i = ss
           cont = false
         end
       end
+      -- If we don't have any concerns about syntax delimiters,
+      -- continue on as normal.
       if cont then
         if s then
           push_token(res, p.type, text:sub(i, e))
@@ -189,7 +196,9 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         end
       end
     end
-    -- Check for end of syntax.
+    -- General end of syntax check. Applies in the case where
+    -- we're ending early in the middle of a delimiter, or
+    -- just normally, upon finding a token.
     if subsyntax_info then
       local s, e = find_non_escaped(
         text,
