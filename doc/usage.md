@@ -149,6 +149,8 @@ local keymap = require "core.keymap"
 keymap.add { ["ctrl+q"] = "core:quit" }
 ```
 
+A list of default mappings can be viewed [here](./default-keymap.md).
+
 
 ## Plugins
 Plugins in lite are normal lua modules and are treated as such — no
