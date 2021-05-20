@@ -144,17 +144,18 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     set_subsyntax_pattern_idx(pattern_idx)
     current_level = current_level + 1
     subsyntax_info = entering_syntax
-    current_syntax = type(entering_syntax) == "table" and
+    current_syntax = type(entering_syntax.syntax) == "table" and
       entering_syntax.syntax or syntax.get(entering_syntax.syntax)
     current_pattern_idx = 0
   end
   
   local function pop_subsyntax()
-      set_subsyntax_pattern_idx(0)
-      current_level = current_level - 1
-      set_subsyntax_pattern_idx(0)
-      current_syntax, subsyntax_info, current_pattern_idx, current_level = 
-        retrieve_syntax_state(incoming_syntax, state)
+    set_subsyntax_pattern_idx(0)
+    current_level = current_level - 1
+    set_subsyntax_pattern_idx(0)
+    current_syntax, subsyntax_info, current_pattern_idx, current_level = 
+      retrieve_syntax_state(incoming_syntax, state)
+  
   end
   
   while i <= #text do
