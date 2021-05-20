@@ -19,14 +19,20 @@ sdl_dep = dependency('sdl2', method: 'config-tool')
 
 lite_cargs = []
 if get_option('portable')
+    lite_docdir = 'doc'
     lite_datadir = 'data'
 else
+    lite_docdir = 'share/doc'
     lite_datadir = 'share/lite-xl'
 endif
 
 lite_include = include_directories('src')
 foreach data_module : ['core', 'fonts', 'plugins', 'colors']
     install_subdir('data' / data_module , install_dir : lite_datadir)
+endforeach
+
+foreach file : ['usage.md', 'licenses.md', 'contributors.md', 'default-keymap.md']
+    install_data('doc' / file, install_dir : lite_docdir)
 endforeach
 
 lite_link_args = []
