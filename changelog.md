@@ -8,10 +8,16 @@ Improved syntax highlight system thanks to @liquidev and @adamharrison.
 Thanks to the new system we provide more a accurate syntax highlighting for Lua, C and C++.
 Other syntax improvements contributed by @vincens2005.
 
+Move to JetBrains Mono and Fira Sans fonts for code and UI respectively.
+Thet are provided under the SIL Open Font License, Version 1.1.
+See `doc/licenses.md` for license details.
+
 Fixed bug with fonts and rencache module.
 Under very specific situations the application was crashing due to invalid memory access.
 
 Add documentation for keymap binding, thanks to @Janis-Leuenberger.
+
+Added a contibutors page in `doc/contributors.md`.
 
 ### 1.16.9
 
