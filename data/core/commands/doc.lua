@@ -45,15 +45,22 @@ local function insert_at_start_of_selected_lines(text, skip_empty)
   doc():set_selection(line1, col1 + #text, line2, col2 + #text, swap)
 end
 
+ 
 
-local function remove_from_start_of_selected_lines(text, skip_empty)
+local function remove_from_start_of_selected_lines(text, skip_empty, remove_partial)
   local line1, col1, line2, col2, swap = doc_multiline_selection(true)
   for line = line1, line2 do
     local line_text = doc().lines[line]
-    if  line_text:sub(1, #text) == text
-    and (not skip_empty or line_text:find("%S"))
-    then
-      doc():remove(line, 1, line, #text + 1)
+    for i = #text, 1, -1 do
+      if line_text:sub(1, i) == text:sub(1, i)
+        and (not skip_empty or line_text:find("%S"))
+      then
+        doc():remove(line, 1, line, i + 1)
+        break
+      end
+      if not remove_partial then
+        break
+      end
     end
   end
   doc():set_selection(line1, col1 - #text, line2, col2 - #text, swap)
@@ -198,7 +205,7 @@ local commands = {
 
   ["doc:unindent"] = function()
     local text = get_indent_string()
-    remove_from_start_of_selected_lines(text)
+    remove_from_start_of_selected_lines(text, false, true)
   end,
 
   ["doc:duplicate-lines"] = function()
@@ -304,6 +311,9 @@ local commands = {
   ["doc:save-as"] = function()
     if doc().filename then
       core.command_view:set_text(doc().filename)
+    elseif core.last_active_view then
+      local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
+      core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
     end
     core.command_view:enter("Save As", function(filename)
       save(common.home_expand(filename))

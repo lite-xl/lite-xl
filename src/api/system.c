@@ -517,27 +517,54 @@ static int f_exec(lua_State *L) {
 
 
 static int f_fuzzy_match(lua_State *L) {
-  const char *str = luaL_checkstring(L, 1);
-  const char *ptn = luaL_checkstring(L, 2);
+  size_t strLen, ptnLen;
+  const char *str = luaL_checklstring(L, 1, &strLen);
+  const char *ptn = luaL_checklstring(L, 2, &ptnLen);
+  bool files = false;
+  if (lua_gettop(L) > 2 && lua_isboolean(L,3))
+    files = lua_toboolean(L, 3);
+    
   int score = 0;
   int run = 0;
-
-  while (*str && *ptn) {
-    while (*str == ' ') { str++; }
-    while (*ptn == ' ') { ptn++; }
-    if (tolower(*str) == tolower(*ptn)) {
-      score += run * 10 - (*str != *ptn);
-      run++;
-      ptn++;
-    } else {
-      score -= 10;
-      run = 0;
+  
+  // Match things *backwards*. This allows for better matching on filenames than the above 
+  // function. For example, in the lite project, opening "renderer" has lib/font_render/build.sh
+  // as the first result, rather than src/renderer.c. Clearly that's wrong.
+  if (files) {
+    const char* strEnd = str + strLen - 1;
+    const char* ptnEnd = ptn + ptnLen - 1;
+    while (strEnd >= str && ptnEnd >= ptn) {
+      while (*strEnd == ' ') { strEnd--; }
+      while (*ptnEnd == ' ') { ptnEnd--; }
+      if (tolower(*strEnd) == tolower(*ptnEnd)) {
+        score += run * 10 - (*strEnd != *ptnEnd);
+        run++;
+        ptnEnd--;
+      } else {
+        score -= 10;
+        run = 0;
+      }
+      strEnd--;
     }
-    str++;
+    if (ptnEnd >= ptn) { return 0; }
+  } else {
+    while (*str && *ptn) {
+      while (*str == ' ') { str++; }
+      while (*ptn == ' ') { ptn++; }
+      if (tolower(*str) == tolower(*ptn)) {
+        score += run * 10 - (*str != *ptn);
+        run++;
+        ptn++;
+      } else {
+        score -= 10;
+        run = 0;
+      }
+      str++;
+    }
+    if (*ptn) { return 0; }
   }
-  if (*ptn) { return 0; }
 
-  lua_pushnumber(L, score - (int) strlen(str));
+  lua_pushnumber(L, score - (int)strLen);
   return 1;
 }
 
