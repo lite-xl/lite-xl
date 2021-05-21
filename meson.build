@@ -34,7 +34,7 @@ if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
     lite_link_args += ['-static-libgcc', '-static-libstdc++']
 endif
 if host_machine.system() == 'darwin'
-    lite_link_args += ['-framework', 'CoreSerivces', '-framework', 'Foundation']
+    lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
 endif
 
 lite_rc = []
