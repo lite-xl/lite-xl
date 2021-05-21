@@ -80,13 +80,15 @@ end
 -- in your config format, rounded either up or down
 local function get_line_indent(line, rnd_up)
   local _, e = line:find("^%s+")
+  local soft_tab = string.rep(" ", config.indent_size)
   if config.tab_type == "hard" then
-    local indent = line:sub(1, e):gsub(string.rep(" ", config.indent_size), "\t")
+    local indent = line:sub(1, e):gsub(soft_tab, "\t")
     return e, rnd_up and indent:gsub(" +", "\t") or indent:gsub(" ", "")
   else
-    local indent = e and line:sub(1, e):gsub("\t", string.rep(" ", config.indent_size)) or ""
-    local number = #indent / config.indent_size
-    return e, indent:sub(1, (rnd_up and math.ceil(number) or math.floor(number))*config.indent_size)
+    local indent = e and line:sub(1, e):gsub("\t", soft_tab) or ""
+    local number = #indent / #soft_tab
+    return e, indent:sub(1, 
+      (rnd_up and math.ceil(number) or math.floor(number))*#soft_tab)
   end
 end
 
@@ -100,11 +102,12 @@ local function indent_text(unindent)
     for line = line1, line2 do
       local e, rnded = get_line_indent(doc().lines[line], unindent)
       doc():remove(line, 1, line, (e or 0) + 1)
-      doc():insert(line, 1, unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
+      doc():insert(line, 1, 
+        unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
     end
     l1d, l2d = #doc().lines[line1] - l1d, #doc().lines[line2] - l2d
     if (unindent or in_beginning_whitespace) and not doc():has_selection() then
-      local start_cursor = doc().lines[line1]:find("%S") or #(doc().lines[line1])
+      local start_cursor = (se and se + 1 or 1) + l1d or #(doc().lines[line1])
       doc():set_selection(line1, start_cursor, line2, start_cursor, swap)
     else
       doc():set_selection(line1, col1 + l1d, line2, col2 + l2d, swap)
