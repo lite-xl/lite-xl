@@ -47,20 +47,15 @@ end
 
  
 
-local function remove_from_start_of_selected_lines(text, skip_empty, remove_partial)
+local function remove_from_start_of_selected_lines(text, skip_empty)
   local line1, col1, line2, col2, swap = doc_multiline_selection(true)
   for line = line1, line2 do
     local line_text = doc().lines[line]
-    for i = #text, 1, -1 do
-      if line_text:sub(1, i) == text:sub(1, i)
-        and (not skip_empty or line_text:find("%S"))
-      then
-        doc():remove(line, 1, line, i + 1)
-        break
-      end
-      if not remove_partial then
-        break
-      end
+    if line_text:sub(1, #text) == text:sub(1, #text)
+      and (not skip_empty or line_text:find("%S"))
+    then
+      doc():remove(line, 1, line, #text + 1)
+      break
     end
   end
   doc():set_selection(line1, col1 - #text, line2, col2 - #text, swap)
@@ -81,6 +76,43 @@ local function save(filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
+-- returns the size of the original indent, and the indent 
+-- in your config format, rounded either up or down
+local function get_line_indent(line, rnd_up)
+  local _, e = line:find("^%s+")
+  if config.tab_type == "hard" then
+    local indent = line:sub(1, e):gsub(string.rep(" ", config.indent_size), "\t")
+    return e, rnd_up and indent:gsub(" +", "\t") or indent:gsub(" ", "")
+  else
+    local indent = e and line:sub(1, e):gsub("\t", string.rep(" ", config.indent_size)) or ""
+    local number = #indent / config.indent_size
+    return e, indent:sub(1, (rnd_up and math.ceil(number) or math.floor(number))*config.indent_size)
+  end
+end
+
+local function indent_text(unindent)
+  local text = get_indent_string()
+  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
+  local _, se = doc().lines[line1]:find("^%s+")
+  local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
+  if unindent or doc():has_selection() or in_beginning_whitespace then
+    local l1d, l2d = #doc().lines[line1], #doc().lines[line2]
+    for line = line1, line2 do
+      local e, rnded = get_line_indent(doc().lines[line], unindent)
+      doc():remove(line, 1, line, (e or 0) + 1)
+      doc():insert(line, 1, unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
+    end
+    l1d, l2d = #doc().lines[line1] - l1d, #doc().lines[line2] - l2d
+    if (unindent or in_beginning_whitespace) and not doc():has_selection() then
+      local start_cursor = doc().lines[line1]:find("%S") or #(doc().lines[line1])
+      doc():set_selection(line1, start_cursor, line2, start_cursor, swap)
+    else
+      doc():set_selection(line1, col1 + l1d, line2, col2 + l2d, swap)
+    end
+  else
+    doc():text_input(text)
+  end
+end
 
 local commands = {
   ["doc:undo"] = function()
@@ -190,17 +222,11 @@ local commands = {
   end,
 
   ["doc:indent"] = function()
-    local text = get_indent_string()
-    if doc():has_selection() then
-      insert_at_start_of_selected_lines(text)
-    else
-      doc():text_input(text)
-    end
+    indent_text()
   end,
 
   ["doc:unindent"] = function()
-    local text = get_indent_string()
-    remove_from_start_of_selected_lines(text, false, true)
+    indent_text(true)
   end,
 
   ["doc:duplicate-lines"] = function()
