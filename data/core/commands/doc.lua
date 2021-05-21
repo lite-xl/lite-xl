@@ -111,9 +111,7 @@ local function indent_text(unindent)
     local l1d, l2d = #doc().lines[line1], #doc().lines[line2]
     for line = line1, line2 do
       local e, rnded = get_line_indent(doc().lines[line], unindent)
-      if e then
-        doc():remove(line, 1, line, e + 1)
-      end
+      doc():remove(line, 1, line, (e or 0) + 1)
       doc():insert(line, 1, 
         unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
     end
