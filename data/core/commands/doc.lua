@@ -79,7 +79,7 @@ end
 -- returns the size of the original indent, and the indent 
 -- in your config format, rounded either up or down
 local function get_line_indent(line, rnd_up)
-  local _, e = line:find("^%s+")
+  local _, e = line:find("^[ \t]+")
   local soft_tab = string.rep(" ", config.indent_size)
   if config.tab_type == "hard" then
     local indent = line:sub(1, e):gsub(soft_tab, "\t")
@@ -105,13 +105,15 @@ end
 local function indent_text(unindent)
   local text = get_indent_string()
   local line1, col1, line2, col2, swap = doc():get_selection(true)
-  local _, se = doc().lines[line1]:find("^%s+")
+  local _, se = doc().lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
   if unindent or doc():has_selection() or in_beginning_whitespace then
     local l1d, l2d = #doc().lines[line1], #doc().lines[line2]
     for line = line1, line2 do
       local e, rnded = get_line_indent(doc().lines[line], unindent)
-      doc():remove(line, 1, line, (e or 0) + 1)
+      if e then
+        doc():remove(line, 1, line, e + 1)
+      end
       doc():insert(line, 1, 
         unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
     end
