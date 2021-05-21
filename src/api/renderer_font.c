@@ -1,3 +1,6 @@
+#include <lua.h>
+#include <lauxlib.h>
+
 #include "api.h"
 #include "fontdesc.h"
 #include "renderer.h"
@@ -62,7 +65,7 @@ static int f_set_tab_size(lua_State *L) {
 
 static int f_gc(lua_State *L) {
   FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
-  rencache_free_font(self);
+  font_desc_free(self);
   return 0;
 }
 

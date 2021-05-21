@@ -1,6 +1,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#include <lauxlib.h>
 #include "rencache.h"
 
 /* a cache over the software renderer -- all drawing operations are stored as
@@ -14,7 +16,7 @@
 #define COMMAND_BUF_SIZE (1024 * 512)
 #define COMMAND_BARE_SIZE offsetof(Command, text)
 
-enum { FREE_FONT, SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL };
+enum { SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL };
 
 typedef struct {
   int8_t type;
@@ -30,6 +32,15 @@ typedef struct {
   char text[0];
 } Command;
 
+#define FONT_REFS_MAX 12
+struct FontRef {
+  FontDesc *font_desc;
+  int index;
+};
+typedef struct FontRef FontRef;
+FontRef font_refs[FONT_REFS_MAX];
+int font_refs_len = 0;
+
 
 static unsigned cells_buf1[CELLS_X * CELLS_Y];
 static unsigned cells_buf2[CELLS_X * CELLS_Y];
@@ -44,6 +55,33 @@ static bool show_debug;
 
 static inline int min(int a, int b) { return a < b ? a : b; }
 static inline int max(int a, int b) { return a > b ? a : b; }
+
+static int font_refs_add(lua_State *L, FontDesc *font_desc, int index) {
+  for (int i = 0; i < font_refs_len; i++) {
+    if (font_refs[i].font_desc == font_desc) {
+      return font_refs[i].index;
+    }
+  }
+
+  if (font_refs_len >= FONT_REFS_MAX) {
+    fprintf(stderr, "Warning: (" __FILE__ "): exhausted font reference buffer\n");
+    return LUA_NOREF;
+  }
+
+  lua_pushvalue(L, index);
+  int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  font_refs[font_refs_len++] = (FontRef) { font_desc, ref };
+  return ref;
+}
+
+
+static void font_refs_clear(lua_State *L) {
+  for (int i = 0; i < font_refs_len; i++) {
+    luaL_unref(L, LUA_REGISTRYINDEX, font_refs[i].index);
+  }
+  font_refs_len = 0;
+}
 
 /* 32bit fnv-1a hash */
 #define HASH_INITIAL 2166136261
@@ -115,12 +153,6 @@ void rencache_show_debug(bool enable) {
 }
 
 
-void rencache_free_font(FontDesc *font_desc) {
-  Command *cmd = push_command(FREE_FONT, COMMAND_BARE_SIZE);
-  if (cmd) { cmd->font_desc = font_desc; }
-}
-
-
 void rencache_set_clip_rect(RenRect rect) {
   Command *cmd = push_command(SET_CLIP, COMMAND_BARE_SIZE);
   if (cmd) { cmd->rect = intersect_rects(rect, screen_rect); }
@@ -136,7 +168,7 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-int rencache_draw_text(FontDesc *font_desc,
+int rencache_draw_text(lua_State *L, FontDesc *font_desc, int font_index,
   const char *text, int x, int y, RenColor color, bool draw_subpixel,
   CPReplaceTable *replacements, RenColor replace_color)
 {
@@ -148,7 +180,7 @@ int rencache_draw_text(FontDesc *font_desc,
   rect.width = ren_font_subpixel_round(w_subpixel, subpixel_scale, 0);
   rect.height = ren_get_font_height(font_desc);
 
-  if (rects_overlap(screen_rect, rect)) {
+  if (rects_overlap(screen_rect, rect) && font_refs_add(L, font_desc, font_index) >= 0) {
     int sz = strlen(text) + 1;
     Command *cmd = push_command(draw_subpixel ? DRAW_TEXT_SUBPIXEL : DRAW_TEXT, COMMAND_BARE_SIZE + sz);
     if (cmd) {
@@ -173,7 +205,7 @@ void rencache_invalidate(void) {
 }
 
 
-void rencache_begin_frame(void) {
+void rencache_begin_frame(lua_State *L) {
   /* reset all cells if the screen width/height has changed */
   int w, h;
   ren_get_size(&w, &h);
@@ -182,6 +214,7 @@ void rencache_begin_frame(void) {
     screen_rect.height = h;
     rencache_invalidate();
   }
+  font_refs_clear(L);
 }
 
 
@@ -214,7 +247,7 @@ static void push_rect(RenRect r, int *count) {
 }
 
 
-void rencache_end_frame(void) {
+void rencache_end_frame(lua_State *L) {
   /* update cells from commands */
   Command *cmd = NULL;
   RenRect cr = screen_rect;
@@ -253,7 +286,6 @@ void rencache_end_frame(void) {
   }
 
   /* redraw updated regions */
-  bool has_free_commands = false;
   for (int i = 0; i < rect_count; i++) {
     /* draw */
     RenRect r = rect_buf[i];
@@ -262,9 +294,6 @@ void rencache_end_frame(void) {
     cmd = NULL;
     while (next_command(&cmd)) {
       switch (cmd->type) {
-        case FREE_FONT:
-          has_free_commands = true;
-          break;
         case SET_CLIP:
           ren_set_clip_rect(intersect_rects(cmd->rect, r));
           break;
@@ -296,16 +325,6 @@ void rencache_end_frame(void) {
     ren_update_rects(rect_buf, rect_count);
   }
 
-  /* free fonts */
-  if (has_free_commands) {
-    cmd = NULL;
-    while (next_command(&cmd)) {
-      if (cmd->type == FREE_FONT) {
-        font_desc_free(cmd->font_desc);
-      }
-    }
-  }
-
   /* swap cell buffer and reset */
   unsigned *tmp = cells;
   cells = cells_prev;
@@ -313,6 +332,3 @@ void rencache_end_frame(void) {
   command_buf_idx = 0;
 }
 
-void rencache_clear() {
-  command_buf_idx = 0;
-}
