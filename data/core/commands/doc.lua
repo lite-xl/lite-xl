@@ -80,7 +80,7 @@ local function get_line_indent(line, rnd_up)
   local _, e = line:find("^[ \t]+")
   local soft_tab = string.rep(" ", config.indent_size)
   if config.tab_type == "hard" then
-    local indent = line:sub(1, e):gsub(soft_tab, "\t")
+    local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
     return e, indent:gsub(" +", rnd_up and "\t" or "")
   else
     local indent = e and line:sub(1, e):gsub("\t", soft_tab) or ""
