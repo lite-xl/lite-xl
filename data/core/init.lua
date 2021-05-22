@@ -1011,7 +1011,8 @@ end
 
 core.add_save_hook(function(filename)
   local doc = core.active_view.doc
-  if doc and doc:is(Doc) and doc.abs_filename == USERDIR .. PATHSEP .. "init.lua" then
+  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
+  if doc and doc:is(Doc) and doc.abs_filename == user_filename then
     core.reload_module("core.style")
     core.load_user_directory()
   end
