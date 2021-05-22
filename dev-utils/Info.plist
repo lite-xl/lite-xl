@@ -15,6 +15,8 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>MinimumOSVersion</key><string>10.13</string>
+	<key>NSDocumentsFolderUsageDescription</key><string>application index whole project folders</string>
+	<key>NSDesktopFolderUsageDescription</key><string>application index whole project folders</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.16.10</string>
 	<key>NSHumanReadableCopyright</key>
