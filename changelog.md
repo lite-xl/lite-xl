@@ -17,7 +17,7 @@ Under very specific situations the application was crashing due to invalid memor
 
 Add documentation for keymap binding, thanks to @Janis-Leuenberger.
 
-Added a contibutors page in `doc/contributors.md`.
+Added a contributors page in `doc/contributors.md`.
 
 ### 1.16.9
 
