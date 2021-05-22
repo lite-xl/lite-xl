@@ -74,9 +74,20 @@ end
 -- State is a 32-bit number that is four separate bytes, illustrating how many
 -- differnet delimiters we have open, and which subsyntaxes we have active.
 -- At most, there are 3 subsyntaxes active at the same time. Beyond that,
--- does not support further highlighting.
+-- does not support further highlighting. 
+
+-- You can think of it as a maximum 4 integer (0-255) stack. It always has
+-- 1 integer in it. Calling `push_subsyntax` increases the stack depth. Calling
+-- `pop_subsyntax` decreases it. The integers represent the index of a pattern
+-- that we're following in the syntax. The top of the stack can be any valid 
+-- pattern index, any integer lower in the stack must represent a pattern that
+-- specifies a subsyntax.
+
+-- If you do not have subsyntaxes in your syntax, the three most
+-- singificant numbers will always be 0, the stack will only ever be length 1
+-- and the state variable will only ever range from 0-255.
 local function retrieve_syntax_state(incoming_syntax, state)
-  local current_syntax, subsyntax_info, current_state, current_level =
+  local current_syntax, subsyntax_info, current_pattern_idx, current_level =
     incoming_syntax, nil, state, 0
   if state > 0 and (state > 255 or current_syntax.patterns[state].syntax) then
     -- If we have higher bits, then decode them one at a time, and find which
@@ -89,10 +100,10 @@ local function retrieve_syntax_state(incoming_syntax, state)
           subsyntax_info = current_syntax.patterns[target]
           current_syntax = type(subsyntax_info.syntax) == "table" and
             subsyntax_info.syntax or syntax.get(subsyntax_info.syntax)
-          current_state = 0
+          current_pattern_idx = 0
           current_level = i+1
         else
-          current_state = target
+          current_pattern_idx = target
           break
         end
       else
@@ -100,7 +111,7 @@ local function retrieve_syntax_state(incoming_syntax, state)
       end
     end
   end
-  return current_syntax, subsyntax_info, current_state, current_level
+  return current_syntax, subsyntax_info, current_pattern_idx, current_level
 end
 
 function tokenizer.tokenize(incoming_syntax, text, state)
@@ -112,17 +123,51 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
 
   state = state or 0
-  local current_syntax, subsyntax_info, current_state, current_level =
+  -- incoming_syntax    : the parent syntax of the file.
+  -- state              : a 32-bit number representing syntax state (see above) 
+  
+  -- current_syntax     : the syntax we're currently in.
+  -- subsyntax_info     : info about the delimiters of this subsyntax.
+  -- current_pattern_idx: the index of the pattern we're on for this syntax.
+  -- current_level      : how many subsyntaxes deep we are.
+  local current_syntax, subsyntax_info, current_pattern_idx, current_level =
     retrieve_syntax_state(incoming_syntax, state)
+  
+  -- Should be used to set the state variable. Don't modify it directly.
+  local function set_subsyntax_pattern_idx(pattern_idx)
+    current_pattern_idx = pattern_idx
+    state = bit32.replace(state, pattern_idx, current_level*8, 8)
+  end
+  
+  
+  local function push_subsyntax(entering_syntax, pattern_idx)
+    set_subsyntax_pattern_idx(pattern_idx)
+    current_level = current_level + 1
+    subsyntax_info = entering_syntax
+    current_syntax = type(entering_syntax.syntax) == "table" and
+      entering_syntax.syntax or syntax.get(entering_syntax.syntax)
+    current_pattern_idx = 0
+  end
+  
+  local function pop_subsyntax()
+    set_subsyntax_pattern_idx(0)
+    current_level = current_level - 1
+    set_subsyntax_pattern_idx(0)
+    current_syntax, subsyntax_info, current_pattern_idx, current_level = 
+      retrieve_syntax_state(incoming_syntax, state)
+  
+  end
+  
   while i <= #text do
     -- continue trying to match the end pattern of a pair if we have a state set
-    if current_state > 0 then
-      local p = current_syntax.patterns[current_state]
+    if current_pattern_idx > 0 then
+      local p = current_syntax.patterns[current_pattern_idx]
       local s, e = find_non_escaped(text, p.pattern[2], i, p.pattern[3])
 
       local cont = true
       -- If we're in subsyntax mode, always check to see if we end our syntax
-      -- first.
+      -- first, before the found delimeter, as ending the subsyntax takes
+      -- precedence over ending the delimiter in the subsyntax.
       if subsyntax_info then
         local ss, se = find_non_escaped(
           text,
@@ -130,17 +175,22 @@ function tokenizer.tokenize(incoming_syntax, text, state)
           i,
           subsyntax_info.pattern[3]
         )
+        -- If we find that we end the subsyntax before the 
+        -- delimiter, push the token, and signal we shouldn't
+        -- treat the bit after as a token to be normally parsed
+        -- (as it's the syntax delimiter).
         if ss and (s == nil or ss < s) then
           push_token(res, p.type, text:sub(i, ss - 1))
           i = ss
           cont = false
         end
       end
+      -- If we don't have any concerns about syntax delimiters,
+      -- continue on as normal.
       if cont then
         if s then
           push_token(res, p.type, text:sub(i, e))
-          current_state = 0
-          state = bit32.replace(state, 0, current_level*8, 8)
+          set_subsyntax_pattern_idx(0)
           i = e + 1
         else
           push_token(res, p.type, text:sub(i))
@@ -148,7 +198,9 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         end
       end
     end
-    -- Check for end of syntax.
+    -- General end of syntax check. Applies in the case where
+    -- we're ending early in the middle of a delimiter, or
+    -- just normally, upon finding a token.
     if subsyntax_info then
       local s, e = find_non_escaped(
         text,
@@ -158,11 +210,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       )
       if s then
         push_token(res, subsyntax_info.type, text:sub(i, e))
-        current_level = current_level - 1
-        -- Zero out the state above us, as well as our new current state.
-        state = bit32.replace(state, 0, current_level*8, 16)
-        current_syntax, subsyntax_info, current_state, current_level =
-          retrieve_syntax_state(incoming_syntax, state)
+        -- On finding unescaped delimiter, pop it.
+        pop_subsyntax()
         i = e + 1
       end
     end
@@ -180,20 +229,14 @@ function tokenizer.tokenize(incoming_syntax, text, state)
 
         -- update state if this was a start|end pattern pair
         if type(p.pattern) == "table" then
-          state = bit32.replace(state, n, current_level*8, 8)
-          -- If we've found a new subsyntax, bump our level, and set the
-          -- appropriate variables.
+          -- If we have a subsyntax, push that onto the subsyntax stack.
           if p.syntax then
-            current_level = current_level + 1
-            subsyntax_info = p
-            current_syntax = type(p.syntax) == "table" and
-              p.syntax or syntax.get(p.syntax)
-            current_state = 0
-          else
-            current_state = n
+            push_subsyntax(p, n)
+          else          
+            set_subsyntax_pattern_idx(n)
           end
         end
-
+        
         -- move cursor past this token
         i = fin + 1
         matched = true

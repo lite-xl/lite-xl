@@ -108,7 +108,7 @@ is meant for people using a unix-like shell and the command line.
 Please note that there aren't any hard-coded directories in the executable, so that the
 package can be extracted and used in any directory.
 
-Mac OS X is fully supported and a notarized app disk image is provided in the release page.
+Mac OS X is fully supported and a notarized app disk image is provided in the [release page](https://github.com/franko/lite-xl/releases).
 In addition the application can be compiled using the generic instructions given above.
 
 ## Contributing

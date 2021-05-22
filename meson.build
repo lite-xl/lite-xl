@@ -29,8 +29,10 @@ endif
 
 lite_cargs = []
 if get_option('portable')
+    lite_docdir = 'doc'
     lite_datadir = 'data'
 else
+    lite_docdir = 'share/doc'
     lite_datadir = 'share/lite-xl'
 endif
 
@@ -39,9 +41,16 @@ foreach data_module : ['core', 'fonts', 'plugins', 'colors']
     install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
 
+foreach file : ['usage.md', 'licenses.md', 'contributors.md', 'default-keymap.md']
+    install_data('doc' / file, install_dir : lite_docdir)
+endforeach
+
 lite_link_args = []
 if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
     lite_link_args += ['-static-libgcc', '-static-libstdc++']
+endif
+if host_machine.system() == 'darwin'
+    lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
 endif
 
 lite_rc = []

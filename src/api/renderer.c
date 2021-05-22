@@ -38,13 +38,13 @@ static int f_get_size(lua_State *L) {
 
 
 static int f_begin_frame(lua_State *L) {
-  rencache_begin_frame();
+  rencache_begin_frame(L);
   return 0;
 }
 
 
 static int f_end_frame(lua_State *L) {
-  rencache_end_frame();
+  rencache_end_frame(L);
   return 0;
 }
 
@@ -90,7 +90,7 @@ static int draw_text_subpixel_impl(lua_State *L, bool draw_subpixel) {
     replace_color = (RenColor) {0};
   }
 
-  x_subpixel = rencache_draw_text(font_desc, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
+  x_subpixel = rencache_draw_text(L, font_desc, 1, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
   lua_pushnumber(L, x_subpixel);
   return 1;
 }
