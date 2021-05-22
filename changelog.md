@@ -2,6 +2,17 @@ Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with so
 
 This files document the changes done in Lite XL for each release.
 
+### 1.16.10
+
+Improved syntax highlight system thanks to @liquidev and @adamharrison.
+Thanks to the new system we provide more a accurate syntax highlighting for Lua, C and C++.
+Other syntax improvements contributed by @vincens2005.
+
+Fixed bug with fonts and rencache module.
+Under very specific situations the application was crashing due to invalid memory access.
+
+Add documentation for keymap binding, thanks to @Janis-Leuenberger.
+
 ### 1.16.9
 
 Fix a bug related to nested panes resizing.
