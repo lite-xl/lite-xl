@@ -66,6 +66,9 @@ command.add(nil, {
   end,
 
   ["core:find-file"] = function()
+    if core.project_files_limit then
+      return command.perform "core:open-file"
+    end
     local files = {}
     for dir, item in core.get_project_files() do
       if item.type == "file" then

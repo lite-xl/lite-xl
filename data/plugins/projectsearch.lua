@@ -170,12 +170,17 @@ function ResultsView:draw()
   local ox, oy = self:get_content_offset()
   local x, y = ox + style.padding.x, oy + style.padding.y
   local files_number = core.project_files_number()
-  local per = self.last_file_idx / files_number
+  local per = files_number and self.last_file_idx / files_number or 1
   local text
   if self.searching then
-    text = string.format("Searching %d%% (%d of %d files, %d matches) for %q...",
-      per * 100, self.last_file_idx, files_number,
-      #self.results, self.query)
+    if files_number then
+      text = string.format("Searching %d%% (%d of %d files, %d matches) for %q...",
+        per * 100, self.last_file_idx, files_number,
+        #self.results, self.query)
+    else
+      text = string.format("Searching (%d files, %d matches) for %q...",
+        self.last_file_idx, #self.results, self.query)
+    end
   else
     text = string.format("Found %d matches for %q",
       #self.results, self.query)
