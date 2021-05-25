@@ -6,4 +6,4 @@ build*
 .lite-debug.log
 subprojects/lua
 subprojects/libagg
-sybprojects/lua
+subprojects/reproc
