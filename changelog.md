@@ -60,10 +60,6 @@ Both kind of tags can appear in new plugins in the form:
 
 where the old tag needs to appear at the end for compatibility.
 
-=======
-### 1.16.8
-
->>>>>>> 34e4123685d5bf109d4aafccbaba5d0b968c43cb
 ### 1.16.7
 
 Add support for retina displays on Mac OS X.
