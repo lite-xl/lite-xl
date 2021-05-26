@@ -89,10 +89,15 @@ command.add(nil, {
     local view = core.active_view
     if view.doc and view.doc.abs_filename then
       local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
-      core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
+      if dirname then
+        dirname = core.normalize_to_project_dir(dirname)
+        local text = dirname == core.project_dir and "" or common.home_encode(dirname) .. PATHSEP
+        core.command_view:set_text(text)
+      end
     end
     core.command_view:enter("Open File", function(text)
-      core.root_view:open_doc(core.open_doc(common.home_expand(text)))
+      local filename = system.absolute_path(common.home_expand(text))
+      core.root_view:open_doc(core.open_doc(filename))
     end, function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end, nil, function(text)
