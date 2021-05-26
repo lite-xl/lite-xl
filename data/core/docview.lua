@@ -141,29 +141,45 @@ end
 
 
 function DocView:get_col_x_offset(line, col)
-  local text = self.doc.lines[line]
-  if not text then return 0 end
-  return self:get_font():get_width(text:sub(1, col - 1))
+  local default_font = self:get_font()
+  local column = 1
+  local xoffset = 0
+  for _, type, text in self.doc.highlighter:each_token(line) do
+    local font = style.syntax_fonts[type] or default_font
+    for char in common.utf8_chars(text) do
+      if column == col then
+        return xoffset / font:subpixel_scale()
+      end
+      xoffset = xoffset + font:get_width_subpixel(char)
+      column = column + #char
+    end
+  end
+
+  return xoffset / default_font:subpixel_scale()
 end
 
 
 function DocView:get_x_offset_col(line, x)
-  local text = self.doc.lines[line]
+  local line_text = self.doc.lines[line]
 
   local xoffset, last_i, i = 0, 1, 1
-  local subpixel_scale = self:get_font():subpixel_scale();
+  local default_font = self:get_font()
+  local subpixel_scale = default_font:subpixel_scale()
   local x_subpixel = subpixel_scale * x + subpixel_scale / 2
-  for char in common.utf8_chars(text) do
-    local w = self:get_font():get_width_subpixel(char)
-    if xoffset >= subpixel_scale * x then
-      return (xoffset - x_subpixel > w / 2) and last_i or i
+  for _, type, text in self.doc.highlighter:each_token(line) do
+    local font = style.syntax_fonts[type] or default_font
+    for char in common.utf8_chars(text) do
+      local w = font:get_width_subpixel(char)
+      if xoffset >= subpixel_scale * x then
+        return (xoffset - x_subpixel > w / 2) and last_i or i
+      end
+      xoffset = xoffset + w
+      last_i = i
+      i = i + #char
     end
-    xoffset = xoffset + w
-    last_i = i
-    i = i + #char
   end
 
-  return #text
+  return #line_text
 end
 
 
@@ -308,11 +324,12 @@ end
 
 
 function DocView:draw_line_text(idx, x, y)
-  local font = self:get_font()
-  local subpixel_scale = font:subpixel_scale()
+  local default_font = self:get_font()
+  local subpixel_scale = default_font:subpixel_scale()
   local tx, ty = subpixel_scale * x, y + self:get_line_text_y_offset()
   for _, type, text in self.doc.highlighter:each_token(idx) do
     local color = style.syntax[type]
+    local font = style.syntax_fonts[type] or default_font
     if config.draw_whitespace then
       tx = renderer.draw_text_subpixel(font, text, tx, ty, color, core.replacements, style.syntax.comment)
     else
