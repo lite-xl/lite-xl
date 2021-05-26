@@ -71,6 +71,13 @@ The project module can be edited by running the `core:open-project-module`
 command — if the module does not exist for the current project when the
 command is run it will be created.
 
+## Big directories
+Often projects contain compiled, bundled or downloaded files which you don't want to edit. These files can be excluded from projects by configuring `config.ignore_files`. Such a configuration might look like `config.ignore_files = { "^%.", "node_modules" }`. This will exclude the `node_modules` folder and any file starting with `.`. You can add this to a user or project module.
+
+If a project has more files than the maximum (configured with `config.max_project_files`) lite-xl will switch to a different mode where files are lazily loaded.
+
+_Note: Because of lazy loading `core:find-file` will open `core:open-file` instead._
+
 ## Add directories to a project
 
 In addition to the project directories it is possible to add other directories

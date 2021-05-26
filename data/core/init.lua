@@ -173,11 +173,10 @@ local function project_scan_thread()
         if entries_count > config.max_project_files then
           core.project_files_limit = true
           core.status_view:show_message("!", style.accent,
-            "Too many files in project directory: stopping reading at "..
-            config.max_project_files.." files according to config.max_project_files. "..
-            "Either tweak this variable, or ignore certain files/directories by "..
-            "using the config.ignore_files variable in your user plugin or "..
-            "project config.")
+            "Too many files in project directory: stopped reading at "..
+            config.max_project_files.." files. For more information see "..
+            "usage.md at github.com/franko/lite-xl."
+            )
         end
         dir.files = t
         core.redraw = true
