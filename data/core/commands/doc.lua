@@ -33,33 +33,6 @@ local function doc_multiline_selection(sort)
   return line1, col1, line2, col2, swap
 end
 
-
-local function insert_at_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-  for line = line1, line2 do
-    local line_text = doc().lines[line]
-    if (not skip_empty or line_text:find("%S")) then
-      doc():insert(line, 1, text)
-    end
-  end
-  doc():set_selection(line1, col1 + #text, line2, col2 + #text, swap)
-end
-
-
-local function remove_from_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-  for line = line1, line2 do
-    local line_text = doc().lines[line]
-    if  line_text:sub(1, #text) == text
-    and (not skip_empty or line_text:find("%S"))
-    then
-      doc():remove(line, 1, line, #text + 1)
-    end
-  end
-  doc():set_selection(line1, col1 - #text, line2, col2 - #text, swap)
-end
-
-
 local function append_line_if_last_line(line)
   if line >= #doc().lines then
     doc():insert(line, math.huge, "\n")
@@ -92,10 +65,10 @@ end
 
 -- un/indents text; behaviour varies based on selection and un/indent.
 -- * if there's a selection, it will stay static around the 
---   text for both indenting and unindenting.
+  -- text for both indenting and unindenting.
 -- * if you are in the beginning whitespace of a line, and are indenting, the 
---   cursor will insert the exactly appropriate amount of spaces, and jump the
---   cursor to the beginning of first non whitespace characters
+  -- cursor will insert the exactly appropriate amount of spaces, and jump the
+  -- cursor to the beginning of first non whitespace characters
 -- * if you are not in the beginning whitespace of a line, and you indent, it 
 --   inserts the appropriate whitespace, as if you typed them normally.
 -- * if you are unindenting, the cursor will jump to the start of the line,
@@ -301,7 +274,7 @@ local commands = {
         if ce then
           doc():remove(line, cs, line, ce + 1)
         end
-      else
+      elseif s then
         doc():insert(line, s, comment_text)
       end
     end
