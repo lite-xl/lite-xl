@@ -281,19 +281,29 @@ local commands = {
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
     if not comment then return end
+    local indentation = get_indent_string()
     local comment_text = comment .. " "
-    local line1, _, line2 = doc():get_selection(true)
+    local line1, _, line2 = doc_multiline_selection(true)
     local uncomment = true
     for line = line1, line2 do
       local text = doc().lines[line]
-      if text:find("%S") and text:find(comment_text, 1, true) ~= 1 then
+      local s = text:find("%S")
+      local cs, ce = text:find(comment_text, s, true)
+      if s and cs ~= s then
         uncomment = false
       end
     end
-    if uncomment then
-      remove_from_start_of_selected_lines(comment_text, true)
-    else
-      insert_at_start_of_selected_lines(comment_text, true)
+    for line = line1, line2 do
+      local text = doc().lines[line]
+      local s = text:find("%S")
+      if uncomment then
+        local cs, ce = text:find(comment_text, s, true)
+        if ce then
+          doc():remove(line, cs, line, ce + 1)
+        end
+      else
+        doc():insert(line, s, comment_text)
+      end
     end
   end,
 
