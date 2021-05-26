@@ -65,10 +65,10 @@ end
 
 -- un/indents text; behaviour varies based on selection and un/indent.
 -- * if there's a selection, it will stay static around the 
-  -- text for both indenting and unindenting.
+-- text for both indenting and unindenting.
 -- * if you are in the beginning whitespace of a line, and are indenting, the 
-  -- cursor will insert the exactly appropriate amount of spaces, and jump the
-  -- cursor to the beginning of first non whitespace characters
+-- cursor will insert the exactly appropriate amount of spaces, and jump the
+-- cursor to the beginning of first non whitespace characters
 -- * if you are not in the beginning whitespace of a line, and you indent, it 
 --   inserts the appropriate whitespace, as if you typed them normally.
 -- * if you are unindenting, the cursor will jump to the start of the line,
