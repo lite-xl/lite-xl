@@ -102,7 +102,7 @@ end
 --   and remove the appropriate amount of spaces (or a tab).
 local function indent_text(unindent)
   local text = get_indent_string()
-  local line1, col1, line2, col2, swap = doc():get_selection(true)
+  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
   local _, se = doc().lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
   if unindent or doc():has_selection() or in_beginning_whitespace then
