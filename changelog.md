@@ -1,10 +1,14 @@
-Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with some enhancements.
-
 This files document the changes done in Lite XL for each release.
 
 ### 1.16.11
 
-[#126](https://github.com/franko/lite-xl/issues/126): Implemented changing fonts per syntax group.
+When opening directories with too many files lite-xl now keep diplaying files and directories in the treeview.
+The application remains functional and the directories can be explored without using too much memory.
+In this operating mode the files of the project are not indexed so the command "Core: Find File" will act as the "Core: Open File" command.
+The "Project Search: Find" will work by searching all the files present in the project directory even if they are not indexed.
+
+Implemented changing fonts per syntax group by @liquidev.
+
 Example user module snippet that makes all comments italic:
 
 ```lua
@@ -14,6 +18,12 @@ local style = require "core.style"
 local italic = renderer.font.load("italic.ttf", 14)
 style.syntax_fonts["comment"] = italic
 ```
+
+Improved indentation behavior by @adamharrison.
+
+Fix bug with close button not working in borderless window mode.
+
+Fix problem with normalization of filename for opened documents.
 
 ### 1.16.10
 
