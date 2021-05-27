@@ -76,7 +76,7 @@ local function get_non_empty_lines(syntax, lines)
 end
 
 
-local auto_detect_max_lines = 200
+local auto_detect_max_lines = 100
 
 local function detect_indent_stat(doc)
   local stat = {}
