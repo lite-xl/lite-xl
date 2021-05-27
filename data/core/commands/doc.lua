@@ -258,12 +258,14 @@ local commands = {
     local comment_text = comment .. " "
     local line1, _, line2 = doc_multiline_selection(true)
     local uncomment = true
+    local start_offset = math.huge
     for line = line1, line2 do
       local text = doc().lines[line]
       local s = text:find("%S")
       local cs, ce = text:find(comment_text, s, true)
       if s and cs ~= s then
         uncomment = false
+        start_offset = math.min(start_offset, s)
       end
     end
     for line = line1, line2 do
@@ -275,7 +277,7 @@ local commands = {
           doc():remove(line, cs, line, ce + 1)
         end
       elseif s then
-        doc():insert(line, s, comment_text)
+        doc():insert(line, start_offset, comment_text)
       end
     end
   end,
