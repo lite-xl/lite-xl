@@ -99,29 +99,11 @@ local function detect_indent_stat(doc)
 end
 
 
-local doc_on_text_change = Doc.on_text_change
-local adjust_threshold = 4
-
-local current_on_text_change = nil
-
 local function update_cache(doc)
   local type, size, score = detect_indent_stat(doc)
-  cache[doc] = { type = type, size = size, confirmed = (score >= adjust_threshold) }
+  local score_threshold = 4
+  cache[doc] = { type = type, size = size, confirmed = (score >= score_threshold) }
   doc.indent_info = cache[doc]
-  if score < adjust_threshold and doc_on_text_change then
-    current_on_text_change = function(self, ...)
-      update_cache(self)
-    end
-  elseif score >= adjust_threshold and doc_on_text_change then
-    current_on_text_change = nil
-  end
-end
-
-function Doc.on_text_change(...)
-  if current_on_text_change then
-    current_on_text_change(...)
-  end
-  doc_on_text_change(...)
 end
 
 
@@ -129,6 +111,14 @@ local new = Doc.new
 function Doc:new(...)
   new(self, ...)
   update_cache(self)
+  if not cache[self].confirmed then
+    core.add_thread(function ()
+      while not cache[self].confirmed do
+        update_cache(self)
+        coroutine.yield(1)
+      end
+    end, self)
+  end
 end
 
 local clean = Doc.clean
