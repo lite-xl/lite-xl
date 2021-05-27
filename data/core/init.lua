@@ -17,7 +17,7 @@ local core = {}
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
   if ok then
-    return t.recents, t.window
+    return t.recents, t.window, t.window_mode
   end
   return {}
 end
@@ -28,6 +28,7 @@ local function save_session()
   if fp then
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size())),
+      ", window_mode=", common.serialize(system.get_window_mode()),
       "}\n")
     fp:close()
   end
@@ -428,9 +429,11 @@ function core.init()
   end
 
   do
-    local recent_projects, window_position = load_session()
-    if window_position then
+    local recent_projects, window_position, window_mode = load_session()
+    if window_mode == "normal" then
       system.set_window_size(table.unpack(window_position))
+    else
+      system.set_window_mode("maximized")
     end
     core.recent_projects = recent_projects
   end
