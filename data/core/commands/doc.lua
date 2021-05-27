@@ -341,9 +341,10 @@ local commands = {
   end,
 
   ["doc:save-as"] = function()
+    local last_doc = core.last_active_view and core.last_active_view.doc
     if doc().filename then
       core.command_view:set_text(doc().filename)
-    elseif core.last_active_view and core.last_active_view.doc then
+    elseif last_doc and last_doc.filename then
       local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
       core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
     end
