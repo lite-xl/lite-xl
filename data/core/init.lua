@@ -432,7 +432,7 @@ function core.init()
     local recent_projects, window_position, window_mode = load_session()
     if window_mode == "normal" then
       system.set_window_size(table.unpack(window_position))
-    else
+    elseif window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
     core.recent_projects = recent_projects
