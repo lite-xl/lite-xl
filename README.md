@@ -1,5 +1,7 @@
 # Lite XL
 
+[![Discord Badge Image]](https://discord.gg/SR4ArdYr)
+
 ![screenshot-dark](https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png)
 
 A lightweight text editor written in Lua, adapted from [lite](https://github.com/rxi/lite)
@@ -124,3 +126,5 @@ Pull requests to improve or modify the editor itself are welcome.
 ## License
 This project is free software; you can redistribute it and/or modify it under
 the terms of the MIT license. See [LICENSE](LICENSE) for details.
+
+[Discord Badge Image]: https://img.shields.io/discord/847122429742809208?label=discord&logo=discord
