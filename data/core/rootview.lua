@@ -272,7 +272,7 @@ end
 
 
 function Node:get_scroll_button_index(px, py)
-  if #self.views == 1 then return 0 end
+  if #self.views == 1 then return end
   for i = 1, 2 do
     local x, y, w, h = self:get_scroll_button_rect(i)
     if px >= x and px < x + w and py >= y and py < y + h then
