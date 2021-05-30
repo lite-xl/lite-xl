@@ -140,7 +140,17 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     repeat
       res = p.pattern and { text:find(at_start and "^" .. code or code, res[2]+1) } 
         or { regex.match(code, text, res[2]+1, at_start and regex.ANCHORED or 0) }
-    until not res[1] or not close or not target[3] or text:byte(res[1]-1) ~= target[3]:byte()
+      if res[1] and close and target[3] then
+        local count = 0
+        for i = res[1] - 1, 1, -1 do
+          if text:byte(i) ~= target[3]:byte() then break end
+          count = count + 1
+        end
+        -- Check to see if the escaped character is there,
+        -- and if it is not itself escaped.
+        if count % 2 == 0 then break end
+      end
+    until not res[1] or not close or not target[3]
     return unpack(res)
   end
   
