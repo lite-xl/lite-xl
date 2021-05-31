@@ -33,33 +33,6 @@ local function doc_multiline_selection(sort)
   return line1, col1, line2, col2, swap
 end
 
-
-local function insert_at_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-  for line = line1, line2 do
-    local line_text = doc().lines[line]
-    if (not skip_empty or line_text:find("%S")) then
-      doc():insert(line, 1, text)
-    end
-  end
-  doc():set_selection(line1, col1 + #text, line2, col2 + #text, swap)
-end
-
-
-local function remove_from_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-  for line = line1, line2 do
-    local line_text = doc().lines[line]
-    if  line_text:sub(1, #text) == text
-    and (not skip_empty or line_text:find("%S"))
-    then
-      doc():remove(line, 1, line, #text + 1)
-    end
-  end
-  doc():set_selection(line1, col1 - #text, line2, col2 - #text, swap)
-end
-
-
 local function append_line_if_last_line(line)
   if line >= #doc().lines then
     doc():insert(line, math.huge, "\n")
@@ -107,7 +80,7 @@ end
 --   and remove the appropriate amount of spaces (or a tab).
 local function indent_text(unindent)
   local text = get_indent_string()
-  local line1, col1, line2, col2, swap = doc():get_selection(true)
+  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
   local _, se = doc().lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
   if unindent or doc():has_selection() or in_beginning_whitespace then
@@ -286,19 +259,31 @@ local commands = {
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
     if not comment then return end
+    local indentation = get_indent_string()
     local comment_text = comment .. " "
-    local line1, _, line2 = doc():get_selection(true)
+    local line1, _, line2 = doc_multiline_selection(true)
     local uncomment = true
+    local start_offset = math.huge
     for line = line1, line2 do
       local text = doc().lines[line]
-      if text:find("%S") and text:find(comment_text, 1, true) ~= 1 then
+      local s = text:find("%S")
+      local cs, ce = text:find(comment_text, s, true)
+      if s and cs ~= s then
         uncomment = false
+        start_offset = math.min(start_offset, s)
       end
     end
-    if uncomment then
-      remove_from_start_of_selected_lines(comment_text, true)
-    else
-      insert_at_start_of_selected_lines(comment_text, true)
+    for line = line1, line2 do
+      local text = doc().lines[line]
+      local s = text:find("%S")
+      if uncomment then
+        local cs, ce = text:find(comment_text, s, true)
+        if ce then
+          doc():remove(line, cs, line, ce + 1)
+        end
+      elseif s then
+        doc():insert(line, start_offset, comment_text)
+      end
     end
   end,
 
@@ -346,9 +331,10 @@ local commands = {
   end,
 
   ["doc:save-as"] = function()
+    local last_doc = core.last_active_view and core.last_active_view.doc
     if doc().filename then
       core.command_view:set_text(doc().filename)
-    elseif core.last_active_view and core.last_active_view.doc then
+    elseif last_doc and last_doc.filename then
       local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
       core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
     end

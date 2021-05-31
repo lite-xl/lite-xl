@@ -93,6 +93,13 @@ function TreeView:get_item_height()
 end
 
 
+function TreeView:invalidate_cache(dirname)
+  for _, v in pairs(self.cache[dirname]) do
+    v.skip = nil
+  end
+end
+
+
 function TreeView:check_cache()
   -- invalidate cache's skip values if project_files has changed
   for i = 1, #core.project_directories do
@@ -102,9 +109,7 @@ function TreeView:check_cache()
       self.last[dir.name] = dir.files
     else
       if dir.files ~= last_files then
-        for _, v in pairs(self.cache[dir.name]) do
-          v.skip = nil
-        end
+        self:invalidate_cache(dir.name)
         self.last[dir.name] = dir.files
       end
     end
@@ -208,17 +213,25 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
   if caught then
     return
   end
-  if not self.hovered_item then
+  local hovered_item = self.hovered_item
+  if not hovered_item then
     return
-  elseif self.hovered_item.type == "dir" then
+  elseif hovered_item.type == "dir" then
     if keymap.modkeys["ctrl"] and button == "left" then
-      create_directory_in(self.hovered_item)
+      create_directory_in(hovered_item)
     else
-      self.hovered_item.expanded = not self.hovered_item.expanded
+      if core.project_files_limit and not hovered_item.expanded then
+        local filename, abs_filename = hovered_item.filename, hovered_item.abs_filename
+        local index = string.find(abs_filename, filename, 1, true)
+        local dirname = string.sub(abs_filename, 1, index - 2)
+        core.scan_project_folder(dirname, filename)
+        self:invalidate_cache(dirname)
+      end
+      hovered_item.expanded = not hovered_item.expanded
     end
   else
     core.try(function()
-      local doc_filename = common.relative_path(core.project_dir, self.hovered_item.abs_filename)
+      local doc_filename = common.relative_path(core.project_dir, hovered_item.abs_filename)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
