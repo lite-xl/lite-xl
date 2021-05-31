@@ -135,8 +135,12 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
   
   local function find_text(text, p, offset, at_start, close)
-    local target, res = p.pattern or p.regex, { 1, offset - 1 }
+    local target, res = p.pattern or p.regex, { 1, offset - 1 }, p.regex
     local code = type(target) == "table" and target[close and 2 or 1] or target
+    if p.regex and type(p.regex) ~= "table" then
+      p._regex = p._regex or regex.compile(p.regex)
+      code = p._regex
+    end    
     repeat
       res = p.pattern and { text:find(at_start and "^" .. code or code, res[2]+1) } 
         or { regex.match(code, text, res[2]+1, at_start and regex.ANCHORED or 0) }
