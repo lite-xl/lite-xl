@@ -411,6 +411,20 @@ local function whitespace_replacements()
 end
 
 
+local function reload_on_user_module_save()
+  -- auto-realod style when user's module is saved by overriding Doc:Save()
+  local doc_save = Doc.save
+  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
+  function Doc:save(filename, abs_filename)
+    doc_save(self, filename, abs_filename)
+    if self.abs_filename == user_filename then
+      core.reload_module("core.style")
+      core.load_user_directory()
+    end
+  end
+end
+
+
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
@@ -553,6 +567,8 @@ function core.init()
         if item.text == "Exit" then os.exit(1) end
       end)
   end
+
+  reload_on_user_module_save()
 end
 
 
@@ -612,13 +628,19 @@ do
 end
 
 
+-- DEPRECATED function
 core.doc_save_hooks = {}
 function core.add_save_hook(fn)
+  core.error("The function core.add_save_hook is deprecated." ..
+    " Modules should now directly override the Doc:save function.")
   core.doc_save_hooks[#core.doc_save_hooks + 1] = fn
 end
 
 
+-- DEPRECATED function
 function core.on_doc_save(filename)
+  -- for backward compatibility in modules. Hooks are deprecated, the function Doc:save
+  -- should be directly overidded.
   for _, hook in ipairs(core.doc_save_hooks) do
     hook(filename)
   end
@@ -1063,17 +1085,6 @@ function core.on_error(err)
     end
   end
 end
-
-
-core.add_save_hook(function(filename)
-  local doc = core.active_view.doc
-  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  if doc and doc:is(Doc) and doc.abs_filename == user_filename then
-    core.reload_module("core.style")
-    core.load_user_directory()
-  end
-end)
-
 
 
 return core
