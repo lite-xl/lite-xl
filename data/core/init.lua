@@ -68,6 +68,7 @@ function core.set_project_dir(new_dir, change_project_fn)
     core.project_directories = {}
     core.add_project_directory(new_dir)
     core.project_files = {}
+    core.project_files_limit = false
     core.reschedule_project_scan()
     return true
   end
@@ -95,6 +96,57 @@ local function strip_trailing_slash(filename)
   return filename
 end
 
+local function compare_file(a, b)
+  return a.filename < b.filename
+end
+
+-- "root" will by an absolute path without trailing '/'
+-- "path" will be a path starting with '/' and without trailing '/'
+--    or the empty string.
+--    It will identifies a sub-path within "root.
+-- The current path location will therefore always be: root .. path.
+-- When recursing "root" will always be the same, only "path" will change.
+-- Returns a list of file "items". In eash item the "filename" will be the
+-- complete file path relative to "root" *without* the trailing '/'.
+local function get_directory_files(root, path, t, recursive, begin_hook)
+  if begin_hook then begin_hook() end
+  local size_limit = config.file_size_limit * 10e5
+  local all = system.list_dir(root .. path) or {}
+  local dirs, files = {}, {}
+
+  local entries_count = 0
+  local max_entries = config.max_project_files
+  for _, file in ipairs(all) do
+    if not common.match_pattern(file, config.ignore_files) then
+      local file = path .. PATHSEP .. file
+      local info = system.get_file_info(root .. file)
+      if info and info.size < size_limit then
+        info.filename = strip_leading_path(file)
+        table.insert(info.type == "dir" and dirs or files, info)
+        entries_count = entries_count + 1
+        if recursive and entries_count > max_entries then return nil, entries_count end
+      end
+    end
+  end
+
+  table.sort(dirs, compare_file)
+  for _, f in ipairs(dirs) do
+    table.insert(t, f)
+    if recursive and entries_count <= max_entries then
+      local subdir_t, subdir_count = get_directory_files(root, PATHSEP .. f.filename, t, recursive)
+      entries_count = entries_count + subdir_count
+      f.scanned = true
+    end
+  end
+
+  table.sort(files, compare_file)
+  for _, f in ipairs(files) do
+    table.insert(t, f)
+  end
+
+  return t, entries_count
+end
+
 local function project_scan_thread()
   local function diff_files(a, b)
     if #a ~= #b then return true end
@@ -106,71 +158,21 @@ local function project_scan_thread()
     end
   end
 
-  local function compare_file(a, b)
-    return a.filename < b.filename
-  end
-
-  -- "root" will by an absolute path without trailing '/'
-  -- "path" will be a path starting with '/' and without trailing '/'
-  --    or the empty string.
-  --    It will identifies a sub-path within "root.
-  -- The current path location will therefore always be: root .. path.
-  -- When recursing "root" will always be the same, only "path" will change.
-  -- Returns a list of file "items". In eash item the "filename" will be the
-  -- complete file path relative to "root" *without* the trailing '/'.
-  local function get_files(root, path, t)
-    coroutine.yield()
-    t = t or {}
-    local size_limit = config.file_size_limit * 10e5
-    local all = system.list_dir(root .. path) or {}
-    local dirs, files = {}, {}
-
-    local entries_count = 0
-    local max_entries = config.max_project_files
-    for _, file in ipairs(all) do
-      if not common.match_pattern(file, config.ignore_files) then
-        local file = path .. PATHSEP .. file
-        local info = system.get_file_info(root .. file)
-        if info and info.size < size_limit then
-          info.filename = strip_leading_path(file)
-          table.insert(info.type == "dir" and dirs or files, info)
-          entries_count = entries_count + 1
-          if entries_count > max_entries then break end
-        end
-      end
-    end
-
-    table.sort(dirs, compare_file)
-    for _, f in ipairs(dirs) do
-      table.insert(t, f)
-      if entries_count <= max_entries then
-        local subdir_t, subdir_count = get_files(root, PATHSEP .. f.filename, t)
-        entries_count = entries_count + subdir_count
-      end
-    end
-
-    table.sort(files, compare_file)
-    for _, f in ipairs(files) do
-      table.insert(t, f)
-    end
-
-    return t, entries_count
-  end
-
   while true do
     -- get project files and replace previous table if the new table is
     -- different
-    for i = 1, #core.project_directories do
+    local i = 1
+    while not core.project_files_limit and i <= #core.project_directories do
       local dir = core.project_directories[i]
-      local t, entries_count = get_files(dir.name, "")
+      local t, entries_count = get_directory_files(dir.name, "", {}, true)
       if diff_files(dir.files, t) then
         if entries_count > config.max_project_files then
+          core.project_files_limit = true
           core.status_view:show_message("!", style.accent,
-            "Too many files in project directory: stopping reading at "..
-            config.max_project_files.." files according to config.max_project_files. "..
-            "Either tweak this variable, or ignore certain files/directories by "..
-            "using the config.ignore_files variable in your user plugin or "..
-            "project config.")
+            "Too many files in project directory: stopped reading at "..
+            config.max_project_files.." files. For more information see "..
+            "usage.md at github.com/franko/lite-xl."
+            )
         end
         dir.files = t
         core.redraw = true
@@ -178,10 +180,51 @@ local function project_scan_thread()
       if dir.name == core.project_dir then
         core.project_files = dir.files
       end
+      i = i + 1
     end
 
     -- wait for next scan
     coroutine.yield(config.project_scan_rate)
+  end
+end
+
+
+function core.scan_project_folder(dirname, filename)
+  for _, dir in ipairs(core.project_directories) do
+    if dir.name == dirname then
+      for i, file in ipairs(dir.files) do
+        local file = dir.files[i]
+        if file.filename == filename then
+          if file.scanned then return end
+          local new_files = get_directory_files(dirname, PATHSEP .. filename, {})
+          for j, new_file in ipairs(new_files) do
+            table.insert(dir.files, i + j, new_file)
+          end
+          file.scanned = true
+          return
+        end
+      end
+    end
+  end
+end
+
+
+local function find_project_files_co(root, path)
+  local size_limit = config.file_size_limit * 10e5
+  local all = system.list_dir(root .. path) or {}
+  for _, file in ipairs(all) do
+    if not common.match_pattern(file, config.ignore_files) then
+      local file = path .. PATHSEP .. file
+      local info = system.get_file_info(root .. file)
+      if info and info.size < size_limit then
+        info.filename = strip_leading_path(file)
+        if info.type == "file" then
+          coroutine.yield(root, info)
+        else
+          find_project_files_co(root, PATHSEP .. info.filename)
+        end
+      end
+    end
   end
 end
 
@@ -200,17 +243,27 @@ end
 
 
 function core.get_project_files()
-  local state = { dir_index = 1, file_index = 0 }
-  return project_files_iter, state
+  if core.project_files_limit then
+    return coroutine.wrap(function()
+      for _, dir in ipairs(core.project_directories) do
+        find_project_files_co(dir.name, "")
+      end
+    end)
+  else
+    local state = { dir_index = 1, file_index = 0 }
+    return project_files_iter, state
+  end
 end
 
 
 function core.project_files_number()
-  local n = 0
-  for i = 1, #core.project_directories do
-    n = n + #core.project_directories[i].files
+  if not core.project_files_limit then
+    local n = 0
+    for i = 1, #core.project_directories do
+      n = n + #core.project_directories[i].files
+    end
+    return n
   end
-  return n
 end
 
 
@@ -270,7 +323,7 @@ local style = require "core.style"
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
--- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Medium.ttf", 13 * SCALE)
+-- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
 -- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
 --
 -- font names used by lite:
@@ -353,6 +406,20 @@ local function whitespace_replacements()
 end
 
 
+local function reload_on_user_module_save()
+  -- auto-realod style when user's module is saved by overriding Doc:Save()
+  local doc_save = Doc.save
+  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
+  function Doc:save(filename)
+    doc_save(self)
+    if self.abs_filename == user_filename then
+      core.reload_module("core.style")
+      core.load_user_directory()
+    end
+  end
+end
+
+
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
@@ -374,7 +441,7 @@ function core.init()
     local recent_projects, window_position, window_mode = load_session()
     if window_mode == "normal" then
       system.set_window_size(table.unpack(window_position))
-    else
+    elseif window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
     core.recent_projects = recent_projects
@@ -495,6 +562,8 @@ function core.init()
         if item.text == "Exit" then os.exit(1) end
       end)
   end
+
+  reload_on_user_module_save()
 end
 
 
@@ -554,13 +623,19 @@ do
 end
 
 
+-- DEPRECATED function
 core.doc_save_hooks = {}
 function core.add_save_hook(fn)
+  core.error("The function core.add_save_hook is deprecated." ..
+    " Modules should now directly override the Doc:save function.")
   core.doc_save_hooks[#core.doc_save_hooks + 1] = fn
 end
 
 
+-- DEPRECATED function
 function core.on_doc_save(filename)
+  -- for backward compatibility in modules. Hooks are deprecated, the function Doc:save
+  -- should be directly overidded.
   for _, hook in ipairs(core.doc_save_hooks) do
     hook(filename)
   end
@@ -1040,17 +1115,6 @@ function core.on_error(err)
     end
   end
 end
-
-
-core.add_save_hook(function(filename)
-  local doc = core.active_view.doc
-  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  if doc and doc:is(Doc) and doc.abs_filename == user_filename then
-    core.reload_module("core.style")
-    core.load_user_directory()
-  end
-end)
-
 
 
 return core
