@@ -12,36 +12,12 @@ config.scale_mode = "code"
 config.scale_use_mousewheel = true
 
 local scale_level = 0
-local scale_steps = 0.1
-local font_cache = setmetatable({}, { __mode = "k" })
-
--- the following should be kept in sync with core.style's default font settings
-font_cache[style.font]      = { DATADIR .. "/fonts/font.ttf",      14   * SCALE }
-font_cache[style.big_font]  = { DATADIR .. "/fonts/font.ttf",      34   * SCALE }
-font_cache[style.icon_font] = { DATADIR .. "/fonts/icons.ttf",     14   * SCALE }
-font_cache[style.code_font] = { DATADIR .. "/fonts/monospace.ttf", 13.5 * SCALE }
-
-
-local load_font = renderer.font.load
-function renderer.font.load(...)
-  local res = load_font(...)
-  font_cache[res] = { ... }
-  return res
-end
-
-
-local function scale_font(font, s)
-  local fc = font_cache[font]
-  return renderer.font.load(fc[1], fc[2] * s)
-end
-
+local scale_steps = 0.05
 
 local current_scale = SCALE
-local default = current_scale
-
+local default_scale = SCALE
 
 local function get_scale() return current_scale end
-
 
 local function set_scale(scale)
   scale = common.clamp(scale, 0.2, 6)
@@ -50,7 +26,7 @@ local function set_scale(scale)
   local scrolls = {}
   for _, view in ipairs(core.root_view.root_node:get_children()) do
     local n = view:get_scrollable_size()
-    if n ~= math.huge and not view:is(CommandView) then
+    if n ~= math.huge and not view:is(CommandView) and n > view.size.y then
       scrolls[view] = view.scroll.y / (n - view.size.y)
     end
   end
@@ -59,7 +35,7 @@ local function set_scale(scale)
   current_scale = scale
 
   if config.scale_mode == "ui" then
-    SCALE = current_scale
+    SCALE = scale
 
     style.padding.x      = style.padding.x      * s
     style.padding.y      = style.padding.y      * s
@@ -68,12 +44,12 @@ local function set_scale(scale)
     style.caret_width    = style.caret_width    * s
     style.tab_width      = style.tab_width      * s
 
-    style.big_font  = scale_font(style.big_font,  s)
-    style.icon_font = scale_font(style.icon_font, s)
-    style.font      = scale_font(style.font,      s)
+    for _, name in ipairs {"font", "big_font", "icon_font", "icon_big_font", "code_font"} do
+      renderer.font.set_size(style[name], s * style[name]:get_size())
+    end
+  else
+    renderer.font.set_size(style.code_font, s * style.code_font:get_size())
   end
-
-  style.code_font = scale_font(style.code_font, s)
 
   -- restore scroll positions
   for view, n in pairs(scrolls) do
@@ -98,17 +74,17 @@ end
 
 local function res_scale()
     scale_level = 0
-    set_scale(default)
+    set_scale(default_scale)
 end
 
 local function inc_scale()
     scale_level = scale_level + 1
-    set_scale(default + scale_level * scale_steps)
+    set_scale(default_scale + scale_level * scale_steps)
 end
 
 local function dec_scale()
     scale_level = scale_level - 1
-    set_scale(default + scale_level * scale_steps)
+    set_scale(default_scale + scale_level * scale_steps)
 end
 
 
