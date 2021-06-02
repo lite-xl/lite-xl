@@ -415,8 +415,8 @@ local function reload_on_user_module_save()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  function Doc:save(filename)
-    doc_save(self)
+  function Doc:save(filename, abs_filename)
+    doc_save(self, filename, abs_filename)
     if self.abs_filename == user_filename then
       core.reload_module("core.style")
       core.load_user_directory()
