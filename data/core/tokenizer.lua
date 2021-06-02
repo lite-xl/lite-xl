@@ -48,29 +48,6 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
 end
 
 
-local function is_escaped(text, idx, esc)
-  local byte = esc:byte()
-  local count = 0
-  for i = idx - 1, 1, -1 do
-    if text:byte(i) ~= byte then break end
-    count = count + 1
-  end
-  return count % 2 == 1
-end
-
-
-local function find_non_escaped(text, pattern, offset, esc)
-  while true do
-    local s, e = text:find(pattern, offset)
-    if not s then break end
-    if esc and is_escaped(text, s, esc) then
-      offset = e + 1
-    else
-      return s, e
-    end
-  end
-end
-
 -- State is a 32-bit number that is four separate bytes, illustrating how many
 -- differnet delimiters we have open, and which subsyntaxes we have active.
 -- At most, there are 3 subsyntaxes active at the same time. Beyond that,
@@ -155,26 +132,44 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     set_subsyntax_pattern_idx(0)
     current_syntax, subsyntax_info, current_pattern_idx, current_level = 
       retrieve_syntax_state(incoming_syntax, state)
+  end
   
+  local function find_text(text, p, offset, at_start, close)
+    local target, res = p.pattern or p.regex, { 1, offset - 1 }, p.regex
+    local code = type(target) == "table" and target[close and 2 or 1] or target
+    if p.regex and type(p.regex) ~= "table" then
+      p._regex = p._regex or regex.compile(p.regex)
+      code = p._regex
+    end    
+    repeat
+      res = p.pattern and { text:find(at_start and "^" .. code or code, res[2]+1) } 
+        or { regex.match(code, text, res[2]+1, at_start and regex.ANCHORED or 0) }
+      if res[1] and close and target[3] then
+        local count = 0
+        for i = res[1] - 1, 1, -1 do
+          if text:byte(i) ~= target[3]:byte() then break end
+          count = count + 1
+        end
+        -- Check to see if the escaped character is there,
+        -- and if it is not itself escaped.
+        if count % 2 == 0 then break end
+      end
+    until not res[1] or not close or not target[3]
+    return unpack(res)
   end
   
   while i <= #text do
     -- continue trying to match the end pattern of a pair if we have a state set
     if current_pattern_idx > 0 then
       local p = current_syntax.patterns[current_pattern_idx]
-      local s, e = find_non_escaped(text, p.pattern[2], i, p.pattern[3])
+      local s, e = find_text(text, p, i, false, true)
 
       local cont = true
       -- If we're in subsyntax mode, always check to see if we end our syntax
       -- first, before the found delimeter, as ending the subsyntax takes
       -- precedence over ending the delimiter in the subsyntax.
       if subsyntax_info then
-        local ss, se = find_non_escaped(
-          text,
-          subsyntax_info.pattern[2],
-          i,
-          subsyntax_info.pattern[3]
-        )
+        local ss, se = find_text(text, subsyntax_info, i, false, true)
         -- If we find that we end the subsyntax before the 
         -- delimiter, push the token, and signal we shouldn't
         -- treat the bit after as a token to be normally parsed
@@ -202,12 +197,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     -- we're ending early in the middle of a delimiter, or
     -- just normally, upon finding a token.
     if subsyntax_info then
-      local s, e = find_non_escaped(
-        text,
-        "^" .. subsyntax_info.pattern[2],
-        i,
-        nil
-      )
+      local s, e = find_text(text, subsyntax_info, i, true, true)
       if s then
         push_token(res, subsyntax_info.type, text:sub(i, e))
         -- On finding unescaped delimiter, pop it.
@@ -219,16 +209,12 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     -- find matching pattern
     local matched = false
     for n, p in ipairs(current_syntax.patterns) do
-      local pattern = (type(p.pattern) == "table") and p.pattern[1] or p.pattern
-      local find_results = { text:find("^" .. pattern, i) }
-      local start, fin = find_results[1], find_results[2]
-
-      if start then
+      local find_results = { find_text(text, p, i, true, false) }
+      if find_results[1] then
         -- matched pattern; make and add tokens
         push_tokens(res, current_syntax, p, text, find_results)
-
         -- update state if this was a start|end pattern pair
-        if type(p.pattern) == "table" then
+        if type(p.pattern or p.regex) == "table" then
           -- If we have a subsyntax, push that onto the subsyntax stack.
           if p.syntax then
             push_subsyntax(p, n)
@@ -236,9 +222,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
             set_subsyntax_pattern_idx(n)
           end
         end
-        
         -- move cursor past this token
-        i = fin + 1
+        i = find_results[2] + 1
         matched = true
         break
       end
