@@ -13,6 +13,7 @@
   #include <X11/Xlib.h>
   #include <X11/Xatom.h>
   #include <X11/Xresource.h>
+  #include <signal.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
 #endif
@@ -112,6 +113,8 @@ int main(int argc, char **argv) {
   HINSTANCE lib = LoadLibrary("user32.dll");
   int (*SetProcessDPIAware)() = (void*) GetProcAddress(lib, "SetProcessDPIAware");
   SetProcessDPIAware();
+#else
+  signal(SIGPIPE, SIG_IGN);
 #endif
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
