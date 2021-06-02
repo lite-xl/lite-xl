@@ -1072,6 +1072,11 @@ function core.blink_reset()
 end
 
 
+function core.request_cursor(value)
+  core.cursor_change_req = value
+end
+
+
 function core.on_error(err)
   -- write error to file
   local fp = io.open(USERDIR .. "/error.txt", "wb")

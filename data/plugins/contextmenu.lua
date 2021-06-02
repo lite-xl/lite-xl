@@ -110,14 +110,16 @@ end
 function ContextMenu:on_mouse_moved(px, py)
   if not self.show_context_menu then return end
 
+  self.selected = -1
   for i, item, x, y, w, h in self:each_item() do
     if px > x and px <= x + w and py > y and py <= y + h then
-      system.set_cursor("arrow")
       self.selected = i
-      return
+      break
     end
   end
-  self.selected = -1
+  if self.selected >= 0 then
+    core.request_cursor("arrow")
+  end
 end
 
 function ContextMenu:on_selected(item)

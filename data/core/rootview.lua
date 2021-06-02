@@ -783,7 +783,7 @@ end
 
 function RootView:on_mouse_moved(x, y, dx, dy)
   if core.active_view == core.nag_view then
-    system.set_cursor("arrow")
+    core.request_cursor("arrow")
     core.active_view:on_mouse_moved(x, y, dx, dy)
     return
   end
@@ -808,14 +808,14 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local tab_index = node and node:get_tab_overlapping_point(x, y)
   if node and node:get_scroll_button_index(x, y) then
-    system.set_cursor("arrow")
+    core.request_cursor("arrow")
   elseif div then
     local axis = (div.type == "hsplit" and "x" or "y")
     if div.a:is_resizable(axis) and div.b:is_resizable(axis) then
-      system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
+      core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
     end
   elseif tab_index then
-    system.set_cursor("arrow")
+    core.request_cursor("arrow")
     if self.dragged_node and self.dragged_node ~= tab_index then
       local tab = node.views[self.dragged_node]
       table.remove(node.views, self.dragged_node)
@@ -823,7 +823,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
       self.dragged_node = tab_index
     end
   else
-    system.set_cursor(node.active_view.cursor)
+    core.request_cursor(node.active_view.cursor)
   end
 end
 
@@ -857,6 +857,10 @@ function RootView:draw()
   while #self.deferred_draws > 0 do
     local t = table.remove(self.deferred_draws)
     t.fn(table.unpack(t))
+  end
+  if core.cursor_change_req then
+    system.set_cursor(core.cursor_change_req)
+    core.cursor_change_req = nil
   end
 end
 
