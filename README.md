@@ -1,6 +1,6 @@
 # Lite XL
 
-[![Discord Badge Image]](https://discord.gg/SR4ArdYr)
+[![Discord Badge Image]](https://discord.gg/RWzqC3nx7K)
 
 ![screenshot-dark]
 
