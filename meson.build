@@ -32,9 +32,7 @@ foreach data_module : ['core', 'fonts', 'plugins', 'colors']
     install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
 
-foreach file : ['usage.md', 'licenses.md', 'contributors.md', 'default-keymap.md']
-    install_data('doc' / file, install_dir : lite_docdir)
-endforeach
+install_data('licenses/licenses.md', install_dir : lite_docdir)
 
 lite_link_args = []
 if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
