@@ -11,13 +11,13 @@ local DocView = require "core.docview"
 local Doc = require "core.doc"
 
 -- Amount of characters that need to be written for autocomplete
-config.autocomplete_min_len = 1
+config.autocomplete_min_len = config.autocomplete_min_len or 1
 -- The max amount of visible items
-config.autocomplete_max_height = 6
+config.autocomplete_max_height = config.autocomplete_max_height or 6
 -- The max amount of scrollable items
-config.autocomplete_max_suggestions = 100
+config.autocomplete_max_suggestions = config.autocomplete_max_suggestions or 100
 -- Maximum amount of symbols to cache per document
-config.max_symbols = 2000
+config.max_symbols = config.max_symbols or 2000
 
 local autocomplete = {}
 
@@ -466,6 +466,13 @@ function autocomplete.complete(completions, on_close)
   autocomplete.add(completions, true)
 
   autocomplete.open(on_close)
+end
+
+function autocomplete.can_complete()
+  if #partial >= config.autocomplete_min_len then
+    return true
+  end
+  return false
 end
 
 
