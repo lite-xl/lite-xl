@@ -17,8 +17,6 @@ local scale_steps = 0.05
 local current_scale = SCALE
 local default_scale = SCALE
 
-local function get_scale() return current_scale end
-
 local function set_scale(scale)
   scale = common.clamp(scale, 0.2, 6)
 
@@ -99,6 +97,4 @@ keymap.add {
   ["ctrl+-"] = "scale:decrease",
   ["ctrl+="] = "scale:increase",
 }
-
-return { get_scale = get_scale, set_scale = set_scale }
 
