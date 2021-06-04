@@ -200,8 +200,8 @@ end
 
 
 function core.scan_project_folder(dirname, filename)
-  for _, dir in ipairs(core.project_directories) do
-    if dir.name == dirname then
+  for _, dir in ipairs(core.project_entries) do
+    if dir.item.type == 'dir' and dir.name == dirname then
       for i, file in ipairs(dir.files) do
         local file = dir.files[i]
         if file.filename == filename then
@@ -483,7 +483,7 @@ function core.init()
 
   do
     -- FIXME: change the name for "recents_open"
-    local window_position
+    local window_position, window_mode
     core.recent_projects, core.recents_open, window_position, window_mode = load_session()
     if window_mode == "normal" then
       system.set_window_size(table.unpack(window_position))
