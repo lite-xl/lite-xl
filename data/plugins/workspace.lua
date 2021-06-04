@@ -29,7 +29,7 @@ local function workspace_files_for(project_dir)
 end
 
 
-local function load_workspace_file(project_dir)
+local function consume_workspace_file(project_dir)
   for filename, id in workspace_files_for(project_dir) do
     local load_f = loadfile(filename)
     local workspace = load_f and load_f()
@@ -99,16 +99,26 @@ end
 
 local function load_view(t)
   if t.type == "doc" then
-    local ok, doc = pcall(core.open_doc, t.filename)
-    if not ok then
-      return DocView(core.open_doc())
+    local dv
+    if not t.filename then
+      -- document not associated to a file
+      dv = DocView(core.open_doc())
+      if t.text then dv.doc:insert(1, 1, t.text) end
+    else
+      -- we have a filename, try to read the file
+      local ok, doc = pcall(core.open_doc, t.filename)
+      if ok then
+        dv = DocView(doc)
+      end
     end
-    local dv = DocView(doc)
-    if t.text then doc:insert(1, 1, t.text) end
-    doc:set_selection(table.unpack(t.selection))
-    dv.last_line, dv.last_col = doc:get_selection()
-    dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
-    dv.scroll.y, dv.scroll.to.y = t.scroll.y, t.scroll.y
+    -- doc view "dv" can be nil here if the filename associated to the document
+    -- cannot be read.
+    if dv and dv.doc then
+      dv.doc:set_selection(table.unpack(t.selection))
+      dv.last_line, dv.last_col = dv.doc:get_selection()
+      dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
+      dv.scroll.y, dv.scroll.to.y = t.scroll.y, t.scroll.y
+    end
     return dv
   end
   return require(t.module)()
@@ -141,13 +151,19 @@ end
 local function load_node(node, t)
   if t.type == "leaf" then
     local res
-    for _, v in ipairs(t.views) do
+    local active_view
+    for i, v in ipairs(t.views) do
       local view = load_view(v)
-      if v.active then res = view end
-      node:add_view(view)
+      if view then
+        if v.active then res = view end
+        node:add_view(view)
+        if t.active_view == i then
+          active_view = view
+        end
+      end
     end
-    if t.active_view then
-      node:set_active_view(node.views[t.active_view])
+    if active_view then
+      node:set_active_view(active_view)
     end
     return res
   else
@@ -184,7 +200,7 @@ end
 
 
 local function load_workspace()
-  local workspace = load_workspace_file(core.project_dir)
+  local workspace = consume_workspace_file(core.project_dir)
   if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
     local active_view = load_node(root, workspace.documents)
