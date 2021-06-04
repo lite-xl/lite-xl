@@ -88,9 +88,9 @@ end
 
 
 function DocView:get_filename()
-  if self.doc.abs_filename then
+  if self.doc.filename then
     local post = self.doc:is_dirty() and "*" or ""
-    return common.home_encode(self.doc.abs_filename) .. post
+    return common.home_encode(self.doc.filename) .. post
   end
   return self:get_name()
 end

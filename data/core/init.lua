@@ -4,6 +4,7 @@ local common = require "core.common"
 local config = require "core.config"
 local style = require "core.style"
 local command
+local project
 local keymap
 local RootView
 local StatusView
@@ -20,43 +21,62 @@ local function load_session()
   if ok then
     return t.recents, t.window, t.window_mode
   end
-  return {}
+  return {}, {dir={}, file={}}
 end
 
 
 local function save_session()
   local fp = io.open(USERDIR .. "/session.lua", "w")
   if fp then
-    fp:write("return {recents=", common.serialize(core.recent_projects),
-      ", window=", common.serialize(table.pack(system.get_window_size())),
-      ", window_mode=", common.serialize(system.get_window_mode()),
-      "}\n")
+    fp:write(string.format(
+      "return { recent_projects= %s, recents_open= %s, window= %s, window_mode= %s}\n",
+      common.serialize(core.recent_projects),
+      common.serialize(core.recents_open),
+      common.serialize(table.pack(system.get_window_size())),
+      common.serialize(system.get_window_mode())
+    ))
     fp:close()
   end
 end
 
 
-local function normalize_path(s)
-  local drive, path = s:match("^([a-z]):([/\\].*)")
-  return drive and drive:upper() .. ":" .. path or s
-end
-
-
-local function update_recents_project(action, dir_path_abs)
-  local dirname = normalize_path(dir_path_abs)
-  if not dirname then return end
-  local recents = core.recent_projects
+local function update_recents(recents, action, name)
   local n = #recents
   for i = 1, n do
-    if dirname == recents[i] then
+    if name == recents[i] then
       table.remove(recents, i)
       break
     end
   end
   if action == "add" then
-    table.insert(recents, 1, dirname)
+    table.insert(recents, 1, name)
   end
 end
+
+
+function core.set_recent_project(name)
+  update_recents(core.recent_projects, "add", name)
+end
+
+
+function core.set_recent_open(type, filename)
+  update_recents(core.recents_open[type], "add", filename)
+end
+
+
+-- FIXME: remove or adapt
+--[[ local function cleanup_recent_projects()
+  local recents = core.recent_projects
+  local i = 1
+  while i <= #recents do
+    local info = system.get_file_info(recents[i])
+    if not info or info.type ~= "dir" then
+      table.remove(recents, i)
+    else
+      i = i + 1
+    end
+  end
+end ]]
 
 
 function core.reschedule_project_scan()
@@ -66,28 +86,14 @@ function core.reschedule_project_scan()
 end
 
 
-function core.set_project_dir(new_dir, change_project_fn)
-  local chdir_ok = pcall(system.chdir, new_dir)
-  if chdir_ok then
-    if change_project_fn then change_project_fn() end
-    core.project_dir = normalize_path(new_dir)
-    core.project_directories = {}
-    core.add_project_directory(new_dir)
-    core.project_files = {}
-    core.project_files_limit = false
-    core.reschedule_project_scan()
-    return true
-  end
-  return false
-end
-
-
-function core.open_folder_project(dir_path_abs)
-  if core.set_project_dir(dir_path_abs, core.on_quit_project) then
-    core.root_view:close_all_docviews()
-    update_recents_project("add", dir_path_abs)
-    core.on_enter_project(dir_path_abs)
-  end
+function core.new_project_from_directory(dir_path_abs)
+  core.root_view:close_all_docviews()
+  core.project_entries = {}
+  core.add_project_directory(dir_path_abs)
+  system.chdir(dir_path_abs)
+  core.working_dir = dir_path_abs
+  core.set_recent_open("dir", dir_path_abs)
+  core.reschedule_project_scan()
 end
 
 
@@ -168,23 +174,21 @@ local function project_scan_thread()
     -- get project files and replace previous table if the new table is
     -- different
     local i = 1
-    while not core.project_files_limit and i <= #core.project_directories do
-      local dir = core.project_directories[i]
-      local t, entries_count = get_directory_files(dir.name, "", {}, true)
-      if diff_files(dir.files, t) then
-        if entries_count > config.max_project_files then
-          core.project_files_limit = true
-          core.status_view:show_message("!", style.accent,
+    while not core.project_files_limit and i <= #core.project_entries do
+      local dir = core.project_entries[i]
+      if dir.item.type == 'dir' then
+        local t, entries_count = get_directory_files(dir.name, "", {}, true)
+        if diff_files(dir.files, t) then
+          if entries_count > config.max_project_files then
+            core.project_files_limit = true
+            core.status_view:show_message("!", style.accent,
             "Too many files in project directory: stopped reading at "..
             config.max_project_files.." files. For more information see "..
-            "usage.md at github.com/franko/lite-xl."
-            )
+            "usage.md at github.com/franko/lite-xl.")
+          end
+          dir.files = t
+          core.redraw = true
         end
-        dir.files = t
-        core.redraw = true
-      end
-      if dir.name == core.project_dir then
-        core.project_files = dir.files
       end
       i = i + 1
     end
@@ -196,8 +200,8 @@ end
 
 
 function core.scan_project_folder(dirname, filename)
-  for _, dir in ipairs(core.project_directories) do
-    if dir.name == dirname then
+  for _, dir in ipairs(core.project_entries) do
+    if dir.item.type == 'dir' and dir.name == dirname then
       for i, file in ipairs(dir.files) do
         local file = dir.files[i]
         if file.filename == filename then
@@ -236,15 +240,15 @@ end
 
 
 local function project_files_iter(state)
-  local dir = core.project_directories[state.dir_index]
+  local dir = core.project_entries[state.dir_index]
   state.file_index = state.file_index + 1
   while dir and state.file_index > #dir.files do
     state.dir_index = state.dir_index + 1
     state.file_index = 1
-    dir = core.project_directories[state.dir_index]
+    dir = core.project_entries[state.dir_index]
   end
   if not dir then return end
-  return dir.name, dir.files[state.file_index]
+  return dir.name, dir.item.filename, dir.files[state.file_index]
 end
 
 
@@ -265,10 +269,32 @@ end
 function core.project_files_number()
   if not core.project_files_limit then
     local n = 0
-    for i = 1, #core.project_directories do
-      n = n + #core.project_directories[i].files
+    for i = 1, #core.project_entries do
+      n = n + #core.project_entries[i].files
     end
     return n
+  end
+end
+
+
+function core.resolve_project_filename(filename)
+  local dirname, basename = filename:match("(.-)[/\\](.+)")
+  for i = 1, #core.project_entries do
+    local dir = core.project_entries[i]
+    if dir.item.filename == dirname then
+      return dir.name .. PATHSEP .. basename
+    end
+  end
+end
+
+
+function core.as_project_filename(filename)
+  for i = 1, #core.project_entries do
+    local dir = core.project_entries[i]
+    if common.path_belongs_to(filename, dir.name) then
+      local dirpath = common.dirname(dir.name)
+      return filename:sub(#dirpath + 2)
+    end
   end
 end
 
@@ -293,7 +319,7 @@ local function create_user_directory()
       error("cannot create directory: \"" .. dirname_create .. "\"")
     end
   end
-  for _, modname in ipairs {'plugins', 'colors', 'fonts'} do
+  for _, modname in ipairs {'plugins', 'projects', 'colors', 'fonts'} do
     local subdirname = dirname_create .. '/' .. modname
     if not system.mkdir(subdirname) then
       error("cannot create directory: \"" .. subdirname .. "\"")
@@ -377,26 +403,37 @@ function core.load_user_directory()
   end)
 end
 
+function core.add_project_file(path)
+  path = common.normalize_path(path)
+  local entry = {
+    name = path,
+    item = {filename = common.basename(path), type = "file", topdir = true},
+    files = {path}
+  }
+  table.insert(core.project_entries, entry)
+end
+
 
 function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
-  path = normalize_path(path)
-  table.insert(core.project_directories, {
+  path = common.normalize_path(path)
+  local entry = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files = {}
-  })
+  }
+  table.insert(core.project_entries, entry)
 end
 
 
-function core.remove_project_directory(path)
+function core.remove_project_entry(path)
   -- skip the fist directory because it is the project's directory
-  for i = 2, #core.project_directories do
-    local dir = core.project_directories[i]
+  for i = 2, #core.project_entries do
+    local dir = core.project_entries[i]
     if dir.name == path then
-      table.remove(core.project_directories, i)
+      table.remove(core.project_entries, i)
       return true
     end
   end
@@ -416,9 +453,9 @@ local function reload_on_user_module_save()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  function Doc:save(filename, abs_filename)
-    doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename then
+  function Doc:save(filename)
+    doc_save(self, filename)
+    if self.filename == user_filename then
       core.reload_module("core.style")
       core.load_user_directory()
     end
@@ -429,6 +466,7 @@ end
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
+  project = require "core.project"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
@@ -444,62 +482,52 @@ function core.init()
   end
 
   do
-    local recent_projects, window_position, window_mode = load_session()
+    -- FIXME: change the name for "recents_open"
+    local window_position, window_mode
+    core.recent_projects, core.recents_open, window_position, window_mode = load_session()
     if window_mode == "normal" then
       system.set_window_size(table.unpack(window_position))
     elseif window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
-    core.recent_projects = recent_projects
   end
+  -- cleanup_recent_projects()
 
-  local project_dir = core.recent_projects[1] or "."
-  local project_dir_explicit = false
-  local files = {}
-  local delayed_error
-  for i = 2, #ARGS do
-    local arg_filename = strip_trailing_slash(ARGS[i])
-    local info = system.get_file_info(arg_filename) or {}
-    if info.type == "file" then
-      local file_abs = system.absolute_path(arg_filename)
-      if file_abs then
-        table.insert(files, file_abs)
-        project_dir = file_abs:match("^(.+)[/\\].+$")
-      end
-    elseif info.type == "dir" then
-      project_dir = arg_filename
-      project_dir_explicit = true
-    else
-      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
-    end
-  end
-
-  core.frame_start = 0
-  core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
-  core.window_mode = "normal"
-  core.threads = setmetatable({}, { __mode = "k" })
-  core.blink_start = system.get_time()
-  core.blink_timer = core.blink_start
+  core.project_entries = {}
+  core.project_name = ""
 
-  local project_dir_abs = system.absolute_path(project_dir)
-  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
-  if set_project_ok then
-    if project_dir_explicit then
-      update_recents_project("add", project_dir_abs)
-    end
-  else
-    if not project_dir_explicit then
-      update_recents_project("remove", project_dir)
-    end
-    project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs) then
-      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
-      os.exit(1)
+  local init_files = {}
+  local delayed_errors = {}
+  for i = 2, #ARGS do
+    local filename = strip_trailing_slash(ARGS[i])
+    local info = system.get_file_info(filename)
+    if info and info.type == "file" then
+      filename = system.absolute_path(filename)
+      if filename then
+        core.add_project_file(filename)
+        table.insert(init_files, filename)
+      end
+    elseif info and info.type == "dir" then
+      filename = system.absolute_path(filename)
+      if filename then
+        core.add_project_directory(filename)
+        -- FIXME
+        -- update_recents(core.recents_open.dir, "add", filename)
+      end
+    else
+      local error_msg = string.format("error: invalid file or directory \"%s\"", ARGS[i])
+      table.insert(delayed_errors, error_msg)
     end
   end
 
+  core.threads = setmetatable({}, { __mode = "k" })
+  core.frame_start = 0
+  core.clip_rect_stack = {{ 0,0,0,0 }}
+  core.window_mode = "normal"
+  core.blink_start = system.get_time()
+  core.blink_timer = core.blink_start
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
@@ -522,21 +550,29 @@ function core.init()
 
   core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
+
+  for _, project_entry in ipairs(core.project_entries) do
+    if project_entry.item.type == "dir" then
+      core.log_quiet("Setting working directory to \"%s\"", project_entry.name)
+      system.chdir(project_entry.name)
+      core.working_dir = project_entry.name
+      break
+    end
+  end
+  if not core.working_dir then
+    core.working_dir = system.absolute_path(".")
+  end
+
   local got_user_error = not core.load_user_directory()
   local plugins_success, plugins_refuse_list = core.load_plugins()
-
-  do
-    local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %s", pname, pdir)
-  end
   local got_project_error = not core.load_project_module()
 
-  for _, filename in ipairs(files) do
+  for _, filename in ipairs(init_files) do
     core.root_view:open_doc(core.open_doc(filename))
   end
 
-  if delayed_error then
-    core.error(delayed_error)
+  for _, error_msg in ipairs(delayed_errors) do
+    core.error(error_msg)
   end
 
   if not plugins_success or got_user_error or got_project_error then
@@ -620,12 +656,16 @@ function core.temp_filename(ext)
       .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
--- override to perform an operation before quitting or entering the
--- current project
-do
-  local do_nothing = function() end
-  core.on_quit_project = do_nothing
-  core.on_enter_project = do_nothing
+
+function core.on_quit_project()
+  local filename = USERDIR .. PATHSEP .. "workspace.lua"
+  core.try(project.save_workspace, filename)
+end
+
+
+function core.on_enter_project(new_dir)
+  -- FIXME: check the logic
+  -- core.try(project.load_workspace, USERDIR .. PATHSEP .. "workspace.lua")
 end
 
 
@@ -755,6 +795,7 @@ end
 
 
 function core.set_visited(filename)
+  filename = core.as_project_filename(filename) or common.home_encode(filename)
   for i = 1, #core.visited_files do
     if core.visited_files[i] == filename then
       table.remove(core.visited_files, i)
@@ -808,29 +849,41 @@ function core.pop_clip_rect()
   renderer.set_clip_rect(x, y, w, h)
 end
 
-
-function core.normalize_to_project_dir(filename)
-  filename = common.normalize_path(filename)
-  if common.path_belongs_to(filename, core.project_dir) then
-    filename = common.relative_path(core.project_dir, filename)
+-- The function below works like system.absolute_path except it
+-- doesn't fail if the file does not exist. We consider that the
+-- current dir is core.working_dir so relative filename are considered
+-- to be in core.working_dir.
+-- Please note that .. or . in the filename are not taken into account.
+-- This function should get only filenames normalized using
+-- common.normalize_path function.
+function core.working_dir_absolute_path(filename)
+  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
+    return filename
+  else
+    return core.working_dir .. PATHSEP .. filename
   end
-  return filename
+end
+
+function core.normalize_to_working_dir(filename)
+  filename = common.normalize_path(filename)
+  return core.working_dir_absolute_path(filename)
 end
 
 
 function core.open_doc(filename)
+  local new_file = not filename or not system.get_file_info(filename)
   if filename then
+    -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    local abs_filename = system.absolute_path(filename)
+    filename = core.normalize_to_working_dir(filename)
     for _, doc in ipairs(core.docs) do
-      if doc.abs_filename and abs_filename == doc.abs_filename then
+      if doc.filename and filename == doc.filename then
         return doc
       end
     end
   end
   -- no existing doc for filename; create new
-  filename = core.normalize_to_project_dir(filename)
-  local doc = Doc(filename)
+  local doc = Doc(filename, new_file)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
   return doc

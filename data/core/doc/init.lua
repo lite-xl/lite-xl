@@ -36,10 +36,14 @@ local function splice(t, at, remove, insert)
 end
 
 
-function Doc:new(filename)
+function Doc:new(filename, new_file)
+  self.new_file = new_file
   self:reset()
   if filename then
-    self:load(filename)
+    self.filename = filename
+    if not new_file then
+      self:load(filename)
+    end
   end
 end
 
@@ -65,16 +69,9 @@ function Doc:reset_syntax()
 end
 
 
-function Doc:set_filename(filename)
-  self.filename = filename
-  self.abs_filename = system.absolute_path(filename)
-end
-
-
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
   self:reset()
-  self:set_filename(filename)
   self.lines = {}
   for line in fp:lines() do
     if line:byte(-1) == 13 then
@@ -92,16 +89,18 @@ end
 
 
 function Doc:save(filename)
-  filename = filename or assert(self.filename, "no filename set to default to")
+  if not filename then
+    assert(self.filename, "no filename set to default to")
+    filename = self.filename
+  end
   local fp = assert( io.open(filename, "wb") )
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)
   end
   fp:close()
-  if filename then
-    self:set_filename(filename)
-  end
+  self.filename = filename
+  self.new_file = false
   self:reset_syntax()
   self:clean()
 end
@@ -113,7 +112,7 @@ end
 
 
 function Doc:is_dirty()
-  return self.clean_change_id ~= self:get_change_id()
+  return self.clean_change_id ~= self:get_change_id() or self.new_file
 end
 
 

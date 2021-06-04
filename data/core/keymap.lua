@@ -105,7 +105,7 @@ keymap.add_direct {
   ["ctrl+p"] = "core:find-file",
   ["ctrl+o"] = "core:open-file",
   ["ctrl+n"] = "core:new-doc",
-  ["ctrl+shift+c"] = "core:change-project-folder",
+  ["ctrl+shift+c"] = "project:open-directory",
   ["ctrl+shift+o"] = "core:open-project-folder",
   ["alt+return"] = "core:toggle-fullscreen",
 

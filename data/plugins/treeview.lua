@@ -64,19 +64,27 @@ function TreeView:get_cached(item, dirname)
   local t = dir_cache[cache_name]
   if not t then
     t = {}
-    local basename = common.basename(item.filename)
-    if item.topdir then
-      t.filename = basename
-      t.expanded = true
+    if item.type == 'file' and item.topdir then
+      t.filename = item.filename
       t.depth = 0
       t.abs_filename = dirname
+      t.name = item.filename
+      t.type = item.type
     else
-      t.filename = item.filename
-      t.depth = get_depth(item.filename)
-      t.abs_filename = dirname .. PATHSEP .. item.filename
+      local basename = common.basename(item.filename)
+      if item.topdir then
+        t.filename = basename
+        t.expanded = true
+        t.depth = 0
+        t.abs_filename = dirname
+      else
+        t.filename = item.filename
+        t.depth = get_depth(item.filename)
+        t.abs_filename = dirname .. PATHSEP .. item.filename
+      end
+      t.name = basename
+      t.type = item.type
     end
-    t.name = basename
-    t.type = item.type
     dir_cache[cache_name] = t
   end
   return t
@@ -102,8 +110,8 @@ end
 
 function TreeView:check_cache()
   -- invalidate cache's skip values if project_files has changed
-  for i = 1, #core.project_directories do
-    local dir = core.project_directories[i]
+  for i = 1, #core.project_entries do
+    local dir = core.project_entries[i]
     local last_files = self.last[dir.name]
     if not last_files then
       self.last[dir.name] = dir.files
@@ -126,8 +134,8 @@ function TreeView:each_item()
     local w = self.size.x
     local h = self:get_item_height()
 
-    for k = 1, #core.project_directories do
-      local dir = core.project_directories[k]
+    for k = 1, #core.project_entries do
+      local dir = core.project_entries[k]
       local dir_cached = self:get_cached(dir.item, dir.name)
       coroutine.yield(dir_cached, ox, y, w, h)
       count_lines = count_lines + 1
@@ -173,13 +181,13 @@ end
 function TreeView:on_mouse_moved(px, py, ...)
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
-  
+
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
       item_changed = true
       self.hovered_item = item
-      
+
       x,y,w,h = self:get_text_bounding_box(item, x,y,w,h)
       if px > x and py > y and px <= x + w and py <= y + h then
         tooltip_changed = true
@@ -231,7 +239,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     core.try(function()
-      local doc_filename = common.relative_path(core.project_dir, hovered_item.abs_filename)
+      local doc_filename = self.hovered_item.abs_filename
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
@@ -247,7 +255,7 @@ function TreeView:update()
   else
     self:move_towards(self.size, "x", dest)
   end
-  
+
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)

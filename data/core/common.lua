@@ -108,9 +108,6 @@ function common.path_suggest(text)
     file = path .. file
     local info = system.get_file_info(file)
     if info then
-      if info.type == "dir" then
-        file = file .. PATHSEP
-      end
       if file:lower():find(text:lower(), nil, true) == 1 then
         table.insert(res, file)
       end
@@ -196,10 +193,26 @@ function common.serialize(val)
 end
 
 
+function common.path_join(...)
+  local n = select('#', ...)
+  local accu = select(1, ...)
+  for i = 2, n do
+    accu = accu .. PATHSEP .. select(i, ...)
+  end
+  return accu
+end
+
+
 function common.basename(path)
   -- a path should never end by / or \ except if it is '/' (unix root) or
   -- 'X:\' (windows drive)
   return path:match("[^\\/]+$") or path
+end
+
+
+-- can return nil if there is no directory part in the path
+function common.dirname(path)
+  return path:match("(.+)[\\/][^\\/]+$")
 end
 
 
@@ -230,18 +243,11 @@ function common.home_expand(text)
 end
 
 
-function common.normalize_path(filename)
-  if filename and PATHSEP == '\\' then
-    filename = filename:gsub('[/\\]', '\\')
-    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
-    return drive and drive:upper() .. rem or filename
-  end
-  return filename
-end
-
-
 local function split_on_slash(s, sep_pattern)
   local t = {}
+  if s:match("^[/\\]") then
+    t[#t + 1] = ""
+  end
   for fragment in string.gmatch(s, "([^/\\]+)") do
     t[#t + 1] = fragment
   end
@@ -249,8 +255,27 @@ local function split_on_slash(s, sep_pattern)
 end
 
 
+function common.normalize_path(filename)
+  if PATHSEP == '\\' then
+    filename = filename:gsub('[/\\]', '\\')
+    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
+    filename = drive and drive:upper() .. rem or filename
+  end
+  local parts = split_on_slash(filename, PATHSEP)
+  local accu = {}
+  for _, part in ipairs(parts) do
+    if part == '..' then
+      table.remove(accu)
+    elseif part ~= '.' then
+      table.insert(accu, part)
+    end
+  end
+  return table.concat(accu, PATHSEP)
+end
+
+
 function common.path_belongs_to(filename, path)
-  return filename and string.find(filename, path .. PATHSEP, 1, true) == 1
+  return string.find(filename, path .. PATHSEP, 1, true) == 1
 end
 
 
