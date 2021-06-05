@@ -47,6 +47,7 @@ end
 function Doc:reset()
   self.lines = { "\n" }
   self.selections = { 1, 1, 1, 1 }
+  self.cursor_clipboard = {}
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -126,6 +127,12 @@ function Doc:get_change_id()
   return self.undo_stack.idx
 end
 
+function Doc:get_cursor_clipboard(idx)
+  return self.cursor_clipboard[idx]
+end
+function Doc:set_cursor_clipboard(idx, value)
+  self.cursor_clipboard[idx] = value
+end
 
 function Doc:set_selection(line1, col1, line2, col2, swap)
   assert(not line2 == not col2, "expected 2 or 4 arguments")
@@ -133,6 +140,7 @@ function Doc:set_selection(line1, col1, line2, col2, swap)
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2 or line1, col2 or col1) 
   self.selections = { line1, col1, line2, col2 }
+  self.cursor_clipboard = {}
 end
 
 function Doc:set_selections(idx, line1, col1, line2, col2, swap)
@@ -171,7 +179,7 @@ function Doc:get_selection(sort)
   return unpack(self.selections)
 end
 
-function Doc:get_selection_count()
+function Doc:get_cursor_count()
   return #self.selections / 4
 end
 

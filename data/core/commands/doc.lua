@@ -45,7 +45,6 @@ local function append_line_if_last_line(line)
   end
 end
 
-
 local function save(filename)
   doc():save(filename and core.normalize_to_project_dir(filename))
   local saved_filename = doc().filename
@@ -63,22 +62,39 @@ local commands = {
   end,
 
   ["doc:cut"] = function()
-    if doc():has_selection() then
-      local text = doc():get_text(doc():get_selection())
-      system.set_clipboard(text)
-      doc():delete_to(0)
+    local full_text = ""
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      if line1 ~= line2 or col1 ~= col2 then
+        local text = doc():get_text(line1, col1, line2, col2)
+        doc():delete_to(idx, 0)
+        full_text = full_text == "" and text or (full_text .. "\n" .. text)
+        doc():set_cursor_clipboard(idx, text)
+      else
+        doc():set_cursor_clipboard(idx, "")
+      end
     end
+    system.set_clipboard(full_text)
   end,
 
   ["doc:copy"] = function()
-    if doc():has_selection() then
-      local text = doc():get_text(doc():get_selection())
-      system.set_clipboard(text)
+    local full_text = ""
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      if line1 ~= line2 or col1 ~= col2 then
+        local text = doc():get_text(line1, col1, line2, col2)
+        full_text = full_text == "" and text or (full_text .. "\n" .. text)
+        doc():set_cursor_clipboard(idx, text)
+      else
+        doc():set_cursor_clipboard(idx, "")
+      end
     end
+    system.set_clipboard(full_text)
   end,
 
   ["doc:paste"] = function()
-    doc():text_input(system.get_clipboard():gsub("\r", ""))
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      local value = doc():get_cursor_clipboard(idx) or system.get_clipboard()
+      doc():text_input(value:gsub("\r", ""), idx)
+    end
   end,
 
   ["doc:newline"] = function()
