@@ -405,6 +405,41 @@ function Doc:select_to(...)
   self:set_selection(line, col, line2, col2)
 end
 
+
+-- un/indents text; behaviour varies based on selection and un/indent.
+-- * if there's a selection, it will stay static around the
+--   text for both indenting and unindenting.
+-- * if you are in the beginning whitespace of a line, and are indenting, the
+--   cursor will insert the exactly appropriate amount of spaces, and jump the
+--   cursor to the beginning of first non whitespace characters
+-- * if you are not in the beginning whitespace of a line, and you indent, it
+--   inserts the appropriate whitespace, as if you typed them normally.
+-- * if you are unindenting, the cursor will jump to the start of the line,
+--   and remove the appropriate amount of spaces (or a tab).
+function Doc:indent_text(unindent, line1, col1, line2, col2, swap)
+  local text = get_indent_string()
+  local _, se = self.lines[line1]:find("^[ \t]+")
+  local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
+  if unindent or self:has_selection() or in_beginning_whitespace then
+    local l1d, l2d = #doc().lines[line1], #self.lines[line2]
+    for line = line1, line2 do
+      local e, rnded = get_line_indent(self.lines[line], unindent)
+      self:remove(line, 1, line, (e or 0) + 1)
+      self:insert(line, 1,
+        unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
+    end
+    l1d, l2d = #self.lines[line1] - l1d, #self.lines[line2] - l2d
+    if (unindent or in_beginning_whitespace) and not self:has_selection() then
+      local start_cursor = (se and se + 1 or 1) + l1d or #(self.lines[line1])
+      self:set_selection(line1, start_cursor, line2, start_cursor, swap)
+    else
+      self:set_selection(line1, col1 + l1d, line2, col2 + l2d, swap)
+    end
+  else
+    self:text_input(text)
+  end
+end
+
 -- For plugins to add custom actions of document change
 function Doc:on_text_change(type)
 end
