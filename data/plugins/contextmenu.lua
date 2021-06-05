@@ -14,6 +14,8 @@ local DIVIDER = {}
 
 local ContextMenu = Object:extend()
 
+ContextMenu.DIVIDER = DIVIDER
+
 function ContextMenu:new()
   self.itemset = {}
   self.show_context_menu = false
@@ -283,3 +285,5 @@ if require("plugins.scale") then
     { text = "Replace Pattern", command = "find-replace:replace-pattern" },
   })
 end
+
+return menu
