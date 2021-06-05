@@ -11,7 +11,7 @@ local function mkdirp(path)
     table.insert(segments, m)
   end
 
-  if string.match(path, "^[/\\]") then
+  if #path > 1 and string.match(path, "^[/\\]") then
     segments[1] = PATHSEP .. segments[1]
   end
 
