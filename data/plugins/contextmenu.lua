@@ -122,6 +122,7 @@ function ContextMenu:on_mouse_moved(px, py)
   if self.selected >= 0 then
     core.request_cursor("arrow")
   end
+  return true
 end
 
 function ContextMenu:on_selected(item)
@@ -219,8 +220,8 @@ local root_view_update = RootView.update
 local root_view_draw = RootView.draw
 
 function RootView:on_mouse_moved(...)
+  if menu:on_mouse_moved(...) then return end
   root_view_on_mouse_moved(self, ...)
-  menu:on_mouse_moved(...)
 end
 
 -- this function is mostly copied from lite-xl's source
