@@ -406,6 +406,29 @@ function Doc:select_to(...)
 end
 
 
+local function get_indent_string()
+  if config.tab_type == "hard" then
+    return "\t"
+  end
+  return string.rep(" ", config.indent_size)
+end
+
+-- returns the size of the original indent, and the indent
+-- in your config format, rounded either up or down
+local function get_line_indent(line, rnd_up)
+  local _, e = line:find("^[ \t]+")
+  local soft_tab = string.rep(" ", config.indent_size)
+  if config.tab_type == "hard" then
+    local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
+    return e, indent:gsub(" +", rnd_up and "\t" or "")
+  else
+    local indent = e and line:sub(1, e):gsub("\t", soft_tab) or ""
+    local number = #indent / #soft_tab
+    return e, indent:sub(1,
+      (rnd_up and math.ceil(number) or math.floor(number))*#soft_tab)
+  end
+end
+
 -- un/indents text; behaviour varies based on selection and un/indent.
 -- * if there's a selection, it will stay static around the
 --   text for both indenting and unindenting.
@@ -420,8 +443,9 @@ function Doc:indent_text(unindent, line1, col1, line2, col2, swap)
   local text = get_indent_string()
   local _, se = self.lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
-  if unindent or self:has_selection() or in_beginning_whitespace then
-    local l1d, l2d = #doc().lines[line1], #self.lines[line2]
+  local has_selection = line1 ~= line2 or col1 ~= col2
+  if unindent or has_selection or in_beginning_whitespace then
+    local l1d, l2d = #self.lines[line1], #self.lines[line2]
     for line = line1, line2 do
       local e, rnded = get_line_indent(self.lines[line], unindent)
       self:remove(line, 1, line, (e or 0) + 1)

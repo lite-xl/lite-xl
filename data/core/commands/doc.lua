@@ -47,22 +47,6 @@ local function save(filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
--- returns the size of the original indent, and the indent
--- in your config format, rounded either up or down
-local function get_line_indent(line, rnd_up)
-  local _, e = line:find("^[ \t]+")
-  local soft_tab = string.rep(" ", config.indent_size)
-  if config.tab_type == "hard" then
-    local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
-    return e, indent:gsub(" +", rnd_up and "\t" or "")
-  else
-    local indent = e and line:sub(1, e):gsub("\t", soft_tab) or ""
-    local number = #indent / #soft_tab
-    return e, indent:sub(1,
-      (rnd_up and math.ceil(number) or math.floor(number))*#soft_tab)
-  end
-end
-
 local commands = {
   ["doc:undo"] = function()
     doc():undo()
