@@ -20,8 +20,7 @@ local function mkdirp(path)
     if not system.get_file_info(p) then
       local success, err = system.mkdir(p)
       if not success then
-        core.error("cannot create directory %q: %s", p, err)
-        break
+        return nil, err, p
       end
     end
   end
@@ -30,7 +29,10 @@ end
 command.add(nil, {
   ["files:create-directory"] = function()
     core.command_view:enter("New directory name", function(text)
-      mkdirp(text)
+      local success, err, path = mkdirp(text)
+      if not success then
+        core.error("cannot create directory %q: %s", path, err)
+      end
     end)
   end,
 })
