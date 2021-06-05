@@ -159,9 +159,16 @@ end
 
 function Doc:get_selection(sort)
   if sort then
-    return sort_positions(self.selections[1], self.selections[2], self.selections[3], self.selections[4])
+    local result = {}
+    for sidx, line1, col1, line2, col2 in self:get_selections(true) do
+      table.insert(result, line1)
+      table.insert(result, col1)
+      table.insert(result, line2)
+      table.insert(result, col2)            
+    end
+    return result
   end
-  return self.selections[1], self.selections[2], self.selections[3], self.selections[4]
+  return unpack(self.selections)
 end
 
 function Doc:get_selection_count()
@@ -292,14 +299,11 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
   if cmd.type == "insert" then
     local line, col, text = table.unpack(cmd)
     self:raw_insert(line, col, text, redo_stack, cmd.time)
-
   elseif cmd.type == "remove" then
     local line1, col1, line2, col2 = table.unpack(cmd)
     self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
-
   elseif cmd.type == "selection" then
-    self.selection.a.line, self.selection.a.col = cmd[1], cmd[2]
-    self.selection.b.line, self.selection.b.col = cmd[3], cmd[4]
+    self.selections = { unpack(cmd) }
   end
 
   modified = modified or (cmd.type ~= "selection")

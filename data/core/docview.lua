@@ -278,12 +278,11 @@ function DocView:on_mouse_moved(x, y, ...)
     local clicks = self.mouse_selecting.clicks
     if keymap.modkeys["ctrl"] then
       if l1 > l2 then
-        l2 = l1
+        l1, l2 = l2, l1
       end
       local idx = 1
       for i = l1, l2 do
-        idx = idx + 1
-        self.doc:set_selections(idx, i, math.min(c1, #self.doc.lines[i]), i, math.min(c1, #self.doc.lines[i]))
+        self.doc:set_selections(i - l1 + 1, i, math.min(c1, #self.doc.lines[i]), i, math.min(c1, #self.doc.lines[i]))
       end
     else
       self.doc:set_selection(mouse_selection(self.doc, clicks, l1, c1, l2, c2))
