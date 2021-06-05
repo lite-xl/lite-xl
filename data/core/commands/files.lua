@@ -3,25 +3,23 @@ local command = require "core.command"
 
 local function mkdirp(path)
   local segments = {}
-  if path == '/' or path == '\\' then
-    table.insert(segments, PATHSEP)
+  local pos = 1
+  while true do
+    local s, e = string.find(path, "[/\\]+", pos)
+    if not s then break end
+    table.insert(segments, string.sub(str, pos, s - 1))
+    pos = e + 1
   end
-
-  for m in string.gmatch("[^/\\]+") do
-    table.insert(segments, m)
-  end
-
-  if #path > 1 and string.match(path, "^[/\\]") then
-    segments[1] = PATHSEP .. segments[1]
-  end
+  table.insert(list, string.sub(str, pos))
 
   for i = 1, #segments do
     local p = table.concat(segments, PATHSEP, 1, i)
-    if not system.get_file_info(p) then
-      local success, err = system.mkdir(p)
-      if not success then
-        return nil, err, p
-      end
+    if system.get_file_info(p) then
+      return nil, "path exists", p
+    end
+    local success, err = system.mkdir(p)
+    if not success then
+      return nil, err, p
     end
   end
 end
