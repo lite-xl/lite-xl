@@ -6,7 +6,7 @@ regex.__index = function(table, key) return regex[key]; end
 regex.match = function(pattern_string, string, offset, options)
   local pattern = type(pattern_string) == "table" and
     pattern_string or regex.compile(pattern_string)
-  return regex.cmatch(pattern, string, offset, options)
+  return regex.cmatch(pattern, string, offset or 1, options or 0)
 end
 
 -- Will iterate back through any UTF-8 bytes so that we don't replace bits 
@@ -39,11 +39,11 @@ regex.gsub = function(pattern_string, str, replacement)
   local pattern = type(pattern_string) == "table" and
     pattern_string or regex.compile(pattern_string)
   local result, indices = ""
-  local n = 0
+  local matches, replacements = {}, {}
   repeat
     indices = { regex.cmatch(pattern, str) }
     if #indices > 0 then
-      n = n + 1
+      table.insert(matches, indices)
       local currentReplacement = replacement
       if #indices > 2 then
         for i = 1, (#indices/2 - 1) do
@@ -55,6 +55,7 @@ regex.gsub = function(pattern_string, str, replacement)
         end
       end
       currentReplacement = string.gsub(currentReplacement, "\\%d", "")
+      table.insert(replacements, { indices[1], #currentReplacement+indices[1] })
       if indices[1] > 1 then
         result = result .. 
           str:sub(1, previous_character(str, indices[1])) .. currentReplacement
@@ -64,6 +65,6 @@ regex.gsub = function(pattern_string, str, replacement)
       str = str:sub(indices[2])
     end
   until #indices == 0 or indices[1] == indices[2]
-  return result .. str, n
+  return result .. str, matches, replacements
 end
 

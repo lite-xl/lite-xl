@@ -45,9 +45,11 @@ static int f_pcre_compile(lua_State *L) {
   }
   PCRE2_UCHAR buffer[256];
   pcre2_get_error_message(errorNumber, buffer, sizeof(buffer));
-  luaL_error(L, "regex compilation failed at offset %d: %s", 
-    (int)errorOffset, buffer);
-  return 0;
+  lua_pushnil(L);
+  char message[1024];
+  len = snprintf(message, sizeof(message), "regex compilation failed at offset %d: %s", (int)errorOffset, buffer);
+  lua_pushlstring(L, message, len);
+  return 2;
 }
 
 // Takes string, compiled regex, returns list of indices of matched groups
