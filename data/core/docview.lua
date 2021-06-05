@@ -276,7 +276,18 @@ function DocView:on_mouse_moved(x, y, ...)
     local l1, c1 = self:resolve_screen_position(x, y)
     local l2, c2 = table.unpack(self.mouse_selecting)
     local clicks = self.mouse_selecting.clicks
-    self.doc:set_selection(mouse_selection(self.doc, clicks, l1, c1, l2, c2))
+    if keymap.modkeys["ctrl"] then
+      if l1 > l2 then
+        l2 = l1
+      end
+      local idx = 1
+      for i = l1, l2 do
+        idx = idx + 1
+        self.doc:set_selections(idx, i, math.min(c1, #self.doc.lines[i]), i, math.min(c1, #self.doc.lines[i]))
+      end
+    else
+      self.doc:set_selection(mouse_selection(self.doc, clicks, l1, c1, l2, c2))
+    end
   end
 end
 
@@ -340,46 +351,50 @@ end
 
 
 function DocView:draw_line_body(idx, x, y)
-  local line, col = self.doc:get_selection()
-
   -- draw selection if it overlaps this line
-  local line1, col1, line2, col2 = self.doc:get_selection(true)
-  if idx >= line1 and idx <= line2 then
-    local text = self.doc.lines[idx]
-    if line1 ~= idx then col1 = 1 end
-    if line2 ~= idx then col2 = #text + 1 end
-    local x1 = x + self:get_col_x_offset(idx, col1)
-    local x2 = x + self:get_col_x_offset(idx, col2)
-    local lh = self:get_line_height()
-    renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do 
+    if idx >= line1 and idx <= line2 then
+      local text = self.doc.lines[idx]
+      if line1 ~= idx then col1 = 1 end
+      if line2 ~= idx then col2 = #text + 1 end
+      local x1 = x + self:get_col_x_offset(idx, col1)
+      local x2 = x + self:get_col_x_offset(idx, col2)
+      local lh = self:get_line_height()
+      renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+    end
   end
-
-  -- draw line highlight if caret is on this line
-  if config.highlight_current_line and not self.doc:has_selection()
-  and line == idx and core.active_view == self then
-    self:draw_line_highlight(x + self.scroll.x, y)
+  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do 
+    -- draw line highlight if caret is on this line
+    if config.highlight_current_line and not self.doc:has_selection(lidx)
+    and line1 == idx and core.active_view == self then
+      self:draw_line_highlight(x + self.scroll.x, y)
+    end
   end
-
+  
   -- draw line's text
   self:draw_line_text(idx, x, y)
 
   -- draw caret if it overlaps this line
   local T = config.blink_period
-  if line == idx and core.active_view == self
-  and (core.blink_timer - core.blink_start) % T < T / 2
-  and system.window_has_focus() then
-    local lh = self:get_line_height()
-    local x1 = x + self:get_col_x_offset(line, col)
-    renderer.draw_rect(x1, y, style.caret_width, lh, style.caret)
+  for _, line, col in self.doc:get_selections() do 
+    if line == idx and core.active_view == self
+    and (core.blink_timer - core.blink_start) % T < T / 2
+    and system.window_has_focus() then
+      local lh = self:get_line_height()
+      local x1 = x + self:get_col_x_offset(line, col)
+      renderer.draw_rect(x1, y, style.caret_width, lh, style.caret)
+    end
   end
 end
 
 
 function DocView:draw_line_gutter(idx, x, y)
   local color = style.line_number
-  local line1, _, line2, _ = self.doc:get_selection(true)
-  if idx >= line1 and idx <= line2 then
-    color = style.line_number2
+  for _, line1, _, line2 in self.doc:get_selections(true) do 
+    if idx >= line1 and idx <= line2 then
+      color = style.line_number2
+      break
+    end
   end
   local yoffset = self:get_line_text_y_offset()
   x = x + style.padding.x

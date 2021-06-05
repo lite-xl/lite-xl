@@ -46,7 +46,7 @@ end
 
 function Doc:reset()
   self.lines = { "\n" }
-  self.selection = { a = { line=1, col=1 }, b = { line=1, col=1 } }
+  self.selections = { 1, 1, 1, 1 }
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -131,9 +131,20 @@ function Doc:set_selection(line1, col1, line2, col2, swap)
   assert(not line2 == not col2, "expected 2 or 4 arguments")
   if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
   line1, col1 = self:sanitize_position(line1, col1)
+  line2, col2 = self:sanitize_position(line2 or line1, col2 or col1) 
+  self.selections = { line1, col1, line2, col2 }
+end
+
+function Doc:set_selections(idx, line1, col1, line2, col2, swap)
+  assert(not line2 == not col2, "expected 3 or 5 arguments")
+  if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
+  line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2 or line1, col2 or col1)
-  self.selection.a.line, self.selection.a.col = line1, col1
-  self.selection.b.line, self.selection.b.col = line2, col2
+  local target = (idx - 1)*4 + 1
+  self.selections[target] = line1
+  self.selections[target+1] = col1
+  self.selections[target+2] = line2
+  self.selections[target+3] = col2
 end
 
 
@@ -147,22 +158,53 @@ end
 
 
 function Doc:get_selection(sort)
-  local a, b = self.selection.a, self.selection.b
   if sort then
-    return sort_positions(a.line, a.col, b.line, b.col)
+    return sort_positions(self.selections[1], self.selections[2], self.selections[3], self.selections[4])
   end
-  return a.line, a.col, b.line, b.col
+  return self.selections[1], self.selections[2], self.selections[3], self.selections[4]
+end
+
+function Doc:get_selection_count()
+  return #self.selections / 4
+end
+
+function Doc:get_selections(sort)
+  local idx = 1
+  return function()
+    if idx >= #self.selections then
+      return
+    end
+    idx = idx + 4
+    if sort then
+      return ((idx - 5) / 4) + 1, sort_positions(self.selections[idx - 4], self.selections[idx - 3], self.selections[idx - 2], self.selections[idx - 1])
+    else
+      return ((idx - 5) / 4) + 1, self.selections[idx - 4], self.selections[idx - 3], self.selections[idx - 2], self.selections[idx - 1]
+    end
+  end
 end
 
 
-function Doc:has_selection()
-  local a, b = self.selection.a, self.selection.b
-  return not (a.line == b.line and a.col == b.col)
+function Doc:has_selection(idx)
+  if idx then
+    local target = (idx-1)*4+1
+    return 
+      self.selections[target] ~= self.selections[target+2] or
+      self.selections[target+1] ~= self.selections[target+3]
+  end
+  for target = 1, #self.selections, 4 do
+    if self.selections[target] ~= self.selections[target+2] or
+      self.selections[target+1] ~= self.selections[target+3] then
+      return true
+    end
+  end
+  return false
 end
 
 
 function Doc:sanitize_selection()
-  self:set_selection(self:get_selection())
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    self:set_selections(idx, line1, col1, line2, col2)
+  end
 end
 
 
@@ -348,13 +390,16 @@ function Doc:redo()
 end
 
 
-function Doc:text_input(text)
-  if self:has_selection() then
-    self:delete_to()
+function Doc:text_input(text, idx)
+  for sidx, line, col in self:get_selections() do
+    if not idx or idx == sidx then
+      if self:has_selection(sidx) then
+        self:delete_to(sidx)
+      end
+      self:insert(line, col, text)
+      self:move_to(sidx, #text)
+    end
   end
-  local line, col = self:get_selection()
-  self:insert(line, col, text)
-  self:move_to(#text)
 end
 
 
@@ -380,29 +425,38 @@ function Doc:replace(fn)
 end
 
 
-function Doc:delete_to(...)
-  local line, col = self:get_selection(true)
-  if self:has_selection() then
-    self:remove(self:get_selection())
-  else
-    local line2, col2 = self:position_offset(line, col, ...)
-    self:remove(line, col, line2, col2)
-    line, col = sort_positions(line, col, line2, col2)
+function Doc:delete_to(idx, ...)
+  for sidx, line1, col1, line2, col2 in self:get_selections(true) do
+    if not idx or sidx == idx then
+      if self:has_selection(sidx) then
+        self:remove(line1, col1, line2, col2)
+      else
+        local l2, c2 = self:position_offset(line, col, ...)
+        self:remove(line1, col1, l2, c2)
+        line1, col1 = sort_positions(line1, col1, l2, c2)
+      end
+      self:set_selections(sidx, line1, col1)
+    end
   end
-  self:set_selection(line, col)
 end
 
 
-function Doc:move_to(...)
-  local line, col = self:get_selection()
-  self:set_selection(self:position_offset(line, col, ...))
+function Doc:move_to(idx, ...)
+  for sidx, line, col in self:get_selections() do
+    if not idx or sidx == idx then
+      self:set_selections(sidx, self:position_offset(line, col, ...))
+    end
+  end
 end
 
 
-function Doc:select_to(...)
-  local line, col, line2, col2 = self:get_selection()
-  line, col = self:position_offset(line, col, ...)
-  self:set_selection(line, col, line2, col2)
+function Doc:select_to(idx, ...)
+  for sidx, line, col, line2, col2 in self:get_selections() do
+    if not idx or idx == sidx then
+      line, col = self:position_offset(line, col, ...)
+      self:set_selections(sidx, line, col, line2, col2)
+    end
+  end
 end
 
 
@@ -439,7 +493,7 @@ end
 --   inserts the appropriate whitespace, as if you typed them normally.
 -- * if you are unindenting, the cursor will jump to the start of the line,
 --   and remove the appropriate amount of spaces (or a tab).
-function Doc:indent_text(unindent, line1, col1, line2, col2, swap)
+function Doc:indent_text(unindent, line1, col1, line2, col2)
   local text = get_indent_string()
   local _, se = self.lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
@@ -455,9 +509,9 @@ function Doc:indent_text(unindent, line1, col1, line2, col2, swap)
     l1d, l2d = #self.lines[line1] - l1d, #self.lines[line2] - l2d
     if (unindent or in_beginning_whitespace) and not self:has_selection() then
       local start_cursor = (se and se + 1 or 1) + l1d or #(self.lines[line1])
-      self:set_selection(line1, start_cursor, line2, start_cursor, swap)
+      return line1, start_cursor, line2, start_cursor
     else
-      self:set_selection(line1, col1 + l1d, line2, col2 + l2d, swap)
+      return line1, col1 + l1d, line2, col2 + l2d
     end
   else
     self:text_input(text)
