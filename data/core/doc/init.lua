@@ -169,18 +169,17 @@ function Doc:get_selection_count()
 end
 
 function Doc:get_selections(sort)
-  local idx = 1
-  return function()
-    if idx >= #self.selections then
+  return function(selections, idx)
+    local target = idx*4 + 1
+    if target >= #selections then
       return
     end
-    idx = idx + 4
     if sort then
-      return ((idx - 5) / 4) + 1, sort_positions(self.selections[idx - 4], self.selections[idx - 3], self.selections[idx - 2], self.selections[idx - 1])
+      return idx+1, sort_positions(selections[target], selections[target+1], selections[target+2], selections[target+3])
     else
-      return ((idx - 5) / 4) + 1, self.selections[idx - 4], self.selections[idx - 3], self.selections[idx - 2], self.selections[idx - 1]
+      return idx+1, selections[target], selections[target+1], selections[target+2], selections[target+3]
     end
-  end
+  end, self.selections, 0
 end
 
 
