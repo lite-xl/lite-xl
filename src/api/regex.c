@@ -45,23 +45,27 @@ static int f_pcre_compile(lua_State *L) {
   }
   PCRE2_UCHAR buffer[256];
   pcre2_get_error_message(errorNumber, buffer, sizeof(buffer));
-  luaL_error(L, "regex compilation failed at offset %d: %s", 
-    (int)errorOffset, buffer);
-  return 0;
+  lua_pushnil(L);
+  char message[1024];
+  len = snprintf(message, sizeof(message), "regex compilation failed at offset %d: %s", (int)errorOffset, buffer);
+  lua_pushlstring(L, message, len);
+  return 2;
 }
 
 // Takes string, compiled regex, returns list of indices of matched groups
 // (including the whole match), if a match was found.
 static int f_pcre_match(lua_State *L) {
-  size_t len, offset = 0;
+  size_t len, offset = 1, opts = 0;
   luaL_checktype(L, 1, LUA_TTABLE);
   const char* str = luaL_checklstring(L, 2, &len);
   if (lua_gettop(L) > 2)
     offset = luaL_checknumber(L, 3);
+  if (lua_gettop(L) > 3)
+    opts = luaL_checknumber(L, 4);
   lua_rawgeti(L, 1, 1);
   pcre2_code* re = (pcre2_code*)lua_touserdata(L, -1);
   pcre2_match_data* md = pcre2_match_data_create_from_pattern(re, NULL);
-  int rc = pcre2_match(re, (PCRE2_SPTR)str, len, offset, 0, md, NULL);
+  int rc = pcre2_match(re, (PCRE2_SPTR)str, len, offset - 1, opts, md, NULL);
   if (rc < 0) {
     pcre2_match_data_free(md);
     if (rc != PCRE2_ERROR_NOMATCH)
@@ -70,11 +74,11 @@ static int f_pcre_match(lua_State *L) {
   }
   PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(md);
   if (ovector[0] > ovector[1]) {
-    /* We must guard against patterns such as /(?=.\K)/ that use \K in an 
+    /* We must guard against patterns such as /(?=.\K)/ that use \K in an
     assertion  to set the start of a match later than its end. In the editor,
     we just detect this case and give up. */
     luaL_error(L, "regex matching error: \\K was used in an assertion to "
-    " set the match start after its end"); 
+    " set the match start after its end");
     pcre2_match_data_free(md);
     return 0;
   }
@@ -97,5 +101,17 @@ int luaopen_regex(lua_State *L) {
   lua_setfield(L, -2, "__name");
   lua_pushvalue(L, -1);
   lua_setfield(L, LUA_REGISTRYINDEX, "regex");
+  lua_pushnumber(L, PCRE2_ANCHORED);
+  lua_setfield(L, -2, "ANCHORED");
+  lua_pushnumber(L, PCRE2_ANCHORED) ;
+  lua_setfield(L, -2, "ENDANCHORED");
+  lua_pushnumber(L, PCRE2_NOTBOL);
+  lua_setfield(L, -2, "NOTBOL");
+  lua_pushnumber(L, PCRE2_NOTEOL);
+  lua_setfield(L, -2, "NOTEOL");
+  lua_pushnumber(L, PCRE2_NOTEMPTY);
+  lua_setfield(L, -2, "NOTEMPTY");
+  lua_pushnumber(L, PCRE2_NOTEMPTY_ATSTART);
+  lua_setfield(L, -2, "NOTEMPTY_ATSTART");
   return 1;
 }

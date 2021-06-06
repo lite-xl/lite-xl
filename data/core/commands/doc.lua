@@ -211,11 +211,11 @@ local commands = {
   end,
 
   ["doc:indent"] = function()
-    indent_text()
+    doc():indent_text(false, doc_multiline_selection(true))
   end,
 
   ["doc:unindent"] = function()
-    indent_text(true)
+    doc():indent_text(true, doc_multiline_selection(true))
   end,
 
   ["doc:duplicate-lines"] = function()

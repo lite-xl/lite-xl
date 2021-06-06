@@ -33,7 +33,7 @@ function search.find(doc, line, col, text, opt)
   for line = line, #doc.lines do
     local line_text = doc.lines[line]
     if opt.regex then
-      local s, e = re:cmatch(line_text, col, true)
+      local s, e = re:cmatch(line_text, col)
       if s then
         return line, s, line, e
       end
