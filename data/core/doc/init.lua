@@ -526,6 +526,7 @@ function Doc:indent_text(unindent, line1, col1, line2, col2)
     end
   else
     self:insert(line1, col1, text)
+    return line1, col1 + #text, line1, col1 + #text
   end
 end
 
