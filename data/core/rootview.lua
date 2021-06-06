@@ -822,10 +822,10 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     end
   elseif tab_index then
     core.request_cursor("arrow")
-  else
+  elseif node then
     core.request_cursor(node.active_view.cursor)
   end
-  if self.dragged_node and (self.dragged_node[1] ~= node or (tab_index and self.dragged_node[2] ~= tab_index))
+  if node and self.dragged_node and (self.dragged_node[1] ~= node or (tab_index and self.dragged_node[2] ~= tab_index))
     and node.type == "leaf" and #node.views > 0 and node.views[1]:is(DocView) then 
       local tab = self.dragged_node[1].views[self.dragged_node[2]]
       if self.dragged_node[1] ~= node then
