@@ -25,9 +25,10 @@ end
 
 
 local function doc_multiline_selections(sort)
-  local iter = doc():get_selections(sort)
+  local iter, state, idx = doc():get_selections(sort)
   return function() 
-    local idx, line1, col1, line2, col2 = iter()
+    local line1, col1, line2, col2
+    idx, line1, col1, line2, col2 = iter(state, idx)
     if not idx then
       return
     end
@@ -52,6 +53,23 @@ local function save(filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
+local function cut_or_copy(delete)
+  local full_text = ""
+  for idx, line1, col1, line2, col2 in doc():get_selections() do
+    if line1 ~= line2 or col1 ~= col2 then
+      local text = doc():get_text(line1, col1, line2, col2)
+      if delete then
+        doc():delete_to(idx, 0)
+      end
+      full_text = full_text == "" and text or (full_text .. "\n" .. text)
+      doc():set_cursor_clipboard(idx, text)
+    else
+      doc():set_cursor_clipboard(idx, "")
+    end
+  end
+  system.set_clipboard(full_text)
+end
+
 local commands = {
   ["doc:undo"] = function()
     doc():undo()
@@ -62,32 +80,11 @@ local commands = {
   end,
 
   ["doc:cut"] = function()
-    local full_text = ""
-    for idx, line1, col1, line2, col2 in doc():get_selections() do
-      if line1 ~= line2 or col1 ~= col2 then
-        local text = doc():get_text(line1, col1, line2, col2)
-        doc():delete_to(idx, 0)
-        full_text = full_text == "" and text or (full_text .. "\n" .. text)
-        doc():set_cursor_clipboard(idx, text)
-      else
-        doc():set_cursor_clipboard(idx, "")
-      end
-    end
-    system.set_clipboard(full_text)
+    cut_or_copy(true)
   end,
 
   ["doc:copy"] = function()
-    local full_text = ""
-    for idx, line1, col1, line2, col2 in doc():get_selections() do
-      if line1 ~= line2 or col1 ~= col2 then
-        local text = doc():get_text(line1, col1, line2, col2)
-        full_text = full_text == "" and text or (full_text .. "\n" .. text)
-        doc():set_cursor_clipboard(idx, text)
-      else
-        doc():set_cursor_clipboard(idx, "")
-      end
-    end
-    system.set_clipboard(full_text)
+    cut_or_copy(false)
   end,
 
   ["doc:paste"] = function()
@@ -187,7 +184,7 @@ local commands = {
   ["doc:indent"] = function()
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
-      if not l1 then
+      if l1 then
         doc():set_selections(idx, l1, c1, l2, c2)
       end
     end
@@ -196,7 +193,7 @@ local commands = {
   ["doc:unindent"] = function()
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       local l1, c1, l2, c2 = doc():indent_text(true, line1, col1, line2, col2)
-      if not l1 then
+      if l1 then
         doc():set_selections(idx, l1, c1, l2, c2)
       end
     end

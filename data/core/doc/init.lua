@@ -518,14 +518,14 @@ function Doc:indent_text(unindent, line1, col1, line2, col2)
         unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
     end
     l1d, l2d = #self.lines[line1] - l1d, #self.lines[line2] - l2d
-    if (unindent or in_beginning_whitespace) and not self:has_selection() then
+    if (unindent or in_beginning_whitespace) and not has_selection then
       local start_cursor = (se and se + 1 or 1) + l1d or #(self.lines[line1])
       return line1, start_cursor, line2, start_cursor
     else
       return line1, col1 + l1d, line2, col2 + l2d
     end
   else
-    self:text_input(text)
+    self:insert(line1, col1, text)
   end
 end
 
