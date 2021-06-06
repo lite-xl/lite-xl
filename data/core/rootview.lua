@@ -129,36 +129,42 @@ function Node:split(dir, view, locked, resizable)
   return self.b
 end
 
+function Node:remove_view(root, view, new_active_view)
+  if #self.views > 1 then
+    local idx = self:get_view_idx(view)
+    if idx < self.tab_offset then
+      self.tab_offset = self.tab_offset - 1
+    end
+    table.remove(self.views, idx)
+    if new_active_view then
+      self:set_active_view(self.views[idx] or self.views[#self.views])
+    end
+  else
+    local parent = self:get_parent_node(root)
+    local is_a = (parent.a == self)
+    local other = parent[is_a and "b" or "a"]
+    if other:get_locked_size() then
+      self.views = {}
+      self:add_view(EmptyView())
+    else
+      parent:consume(other)
+      local p = parent
+      while p.type ~= "leaf" do
+        p = p[is_a and "a" or "b"]
+      end
+      p:set_active_view(p.active_view)
+      if self.is_primary_node then
+        p.is_primary_node = true
+      end
+    end
+  end
+  core.last_active_view = nil
+end
 
 function Node:close_view(root, view)
   local new_active_view = view == self.active_view
   local do_close = function()
-    if #self.views > 1 then
-      local idx = self:get_view_idx(view)
-      table.remove(self.views, idx)
-      if new_active_view then
-        self:set_active_view(self.views[idx] or self.views[#self.views])
-      end
-    else
-      local parent = self:get_parent_node(root)
-      local is_a = (parent.a == self)
-      local other = parent[is_a and "b" or "a"]
-      if other:get_locked_size() then
-        self.views = {}
-        self:add_view(EmptyView())
-      else
-        parent:consume(other)
-        local p = parent
-        while p.type ~= "leaf" do
-          p = p[is_a and "a" or "b"]
-        end
-        p:set_active_view(p.active_view)
-        if self.is_primary_node then
-          p.is_primary_node = true
-        end
-      end
-    end
-    core.last_active_view = nil
+    self:remove_view(root, view, new_active_view)
   end
   view:try_close(do_close)
 end
@@ -169,13 +175,13 @@ function Node:close_active_view(root)
 end
 
 
-function Node:add_view(view)
+function Node:add_view(view, idx)
   assert(self.type == "leaf", "Tried to add view to non-leaf node")
   assert(not self.locked, "Tried to add view to locked node")
   if self.views[1] and self.views[1]:is(EmptyView) then
     table.remove(self.views)
   end
-  table.insert(self.views, view)
+  table.insert(self.views, idx or (#self.views + 1), view)
   self:set_active_view(view)
 end
 
@@ -749,7 +755,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
     else
-      self.dragged_node = idx
+      self.dragged_node = { node, idx }
       node:set_active_view(node.views[idx])
     end
   else
@@ -816,14 +822,23 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     end
   elseif tab_index then
     core.request_cursor("arrow")
-    if self.dragged_node and self.dragged_node ~= tab_index then
-      local tab = node.views[self.dragged_node]
-      table.remove(node.views, self.dragged_node)
-      table.insert(node.views, tab_index, tab)
-      self.dragged_node = tab_index
-    end
   else
     core.request_cursor(node.active_view.cursor)
+  end
+  if self.dragged_node and (self.dragged_node[1] ~= node or (tab_index and self.dragged_node[2] ~= tab_index))
+    and node.type == "leaf" and #node.views > 0 and node.views[1]:is(DocView) then 
+      local tab = self.dragged_node[1].views[self.dragged_node[2]]
+      if self.dragged_node[1] ~= node then
+        self.dragged_node[1]:remove_view(self.root_node, tab)
+        node:add_view(tab, tab_index)
+        tab_index = tab_index or #node.views
+        self.root_node:update_layout()
+        core.redraw = true
+      else
+        table.remove(self.dragged_node[1].views, self.dragged_node[2])
+        table.insert(node.views, tab_index, tab)
+      end
+      self.dragged_node = { node, tab_index }
   end
 end
 
