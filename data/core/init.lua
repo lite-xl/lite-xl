@@ -19,7 +19,7 @@ local core = {}
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
   if ok then
-    return t.recents, t.window, t.window_mode
+    return t.recents, t.recents_open, t.window, t.window_mode
   end
   return {}, {dir={}, file={}}
 end
@@ -62,21 +62,6 @@ end
 function core.set_recent_open(type, filename)
   update_recents(core.recents_open[type], "add", filename)
 end
-
-
--- FIXME: remove or adapt
---[[ local function cleanup_recent_projects()
-  local recents = core.recent_projects
-  local i = 1
-  while i <= #recents do
-    local info = system.get_file_info(recents[i])
-    if not info or info.type ~= "dir" then
-      table.remove(recents, i)
-    else
-      i = i + 1
-    end
-  end
-end ]]
 
 
 function core.reschedule_project_scan()
@@ -491,7 +476,6 @@ function core.init()
       system.set_window_mode("maximized")
     end
   end
-  -- cleanup_recent_projects()
 
   core.log_items = {}
   core.docs = {}
