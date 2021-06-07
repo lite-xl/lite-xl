@@ -10,7 +10,7 @@ local function mkdirp(path)
     table.insert(segments, string.sub(str, pos, s - 1))
     pos = e + 1
   end
-  table.insert(list, string.sub(str, pos))
+  table.insert(segments, string.sub(str, pos))
 
   for i = 1, #segments do
     local p = table.concat(segments, PATHSEP, 1, i)
