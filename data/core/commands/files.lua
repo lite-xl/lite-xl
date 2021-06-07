@@ -17,7 +17,8 @@ local function mkdirp(path)
 
   for i = 1, #segments do
     local p = table.concat(segments, PATHSEP, 1, i)
-    if system.get_file_info(p) then
+    local stat = system.get_file_info(p)
+    if stat and stat.type == "file" then
       return nil, "path exists", p
     end
     local success, err = system.mkdir(p)
