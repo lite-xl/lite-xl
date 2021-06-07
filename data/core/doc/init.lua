@@ -361,7 +361,7 @@ function Doc:replace(fn)
   if old_text ~= new_text then
     self:insert(line2, col2, new_text)
     self:remove(line1, col1, line2, col2)
-    if had_selection then
+    if line1 == line2 and col1 == col2 then
       line2, col2 = self:position_offset(line1, col1, #new_text)
       self:set_selection(line1, col1, line2, col2)
     end
