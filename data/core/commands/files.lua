@@ -11,6 +11,9 @@ local function mkdirp(path)
     pos = e + 1
   end
   table.insert(segments, string.sub(str, pos))
+  if segments[#segments] == '' then
+    table.remove(segments)
+  end
 
   for i = 1, #segments do
     local p = table.concat(segments, PATHSEP, 1, i)
