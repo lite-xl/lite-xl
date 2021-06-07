@@ -361,7 +361,7 @@ function DocView:draw_line_body(idx, x, y)
   end
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do 
     -- draw line highlight if caret is on this line
-    if config.highlight_current_line and not self.doc:has_selection(lidx)
+    if config.highlight_current_line and (line1 == line2 and col1 == col2)
     and line1 == idx and core.active_view == self then
       self:draw_line_highlight(x + self.scroll.x, y)
     end

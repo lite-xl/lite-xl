@@ -16,26 +16,6 @@ local function split_lines(text)
   return res
 end
 
-
-local function splice(t, at, remove, insert)
-  insert = insert or {}
-  local offset = #insert - remove
-  local old_len = #t
-  if offset < 0 then
-    for i = at - offset, old_len - offset do
-      t[i + offset] = t[i]
-    end
-  elseif offset > 0 then
-    for i = old_len, at, -1 do
-      t[i + offset] = t[i]
-    end
-  end
-  for i, item in ipairs(insert) do
-    t[at + i - 1] = item
-  end
-end
-
-
 function Doc:new(filename)
   self:reset()
   if filename then
@@ -127,91 +107,48 @@ function Doc:get_change_id()
   return self.undo_stack.idx
 end
 
-function Doc:get_cursor_clipboard(idx)
-  return self.cursor_clipboard[idx]
-end
-function Doc:set_cursor_clipboard(idx, value)
-  self.cursor_clipboard[idx] = value
-end
-
-function Doc:set_selection(line1, col1, line2, col2, swap)
-  assert(not line2 == not col2, "expected 2 or 4 arguments")
-  if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
-  line1, col1 = self:sanitize_position(line1, col1)
-  line2, col2 = self:sanitize_position(line2 or line1, col2 or col1) 
-  self.selections = { line1, col1, line2, col2 }
-  self.cursor_clipboard = {}
-end
-
 function Doc:set_selections(idx, line1, col1, line2, col2, swap)
   assert(not line2 == not col2, "expected 3 or 5 arguments")
   if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2 or line1, col2 or col1)
-  local target = (idx - 1)*4 + 1
-  self.selections[target] = line1
-  self.selections[target+1] = col1
-  self.selections[target+2] = line2
-  self.selections[target+3] = col2
+  common.splice(self.selections, (idx - 1)*4 + 1, 4, { line1, col1, line2, col2 })
 end
 
+function Doc:set_selection(line1, col1, line2, col2, swap)
+  self.selections = {}
+  self:set_selections(1, line1, col1, line2, col2, swap)
+  self.cursor_clipboard = {}
+end
 
 local function sort_positions(line1, col1, line2, col2)
-  if line1 > line2
-  or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1, true
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1
   end
-  return line1, col1, line2, col2, false
+  return line1, col1, line2, col2
 end
-
 
 function Doc:get_selection(sort)
-  if sort then
-    local result = {}
-    for sidx, line1, col1, line2, col2 in self:get_selections(true) do
-      table.insert(result, line1)
-      table.insert(result, col1)
-      table.insert(result, line2)
-      table.insert(result, col2)            
-    end
-    return result
-  end
-  return unpack(self.selections)
-end
-
-function Doc:get_cursor_count()
-  return #self.selections / 4
+  local idx, line1, col1, line2, col2 = self:get_selections(sort)(self.selections, 0)
+  return line1, col1, line2, col2
 end
 
 function Doc:get_selections(sort)
   return function(selections, idx)
     local target = idx*4 + 1
-    if target >= #selections then
-      return
-    end
+    if target >= #selections then return end
     if sort then
-      return idx+1, sort_positions(selections[target], selections[target+1], selections[target+2], selections[target+3])
+      return idx+1, sort_positions(unpack(selections, target, target+4))
     else
-      return idx+1, selections[target], selections[target+1], selections[target+2], selections[target+3]
+      return idx+1, unpack(selections, target, target+4)
     end
   end, self.selections, 0
 end
 
 
-function Doc:has_selection(idx)
-  if idx then
-    local target = (idx-1)*4+1
-    return 
-      self.selections[target] ~= self.selections[target+2] or
-      self.selections[target+1] ~= self.selections[target+3]
-  end
-  for target = 1, #self.selections, 4 do
-    if self.selections[target] ~= self.selections[target+2] or
-      self.selections[target+1] ~= self.selections[target+3] then
-      return true
-    end
-  end
-  return false
+function Doc:has_selection()
+  local line1, col1, line2, col2 = self:get_selection(false)
+  return line1 ~= line2 or col1 ~= col2
 end
 
 
@@ -341,7 +278,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   lines[#lines] = lines[#lines] .. after
 
   -- splice lines into line array
-  splice(self.lines, line, 1, lines)
+  common.splice(self.lines, line, 1, lines)
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
@@ -365,7 +302,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   local after = self.lines[line2]:sub(col2)
 
   -- splice line into line array
-  splice(self.lines, line1, line2 - line1 + 1, { before .. after })
+  common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
 
   -- update highlighter and assure selection is in bounds
   self.highlighter:invalidate(line1)
@@ -402,12 +339,12 @@ end
 
 
 function Doc:text_input(text, idx)
-  for sidx, line, col in self:get_selections() do
+  for sidx, line1, col1, line2, col2 in self:get_selections() do
     if not idx or idx == sidx then
-      if self:has_selection(sidx) then
+      if line1 ~= line2 or col1 ~= col2 then
         self:delete_to(sidx)
       end
-      self:insert(line, col, text)
+      self:insert(line1, col1, text)
       self:move_to(sidx, #text)
     end
   end
@@ -415,11 +352,8 @@ end
 
 
 function Doc:replace(fn)
-  local line1, col1, line2, col2, swap
-  local had_selection = self:has_selection()
-  if had_selection then
-    line1, col1, line2, col2, swap = self:get_selection(true)
-  else
+  local line1, col1, line2, col2 = self:get_selection(true)
+  if line1 == line2 and col1 == col2 then
     line1, col1, line2, col2 = 1, 1, #self.lines, #self.lines[#self.lines]
   end
   local old_text = self:get_text(line1, col1, line2, col2)
@@ -429,7 +363,7 @@ function Doc:replace(fn)
     self:remove(line1, col1, line2, col2)
     if had_selection then
       line2, col2 = self:position_offset(line1, col1, #new_text)
-      self:set_selection(line1, col1, line2, col2, swap)
+      self:set_selection(line1, col1, line2, col2)
     end
   end
   return n
@@ -439,10 +373,10 @@ end
 function Doc:delete_to(idx, ...)
   for sidx, line1, col1, line2, col2 in self:get_selections(true) do
     if not idx or sidx == idx then
-      if self:has_selection(sidx) then
+      if line1 ~= line2 or col1 ~= col2 then
         self:remove(line1, col1, line2, col2)
       else
-        local l2, c2 = self:position_offset(line, col, ...)
+        local l2, c2 = self:position_offset(line1, col1, ...)
         self:remove(line1, col1, l2, c2)
         line1, col1 = sort_positions(line1, col1, l2, c2)
       end

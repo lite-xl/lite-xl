@@ -25,14 +25,10 @@ end
 
 
 local function doc_multiline_selections(sort)
-  local iter, state, idx = doc():get_selections(sort)
+  local iter, state, idx, line1, col1, line2, col2 = doc():get_selections(sort)
   return function() 
-    local line1, col1, line2, col2
     idx, line1, col1, line2, col2 = iter(state, idx)
-    if not idx then
-      return
-    end
-    if line2 > line1 and col2 == 1 then
+    if idx and line2 > line1 and col2 == 1 then
       line2 = line2 - 1
       col2 = #doc().lines[line2]
     end
@@ -62,9 +58,9 @@ local function cut_or_copy(delete)
         doc():delete_to(idx, 0)
       end
       full_text = full_text == "" and text or (full_text .. "\n" .. text)
-      doc():set_cursor_clipboard(idx, text)
+      doc().cursor_clipboard[idx] = text
     else
-      doc():set_cursor_clipboard(idx, "")
+      doc().cursor_clipboard[idx] = ""
     end
   end
   system.set_clipboard(full_text)
@@ -89,7 +85,7 @@ local commands = {
 
   ["doc:paste"] = function()
     for idx, line1, col1, line2, col2 in doc():get_selections() do
-      local value = doc():get_cursor_clipboard(idx) or system.get_clipboard()
+      local value = doc().cursor_clipboard[idx] or system.get_clipboard()
       doc():text_input(value:gsub("\r", ""), idx)
     end
   end,
@@ -121,18 +117,18 @@ local commands = {
   end,
 
   ["doc:delete"] = function()
-    for idx, line, col in doc():get_selections() do
-      if not doc():has_selection(idx) and doc().lines[line]:find("^%s*$", col) then
-        doc():remove(line, col, line, math.huge)
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      if line1 == line2 and col1 == col2 and doc().lines[line1]:find("^%s*$", col1) then
+        doc():remove(line1, col1, line1, math.huge)
       end
       doc():delete_to(idx, translate.next_char)
     end
   end,
 
   ["doc:backspace"] = function()
-    for idx, line, col in doc():get_selections() do
-      if not doc():has_selection(idx) then
-        local text = doc():get_text(line, 1, line, col)
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      if line1 == line2 and col1 == col2 then
+        local text = doc():get_text(line1, 1, line1, col1)
         if #text >= config.indent_size and text:find("^ *$") then
           doc():delete_to(idx, 0, -config.indent_size)
           return
@@ -167,7 +163,7 @@ local commands = {
   end,
 
   ["doc:join-lines"] = function()
-    for idx, line1, _, line2 in doc():get_selections(true) do
+    for idx, line1, col1, line2, col2 in doc():get_selections(true) do
       if line1 == line2 then line2 = line2 + 1 end
       local text = doc():get_text(line1, 1, line2, math.huge)
       text = text:gsub("(.-)\n[\t ]*", function(x)
@@ -175,7 +171,7 @@ local commands = {
       end)
       doc():insert(line1, 1, text)
       doc():remove(line1, #text + 1, line2, math.huge)
-      if doc():has_selection(idx) then
+      if line1 ~= line2 or col1 ~= col2 then
         doc():set_selections(idx, line1, math.huge)
       end
     end
@@ -183,6 +179,7 @@ local commands = {
 
   ["doc:indent"] = function()
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      print("LINE", line1, col1, line2, col2)
       local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
       if l1 then
         doc():set_selections(idx, l1, c1, l2, c2)
@@ -398,25 +395,21 @@ for name, fn in pairs(translations) do
 end
 
 commands["doc:move-to-previous-char"] = function()
-  for idx, line, col in doc():get_selections(true) do
-    if doc():has_selection(idx) then
-      doc():set_selections(idx, line, col)
+  for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+    if line1 ~= line2 or col1 ~= col2 then
+      doc():set_selections(idx, line1, col1)
     end
   end
-  if not doc():has_selection() then
-    doc():move_to(nil, translate.previous_char)
-  end
+  doc():move_to(nil, translate.previous_char)
 end
 
 commands["doc:move-to-next-char"] = function()
-  for idx, _, _, line, col in doc():get_selections(true) do
-    if doc():has_selection(idx) then
-      doc():set_selections(idx, line, col)
+  for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+    if line1 ~= line2 or col1 ~= col2 then
+      doc():set_selections(idx, line2, col2)
     end
   end
-  if not doc():has_selection() then
-    doc():move_to(nil, translate.next_char)
-  end
+  doc():move_to(nil, translate.next_char)
 end
 
 command.add("core.docview", commands)
