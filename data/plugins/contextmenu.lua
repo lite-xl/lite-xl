@@ -64,14 +64,19 @@ end
 
 function ContextMenu:show(x, y)
   self.items = nil
+  local items_list = { width = 0, height = 0 }
   for _, items in ipairs(self.itemset) do
     if items.predicate(x, y) then
-      self.items = items.items
-      break
+      items_list.width = math.max(items_list.width, items.items.width)
+      items_list.height = items_list.height + items.items.height
+      for _, subitems in ipairs(items.items) do
+        table.insert(items_list, subitems)
+      end
     end
   end
 
-  if self.items then
+  if #items_list > 0 then
+    self.items = items_list
     local w, h = self.items.width, self.items.height
 
     -- by default the box is opened on the right and below
