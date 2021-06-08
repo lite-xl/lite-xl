@@ -12,7 +12,7 @@ local function workspace_files_for(project_dir)
   if not info_wsdir then
     local ok, err = system.mkdir(workspace_dir)
     if not ok then
-      error("cannot create workspace directory: %s", err)
+      error("cannot create workspace directory: \"" .. err .. "\"")
     end
   end
   return coroutine.wrap(function()
