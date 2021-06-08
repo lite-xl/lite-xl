@@ -273,4 +273,26 @@ function common.relative_path(ref_dir, dir)
 end
 
 
+function common.mkdirp(path)
+  local stat = system.get_file_info(path)
+  if stat and stat.type then
+    return false, "path exists", path
+  end
+  local subdirs = {}
+  while path and path ~= "" do
+    local success_mkdir = system.mkdir(path)
+    if success_mkdir then break end
+    local updir, basedir = path:match("(.*)[/\\](.+)$")
+    table.insert(subdirs, 1, basedir or path)
+    path = updir
+  end
+  for _, dirname in ipairs(subdirs) do
+    path = path and path .. PATHSEP .. dirname or dirname
+    if not system.mkdir(path) then
+      return false, "cannot create directory", path
+    end
+  end
+  return true
+end
+
 return common
