@@ -18,8 +18,8 @@ local function keymap_macos(keymap)
     ["alt+k"] = "root:switch-to-down",
 
     ["ctrl+w"] = "root:close",
-    ["cmd+tab"] = "root:switch-to-next-tab",
-    ["cmd+shift+tab"] = "root:switch-to-previous-tab",
+    ["ctrl+tab"] = "root:switch-to-next-tab",
+    ["ctrl+shift+tab"] = "root:switch-to-previous-tab",
     ["cmd+pageup"] = "root:move-tab-left",
     ["cmd+pagedown"] = "root:move-tab-right",
     ["alt+1"] = "root:switch-to-tab-1",
