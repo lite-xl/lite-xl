@@ -55,7 +55,7 @@ local function cut_or_copy(delete)
     if line1 ~= line2 or col1 ~= col2 then
       local text = doc():get_text(line1, col1, line2, col2)
       if delete then
-        doc():delete_to(idx, 0)
+        doc():delete_to(0)
       end
       full_text = full_text == "" and text or (full_text .. "\n" .. text)
       doc().cursor_clipboard[idx] = text
@@ -64,6 +64,25 @@ local function cut_or_copy(delete)
     end
   end
   system.set_clipboard(full_text)
+end
+
+local function split_cursor(direction)
+  local new_cursors = {}
+  for _, line1, col1 in doc():get_selections() do
+    local exists = false
+    for _, line2, col2 in doc():get_selections() do
+      if line1+direction == line2 and col1 == col2 then
+        exists = true
+        break
+      end
+    end
+    if not exists and line1 > 1 and line1 < #doc().lines then
+      table.insert(new_cursors, { line1 - 1, col1 })
+    end
+  end
+  for i,v in ipairs(new_cursors) do
+    doc():set_selections(#doc().selections/4 + 1, v[1], v[2])
+  end
 end
 
 local commands = {
@@ -121,7 +140,7 @@ local commands = {
       if line1 == line2 and col1 == col2 and doc().lines[line1]:find("^%s*$", col1) then
         doc():remove(line1, col1, line1, math.huge)
       end
-      doc():delete_to(idx, translate.next_char)
+      doc():delete_to_cursor(idx, translate.next_char)
     end
   end,
 
@@ -130,11 +149,11 @@ local commands = {
       if line1 == line2 and col1 == col2 then
         local text = doc():get_text(line1, 1, line1, col1)
         if #text >= config.indent_size and text:find("^ *$") then
-          doc():delete_to(idx, 0, -config.indent_size)
+          doc():delete_to_cursor(idx, 0, -config.indent_size)
           return
         end
       end
-      doc():delete_to(idx, translate.previous_char)
+      doc():delete_to_cursor(idx, translate.previous_char)
     end
   end,
 
@@ -145,6 +164,16 @@ local commands = {
   ["doc:select-none"] = function()
     local line, col = doc():get_selection()
     doc():set_selection(line, col)
+  end,
+  
+  
+  ["doc:indent"] = function()
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
+      if l1 then
+        doc():set_selections(idx, l1, c1, l2, c2)
+      end
+    end
   end,
 
   ["doc:select-lines"] = function()
@@ -366,6 +395,15 @@ local commands = {
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
   end
+
+  ["doc:create-cursor-previous-line"] = function()
+    split_cursor(-1)
+  end,
+  
+  ["doc:create-cursor-next-line"] = function()
+    split_cursor(1)
+  end,
+
 }
 
 
@@ -389,9 +427,9 @@ local translations = {
 }
 
 for name, fn in pairs(translations) do
-  commands["doc:move-to-" .. name] = function() doc():move_to(nil, fn, dv()) end
-  commands["doc:select-to-" .. name] = function() doc():select_to(nil, fn, dv()) end
-  commands["doc:delete-to-" .. name] = function() doc():delete_to(nil, fn, dv()) end
+  commands["doc:move-to-" .. name] = function() doc():move_to(fn, dv()) end
+  commands["doc:select-to-" .. name] = function() doc():select_to(fn, dv()) end
+  commands["doc:delete-to-" .. name] = function() doc():delete_to(fn, dv()) end
 end
 
 commands["doc:move-to-previous-char"] = function()
@@ -400,7 +438,7 @@ commands["doc:move-to-previous-char"] = function()
       doc():set_selections(idx, line1, col1)
     end
   end
-  doc():move_to(nil, translate.previous_char)
+  doc():move_to(translate.previous_char)
 end
 
 commands["doc:move-to-next-char"] = function()
@@ -409,7 +447,7 @@ commands["doc:move-to-next-char"] = function()
       doc():set_selections(idx, line2, col2)
     end
   end
-  doc():move_to(nil, translate.next_char)
+  doc():move_to(translate.next_char)
 end
 
 command.add("core.docview", commands)

@@ -130,7 +130,7 @@ end
 
 function Doc:get_selection(sort)
   local idx, line1, col1, line2, col2 = self:get_selections(sort)(self.selections, 0)
-  return line1, col1, line2, col2
+  return line1, col1, line2, col2, sort
 end
 
 function Doc:get_selections(sort)
@@ -342,10 +342,10 @@ function Doc:text_input(text, idx)
   for sidx, line1, col1, line2, col2 in self:get_selections() do
     if not idx or idx == sidx then
       if line1 ~= line2 or col1 ~= col2 then
-        self:delete_to(sidx)
+        self:delete_to_cursor(sidx)
       end
       self:insert(line1, col1, text)
-      self:move_to(sidx, #text)
+      self:move_to_cursor(sidx, #text)
     end
   end
 end
@@ -370,7 +370,7 @@ function Doc:replace(fn)
 end
 
 
-function Doc:delete_to(idx, ...)
+function Doc:delete_to_cursor(idx, ...)
   for sidx, line1, col1, line2, col2 in self:get_selections(true) do
     if not idx or sidx == idx then
       if line1 ~= line2 or col1 ~= col2 then
@@ -384,18 +384,19 @@ function Doc:delete_to(idx, ...)
     end
   end
 end
+function Doc:delete_to(...) return self:delete_to(nil, ...) end
 
-
-function Doc:move_to(idx, ...)
+function Doc:move_to_cursor(idx, ...)
   for sidx, line, col in self:get_selections() do
     if not idx or sidx == idx then
       self:set_selections(sidx, self:position_offset(line, col, ...))
     end
   end
 end
+function Doc:move_to(...) return self:move_to_cursor(nil, ...) end
 
 
-function Doc:select_to(idx, ...)
+function Doc:select_to_cursor(idx, ...)
   for sidx, line, col, line2, col2 in self:get_selections() do
     if not idx or idx == sidx then
       line, col = self:position_offset(line, col, ...)
@@ -403,6 +404,7 @@ function Doc:select_to(idx, ...)
     end
   end
 end
+function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
 
 local function get_indent_string()

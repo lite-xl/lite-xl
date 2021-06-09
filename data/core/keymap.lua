@@ -202,6 +202,8 @@ keymap.add_direct {
   ["ctrl+shift+end"] = "doc:select-to-end-of-doc",
   ["shift+pageup"] = "doc:select-to-previous-page",
   ["shift+pagedown"] = "doc:select-to-next-page",
+  ["ctrl+shift+up"] = "doc:create-cursor-previous-line",
+  ["ctrl+shift+down"] = "doc:create-cursor-next-line"
 }
 
 return keymap
