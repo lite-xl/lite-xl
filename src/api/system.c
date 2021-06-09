@@ -201,6 +201,14 @@ top:
       return 4;
 
     case SDL_MOUSEMOTION:
+      SDL_PumpEvents();
+      SDL_Event event_plus;
+      while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
+        e.motion.x = event_plus.motion.x;
+        e.motion.y = event_plus.motion.y;
+        e.motion.xrel += event_plus.motion.xrel;
+        e.motion.yrel += event_plus.motion.yrel;
+      }
       lua_pushstring(L, "mousemoved");
       lua_pushnumber(L, e.motion.x);
       lua_pushnumber(L, e.motion.y);

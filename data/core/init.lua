@@ -948,25 +948,17 @@ end
 function core.step()
   -- handle events
   local did_keymap = false
-  local mouse_moved = false
-  local mouse = { x = 0, y = 0, dx = 0, dy = 0 }
-
 
   for type, a,b,c,d in system.poll_event do
-    if type == "mousemoved" then
-      mouse_moved = true
-      mouse.x, mouse.y = a, b
-      mouse.dx, mouse.dy = mouse.dx + c, mouse.dy + d
-    elseif type == "textinput" and did_keymap then
+    if type == "textinput" and did_keymap then
       did_keymap = false
+    elseif type == "mousemoved" then
+      core.try(core.on_event, type, a, b, c, d)
     else
       local _, res = core.try(core.on_event, type, a, b, c, d)
       did_keymap = res or did_keymap
     end
     core.redraw = true
-  end
-  if mouse_moved then
-    core.try(core.on_event, "mousemoved", mouse.x, mouse.y, mouse.dx, mouse.dy)
   end
 
   local width, height = renderer.get_size()
