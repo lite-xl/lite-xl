@@ -121,6 +121,18 @@ function Doc:set_selection(line1, col1, line2, col2, swap)
   self.cursor_clipboard = {}
 end
 
+function Doc:merge_cursors(idx)
+  for i = (idx or (#self.selections - 3)), (idx or 5), -4 do
+    for j = 1, i - 4, 4 do
+      if self.selections[i] == self.selections[j] and
+        self.selections[i+1] == self.selections[j+1] then
+          common.splice(self.selections, i, 4)
+          break
+      end
+    end
+  end
+end
+
 local function sort_positions(line1, col1, line2, col2)
   if line1 > line2 or line1 == line2 and col1 > col2 then
     return line2, col2, line1, col1
@@ -383,6 +395,7 @@ function Doc:delete_to_cursor(idx, ...)
       self:set_selections(sidx, line1, col1)
     end
   end
+  self:merge_cursors(idx)
 end
 function Doc:delete_to(...) return self:delete_to(nil, ...) end
 
@@ -392,6 +405,7 @@ function Doc:move_to_cursor(idx, ...)
       self:set_selections(sidx, self:position_offset(line, col, ...))
     end
   end
+  self:merge_cursors(idx)
 end
 function Doc:move_to(...) return self:move_to_cursor(nil, ...) end
 
@@ -403,6 +417,7 @@ function Doc:select_to_cursor(idx, ...)
       self:set_selections(sidx, line, col, line2, col2)
     end
   end
+  self:merge_cursors(idx)
 end
 function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
