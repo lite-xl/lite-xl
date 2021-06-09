@@ -55,7 +55,7 @@ local function cut_or_copy(delete)
     if line1 ~= line2 or col1 ~= col2 then
       local text = doc():get_text(line1, col1, line2, col2)
       if delete then
-        doc():delete_to(0)
+        doc():delete_to_cursor(idx, 0)
       end
       full_text = full_text == "" and text or (full_text .. "\n" .. text)
       doc().cursor_clipboard[idx] = text
