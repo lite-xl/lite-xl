@@ -5,15 +5,7 @@
 #include <lauxlib.h>
 #include "rencache.h"
 
-/* a cache over the software renderer -- all drawing operations are stored as
-** commands when issued. At the end of the frame we write the commands to a grid
-** of hash values, take the cells that have changed since the previous frame,
-** merge them into dirty rectangles and redraw only those regions */
-
-#define CELLS_X 80
-#define CELLS_Y 50
 #define CELL_SIZE 96
-#define COMMAND_BUF_SIZE (1024 * 512)
 #define COMMAND_BARE_SIZE offsetof(Command, text)
 
 enum { SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL };
@@ -41,16 +33,6 @@ typedef struct FontRef FontRef;
 FontRef font_refs[FONT_REFS_MAX];
 int font_refs_len = 0;
 
-
-static unsigned cells_buf1[CELLS_X * CELLS_Y];
-static unsigned cells_buf2[CELLS_X * CELLS_Y];
-static unsigned *cells_prev = cells_buf1;
-static unsigned *cells = cells_buf2;
-static RenRect rect_buf[CELLS_X * CELLS_Y / 2];
-static char command_buf[COMMAND_BUF_SIZE];
-static int command_buf_idx;
-static RenRect screen_rect;
-static bool show_debug;
 
 
 static inline int min(int a, int b) { return a < b ? a : b; }
@@ -123,14 +105,14 @@ static RenRect merge_rects(RenRect a, RenRect b) {
 }
 
 
-static Command* push_command(int type, int size) {
-  Command *cmd = (Command*) (command_buf + command_buf_idx);
-  int n = command_buf_idx + size;
+static Command* push_command(RenCache *rc, int type, int size) {
+  Command *cmd = (Command*) (rc->command_buf + rc->command_buf_idx);
+  int n = rc->command_buf_idx + size;
   if (n > COMMAND_BUF_SIZE) {
     fprintf(stderr, "Warning: (" __FILE__ "): exhausted command buffer\n");
     return NULL;
   }
-  command_buf_idx = n;
+  rc->command_buf_idx = n;
   memset(cmd, 0, COMMAND_BARE_SIZE);
   cmd->type = type;
   cmd->size = size;
@@ -138,37 +120,37 @@ static Command* push_command(int type, int size) {
 }
 
 
-static bool next_command(Command **prev) {
+static bool next_command(RenCache *rc, Command **prev) {
   if (*prev == NULL) {
-    *prev = (Command*) command_buf;
+    *prev = (Command*) rc->command_buf;
   } else {
     *prev = (Command*) (((char*) *prev) + (*prev)->size);
   }
-  return *prev != ((Command*) (command_buf + command_buf_idx));
+  return *prev != ((Command*) (rc->command_buf + rc->command_buf_idx));
 }
 
 
-void rencache_show_debug(bool enable) {
-  show_debug = enable;
+void rencache_show_debug(RenCache *rc, bool enable) {
+  rc->show_debug = enable;
 }
 
 
-void rencache_set_clip_rect(RenRect rect) {
-  Command *cmd = push_command(SET_CLIP, COMMAND_BARE_SIZE);
-  if (cmd) { cmd->rect = intersect_rects(rect, screen_rect); }
+void rencache_set_clip_rect(RenCache *rc, RenRect rect) {
+  Command *cmd = push_command(rc, SET_CLIP, COMMAND_BARE_SIZE);
+  if (cmd) { cmd->rect = intersect_rects(rect, rc->screen_rect); }
 }
 
 
-void rencache_draw_rect(RenRect rect, RenColor color) {
-  if (!rects_overlap(screen_rect, rect)) { return; }
-  Command *cmd = push_command(DRAW_RECT, COMMAND_BARE_SIZE);
+void rencache_draw_rect(RenCache *rc, RenRect rect, RenColor color) {
+  if (!rects_overlap(rc->screen_rect, rect)) { return; }
+  Command *cmd = push_command(rc, DRAW_RECT, COMMAND_BARE_SIZE);
   if (cmd) {
     cmd->rect = rect;
     cmd->color = color;
   }
 }
 
-int rencache_draw_text(lua_State *L, FontDesc *font_desc, int font_index,
+int rencache_draw_text(RenCache *rc, lua_State *L, FontDesc *font_desc, int font_index,
   const char *text, int x, int y, RenColor color, bool draw_subpixel,
   CPReplaceTable *replacements, RenColor replace_color)
 {
@@ -180,9 +162,9 @@ int rencache_draw_text(lua_State *L, FontDesc *font_desc, int font_index,
   rect.width = ren_font_subpixel_round(w_subpixel, subpixel_scale, 0);
   rect.height = ren_get_font_height(font_desc);
 
-  if (rects_overlap(screen_rect, rect) && font_refs_add(L, font_desc, font_index) >= 0) {
+  if (rects_overlap(rc->screen_rect, rect) && font_refs_add(L, font_desc, font_index) >= 0) {
     int sz = strlen(text) + 1;
-    Command *cmd = push_command(draw_subpixel ? DRAW_TEXT_SUBPIXEL : DRAW_TEXT, COMMAND_BARE_SIZE + sz);
+    Command *cmd = push_command(rc, draw_subpixel ? DRAW_TEXT_SUBPIXEL : DRAW_TEXT, COMMAND_BARE_SIZE + sz);
     if (cmd) {
       memcpy(cmd->text, text, sz);
       cmd->color = color;
@@ -200,25 +182,25 @@ int rencache_draw_text(lua_State *L, FontDesc *font_desc, int font_index,
 }
 
 
-void rencache_invalidate(void) {
-  memset(cells_prev, 0xff, sizeof(cells_buf1));
+void rencache_invalidate(RenCache *rc) {
+  memset(rc->cells_prev, 0xff, sizeof(rc->cells_buf1));
 }
 
 
-void rencache_begin_frame(lua_State *L) {
+void rencache_begin_frame(RenCache *rc, lua_State *L) {
   /* reset all cells if the screen width/height has changed */
   int w, h;
   ren_get_size(&w, &h);
-  if (screen_rect.width != w || h != screen_rect.height) {
-    screen_rect.width = w;
-    screen_rect.height = h;
-    rencache_invalidate();
+  if (rc->screen_rect.width != w || h != rc->screen_rect.height) {
+    rc->screen_rect.width = w;
+    rc->screen_rect.height = h;
+    rencache_invalidate(rc);
   }
   font_refs_clear(L);
 }
 
 
-static void update_overlapping_cells(RenRect r, unsigned h) {
+static void update_overlapping_cells(RenCache *rc, RenRect r, unsigned h) {
   int x1 = r.x / CELL_SIZE;
   int y1 = r.y / CELL_SIZE;
   int x2 = (r.x + r.width) / CELL_SIZE;
@@ -227,72 +209,72 @@ static void update_overlapping_cells(RenRect r, unsigned h) {
   for (int y = y1; y <= y2; y++) {
     for (int x = x1; x <= x2; x++) {
       int idx = cell_idx(x, y);
-      hash(&cells[idx], &h, sizeof(h));
+      hash(&rc->cells[idx], &h, sizeof(h));
     }
   }
 }
 
 
-static void push_rect(RenRect r, int *count) {
+static void push_rect(RenCache *rc, RenRect r, int *count) {
   /* try to merge with existing rectangle */
   for (int i = *count - 1; i >= 0; i--) {
-    RenRect *rp = &rect_buf[i];
+    RenRect *rp = &rc->rect_buf[i];
     if (rects_overlap(*rp, r)) {
       *rp = merge_rects(*rp, r);
       return;
     }
   }
   /* couldn't merge with previous rectangle: push */
-  rect_buf[(*count)++] = r;
+  rc->rect_buf[(*count)++] = r;
 }
 
 
-void rencache_end_frame(lua_State *L) {
+void rencache_end_frame(RenCache *rc, lua_State *L) {
   /* update cells from commands */
   Command *cmd = NULL;
-  RenRect cr = screen_rect;
-  while (next_command(&cmd)) {
+  RenRect cr = rc->screen_rect;
+  while (next_command(rc, &cmd)) {
     if (cmd->type == SET_CLIP) { cr = cmd->rect; }
     RenRect r = intersect_rects(cmd->rect, cr);
     if (r.width == 0 || r.height == 0) { continue; }
     unsigned h = HASH_INITIAL;
     hash(&h, cmd, cmd->size);
-    update_overlapping_cells(r, h);
+    update_overlapping_cells(rc, r, h);
   }
 
   /* push rects for all cells changed from last frame, reset cells */
   int rect_count = 0;
-  int max_x = screen_rect.width / CELL_SIZE + 1;
-  int max_y = screen_rect.height / CELL_SIZE + 1;
+  int max_x = rc->screen_rect.width / CELL_SIZE + 1;
+  int max_y = rc->screen_rect.height / CELL_SIZE + 1;
   for (int y = 0; y < max_y; y++) {
     for (int x = 0; x < max_x; x++) {
       /* compare previous and current cell for change */
       int idx = cell_idx(x, y);
-      if (cells[idx] != cells_prev[idx]) {
-        push_rect((RenRect) { x, y, 1, 1 }, &rect_count);
+      if (rc->cells[idx] != rc->cells_prev[idx]) {
+        push_rect(rc, (RenRect) { x, y, 1, 1 }, &rect_count);
       }
-      cells_prev[idx] = HASH_INITIAL;
+      rc->cells_prev[idx] = HASH_INITIAL;
     }
   }
 
   /* expand rects from cells to pixels */
   for (int i = 0; i < rect_count; i++) {
-    RenRect *r = &rect_buf[i];
+    RenRect *r = &rc->rect_buf[i];
     r->x *= CELL_SIZE;
     r->y *= CELL_SIZE;
     r->width *= CELL_SIZE;
     r->height *= CELL_SIZE;
-    *r = intersect_rects(*r, screen_rect);
+    *r = intersect_rects(*r, rc->screen_rect);
   }
 
   /* redraw updated regions */
   for (int i = 0; i < rect_count; i++) {
     /* draw */
-    RenRect r = rect_buf[i];
+    RenRect r = rc->rect_buf[i];
     ren_set_clip_rect(r);
 
     cmd = NULL;
-    while (next_command(&cmd)) {
+    while (next_command(rc, &cmd)) {
       switch (cmd->type) {
         case SET_CLIP:
           ren_set_clip_rect(intersect_rects(cmd->rect, r));
@@ -314,7 +296,7 @@ void rencache_end_frame(lua_State *L) {
       }
     }
 
-    if (show_debug) {
+    if (rc->show_debug) {
       RenColor color = { rand(), rand(), rand(), 50 };
       ren_draw_rect(r, color);
     }
@@ -322,13 +304,13 @@ void rencache_end_frame(lua_State *L) {
 
   /* update dirty rects */
   if (rect_count > 0) {
-    ren_update_rects(rect_buf, rect_count);
+    ren_update_rects(rc->rect_buf, rect_count);
   }
 
   /* swap cell buffer and reset */
-  unsigned *tmp = cells;
-  cells = cells_prev;
-  cells_prev = tmp;
-  command_buf_idx = 0;
+  unsigned *tmp = rc->cells;
+  rc->cells = rc->cells_prev;
+  rc->cells_prev = tmp;
+  rc->command_buf_idx = 0;
 }
 

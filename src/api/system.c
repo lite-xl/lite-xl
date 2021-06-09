@@ -13,7 +13,7 @@
 #endif
 
 extern SDL_Window *window;
-
+extern RenCache rencache;
 
 static const char* button_name(int button) {
   switch (button) {
@@ -116,7 +116,7 @@ top:
         lua_pushnumber(L, e.window.data2);
         return 3;
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
-        rencache_invalidate();
+        rencache_invalidate(&rencache);
         lua_pushstring(L, "exposed");
         return 1;
       } else if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {

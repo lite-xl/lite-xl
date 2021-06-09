@@ -19,6 +19,7 @@
 
 
 SDL_Window *window;
+RenCache rencache;
 
 static double get_scale(void) {
 #ifdef _WIN32
@@ -134,6 +135,9 @@ int main(int argc, char **argv) {
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
   init_window_icon();
   ren_init(window);
+
+  rencache.cells_prev = rencache.cells_buf1;
+  rencache.cells = rencache.cells_buf2;
 
   lua_State *L;
 init_lua:

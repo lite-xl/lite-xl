@@ -2,6 +2,7 @@
 #include "renderer.h"
 #include "rencache.h"
 
+extern RenCache rencache;
 
 static RenColor checkcolor(lua_State *L, int idx, int def) {
   RenColor color;
@@ -23,7 +24,7 @@ static RenColor checkcolor(lua_State *L, int idx, int def) {
 
 static int f_show_debug(lua_State *L) {
   luaL_checkany(L, 1);
-  rencache_show_debug(lua_toboolean(L, 1));
+  rencache_show_debug(&rencache, lua_toboolean(L, 1));
   return 0;
 }
 
@@ -38,13 +39,13 @@ static int f_get_size(lua_State *L) {
 
 
 static int f_begin_frame(lua_State *L) {
-  rencache_begin_frame(L);
+  rencache_begin_frame(&rencache, L);
   return 0;
 }
 
 
 static int f_end_frame(lua_State *L) {
-  rencache_end_frame(L);
+  rencache_end_frame(&rencache, L);
   return 0;
 }
 
@@ -55,7 +56,7 @@ static int f_set_clip_rect(lua_State *L) {
   rect.y = luaL_checknumber(L, 2);
   rect.width = luaL_checknumber(L, 3);
   rect.height = luaL_checknumber(L, 4);
-  rencache_set_clip_rect(rect);
+  rencache_set_clip_rect(&rencache, rect);
   return 0;
 }
 
@@ -67,7 +68,7 @@ static int f_draw_rect(lua_State *L) {
   rect.width = luaL_checknumber(L, 3);
   rect.height = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  rencache_draw_rect(rect, color);
+  rencache_draw_rect(&rencache, rect, color);
   return 0;
 }
 
@@ -90,7 +91,7 @@ static int draw_text_subpixel_impl(lua_State *L, bool draw_subpixel) {
     replace_color = (RenColor) {0};
   }
 
-  x_subpixel = rencache_draw_text(L, font_desc, 1, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
+  x_subpixel = rencache_draw_text(&rencache, L, font_desc, 1, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
   lua_pushnumber(L, x_subpixel);
   return 1;
 }
