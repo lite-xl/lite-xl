@@ -77,7 +77,7 @@ local function split_cursor(direction)
       end
     end
     if not exists and line1 > 1 and line1 < #doc().lines then
-      table.insert(new_cursors, { line1 - 1, col1 })
+      table.insert(new_cursors, { line1 + direction, col1 })
     end
   end
   for i,v in ipairs(new_cursors) do
