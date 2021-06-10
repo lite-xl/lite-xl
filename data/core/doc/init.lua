@@ -351,7 +351,7 @@ end
 
 
 function Doc:text_input(text, idx)
-  for sidx, line1, col1, line2, col2 in self:get_selections() do
+  for sidx, line1, col1, line2, col2 in self:get_selections(true) do
     if not idx or idx == sidx then
       if line1 ~= line2 or col1 ~= col2 then
         self:delete_to_cursor(sidx)
