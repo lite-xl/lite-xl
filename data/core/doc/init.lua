@@ -107,18 +107,56 @@ function Doc:get_change_id()
   return self.undo_stack.idx
 end
 
-function Doc:set_selections(idx, line1, col1, line2, col2, swap)
+-- Cursor section. Cursor indices are *only* valid during a get_selections() call.
+-- Cursors will always be iterated in order from top to bottom. Through normal operation
+-- curors can never swap positions; only merge or split, or change their position in cursor
+-- order.
+function Doc:get_selection(sort)
+  local idx, line1, col1, line2, col2 = self:get_selections(sort)({ self.selections, sort }, 0)
+  return line1, col1, line2, col2, sort
+end
+
+function Doc:has_selection()
+  local line1, col1, line2, col2 = self:get_selection(false)
+  return line1 ~= line2 or col1 ~= col2
+end
+
+function Doc:sanitize_selection()
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    self:set_selections(idx, line1, col1, line2, col2)
+  end
+end
+
+local function sort_positions(line1, col1, line2, col2)
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1
+  end
+  return line1, col1, line2, col2
+end
+
+function Doc:set_selections(idx, line1, col1, line2, col2, swap, rm)
   assert(not line2 == not col2, "expected 3 or 5 arguments")
   if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2 or line1, col2 or col1)
-  common.splice(self.selections, (idx - 1)*4 + 1, 4, { line1, col1, line2, col2 })
+  common.splice(self.selections, (idx - 1)*4 + 1, rm == nil and 4 or rm, { line1, col1, line2, col2 })
+end
+
+function Doc:add_selection(line1, col1, line2, col2, swap)
+  local l1, c1 = sort_positions(line1, col1, line2, col2)
+  local target = #self.selections / 4 + 1
+  for idx, tl1, tc1 in self:get_selections(true) do
+    if l1 < tl1 or l1 == tl1 and c1 < tc1 then
+      target = idx
+      break
+    end
+  end
+  self:set_selections(target, line1, col1, line2, col2, swap, 0)
 end
 
 function Doc:set_selection(line1, col1, line2, col2, swap)
-  self.selections = {}
+  self.selections, self.cursor_clipboard = {}, {}
   self:set_selections(1, line1, col1, line2, col2, swap)
-  self.cursor_clipboard = {}
 end
 
 function Doc:merge_cursors(idx)
@@ -133,43 +171,20 @@ function Doc:merge_cursors(idx)
   end
 end
 
-local function sort_positions(line1, col1, line2, col2)
-  if line1 > line2 or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1
-  end
-  return line1, col1, line2, col2
-end
-
-function Doc:get_selection(sort)
-  local idx, line1, col1, line2, col2 = self:get_selections(sort)(self.selections, 0)
-  return line1, col1, line2, col2, sort
-end
-
-function Doc:get_selections(sort)
-  return function(selections, idx)
-    local target = idx*4 + 1
-    if target >= #selections then return end
-    if sort then
-      return idx+1, sort_positions(unpack(selections, target, target+4))
-    else
-      return idx+1, unpack(selections, target, target+4)
-    end
-  end, self.selections, 0
-end
-
-
-function Doc:has_selection()
-  local line1, col1, line2, col2 = self:get_selection(false)
-  return line1 ~= line2 or col1 ~= col2
-end
-
-
-function Doc:sanitize_selection()
-  for idx, line1, col1, line2, col2 in self:get_selections() do
-    self:set_selections(idx, line1, col1, line2, col2)
+local function selection_iterator(invariant, idx)
+  local target = invariant[3] and (#invariant[1] - 3 - idx * 4) or (idx*4 + 1)
+  if idx * 4 >= #invariant[1] then return end
+  if invariant[2] then
+    return idx+1, sort_positions(unpack(invariant[1], target, target+4))
+  else
+    return idx+1, unpack(invariant[1], target, target+4)
   end
 end
 
+function Doc:get_selections(sort_intra, reverse)
+  return selection_iterator, { self.selections, sort_intra, reverse }, 0
+end
+-- End of cursor seciton.
 
 function Doc:sanitize_position(line, col)
   line = common.clamp(line, 1, #self.lines)

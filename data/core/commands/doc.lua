@@ -110,7 +110,7 @@ local commands = {
   end,
 
   ["doc:newline"] = function()
-    for idx, line, col in doc():get_selections() do
+    for idx, line, col in doc():get_selections(false, true) do
       local indent = doc().lines[line]:match("^[\t ]*")
       if col <= #indent then
         indent = indent:sub(#indent + 2 - col)
@@ -208,7 +208,6 @@ local commands = {
 
   ["doc:indent"] = function()
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-      print("LINE", line1, col1, line2, col2)
       local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
       if l1 then
         doc():set_selections(idx, l1, c1, l2, c2)
