@@ -80,9 +80,7 @@ local function split_cursor(direction)
       table.insert(new_cursors, { line1 + direction, col1 })
     end
   end
-  for i,v in ipairs(new_cursors) do
-    doc():set_selections(#doc().selections/4 + 1, v[1], v[2])
-  end
+  for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
 end
 
 local commands = {

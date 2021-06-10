@@ -143,7 +143,7 @@ function Doc:set_selections(idx, line1, col1, line2, col2, swap, rm)
 end
 
 function Doc:add_selection(line1, col1, line2, col2, swap)
-  local l1, c1 = sort_positions(line1, col1, line2, col2)
+  local l1, c1 = sort_positions(line1, col1, line2 or line1, col2 or col1)
   local target = #self.selections / 4 + 1
   for idx, tl1, tc1 in self:get_selections(true) do
     if l1 < tl1 or l1 == tl1 and c1 < tc1 then
