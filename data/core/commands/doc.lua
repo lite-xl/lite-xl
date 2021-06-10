@@ -398,10 +398,12 @@ local commands = {
 
   ["doc:create-cursor-previous-line"] = function()
     split_cursor(-1)
+    doc():merge_cursors()
   end,
   
   ["doc:create-cursor-next-line"] = function()
     split_cursor(1)
+    doc():merge_cursors()
   end,
 
 }

@@ -294,7 +294,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
-  push_undo(undo_stack, time, "selection", self:get_selection())
+  push_undo(undo_stack, time, "selection", unpack(self.selections))
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
@@ -306,7 +306,7 @@ end
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- push undo
   local text = self:get_text(line1, col1, line2, col2)
-  push_undo(undo_stack, time, "selection", self:get_selection())
+  push_undo(undo_stack, time, "selection", unpack(self.selections))
   push_undo(undo_stack, time, "insert", line1, col1, text)
 
   -- get line content before/after removed text
