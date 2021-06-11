@@ -538,11 +538,11 @@ static int f_fuzzy_match(lua_State *L) {
   bool files = false;
   if (lua_gettop(L) > 2 && lua_isboolean(L,3))
     files = lua_toboolean(L, 3);
-    
+
   int score = 0;
   int run = 0;
-  
-  // Match things *backwards*. This allows for better matching on filenames than the above 
+
+  // Match things *backwards*. This allows for better matching on filenames than the above
   // function. For example, in the lite project, opening "renderer" has lib/font_render/build.sh
   // as the first result, rather than src/renderer.c. Clearly that's wrong.
   if (files) {
