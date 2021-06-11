@@ -33,7 +33,7 @@ struct RenFont {
 };
 
 static RenWindow window_renderer = {0};
-RenSurface window_ren_surface[1];
+RenSurface window_ren_surface[1] = {{SurfaceWindow, &window_renderer}};
 
 static void* check_alloc(void *ptr) {
   if (!ptr) {
@@ -121,9 +121,6 @@ void ren_init(SDL_Window *win) {
   window_renderer.initial_frame = true;
   renwin_init_surface(&window_renderer);
   renwin_clip_to_surface(&window_renderer);
-
-  window_ren_surface->type = SurfaceWindow;
-  window_ren_surface->data = &window_renderer;
 }
 
 void ren_resize_window() {
