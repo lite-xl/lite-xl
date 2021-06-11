@@ -24,6 +24,7 @@ struct RenCache {
   int command_buf_idx;
   RenRect screen_rect;
   bool show_debug;
+  RenSurface *ren_surface;
 };
 typedef struct RenCache RenCache;
 
@@ -33,7 +34,7 @@ void rencache_draw_rect(RenCache *rc, RenRect rect, RenColor color);
 int  rencache_draw_text(RenCache *rc, lua_State *L, FontDesc *font_desc, int font_index, const char *text, int x, int y, RenColor color,
   bool draw_subpixel, CPReplaceTable *replacements, RenColor replace_color);
 void rencache_invalidate(RenCache *rc);
-void rencache_begin_frame(RenCache *rc, lua_State *L);
+void rencache_begin_frame(RenCache *rc, RenSurface *ren, lua_State *L);
 void rencache_end_frame(RenCache *rc, lua_State *L);
 
 #endif

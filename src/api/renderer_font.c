@@ -74,7 +74,7 @@ static int f_get_width(lua_State *L) {
   const char *text = luaL_checkstring(L, 2);
   /* By calling ren_get_font_width with NULL as third arguments
      we will obtain the width in points. */
-  int w = ren_get_font_width(self, text, NULL);
+  int w = ren_get_font_width(window_ren_surface, self, text, NULL);
   lua_pushnumber(L, w);
   return 1;
 }
@@ -82,7 +82,7 @@ static int f_get_width(lua_State *L) {
 
 static int f_subpixel_scale(lua_State *L) {
   FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
-  lua_pushnumber(L, ren_get_font_subpixel_scale(self));
+  lua_pushnumber(L, ren_get_font_subpixel_scale(window_ren_surface, self));
   return 1;
 }
 
@@ -92,14 +92,14 @@ static int f_get_width_subpixel(lua_State *L) {
   int subpixel_scale;
   /* We need to pass a non-null subpixel_scale pointer to force
      subpixel width calculation. */
-  lua_pushnumber(L, ren_get_font_width(self, text, &subpixel_scale));
+  lua_pushnumber(L, ren_get_font_width(window_ren_surface, self, text, &subpixel_scale));
   return 1;
 }
 
 
 static int f_get_height(lua_State *L) {
   FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
-  lua_pushnumber(L, ren_get_font_height(self) );
+  lua_pushnumber(L, ren_get_font_height(window_ren_surface, self) );
   return 1;
 }
 

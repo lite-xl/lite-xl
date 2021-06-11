@@ -33,8 +33,6 @@ typedef struct FontRef FontRef;
 FontRef font_refs[FONT_REFS_MAX];
 int font_refs_len = 0;
 
-
-
 static inline int min(int a, int b) { return a < b ? a : b; }
 static inline int max(int a, int b) { return a > b ? a : b; }
 
@@ -155,12 +153,12 @@ int rencache_draw_text(RenCache *rc, lua_State *L, FontDesc *font_desc, int font
   CPReplaceTable *replacements, RenColor replace_color)
 {
   int subpixel_scale;
-  int w_subpixel = ren_get_font_width(font_desc, text, &subpixel_scale);
+  int w_subpixel = ren_get_font_width(rc->ren_surface, font_desc, text, &subpixel_scale);
   RenRect rect;
   rect.x = (draw_subpixel ? ren_font_subpixel_round(x, subpixel_scale, -1) : x);
   rect.y = y;
   rect.width = ren_font_subpixel_round(w_subpixel, subpixel_scale, 0);
-  rect.height = ren_get_font_height(font_desc);
+  rect.height = ren_get_font_height(rc->ren_surface, font_desc);
 
   if (rects_overlap(rc->screen_rect, rect) && font_refs_add(L, font_desc, font_index) >= 0) {
     int sz = strlen(text) + 1;
@@ -187,15 +185,16 @@ void rencache_invalidate(RenCache *rc) {
 }
 
 
-void rencache_begin_frame(RenCache *rc, lua_State *L) {
+void rencache_begin_frame(RenCache *rc, RenSurface *ren, lua_State *L) {
   /* reset all cells if the screen width/height has changed */
   int w, h;
-  ren_get_size(&w, &h);
+  ren_get_size(ren, &w, &h);
   if (rc->screen_rect.width != w || h != rc->screen_rect.height) {
     rc->screen_rect.width = w;
     rc->screen_rect.height = h;
     rencache_invalidate(rc);
   }
+  rc->ren_surface = ren;
   font_refs_clear(L);
 }
 
@@ -271,25 +270,25 @@ void rencache_end_frame(RenCache *rc, lua_State *L) {
   for (int i = 0; i < rect_count; i++) {
     /* draw */
     RenRect r = rc->rect_buf[i];
-    ren_set_clip_rect(r);
+    ren_set_clip_rect(rc->ren_surface, r);
 
     cmd = NULL;
     while (next_command(rc, &cmd)) {
       switch (cmd->type) {
         case SET_CLIP:
-          ren_set_clip_rect(intersect_rects(cmd->rect, r));
+          ren_set_clip_rect(rc->ren_surface, intersect_rects(cmd->rect, r));
           break;
         case DRAW_RECT:
-          ren_draw_rect(cmd->rect, cmd->color);
+          ren_draw_rect(rc->ren_surface, cmd->rect, cmd->color);
           break;
         case DRAW_TEXT:
           font_desc_set_tab_size(cmd->font_desc, cmd->tab_size);
-          ren_draw_text(cmd->font_desc, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color,
+          ren_draw_text(rc->ren_surface, cmd->font_desc, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color,
             cmd->replacements, cmd->replace_color);
           break;
         case DRAW_TEXT_SUBPIXEL:
           font_desc_set_tab_size(cmd->font_desc, cmd->tab_size);
-          ren_draw_text_subpixel(cmd->font_desc, cmd->text,
+          ren_draw_text_subpixel(rc->ren_surface, cmd->font_desc, cmd->text,
             cmd->subpixel_scale * cmd->rect.x + cmd->x_subpixel_offset, cmd->rect.y, cmd->color,
             cmd->replacements, cmd->replace_color);
           break;
@@ -298,13 +297,13 @@ void rencache_end_frame(RenCache *rc, lua_State *L) {
 
     if (rc->show_debug) {
       RenColor color = { rand(), rand(), rand(), 50 };
-      ren_draw_rect(r, color);
+      ren_draw_rect(rc->ren_surface, r, color);
     }
   }
 
   /* update dirty rects */
   if (rect_count > 0) {
-    ren_update_rects(rc->rect_buf, rect_count);
+    ren_update_rects(rc->ren_surface, rc->rect_buf, rect_count);
   }
 
   /* swap cell buffer and reset */
@@ -312,5 +311,7 @@ void rencache_end_frame(RenCache *rc, lua_State *L) {
   rc->cells = rc->cells_prev;
   rc->cells_prev = tmp;
   rc->command_buf_idx = 0;
+
+  rc->ren_surface = NULL;
 }
 

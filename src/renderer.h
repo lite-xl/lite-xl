@@ -21,6 +21,20 @@ enum {
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 
+struct RenTexture {
+  SDL_Surface *surface;
+  int surface_scale;
+  RenRect clip; /* Clipping rect in pixel coordinates. */
+};
+typedef struct RenTexture RenTexture;
+
+enum { SurfaceTexture, SurfaceWindow };
+
+typedef struct {
+  int type; /* Type of surface, RenSurfaceTexture or RenSurfaceWindow. */
+  void *data; /* Can be a RenTexture or RenWindow pointer based on type. */
+} RenSurface;
+
 struct CPReplace {
   unsigned codepoint_src;
   unsigned codepoint_dst;
@@ -34,13 +48,13 @@ struct CPReplaceTable {
 };
 typedef struct CPReplaceTable CPReplaceTable;
 
-
 void ren_init(SDL_Window *win);
 void ren_resize_window();
-void ren_update_rects(RenRect *rects, int count);
-void ren_set_clip_rect(RenRect rect);
-void ren_get_size(int *x, int *y); /* Reports the size in points. */
 void ren_free_window_resources();
+
+void ren_update_rects(RenSurface *ren, RenRect *rects, int count);
+void ren_set_clip_rect(RenSurface *ren, RenRect rect);
+void ren_get_size(RenSurface *ren, int *x, int *y); /* Reports the size in points. */
 
 RenImage* ren_new_image(int width, int height);
 void ren_free_image(RenImage *image);
@@ -51,18 +65,20 @@ void ren_free_font(RenFont *font);
 void ren_set_font_tab_size(RenFont *font, int n);
 int ren_get_font_tab_size(RenFont *font);
 
-int ren_get_font_width(FontDesc *font_desc, const char *text, int *subpixel_scale);
-int ren_get_font_height(FontDesc *font_desc);
-int ren_get_font_subpixel_scale(FontDesc *font_desc);
+int ren_get_font_width(RenSurface *ren, FontDesc *font_desc, const char *text, int *subpixel_scale);
+int ren_get_font_height(RenSurface *ren, FontDesc *font_desc);
+int ren_get_font_subpixel_scale(RenSurface *ren, FontDesc *font_desc);
 int ren_font_subpixel_round(int width, int subpixel_scale, int orientation);
 
-void ren_draw_rect(RenRect rect, RenColor color);
-void ren_draw_text(FontDesc *font_desc, const char *text, int x, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
-void ren_draw_text_subpixel(FontDesc *font_desc, const char *text, int x_subpixel, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
+void ren_draw_rect(RenSurface *ren, RenRect rect, RenColor color);
+void ren_draw_text(RenSurface *ren, FontDesc *font_desc, const char *text, int x, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
+void ren_draw_text_subpixel(RenSurface *ren, FontDesc *font_desc, const char *text, int x_subpixel, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
 
 void ren_cp_replace_init(CPReplaceTable *rep_table);
 void ren_cp_replace_free(CPReplaceTable *rep_table);
 void ren_cp_replace_add(CPReplaceTable *rep_table, const char *src, const char *dst);
 void ren_cp_replace_clear(CPReplaceTable *rep_table);
+
+extern RenSurface window_ren_surface[1];
 
 #endif

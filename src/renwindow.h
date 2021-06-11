@@ -1,9 +1,11 @@
 #include <SDL.h>
+#include <stdbool.h>
 #include "renderer.h"
 
 struct RenWindow {
   SDL_Window *window;
   RenRect clip; /* Clipping rect in pixel coordinates. */
+  bool initial_frame;
 #ifdef LITE_USE_SDL_RENDERER
   SDL_Renderer *renderer;
   SDL_Texture *texture;

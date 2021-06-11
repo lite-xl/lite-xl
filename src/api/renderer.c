@@ -31,7 +31,7 @@ static int f_show_debug(lua_State *L) {
 
 static int f_get_size(lua_State *L) {
   int w, h;
-  ren_get_size(&w, &h);
+  ren_get_size(window_ren_surface, &w, &h);
   lua_pushnumber(L, w);
   lua_pushnumber(L, h);
   return 2;
@@ -39,7 +39,7 @@ static int f_get_size(lua_State *L) {
 
 
 static int f_begin_frame(lua_State *L) {
-  rencache_begin_frame(&rencache, L);
+  rencache_begin_frame(&rencache, window_ren_surface, L);
   return 0;
 }
 
