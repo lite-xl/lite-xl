@@ -173,7 +173,7 @@ end
 
 local function selection_iterator(invariant, idx)
   local target = invariant[3] and (idx*4 - 7) or (idx*4 + 1)
-  if target > #invariant[1] or target <= 0 then return end
+  if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
   if invariant[2] then
     return idx+(invariant[3] and -1 or 1), sort_positions(unpack(invariant[1], target, target+4))
   else
@@ -181,8 +181,11 @@ local function selection_iterator(invariant, idx)
   end
 end
 
-function Doc:get_selections(sort_intra, reverse)
-  return selection_iterator, { self.selections, sort_intra, reverse }, reverse and (#self.selections / 4) + 1 or 0
+-- If idx_reverse is true, it'll reverse iterate. If nil, or false, regular iterate. 
+-- If a number, runs for exactly that iteration.
+function Doc:get_selections(sort_intra, idx_reverse)
+  return selection_iterator, { self.selections, sort_intra, idx_reverse }, 
+    idx_reverse == true and ((#self.selections / 4) + 1) or ((idx_reverse or -1)+1)
 end
 -- End of cursor seciton.
 
@@ -366,14 +369,12 @@ end
 
 
 function Doc:text_input(text, idx)
-  for sidx, line1, col1, line2, col2 in self:get_selections(true) do
-    if not idx or idx == sidx then
-      if line1 ~= line2 or col1 ~= col2 then
-        self:delete_to_cursor(sidx)
-      end
-      self:insert(line1, col1, text)
-      self:move_to_cursor(sidx, #text)
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
+    if line1 ~= line2 or col1 ~= col2 then
+      self:delete_to_cursor(sidx)
     end
+    self:insert(line1, col1, text)
+    self:move_to_cursor(sidx, #text)
   end
 end
 
@@ -398,27 +399,23 @@ end
 
 
 function Doc:delete_to_cursor(idx, ...)
-  for sidx, line1, col1, line2, col2 in self:get_selections(true) do
-    if not idx or sidx == idx then
-      if line1 ~= line2 or col1 ~= col2 then
-        self:remove(line1, col1, line2, col2)
-      else
-        local l2, c2 = self:position_offset(line1, col1, ...)
-        self:remove(line1, col1, l2, c2)
-        line1, col1 = sort_positions(line1, col1, l2, c2)
-      end
-      self:set_selections(sidx, line1, col1)
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
+    if line1 ~= line2 or col1 ~= col2 then
+      self:remove(line1, col1, line2, col2)
+    else
+      local l2, c2 = self:position_offset(line1, col1, ...)
+      self:remove(line1, col1, l2, c2)
+      line1, col1 = sort_positions(line1, col1, l2, c2)
     end
+    self:set_selections(sidx, line1, col1)
   end
   self:merge_cursors(idx)
 end
 function Doc:delete_to(...) return self:delete_to(nil, ...) end
 
 function Doc:move_to_cursor(idx, ...)
-  for sidx, line, col in self:get_selections() do
-    if not idx or sidx == idx then
-      self:set_selections(sidx, self:position_offset(line, col, ...))
-    end
+  for sidx, line, col in self:get_selections(false, idx) do
+    self:set_selections(sidx, self:position_offset(line, col, ...))
   end
   self:merge_cursors(idx)
 end
@@ -426,11 +423,9 @@ function Doc:move_to(...) return self:move_to_cursor(nil, ...) end
 
 
 function Doc:select_to_cursor(idx, ...)
-  for sidx, line, col, line2, col2 in self:get_selections() do
-    if not idx or idx == sidx then
-      line, col = self:position_offset(line, col, ...)
-      self:set_selections(sidx, line, col, line2, col2)
-    end
+  for sidx, line, col, line2, col2 in self:get_selections(false, idx) do
+    line, col = self:position_offset(line, col, ...)
+    self:set_selections(sidx, line, col, line2, col2)
   end
   self:merge_cursors(idx)
 end
