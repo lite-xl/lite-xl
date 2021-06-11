@@ -172,17 +172,17 @@ function Doc:merge_cursors(idx)
 end
 
 local function selection_iterator(invariant, idx)
-  local target = invariant[3] and (#invariant[1] - 3 - idx * 4) or (idx*4 + 1)
-  if idx * 4 >= #invariant[1] then return end
+  local target = invariant[3] and (idx*4 - 7) or (idx*4 + 1)
+  if target > #invariant[1] or target <= 0 then return end
   if invariant[2] then
-    return idx+1, sort_positions(unpack(invariant[1], target, target+4))
+    return idx+(invariant[3] and -1 or 1), sort_positions(unpack(invariant[1], target, target+4))
   else
-    return idx+1, unpack(invariant[1], target, target+4)
+    return idx+(invariant[3] and -1 or 1), unpack(invariant[1], target, target+4)
   end
 end
 
 function Doc:get_selections(sort_intra, reverse)
-  return selection_iterator, { self.selections, sort_intra, reverse }, 0
+  return selection_iterator, { self.selections, sort_intra, reverse }, reverse and (#self.selections / 4) + 1 or 0
 end
 -- End of cursor seciton.
 

@@ -118,7 +118,7 @@ local commands = {
   end,
 
   ["doc:newline-below"] = function()
-    for idx, line in doc():get_selections() do
+    for idx, line in doc():get_selections(false, true) do
       local indent = doc().lines[line]:match("^[\t ]*")
       doc():insert(line, math.huge, "\n" .. indent)
       doc():set_selections(idx, line + 1, math.huge)
@@ -126,7 +126,7 @@ local commands = {
   end,
 
   ["doc:newline-above"] = function()
-    for idx, line in doc():get_selections() do
+    for idx, line in doc():get_selections(false, true) do
       local indent = doc().lines[line]:match("^[\t ]*")
       doc():insert(line, 1, indent .. "\n")
       doc():set_selections(idx, line, math.huge)
