@@ -23,7 +23,7 @@ if get_option('portable')
     lite_docdir = 'doc'
     lite_datadir = 'data'
 else
-    lite_docdir = 'share/doc'
+    lite_docdir = 'share/doc/lite-xl'
     lite_datadir = 'share/lite-xl'
 endif
 
