@@ -129,14 +129,14 @@ function Node:split(dir, view, locked, resizable)
   return self.b
 end
 
-function Node:remove_view(root, view, new_active_view)
+function Node:remove_view(root, view)
   if #self.views > 1 then
     local idx = self:get_view_idx(view)
     if idx < self.tab_offset then
       self.tab_offset = self.tab_offset - 1
     end
     table.remove(self.views, idx)
-    if new_active_view then
+    if self.active_view == view then
       self:set_active_view(self.views[idx] or self.views[#self.views])
     end
   else
@@ -162,9 +162,8 @@ function Node:remove_view(root, view, new_active_view)
 end
 
 function Node:close_view(root, view)
-  local new_active_view = view == self.active_view
   local do_close = function()
-    self:remove_view(root, view, new_active_view)
+    self:remove_view(root, view)
   end
   view:try_close(do_close)
 end
@@ -829,16 +828,19 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     and node.type == "leaf" and #node.views > 0 and node.views[1]:is(DocView) then 
       local tab = self.dragged_node[1].views[self.dragged_node[2]]
       if self.dragged_node[1] ~= node then
-        self.dragged_node[1]:remove_view(self.root_node, tab)
-        node:add_view(tab, tab_index)
-        tab_index = tab_index or #node.views
-        self.root_node:update_layout()
-        core.redraw = true
+        for i, v in ipairs(node.views) do if v.doc == tab.doc then tab = nil break end end
+        if tab then
+          self.dragged_node[1]:remove_view(self.root_node, tab)
+          node:add_view(tab, tab_index)
+          self.root_node:update_layout()
+          self.dragged_node = { node, tab_index or #node.views }
+          core.redraw = true
+        end
       else
         table.remove(self.dragged_node[1].views, self.dragged_node[2])
         table.insert(node.views, tab_index, tab)
+        self.dragged_node = { node, tab_index }
       end
-      self.dragged_node = { node, tab_index }
   end
 end
 
