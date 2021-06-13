@@ -238,7 +238,7 @@ local commands = {
   ["doc:lower-case"] = function()
     doc():replace(string.lower)
   end,
-
+  
   ["doc:go-to-line"] = function()
     local dv = dv()
 
@@ -312,6 +312,21 @@ local commands = {
       end
     end, common.path_suggest)
   end,
+  
+
+  ["doc:remove"] = function()
+    local filename = doc().abs_filename
+    if not filename then
+      core.error("Cannot remove unsaved doc")
+      return
+    end
+    for i,docview in ipairs(core.get_views_referencing_doc(doc())) do
+      local node = core.root_view.root_node:get_node_for_view(docview)
+      node:close_view(core.root_view, docview)
+    end
+    os.remove(filename)
+    core.log("Removed \"%s\"", filename)
+  end
 }
 
 
