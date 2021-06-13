@@ -201,6 +201,14 @@ top:
       return 4;
 
     case SDL_MOUSEMOTION:
+      SDL_PumpEvents();
+      SDL_Event event_plus;
+      while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
+        e.motion.x = event_plus.motion.x;
+        e.motion.y = event_plus.motion.y;
+        e.motion.xrel += event_plus.motion.xrel;
+        e.motion.yrel += event_plus.motion.yrel;
+      }
       lua_pushstring(L, "mousemoved");
       lua_pushnumber(L, e.motion.x);
       lua_pushnumber(L, e.motion.y);
@@ -530,11 +538,11 @@ static int f_fuzzy_match(lua_State *L) {
   bool files = false;
   if (lua_gettop(L) > 2 && lua_isboolean(L,3))
     files = lua_toboolean(L, 3);
-    
+
   int score = 0;
   int run = 0;
-  
-  // Match things *backwards*. This allows for better matching on filenames than the above 
+
+  // Match things *backwards*. This allows for better matching on filenames than the above
   // function. For example, in the lite project, opening "renderer" has lib/font_render/build.sh
   // as the first result, rather than src/renderer.c. Clearly that's wrong.
   if (files) {

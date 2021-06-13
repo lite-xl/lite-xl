@@ -309,7 +309,8 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   int dr = surface->w - (x2 - x1);
 
   if (color.a == 0xff) {
-    rect_draw_loop(color);
+    SDL_Rect rect = { x1, y1, x2 - x1, y2 - y1 };
+    SDL_FillRect(surface, &rect, SDL_MapRGBA(surface->format, color.r, color.g, color.b, color.a));
   } else {
     rect_draw_loop(blend_pixel(*d, color));
   }
