@@ -170,12 +170,6 @@ function NagView:draw()
   end
 end
 
-local function findindex(tbl, prop)
-  for i, o in ipairs(tbl) do
-    if o[prop] then return i end
-  end
-end
-
 function NagView:get_message_height()
   local h = 0
   for str in string.gmatch(self.message, "(.-)\n") do
@@ -196,7 +190,7 @@ function NagView:next()
     -- self.target_height is the nagview height needed to display the message and
     -- the buttons, excluding the top and bottom padding space.
     self.target_height = math.max(message_height, self:get_buttons_height())
-    self:change_hovered(findindex(self.options, "default_yes"))
+    self:change_hovered(common.find_index(self.options, "default_yes"))
   end
   self.force_focus = self.message ~= nil
   core.set_active_view(self.message ~= nil and self or core.last_active_view)
