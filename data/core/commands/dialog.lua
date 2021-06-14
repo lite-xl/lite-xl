@@ -1,5 +1,6 @@
 local core = require "core"
 local command = require "core.command"
+local common = require "core.common"
 
 command.add("core.nagview", {
   ["dialog:previous-entry"] = function()
@@ -15,13 +16,13 @@ command.add("core.nagview", {
   ["dialog:select-yes"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v:change_hovered(findindex(v.options, "default_yes"))
+    v:change_hovered(common.find_index(v.options, "default_yes"))
     command.perform "dialog:select"
   end,
   ["dialog:select-no"] = function()
     local v = core.active_view
     if v ~= core.nag_view then return end
-    v:change_hovered(findindex(v.options, "default_no"))
+    v:change_hovered(common.find_index(v.options, "default_no"))
     command.perform "dialog:select"
   end,
   ["dialog:select"] = function()

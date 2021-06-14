@@ -22,6 +22,13 @@ function common.round(n)
 end
 
 
+function common.find_index(tbl, prop)
+  for i, o in ipairs(tbl) do
+    if o[prop] then return i end
+  end
+end
+
+
 function common.lerp(a, b, t)
   if type(a) ~= "table" then
     return a + (b - a) * t
