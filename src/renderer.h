@@ -21,10 +21,13 @@ enum {
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 
+// FIXME: ensure this Max is okay or use dynamic allocation.
+#define TEXTURE_REVS_MAX 256
 struct RenTexture {
   SDL_Surface *surface;
   int surface_scale;
   RenRect clip; /* Clipping rect in pixel coordinates. */
+  int revisions[TEXTURE_REVS_MAX];
 };
 typedef struct RenTexture RenTexture;
 
@@ -73,6 +76,7 @@ int ren_font_subpixel_round(int width, int subpixel_scale, int orientation);
 void ren_draw_rect(RenSurface *ren, RenRect rect, RenColor color);
 void ren_draw_text(RenSurface *ren, FontDesc *font_desc, const char *text, int x, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
 void ren_draw_text_subpixel(RenSurface *ren, FontDesc *font_desc, const char *text, int x_subpixel, int y, RenColor color, CPReplaceTable *replacements, RenColor replace_color);
+void ren_draw_image(RenSurface *ren, uint32_t image_id, int image_x, int image_y, RenRect rect);
 
 void ren_cp_replace_init(CPReplaceTable *rep_table);
 void ren_cp_replace_free(CPReplaceTable *rep_table);

@@ -127,14 +127,28 @@ void ren_resize_window() {
   renwin_resize_surface(&window_renderer);
 }
 
+/* FIXME: all this stuff. */
+#define IMAGE_CELL_SIZE 96
+#define IMAGE_CELL_X 80
+
+static inline int image_cell_idx(int x, int y) {
+  return x + y * IMAGE_CELLS_X;
+}
 
 void ren_update_rects(RenSurface *ren, RenRect *rects, int count) {
   if (ren->type == SurfaceTexture) {
-    // FIXME: this is now a NOP because we don't present the rectangles into
-    // the screen neither we upload them into a texture.
-    // The problem is that the information about the update rects is lost for
-    // later when the rendering commands are sent to the window.
-    // rentex_update_rects((RenTexture *) ren->data, rects, count);
+    RenTexture *rentex = (RenTexture *) ren->data;
+    for (int i = 0; i < count; i++) {
+      RenRect irect = image_rect_to_index(rects[i]);
+      /* Increment the revision number for all cells that needs to be updated,
+         i.e. those that overlaps with one of the update rectangles. */
+      for (int x = irect.x; x < irect.x + irect.width; x++) {
+        for (int y = irect.y; y < irect.y + irect.height; y++) {
+          int idx = image_cell_idx(x, y);
+          rentex->revisions[idx] += 1:
+        }
+      }
+    }
   } else {
     RenWindow *renwin = (RenWindow *) ren->data;
     if (renwin->initial_frame) {
@@ -438,3 +452,12 @@ int ren_get_font_subpixel_scale(RenSurface *ren, FontDesc *font_desc) {
   RenFont *font = font_desc_get_font_at_scale(font_desc, surface_scale);
   return FR_Subpixel_Scale(font->renderer) * surface_scale;
 }
+
+void ren_draw_image(RenSurface *ren, uint32_t image_id, int image_x, int image_y, RenRect rect) {
+  SDL_Rect image_rect;
+  SDL_Surface *image_surf = image_get(image_id, &image_rect, image_x, image_y);
+  SDL_Surface *surface = ren_surface_get_surface(ren);
+  SDL_Rect dst_rect = {rect.x, rect.y, 0, 0};
+  SDL_BlitSurface(image_surf,image_rect, surface, &dst_rect);
+}
+

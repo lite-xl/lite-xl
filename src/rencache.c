@@ -8,7 +8,7 @@
 #define CELL_SIZE 96
 #define COMMAND_BARE_SIZE offsetof(Command, text)
 
-enum { SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL };
+enum { SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL, DRAW_IMAGE };
 
 typedef struct {
   int8_t type;
@@ -21,6 +21,7 @@ typedef struct {
   FontDesc *font_desc;
   CPReplaceTable *replacements;
   RenColor replace_color;
+  uint32_t image_id; /* FIXME: do not add a new field but use unions or alias another field. */
   char text[0];
 } Command;
 
@@ -148,6 +149,20 @@ void rencache_draw_rect(RenCache *rc, RenRect rect, RenColor color) {
   }
 }
 
+
+void rencache_draw_image(RenCache *rc, int image_id, int x, int y, RenRect image_rect) {
+  RenRect rect = {x, y, image_rect.width, image_rect.height};
+  if (!rects_overlap(rc->screen_rect, rect)) { return; }
+  Command *cmd = push_command(rc, DRAW_IMAGE, COMMAND_BARE_SIZE + 2 * sizeof(int));
+  int *img_coord = (int *) cmd->text;
+  if (cmd) {
+    cmd->rect = rect;
+    cmd->image_id = image_id;
+    img_coord[0] = image_rect.x;
+    img_coord[1] = image_rect.y;
+  }
+}
+
 int rencache_draw_text(RenCache *rc, lua_State *L, FontDesc *font_desc, int font_index,
   const char *text, int x, int y, RenColor color, bool draw_subpixel,
   CPReplaceTable *replacements, RenColor replace_color)
@@ -268,6 +283,7 @@ void rencache_end_frame(RenCache *rc, lua_State *L) {
 
   /* redraw updated regions */
   for (int i = 0; i < rect_count; i++) {
+    const int *image_coord;
     /* draw */
     RenRect r = rc->rect_buf[i];
     ren_set_clip_rect(rc->ren_surface, r);
@@ -291,6 +307,10 @@ void rencache_end_frame(RenCache *rc, lua_State *L) {
           ren_draw_text_subpixel(rc->ren_surface, cmd->font_desc, cmd->text,
             cmd->subpixel_scale * cmd->rect.x + cmd->x_subpixel_offset, cmd->rect.y, cmd->color,
             cmd->replacements, cmd->replace_color);
+          break;
+        case DRAW_IMAGE:
+          image_coord = (const int *) cmd->text;
+          ren_draw_image(rc->ren_surface, cmd->image_id, image_coord[0], image_coord[1], cmd->rect);
           break;
       }
     }
