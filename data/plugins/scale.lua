@@ -58,6 +58,9 @@ local function set_scale(scale)
   core.redraw = true
 end
 
+local function get_scale() 
+  return current_scale
+end
 
 local on_mouse_wheel = RootView.on_mouse_wheel
 
@@ -98,3 +101,10 @@ keymap.add {
   ["ctrl+="] = "scale:increase",
 }
 
+return { 
+  ["set"] = set_scale, 
+  ["get"] = get_scale, 
+  ["increase"] = inc_scale,
+  ["decrease"] = dec_scale,
+  ["reset"] = res_scale
+}
