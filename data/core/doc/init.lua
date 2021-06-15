@@ -411,7 +411,7 @@ function Doc:delete_to_cursor(idx, ...)
   end
   self:merge_cursors(idx)
 end
-function Doc:delete_to(...) return self:delete_to(nil, ...) end
+function Doc:delete_to(...) return self:delete_to_cursor(nil, ...) end
 
 function Doc:move_to_cursor(idx, ...)
   for sidx, line, col in self:get_selections(false, idx) do
