@@ -297,7 +297,7 @@ local commands = {
     end
   end,
 
-  ["doc:rename"] = function()
+  ["file:rename"] = function()
     local old_filename = doc().filename
     if not old_filename then
       core.error("Cannot rename unsaved doc")
@@ -314,7 +314,7 @@ local commands = {
   end,
   
 
-  ["doc:remove"] = function()
+  ["file:delete"] = function()
     local filename = doc().abs_filename
     if not filename then
       core.error("Cannot remove unsaved doc")
