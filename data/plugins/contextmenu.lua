@@ -246,7 +246,7 @@ function RootView:on_mouse_pressed(button, x,y, clicks)
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
     else
-      self.dragged_node = idx
+      self.dragged_node = { node, idx or #node.views }
       node:set_active_view(node.views[idx])
     end
   else
