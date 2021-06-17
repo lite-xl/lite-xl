@@ -219,43 +219,20 @@ end
 
 
 local menu = ContextMenu()
-local root_view_on_mouse_pressed = RootView.on_mouse_pressed
-local root_view_on_mouse_moved = RootView.on_mouse_moved
+local on_view_mouse_pressed = RootView.on_view_mouse_pressed
+local on_mouse_moved = RootView.on_mouse_moved
 local root_view_update = RootView.update
 local root_view_draw = RootView.draw
 
 function RootView:on_mouse_moved(...)
   if menu:on_mouse_moved(...) then return end
-  root_view_on_mouse_moved(self, ...)
+  on_mouse_moved(self, ...)
 end
 
--- this function is mostly copied from lite-xl's source
-function RootView:on_mouse_pressed(button, x,y, clicks)
-  local div = self.root_node:get_divider_overlapping_point(x, y)
-  if div then
-    self.dragged_divider = div
-    return
-  end
-  local node = self.root_node:get_child_overlapping_point(x, y)
-  if node.hovered_scroll_button > 0 then
-    node:scroll_tabs(node.hovered_scroll_button)
-    return
-  end
-  local idx = node:get_tab_overlapping_point(x, y)
-  if idx then
-    if button == "middle" or node.hovered_close == idx then
-      node:close_view(self.root_node, node.views[idx])
-    else
-      self.dragged_node = { node, idx or #node.views }
-      node:set_active_view(node.views[idx])
-    end
-  else
-    core.set_active_view(node.active_view)
-    -- send to context menu first
-    if not menu:on_mouse_pressed(button, x, y, clicks) then
-      node.active_view:on_mouse_pressed(button, x, y, clicks)
-    end
-  end
+function RootView.on_view_mouse_pressed(button, x, y, clicks)
+  -- We give the priority to the menu to process mouse pressed events.
+  local handled = menu:on_mouse_pressed(button, x, y, clicks)
+  return handled or on_view_mouse_pressed(button, x, y, clicks)
 end
 
 function RootView:update(...)
