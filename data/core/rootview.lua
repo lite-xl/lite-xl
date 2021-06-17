@@ -738,6 +738,12 @@ function RootView:close_all_docviews()
 end
 
 
+-- Function to intercept mouse pressed events on the active view.
+-- Do nothing by default.
+function RootView.on_view_mouse_pressed(button, x, y, clicks)
+end
+
+
 function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
@@ -759,7 +765,9 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     core.set_active_view(node.active_view)
-    node.active_view:on_mouse_pressed(button, x, y, clicks)
+    if not self.on_view_mouse_pressed(button, x, y, clicks) then
+      node.active_view:on_mouse_pressed(button, x, y, clicks)
+    end
   end
 end
 
