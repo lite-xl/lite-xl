@@ -194,6 +194,16 @@ local function project_scan_thread()
 end
 
 
+function core.is_project_folder(dirname)
+  for _, dir in ipairs(core.project_directories) do
+    if dir.name == dirname then
+      return true
+    end
+  end
+  return false
+end
+
+
 function core.scan_project_folder(dirname, filename)
   for _, dir in ipairs(core.project_directories) do
     if dir.name == dirname then
