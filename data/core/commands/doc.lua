@@ -384,7 +384,7 @@ local commands = {
     end
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
-  end
+  end,
 
   ["doc:create-cursor-previous-line"] = function()
     split_cursor(-1)
@@ -394,7 +394,7 @@ local commands = {
   ["doc:create-cursor-next-line"] = function()
     split_cursor(1)
     doc():merge_cursors()
-  end,
+  end
 
 }
 

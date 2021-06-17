@@ -256,7 +256,11 @@ function DocView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     local line, col = self:resolve_screen_position(x, y)
-    self.doc:set_selection(mouse_selection(self.doc, clicks, line, col, line, col))
+    if keymap.modkeys["ctrl"] then
+      self.doc:add_selection(mouse_selection(self.doc, clicks, line, col, line, col))
+    else
+      self.doc:set_selection(mouse_selection(self.doc, clicks, line, col, line, col))
+    end
     self.mouse_selecting = { line, col, clicks = clicks }
   end
   core.blink_reset()
