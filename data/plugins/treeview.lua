@@ -231,8 +231,10 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
         -- we assume here index is not nil because the abs_filename must contain the
         -- relative filename
         local dirname = string.sub(abs_filename, 1, index - 2)
-        core.scan_project_folder(dirname, filename)
-        self:invalidate_cache(dirname)
+        if core.is_project_folder(dirname) then
+          core.scan_project_folder(dirname, filename)
+          self:invalidate_cache(dirname)
+        end
       end
       hovered_item.expanded = not hovered_item.expanded
     end
