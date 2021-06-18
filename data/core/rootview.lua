@@ -295,7 +295,7 @@ function Node:tab_hovered_update(px, py)
   if tab_index then
     local x, y, w, h = self:get_tab_rect(tab_index)
     local cx, cw = close_button_location(x, w)
-    if px >= cx and px < cx + cw and py >= y and py < y + h then
+    if px >= cx and px < cx + cw and py >= y and py < y + h and config.tab_close_button then
       self.hovered_close = tab_index
     end
   else
