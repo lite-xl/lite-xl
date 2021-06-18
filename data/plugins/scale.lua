@@ -32,6 +32,9 @@ local function set_scale(scale)
   local s = scale / current_scale
   current_scale = scale
 
+  -- we set scale_level in case this was called by user
+  scale_level = (scale - default_scale) / scale_steps
+
   if config.scale_mode == "ui" then
     SCALE = scale
 
@@ -58,7 +61,7 @@ local function set_scale(scale)
   core.redraw = true
 end
 
-local function get_scale() 
+local function get_scale()
   return current_scale
 end
 
@@ -101,9 +104,9 @@ keymap.add {
   ["ctrl+="] = "scale:increase",
 }
 
-return { 
-  ["set"] = set_scale, 
-  ["get"] = get_scale, 
+return {
+  ["set"] = set_scale,
+  ["get"] = get_scale,
   ["increase"] = inc_scale,
   ["decrease"] = dec_scale,
   ["reset"] = res_scale
