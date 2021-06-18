@@ -66,6 +66,9 @@ command.add(nil, {
   end,
 
   ["core:find-file"] = function()
+    if core.project_files_limit then
+      return command.perform "core:open-file"
+    end
     local files = {}
     for dir, item in core.get_project_files() do
       if item.type == "file" then
@@ -88,17 +91,23 @@ command.add(nil, {
   ["core:open-file"] = function()
     local view = core.active_view
     if view.doc and view.doc.abs_filename then
-      core.command_view:set_text(common.home_encode(view.doc.abs_filename))
+      local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
+      if dirname then
+        dirname = core.normalize_to_project_dir(dirname)
+        local text = dirname == core.project_dir and "" or common.home_encode(dirname) .. PATHSEP
+        core.command_view:set_text(text)
+      end
     end
     core.command_view:enter("Open File", function(text)
-      core.root_view:open_doc(core.open_doc(common.home_expand(text)))
+      local filename = system.absolute_path(common.home_expand(text))
+      core.root_view:open_doc(core.open_doc(filename))
     end, function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end, nil, function(text)
       local path_stat, err = system.get_file_info(common.home_expand(text))
       if err then
         core.error("Cannot open file %q: %q", text, err)
-      elseif path_stat.type == 'dir' then 
+      elseif path_stat.type == 'dir' then
         core.error("Cannot open %q, is a folder", text)
       else
         return true

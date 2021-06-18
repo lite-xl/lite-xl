@@ -33,33 +33,6 @@ local function doc_multiline_selection(sort)
   return line1, col1, line2, col2, swap
 end
 
-
-local function insert_at_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-  for line = line1, line2 do
-    local line_text = doc().lines[line]
-    if (not skip_empty or line_text:find("%S")) then
-      doc():insert(line, 1, text)
-    end
-  end
-  doc():set_selection(line1, col1 + #text, line2, col2 + #text, swap)
-end
-
-
-local function remove_from_start_of_selected_lines(text, skip_empty)
-  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-  for line = line1, line2 do
-    local line_text = doc().lines[line]
-    if  line_text:sub(1, #text) == text
-    and (not skip_empty or line_text:find("%S"))
-    then
-      doc():remove(line, 1, line, #text + 1)
-    end
-  end
-  doc():set_selection(line1, col1 - #text, line2, col2 - #text, swap)
-end
-
-
 local function append_line_if_last_line(line)
   if line >= #doc().lines then
     doc():insert(line, math.huge, "\n")
@@ -73,7 +46,6 @@ local function save(filename)
   core.on_doc_save(saved_filename)
   core.log("Saved \"%s\"", saved_filename)
 end
-
 
 local commands = {
   ["doc:undo"] = function()
@@ -183,17 +155,11 @@ local commands = {
   end,
 
   ["doc:indent"] = function()
-    local text = get_indent_string()
-    if doc():has_selection() then
-      insert_at_start_of_selected_lines(text)
-    else
-      doc():text_input(text)
-    end
+    doc():indent_text(false, doc_multiline_selection(true))
   end,
 
   ["doc:unindent"] = function()
-    local text = get_indent_string()
-    remove_from_start_of_selected_lines(text)
+    doc():indent_text(true, doc_multiline_selection(true))
   end,
 
   ["doc:duplicate-lines"] = function()
@@ -237,19 +203,31 @@ local commands = {
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
     if not comment then return end
+    local indentation = get_indent_string()
     local comment_text = comment .. " "
-    local line1, _, line2 = doc():get_selection(true)
+    local line1, _, line2 = doc_multiline_selection(true)
     local uncomment = true
+    local start_offset = math.huge
     for line = line1, line2 do
       local text = doc().lines[line]
-      if text:find("%S") and text:find(comment_text, 1, true) ~= 1 then
+      local s = text:find("%S")
+      local cs, ce = text:find(comment_text, s, true)
+      if s and cs ~= s then
         uncomment = false
+        start_offset = math.min(start_offset, s)
       end
     end
-    if uncomment then
-      remove_from_start_of_selected_lines(comment_text, true)
-    else
-      insert_at_start_of_selected_lines(comment_text, true)
+    for line = line1, line2 do
+      local text = doc().lines[line]
+      local s = text:find("%S")
+      if uncomment then
+        local cs, ce = text:find(comment_text, s, true)
+        if ce then
+          doc():remove(line, cs, line, ce + 1)
+        end
+      elseif s then
+        doc():insert(line, start_offset, comment_text)
+      end
     end
   end,
 
@@ -260,7 +238,7 @@ local commands = {
   ["doc:lower-case"] = function()
     doc():replace(string.lower)
   end,
-
+  
   ["doc:go-to-line"] = function()
     local dv = dv()
 
@@ -297,8 +275,12 @@ local commands = {
   end,
 
   ["doc:save-as"] = function()
+    local last_doc = core.last_active_view and core.last_active_view.doc
     if doc().filename then
       core.command_view:set_text(doc().filename)
+    elseif last_doc and last_doc.filename then
+      local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
+      core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
     end
     core.command_view:enter("Save As", function(filename)
       save(common.home_expand(filename))
@@ -315,7 +297,7 @@ local commands = {
     end
   end,
 
-  ["doc:rename"] = function()
+  ["file:rename"] = function()
     local old_filename = doc().filename
     if not old_filename then
       core.error("Cannot rename unsaved doc")
@@ -330,6 +312,21 @@ local commands = {
       end
     end, common.path_suggest)
   end,
+  
+
+  ["file:delete"] = function()
+    local filename = doc().abs_filename
+    if not filename then
+      core.error("Cannot remove unsaved doc")
+      return
+    end
+    for i,docview in ipairs(core.get_views_referencing_doc(doc())) do
+      local node = core.root_view.root_node:get_node_for_view(docview)
+      node:close_view(core.root_view, docview)
+    end
+    os.remove(filename)
+    core.log("Removed \"%s\"", filename)
+  end
 }
 
 

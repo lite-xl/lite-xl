@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <SDL.h>
 #include "api/api.h"
 #include "rencache.h"
@@ -62,8 +63,13 @@ static void get_exe_filename(char *buf, int sz) {
   int len = readlink(path, buf, sz - 1);
   buf[len] = '\0';
 #elif __APPLE__
+  /* use realpath to resolve a symlink if the process was launched from one.
+  ** This happens when Homebrew installs a cack and creates a symlink in
+  ** /usr/loca/bin for launching the executable from the command line. */
   unsigned size = sz;
-  _NSGetExecutablePath(buf, &size);
+  char exepath[size];
+  _NSGetExecutablePath(exepath, &size);
+  realpath(exepath, buf);
 #else
   strcpy(buf, "./lite");
 #endif
@@ -158,11 +164,6 @@ init_lua:
   set_macos_bundle_resources(L);
   enable_momentum_scroll();
 #endif
-
-  /* We need to clear the rencache commands because we may restarting the application
-     and it could be non-empty. It is important to clear the command buffer because it
-     stores pointers to font_desc objects and these are Lua managed. */
-  rencache_clear();
 
   const char *init_lite_code = \
     "local core\n"

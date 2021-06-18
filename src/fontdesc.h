@@ -26,7 +26,7 @@ void font_desc_init(FontDesc *font_desc, const char *filename, float size, unsig
 int font_desc_alloc_size(const char *filename);
 int font_desc_get_tab_size(FontDesc *font_desc);
 void font_desc_set_tab_size(FontDesc *font_desc, int tab_size);
-void font_desc_free(FontDesc *font_desc);
+void font_desc_clear(FontDesc *font_desc);
 RenFont *font_desc_get_font_at_scale(FontDesc *font_desc, int scale);
 
 #endif

@@ -76,7 +76,7 @@ local function get_non_empty_lines(syntax, lines)
 end
 
 
-local auto_detect_max_lines = 200
+local auto_detect_max_lines = 100
 
 local function detect_indent_stat(doc)
   local stat = {}
@@ -99,22 +99,11 @@ local function detect_indent_stat(doc)
 end
 
 
-local doc_on_text_change = Doc.on_text_change
-local adjust_threshold = 4
-
 local function update_cache(doc)
   local type, size, score = detect_indent_stat(doc)
-  cache[doc] = { type = type, size = size, confirmed = (score >= adjust_threshold) }
+  local score_threshold = 4
+  cache[doc] = { type = type, size = size, confirmed = (score >= score_threshold) }
   doc.indent_info = cache[doc]
-  if score < adjust_threshold and doc_on_text_change then
-    Doc.on_text_change = function(self, ...)
-      doc_on_text_change(self, ...)
-      update_cache(self)
-    end
-  elseif score >= adjust_threshold and doc_on_text_change then
-    Doc.on_text_change = doc_on_text_change
-    doc_on_text_change = nil
-  end
 end
 
 
@@ -122,6 +111,14 @@ local new = Doc.new
 function Doc:new(...)
   new(self, ...)
   update_cache(self)
+  if not cache[self].confirmed then
+    core.add_thread(function ()
+      while not cache[self].confirmed do
+        update_cache(self)
+        coroutine.yield(1)
+      end
+    end, self)
+  end
 end
 
 local clean = Doc.clean

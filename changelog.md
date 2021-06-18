@@ -1,6 +1,46 @@
-Lite XL is following closely [rxi/lite](https://github.com/rxi/lite) but with some enhancements.
-
 This files document the changes done in Lite XL for each release.
+
+### 1.16.11
+
+When opening directories with too many files lite-xl now keep diplaying files and directories in the treeview.
+The application remains functional and the directories can be explored without using too much memory.
+In this operating mode the files of the project are not indexed so the command "Core: Find File" will act as the "Core: Open File" command.
+The "Project Search: Find" will work by searching all the files present in the project directory even if they are not indexed.
+
+Implemented changing fonts per syntax group by @liquidev.
+
+Example user module snippet that makes all comments italic:
+
+```lua
+local style = require "core.style"
+
+-- italic.ttf must be provided by the user
+local italic = renderer.font.load("italic.ttf", 14)
+style.syntax_fonts["comment"] = italic
+```
+
+Improved indentation behavior by @adamharrison.
+
+Fix bug with close button not working in borderless window mode.
+
+Fix problem with normalization of filename for opened documents.
+
+### 1.16.10
+
+Improved syntax highlight system thanks to @liquidev and @adamharrison.
+Thanks to the new system we provide more a accurate syntax highlighting for Lua, C and C++.
+Other syntax improvements contributed by @vincens2005.
+
+Move to JetBrains Mono and Fira Sans fonts for code and UI respectively.
+Thet are provided under the SIL Open Font License, Version 1.1.
+See `doc/licenses.md` for license details.
+
+Fixed bug with fonts and rencache module.
+Under very specific situations the application was crashing due to invalid memory access.
+
+Add documentation for keymap binding, thanks to @Janis-Leuenberger.
+
+Added a contributors page in `doc/contributors.md`.
 
 ### 1.16.9
 

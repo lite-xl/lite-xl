@@ -21,11 +21,11 @@ style.tab_width = common.round(170 * SCALE)
 --
 -- On High DPI monitor or non RGB monitor you may consider using antialiasing grayscale instead.
 -- The antialiasing grayscale with full hinting is interesting for crisp font rendering.
-style.font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 13 * SCALE)
-style.big_font = renderer.font.load(DATADIR .. "/fonts/font.ttf", 34 * SCALE)
+style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
+style.big_font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 40 * SCALE)
 style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 14 * SCALE, {antialiasing="grayscale", hinting="full"})
 style.icon_big_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 20 * SCALE, {antialiasing="grayscale", hinting="full"})
-style.code_font = renderer.font.load(DATADIR .. "/fonts/monospace.ttf", 12 * SCALE)
+style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
 
 style.background = { common.color "#2e2e32" }
 style.background2 = { common.color "#252529" }
@@ -56,5 +56,12 @@ style.syntax["literal"] = { common.color "#FFA94D" }
 style.syntax["string"] = { common.color "#f7c95c" }
 style.syntax["operator"] = { common.color "#93DDFA" }
 style.syntax["function"] = { common.color "#93DDFA" }
+
+-- This can be used to override fonts per syntax group.
+-- The syntax highlighter will take existing values from this table and
+-- override style.code_font on a per-token basis, so you can choose to eg.
+-- render comments in an italic font if you want to.
+style.syntax_fonts = {}
+-- style.syntax_fonts["comment"] = renderer.font.load(path_to_font, size_of_font, rendering_options)
 
 return style

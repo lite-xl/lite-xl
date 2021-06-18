@@ -1,3 +1,6 @@
+#include <lua.h>
+#include <lauxlib.h>
+
 #include "api.h"
 #include "fontdesc.h"
 #include "renderer.h"
@@ -62,7 +65,7 @@ static int f_set_tab_size(lua_State *L) {
 
 static int f_gc(lua_State *L) {
   FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
-  rencache_free_font(self);
+  font_desc_clear(self);
   return 0;
 }
 
@@ -101,6 +104,22 @@ static int f_get_height(lua_State *L) {
 }
 
 
+static int f_get_size(lua_State *L) {
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  lua_pushnumber(L, self->size);
+  return 1;
+}
+
+
+static int f_set_size(lua_State *L) {
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  float new_size = luaL_checknumber(L, 2);
+  font_desc_clear(self);
+  self->size = new_size;
+  return 0;
+}
+
+
 static const luaL_Reg lib[] = {
   { "__gc",               f_gc                 },
   { "load",               f_load               },
@@ -109,6 +128,8 @@ static const luaL_Reg lib[] = {
   { "get_width_subpixel", f_get_width_subpixel },
   { "get_height",         f_get_height         },
   { "subpixel_scale",     f_subpixel_scale     },
+  { "get_size",           f_get_size           },
+  { "set_size",           f_set_size           },
   { NULL, NULL }
 };
 

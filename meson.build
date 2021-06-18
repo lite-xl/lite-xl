@@ -9,6 +9,7 @@ libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
 libx11 = dependency('x11', required : false)
 lua_dep = dependency('lua5.2', required : false)
+pcre2_dep = dependency('libpcre2-8')
 
 if not lua_dep.found()
     lua_subproject = subproject('lua', default_options: ['shared=false', 'use_readline=false', 'app=false'])
@@ -19,8 +20,10 @@ sdl_dep = dependency('sdl2', method: 'config-tool')
 
 lite_cargs = []
 if get_option('portable')
+    lite_docdir = 'doc'
     lite_datadir = 'data'
 else
+    lite_docdir = 'share/doc/lite-xl'
     lite_datadir = 'share/lite-xl'
 endif
 
@@ -29,9 +32,14 @@ foreach data_module : ['core', 'fonts', 'plugins', 'colors']
     install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
 
+install_data('licenses/licenses.md', install_dir : lite_docdir)
+
 lite_link_args = []
 if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
     lite_link_args += ['-static-libgcc', '-static-libstdc++']
+endif
+if host_machine.system() == 'darwin'
+    lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
 endif
 
 lite_rc = []

@@ -22,6 +22,13 @@ function common.round(n)
 end
 
 
+function common.find_index(tbl, prop)
+  for i, o in ipairs(tbl) do
+    if o[prop] then return i end
+  end
+end
+
+
 function common.lerp(a, b, t)
   if type(a) ~= "table" then
     return a + (b - a) * t
@@ -206,7 +213,9 @@ end
 function common.home_encode(text)
   if HOME and string.find(text, HOME, 1, true) == 1 then
     local dir_pos = #HOME + 1
-    if string.find(text, PATHSEP, dir_pos, true) == dir_pos then
+    -- ensure we don't replace if the text is just "$HOME" or "$HOME/" so
+    -- it must have a "/" following the $HOME and some characters following.
+    if string.find(text, PATHSEP, dir_pos, true) == dir_pos and #text > dir_pos then
       return "~" .. text:sub(dir_pos)
     end
   end
@@ -270,5 +279,27 @@ function common.relative_path(ref_dir, dir)
   return rel_path ~= "" and rel_path or "."
 end
 
+
+function common.mkdirp(path)
+  local stat = system.get_file_info(path)
+  if stat and stat.type then
+    return false, "path exists", path
+  end
+  local subdirs = {}
+  while path and path ~= "" do
+    local success_mkdir = system.mkdir(path)
+    if success_mkdir then break end
+    local updir, basedir = path:match("(.*)[/\\](.+)$")
+    table.insert(subdirs, 1, basedir or path)
+    path = updir
+  end
+  for _, dirname in ipairs(subdirs) do
+    path = path and path .. PATHSEP .. dirname or dirname
+    if not system.mkdir(path) then
+      return false, "cannot create directory", path
+    end
+  end
+  return true
+end
 
 return common

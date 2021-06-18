@@ -152,6 +152,14 @@ top:
       return 4;
 
     case SDL_KEYDOWN:
+#ifdef __APPLE__
+      /* on macos 11.2.3 with sdl 2.0.14 the keyup handler for cmd+w below
+      ** was not enough. Maybe the quit event started to be triggered from the
+      ** keydown handler? In any case, flushing the quit event here too helped. */
+      if ((e.key.keysym.sym == SDLK_w) && (e.key.keysym.mod & KMOD_GUI)) {
+        SDL_FlushEvent(SDL_QUIT);
+      }
+#endif
       lua_pushstring(L, "keypressed");
       lua_pushstring(L, key_name(buf, e.key.keysym.sym));
       return 2;
@@ -162,8 +170,7 @@ top:
       ** we want to flush this event and let the keymapper
       ** handle this key combination.
       ** Thanks to mathewmariani, taken from his lite-macos github repository. */
-      if ((e.key.keysym.sym == SDLK_w) && (e.key.keysym.mod & KMOD_GUI))
-      {
+      if ((e.key.keysym.sym == SDLK_w) && (e.key.keysym.mod & KMOD_GUI)) {
         SDL_FlushEvent(SDL_QUIT);
       }
 #endif
@@ -194,6 +201,14 @@ top:
       return 4;
 
     case SDL_MOUSEMOTION:
+      SDL_PumpEvents();
+      SDL_Event event_plus;
+      while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
+        e.motion.x = event_plus.motion.x;
+        e.motion.y = event_plus.motion.y;
+        e.motion.xrel += event_plus.motion.xrel;
+        e.motion.yrel += event_plus.motion.yrel;
+      }
       lua_pushstring(L, "mousemoved");
       lua_pushnumber(L, e.motion.x);
       lua_pushnumber(L, e.motion.y);
@@ -523,11 +538,11 @@ static int f_fuzzy_match(lua_State *L) {
   bool files = false;
   if (lua_gettop(L) > 2 && lua_isboolean(L,3))
     files = lua_toboolean(L, 3);
-    
+
   int score = 0;
   int run = 0;
-  
-  // Match things *backwards*. This allows for better matching on filenames than the above 
+
+  // Match things *backwards*. This allows for better matching on filenames than the above
   // function. For example, in the lite project, opening "renderer" has lib/font_render/build.sh
   // as the first result, rather than src/renderer.c. Clearly that's wrong.
   if (files) {

@@ -30,7 +30,10 @@ local function find_all_matches_in_file(t, filename, fn)
   for line in fp:lines() do
     local s = fn(line)
     if s then
-      table.insert(t, { file = filename, text = line, line = n, col = s })
+      -- Insert maximum 256 characters. If we insert more, for compiled files, which can have very long lines
+      -- things tend to get sluggish. If our line is longer than 80 characters, begin to truncate the thing.
+      local start_index = math.max(s - 80, 1)
+      table.insert(t, { file = filename, text = (start_index > 1 and "..." or "") .. line:sub(start_index, 256 + start_index), line = n, col = s })
       core.redraw = true
     end
     if n % 100 == 0 then coroutine.yield() end
@@ -167,12 +170,17 @@ function ResultsView:draw()
   local ox, oy = self:get_content_offset()
   local x, y = ox + style.padding.x, oy + style.padding.y
   local files_number = core.project_files_number()
-  local per = self.last_file_idx / files_number
+  local per = files_number and self.last_file_idx / files_number or 1
   local text
   if self.searching then
-    text = string.format("Searching %d%% (%d of %d files, %d matches) for %q...",
-      per * 100, self.last_file_idx, files_number,
-      #self.results, self.query)
+    if files_number then
+      text = string.format("Searching %d%% (%d of %d files, %d matches) for %q...",
+        per * 100, self.last_file_idx, files_number,
+        #self.results, self.query)
+    else
+      text = string.format("Searching (%d files, %d matches) for %q...",
+        self.last_file_idx, #self.results, self.query)
+    end
   else
     text = string.format("Found %d matches for %q",
       #self.results, self.query)
@@ -229,9 +237,12 @@ command.add(nil, {
     end)
   end,
 
-  ["project-search:find-pattern"] = function()
-    core.command_view:enter("Find Pattern In Project", function(text)
-      begin_search(text, function(line_text) return line_text:find(text) end)
+  ["project-search:find-regex"] = function()
+    core.command_view:enter("Find Regex In Project", function(text)
+      local re = regex.compile(text, "i")
+      begin_search(text, function(line_text)
+        return regex.cmatch(re, line_text) 
+      end)
     end)
   end,
 
@@ -265,12 +276,38 @@ command.add(ResultsView, {
   ["project-search:refresh"] = function()
     core.active_view:refresh()
   end,
+  
+  ["project-search:move-to-previous-page"] = function()
+    local view = core.active_view
+    view.scroll.to.y = view.scroll.to.y - view.size.y
+  end,
+  
+  ["project-search:move-to-next-page"] = function()
+    local view = core.active_view
+    view.scroll.to.y = view.scroll.to.y + view.size.y
+  end,
+  
+  ["project-search:move-to-start-of-doc"] = function()
+    local view = core.active_view
+    view.scroll.to.y = 0
+  end,
+  
+  ["project-search:move-to-end-of-doc"] = function()
+    local view = core.active_view
+    view.scroll.to.y = view:get_scrollable_size()
+  end
 })
 
 keymap.add {
-  ["f5"]           = "project-search:refresh",
-  ["ctrl+shift+f"] = "project-search:find",
-  ["up"]           = "project-search:select-previous",
-  ["down"]         = "project-search:select-next",
-  ["return"]       = "project-search:open-selected",
+  ["f5"]                 = "project-search:refresh",
+  ["ctrl+shift+f"]       = "project-search:find",
+  ["up"]                 = "project-search:select-previous",
+  ["down"]               = "project-search:select-next",
+  ["return"]             = "project-search:open-selected",
+  ["pageup"]             = "project-search:move-to-previous-page",
+  ["pagedown"]           = "project-search:move-to-next-page",
+  ["ctrl+home"]          = "project-search:move-to-start-of-doc",
+  ["ctrl+end"]           = "project-search:move-to-end-of-doc",
+  ["home"]               = "project-search:move-to-start-of-doc",
+  ["end"]                = "project-search:move-to-end-of-doc"
 }

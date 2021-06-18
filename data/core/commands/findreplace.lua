@@ -90,6 +90,7 @@ local function has_selection()
      and core.active_view.doc:has_selection()
 end
 
+
 command.add(has_selection, {
   ["find-replace:select-next"] = function()
     local l1, c1, l2, c2 = doc():get_selection(true)
@@ -107,9 +108,9 @@ command.add("core.docview", {
     end)
   end,
 
-  ["find-replace:find-pattern"] = function()
-    find("Find Text Pattern", function(doc, line, col, text)
-      local opt = { wrap = true, no_case = true, pattern = true }
+  ["find-replace:find-regex"] = function()
+    find("Find Text Regex", function(doc, line, col, text)
+      local opt = { wrap = true, no_case = true, regex = true }
       return search.find(doc, line, col, text, opt)
     end)
   end,
@@ -144,9 +145,10 @@ command.add("core.docview", {
     end)
   end,
 
-  ["find-replace:replace-pattern"] = function()
-    replace("Pattern", "", function(text, old, new)
-      return text:gsub(old, new)
+  ["find-replace:replace-regex"] = function()
+    replace("Regex", "", function(text, old, new)
+      local re = regex.compile(old)
+      return regex.gsub(re, text, new)
     end)
   end,
 

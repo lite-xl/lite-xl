@@ -170,12 +170,6 @@ function NagView:draw()
   end
 end
 
-local function findindex(tbl, prop)
-  for i, o in ipairs(tbl) do
-    if o[prop] then return i end
-  end
-end
-
 function NagView:get_message_height()
   local h = 0
   for str in string.gmatch(self.message, "(.-)\n") do
@@ -196,7 +190,7 @@ function NagView:next()
     -- self.target_height is the nagview height needed to display the message and
     -- the buttons, excluding the top and bottom padding space.
     self.target_height = math.max(message_height, self:get_buttons_height())
-    self:change_hovered(findindex(self.options, "default_yes"))
+    self:change_hovered(common.find_index(self.options, "default_yes"))
   end
   self.force_focus = self.message ~= nil
   core.set_active_view(self.message ~= nil and self or core.last_active_view)
@@ -211,37 +205,5 @@ function NagView:show(title, message, options, on_select)
   table.insert(self.queue, opts)
   if #self.queue > 0 and not self.title then self:next() end
 end
-
-command.add(NagView, {
-  ["dialog:previous-entry"] = function()
-    local v = core.active_view
-    local hover = v.hovered_item or 1
-    v:change_hovered(hover == 1 and #v.options or hover - 1)
-  end,
-  ["dialog:next-entry"] = function()
-    local v = core.active_view
-    local hover = v.hovered_item or 1
-    v:change_hovered(hover == #v.options and 1 or hover + 1)
-  end,
-  ["dialog:select-yes"] = function()
-    local v = core.active_view
-    if v ~= core.nag_view then return end
-    v:change_hovered(findindex(v.options, "default_yes"))
-    command.perform "dialog:select"
-  end,
-  ["dialog:select-no"] = function()
-    local v = core.active_view
-    if v ~= core.nag_view then return end
-    v:change_hovered(findindex(v.options, "default_no"))
-    command.perform "dialog:select"
-  end,
-  ["dialog:select"] = function()
-    local v = core.active_view
-    if v.hovered_item then
-      v.on_selected(v.options[v.hovered_item])
-      v:next()
-    end
-  end,
-})
 
 return NagView

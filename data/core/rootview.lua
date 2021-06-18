@@ -1,5 +1,6 @@
 local core = require "core"
 local common = require "core.common"
+local config = require "core.config"
 local style = require "core.style"
 local keymap = require "core.keymap"
 local Object = require "core.object"
@@ -59,7 +60,9 @@ function Node:new(type)
   end
   self.hovered = {x = -1, y = -1 }
   self.hovered_close = 0
-  self.tab_margin = style.padding.x
+  self.tab_shift = 0
+  self.tab_offset = 1
+  self.tab_width = style.tab_width
   self.move_towards = View.move_towards
 end
 
@@ -126,36 +129,41 @@ function Node:split(dir, view, locked, resizable)
   return self.b
 end
 
-
-function Node:close_view(root, view)
-  local new_active_view = view == self.active_view
-  local do_close = function()
-    if #self.views > 1 then
-      local idx = self:get_view_idx(view)
-      table.remove(self.views, idx)
-      if new_active_view then
-        self:set_active_view(self.views[idx] or self.views[#self.views])
-      end
+function Node:remove_view(root, view)
+  if #self.views > 1 then
+    local idx = self:get_view_idx(view)
+    if idx < self.tab_offset then
+      self.tab_offset = self.tab_offset - 1
+    end
+    table.remove(self.views, idx)
+    if self.active_view == view then
+      self:set_active_view(self.views[idx] or self.views[#self.views])
+    end
+  else
+    local parent = self:get_parent_node(root)
+    local is_a = (parent.a == self)
+    local other = parent[is_a and "b" or "a"]
+    if other:get_locked_size() then
+      self.views = {}
+      self:add_view(EmptyView())
     else
-      local parent = self:get_parent_node(root)
-      local is_a = (parent.a == self)
-      local other = parent[is_a and "b" or "a"]
-      if other:get_locked_size() then
-        self.views = {}
-        self:add_view(EmptyView())
-      else
-        parent:consume(other)
-        local p = parent
-        while p.type ~= "leaf" do
-          p = p[is_a and "a" or "b"]
-        end
-        p:set_active_view(p.active_view)
-        if self.is_primary_node then
-          p.is_primary_node = true
-        end
+      parent:consume(other)
+      local p = parent
+      while p.type ~= "leaf" do
+        p = p[is_a and "a" or "b"]
+      end
+      p:set_active_view(p.active_view)
+      if self.is_primary_node then
+        p.is_primary_node = true
       end
     end
-    core.last_active_view = nil
+  end
+  core.last_active_view = nil
+end
+
+function Node:close_view(root, view)
+  local do_close = function()
+    self:remove_view(root, view)
   end
   view:try_close(do_close)
 end
@@ -166,13 +174,13 @@ function Node:close_active_view(root)
 end
 
 
-function Node:add_view(view)
+function Node:add_view(view, idx)
   assert(self.type == "leaf", "Tried to add view to non-leaf node")
   assert(not self.locked, "Tried to add view to locked node")
   if self.views[1] and self.views[1]:is(EmptyView) then
     table.remove(self.views)
   end
-  table.insert(self.views, view)
+  table.insert(self.views, idx or (#self.views + 1), view)
   self:set_active_view(view)
 end
 
@@ -221,6 +229,15 @@ function Node:get_children(t)
 end
 
 
+-- return the width including the padding space and separately
+-- the padding space itself
+local function get_scroll_button_width()
+  local w = style.icon_font:get_width(">")
+  local pad = w
+  return w + 2 * pad, pad
+end
+
+
 function Node:get_divider_overlapping_point(px, py)
   if self.type ~= "leaf" then
     local p = 6
@@ -236,11 +253,18 @@ function Node:get_divider_overlapping_point(px, py)
 end
 
 
+function Node:get_visible_tabs_number()
+  return math.min(#self.views - self.tab_offset + 1, config.max_tabs)
+end
+
+
 function Node:get_tab_overlapping_point(px, py)
   if #self.views == 1 then return nil end
-  local x, y, w, h = self:get_tab_rect(1)
-  if px >= x and py >= y and px < x + w * #self.views and py < y + h then
-    return math.floor((px - x) / w) + 1
+  local tabs_number = self:get_visible_tabs_number()
+  local x1, y1, w, h = self:get_tab_rect(self.tab_offset)
+  local x2, y2 = self:get_tab_rect(self.tab_offset + tabs_number)
+  if px >= x1 and py >= y1 and px < x2 and py < y1 + h then
+    return math.floor((px - x1) / w) + self.tab_offset
   end
 end
 
@@ -252,18 +276,31 @@ local function close_button_location(x, w)
 end
 
 
+function Node:get_scroll_button_index(px, py)
+  if #self.views == 1 then return end
+  for i = 1, 2 do
+    local x, y, w, h = self:get_scroll_button_rect(i)
+    if px >= x and px < x + w and py >= y and py < y + h then
+      return i
+    end
+  end
+end
+
+
 function Node:tab_hovered_update(px, py)
   local tab_index = self:get_tab_overlapping_point(px, py)
   self.hovered_tab = tab_index
+  self.hovered_close = 0
+  self.hovered_scroll_button = 0
   if tab_index then
     local x, y, w, h = self:get_tab_rect(tab_index)
     local cx, cw = close_button_location(x, w)
     if px >= cx and px < cx + cw and py >= y and py < y + h then
       self.hovered_close = tab_index
-      return
     end
+  else
+    self.hovered_scroll_button = self:get_scroll_button_index(px, py) or 0
   end
-  self.hovered_close = 0
 end
 
 
@@ -280,10 +317,20 @@ function Node:get_child_overlapping_point(x, y)
 end
 
 
+function Node:get_scroll_button_rect(index)
+  local w, pad = get_scroll_button_width()
+  local h = style.font:get_height() + style.padding.y * 2
+  local x = self.position.x + (index == 1 and 0 or self.size.x - w)
+  return x, self.position.y, w, h, pad
+end
+
+
 function Node:get_tab_rect(idx)
-  local tw = math.min(style.tab_width, (self.size.x - self.tab_margin) / #self.views)
-  local x_left = self.position.x + tw * (idx - 1)
-  local x1, x2 = math.floor(x_left), math.floor(x_left + tw)
+  local sbw = get_scroll_button_width()
+  local maxw = self.size.x - 2 * sbw
+  local x0 = self.position.x + sbw
+  local x1 = x0 + common.clamp(self.tab_width * (idx - 1) - self.tab_shift, 0, maxw)
+  local x2 = x0 + common.clamp(self.tab_width * idx - self.tab_shift, 0, maxw)
   local h = style.font:get_height() + style.padding.y * 2
   return x1, self.position.y, x2 - x1, h
 end
@@ -386,13 +433,61 @@ function Node:update_layout()
 end
 
 
+function Node:scroll_tabs_to_visible()
+  local index = self:get_view_idx(self.active_view)
+  if index then
+    local tabs_number = self:get_visible_tabs_number()
+    if self.tab_offset > index then
+      self.tab_offset = index
+    elseif self.tab_offset + tabs_number - 1 < index then
+      self.tab_offset = index - tabs_number + 1
+    elseif tabs_number < config.max_tabs and self.tab_offset > 1 then
+      self.tab_offset = #self.views - config.max_tabs + 1
+    end
+  end
+end
+
+
+function Node:scroll_tabs(dir)
+  local view_index = self:get_view_idx(self.active_view)
+  if dir == 1 then
+    if self.tab_offset > 1 then
+      self.tab_offset = self.tab_offset - 1
+      local last_index = self.tab_offset + self:get_visible_tabs_number() - 1
+      if view_index > last_index then
+        self:set_active_view(self.views[last_index])
+      end
+    end
+  elseif dir == 2 then
+    local tabs_number = self:get_visible_tabs_number()
+    if self.tab_offset + tabs_number - 1 < #self.views then
+      self.tab_offset = self.tab_offset + 1
+      local view_index = self:get_view_idx(self.active_view)
+      if view_index < self.tab_offset then
+        self:set_active_view(self.views[self.tab_offset])
+      end
+    end
+  end
+end
+
+
+function Node:target_tab_width()
+  local n = self:get_visible_tabs_number()
+  local w = self.size.x - get_scroll_button_width() * 2
+  return common.clamp(style.tab_width, w / config.max_tabs, w / n)
+end
+
+
 function Node:update()
   if self.type == "leaf" then
+    self:scroll_tabs_to_visible()
     for _, view in ipairs(self.views) do
       view:update()
     end
     self:tab_hovered_update(self.hovered.x, self.hovered.y)
-    self:move_towards("tab_margin", style.padding.x)
+    local tab_width = self:target_tab_width()
+    self:move_towards("tab_shift", tab_width * (self.tab_offset - 1))
+    self:move_towards("tab_width", tab_width)
   else
     self.a:update()
     self.b:update()
@@ -401,14 +496,27 @@ end
 
 
 function Node:draw_tabs()
-  local x, y, _, h = self:get_tab_rect(1)
+  local x, y, w, h, scroll_padding = self:get_scroll_button_rect(1)
   local ds = style.divider_size
   local dots_width = style.font:get_width("…")
   core.push_clip_rect(x, y, self.size.x, h)
   renderer.draw_rect(x, y, self.size.x, h, style.background2)
   renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
 
-  for i, view in ipairs(self.views) do
+  if self.tab_offset > 1 then
+    local button_style = self.hovered_scroll_button == 1 and style.text or style.dim
+    common.draw_text(style.icon_font, button_style, "<", nil, x + scroll_padding, y, 0, h)
+  end
+
+  local tabs_number = self:get_visible_tabs_number()
+  if #self.views > self.tab_offset + tabs_number - 1 then
+    local xrb, yrb, wrb = self:get_scroll_button_rect(2)
+    local button_style = self.hovered_scroll_button == 2 and style.text or style.dim
+    common.draw_text(style.icon_font, button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
+  end
+
+  for i = self.tab_offset, self.tab_offset + tabs_number - 1 do
+    local view = self.views[i]
     local x, y, w, h = self:get_tab_rect(i)
     local text = view:get_name()
     local color = style.dim
@@ -630,6 +738,12 @@ function RootView:close_all_docviews()
 end
 
 
+-- Function to intercept mouse pressed events on the active view.
+-- Do nothing by default.
+function RootView.on_view_mouse_pressed(button, x, y, clicks)
+end
+
+
 function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
@@ -637,19 +751,23 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     return
   end
   local node = self.root_node:get_child_overlapping_point(x, y)
+  if node.hovered_scroll_button > 0 then
+    node:scroll_tabs(node.hovered_scroll_button)
+    return
+  end
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     if button == "middle" or node.hovered_close == idx then
-      local _, _, tw = node:get_tab_rect(idx)
-      node.tab_margin = node.tab_margin + tw
       node:close_view(self.root_node, node.views[idx])
     else
-      self.dragged_node = idx
+      self.dragged_node = { node, idx }
       node:set_active_view(node.views[idx])
     end
   else
     core.set_active_view(node.active_view)
-    node.active_view:on_mouse_pressed(button, x, y, clicks)
+    if not self.on_view_mouse_pressed(button, x, y, clicks) then
+      node.active_view:on_mouse_pressed(button, x, y, clicks)
+    end
   end
 end
 
@@ -678,7 +796,7 @@ end
 
 function RootView:on_mouse_moved(x, y, dx, dy)
   if core.active_view == core.nag_view then
-    system.set_cursor("arrow")
+    core.request_cursor("arrow")
     core.active_view:on_mouse_moved(x, y, dx, dy)
     return
   end
@@ -702,21 +820,35 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   local node = self.root_node:get_child_overlapping_point(x, y)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local tab_index = node and node:get_tab_overlapping_point(x, y)
-  if div then
+  if node and node:get_scroll_button_index(x, y) then
+    core.request_cursor("arrow")
+  elseif div then
     local axis = (div.type == "hsplit" and "x" or "y")
     if div.a:is_resizable(axis) and div.b:is_resizable(axis) then
-      system.set_cursor(div.type == "hsplit" and "sizeh" or "sizev")
+      core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
     end
   elseif tab_index then
-    system.set_cursor("arrow")
-    if self.dragged_node and self.dragged_node ~= tab_index then
-      local tab = node.views[self.dragged_node]
-      table.remove(node.views, self.dragged_node)
-      table.insert(node.views, tab_index, tab)
-      self.dragged_node = tab_index
-    end
-  else
-    system.set_cursor(node.active_view.cursor)
+    core.request_cursor("arrow")
+  elseif node then
+    core.request_cursor(node.active_view.cursor)
+  end
+  if node and self.dragged_node and (self.dragged_node[1] ~= node or (tab_index and self.dragged_node[2] ~= tab_index))
+    and node.type == "leaf" and #node.views > 0 and node.views[1]:is(DocView) then 
+      local tab = self.dragged_node[1].views[self.dragged_node[2]]
+      if self.dragged_node[1] ~= node then
+        for i, v in ipairs(node.views) do if v.doc == tab.doc then tab = nil break end end
+        if tab then
+          self.dragged_node[1]:remove_view(self.root_node, tab)
+          node:add_view(tab, tab_index)
+          self.root_node:update_layout()
+          self.dragged_node = { node, tab_index or #node.views }
+          core.redraw = true
+        end
+      else
+        table.remove(self.dragged_node[1].views, self.dragged_node[2])
+        table.insert(node.views, tab_index, tab)
+        self.dragged_node = { node, tab_index }
+      end
   end
 end
 
@@ -750,6 +882,10 @@ function RootView:draw()
   while #self.deferred_draws > 0 do
     local t = table.remove(self.deferred_draws)
     t.fn(table.unpack(t))
+  end
+  if core.cursor_change_req then
+    system.set_cursor(core.cursor_change_req)
+    core.cursor_change_req = nil
   end
 end
 

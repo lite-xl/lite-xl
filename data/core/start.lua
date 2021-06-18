@@ -1,6 +1,5 @@
--- this file is used by lite-xl to setup the Lua environment
--- when starting
-VERSION = "1.16.9"
+-- this file is used by lite-xl to setup the Lua environment when starting
+VERSION = "1.16.11"
 MOD_VERSION = "1"
 
 SCALE = tonumber(os.getenv("LITE_SCALE")) or SCALE
@@ -13,7 +12,7 @@ else
   local prefix = EXEDIR:match("^(.+)[/\\]bin$")
   DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')
 end
-USERDIR = HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user')
+USERDIR = os.getenv("XDG_CONFIG_HOME") or (HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user'))
 
 package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path

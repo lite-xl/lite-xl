@@ -1,13 +1,7 @@
 local core = require "core"
 local command = require "core.command"
-local CommandView = require "core.commandview"
 
-local function has_commandview()
-  return core.active_view:is(CommandView)
-end
-
-
-command.add(has_commandview, {
+command.add("core.commandview", {
   ["command:submit"] = function()
     core.active_view:submit()
   end,
