@@ -16,26 +16,6 @@ local function split_lines(text)
   return res
 end
 
-
-local function splice(t, at, remove, insert)
-  insert = insert or {}
-  local offset = #insert - remove
-  local old_len = #t
-  if offset < 0 then
-    for i = at - offset, old_len - offset do
-      t[i + offset] = t[i]
-    end
-  elseif offset > 0 then
-    for i = old_len, at, -1 do
-      t[i + offset] = t[i]
-    end
-  end
-  for i, item in ipairs(insert) do
-    t[at + i - 1] = item
-  end
-end
-
-
 function Doc:new(filename)
   self:reset()
   if filename then
@@ -46,7 +26,8 @@ end
 
 function Doc:reset()
   self.lines = { "\n" }
-  self.selection = { a = { line=1, col=1 }, b = { line=1, col=1 } }
+  self.selections = { 1, 1, 1, 1 }
+  self.cursor_clipboard = {}
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -126,45 +107,87 @@ function Doc:get_change_id()
   return self.undo_stack.idx
 end
 
+-- Cursor section. Cursor indices are *only* valid during a get_selections() call.
+-- Cursors will always be iterated in order from top to bottom. Through normal operation
+-- curors can never swap positions; only merge or split, or change their position in cursor
+-- order.
+function Doc:get_selection(sort)
+  local idx, line1, col1, line2, col2 = self:get_selections(sort)({ self.selections, sort }, 0)
+  return line1, col1, line2, col2, sort
+end
 
-function Doc:set_selection(line1, col1, line2, col2, swap)
-  assert(not line2 == not col2, "expected 2 or 4 arguments")
+function Doc:has_selection()
+  local line1, col1, line2, col2 = self:get_selection(false)
+  return line1 ~= line2 or col1 ~= col2
+end
+
+function Doc:sanitize_selection()
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    self:set_selections(idx, line1, col1, line2, col2)
+  end
+end
+
+local function sort_positions(line1, col1, line2, col2)
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1
+  end
+  return line1, col1, line2, col2
+end
+
+function Doc:set_selections(idx, line1, col1, line2, col2, swap, rm)
+  assert(not line2 == not col2, "expected 3 or 5 arguments")
   if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2 or line1, col2 or col1)
-  self.selection.a.line, self.selection.a.col = line1, col1
-  self.selection.b.line, self.selection.b.col = line2, col2
+  common.splice(self.selections, (idx - 1)*4 + 1, rm == nil and 4 or rm, { line1, col1, line2, col2 })
 end
 
-
-local function sort_positions(line1, col1, line2, col2)
-  if line1 > line2
-  or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1, true
+function Doc:add_selection(line1, col1, line2, col2, swap)
+  local l1, c1 = sort_positions(line1, col1, line2 or line1, col2 or col1)
+  local target = #self.selections / 4 + 1
+  for idx, tl1, tc1 in self:get_selections(true) do
+    if l1 < tl1 or l1 == tl1 and c1 < tc1 then
+      target = idx
+      break
+    end
   end
-  return line1, col1, line2, col2, false
+  self:set_selections(target, line1, col1, line2, col2, swap, 0)
 end
 
+function Doc:set_selection(line1, col1, line2, col2, swap)
+  self.selections, self.cursor_clipboard = {}, {}
+  self:set_selections(1, line1, col1, line2, col2, swap)
+end
 
-function Doc:get_selection(sort)
-  local a, b = self.selection.a, self.selection.b
-  if sort then
-    return sort_positions(a.line, a.col, b.line, b.col)
+function Doc:merge_cursors(idx)
+  for i = (idx or (#self.selections - 3)), (idx or 5), -4 do
+    for j = 1, i - 4, 4 do
+      if self.selections[i] == self.selections[j] and
+        self.selections[i+1] == self.selections[j+1] then
+          common.splice(self.selections, i, 4)
+          break
+      end
+    end
   end
-  return a.line, a.col, b.line, b.col
 end
 
-
-function Doc:has_selection()
-  local a, b = self.selection.a, self.selection.b
-  return not (a.line == b.line and a.col == b.col)
+local function selection_iterator(invariant, idx)
+  local target = invariant[3] and (idx*4 - 7) or (idx*4 + 1)
+  if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
+  if invariant[2] then
+    return idx+(invariant[3] and -1 or 1), sort_positions(unpack(invariant[1], target, target+4))
+  else
+    return idx+(invariant[3] and -1 or 1), unpack(invariant[1], target, target+4)
+  end
 end
 
-
-function Doc:sanitize_selection()
-  self:set_selection(self:get_selection())
+-- If idx_reverse is true, it'll reverse iterate. If nil, or false, regular iterate. 
+-- If a number, runs for exactly that iteration.
+function Doc:get_selections(sort_intra, idx_reverse)
+  return selection_iterator, { self.selections, sort_intra, idx_reverse }, 
+    idx_reverse == true and ((#self.selections / 4) + 1) or ((idx_reverse or -1)+1)
 end
-
+-- End of cursor seciton.
 
 function Doc:sanitize_position(line, col)
   line = common.clamp(line, 1, #self.lines)
@@ -251,14 +274,11 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
   if cmd.type == "insert" then
     local line, col, text = table.unpack(cmd)
     self:raw_insert(line, col, text, redo_stack, cmd.time)
-
   elseif cmd.type == "remove" then
     local line1, col1, line2, col2 = table.unpack(cmd)
     self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
-
   elseif cmd.type == "selection" then
-    self.selection.a.line, self.selection.a.col = cmd[1], cmd[2]
-    self.selection.b.line, self.selection.b.col = cmd[3], cmd[4]
+    self.selections = { unpack(cmd) }
   end
 
   modified = modified or (cmd.type ~= "selection")
@@ -288,11 +308,11 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   lines[#lines] = lines[#lines] .. after
 
   -- splice lines into line array
-  splice(self.lines, line, 1, lines)
+  common.splice(self.lines, line, 1, lines)
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
-  push_undo(undo_stack, time, "selection", self:get_selection())
+  push_undo(undo_stack, time, "selection", unpack(self.selections))
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
@@ -304,7 +324,7 @@ end
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- push undo
   local text = self:get_text(line1, col1, line2, col2)
-  push_undo(undo_stack, time, "selection", self:get_selection())
+  push_undo(undo_stack, time, "selection", unpack(self.selections))
   push_undo(undo_stack, time, "insert", line1, col1, text)
 
   -- get line content before/after removed text
@@ -312,7 +332,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   local after = self.lines[line2]:sub(col2)
 
   -- splice line into line array
-  splice(self.lines, line1, line2 - line1 + 1, { before .. after })
+  common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
 
   -- update highlighter and assure selection is in bounds
   self.highlighter:invalidate(line1)
@@ -348,22 +368,20 @@ function Doc:redo()
 end
 
 
-function Doc:text_input(text)
-  if self:has_selection() then
-    self:delete_to()
+function Doc:text_input(text, idx)
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
+    if line1 ~= line2 or col1 ~= col2 then
+      self:delete_to_cursor(sidx)
+    end
+    self:insert(line1, col1, text)
+    self:move_to_cursor(sidx, #text)
   end
-  local line, col = self:get_selection()
-  self:insert(line, col, text)
-  self:move_to(#text)
 end
 
 
 function Doc:replace(fn)
-  local line1, col1, line2, col2, swap
-  local had_selection = self:has_selection()
-  if had_selection then
-    line1, col1, line2, col2, swap = self:get_selection(true)
-  else
+  local line1, col1, line2, col2 = self:get_selection(true)
+  if line1 == line2 and col1 == col2 then
     line1, col1, line2, col2 = 1, 1, #self.lines, #self.lines[#self.lines]
   end
   local old_text = self:get_text(line1, col1, line2, col2)
@@ -371,39 +389,47 @@ function Doc:replace(fn)
   if old_text ~= new_text then
     self:insert(line2, col2, new_text)
     self:remove(line1, col1, line2, col2)
-    if had_selection then
+    if line1 == line2 and col1 == col2 then
       line2, col2 = self:position_offset(line1, col1, #new_text)
-      self:set_selection(line1, col1, line2, col2, swap)
+      self:set_selection(line1, col1, line2, col2)
     end
   end
   return n
 end
 
 
-function Doc:delete_to(...)
-  local line, col = self:get_selection(true)
-  if self:has_selection() then
-    self:remove(self:get_selection())
-  else
-    local line2, col2 = self:position_offset(line, col, ...)
-    self:remove(line, col, line2, col2)
-    line, col = sort_positions(line, col, line2, col2)
+function Doc:delete_to_cursor(idx, ...)
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
+    if line1 ~= line2 or col1 ~= col2 then
+      self:remove(line1, col1, line2, col2)
+    else
+      local l2, c2 = self:position_offset(line1, col1, ...)
+      self:remove(line1, col1, l2, c2)
+      line1, col1 = sort_positions(line1, col1, l2, c2)
+    end
+    self:set_selections(sidx, line1, col1)
   end
-  self:set_selection(line, col)
+  self:merge_cursors(idx)
 end
+function Doc:delete_to(...) return self:delete_to_cursor(nil, ...) end
 
-
-function Doc:move_to(...)
-  local line, col = self:get_selection()
-  self:set_selection(self:position_offset(line, col, ...))
+function Doc:move_to_cursor(idx, ...)
+  for sidx, line, col in self:get_selections(false, idx) do
+    self:set_selections(sidx, self:position_offset(line, col, ...))
+  end
+  self:merge_cursors(idx)
 end
+function Doc:move_to(...) return self:move_to_cursor(nil, ...) end
 
 
-function Doc:select_to(...)
-  local line, col, line2, col2 = self:get_selection()
-  line, col = self:position_offset(line, col, ...)
-  self:set_selection(line, col, line2, col2)
+function Doc:select_to_cursor(idx, ...)
+  for sidx, line, col, line2, col2 in self:get_selections(false, idx) do
+    line, col = self:position_offset(line, col, ...)
+    self:set_selections(sidx, line, col, line2, col2)
+  end
+  self:merge_cursors(idx)
 end
+function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
 
 local function get_indent_string()
@@ -439,7 +465,7 @@ end
 --   inserts the appropriate whitespace, as if you typed them normally.
 -- * if you are unindenting, the cursor will jump to the start of the line,
 --   and remove the appropriate amount of spaces (or a tab).
-function Doc:indent_text(unindent, line1, col1, line2, col2, swap)
+function Doc:indent_text(unindent, line1, col1, line2, col2)
   local text = get_indent_string()
   local _, se = self.lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
@@ -453,15 +479,14 @@ function Doc:indent_text(unindent, line1, col1, line2, col2, swap)
         unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
     end
     l1d, l2d = #self.lines[line1] - l1d, #self.lines[line2] - l2d
-    if (unindent or in_beginning_whitespace) and not self:has_selection() then
+    if (unindent or in_beginning_whitespace) and not has_selection then
       local start_cursor = (se and se + 1 or 1) + l1d or #(self.lines[line1])
-      self:set_selection(line1, start_cursor, line2, start_cursor, swap)
-    else
-      self:set_selection(line1, col1 + l1d, line2, col2 + l2d, swap)
+      return line1, start_cursor, line2, start_cursor
     end
-  else
-    self:text_input(text)
+    return line1, col1 + l1d, line2, col2 + l2d
   end
+  self:insert(line1, col1, text)
+  return line1, col1 + #text, line1, col1 + #text
 end
 
 -- For plugins to add custom actions of document change

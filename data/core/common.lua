@@ -61,6 +61,26 @@ function common.color(str)
 end
 
 
+function common.splice(t, at, remove, insert)
+  insert = insert or {}
+  local offset = #insert - remove
+  local old_len = #t
+  if offset < 0 then
+    for i = at - offset, old_len - offset do
+      t[i + offset] = t[i]
+    end
+  elseif offset > 0 then
+    for i = old_len, at, -1 do
+      t[i + offset] = t[i]
+    end
+  end
+  for i, item in ipairs(insert) do
+    t[at + i - 1] = item
+  end
+end
+
+
+
 local function compare_score(a, b)
   return a.score > b.score
 end

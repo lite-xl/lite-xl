@@ -24,13 +24,16 @@ local function get_indent_string()
 end
 
 
-local function doc_multiline_selection(sort)
-  local line1, col1, line2, col2, swap = doc():get_selection(sort)
-  if line2 > line1 and col2 == 1 then
-    line2 = line2 - 1
-    col2 = #doc().lines[line2]
+local function doc_multiline_selections(sort)
+  local iter, state, idx, line1, col1, line2, col2 = doc():get_selections(sort)
+  return function() 
+    idx, line1, col1, line2, col2 = iter(state, idx)
+    if idx and line2 > line1 and col2 == 1 then
+      line2 = line2 - 1
+      col2 = #doc().lines[line2]
+    end
+    return idx, line1, col1, line2, col2
   end
-  return line1, col1, line2, col2, swap
 end
 
 local function append_line_if_last_line(line)
@@ -39,12 +42,38 @@ local function append_line_if_last_line(line)
   end
 end
 
-
 local function save(filename)
   doc():save(filename and core.normalize_to_project_dir(filename))
   local saved_filename = doc().filename
   core.on_doc_save(saved_filename)
   core.log("Saved \"%s\"", saved_filename)
+end
+
+local function cut_or_copy(delete)
+  local full_text = ""
+  for idx, line1, col1, line2, col2 in doc():get_selections() do
+    if line1 ~= line2 or col1 ~= col2 then
+      local text = doc():get_text(line1, col1, line2, col2)
+      if delete then
+        doc():delete_to_cursor(idx, 0)
+      end
+      full_text = full_text == "" and text or (full_text .. "\n" .. text)
+      doc().cursor_clipboard[idx] = text
+    else
+      doc().cursor_clipboard[idx] = ""
+    end
+  end
+  system.set_clipboard(full_text)
+end
+
+local function split_cursor(direction)
+  local new_cursors = {}
+  for _, line1, col1 in doc():get_selections() do
+    if line1 > 1 and line1 < #doc().lines then
+      table.insert(new_cursors, { line1 + direction, col1 })
+    end
+  end
+  for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
 end
 
 local commands = {
@@ -57,65 +86,66 @@ local commands = {
   end,
 
   ["doc:cut"] = function()
-    if doc():has_selection() then
-      local text = doc():get_text(doc():get_selection())
-      system.set_clipboard(text)
-      doc():delete_to(0)
-    end
+    cut_or_copy(true)
   end,
 
   ["doc:copy"] = function()
-    if doc():has_selection() then
-      local text = doc():get_text(doc():get_selection())
-      system.set_clipboard(text)
-    end
+    cut_or_copy(false)
   end,
 
   ["doc:paste"] = function()
-    doc():text_input(system.get_clipboard():gsub("\r", ""))
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      local value = doc().cursor_clipboard[idx] or system.get_clipboard()
+      doc():text_input(value:gsub("\r", ""), idx)
+    end
   end,
 
   ["doc:newline"] = function()
-    local line, col = doc():get_selection()
-    local indent = doc().lines[line]:match("^[\t ]*")
-    if col <= #indent then
-      indent = indent:sub(#indent + 2 - col)
+    for idx, line, col in doc():get_selections(false, true) do
+      local indent = doc().lines[line]:match("^[\t ]*")
+      if col <= #indent then
+        indent = indent:sub(#indent + 2 - col)
+      end
+      doc():text_input("\n" .. indent, idx)
     end
-    doc():text_input("\n" .. indent)
   end,
 
   ["doc:newline-below"] = function()
-    local line = doc():get_selection()
-    local indent = doc().lines[line]:match("^[\t ]*")
-    doc():insert(line, math.huge, "\n" .. indent)
-    doc():set_selection(line + 1, math.huge)
+    for idx, line in doc():get_selections(false, true) do
+      local indent = doc().lines[line]:match("^[\t ]*")
+      doc():insert(line, math.huge, "\n" .. indent)
+      doc():set_selections(idx, line + 1, math.huge)
+    end
   end,
 
   ["doc:newline-above"] = function()
-    local line = doc():get_selection()
-    local indent = doc().lines[line]:match("^[\t ]*")
-    doc():insert(line, 1, indent .. "\n")
-    doc():set_selection(line, math.huge)
+    for idx, line in doc():get_selections(false, true) do
+      local indent = doc().lines[line]:match("^[\t ]*")
+      doc():insert(line, 1, indent .. "\n")
+      doc():set_selections(idx, line, math.huge)
+    end
   end,
 
   ["doc:delete"] = function()
-    local line, col = doc():get_selection()
-    if not doc():has_selection() and doc().lines[line]:find("^%s*$", col) then
-      doc():remove(line, col, line, math.huge)
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      if line1 == line2 and col1 == col2 and doc().lines[line1]:find("^%s*$", col1) then
+        doc():remove(line1, col1, line1, math.huge)
+      end
+      doc():delete_to_cursor(idx, translate.next_char)
     end
-    doc():delete_to(translate.next_char)
   end,
 
   ["doc:backspace"] = function()
-    local line, col = doc():get_selection()
-    if not doc():has_selection() then
-      local text = doc():get_text(line, 1, line, col)
-      if #text >= config.indent_size and text:find("^ *$") then
-        doc():delete_to(0, -config.indent_size)
-        return
+    for idx, line1, col1, line2, col2 in doc():get_selections() do
+      if line1 == line2 and col1 == col2 then
+        local text = doc():get_text(line1, 1, line1, col1)
+        if #text >= config.indent_size and text:find("^ *$") then
+          doc():delete_to_cursor(idx, 0, -config.indent_size)
+          return
+        end
       end
+      doc():delete_to_cursor(idx, translate.previous_char)
     end
-    doc():delete_to(translate.previous_char)
   end,
 
   ["doc:select-all"] = function()
@@ -126,77 +156,104 @@ local commands = {
     local line, col = doc():get_selection()
     doc():set_selection(line, col)
   end,
+  
+  
+  ["doc:indent"] = function()
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
+      if l1 then
+        doc():set_selections(idx, l1, c1, l2, c2)
+      end
+    end
+  end,
 
   ["doc:select-lines"] = function()
-    local line1, _, line2, _, swap = doc():get_selection(true)
-    append_line_if_last_line(line2)
-    doc():set_selection(line1, 1, line2 + 1, 1, swap)
+    for idx, line1, _, line2 in doc():get_selections(true) do
+      append_line_if_last_line(line2)
+      doc():set_selections(idx, line1, 1, line2 + 1, 1, swap)
+    end
   end,
 
   ["doc:select-word"] = function()
-    local line1, col1 = doc():get_selection(true)
-    local line1, col1 = translate.start_of_word(doc(), line1, col1)
-    local line2, col2 = translate.end_of_word(doc(), line1, col1)
-    doc():set_selection(line2, col2, line1, col1)
+    for idx, line1, col1 in doc():get_selections(true) do
+      local line1, col1 = translate.start_of_word(doc(), line1, col1)
+      local line2, col2 = translate.end_of_word(doc(), line1, col1)
+      doc():set_selections(idx, line2, col2, line1, col1)
+    end
   end,
 
   ["doc:join-lines"] = function()
-    local line1, _, line2 = doc():get_selection(true)
-    if line1 == line2 then line2 = line2 + 1 end
-    local text = doc():get_text(line1, 1, line2, math.huge)
-    text = text:gsub("(.-)\n[\t ]*", function(x)
-      return x:find("^%s*$") and x or x .. " "
-    end)
-    doc():insert(line1, 1, text)
-    doc():remove(line1, #text + 1, line2, math.huge)
-    if doc():has_selection() then
-      doc():set_selection(line1, math.huge)
+    for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+      if line1 == line2 then line2 = line2 + 1 end
+      local text = doc():get_text(line1, 1, line2, math.huge)
+      text = text:gsub("(.-)\n[\t ]*", function(x)
+        return x:find("^%s*$") and x or x .. " "
+      end)
+      doc():insert(line1, 1, text)
+      doc():remove(line1, #text + 1, line2, math.huge)
+      if line1 ~= line2 or col1 ~= col2 then
+        doc():set_selections(idx, line1, math.huge)
+      end
     end
   end,
 
   ["doc:indent"] = function()
-    doc():indent_text(false, doc_multiline_selection(true))
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
+      if l1 then
+        doc():set_selections(idx, l1, c1, l2, c2)
+      end
+    end
   end,
 
   ["doc:unindent"] = function()
-    doc():indent_text(true, doc_multiline_selection(true))
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      local l1, c1, l2, c2 = doc():indent_text(true, line1, col1, line2, col2)
+      if l1 then
+        doc():set_selections(idx, l1, c1, l2, c2)
+      end
+    end
   end,
 
   ["doc:duplicate-lines"] = function()
-    local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-    append_line_if_last_line(line2)
-    local text = doc():get_text(line1, 1, line2 + 1, 1)
-    doc():insert(line2 + 1, 1, text)
-    local n = line2 - line1 + 1
-    doc():set_selection(line1 + n, col1, line2 + n, col2, swap)
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      append_line_if_last_line(line2)
+      local text = doc():get_text(line1, 1, line2 + 1, 1)
+      doc():insert(line2 + 1, 1, text)
+      local n = line2 - line1 + 1
+      doc():set_selections(idx, line1 + n, col1, line2 + n, col2, swap)
+    end
   end,
 
   ["doc:delete-lines"] = function()
-    local line1, col1, line2 = doc_multiline_selection(true)
-    append_line_if_last_line(line2)
-    doc():remove(line1, 1, line2 + 1, 1)
-    doc():set_selection(line1, col1)
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      append_line_if_last_line(line2)
+      doc():remove(line1, 1, line2 + 1, 1)
+      doc():set_selections(idx, line1, col1)
+    end
   end,
 
   ["doc:move-lines-up"] = function()
-    local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-    append_line_if_last_line(line2)
-    if line1 > 1 then
-      local text = doc().lines[line1 - 1]
-      doc():insert(line2 + 1, 1, text)
-      doc():remove(line1 - 1, 1, line1, 1)
-      doc():set_selection(line1 - 1, col1, line2 - 1, col2, swap)
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      append_line_if_last_line(line2)
+      if line1 > 1 then
+        local text = doc().lines[line1 - 1]
+        doc():insert(line2 + 1, 1, text)
+        doc():remove(line1 - 1, 1, line1, 1)
+        doc():set_selections(idx, line1 - 1, col1, line2 - 1, col2)
+      end
     end
   end,
 
   ["doc:move-lines-down"] = function()
-    local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-    append_line_if_last_line(line2 + 1)
-    if line2 < #doc().lines then
-      local text = doc().lines[line2 + 1]
-      doc():remove(line2 + 1, 1, line2 + 2, 1)
-      doc():insert(line1, 1, text)
-      doc():set_selection(line1 + 1, col1, line2 + 1, col2, swap)
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      append_line_if_last_line(line2 + 1)
+      if line2 < #doc().lines then
+        local text = doc().lines[line2 + 1]
+        doc():remove(line2 + 1, 1, line2 + 2, 1)
+        doc():insert(line1, 1, text)
+        doc():set_selections(idx, line1 + 1, col1, line2 + 1, col2)
+      end
     end
   end,
 
@@ -205,28 +262,29 @@ local commands = {
     if not comment then return end
     local indentation = get_indent_string()
     local comment_text = comment .. " "
-    local line1, _, line2 = doc_multiline_selection(true)
-    local uncomment = true
-    local start_offset = math.huge
-    for line = line1, line2 do
-      local text = doc().lines[line]
-      local s = text:find("%S")
-      local cs, ce = text:find(comment_text, s, true)
-      if s and cs ~= s then
-        uncomment = false
-        start_offset = math.min(start_offset, s)
-      end
-    end
-    for line = line1, line2 do
-      local text = doc().lines[line]
-      local s = text:find("%S")
-      if uncomment then
+    for idx, line1, _, line2 in doc_multiline_selections(true) do
+      local uncomment = true
+      local start_offset = math.huge
+      for line = line1, line2 do
+        local text = doc().lines[line]
+        local s = text:find("%S")
         local cs, ce = text:find(comment_text, s, true)
-        if ce then
-          doc():remove(line, cs, line, ce + 1)
+        if s and cs ~= s then
+          uncomment = false
+          start_offset = math.min(start_offset, s)
         end
-      elseif s then
-        doc():insert(line, start_offset, comment_text)
+      end
+      for line = line1, line2 do
+        local text = doc().lines[line]
+        local s = text:find("%S")
+        if uncomment then
+          local cs, ce = text:find(comment_text, s, true)
+          if ce then
+            doc():remove(line, cs, line, ce + 1)
+          end
+        elseif s then
+          doc():insert(line, start_offset, comment_text)
+        end
       end
     end
   end,
@@ -326,7 +384,18 @@ local commands = {
     end
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
+  end,
+
+  ["doc:create-cursor-previous-line"] = function()
+    split_cursor(-1)
+    doc():merge_cursors()
+  end,
+  
+  ["doc:create-cursor-next-line"] = function()
+    split_cursor(1)
+    doc():merge_cursors()
   end
+
 }
 
 
@@ -356,21 +425,21 @@ for name, fn in pairs(translations) do
 end
 
 commands["doc:move-to-previous-char"] = function()
-  if doc():has_selection() then
-    local line, col = doc():get_selection(true)
-    doc():set_selection(line, col)
-  else
-    doc():move_to(translate.previous_char)
+  for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+    if line1 ~= line2 or col1 ~= col2 then
+      doc():set_selections(idx, line1, col1)
+    end
   end
+  doc():move_to(translate.previous_char)
 end
 
 commands["doc:move-to-next-char"] = function()
-  if doc():has_selection() then
-    local _, _, line, col = doc():get_selection(true)
-    doc():set_selection(line, col)
-  else
-    doc():move_to(translate.next_char)
+  for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+    if line1 ~= line2 or col1 ~= col2 then
+      doc():set_selections(idx, line2, col2)
+    end
   end
+  doc():move_to(translate.next_char)
 end
 
 command.add("core.docview", commands)
