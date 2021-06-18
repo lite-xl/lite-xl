@@ -350,6 +350,10 @@ function DocView:draw_line_text(idx, x, y)
   end
 end
 
+function DocView:draw_caret(x, y)
+    local lh = self:get_line_height()
+    renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
+end
 
 function DocView:draw_line_body(idx, x, y)
   -- draw selection if it overlaps this line
@@ -381,9 +385,8 @@ function DocView:draw_line_body(idx, x, y)
     if line == idx and core.active_view == self
     and (core.blink_timer - core.blink_start) % T < T / 2
     and system.window_has_focus() then
-      local lh = self:get_line_height()
       local x1 = x + self:get_col_x_offset(line, col)
-      renderer.draw_rect(x1, y, style.caret_width, lh, style.caret)
+      self:draw_caret(x1, y)
     end
   end
 end
