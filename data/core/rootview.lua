@@ -295,7 +295,7 @@ function Node:tab_hovered_update(px, py)
   if tab_index then
     local x, y, w, h = self:get_tab_rect(tab_index)
     local cx, cw = close_button_location(x, w)
-    if px >= cx and px < cx + cw and py >= y and py < y + h then
+    if px >= cx and px < cx + cw and py >= y and py < y + h and config.tab_close_button then
       self.hovered_close = tab_index
     end
   else
@@ -529,7 +529,7 @@ function Node:draw_tabs()
       renderer.draw_rect(x - ds, y, ds, h, style.divider)
     end
     local cx, cw, cspace = close_button_location(x, w)
-    local show_close_button = (view == self.active_view or i == self.hovered_tab)
+    local show_close_button = ((view == self.active_view or i == self.hovered_tab) and config.tab_close_button)
     if show_close_button then
       local close_style = self.hovered_close == i and style.text or style.dim
       common.draw_text(style.icon_font, close_style, "C", nil, cx, y, 0, h)
