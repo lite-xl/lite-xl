@@ -529,7 +529,7 @@ function Node:draw_tabs()
       renderer.draw_rect(x - ds, y, ds, h, style.divider)
     end
     local cx, cw, cspace = close_button_location(x, w)
-    local show_close_button = (view == self.active_view or i == self.hovered_tab)
+    local show_close_button = ((view == self.active_view or i == self.hovered_tab) and config.tab_close_button)
     if show_close_button then
       local close_style = self.hovered_close == i and style.text or style.dim
       common.draw_text(style.icon_font, close_style, "C", nil, cx, y, 0, h)
