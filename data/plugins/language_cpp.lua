@@ -2,7 +2,7 @@
 local syntax = require "core.syntax"
 
 syntax.add {
-  files = { "%.c$", "%.h$", "%.inl$" },
+  files = { "%.cpp$", "%.h$", "%.hpp$", "%.inl$" },
   comment = "//",
   patterns = {
     { pattern = "//.-\n",                type = "comment" },
@@ -14,8 +14,12 @@ syntax.add {
     { pattern = "%.?%d+f?",              type = "number"  },
     { pattern = "[%+%-=/%*%^%%<>!~|&]",  type = "operator" },
     { pattern = "struct%s()[%a_][%w_]*", type = {"keyword", "keyword2"} },
+    { pattern = "class%s()[%a_][%w_]*",  type = {"keyword", "keyword2"} },
     { pattern = "union%s()[%a_][%w_]*",  type = {"keyword", "keyword2"} },
-    { pattern = "[%a_][%w_]*%f[(]",      type = "function" },
+    { pattern = "namespace%s()[%a_][%w_]*",  type = {"keyword", "keyword2"} },
+    { pattern = "[%a_][%w_]*::",         type = "symbol" },
+    { pattern = "::",                    type = "symbol" },
+    -- { pattern = "[%a_][%w_]*%f[(]",      type = "function" },
     { pattern = "[%a_][%w_]*",           type = "symbol" },
     { pattern = "#include%s()<.->",      type = {"keyword", "string"} },
     { pattern = "#[%a_][%w_]*",          type = "keyword" },
@@ -44,6 +48,8 @@ syntax.add {
     ["default"]  = "keyword",
     ["auto"]     = "keyword",
     ["void"]     = "keyword",
+    ["template"] = "keyword",
+    ["typename"] = "keyword",
     ["int"]      = "keyword2",
     ["short"]    = "keyword2",
     ["long"]     = "keyword2",
@@ -54,7 +60,10 @@ syntax.add {
     ["bool"]     = "keyword2",
     ["true"]     = "literal",
     ["false"]    = "literal",
-    ["NULL"]     = "literal",
+    ["nullptr"]  = "literal",
+    ["public"]   = "keyword",
+    ["private"]  = "keyword",
+    ["protected"] = "keyword",
   },
 }
 
