@@ -170,7 +170,7 @@ local commands = {
   ["doc:select-lines"] = function()
     for idx, line1, _, line2 in doc():get_selections(true) do
       append_line_if_last_line(line2)
-      doc():set_selections(idx, line1, 1, line2 + 1, 1, swap)
+      doc():set_selections(idx, line1, 1, line2 + 1, 1)
     end
   end,
 
@@ -221,7 +221,7 @@ local commands = {
       local text = doc():get_text(line1, 1, line2 + 1, 1)
       doc():insert(line2 + 1, 1, text)
       local n = line2 - line1 + 1
-      doc():set_selections(idx, line1 + n, col1, line2 + n, col2, swap)
+      doc():set_selections(idx, line1 + n, col1, line2 + n, col2)
     end
   end,
 
