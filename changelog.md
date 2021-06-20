@@ -1,5 +1,19 @@
 This files document the changes done in Lite XL for each release.
 
+### 1.16.12
+
+Add syntax support for C++.
+
+Respect the `XDG_CONFIG_HOME` variable if set to define the USERDIR.
+
+Fix an error that prevented navigating large repositories in some rare situations.
+
+Minor preformance improvements for drawing operations and events handling.
+
+Improve macOS keybindings thanks to @bjornbm and @prantlf.
+
+Improve behavior of applications when restoring workspaces to avoid displaying empty documents.
+
 ### 1.16.11
 
 When opening directories with too many files lite-xl now keep diplaying files and directories in the treeview.
