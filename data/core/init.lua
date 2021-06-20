@@ -620,40 +620,6 @@ do
 end
 
 
--- DEPRECATED function
-core.doc_save_hooks = {}
-function core.add_save_hook(fn)
-  core.error("The function core.add_save_hook is deprecated." ..
-    " Modules should now directly override the Doc:save function.")
-  core.doc_save_hooks[#core.doc_save_hooks + 1] = fn
-end
-
-
--- DEPRECATED function
-function core.on_doc_save(filename)
-  -- for backward compatibility in modules. Hooks are deprecated, the function Doc:save
-  -- should be directly overidded.
-  for _, hook in ipairs(core.doc_save_hooks) do
-    hook(filename)
-  end
-end
-
-
-core.doc_close_hooks = {}
-function core.add_close_hook(fn)
-  core.doc_close_hooks[#core.doc_close_hooks + 1] = fn
-end
-
-
-function core.on_doc_close(doc)
-  core.log_quiet("Closed doc \"%s\"", doc:get_name())
-
-  for _, hook in ipairs(core.doc_close_hooks) do
-    hook(doc)
-  end
-end
-
-
 local function quit_with_function(quit_fn, force)
   if force then
     delete_temp_files()
@@ -1005,7 +971,7 @@ function core.step()
     local doc = core.docs[i]
     if #core.get_views_referencing_doc(doc) == 0 then
       table.remove(core.docs, i)
-      core.on_doc_close(doc)
+      doc:on_close()
     end
   end
 

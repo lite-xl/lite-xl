@@ -1,5 +1,6 @@
 local Object = require "core.object"
 local Highlighter = require "core.doc.highlighter"
+local core = require "core"
 local syntax = require "core.syntax"
 local config = require "core.config"
 local common = require "core.common"
@@ -517,6 +518,11 @@ end
 
 -- For plugins to add custom actions of document change
 function Doc:on_text_change(type)
+end
+
+-- For plugins to get notified when a document is closed
+function Doc:on_close()
+  core.log_quiet("Closed doc \"%s\"", self:get_name())
 end
 
 
