@@ -101,6 +101,8 @@ local function keymap_macos(keymap)
     ["cmd+shift+end"] = "doc:select-to-end-of-doc",
     ["shift+pageup"] = "doc:select-to-previous-page",
     ["shift+pagedown"] = "doc:select-to-next-page",
+    ["cmd+shift+up"] = "doc:create-cursor-previous-line",
+    ["cmd+shift+down"] = "doc:create-cursor-next-line"
   }
 end
 
