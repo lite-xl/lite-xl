@@ -1,5 +1,6 @@
 local Object = require "core.object"
 local Highlighter = require "core.doc.highlighter"
+local core = require "core"
 local syntax = require "core.syntax"
 local config = require "core.config"
 local common = require "core.common"
@@ -181,10 +182,10 @@ local function selection_iterator(invariant, idx)
   end
 end
 
--- If idx_reverse is true, it'll reverse iterate. If nil, or false, regular iterate. 
+-- If idx_reverse is true, it'll reverse iterate. If nil, or false, regular iterate.
 -- If a number, runs for exactly that iteration.
 function Doc:get_selections(sort_intra, idx_reverse)
-  return selection_iterator, { self.selections, sort_intra, idx_reverse }, 
+  return selection_iterator, { self.selections, sort_intra, idx_reverse },
     idx_reverse == true and ((#self.selections / 4) + 1) or ((idx_reverse or -1)+1)
 end
 -- End of cursor seciton.
@@ -491,6 +492,11 @@ end
 
 -- For plugins to add custom actions of document change
 function Doc:on_text_change(type)
+end
+
+-- For plugins to get notified when a document is closed
+function Doc:on_close()
+  core.log_quiet("Closed doc \"%s\"", self:get_name())
 end
 
 

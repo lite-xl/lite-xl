@@ -972,7 +972,7 @@ function core.step()
     local doc = core.docs[i]
     if #core.get_views_referencing_doc(doc) == 0 then
       table.remove(core.docs, i)
-      core.log_quiet("Closed doc \"%s\"", doc:get_name())
+      doc:on_close()
     end
   end
 
