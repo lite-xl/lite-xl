@@ -55,7 +55,7 @@ endif
 lite_rc = []
 if host_machine.system() == 'windows'
     windows = import('windows')
-    lite_rc += windows.compile_resources('res.rc')
+    lite_rc += windows.compile_resources('resources/icons/icon.rc')
 endif
 
 # On macos we need to use the SDL renderer to support retina displays

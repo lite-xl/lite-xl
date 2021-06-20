@@ -84,7 +84,7 @@ lite_build_package_windows () {
   rm -fr ".package-build"
   echo "created package $package_name"
 }
-  
+
 lite_build_package_macos () {
   local build="$1"
   local arch="$2"
@@ -100,8 +100,8 @@ lite_build_package_macos () {
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
-  cp dev-utils/icon.icns "$appdir/Contents/Resources/icon.icns"
-  cp dev-utils/Info.plist "$appdir/Contents/Info.plist"
+  cp resources/icons/icon.icns "$appdir/Contents/Resources/icon.icns"
+  cp resources/macos/Info.plist "$appdir/Contents/Info.plist"
   cp "$build/src/lite" "$bindir/lite-xl"
   strip "$bindir/lite-xl"
   pushd ".package-build"
@@ -142,8 +142,8 @@ lite_build_package_linux () {
   strip "$bindir/lite"
   if [ -z "$portable" ]; then
     mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps"
-    cp "dev-utils/lite-xl.desktop" "$pdir/share/applications"
-    cp "dev-utils/lite.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
+    cp "resources/linux/lite-xl.desktop" "$pdir/share/applications"
+    cp "resources/icons/lite.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
   fi
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch$portable.tar.gz"
