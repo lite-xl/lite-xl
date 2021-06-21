@@ -112,11 +112,12 @@ command.add("core.docview", {
   end,
 
   ["find-replace:replace"] = function()
-    replace("Text", function(text, old, new)
+    replace("Text", doc():get_text(doc():get_selection(true)), function(text, old, new)
       if plain then
         return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
       end
-      return regex.gsub(regex.compile(old), text, new)
+      local result, matches = regex.gsub(regex.compile(old), text, new)
+      return result, #matches
     end)
   end,
 
