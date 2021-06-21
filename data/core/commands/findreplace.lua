@@ -148,8 +148,8 @@ command.add(valid_for_finding, {
     if not last_fn then
       core.error("No find to continue from")
     else
-      local line, col = doc():get_selection()
-      local line1, col1, line2, col2 = last_fn(doc(), line, col, last_text, case_insensitive, plain)
+      local sl1, sc1, sl2, sc2 = doc():get_selection(true)
+      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc2, last_text, case_insensitive, plain)
       if line1 then
         if last_view.doc ~= doc() then
           last_finds = {}
@@ -157,7 +157,7 @@ command.add(valid_for_finding, {
         if #last_finds >= max_last_finds then
           table.remove(last_finds, 1)
         end
-        table.insert(last_finds, { line, col })
+        table.insert(last_finds, { sl1, sc1, sl2, sc2 })
         doc():set_selection(line2, col2, line1, col1)
         last_view:scroll_to_line(line2, true)
       end
