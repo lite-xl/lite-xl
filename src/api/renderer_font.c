@@ -55,6 +55,21 @@ static int f_load(lua_State *L) {
 }
 
 
+static int f_copy(lua_State *L) {
+  FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
+  float size;
+  if (lua_gettop(L) >= 2) {
+    size = luaL_checknumber(L, 2);
+  } else {
+    size = self->size;
+  }
+  FontDesc *new_font_desc = lua_newuserdata(L, font_desc_alloc_size(self->filename));
+  font_desc_init(new_font_desc, self->filename, size, self->options);
+  luaL_setmetatable(L, API_TYPE_FONT);
+  return 1;
+}
+
+
 static int f_set_tab_size(lua_State *L) {
   FontDesc *self = luaL_checkudata(L, 1, API_TYPE_FONT);
   int n = luaL_checknumber(L, 2);
@@ -123,6 +138,7 @@ static int f_set_size(lua_State *L) {
 static const luaL_Reg lib[] = {
   { "__gc",               f_gc                 },
   { "load",               f_load               },
+  { "copy",               f_copy               },
   { "set_tab_size",       f_set_tab_size      },
   { "get_width",          f_get_width          },
   { "get_width_subpixel", f_get_width_subpixel },
