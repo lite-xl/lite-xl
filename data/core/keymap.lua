@@ -137,6 +137,8 @@ keymap.add_direct {
   ["ctrl+r"] = "find-replace:replace",
   ["f3"] = "find-replace:repeat-find",
   ["shift+f3"] = "find-replace:previous-find",
+  ["ctrl+i"] = "find-replace:toggle-insensitivity",
+  ["ctrl+shift+i"] = "find-replace:toggle-plain",
   ["ctrl+g"] = "doc:go-to-line",
   ["ctrl+s"] = "doc:save",
   ["ctrl+shift+s"] = "doc:save-as",
