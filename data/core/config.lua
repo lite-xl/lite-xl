@@ -29,5 +29,6 @@ config.tab_close_button = true
 -- Disable plugin loading setting to false the config entry
 -- of the same name.
 config.trimwhitespace = false
+config.lineguide = false
 
 return config

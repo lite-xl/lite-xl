@@ -350,10 +350,14 @@ function DocView:draw_line_text(idx, x, y)
   end
 end
 
+function DocView:draw_caret(x, y)
+    local lh = self:get_line_height()
+    renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
+end
 
 function DocView:draw_line_body(idx, x, y)
   -- draw selection if it overlaps this line
-  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do 
+  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     if idx >= line1 and idx <= line2 then
       local text = self.doc.lines[idx]
       if line1 ~= idx then col1 = 1 end
@@ -364,34 +368,22 @@ function DocView:draw_line_body(idx, x, y)
       renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
     end
   end
-  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do 
+  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     -- draw line highlight if caret is on this line
     if config.highlight_current_line and (line1 == line2 and col1 == col2)
     and line1 == idx and core.active_view == self then
       self:draw_line_highlight(x + self.scroll.x, y)
     end
   end
-  
+
   -- draw line's text
   self:draw_line_text(idx, x, y)
-
-  -- draw caret if it overlaps this line
-  local T = config.blink_period
-  for _, line, col in self.doc:get_selections() do 
-    if line == idx and core.active_view == self
-    and (core.blink_timer - core.blink_start) % T < T / 2
-    and system.window_has_focus() then
-      local lh = self:get_line_height()
-      local x1 = x + self:get_col_x_offset(line, col)
-      renderer.draw_rect(x1, y, style.caret_width, lh, style.caret)
-    end
-  end
 end
 
 
 function DocView:draw_line_gutter(idx, x, y)
   local color = style.line_number
-  for _, line1, _, line2 in self.doc:get_selections(true) do 
+  for _, line1, _, line2 in self.doc:get_selections(true) do
     if idx >= line1 and idx <= line2 then
       color = style.line_number2
       break
@@ -403,30 +395,45 @@ function DocView:draw_line_gutter(idx, x, y)
 end
 
 
+function DocView:draw_overlay()
+  if core.active_view == self then
+    local minline, maxline = self:get_visible_line_range()
+    -- draw caret if it overlaps this line
+    local T = config.blink_period
+    for _, line, col in self.doc:get_selections() do
+      if line >= minline and line <= maxline
+      and (core.blink_timer - core.blink_start) % T < T / 2
+      and system.window_has_focus() then
+        local x, y = self:get_line_screen_position(line)
+        self:draw_caret(x + self:get_col_x_offset(line, col), y)
+      end
+    end
+  end
+end
+
 function DocView:draw()
   self:draw_background(style.background)
 
-  local font = self:get_font()
-  font:set_tab_size(config.indent_size)
+  self:get_font():set_tab_size(config.indent_size)
 
   local minline, maxline = self:get_visible_line_range()
   local lh = self:get_line_height()
 
-  local _, y = self:get_line_screen_position(minline)
-  local x = self.position.x
+  local x, y = self:get_line_screen_position(minline)
   for i = minline, maxline do
-    self:draw_line_gutter(i, x, y)
+    self:draw_line_gutter(i, self.position.x, y)
     y = y + lh
   end
 
-  local x, y = self:get_line_screen_position(minline)
   local gw = self:get_gutter_width()
   local pos = self.position
+  x, y = self:get_line_screen_position(minline)
   core.push_clip_rect(pos.x + gw, pos.y, self.size.x, self.size.y)
   for i = minline, maxline do
     self:draw_line_body(i, x, y)
     y = y + lh
   end
+  self:draw_overlay()
   core.pop_clip_rect()
 
   self:draw_scrollbar()
