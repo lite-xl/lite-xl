@@ -7,8 +7,15 @@ style.scrollbar_size = common.round(4 * SCALE)
 style.caret_width = common.round(2 * SCALE)
 style.tab_width = common.round(170 * SCALE)
 
--- The function renderer.font.load can accept an option table as a second optional argument.
--- It shoud be like the following:
+-- Store the path to the fonts for easy usage by plugins
+style.fontpath = {
+  text = DATADIR .. "/fonts/FiraSans-Regular.ttf",
+  icon = DATADIR .. "/fonts/icons.ttf",
+  code = DATADIR .. "/fonts/JetBrainsMono-Regular.ttf",
+}
+
+-- The function renderer.font.load can accept an option table as a second
+-- optional argument. It shoud be like the following:
 --
 -- {antialiasing= "grayscale", hinting = "full"}
 --
@@ -16,16 +23,21 @@ style.tab_width = common.round(170 * SCALE)
 -- - for antialiasing: grayscale, subpixel
 -- - for hinting: none, slight, full
 --
--- The defaults values are antialiasing subpixel and hinting slight for optimal visualization
--- on ordinary LCD monitor with RGB patterns.
+-- The defaults values are antialiasing subpixel and hinting slight for optimal
+-- visualization on ordinary LCD monitor with RGB patterns.
 --
--- On High DPI monitor or non RGB monitor you may consider using antialiasing grayscale instead.
--- The antialiasing grayscale with full hinting is interesting for crisp font rendering.
-style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
-style.big_font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 40 * SCALE)
-style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 14 * SCALE, {antialiasing="grayscale", hinting="full"})
-style.icon_big_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 20 * SCALE, {antialiasing="grayscale", hinting="full"})
-style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
+-- On High DPI monitor or non RGB monitor you may consider using antialiasing
+-- grayscale instead. The antialiasing grayscale with full hinting is
+-- interesting for crisp font rendering.
+style.font = renderer.font.load(style.fontpath.text, 13 * SCALE)
+style.big_font = renderer.font.load(style.fontpath.text, 40 * SCALE)
+style.icon_font = renderer.font.load(
+  style.fontpath.icon, 14 * SCALE, {antialiasing="grayscale", hinting="full"}
+)
+style.icon_big_font = renderer.font.load(
+  style.fontpath.icon, 20 * SCALE, {antialiasing="grayscale", hinting="full"}
+)
+style.code_font = renderer.font.load(style.fontpath.code, 13 * SCALE)
 
 style.background = { common.color "#2e2e32" }
 style.background2 = { common.color "#252529" }
@@ -62,6 +74,8 @@ style.syntax["function"] = { common.color "#93DDFA" }
 -- override style.code_font on a per-token basis, so you can choose to eg.
 -- render comments in an italic font if you want to.
 style.syntax_fonts = {}
--- style.syntax_fonts["comment"] = renderer.font.load(path_to_font, size_of_font, rendering_options)
+-- style.syntax_fonts["comment"] = renderer.font.load(
+--   path_to_font, size_of_font, rendering_options
+-- )
 
 return style
