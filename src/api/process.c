@@ -132,7 +132,13 @@ static int process_pid(lua_State* L)
     process_t* self = (process_t*) lua_touserdata(L, 1);
 
     if(self->process){
-        lua_pushnumber(L, reproc_pid(self->process));
+        int id = reproc_pid(self->process);
+        
+        if(id > 0){
+            lua_pushnumber(L, id);
+        } else {
+            lua_pushnumber(L, 0);
+        }
     } else {
         lua_pushnumber(L, 0);
     }
@@ -393,9 +399,12 @@ static const struct luaL_Reg process[] = {
     {"ERROR_PIPE", NULL},
     {"ERROR_WOULDBLOCK", NULL},
     {"ERROR_TIMEDOUT", NULL},
+    {"ERROR_INVALID", NULL},
     {"STREAM_STDIN", NULL},
     {"STREAM_STDOUT", NULL},
     {"STREAM_STDERR", NULL},
+    {"WAIT_INFINITE", NULL},
+    {"WAIT_DEADLINE", NULL},
     {NULL, NULL}
 };
 
@@ -417,6 +426,9 @@ int luaopen_process(lua_State *L)
     lua_pushnumber(L, REPROC_ETIMEDOUT);
     lua_setfield(L, -2, "ERROR_TIMEDOUT");
 
+    lua_pushnumber(L, REPROC_EINVAL);
+    lua_setfield(L, -2, "ERROR_INVALID");
+
     lua_pushnumber(L, REPROC_STREAM_IN);
     lua_setfield(L, -2, "STREAM_STDIN");
 
@@ -425,6 +437,12 @@ int luaopen_process(lua_State *L)
 
     lua_pushnumber(L, REPROC_STREAM_ERR);
     lua_setfield(L, -2, "STREAM_STDERR");
+
+    lua_pushnumber(L, REPROC_INFINITE);
+    lua_setfield(L, -2, "WAIT_INFINITE");
+
+    lua_pushnumber(L, REPROC_DEADLINE);
+    lua_setfield(L, -2, "WAIT_DEADLINE");
 
     return 1;
 }
