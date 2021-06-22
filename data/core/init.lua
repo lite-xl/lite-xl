@@ -690,15 +690,13 @@ function core.load_plugins()
     local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
     if not version_match then
       core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-      local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
-      ls[#ls + 1] = filename
+      local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
+      table.insert(list, filename)
     end
-    if version_match and config[basename] ~= false then
-      local modname = "plugins." .. basename
-      local ok = core.try(require, modname)
-      if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
-      if not ok then
-        no_errors = false
+    if version_match and core[basename] ~= false then
+      no_errors = core.try(require, "plugins." .. basename)
+      if no_errors then
+        core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir)
       end
     end
   end
