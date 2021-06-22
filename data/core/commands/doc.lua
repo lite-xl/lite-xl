@@ -50,7 +50,6 @@ local function save(filename)
   end
   doc():save(filename, abs_filename)
   local saved_filename = doc().filename
-  core.on_doc_save(saved_filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
