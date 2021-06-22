@@ -45,7 +45,6 @@ end
 local function save(filename)
   doc():save(filename and core.normalize_to_project_dir(filename))
   local saved_filename = doc().filename
-  core.on_doc_save(saved_filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
