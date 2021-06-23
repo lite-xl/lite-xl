@@ -1,0 +1,83 @@
+#define MyAppName      "Lite XL"
+#define MyAppVersion   "@PROJECT_VERSION@"
+#define MyAppPublisher "Lite XL Team"
+#define MyAppURL       "https://lite-xl.github.io"
+#define MyAppExeName   "lite-xl.exe"
+#define BuildDir       "@PROJECT_BUILD_DIR@"
+#define SourceDir      "."
+
+; Use /dArch option to create a setup for a different architecture, e.g.:
+; iscc /dArch=x86 innosetup.iss
+#ifndef Arch
+#define Arch "x64"
+#endif
+
+[Setup]
+; NOTE: The value of AppId uniquely identifies this application.
+; Do not use the same AppId value in installers for other applications.
+; To generate a new GUID, click Tools | Generate GUID inside the InnoSetup IDE.
+AppId={{06761240-D97C-43DE-B9ED-C15F765A2D65}
+
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+;AppVerName={#MyAppName} {#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
+
+#if Arch=="x64"
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode={#Arch}
+#endif
+
+AllowNoIcons=yes
+Compression=lzma
+SolidCompression=yes
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppPublisher}
+UninstallFilesDir={app}
+
+; Uncomment the following line to run in non administrative install mode
+; (install for current user only.)
+;PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
+
+; The [Icons] "quicklaunchicon" entry uses {userappdata}
+; but its [Tasks] entry has a proper IsAdminInstallMode Check.
+UsedUserAreasWarning=no
+
+OutputDir=.
+OutputBaseFilename=LiteXL-{#MyAppVersion}-{#Arch}-setup
+;DisableDirPage=yes
+;DisableProgramGroupPage=yes
+
+LicenseFile={#SourceDir}\LICENSE
+SetupIconFile={#SourceDir}\icon.ico
+WizardImageFile="wizard-modern-image.bmp"
+WizardSmallImageFile="litexl-55px.bmp"
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
+Name: "portablemode"; Description: "Portable Mode"; Flags: unchecked
+
+[Files]
+Source: "{#BuildDir}\lite-xl.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs
+; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+
+[Icons]
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Check: not IsTaskSelected('portablemode')
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; Check: not IsTaskSelected('portablemode')
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon; Check: not IsTaskSelected('portablemode')
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Setup]
+Uninstallable=not IsTaskSelected('portablemode')

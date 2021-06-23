@@ -1,5 +1,9 @@
 project('lite-xl', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
 
+version = get_option('version')
+conf_data = configuration_data()
+conf_data.set('PROJECT_VERSION', version)
+
 if host_machine.system() == 'darwin'
     add_languages('objc')
 endif
@@ -56,6 +60,9 @@ lite_rc = []
 if host_machine.system() == 'windows'
     windows = import('windows')
     lite_rc += windows.compile_resources('resources/icons/icon.rc')
+    iss = configure_file(input : 'scripts/innosetup/innosetup.iss.in',
+        output : 'innosetup.iss',
+        configuration : conf_data)
 endif
 
 # On macos we need to use the SDL renderer to support retina displays
