@@ -200,7 +200,7 @@ static int g_read(lua_State* L, int stream)
     return 1;
 }
 
-static int process_read(lua_State *L)
+static int process_read(lua_State* L)
 {
     return g_read(L, REPROC_STREAM_OUT);
 }
