@@ -5,12 +5,12 @@
  */
 
 #include <string.h>
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-#include <reproc/reproc.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <reproc/reproc.h>
+#include "api.h"
+
+#define READ_BUF_SIZE 4096
 
 typedef struct {
     reproc_t * process;
@@ -29,7 +29,7 @@ static int process_new(lua_State* L)
     self->process = NULL;
     self->L = L;
 
-    luaL_getmetatable(L, "PROCESS");
+    luaL_getmetatable(L, API_TYPE_PROCESS);
     lua_setmetatable(L, -2);
 
     return 1;
@@ -53,7 +53,7 @@ static int process_strerror(lua_State* L)
 
 static int process_gc(lua_State* L)
 {
-    process_t* self = (process_t*) luaL_checkudata(L, 1, "PROCESS");
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
     if(self->process){
         reproc_kill(self->process);
@@ -151,7 +151,7 @@ static int process_read(lua_State* L)
     process_t* self = (process_t*) lua_touserdata(L, 1);
 
     if(self->process){
-        int read_size = 4096;
+        int read_size = READ_BUF_SIZE;
         if (lua_type(L, 2) == LUA_TNUMBER){
             read_size = (int) lua_tonumber(L, 2);
         }
@@ -410,7 +410,7 @@ static const struct luaL_Reg process[] = {
 
 int luaopen_process(lua_State *L)
 {
-    luaL_newmetatable(L, "PROCESS");
+    luaL_newmetatable(L, API_TYPE_PROCESS);
     luaL_setfuncs(L, process_methods, 0);
     lua_pushvalue(L, -1);
     lua_setfield(L, -2, "__index");
