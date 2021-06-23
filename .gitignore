@@ -9,3 +9,4 @@ subprojects/libagg
 subprojects/reproc
 lite-xl
 error.txt
+.ccls-cache
