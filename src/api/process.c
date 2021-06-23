@@ -146,7 +146,7 @@ static int process_pid(lua_State* L)
     return 1;
 }
 
-static int process_read(lua_State* L)
+static int g_read(lua_State* L, int stream)
 {
     process_t* self = (process_t*) lua_touserdata(L, 1);
 
@@ -200,58 +200,14 @@ static int process_read(lua_State* L)
     return 1;
 }
 
+static int process_read(lua_State *L)
+{
+    return g_read(L, REPROC_STREAM_OUT);
+}
+
 static int process_read_errors(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
-
-    if(self->process){
-        int read_size = 4096;
-        if (lua_type(L, 2) == LUA_TNUMBER){
-            read_size = (int) lua_tonumber(L, 2);
-        }
-
-        int tries = 1;
-        if (lua_type(L, 3) == LUA_TNUMBER){
-            tries = (int) lua_tonumber(L, 3);
-        }
-
-        int out = 0;
-        uint8_t buffer[read_size];
-
-        int runs;
-        for (runs=0; runs<tries; runs++){
-            out = reproc_read(
-                self->process,
-                REPROC_STREAM_ERR,
-                buffer,
-                read_size
-            );
-
-            if (out >= 0)
-                break;
-        }
-
-        // if request for tries was set and nothing
-        // read kill the process
-        if(tries > 1 && out < 0)
-            out = REPROC_EPIPE;
-
-        if(out == REPROC_EPIPE){
-            reproc_kill(self->process);
-            reproc_destroy(self->process);
-            self->process = NULL;
-
-            lua_pushnil(L);
-        } else if(out > 0) {
-            lua_pushlstring(L, (const char*) buffer, out);
-        } else {
-            lua_pushnil(L);
-        }
-    } else {
-        lua_pushnil(L);
-    }
-
-    return 1;
+    return g_read(L, REPROC_STREAM_ERR);
 }
 
 static int process_write(lua_State* L)
