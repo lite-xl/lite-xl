@@ -177,11 +177,6 @@ static int g_read(lua_State* L, int stream)
                 break;
         }
 
-        // if request for tries was set and nothing
-        // read kill the process
-        if(tries > 1 && out < 0)
-            out = REPROC_EPIPE;
-
         if(out == REPROC_EPIPE){
             reproc_kill(self->process);
             reproc_destroy(self->process);
