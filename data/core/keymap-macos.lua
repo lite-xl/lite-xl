@@ -17,7 +17,7 @@ local function keymap_macos(keymap)
     ["cmd+ctrl+i"] = "root:switch-to-up",
     ["cmd+ctrl+k"] = "root:switch-to-down",
 
-    ["ctrl+w"] = "root:close",
+    ["cmd+w"] = "root:close",
     ["ctrl+tab"] = "root:switch-to-next-tab",
     ["ctrl+shift+tab"] = "root:switch-to-previous-tab",
     ["cmd+pageup"] = "root:move-tab-left",
