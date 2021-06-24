@@ -2,10 +2,9 @@
 Type=Application
 Name=Lite XL
 Comment=A lightweight text editor written in Lua
-Exec=lite %F
+Exec=lite-xl %F
 Icon=lite-xl
 Terminal=false
 StartupNotify=false
 Categories=Utility;TextEditor;Development;
 MimeType=text/plain;
-

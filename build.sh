@@ -12,7 +12,7 @@ if [[ $* == *windows* ]]; then
   echo "cross compiling for windows is not yet supported"
   exit 1
 else
-  outfile="lite"
+  outfile="lite-xl"
   compiler="gcc"
   cxxcompiler="g++"
 fi
@@ -20,7 +20,7 @@ fi
 lib/font_renderer/build.sh || exit 1
 libs=libfontrenderer.a
 
-echo "compiling lite..."
+echo "compiling lite-xl..."
 for f in `find src -name "*.c"`; do
   $compiler -c $cflags $f -o "${f//\//_}.o"
   if [[ $? -ne 0 ]]; then
