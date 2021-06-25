@@ -142,8 +142,8 @@ void ren_update_rects(RenSurface *ren, RenRect *rects, int count) {
       RenRect irect = image_rect_to_index(rects[i]);
       /* Increment the revision number for all cells that needs to be updated,
          i.e. those that overlaps with one of the update rectangles. */
-      for (int x = irect.x; x < irect.x + irect.width; x++) {
-        for (int y = irect.y; y < irect.y + irect.height; y++) {
+      for (int x = irect.x; x <= irect.x + irect.width; x++) {
+        for (int y = irect.y; y <= irect.y + irect.height; y++) {
           int idx = image_cell_idx(x, y);
           rentex->revisions[idx] += 1:
         }

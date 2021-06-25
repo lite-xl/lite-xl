@@ -128,6 +128,11 @@ static bool next_command(RenCache *rc, Command **prev) {
   return *prev != ((Command*) (rc->command_buf + rc->command_buf_idx));
 }
 
+void rencache_init(RenCache *rc) {
+  rc->cells_prev = rc->cells_buf1;
+  rc->cells = rc->cells_buf2;
+}
+
 
 void rencache_show_debug(RenCache *rc, bool enable) {
   rc->show_debug = enable;

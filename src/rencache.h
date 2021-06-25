@@ -28,6 +28,7 @@ struct RenCache {
 };
 typedef struct RenCache RenCache;
 
+void rencache_init(RenCache *rc);
 void rencache_show_debug(RenCache *rc, bool enable);
 void rencache_set_clip_rect(RenCache *rc, RenRect rect);
 void rencache_draw_rect(RenCache *rc, RenRect rect, RenColor color);

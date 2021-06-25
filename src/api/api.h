@@ -7,6 +7,7 @@
 
 #define API_TYPE_FONT "Font"
 #define API_TYPE_REPLACE "Replace"
+#define API_TYPE_RENCACHE "RenCache"
 
 void api_load_libs(lua_State *L);
 

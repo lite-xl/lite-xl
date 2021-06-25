@@ -2,7 +2,7 @@
 #include "renderer.h"
 #include "rencache.h"
 
-extern RenCache rencache;
+extern RenCache *window_rencache;
 
 static RenColor checkcolor(lua_State *L, int idx, int def) {
   RenColor color;
@@ -22,9 +22,20 @@ static RenColor checkcolor(lua_State *L, int idx, int def) {
 }
 
 
+static RenCache *opt_rencache_arg(lua_State *L, int *index) {
+  RenCache *rencache;
+  if (lua_touserdata(L, 1)) {
+    return luaL_checkudata(L, *(index++), API_TYPE_RENCACHE);
+  }
+  return window_rencache;
+}
+
+
 static int f_show_debug(lua_State *L) {
-  luaL_checkany(L, 1);
-  rencache_show_debug(&rencache, lua_toboolean(L, 1));
+  int index = 1;
+  RenCache *rencache = opt_rencache_arg(L, &index);
+  luaL_checkany(L, index);
+  rencache_show_debug(rencache, lua_toboolean(L, index));
   return 0;
 }
 
@@ -39,59 +50,69 @@ static int f_get_size(lua_State *L) {
 
 
 static int f_begin_frame(lua_State *L) {
-  rencache_begin_frame(&rencache, window_ren_surface, L);
+  int index = 1;
+  RenCache *rencache = opt_rencache_arg(L, &index);
+  rencache_begin_frame(rencache, window_ren_surface, L);
   return 0;
 }
 
 
 static int f_end_frame(lua_State *L) {
-  rencache_end_frame(&rencache, L);
+  int index = 1;
+  RenCache *rencache = opt_rencache_arg(L, &index);
+  rencache_end_frame(rencache, L);
   return 0;
 }
 
 
 static int f_set_clip_rect(lua_State *L) {
   RenRect rect;
-  rect.x = luaL_checknumber(L, 1);
-  rect.y = luaL_checknumber(L, 2);
-  rect.width = luaL_checknumber(L, 3);
-  rect.height = luaL_checknumber(L, 4);
-  rencache_set_clip_rect(&rencache, rect);
+  int index = 1;
+  RenCache *rencache = opt_rencache_arg(L, &index);
+  rect.x = luaL_checknumber(L, index);
+  rect.y = luaL_checknumber(L, index + 1);
+  rect.width = luaL_checknumber(L, index + 2);
+  rect.height = luaL_checknumber(L, index + 3);
+  rencache_set_clip_rect(rencache, rect);
   return 0;
 }
 
 
 static int f_draw_rect(lua_State *L) {
   RenRect rect;
-  rect.x = luaL_checknumber(L, 1);
-  rect.y = luaL_checknumber(L, 2);
-  rect.width = luaL_checknumber(L, 3);
-  rect.height = luaL_checknumber(L, 4);
-  RenColor color = checkcolor(L, 5, 255);
-  rencache_draw_rect(&rencache, rect, color);
+  int index = 1;
+  RenCache *rencache = opt_rencache_arg(L, &index);
+  rect.x = luaL_checknumber(L, index);
+  rect.y = luaL_checknumber(L, index + 1);
+  rect.width = luaL_checknumber(L, index + 2);
+  rect.height = luaL_checknumber(L, index + 3);
+  RenColor color = checkcolor(L, index + 4, 255);
+  rencache_draw_rect(rencache, rect, color);
   return 0;
 }
 
 static int draw_text_subpixel_impl(lua_State *L, bool draw_subpixel) {
-  FontDesc *font_desc = luaL_checkudata(L, 1, API_TYPE_FONT);
-  const char *text = luaL_checkstring(L, 2);
+  int index = 1;
+  RenCache *rencache = opt_rencache_arg(L, &index);
+  FontDesc *font_desc = luaL_checkudata(L, index, API_TYPE_FONT);
+  const char *text = luaL_checkstring(L, index + 1);
   /* The coordinate below will be in subpixel iff draw_subpixel is true.
      Otherwise it will be in pixels. */
-  int x_subpixel = luaL_checknumber(L, 3);
-  int y = luaL_checknumber(L, 4);
-  RenColor color = checkcolor(L, 5, 255);
+  int x_subpixel = luaL_checknumber(L, index + 2);
+  int y = luaL_checknumber(L, index + 3);
+  RenColor color = checkcolor(L, index + 4, 255);
 
   CPReplaceTable *rep_table;
   RenColor replace_color;
-  if (lua_gettop(L) >= 7) {
-    rep_table = luaL_checkudata(L, 6, API_TYPE_REPLACE);
-    replace_color = checkcolor(L, 7, 255);
+  if (lua_gettop(L) >= index + 6) {
+    rep_table = luaL_checkudata(L, index + 5, API_TYPE_REPLACE);
+    replace_color = checkcolor(L, index + 6, 255);
   } else {
     rep_table = NULL;
     replace_color = (RenColor) {0};
   }
 
-  x_subpixel = rencache_draw_text(&rencache, L, font_desc, 1, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
+  x_subpixel = rencache_draw_text(rencache, L, font_desc, 1, text, x_subpixel, y, color, draw_subpixel, rep_table, replace_color);
   lua_pushnumber(L, x_subpixel);
   return 1;
 }
@@ -124,6 +145,14 @@ int luaopen_renderer_replacements(lua_State *L);
 
 int luaopen_renderer(lua_State *L) {
   luaL_newlib(L, lib);
+
+  window_rencache = lua_newuserdata(L, sizeof(RenCache));
+  rencache_init(window_rencache);
+  luaL_setmetatable(L, API_TYPE_RENCACHE);
+  lua_pushvalue(L, -1);
+  luaL_ref(L, -1);
+  lua_setfield(L, -2, "window");
+
   luaopen_renderer_font(L);
   lua_setfield(L, -2, "font");
   luaopen_renderer_replacements(L);

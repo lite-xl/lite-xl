@@ -13,7 +13,7 @@
 #endif
 
 extern SDL_Window *window;
-extern RenCache rencache;
+extern RenCache *window_rencache;
 
 static const char* button_name(int button) {
   switch (button) {
