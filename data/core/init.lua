@@ -82,6 +82,13 @@ function core.new_project_from_directory(dir_path_abs)
 end
 
 
+function core.project_workspace_name()
+  for _, dir in ipairs(core.project_entries) do
+    return dir.item.filename
+  end
+end
+
+
 local function strip_leading_path(filename)
     return filename:sub(2)
 end
@@ -304,7 +311,7 @@ local function create_user_directory()
       error("cannot create directory: \"" .. dirname_create .. "\"")
     end
   end
-  for _, modname in ipairs {'plugins', 'projects', 'colors', 'fonts'} do
+  for _, modname in ipairs {'plugins', 'projects', 'ws', 'colors', 'fonts'} do
     local subdirname = dirname_create .. '/' .. modname
     if not system.mkdir(subdirname) then
       error("cannot create directory: \"" .. subdirname .. "\"")
@@ -480,7 +487,7 @@ function core.init()
   core.log_items = {}
   core.docs = {}
   core.project_entries = {}
-  core.project_name = ""
+  -- core.project_name = ""
 
   local init_files = {}
   local delayed_errors = {}
@@ -642,8 +649,13 @@ end
 
 
 function core.on_quit_project()
-  local filename = USERDIR .. PATHSEP .. "workspace.lua"
-  core.try(project.save_workspace, filename)
+  -- local filename = USERDIR .. PATHSEP .. "workspace.lua"
+  -- core.try(project.save_workspace, filename)
+  if core.project_name then
+    core.try(project.save, filename)
+  else
+    core.try(project.save_unnamed)
+  end
 end
 
 

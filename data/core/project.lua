@@ -123,8 +123,8 @@ function project.save_workspace(filename)
     end
     local project_entries_text = common.serialize(topdir_entries)
     fp:write(string.format(
-      "return { project_name = %q, working_dir = %q, documents = %s, project_entries = %s }\n",
-      core.project_name, core.working_dir, node_text, project_entries_text))
+      "return { project_name = %s, working_dir = %q, documents = %s, project_entries = %s }\n",
+      core.project_name and string.format("%q", core.project_name) or "nil", core.working_dir, node_text, project_entries_text))
     fp:close()
   end
 end
@@ -144,6 +144,50 @@ function project.save(name)
   local filename = common.path_join(USERDIR, "projects", name .. ".lua")
   save_workspace(filename)
   core.log("Saved project %s.", core.project_name)
+end
+
+local function workspace_files_for(basename)
+  local workspace_dir = USERDIR .. PATHSEP .. "ws"
+  local info_wsdir = system.get_file_info(workspace_dir)
+  if not info_wsdir then
+    local ok, err = system.mkdir(workspace_dir)
+    if not ok then
+      error("cannot create workspace directory: \"" .. err .. "\"")
+    end
+  end
+  return coroutine.wrap(function()
+    local files = system.list_dir(workspace_dir) or {}
+    local n = #basename
+    for _, file in ipairs(files) do
+      if file:sub(1, n) == basename then
+        local id = tonumber(file:sub(n + 1):match("^-(%d+)$"))
+        if id then
+          coroutine.yield(workspace_dir .. PATHSEP .. file, id)
+        end
+      end
+    end
+  end)
+end
+
+local function get_workspace_filename(basename)
+  local id_list = {}
+  for filename, id in workspace_files_for(basename) do
+    id_list[id] = true
+  end
+  local id = 1
+  while id_list[id] do
+    id = id + 1
+  end
+  return common.path_join(USERDIR, "ws", basename .. "-" .. tostring(id))
+end
+
+function project.save_unnamed()
+  local name = core.project_workspace_name()
+  -- empty projects shoud return nil and we don't wave them
+  if name then
+    local filename = get_workspace_filename(name)
+    save_workspace(filename)
+  end
 end
 
 
