@@ -608,9 +608,9 @@ function Node:close_all_docviews()
   else
     self.a:close_all_docviews()
     self.b:close_all_docviews()
-    if self.a:is_empty() then
+    if self.a:is_empty() and not self.a.is_primary_node then
       self:consume(self.b)
-    elseif self.b:is_empty() then
+    elseif self.b:is_empty() and not self.b.is_primary_node then
       self:consume(self.a)
     end
   end
