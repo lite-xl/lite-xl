@@ -22,9 +22,9 @@ package.path = USERDIR .. '/?/init.lua;' .. package.path
 local function arg_error(error) io.stderr:write(ARGV[1] .. ": " .. error .. "\n") os.exit(-1) end
 -- returns a lua table with both numeric and non-numeric keys like getoptlong
 local function parse_args_to_dict_and_array(argv, t)
-  local options, arg = {}
+  local options, arg = { argv[1] }
   local function parse_value(value)
-    if t[arg] == "i" and not tonumber(value) then
+    if t[arg] == "i" and not tonumber(value) or (#t[arg] and #value == 0) then
      arg_error("error parsing argument " .. value)
    end
     options[arg], arg = t[arg] == "i" and tonumber(value) or value, nil
