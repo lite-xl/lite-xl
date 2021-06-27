@@ -7,5 +7,5 @@ build*
 subprojects/lua
 subprojects/libagg
 subprojects/reproc
-lite
+lite-xl
 error.txt

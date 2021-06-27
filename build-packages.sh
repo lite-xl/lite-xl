@@ -44,7 +44,7 @@ lite_build_pgo () {
   meson setup --buildtype=release -Db_pgo=generate "$build" || exit 1
   ninja -C "$build" || exit 1
   copy_directory_from_repo data "$build/src"
-  "$build/src/lite"
+  "$build/src/lite-xl"
   meson configure -Db_pgo=use "$build"
   ninja -C "$build" || exit 1
 }
@@ -74,8 +74,8 @@ lite_build_package_windows () {
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
-  cp "$build/src/lite.exe" "$bindir"
-  strip --strip-all "$bindir/lite.exe"
+  cp "$build/src/lite-xl.exe" "$bindir"
+  strip --strip-all "$bindir/lite-xl.exe"
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch$portable.zip"
   zip "$package_name" -r "lite-xl"
@@ -102,7 +102,7 @@ lite_build_package_macos () {
   done
   cp resources/icons/icon.icns "$appdir/Contents/Resources/icon.icns"
   cp resources/macos/Info.plist "$appdir/Contents/Info.plist"
-  cp "$build/src/lite" "$bindir/lite-xl"
+  cp "$build/src/lite-xl" "$bindir/lite-xl"
   strip "$bindir/lite-xl"
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch.zip"
@@ -138,12 +138,12 @@ lite_build_package_linux () {
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
-  cp "$build/src/lite" "$bindir"
-  strip "$bindir/lite"
+  cp "$build/src/lite-xl" "$bindir"
+  strip "$bindir/lite-xl"
   if [ -z "$portable" ]; then
     mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps"
     cp "resources/linux/lite-xl.desktop" "$pdir/share/applications"
-    cp "resources/icons/lite.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
+    cp "resources/icons/lite-xl.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
   fi
   pushd ".package-build"
   local package_name="lite-xl-$os-$arch$portable.tar.gz"
