@@ -10,6 +10,7 @@
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
+  #include <fileapi.h>
 #endif
 
 extern SDL_Window *window;
@@ -384,6 +385,52 @@ static int f_show_fatal_error(lua_State *L) {
 }
 
 
+// removes an empty directory
+static int f_rmdir(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+
+#ifdef _WIN32
+  int deleted = RemoveDirectoryA(path);
+  if(deleted > 0) {
+    lua_pushboolean(L, 1);
+  } else {
+    DWORD error_code = GetLastError();
+    LPVOID message;
+
+    FormatMessage(
+      FORMAT_MESSAGE_ALLOCATE_BUFFER |
+      FORMAT_MESSAGE_FROM_SYSTEM |
+      FORMAT_MESSAGE_IGNORE_INSERTS,
+      NULL,
+      error_code,
+      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+      (LPTSTR) &message,
+      0,
+      NULL
+    );
+
+    lua_pushboolean(L, 0);
+    lua_pushlstring(L, (LPCTSTR)message, lstrlen((LPCTSTR)message));
+    LocalFree(message);
+
+    return 2;
+  }
+#else
+  int deleted = remove(path);
+  if(deleted < 0) {
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, strerror(errno));
+
+    return 2;
+  } else {
+    lua_pushboolean(L, 1);
+  }
+#endif
+
+  return 1;
+}
+
+
 static int f_chdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
   int err = chdir(path);
@@ -604,6 +651,7 @@ static const luaL_Reg lib[] = {
   { "set_window_size",     f_set_window_size     },
   { "window_has_focus",    f_window_has_focus    },
   { "show_fatal_error",    f_show_fatal_error    },
+  { "rmdir",               f_rmdir               },
   { "chdir",               f_chdir               },
   { "mkdir",               f_mkdir               },
   { "list_dir",            f_list_dir            },

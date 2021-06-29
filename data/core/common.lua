@@ -322,4 +322,51 @@ function common.mkdirp(path)
   return true
 end
 
+function common.rm(path, recursively)
+  local stat = system.get_file_info(path)
+  if not stat or (stat.type ~= "file" and stat.type ~= "dir") then
+    return false, "invalid path given", path
+  end
+
+  if stat.type == "file" then
+    local removed, error = os.remove(path)
+    if not removed then
+      return false, error, path
+    end
+  else
+    local contents = system.list_dir(path)
+    if #contents > 0 and not recursively then
+      return false, "directory is not empty", path
+    end
+
+    for _, item in pairs(contents) do
+      local item_path = path .. PATHSEP .. item
+      local item_stat = system.get_file_info(item_path)
+
+      if not item_stat then
+        return false, "invalid file encountered", item_path
+      end
+
+      if item_stat.type == "dir" then
+        local deleted, error, ipath = common.rm(item_path, recursively)
+        if not deleted then
+          return false, error, ipath
+        end
+      elseif item_stat.type == "file" then
+        local removed, error = os.remove(item_path)
+        if not removed then
+          return false, error, item_path
+        end
+      end
+    end
+
+    local removed, error = system.rmdir(path)
+    if not removed then
+      return false, error, path
+    end
+  end
+
+  return true
+end
+
 return common
