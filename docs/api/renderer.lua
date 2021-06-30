@@ -7,19 +7,19 @@ renderer = {}
 
 ---
 ---Represents a color used by the rendering functions.
----@class RendererColor
+---@class renderer.color
 ---@field public r number Red
 ---@field public g number Green
 ---@field public b number Blue
 ---@field public a number Alpha
-RendererColor = {}
+renderer.color = {}
 
 ---
 ---Represent options that affect a font's rendering.
----@class RendererFontOptions
+---@class renderer.fontoptions
 ---@field public antialiasing "'grayscale'" | "'subpixel'"
 ---@field public hinting "'slight'" | "'none'" | '"full"'
-RendererFontOptions = {}
+renderer.fontoptions = {}
 
 ---
 ---@class renderer.font
@@ -30,7 +30,7 @@ renderer.font = {}
 ---
 ---@param path string
 ---@param size number
----@param options RendererFontOptions
+---@param options renderer.fontoptions
 ---
 ---@return renderer.font
 function renderer.font.load(path, size, options) end
@@ -149,7 +149,7 @@ function renderer.set_clip_rect(x, y, width, height) end
 ---@param y number
 ---@param width number
 ---@param height number
----@param color RendererColor
+---@param color renderer.color
 function renderer.draw_rect(x, y, width, height, color) end
 
 ---
@@ -159,9 +159,11 @@ function renderer.draw_rect(x, y, width, height, color) end
 ---@param text string
 ---@param x number
 ---@param y number
----@param color RendererColor
+---@param color renderer.color
 ---@param replace renderer.replacements
----@param color_replace RendererColor
+---@param color_replace renderer.color
+---
+---@return number x_subpixel
 function renderer.draw_text(font, text, x, y, color, replace, color_replace) end
 
 ---
@@ -171,7 +173,9 @@ function renderer.draw_text(font, text, x, y, color, replace, color_replace) end
 ---@param text string
 ---@param x number
 ---@param y number
----@param color RendererColor
+---@param color renderer.color
 ---@param replace renderer.replacements
----@param color_replace RendererColor
+---@param color_replace renderer.color
+---
+---@return number x_subpixel
 function renderer.draw_text_subpixel(font, text, x, y, color, replace, color_replace) end

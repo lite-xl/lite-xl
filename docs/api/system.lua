@@ -5,16 +5,16 @@
 ---@class system
 system = {}
 
----@alias FileInfoType
+---@alias system.fileinfotype
 ---|>'"file"'  # It is a file.
 ---| '"dir"'   # It is a directory.
 
 ---
----@class FileInfo
+---@class system.fileinfo
 ---@field public modified number A timestamp in seconds.
 ---@field public size number Size in bytes.
----@field public type FileInfoType Type of file
-FileInfo = {}
+---@field public type system.fileinfotype Type of file
+system.fileinfo = {}
 
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
@@ -73,7 +73,7 @@ function system.set_cursor(type) end
 ---@param title string
 function system.set_window_title(title) end
 
----@alias SystemWindowMode
+---@alias system.windowmode
 ---|>'"normal"'
 ---| '"minimized"'
 ---| '"maximized"'
@@ -82,13 +82,13 @@ function system.set_window_title(title) end
 ---
 ---Change the window mode.
 ---
----@param mode SystemWindowMode
+---@param mode system.windowmode
 function system.set_window_mode(mode) end
 
 ---
 ---Retrieve the current window mode.
 ---
----@return SystemWindowMode mode
+---@return system.windowmode mode
 function system.get_window_mode() end
 
 ---
@@ -176,7 +176,7 @@ function system.absolute_path(path) end
 ---
 ---@param path string Can be a file or a directory path
 ---
----@return FileInfo|nil info Path details or nil if empty or error.
+---@return system.fileinfo|nil info Path details or nil if empty or error.
 ---@return string? message Error message in case of error.
 function system.get_file_info(path) end
 

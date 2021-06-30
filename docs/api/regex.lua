@@ -30,7 +30,7 @@ regex.NOTEMPTY = 0x00000004
 ---@type integer
 regex.NOTEMPTY_ATSTART = 0x00000008
 
----@alias RegexModifiers
+---@alias regex.modifiers
 ---|>'"i"'  # Case insesitive matching
 ---| '"m"'  # Multiline matching
 ---| '"s"'  # Match all characters with dot (.) metacharacter even new lines
@@ -39,7 +39,7 @@ regex.NOTEMPTY_ATSTART = 0x00000008
 ---Compiles a regular expression pattern that can be used to search in strings.
 ---
 ---@param pattern string
----@param options? RegexModifiers A string of one or more pattern modifiers.
+---@param options? regex.modifiers A string of one or more pattern modifiers.
 ---
 ---@return regex|string regex Ready to use regular expression object or error
 ---message if compiling the pattern failed.
