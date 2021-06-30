@@ -1,3 +1,7 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+# See https://help.github.com/en/articles/dealing-with-line-endings
+* text=auto
+
 winlib/*  linguist-vendored
 src/lib/* linguist-vendored
 resources/icons/icon.inl linguist-vendored
