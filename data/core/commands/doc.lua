@@ -26,7 +26,7 @@ end
 
 local function doc_multiline_selections(sort)
   local iter, state, idx, line1, col1, line2, col2 = doc():get_selections(sort)
-  return function() 
+  return function()
     idx, line1, col1, line2, col2 = iter(state, idx)
     if idx and line2 > line1 and col2 == 1 then
       line2 = line2 - 1
@@ -74,6 +74,7 @@ local function split_cursor(direction)
     end
   end
   for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
+  core.blink_reset()
 end
 
 local commands = {
@@ -156,8 +157,8 @@ local commands = {
     local line, col = doc():get_selection()
     doc():set_selection(line, col)
   end,
-  
-  
+
+
   ["doc:indent"] = function()
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
@@ -296,7 +297,7 @@ local commands = {
   ["doc:lower-case"] = function()
     doc():replace(string.lower)
   end,
-  
+
   ["doc:go-to-line"] = function()
     local dv = dv()
 
@@ -370,7 +371,7 @@ local commands = {
       end
     end, common.path_suggest)
   end,
-  
+
 
   ["file:delete"] = function()
     local filename = doc().abs_filename
@@ -390,7 +391,7 @@ local commands = {
     split_cursor(-1)
     doc():merge_cursors()
   end,
-  
+
   ["doc:create-cursor-next-line"] = function()
     split_cursor(1)
     doc():merge_cursors()
