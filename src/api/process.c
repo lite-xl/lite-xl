@@ -150,7 +150,7 @@ static int process_strerror(lua_State* L)
         lua_pushstring(L, reproc_strerror(error_code));
     else
         lua_pushnil(L);
-
+ 
     return 1;
 }
 
@@ -369,6 +369,12 @@ int luaopen_process(lua_State *L)
     L_SETNUM(L, -1, "REDIRECT_DISCARD", REPROC_REDIRECT_DISCARD);
     L_SETNUM(L, -1, "REDIRECT_STDOUT", REPROC_REDIRECT_STDOUT);
     lua_setfield(L, -2, "CONSTANTS"); // process.CONSTANTS
+
+    lua_pushnumber(L, REPROC_INFINITE);
+    lua_setfield(L, -2, "WAIT_INFINITE");
+
+    lua_pushnumber(L, REPROC_DEADLINE);
+    lua_setfield(L, -2, "WAIT_DEADLINE");
 
     return 1;
 }
