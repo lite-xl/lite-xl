@@ -10,3 +10,4 @@ subprojects/reproc
 lite
 error.txt
 .ccls-cache
+compile_commands.json
