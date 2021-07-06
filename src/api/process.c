@@ -335,8 +335,7 @@ static const struct luaL_Reg process_methods[] = {
 
 static const struct luaL_Reg lib[] = {
     {"strerror", process_strerror},
-    {"Process", NULL},
-    {"CONSTANTS", NULL}
+    {NULL, NULL}
 };
 
 int luaopen_process(lua_State *L)
@@ -349,7 +348,7 @@ int luaopen_process(lua_State *L)
     lua_setfield(L, -2, "__index");
     lua_setfield(L, -2, "Process"); // process.Process
 
-    lua_newtable(L);
+    // constants
     L_SETNUM(L, -1, "ERROR_INVAL", REPROC_EINVAL);
     L_SETNUM(L, -1, "ERROR_TIMEDOUT", REPROC_ETIMEDOUT);
     L_SETNUM(L, -1, "ERROR_PIPE", REPROC_EPIPE);
@@ -368,7 +367,6 @@ int luaopen_process(lua_State *L)
     L_SETNUM(L, -1, "REDIRECT_PARENT", REPROC_REDIRECT_PARENT);
     L_SETNUM(L, -1, "REDIRECT_DISCARD", REPROC_REDIRECT_DISCARD);
     L_SETNUM(L, -1, "REDIRECT_STDOUT", REPROC_REDIRECT_STDOUT);
-    lua_setfield(L, -2, "CONSTANTS"); // process.CONSTANTS
 
     return 1;
 }
