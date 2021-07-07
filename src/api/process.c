@@ -389,11 +389,5 @@ int luaopen_process(lua_State *L)
     lua_pushnumber(L, REPROC_STREAM_ERR);
     lua_setfield(L, -2, "STREAM_STDERR");
 
-    lua_pushnumber(L, REPROC_INFINITE);
-    lua_setfield(L, -2, "WAIT_INFINITE");
-
-    lua_pushnumber(L, REPROC_DEADLINE);
-    lua_setfield(L, -2, "WAIT_DEADLINE");
-
     return 1;
 }
