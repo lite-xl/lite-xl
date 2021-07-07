@@ -7,7 +7,7 @@ build*
 subprojects/lua
 subprojects/libagg
 subprojects/reproc
-lite
+lite-xl
 error.txt
 .ccls-cache
 compile_commands.json
