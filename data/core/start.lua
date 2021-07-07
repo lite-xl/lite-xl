@@ -12,7 +12,8 @@ else
   local prefix = EXEDIR:match("^(.+)[/\\]bin$")
   DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')
 end
-USERDIR = os.getenv("XDG_CONFIG_HOME") or (HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user'))
+USERDIR = (os.getenv("XDG_CONFIG_HOME") and os.getenv("XDG_CONFIG_HOME") .. "/lite-xl")
+  or (HOME and (HOME .. '/.config/lite-xl') or (EXEDIR .. '/user'))
 
 package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path

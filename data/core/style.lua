@@ -22,9 +22,9 @@ style.tab_width = common.round(170 * SCALE)
 -- On High DPI monitor or non RGB monitor you may consider using antialiasing grayscale instead.
 -- The antialiasing grayscale with full hinting is interesting for crisp font rendering.
 style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
-style.big_font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 40 * SCALE)
+style.big_font = style.font:copy(40 * SCALE)
 style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 14 * SCALE, {antialiasing="grayscale", hinting="full"})
-style.icon_big_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 20 * SCALE, {antialiasing="grayscale", hinting="full"})
+style.icon_big_font = style.icon_font:copy(20 * SCALE)
 style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
 
 style.background = { common.color "#2e2e32" }

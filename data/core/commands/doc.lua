@@ -129,6 +129,7 @@ local function split_cursor(direction)
     end
   end
   for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
+  core.blink_reset()
 end
 
 local commands = {

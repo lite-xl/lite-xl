@@ -1,4 +1,4 @@
-project('lite', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
+project('lite-xl', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
 
 if host_machine.system() == 'darwin'
     add_languages('objc')
@@ -55,7 +55,7 @@ endif
 lite_rc = []
 if host_machine.system() == 'windows'
     windows = import('windows')
-    lite_rc += windows.compile_resources('res.rc')
+    lite_rc += windows.compile_resources('resources/icons/icon.rc')
 endif
 
 # On macos we need to use the SDL renderer to support retina displays
