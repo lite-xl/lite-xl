@@ -198,6 +198,14 @@ static int f_gc(lua_State* L)
     return 0;
 }
 
+static int f_tostring(lua_State* L)
+{
+    luaL_checkudata(L, 1, API_TYPE_PROCESS);
+
+    lua_pushliteral(L, API_TYPE_PROCESS);
+    return 1;
+}
+
 static int f_pid(lua_State* L)
 {
     process_t* self = (process_t*) lua_touserdata(L, 1);
@@ -351,6 +359,7 @@ static const struct luaL_Reg lib[] = {
     {"start", process_start},
     {"strerror", process_strerror},
     {"__gc", f_gc},
+    {"__tostring", f_tostring},
     {"pid", f_pid},
     {"returncode", f_returncode},
     {"read", f_read},
