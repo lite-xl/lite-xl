@@ -140,7 +140,10 @@ static int process_start(lua_State* L)
         }
     );
 
-    ASSERT_REPROC_ERRNO(L, out);
+    if (out < 0) {
+        reproc_destroy(proc);
+        L_RETURN_REPROC_ERROR(L, out);
+    }
 
     process_t* self = lua_newuserdata(L, sizeof(process_t));
     self->process = proc;
