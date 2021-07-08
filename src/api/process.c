@@ -59,6 +59,13 @@ static int process_start(lua_State* L)
 {
     int cmd_len = lua_rawlen(L, 1) + 1;
     const char** cmd = malloc(sizeof(char *) * cmd_len);
+    luaL_checktype(L, 1, LUA_TTABLE);
+    if (lua_isnoneornil(L, 2)) {
+        lua_settop(L, 1); // remove the nil if it's there
+        lua_newtable(L);
+    }
+    luaL_checktype(L, 2, LUA_TTABLE);
+
     ASSERT_MALLOC(cmd);
     cmd[cmd_len] = NULL;
 
