@@ -55,7 +55,7 @@ static int poll_process(process_t* proc, int timeout)
     return ret;
 }
 
-static int process_new(lua_State* L)
+static int process_start(lua_State* L)
 {
     int cmd_len = lua_rawlen(L, 1) + 1;
     const char** cmd = malloc(sizeof(char *) * cmd_len);
@@ -316,9 +316,10 @@ static int f_running(lua_State* L)
     return 1;
 }
 
-static const struct luaL_Reg process_methods[] = {
-    { "__call", process_new },
-    { "__gc", f_gc},
+static const struct luaL_Reg lib[] = {
+    {"start", process_start},
+    {"strerror", process_strerror},
+    {"__gc", f_gc},
     {"pid", f_pid},
     {"returncode", f_returncode},
     {"read", f_read},
@@ -333,20 +334,12 @@ static const struct luaL_Reg process_methods[] = {
     {NULL, NULL}
 };
 
-static const struct luaL_Reg lib[] = {
-    {"strerror", process_strerror},
-    {NULL, NULL}
-};
-
 int luaopen_process(lua_State *L)
 {
-    luaL_newlib(L, lib);
-
     luaL_newmetatable(L, API_TYPE_PROCESS);
-    luaL_setfuncs(L, process_methods, 0);
+    luaL_setfuncs(L, lib, 0);
     lua_pushvalue(L, -1);
     lua_setfield(L, -2, "__index");
-    lua_setfield(L, -2, "Process"); // process.Process
 
     // constants
     L_SETNUM(L, -1, "ERROR_INVAL", REPROC_EINVAL);
