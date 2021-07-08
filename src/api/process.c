@@ -57,8 +57,6 @@ static int poll_process(process_t* proc, int timeout)
 
 static int process_start(lua_State* L)
 {
-    int cmd_len = lua_rawlen(L, 1) + 1;
-    const char** cmd = malloc(sizeof(char *) * cmd_len);
     luaL_checktype(L, 1, LUA_TTABLE);
     if (lua_isnoneornil(L, 2)) {
         lua_settop(L, 1); // remove the nil if it's there
@@ -66,6 +64,8 @@ static int process_start(lua_State* L)
     }
     luaL_checktype(L, 2, LUA_TTABLE);
 
+    int cmd_len = lua_rawlen(L, 1);
+    const char** cmd = malloc(sizeof(char *) * (cmd_len + 1));
     ASSERT_MALLOC(cmd);
     cmd[cmd_len] = NULL;
 
@@ -95,27 +95,29 @@ static int process_start(lua_State* L)
 
     // env
     luaL_getsubtable(L, 2, "env");
+    const char **env = NULL;
+    int env_len = 0;
 
     lua_pushnil(L); 
-    int env_len = 1;
     while (lua_next(L, -2) != 0) {
         env_len++;
         lua_pop(L, 1);
     }
 
-    const char** env = malloc(sizeof(char *) * env_len);
-    ASSERT_MALLOC(env);
-    env[env_len] = NULL;
+    if (env_len > 0) {
+        env = malloc(sizeof(char*) * (env_len + 1));
+        env[env_len] = NULL;
 
-    int i = 0;
-    lua_pushnil(L);
-    while (lua_next(L, -2) != 0) {
-        lua_pushliteral(L, "=");
-        lua_pushvalue(L, -3); // push the key to the top
-        lua_concat(L, 3); // key=value
+        int i = 0;
+        lua_pushnil(L);
+        while (lua_next(L, -2) != 0) {
+            lua_pushliteral(L, "=");
+            lua_pushvalue(L, -3); // push the key to the top
+            lua_concat(L, 3); // key=value
 
-        env[i++] = luaL_checkstring(L, -1);
-        lua_pop(L, 1);
+            env[i++] = luaL_checkstring(L, -1);
+            lua_pop(L, 1);
+        }
     }
 
     reproc_t* proc = reproc_new();
