@@ -223,8 +223,16 @@ static int g_read(lua_State* L, int stream)
         luaL_addsize(&b, out); 
     luaL_pushresult(&b);
 
-    if (out == REPROC_EPIPE)
+    if (out == REPROC_EPIPE) {
+        int ret = reproc_stop(self->process, (reproc_stop_actions) {
+            { REPROC_STOP_KILL, 0 },
+            { REPROC_STOP_KILL, 0 },
+            { REPROC_STOP_TERMINATE, 0 }
+        });
+        self->running = false;
+        self->returncode = ret;
         ASSERT_REPROC_ERRNO(L, out);
+    }
 
     return 1;
 }
@@ -300,8 +308,8 @@ static int f_terminate(lua_State* L)
     ASSERT_REPROC_ERRNO(L, out);
 
     poll_process(self, 0);
-
     lua_pushboolean(L, 1);
+
     return 1;
 }
 
@@ -313,8 +321,8 @@ static int f_kill(lua_State* L)
     ASSERT_REPROC_ERRNO(L, out);
 
     poll_process(self, 0);
-
     lua_pushboolean(L, 1);
+
     return 1;
 }
 
