@@ -264,8 +264,8 @@ static int f_read_stderr(lua_State* L)
 
 static int f_read(lua_State* L)
 {
-    int stream = luaL_checknumber(L, 1);
-    lua_remove(L, 1); // remove the number we just read
+    int stream = luaL_checknumber(L, 2);
+    lua_remove(L, 2);
     return g_read(L, stream);
 }
 
