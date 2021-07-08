@@ -55,6 +55,25 @@ static int poll_process(process_t* proc, int timeout)
     return ret;
 }
 
+static int kill_process(process_t* proc)
+{
+    int ret = reproc_stop(
+        proc->process,
+        (reproc_stop_actions) {
+            {REPROC_STOP_KILL, 0},
+            {REPROC_STOP_TERMINATE, 0},
+            {REPROC_STOP_NOOP, 0}
+        }
+    );
+
+    if (ret != REPROC_ETIMEDOUT) {
+        proc->running = false;
+        proc->returncode = ret;
+    }
+
+    return ret;
+}
+
 static int process_start(lua_State* L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -171,11 +190,7 @@ static int f_gc(lua_State* L)
     process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
     if(self->process) {
-        reproc_stop(self->process, (reproc_stop_actions) {
-            { REPROC_STOP_KILL, 0 },
-            { REPROC_STOP_KILL, 0 },
-            { REPROC_STOP_TERMINATE, 0 }
-        });
+        kill_process(self);
         reproc_destroy(self->process);
         self->process = NULL;
     }
@@ -224,13 +239,7 @@ static int g_read(lua_State* L, int stream)
     luaL_pushresult(&b);
 
     if (out == REPROC_EPIPE) {
-        int ret = reproc_stop(self->process, (reproc_stop_actions) {
-            { REPROC_STOP_KILL, 0 },
-            { REPROC_STOP_KILL, 0 },
-            { REPROC_STOP_TERMINATE, 0 }
-        });
-        self->running = false;
-        self->returncode = ret;
+        kill_process(self);
         ASSERT_REPROC_ERRNO(L, out);
     }
 
@@ -266,8 +275,10 @@ static int f_write(lua_State* L)
         (uint8_t*) data,
         data_size
     );
-    if (out == REPROC_EPIPE)
+    if (out == REPROC_EPIPE) {
+        kill_process(self);
         L_RETURN_REPROC_ERROR(L, out);
+    }
 
     lua_pushnumber(L, out);
     return 1;
