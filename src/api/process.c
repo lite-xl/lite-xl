@@ -206,7 +206,7 @@ static int f_tostring(lua_State* L)
 
 static int f_pid(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
     lua_pushnumber(L, reproc_pid(self->process));
     return 1;
@@ -227,7 +227,7 @@ static int f_returncode(lua_State *L)
 
 static int g_read(lua_State* L, int stream)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
     unsigned long read_size = luaL_checkunsigned(L, 2);
 
     luaL_Buffer b;
@@ -271,7 +271,7 @@ static int f_read(lua_State* L)
 
 static int f_write(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
     size_t data_size = 0;
     const char* data = luaL_checklstring(L, 2, &data_size);
@@ -292,7 +292,7 @@ static int f_write(lua_State* L)
 
 static int f_close_stream(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
     int stream = luaL_checknumber(L, 2);
     int out = reproc_close(self->process, stream);
@@ -304,7 +304,7 @@ static int f_close_stream(lua_State* L)
 
 static int f_wait(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
     
     int timeout = luaL_optnumber(L, 2, 0);
     
@@ -319,7 +319,7 @@ static int f_wait(lua_State* L)
 
 static int f_terminate(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
     int out = reproc_terminate(self->process);
     ASSERT_REPROC_ERRNO(L, out);
@@ -332,7 +332,7 @@ static int f_terminate(lua_State* L)
 
 static int f_kill(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
     int out = reproc_kill(self->process);
     ASSERT_REPROC_ERRNO(L, out);
@@ -345,7 +345,7 @@ static int f_kill(lua_State* L)
 
 static int f_running(lua_State* L)
 {
-    process_t* self = (process_t*) lua_touserdata(L, 1);
+    process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
     
     poll_process(self, 0);
     lua_pushboolean(L, self->running);
