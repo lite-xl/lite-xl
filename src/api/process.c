@@ -313,7 +313,7 @@ static int f_wait(lua_State* L)
     int ret = poll_process(self, timeout);
     // negative returncode is also used for signals on POSIX
     if (ret == REPROC_ETIMEDOUT)
-        ASSERT_REPROC_ERRNO(L, ret);
+        L_RETURN_REPROC_ERROR(L, ret);
 
     lua_pushnumber(L, ret);
     return 1;
