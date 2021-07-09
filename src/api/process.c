@@ -10,6 +10,8 @@
 #include <reproc/reproc.h>
 #include "api.h"
 
+#define READ_BUF_SIZE 2048
+
 #define L_GETTABLE(L, idx, key, conv, def) (  \
     lua_getfield(L, idx, key),                \
     conv(L, -1, def)                          \
@@ -228,7 +230,7 @@ static int f_returncode(lua_State *L)
 static int g_read(lua_State* L, int stream)
 {
     process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-    unsigned long read_size = luaL_checkunsigned(L, 2);
+    unsigned long read_size = luaL_optunsigned(L, 2, READ_BUF_SIZE);
 
     luaL_Buffer b;
     uint8_t* buffer = (uint8_t*) luaL_buffinitsize(L, &b, read_size);
@@ -266,6 +268,9 @@ static int f_read(lua_State* L)
 {
     int stream = luaL_checknumber(L, 2);
     lua_remove(L, 2);
+    if (stream > REPROC_STREAM_ERR)
+        L_RETURN_REPROC_ERROR(L, REPROC_EINVAL);
+
     return g_read(L, stream);
 }
 
