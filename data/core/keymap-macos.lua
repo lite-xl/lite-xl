@@ -17,7 +17,8 @@ local function keymap_macos(keymap)
     ["cmd+ctrl+i"] = "root:switch-to-up",
     ["cmd+ctrl+k"] = "root:switch-to-down",
 
-    ["cmd+w"] = "root:close",
+
+    ["cmd+w"] = "root:close-or-quit",
     ["ctrl+tab"] = "root:switch-to-next-tab",
     ["ctrl+shift+tab"] = "root:switch-to-previous-tab",
     ["cmd+pageup"] = "root:move-tab-left",
@@ -31,7 +32,6 @@ local function keymap_macos(keymap)
     ["cmd+7"] = "root:switch-to-tab-7",
     ["cmd+8"] = "root:switch-to-tab-8",
     ["cmd+9"] = "root:switch-to-tab-9",
-
     ["cmd+f"] = "find-replace:find",
     ["cmd+r"] = "find-replace:replace",
     ["f3"] = "find-replace:repeat-find",

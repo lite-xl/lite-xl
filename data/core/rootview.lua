@@ -584,7 +584,7 @@ end
 
 function Node:is_empty()
   if self.type == "leaf" then
-    return #self.views == 0
+    return #self.views == 0 or (#self.views == 1 and self.views[1]:is(EmptyView))
   else
     return self.a:is_empty() and self.b:is_empty()
   end
@@ -608,9 +608,9 @@ function Node:close_all_docviews()
   else
     self.a:close_all_docviews()
     self.b:close_all_docviews()
-    if self.a:is_empty() then
+    if self.a:is_empty() and not self.a.is_primary_node then
       self:consume(self.b)
-    elseif self.b:is_empty() then
+    elseif self.b:is_empty() and not self.b.is_primary_node then
       self:consume(self.a)
     end
   end
@@ -833,7 +833,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     core.request_cursor(node.active_view.cursor)
   end
   if node and self.dragged_node and (self.dragged_node[1] ~= node or (tab_index and self.dragged_node[2] ~= tab_index))
-    and node.type == "leaf" and #node.views > 0 and node.views[1]:is(DocView) then 
+    and node.type == "leaf" and #node.views > 0 and node.views[1]:is(DocView) then
       local tab = self.dragged_node[1].views[self.dragged_node[2]]
       if self.dragged_node[1] ~= node then
         for i, v in ipairs(node.views) do if v.doc == tab.doc then tab = nil break end end
