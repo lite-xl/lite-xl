@@ -71,9 +71,9 @@ copy_lite_build () {
   rm -fr "$rundir"
   mkdir -p "$bindir" "$datadir"
   if [ ! -z ${run_windows+x} ]; then
-    cp "$builddir/src/lite.exe" "$bindir"
+    cp "$builddir/src/lite-xl.exe" "$bindir"
   else
-    cp "$builddir/src/lite" "$bindir"
+    cp "$builddir/src/lite-xl" "$bindir"
   fi
   for module_name in core plugins colors fonts; do
     cp -r "data/$module_name" "$datadir"
@@ -82,14 +82,14 @@ copy_lite_build () {
 
 run_lite () {
   if [ ! -z ${option_global+x} ]; then
-    echo "running \"lite ${pargs[@]:1}\""
-    exec "$bindir/lite" "${pargs[@]:1}"
+    echo "running \"lite-xl ${pargs[@]:1}\""
+    exec "$bindir/lite-xl" "${pargs[@]:1}"
   else
-    echo "running \"lite ${pargs[@]:1}\" with local HOME"
+    echo "running \"lite-xl ${pargs[@]:1}\" with local HOME"
     if [ ! -z ${run_windows+x} ]; then
-      USERPROFILE="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+      USERPROFILE="$userdir" exec "$bindir/lite-xl" "${pargs[@]:1}"
     else
-      HOME="$userdir" exec "$bindir/lite" "${pargs[@]:1}"
+      HOME="$userdir" exec "$bindir/lite-xl" "${pargs[@]:1}"
     fi
   fi
 }
