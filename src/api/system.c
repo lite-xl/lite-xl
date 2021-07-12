@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
+#include "dmon.h"
 #include "rencache.h"
 #ifdef _WIN32
   #include <direct.h>
@@ -637,6 +638,36 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
+static void watch_callback(dmon_watch_id watch_id, dmon_action action, const char* rootdir,
+                           const char* filepath, const char* oldfilepath, void* user)
+{
+    (void)(user);
+    (void)(watch_id);
+
+    switch (action) {
+    case DMON_ACTION_CREATE:
+        printf("CREATE: [%s]%s\n", rootdir, filepath);
+        break;
+    case DMON_ACTION_DELETE:
+        printf("DELETE: [%s]%s\n", rootdir, filepath);
+        break;
+    case DMON_ACTION_MODIFY:
+        printf("MODIFY: [%s]%s\n", rootdir, filepath);
+        break;
+    case DMON_ACTION_MOVE:
+        printf("MOVE: [%s]%s -> [%s]%s\n", rootdir, oldfilepath, rootdir, filepath);
+        break;
+    }
+    fflush(stdout);
+}
+
+static int f_watch_dir(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  dmon_watch(path, watch_callback, DMON_WATCHFLAGS_RECURSIVE, NULL);
+  // FIXME: we ignore the watch id and if there is an error.
+  return 0;
+}
+
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -664,6 +695,7 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "watch_dir",           f_watch_dir           },
   { NULL, NULL }
 };
 

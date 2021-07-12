@@ -18,8 +18,12 @@
   #include <mach-o/dyld.h>
 #endif
 
+#define DMON_IMPL
+#include "dmon.h"
+
 
 SDL_Window *window;
+Uint32 dmon_event_no;
 
 static double get_scale(void) {
 #ifdef _WIN32
@@ -132,6 +136,13 @@ int main(int argc, char **argv) {
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(0, &dm);
 
+  dmon_init();
+  dmon_event_no = SDL_RegisterEvents(1);
+  if (dmon_event_no == (Uint32)-1) {
+    fprintf(stderr, "internal error registering SDL dmon event.\n");
+    exit(1);
+  }
+
   window = SDL_CreateWindow(
     "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, dm.w * 0.8, dm.h * 0.8,
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
@@ -211,6 +222,7 @@ init_lua:
 
   lua_close(L);
   ren_free_window_resources();
+  dmon_deinit();
 
   return EXIT_SUCCESS;
 }
