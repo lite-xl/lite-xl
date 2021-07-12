@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
+#include "dirmonitor.h"
 #include "rencache.h"
 #ifdef _WIN32
   #include <direct.h>
@@ -235,6 +236,14 @@ top:
       lua_pushstring(L, "mousewheel");
       lua_pushnumber(L, e.wheel.y);
       return 2;
+
+    case SDL_USEREVENT:
+      lua_pushstring(L, "dirchange");
+      lua_pushnumber(L, e.user.code >> 16);
+      lua_pushstring(L, (e.user.code & 0xffff) == DMON_ACTION_DELETE ? "delete" : "create");
+      lua_pushstring(L, e.user.data1);
+      free(e.user.data1);
+      return 4;
 
     default:
       goto top;
@@ -651,6 +660,91 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
+static int f_watch_dir(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  const int recursive = lua_toboolean(L, 2);
+  uint32_t dmon_flags = (recursive ? DMON_WATCHFLAGS_RECURSIVE : 0);
+  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL);
+  if (watch_id.id == 0) { luaL_error(L, "directory monitoring watch failed"); }
+  lua_pushnumber(L, watch_id.id);
+  return 1;
+}
+
+#if __linux__
+static int f_watch_dir_add(lua_State *L) {
+  dmon_watch_id watch_id;
+  watch_id.id = luaL_checkinteger(L, 1);
+  const char *subdir = luaL_checkstring(L, 2);
+  lua_pushboolean(L, dmon_watch_add(watch_id, subdir));
+  return 1;
+}
+
+static int f_watch_dir_rm(lua_State *L) {
+  dmon_watch_id watch_id;
+  watch_id.id = luaL_checkinteger(L, 1);
+  const char *subdir = luaL_checkstring(L, 2);
+  lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
+  return 1;
+}
+#endif
+
+#ifdef _WIN32
+#define PATHSEP '\\'
+#else
+#define PATHSEP '/'
+#endif
+
+/* Special purpose filepath compare function. Corresponds to the
+   order used in the TreeView view of the project's files. Returns true iff
+   path1 < path2 in the TreeView order. */
+static int f_path_compare(lua_State *L) {
+  const char *path1 = luaL_checkstring(L, 1);
+  const char *type1_s = luaL_checkstring(L, 2);
+  const char *path2 = luaL_checkstring(L, 3);
+  const char *type2_s = luaL_checkstring(L, 4);
+  const int len1 = strlen(path1), len2 = strlen(path2);
+  int type1 = strcmp(type1_s, "dir") != 0;
+  int type2 = strcmp(type2_s, "dir") != 0;
+  /* Find the index of the common part of the path. */
+  int offset = 0, i;
+  for (i = 0; i < len1 && i < len2; i++) {
+    if (path1[i] != path2[i]) break;
+    if (path1[i] == PATHSEP) {
+      offset = i + 1;
+    }
+  }
+  /* If a path separator is present in the name after the common part we consider
+     the entry like a directory. */
+  if (strchr(path1 + offset, PATHSEP)) {
+    type1 = 0;
+  }
+  if (strchr(path2 + offset, PATHSEP)) {
+    type2 = 0;
+  }
+  /* If types are different "dir" types comes before "file" types. */
+  if (type1 != type2) {
+    lua_pushboolean(L, type1 < type2);
+    return 1;
+  }
+  /* If types are the same compare the files' path alphabetically. */
+  int cfr = 0;
+  int len_min = (len1 < len2 ? len1 : len2);
+  for (int j = offset; j <= len_min; j++) {
+    if (path1[j] == path2[j]) continue;
+    if (path1[j] == 0 || path2[j] == 0) {
+      cfr = (path1[j] == 0);
+    } else if (path1[j] == PATHSEP || path2[j] == PATHSEP) {
+      /* For comparison we treat PATHSEP as if it was the string terminator. */
+      cfr = (path1[j] == PATHSEP);
+    } else {
+      cfr = (path1[j] < path2[j]);
+    }
+    break;
+  }
+  lua_pushboolean(L, cfr);
+  return 1;
+}
+
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -678,6 +772,12 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "watch_dir",           f_watch_dir           },
+  { "path_compare",        f_path_compare        },
+#if __linux__
+  { "watch_dir_add",       f_watch_dir_add       },
+  { "watch_dir_rm",        f_watch_dir_rm        },
+#endif
   { NULL, NULL }
 };
 

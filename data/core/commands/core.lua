@@ -66,8 +66,8 @@ command.add(nil, {
   end,
 
   ["core:find-file"] = function()
-    if core.project_files_limit then
-      return command.perform "core:open-file"
+    if not core.project_files_number() then
+       return command.perform "core:open-file"
     end
     local files = {}
     for dir, item in core.get_project_files() do
@@ -191,8 +191,6 @@ command.add(nil, {
         return
       end
       core.add_project_directory(system.absolute_path(text))
-      -- TODO: add the name of directory to prioritize
-      core.reschedule_project_scan()
     end, suggest_directory)
   end,
 
