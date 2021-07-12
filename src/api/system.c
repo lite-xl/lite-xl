@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
+#include "dirmonitor.h"
 #include "rencache.h"
 #ifdef _WIN32
   #include <direct.h>
@@ -235,6 +236,14 @@ top:
       lua_pushstring(L, "mousewheel");
       lua_pushnumber(L, e.wheel.y);
       return 2;
+
+    case SDL_USEREVENT:
+      lua_pushstring(L, "dirchange");
+      lua_pushnumber(L, e.user.code >> 16);
+      lua_pushstring(L, (e.user.code & 0xffff) == DMON_ACTION_DELETE ? "delete" : "create");
+      lua_pushstring(L, e.user.data1);
+      free(e.user.data1);
+      return 4;
 
     default:
       goto top;
@@ -651,6 +660,56 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
+static void watch_callback(dmon_watch_id watch_id, dmon_action action, const char* rootdir,
+  const char* filepath, const char* oldfilepath, void* user)
+{
+  (void)(user);
+  (void)(rootdir);
+  dirmonitor_push_event(watch_id, action, filepath, oldfilepath);
+}
+
+static int f_watch_dir(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  fprintf(stderr, "DEBUG: watching dir: %s\n", path); fflush(stderr);
+  dmon_watch_id watch_id = dmon_watch(path, watch_callback, DMON_WATCHFLAGS_RECURSIVE, NULL);
+  lua_pushnumber(L, watch_id.id);
+  // FIXME: we ignore if there is an error.
+  return 1;
+}
+
+#ifdef _WIN32
+#define PATHSEP '\\'
+#else
+#define PATHSEP '/'
+#endif
+
+
+static int f_path_compare(lua_State *L) {
+  const char *path1 = luaL_checkstring(L, 1);
+  const char *type1_s = luaL_checkstring(L, 2);
+  const char *path2 = luaL_checkstring(L, 3);
+  const char *type2_s = luaL_checkstring(L, 4);
+  const int len1 = strlen(path1), len2 = strlen(path2);
+  int type1 = strcmp(type1_s, "dir") != 0;
+  int type2 = strcmp(type2_s, "dir") != 0;
+  int i;
+  for (i = 0; i < len1 && i < len2; i++) {
+    if (path1[i] != path2[i]) break;
+  }
+  if (strchr(path1 + i, PATHSEP)) {
+    type1 = 0;
+  }
+  if (strchr(path2 + i, PATHSEP)) {
+    type2 = 0;
+  }
+  if (type1 != type2) {
+    lua_pushboolean(L, type1 < type2);
+    return 1;
+  }
+  lua_pushboolean(L, strcmp(path1 + i, path2 + i) < 0);
+  return 1;
+}
+
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -678,6 +737,8 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "watch_dir",           f_watch_dir           },
+  { "path_compare",        f_path_compare        },
   { NULL, NULL }
 };
 
