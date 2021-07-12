@@ -99,6 +99,18 @@ local function compare_file(a, b)
   return a.filename < b.filename
 end
 
+
+-- compute a file's info entry completed with "filename" to be used
+-- in project scan or falsy if it shouldn't appear in the list.
+local function get_project_file_info(root, file, size_limit)
+  local info = system.get_file_info(root .. file)
+  if info then
+    info.filename = strip_leading_path(file)
+  end
+  return info and info.size < size_limit and info
+end
+
+
 -- "root" will by an absolute path without trailing '/'
 -- "path" will be a path starting with '/' and without trailing '/'
 --    or the empty string.
@@ -117,10 +129,8 @@ local function get_directory_files(root, path, t, recursive, begin_hook)
   local max_entries = config.max_project_files
   for _, file in ipairs(all) do
     if not common.match_pattern(file, config.ignore_files) then
-      local file = path .. PATHSEP .. file
-      local info = system.get_file_info(root .. file)
-      if info and info.size < size_limit then
-        info.filename = strip_leading_path(file)
+      local info = get_project_file_info(root, path .. PATHSEP .. file, size_limit)
+      if info then
         table.insert(info.type == "dir" and dirs or files, info)
         entries_count = entries_count + 1
         if recursive and entries_count > max_entries then return nil, entries_count end
@@ -276,6 +286,69 @@ function core.project_files_number()
 end
 
 
+local function file_search(files, info)
+  local filename, type = info.filename, info.type
+  local inf, sup = 1, #files
+  while sup - inf > 8 do
+    local curr = math.floor((inf + sup) / 2)
+    if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
+      sup = curr - 1
+    else
+      inf = curr
+    end
+  end
+  repeat
+    if files[inf].filename == filename then
+      return inf, true
+    end
+    inf = inf + 1
+  until inf > sup or system.path_compare(filename, type, files[inf].filename, files[inf].type)
+  return inf, false
+end
+
+
+local function project_scan_remove_file(watch_id, filepath)
+  local project_dir_entry
+  for i = 1, #core.project_directories do
+    if core.project_directories[i].watch_id == watch_id then
+      project_dir_entry = core.project_directories[i]
+    end
+  end
+  if not project_dir_entry then return end
+  print("LOOKING for", filepath, " in", project_dir_entry and project_dir_entry.name)
+  local fileinfo = { filename = filepath }
+  for _, filetype in ipairs {"dir", "file"} do
+    fileinfo.type = filetype
+    local index, match = file_search(project_dir_entry.files, fileinfo)
+    if match then
+      print("FOUND", filepath, " at index", index)
+      table.remove(project_dir_entry.files, index)
+      project_dir_entry.is_dirty = true
+      return
+    end
+  end
+end
+
+
+local function project_scan_add_file(watch_id, filepath)
+  local project_dir_entry
+  for i = 1, #core.project_directories do
+    if core.project_directories[i].watch_id == watch_id then
+      project_dir_entry = core.project_directories[i]
+    end
+  end
+  if not project_dir_entry then return end
+  local size_limit = config.file_size_limit * 10e5
+  local fileinfo = get_project_file_info(project_dir_entry.name, PATHSEP .. filepath, size_limit)
+  local index, match = file_search(project_dir_entry.files, fileinfo)
+  if not match then
+    table.insert(project_dir_entry.files, index, fileinfo)
+    project_dir_entry.is_dirty = true
+    return
+  end
+end
+
+
 -- create a directory using mkdir but may need to create the parent
 -- directories as well.
 local function create_user_directory()
@@ -373,10 +446,13 @@ function core.add_project_directory(path)
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = common.normalize_path(path)
+  local watch_id = system.watch_dir(path);
   table.insert(core.project_directories, {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
-    files = {}
+    files = {},
+    is_dirty = true,
+    watch_id = watch_id,
   })
 end
 
@@ -916,6 +992,15 @@ function core.try(fn, ...)
 end
 
 
+function core.on_dir_change(watch_id, action, filepath)
+  if action == "delete" then
+    project_scan_remove_file(watch_id, filepath)
+  elseif action == "create" then
+    project_scan_add_file(watch_id, filepath)
+  end
+end
+
+
 function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
@@ -951,6 +1036,9 @@ function core.on_event(type, ...)
     end
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
+  elseif type == "dirchange" then
+    print("DEBUG: dirchange", select(1, ...), select(2, ...), select(3, ...))
+    core.on_dir_change(...)
   elseif type == "quit" then
     core.quit()
   end
