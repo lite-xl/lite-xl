@@ -444,6 +444,7 @@ command.add(nil, {
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", function(filename)
       os.rename(old_filename, filename)
+      core.reschedule_project_scan()
       core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
     end, common.path_suggest)
   end,
@@ -459,6 +460,7 @@ command.add(nil, {
       file:write("")
       file:close()
       core.root_view:open_doc(core.open_doc(doc_filename))
+      core.reschedule_project_scan()
       core.log("Created %s", doc_filename)
     end, common.path_suggest)
   end,
@@ -471,6 +473,7 @@ command.add(nil, {
     core.command_view:enter("Folder Name", function(filename)
       local dir_path = core.project_dir .. PATHSEP .. filename
       common.mkdirp(dir_path)
+      core.reschedule_project_scan()
       core.log("Created %s", dir_path)
     end, common.path_suggest)
   end,
@@ -491,6 +494,7 @@ command.add(nil, {
         return
       end
     end
+    core.reschedule_project_scan()
     core.log("Deleted \"%s\"", filename)
   end,
 
