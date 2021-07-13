@@ -293,21 +293,24 @@ function core.project_files_number()
 end
 
 
-local function file_search(files, fileinfo)
+local function file_search(files, info)
+  local filename, type = info.filename, info.type
   local inf, sup = 1, #files
   while sup - inf > 8 do
     local curr = math.floor((inf + sup) / 2)
-    if system.path_compare(fileinfo.filename, fileinfo.type, files[curr].filename, files[curr].type) then
+    if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
       sup = curr - 1
     else
       inf = curr
     end
   end
-  for i = inf, sup do
-    if files[i].filename == fileinfo.filename then
-      return i
+  repeat
+    if files[inf].filename == filename then
+      return inf, true
     end
-  end
+    inf = inf + 1
+  until inf > sup or system.path_compare(filename, type, files[inf].filename, files[inf].type)
+  return inf, false
 end
 
 
@@ -323,13 +326,32 @@ local function project_scan_remove_file(watch_id, filepath)
   local fileinfo = { filename = filepath }
   for _, filetype in ipairs {"dir", "file"} do
     fileinfo.type = filetype
-    local index = file_search(project_dir_entry.files, fileinfo)
-    if index then
+    local index, match = file_search(project_dir_entry.files, fileinfo)
+    if match then
       print("FOUND", filepath, " at index", index)
       table.remove(project_dir_entry.files, index)
       project_dir_entry.is_dirty = true
       return
     end
+  end
+end
+
+
+local function project_scan_add_file(watch_id, filepath)
+  local project_dir_entry
+  for i = 1, #core.project_directories do
+    if core.project_directories[i].watch_id == watch_id then
+      project_dir_entry = core.project_directories[i]
+    end
+  end
+  if not project_dir_entry then return end
+  local size_limit = config.file_size_limit * 10e5
+  local fileinfo = get_project_file_info(project_dir_entry.name, PATHSEP .. filepath, size_limit)
+  local index, match = file_search(project_dir_entry.files, fileinfo)
+  if not match then
+    table.insert(project_dir_entry.files, index, fileinfo)
+    project_dir_entry.is_dirty = true
+    return
   end
 end
 
@@ -947,6 +969,8 @@ end
 function core.on_dir_change(watch_id, action, filepath)
   if action == "delete" then
     project_scan_remove_file(watch_id, filepath)
+  elseif action == "create" then
+    project_scan_add_file(watch_id, filepath)
   end
 end
 
