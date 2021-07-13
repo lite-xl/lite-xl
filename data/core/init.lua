@@ -106,6 +106,18 @@ local function compare_file(a, b)
   return a.filename < b.filename
 end
 
+
+-- compute a file's info entry completed with "filename" to be used
+-- in project scan or falsy if it shouldn't appear in the list.
+local function get_project_file_info(root, file, size_limit)
+  local info = system.get_file_info(root .. file)
+  if info then
+    info.filename = strip_leading_path(file)
+  end
+  return info and info.size < size_limit and info
+end
+
+
 -- "root" will by an absolute path without trailing '/'
 -- "path" will be a path starting with '/' and without trailing '/'
 --    or the empty string.
@@ -124,10 +136,8 @@ local function get_directory_files(root, path, t, recursive, begin_hook)
   local max_entries = config.max_project_files
   for _, file in ipairs(all) do
     if not common.match_pattern(file, config.ignore_files) then
-      local file = path .. PATHSEP .. file
-      local info = system.get_file_info(root .. file)
-      if info and info.size < size_limit then
-        info.filename = strip_leading_path(file)
+      local info = get_project_file_info(root, path .. PATHSEP .. file, size_limit)
+      if info then
         table.insert(info.type == "dir" and dirs or files, info)
         entries_count = entries_count + 1
         if recursive and entries_count > max_entries then return nil, entries_count end
@@ -283,20 +293,18 @@ function core.project_files_number()
 end
 
 
-local function file_search(files, filepath)
+local function file_search(files, fileinfo)
   local inf, sup = 1, #files
-  if false then -- FIXME: skipping binary search / it is broken
   while sup - inf > 8 do
     local curr = math.floor((inf + sup) / 2)
-    if filepath < files[curr].filename then
+    if system.path_compare(fileinfo.filename, fileinfo.type, files[curr].filename, files[curr].type) then
       sup = curr - 1
     else
       inf = curr
     end
   end
-  end
   for i = inf, sup do
-    if files[i].filename == filepath then
+    if files[i].filename == fileinfo.filename then
       return i
     end
   end
@@ -310,12 +318,18 @@ local function project_scan_remove_file(watch_id, filepath)
       project_dir_entry = core.project_directories[i]
     end
   end
+  if not project_dir_entry then return end
   print("LOOKING for", filepath, " in", project_dir_entry and project_dir_entry.name)
-  local index = project_dir_entry and file_search(project_dir_entry.files, filepath)
-  if index then
-    print("FOUND", filepath, " at index", index)
-    table.remove(files, index)
-    project_dir_entry.is_dirty = true
+  local fileinfo = { filename = filepath }
+  for _, filetype in ipairs {"dir", "file"} do
+    fileinfo.type = filetype
+    local index = file_search(project_dir_entry.files, fileinfo)
+    if index then
+      print("FOUND", filepath, " at index", index)
+      table.remove(project_dir_entry.files, index)
+      project_dir_entry.is_dirty = true
+      return
+    end
   end
 end
 

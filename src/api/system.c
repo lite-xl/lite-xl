@@ -663,6 +663,39 @@ static int f_watch_dir(lua_State *L) {
   return 1;
 }
 
+#ifdef _WIN32
+#define PATHSEP '\\'
+#else
+#define PATHSEP '/'
+#endif
+
+
+static int f_path_compare(lua_State *L) {
+  const char *path1 = luaL_checkstring(L, 1);
+  const char *type1_s = luaL_checkstring(L, 2);
+  const char *path2 = luaL_checkstring(L, 3);
+  const char *type2_s = luaL_checkstring(L, 4);
+  const int len1 = strlen(path1), len2 = strlen(path2);
+  int type1 = strcmp(type1_s, "dir") != 0;
+  int type2 = strcmp(type2_s, "dir") != 0;
+  int i;
+  for (i = 0; i < len1 && i < len2; i++) {
+    if (path1[i] != path2[i]) break;
+  }
+  if (strchr(path1 + i, PATHSEP)) {
+    type1 = 0;
+  }
+  if (strchr(path2 + i, PATHSEP)) {
+    type2 = 0;
+  }
+  if (type1 != type2) {
+    lua_pushboolean(L, type1 < type2);
+    return 1;
+  }
+  lua_pushboolean(L, strcmp(path1 + i, path2 + i) < 0);
+  return 1;
+}
+
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -691,6 +724,7 @@ static const luaL_Reg lib[] = {
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
   { "watch_dir",           f_watch_dir           },
+  { "path_compare",        f_path_compare        },
   { NULL, NULL }
 };
 
