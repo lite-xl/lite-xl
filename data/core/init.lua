@@ -283,6 +283,43 @@ function core.project_files_number()
 end
 
 
+local function file_search(files, filepath)
+  local inf, sup = 1, #files
+  if false then -- FIXME: skipping binary search / it is broken
+  while sup - inf > 8 do
+    local curr = math.floor((inf + sup) / 2)
+    if filepath < files[curr].filename then
+      sup = curr - 1
+    else
+      inf = curr
+    end
+  end
+  end
+  for i = inf, sup do
+    if files[i].filename == filepath then
+      return i
+    end
+  end
+end
+
+
+local function project_scan_remove_file(watch_id, filepath)
+  local project_dir_entry
+  for i = 1, #core.project_directories do
+    if core.project_directories[i].watch_id == watch_id then
+      project_dir_entry = core.project_directories[i]
+    end
+  end
+  print("LOOKING for", filepath, " in", project_dir_entry and project_dir_entry.name)
+  local index = project_dir_entry and file_search(project_dir_entry.files, filepath)
+  if index then
+    print("FOUND", filepath, " at index", index)
+    table.remove(files, index)
+    project_dir_entry.is_dirty = true
+  end
+end
+
+
 -- create a directory using mkdir but may need to create the parent
 -- directories as well.
 local function create_user_directory()
@@ -380,10 +417,13 @@ function core.add_project_directory(path)
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = normalize_path(path)
+  local watch_id = system.watch_dir(path);
   table.insert(core.project_directories, {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
-    files = {}
+    files = {},
+    is_dirty = true,
+    watch_id = watch_id,
   })
 end
 
@@ -890,6 +930,13 @@ function core.try(fn, ...)
 end
 
 
+function core.on_dir_change(watch_id, action, filepath)
+  if action == "delete" then
+    project_scan_remove_file(watch_id, filepath)
+  end
+end
+
+
 function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
@@ -925,6 +972,9 @@ function core.on_event(type, ...)
     end
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
+  elseif type == "dirchange" then
+    print("DEBUG: dirchange", select(1, ...), select(2, ...), select(3, ...))
+    core.on_dir_change(...)
   elseif type == "quit" then
     core.quit()
   end

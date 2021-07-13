@@ -6,6 +6,7 @@ lite_sources = [
     'api/regex.c',
     'api/system.c',
     'api/process.c',
+    'dirmonitor.c',
     'renderer.c',
     'renwindow.c',
     'fontdesc.c',

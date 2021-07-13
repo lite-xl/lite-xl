@@ -108,11 +108,12 @@ function TreeView:check_cache()
     if not last_files then
       self.last[dir.name] = dir.files
     else
-      if dir.files ~= last_files then
+      if dir.is_dirty or dir.files ~= last_files then
         self:invalidate_cache(dir.name)
         self.last[dir.name] = dir.files
       end
     end
+    dir.is_dirty = false
   end
 end
 
