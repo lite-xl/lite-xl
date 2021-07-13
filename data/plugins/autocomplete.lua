@@ -9,7 +9,7 @@ local translate = require "core.doc.translate"
 local RootView = require "core.rootview"
 local DocView = require "core.docview"
 
-config.autocomplete_max_suggestions = 6
+config.plugins.autocomplete = { max_suggestions = 6 }
 
 local autocomplete = {}
 autocomplete.map = {}
@@ -129,7 +129,7 @@ local function update_suggestions()
   -- fuzzy match, remove duplicates and store
   items = common.fuzzy_match(items, partial)
   local j = 1
-  for i = 1, config.autocomplete_max_suggestions do
+  for i = 1, config.autocomplete.max_suggestions do
     suggestions[i] = items[j]
     while items[j] and items[i].text == items[j].text do
       items[i].info = items[i].info or items[j].info
