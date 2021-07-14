@@ -1,8 +1,9 @@
-project('lite-xl', 'c', 'cpp', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
+project('lite-xl', 'c', 'cpp', version : '2.0.0', default_options : ['c_std=gnu11', 'cpp_std=c++03'])
 
-version = get_option('version')
 conf_data = configuration_data()
-conf_data.set('PROJECT_VERSION', version)
+conf_data.set('PROJECT_BUILD_DIR', meson.current_build_dir())
+conf_data.set('PROJECT_SOURCE_DIR', meson.current_source_dir())
+conf_data.set('PROJECT_VERSION', meson.project_version())
 
 if host_machine.system() == 'darwin'
     add_languages('objc')
@@ -33,12 +34,25 @@ if host_machine.system() == 'windows'
 endif
 
 lite_cargs = []
-if get_option('portable')
-    lite_docdir = 'doc'
-    lite_datadir = 'data'
+if get_option('portable') or host_machine.system() == 'windows'
+    lite_bindir = '/'
+    lite_docdir = '/doc'
+    lite_datadir = '/data'
+elif host_machine.system() == 'darwin'
+    lite_bindir = 'Contents/MacOS'
+    lite_docdir = 'Contents/Resources'
+    lite_datadir = 'Contents/Resources'
+    install_data('resources/icons/icon.icns', install_dir : 'Contents/Resources')
+    install_data('resources/macos/Info.plist', install_dir : 'Contents')
 else
+    lite_bindir = 'bin'
     lite_docdir = 'share/doc/lite-xl'
     lite_datadir = 'share/lite-xl'
+    if host_machine.system() == 'linux'
+        install_data('resources/icons/lite-xl.svg', install_dir : 'share/icons/hicolor/scalable/apps')
+        install_data('resources/linux/org.lite-xl.lite-xl.desktop', install_dir : 'share/applications')
+        install_data('resources/linux/org.lite-xl.lite-xl.appdata.xml', install_dir : 'share/metainfo')
+    endif
 endif
 
 lite_include = include_directories('src')

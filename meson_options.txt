@@ -1,4 +1,2 @@
-option('innosetup', type : 'boolean', value : false, description: 'Build Windows setup package')
 option('portable', type : 'boolean', value : false, description: 'Portable install')
 option('renderer', type : 'boolean', value : false, description: 'Use SDL renderer')
-option('version', type : 'string', value : '0.0.0', description: 'Project version')

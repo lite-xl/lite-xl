@@ -24,6 +24,7 @@ executable('lite-xl',
     c_args: lite_cargs,
     link_with: libfontrenderer,
     link_args: lite_link_args,
+    install_dir: lite_bindir,
     install: true,
     gui_app: true,
 )
