@@ -6,9 +6,12 @@ local config = require "core.config"
 local keymap = require "core.keymap"
 local style = require "core.style"
 local View = require "core.view"
+local ContextMenu = require "core.contextmenu"
+local RootView = require "core.rootview"
+
 
 local default_treeview_size = 200 * SCALE
-local tooltip_offset = style.font:get_height("A")
+local tooltip_offset = style.font:get_height()
 local tooltip_border = 1
 local tooltip_delay = 0.5
 local tooltip_alpha = 255
@@ -173,13 +176,13 @@ end
 function TreeView:on_mouse_moved(px, py, ...)
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
-  
+
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
       item_changed = true
       self.hovered_item = item
-      
+
       x,y,w,h = self:get_text_bounding_box(item, x,y,w,h)
       if px > x and py > y and px <= x + w and py <= y + h then
         tooltip_changed = true
@@ -210,7 +213,7 @@ end
 
 function TreeView:on_mouse_pressed(button, x, y, clicks)
   local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
-  if caught then
+  if caught or button ~= "left" then
     return
   end
   local hovered_item = self.hovered_item
@@ -256,7 +259,7 @@ function TreeView:update()
   else
     self:move_towards(self.size, "x", dest)
   end
-  
+
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)
@@ -353,9 +356,10 @@ local treeview_node = node:split("left", view, {x = true}, true)
 -- plugin to be independent of each other. In addition it is not the
 -- plugin module that plug itself in the active node but it is plugged here
 -- in the treeview node.
+local toolbar_view = nil
 local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
 if config.toolbarview ~= false and toolbar_plugin then
-  local toolbar_view = ToolbarView()
+  toolbar_view = ToolbarView()
   treeview_node:split("down", toolbar_view, {y = true})
   local min_toolbar_width = toolbar_view:get_min_width()
   view:set_target_size("x", math.max(default_treeview_size, min_toolbar_width))
@@ -366,12 +370,171 @@ if config.toolbarview ~= false and toolbar_plugin then
   })
 end
 
+-- Add a context menu to the treeview
+local menu = ContextMenu()
 
--- register commands and keymap
+local on_view_mouse_pressed = RootView.on_view_mouse_pressed
+local on_mouse_moved = RootView.on_mouse_moved
+local root_view_update = RootView.update
+local root_view_draw = RootView.draw
+
+function RootView:on_mouse_moved(...)
+  if menu:on_mouse_moved(...) then return end
+  on_mouse_moved(self, ...)
+end
+
+function RootView.on_view_mouse_pressed(button, x, y, clicks)
+  -- We give the priority to the menu to process mouse pressed events.
+  if button == "right" then
+    view.tooltip.alpha = 0
+    view.tooltip.x, view.tooltip.y = nil, nil
+  end
+  local handled = menu:on_mouse_pressed(button, x, y, clicks)
+  return handled or on_view_mouse_pressed(button, x, y, clicks)
+end
+
+function RootView:update(...)
+  root_view_update(self, ...)
+  menu:update()
+end
+
+function RootView:draw(...)
+  root_view_draw(self, ...)
+  menu:draw()
+end
+
+local function is_project_folder(path)
+  return common.basename(core.project_dir) == path
+end
+
+menu:register(function() return view.hovered_item end, {
+  { text = "Open in System", command = "treeview:open-in-system" },
+  ContextMenu.DIVIDER
+})
+
+menu:register(
+  function()
+    return view.hovered_item
+      and not is_project_folder(view.hovered_item.filename)
+  end,
+  {
+    { text = "Rename", command = "treeview:rename" },
+    { text = "Delete", command = "treeview:delete" },
+  }
+)
+
+menu:register(
+  function()
+    return view.hovered_item and view.hovered_item.type == "dir"
+  end,
+  {
+    { text = "New File", command = "treeview:new-file" },
+    { text = "New Folder", command = "treeview:new-folder" },
+  }
+)
+
+-- Register the TreeView commands and keymap
 command.add(nil, {
   ["treeview:toggle"] = function()
     view.visible = not view.visible
   end,
+
+  ["treeview:rename"] = function()
+    local old_filename = view.hovered_item.filename
+    core.command_view:set_text(old_filename)
+    core.command_view:enter("Rename", function(filename)
+      os.rename(old_filename, filename)
+      core.reschedule_project_scan()
+      core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+    end, common.path_suggest)
+  end,
+
+  ["treeview:new-file"] = function()
+    local dir_name = view.hovered_item.filename
+    if not is_project_folder(dir_name) then
+      core.command_view:set_text(dir_name .. "/")
+    end
+    core.command_view:enter("Filename", function(filename)
+      local doc_filename = core.project_dir .. PATHSEP .. filename
+      local file = io.open(doc_filename, "a+")
+      file:write("")
+      file:close()
+      core.root_view:open_doc(core.open_doc(doc_filename))
+      core.reschedule_project_scan()
+      core.log("Created %s", doc_filename)
+    end, common.path_suggest)
+  end,
+
+  ["treeview:new-folder"] = function()
+    local dir_name = view.hovered_item.filename
+    if not is_project_folder(dir_name) then
+      core.command_view:set_text(dir_name .. "/")
+    end
+    core.command_view:enter("Folder Name", function(filename)
+      local dir_path = core.project_dir .. PATHSEP .. filename
+      common.mkdirp(dir_path)
+      core.reschedule_project_scan()
+      core.log("Created %s", dir_path)
+    end, common.path_suggest)
+  end,
+
+  ["treeview:delete"] = function()
+    local filename = view.hovered_item.abs_filename
+    local relfilename = view.hovered_item.filename
+    local file_info = system.get_file_info(filename)
+    local file_type = file_info.type == "dir" and "Directory" or "File"
+    -- Ask before deleting
+    local opt = {
+      { font = style.font, text = "Yes", default_yes = true },
+      { font = style.font, text = "No" , default_no = true }
+    }
+    core.nag_view:show(
+      string.format("Delete %s", file_type),
+      string.format(
+        "Are you sure you want to delete the %s?\n%s: %s",
+        file_type:lower(), file_type, relfilename
+      ),
+      opt,
+      function(item)
+        if item.text == "Yes" then
+          if file_info.type == "dir" then
+            local deleted, error, path = common.rm(filename, true)
+            if not deleted then
+              core.error("Error: %s - \"%s\" ", error, path)
+              return
+            end
+          else
+            local removed, error = os.remove(filename)
+            if not removed then
+              core.error("Error: %s - \"%s\"", error, filename)
+              return
+            end
+          end
+          core.reschedule_project_scan()
+          core.log("Deleted \"%s\"", filename)
+        end
+      end
+    )
+  end,
+
+  ["treeview:open-in-system"] = function()
+    local hovered_item = view.hovered_item
+
+    if PLATFORM == "Windows" then
+      system.exec("start " .. hovered_item.abs_filename)
+    elseif string.find(PLATFORM, "Mac") then
+      system.exec(string.format("open %q", hovered_item.abs_filename))
+    elseif PLATFORM == "Linux" then
+      system.exec(string.format("xdg-open %q", hovered_item.abs_filename))
+    end
+  end,
 })
 
 keymap.add { ["ctrl+\\"] = "treeview:toggle" }
+
+-- Return the treeview with toolbar and contextmenu to allow
+-- user or plugin modifications
+view.toolbar = toolbar_view
+view.contextmenu = menu
+
+return view
