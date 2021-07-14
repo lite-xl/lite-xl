@@ -52,13 +52,6 @@ local function update_recents_project(action, dir_path_abs)
 end
 
 
-function core.reschedule_project_scan()
-  if core.project_scan_thread_id then
-    core.threads[core.project_scan_thread_id].wake = 0
-  end
-end
-
-
 function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
   if chdir_ok then
@@ -66,9 +59,6 @@ function core.set_project_dir(new_dir, change_project_fn)
     core.project_dir = common.normalize_path(new_dir)
     core.project_directories = {}
     core.add_project_directory(new_dir)
-    core.project_files = {}
-    core.project_files_limit = false
-    core.reschedule_project_scan()
     return true
   end
   return false
@@ -106,8 +96,8 @@ local function get_project_file_info(root, file, size_limit)
   local info = system.get_file_info(root .. file)
   if info then
     info.filename = strip_leading_path(file)
+    return info.size < size_limit and info
   end
-  return info and info.size < size_limit and info
 end
 
 
@@ -156,45 +146,44 @@ local function get_directory_files(root, path, t, recursive, begin_hook)
   return t, entries_count
 end
 
-local function project_scan_thread()
-  local function diff_files(a, b)
-    if #a ~= #b then return true end
-    for i, v in ipairs(a) do
-      if b[i].filename ~= v.filename
-      or b[i].modified ~= v.modified then
-        return true
-      end
+
+-- FIXME: change the name with core.scan_project_folder
+function core.project_scan_topdir(index)
+  local dir = core.project_directories[index]
+  local t, entries_count = get_directory_files(dir.name, "", {}, true)
+  if entries_count > config.max_project_files then
+    dir.files_limit = true
+    if core.status_view then -- FIXME
+    core.status_view:show_message("!", style.accent,
+      "Too many files in project directory: stopped reading at "..
+      config.max_project_files.." files. For more information see "..
+      "usage.md at github.com/franko/lite-xl."
+      )
     end
   end
-
-  while true do
-    -- get project files and replace previous table if the new table is
-    -- different
-    local i = 1
-    while not core.project_files_limit and i <= #core.project_directories do
-      local dir = core.project_directories[i]
-      local t, entries_count = get_directory_files(dir.name, "", {}, true)
-      if diff_files(dir.files, t) then
-        if entries_count > config.max_project_files then
-          core.project_files_limit = true
-          core.status_view:show_message("!", style.accent,
-            "Too many files in project directory: stopped reading at "..
-            config.max_project_files.." files. For more information see "..
-            "usage.md at github.com/franko/lite-xl."
-            )
-        end
-        dir.files = t
-        core.redraw = true
-      end
-      if dir.name == core.project_dir then
-        core.project_files = dir.files
-      end
-      i = i + 1
-    end
-
-    -- wait for next scan
-    coroutine.yield(config.project_scan_rate)
+  dir.files = t
+  if dir.name == core.project_dir then
+    core.project_files = dir.files
   end
+end
+
+
+function core.add_project_directory(path)
+  -- top directories has a file-like "item" but the item.filename
+  -- will be simply the name of the directory, without its path.
+  -- The field item.topdir will identify it as a top level directory.
+  path = common.normalize_path(path)
+  local watch_id = system.watch_dir(path)
+  print("DEBUG watch_id:", watch_id)
+  table.insert(core.project_directories, {
+    name = path,
+    item = {filename = common.basename(path), type = "dir", topdir = true},
+    files_limit = false,
+    is_dirty = true,
+    watch_id = watch_id,
+  })
+  core.project_scan_topdir(#core.project_directories)
+  core.redraw = true
 end
 
 
@@ -227,7 +216,7 @@ function core.scan_project_folder(dirname, filename)
   end
 end
 
-
+-- FIXME: rename this function
 local function find_project_files_co(root, path)
   local size_limit = config.file_size_limit * 10e5
   local all = system.list_dir(root .. path) or {}
@@ -250,39 +239,46 @@ end
 
 local function project_files_iter(state)
   local dir = core.project_directories[state.dir_index]
-  state.file_index = state.file_index + 1
-  while dir and state.file_index > #dir.files do
-    state.dir_index = state.dir_index + 1
-    state.file_index = 1
-    dir = core.project_directories[state.dir_index]
+  if state.co then
+    local ok, name, file = coroutine.resume(state.co, dir.name, "")
+    if ok and name then
+      return name, file
+    else
+      state.co = false
+      state.file_index = 1
+      state.dir_index = state.dir_index + 1
+      dir = core.project_directories[state.dir_index]
+    end
+  else
+    state.file_index = state.file_index + 1
+    while dir and state.file_index > #dir.files do
+      state.dir_index = state.dir_index + 1
+      state.file_index = 1
+      dir = core.project_directories[state.dir_index]
+    end
   end
   if not dir then return end
+  if dir.files_limit then
+    state.co = coroutine.create(find_project_files_co)
+    return project_files_iter(state)
+  end
   return dir.name, dir.files[state.file_index]
 end
 
 
 function core.get_project_files()
-  if core.project_files_limit then
-    return coroutine.wrap(function()
-      for _, dir in ipairs(core.project_directories) do
-        find_project_files_co(dir.name, "")
-      end
-    end)
-  else
-    local state = { dir_index = 1, file_index = 0 }
-    return project_files_iter, state
-  end
+  local state = { dir_index = 1, file_index = 0 }
+  return project_files_iter, state
 end
 
 
 function core.project_files_number()
-  if not core.project_files_limit then
-    local n = 0
-    for i = 1, #core.project_directories do
-      n = n + #core.project_directories[i].files
-    end
-    return n
+  local n = 0
+  for i = 1, #core.project_directories do
+    if core.project_directories[i].files_limit then return end
+    n = n + #core.project_directories[i].files
   end
+  return n
 end
 
 
@@ -441,22 +437,6 @@ function core.load_user_directory()
 end
 
 
-function core.add_project_directory(path)
-  -- top directories has a file-like "item" but the item.filename
-  -- will be simply the name of the directory, without its path.
-  -- The field item.topdir will identify it as a top level directory.
-  path = common.normalize_path(path)
-  local watch_id = system.watch_dir(path);
-  table.insert(core.project_directories, {
-    name = path,
-    item = {filename = common.basename(path), type = "dir", topdir = true},
-    files = {},
-    is_dirty = true,
-    watch_id = watch_id,
-  })
-end
-
-
 function core.remove_project_directory(path)
   -- skip the fist directory because it is the project's directory
   for i = 2, #core.project_directories do
@@ -592,7 +572,6 @@ function core.init()
   cur_node = cur_node:split("down", core.command_view, {y = true})
   cur_node = cur_node:split("down", core.status_view, {y = true})
 
-  core.project_scan_thread_id = core.add_thread(project_scan_thread)
   command.add_defaults()
   local got_user_error = not core.load_user_directory()
   local plugins_success, plugins_refuse_list = core.load_plugins()
