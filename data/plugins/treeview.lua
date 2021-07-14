@@ -38,7 +38,6 @@ function TreeView:new()
   self.init_size = true
   self.target_size = default_treeview_size
   self.cache = {}
-  self.last = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
 end
 
@@ -104,14 +103,8 @@ function TreeView:check_cache()
   -- invalidate cache's skip values if project_files has changed
   for i = 1, #core.project_directories do
     local dir = core.project_directories[i]
-    local last_files = self.last[dir.name]
-    if not last_files then
-      self.last[dir.name] = dir.files
-    else
-      if dir.is_dirty or dir.files ~= last_files then
-        self:invalidate_cache(dir.name)
-        self.last[dir.name] = dir.files
-      end
+    if dir.is_dirty and self.cache[dir.name] then
+      self:invalidate_cache(dir.name)
     end
     dir.is_dirty = false
   end
