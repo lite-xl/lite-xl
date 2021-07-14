@@ -204,7 +204,6 @@ local function create_directory_in(item)
       core.error("cannot create directory %q: %s", dirname, err)
     end
     item.expanded = true
-    core.reschedule_project_scan()
   end)
 end
 
