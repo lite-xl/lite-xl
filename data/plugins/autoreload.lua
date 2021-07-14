@@ -3,8 +3,9 @@ local core = require "core"
 local config = require "core.config"
 local Doc = require "core.doc"
 
-
 local times = setmetatable({}, { __mode = "k" })
+
+local autoreload_scan_rate = 5
 
 local function update_time(doc)
   local info = system.get_file_info(doc.filename)
@@ -40,7 +41,7 @@ core.add_thread(function()
     end
 
     -- wait for next scan
-    coroutine.yield(config.project_scan_rate)
+    coroutine.yield(autoreload_scan_rate)
   end
 end)
 
