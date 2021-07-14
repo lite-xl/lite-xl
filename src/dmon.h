@@ -763,19 +763,6 @@ _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t m
     closedir(dir);
 }
 
-_DMON_PRIVATE const char* dmon__find_subdir(const dmon__watch_state* watch, int wd)
-{
-    const int* wds = watch->wds;
-    for (int i = 0, c = stb_sb_count(wds); i < c; i++) {
-        if (wd == wds[i]) {
-            return watch->subdirs[i].rootdir;
-        }
-    }
-
-    DMON_ASSERT(0);
-    return NULL;
-}
-
 _DMON_PRIVATE void dmon__inotify_process_events(void)
 {
     for (int i = 0, c = stb_sb_count(_dmon.events); i < c; i++) {
@@ -811,10 +798,9 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
                             break;
                         }
                     }
-                } else if (check_ev->mask == IN_MODIFY &&
-                           strcmp(ev->filepath, check_ev->filepath) == 0) {
+                } else if (check_ev->mask == IN_MODIFY && strcmp(ev->filepath, check_ev->filepath) == 0) {
                     // Another case is that file is copied. CREATE and MODIFY happens sequentially
-                    // so we ignore modify event
+                    // so we ignore MODIFY event
                     check_ev->skip = true;
                 }
             }
@@ -867,12 +853,10 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
 
         switch (ev->mask) {
         case IN_CREATE:
-            watch->watch_cb(ev->watch_id, DMON_ACTION_CREATE, watch->rootdir, ev->filepath, NULL,
-                            watch->user_data);
+            watch->watch_cb(ev->watch_id, DMON_ACTION_CREATE, watch->rootdir, ev->filepath, NULL, watch->user_data);
             break;
         case IN_MODIFY:
-            watch->watch_cb(ev->watch_id, DMON_ACTION_MODIFY, watch->rootdir, ev->filepath, NULL,
-                            watch->user_data);
+            watch->watch_cb(ev->watch_id, DMON_ACTION_MODIFY, watch->rootdir, ev->filepath, NULL, watch->user_data);
             break;
         case IN_MOVED_FROM: {
             for (int j = i + 1; j < c; j++) {
@@ -885,8 +869,7 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
             }
         } break;
         case IN_DELETE:
-            watch->watch_cb(ev->watch_id, DMON_ACTION_DELETE, watch->rootdir, ev->filepath, NULL,
-                            watch->user_data);
+            watch->watch_cb(ev->watch_id, DMON_ACTION_DELETE, watch->rootdir, ev->filepath, NULL, watch->user_data);
             break;
         }
     }
@@ -921,38 +904,43 @@ static void* dmon__thread(void* arg)
             continue;
         }
 
+        // Create read FD set
+        fd_set rfds;
+        FD_ZERO(&rfds);
         for (int i = 0; i < _dmon.num_watches; i++) {
             dmon__watch_state* watch = &_dmon.watches[i];
-            fd_set rfds;
-            FD_ZERO(&rfds);
             FD_SET(watch->fd, &rfds);
-            timeout.tv_sec = 0;
-            timeout.tv_usec = 100000;
+        }
 
-            if (select(FD_SETSIZE, &rfds, NULL, NULL, &timeout)) {
-                ssize_t offset = 0;
-                ssize_t len = read(watch->fd, buff, _DMON_TEMP_BUFFSIZE);
-                if (len <= 0) {
-                    continue;
-                }
-
-                while (offset < len) {
-                    struct inotify_event* iev = (struct inotify_event*)&buff[offset];
-
-                    char filepath[DMON_MAX_PATH];
-                    dmon__strcpy(filepath, sizeof(filepath), dmon__find_subdir(watch, iev->wd));
-                    dmon__strcat(filepath, sizeof(filepath), iev->name);
-
-                    // TODO: ignore directories if flag is set
-
-                    if (stb_sb_count(_dmon.events) == 0) {
-                        usecs_elapsed = 0;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000;
+        if (select(FD_SETSIZE, &rfds, NULL, NULL, &timeout)) {
+            for (int i = 0; i < _dmon.num_watches; i++) {
+                dmon__watch_state* watch = &_dmon.watches[i];
+                if (FD_ISSET(watch->fd, &rfds)) {
+                    ssize_t offset = 0;
+                    ssize_t len = read(watch->fd, buff, _DMON_TEMP_BUFFSIZE);
+                    if (len <= 0) {
+                        continue;
                     }
-                    dmon__inotify_event dev = { { 0 }, iev->mask, iev->cookie, watch->id, false };
-                    dmon__strcpy(dev.filepath, sizeof(dev.filepath), filepath);
-                    stb_sb_push(_dmon.events, dev);
 
-                    offset += sizeof(struct inotify_event) + iev->len;
+                    while (offset < len) {
+                        struct inotify_event* iev = (struct inotify_event*)&buff[offset];
+
+                        char filepath[DMON_MAX_PATH];
+                        dmon__strcpy(filepath, sizeof(filepath), iev->name);
+
+                        // TODO: ignore directories if flag is set
+
+                        if (stb_sb_count(_dmon.events) == 0) {
+                            usecs_elapsed = 0;
+                        }
+                        dmon__inotify_event dev = { { 0 }, iev->mask, iev->cookie, watch->id, false };
+                        dmon__strcpy(dev.filepath, sizeof(dev.filepath), filepath);
+                        stb_sb_push(_dmon.events, dev);
+
+                        offset += sizeof(struct inotify_event) + iev->len;
+                    }
                 }
             }
         }
