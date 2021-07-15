@@ -101,9 +101,9 @@ end
 
 
 function TreeView:check_cache()
-  -- invalidate cache's skip values if project_files has changed
   for i = 1, #core.project_directories do
     local dir = core.project_directories[i]
+    -- invalidate cache's skip values if directory is declared dirty
     if dir.is_dirty and self.cache[dir.name] then
       self:invalidate_cache(dir.name)
     end
@@ -216,9 +216,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     else
       if hovered_item.dir.files_limit and not hovered_item.expanded then
         local dirname = hovered_item.dir.name
-        if core.scan_project_subdir(dirname, hovered_item.filename) then
-          self:invalidate_cache(dirname)
-        end
+        core.scan_project_subdir(dirname, hovered_item.filename)
       end
       hovered_item.expanded = not hovered_item.expanded
     end
