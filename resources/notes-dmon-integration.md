@@ -1,6 +1,9 @@
-`core.scan_project_folder`:
+`core.scan_project_folder`: (renamed to `core.scan_project_subdir`)
     scan a single folder, without recursion. Used when too many files.
 
+New `core.scan_project_folder`:
+    Populate the project folder top directory. Done only once when the directory
+    is added to the project.
 
 `core.add_project_directory`:
     Add a new top-level folder to the project.

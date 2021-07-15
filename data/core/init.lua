@@ -154,8 +154,8 @@ local function get_directory_files(root, path, t, recursive, begin_hook)
 end
 
 
--- FIXME: change the name with core.scan_project_folder
-function core.project_scan_topdir(index)
+-- Populate a project folder top directory by scanning the filesystem.
+function core.scan_project_folder(index)
   local dir = core.project_directories[index]
   local t, entries_count = get_directory_files(dir.name, "", {}, true)
   if entries_count > config.max_project_files then
@@ -189,22 +189,12 @@ function core.add_project_directory(path)
     is_dirty = true,
     watch_id = watch_id,
   })
-  core.project_scan_topdir(#core.project_directories)
+  core.scan_project_folder(#core.project_directories)
   core.redraw = true
 end
 
 
-function core.is_project_folder(dirname)
-  for _, dir in ipairs(core.project_directories) do
-    if dir.name == dirname then
-      return true
-    end
-  end
-  return false
-end
-
-
-function core.scan_project_folder(dirname, filename)
+function core.scan_project_subdir(dirname, filename)
   for _, dir in ipairs(core.project_directories) do
     if dir.name == dirname then
       for i, file in ipairs(dir.files) do
@@ -216,15 +206,17 @@ function core.scan_project_folder(dirname, filename)
             table.insert(dir.files, i + j, new_file)
           end
           file.scanned = true
-          return
+          return true
         end
       end
     end
   end
 end
 
--- FIXME: rename this function
-local function find_project_files_co(root, path)
+-- Find files and directories recursively reading from the filesystem.
+-- Filter files and yields file's directory and info table. This latter
+-- is filled to be like required by project directories "files" list.
+local function find_files_rec(root, path)
   local size_limit = config.file_size_limit * 10e5
   local all = system.list_dir(root .. path) or {}
   for _, file in ipairs(all) do
@@ -236,7 +228,7 @@ local function find_project_files_co(root, path)
         if info.type == "file" then
           coroutine.yield(root, info)
         else
-          find_project_files_co(root, PATHSEP .. info.filename)
+          find_files_rec(root, PATHSEP .. info.filename)
         end
       end
     end
@@ -244,19 +236,25 @@ local function find_project_files_co(root, path)
 end
 
 
+-- Iterator function to list all project files
 local function project_files_iter(state)
   local dir = core.project_directories[state.dir_index]
   if state.co then
+    -- We have a coroutine to fetch for files, use the coroutine.
+    -- Used for directories that exceeds the files nuumber limit.
     local ok, name, file = coroutine.resume(state.co, dir.name, "")
     if ok and name then
       return name, file
     else
+      -- The coroutine terminated, increment file/dir counter to scan
+      -- next project directory.
       state.co = false
       state.file_index = 1
       state.dir_index = state.dir_index + 1
       dir = core.project_directories[state.dir_index]
     end
   else
+    -- Increase file/dir counter
     state.file_index = state.file_index + 1
     while dir and state.file_index > #dir.files do
       state.dir_index = state.dir_index + 1
@@ -266,7 +264,9 @@ local function project_files_iter(state)
   end
   if not dir then return end
   if dir.files_limit then
-    state.co = coroutine.create(find_project_files_co)
+    -- The current project directory is files limited: create a couroutine
+    -- to read files from the filesystem.
+    state.co = coroutine.create(find_files_rec)
     return project_files_iter(state)
   end
   return dir.name, dir.files[state.file_index]
