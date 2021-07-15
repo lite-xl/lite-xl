@@ -190,6 +190,36 @@ function core.add_project_directory(path)
 end
 
 
+local function file_search(files, info)
+  local filename, type = info.filename, info.type
+  local inf, sup = 1, #files
+  while sup - inf > 8 do
+    local curr = math.floor((inf + sup) / 2)
+    if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
+      sup = curr - 1
+    else
+      inf = curr
+    end
+  end
+  repeat
+    if files[inf].filename == filename then
+      return inf, true
+    end
+    inf = inf + 1
+  until inf > sup or system.path_compare(filename, type, files[inf].filename, files[inf].type)
+  return inf, false
+end
+
+
+local function project_scan_add_entry(dir, fileinfo)
+  local index, match = file_search(dir.files, fileinfo)
+  if not match then
+    table.insert(dir.files, index, fileinfo)
+    dir.is_dirty = true
+  end
+end
+
+
 function core.scan_project_subdir(dirname, filename)
   for _, dir in ipairs(core.project_directories) do
     if dir.name == dirname then
@@ -198,8 +228,8 @@ function core.scan_project_subdir(dirname, filename)
         if file.filename == filename then
           if file.scanned then return end
           local new_files = get_directory_files(dirname, PATHSEP .. filename, {})
-          for j, new_file in ipairs(new_files) do
-            table.insert(dir.files, i + j, new_file)
+          for _, new_file in ipairs(new_files) do
+            project_scan_add_entry(dir, new_file)
           end
           file.scanned = true
           return true
@@ -285,27 +315,6 @@ function core.project_files_number()
 end
 
 
-local function file_search(files, info)
-  local filename, type = info.filename, info.type
-  local inf, sup = 1, #files
-  while sup - inf > 8 do
-    local curr = math.floor((inf + sup) / 2)
-    if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
-      sup = curr - 1
-    else
-      inf = curr
-    end
-  end
-  repeat
-    if files[inf].filename == filename then
-      return inf, true
-    end
-    inf = inf + 1
-  until inf > sup or system.path_compare(filename, type, files[inf].filename, files[inf].type)
-  return inf, false
-end
-
-
 local function project_scan_remove_file(watch_id, filepath)
   local project_dir_entry
   for i = 1, #core.project_directories do
@@ -336,14 +345,16 @@ local function project_scan_add_file(watch_id, filepath)
       project_dir_entry = core.project_directories[i]
     end
   end
-  if not project_dir_entry or common.match_pattern(filepath, config.ignore_files) then return end
+  if not project_dir_entry then return end
+  for fragment in string.gmatch(filepath, "([^/\\]+)") do
+    if common.match_pattern(fragment, config.ignore_files) then
+      return
+    end
+  end
   local size_limit = config.file_size_limit * 10e5
   local fileinfo = get_project_file_info(project_dir_entry.name, PATHSEP .. filepath, size_limit)
-  local index, match = file_search(project_dir_entry.files, fileinfo)
-  if not match then
-    table.insert(project_dir_entry.files, index, fileinfo)
-    project_dir_entry.is_dirty = true
-    return
+  if fileinfo then
+    project_scan_add_entry(project_dir_entry, fileinfo)
   end
 end
 
