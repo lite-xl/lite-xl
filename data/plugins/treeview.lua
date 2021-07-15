@@ -53,7 +53,7 @@ function TreeView:set_target_size(axis, value)
 end
 
 
-function TreeView:get_cached(item, dirname)
+function TreeView:get_cached(dir, item, dirname)
   local dir_cache = self.cache[dirname]
   if not dir_cache then
     dir_cache = {}
@@ -79,6 +79,7 @@ function TreeView:get_cached(item, dirname)
     end
     t.name = basename
     t.type = item.type
+    t.dir = dir -- points to top level "dir" item
     dir_cache[cache_name] = t
   end
   return t
@@ -125,14 +126,14 @@ function TreeView:each_item()
 
     for k = 1, #core.project_directories do
       local dir = core.project_directories[k]
-      local dir_cached = self:get_cached(dir.item, dir.name)
+      local dir_cached = self:get_cached(dir, dir.item, dir.name)
       coroutine.yield(dir_cached, ox, y, w, h)
       count_lines = count_lines + 1
       y = y + h
       local i = 1
       while i <= #dir.files and dir_cached.expanded do
         local item = dir.files[i]
-        local cached = self:get_cached(item, dir.name)
+        local cached = self:get_cached(dir, item, dir.name)
 
         coroutine.yield(cached, ox, y, w, h)
         count_lines = count_lines + 1
@@ -216,19 +217,9 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     if keymap.modkeys["ctrl"] and button == "left" then
       create_directory_in(hovered_item)
     else
-      if core.project_files_limit and not hovered_item.expanded then
-        local filename, abs_filename = hovered_item.filename, hovered_item.abs_filename
-        local index = 0
-        -- The loop below is used to find the first match starting from the end
-        -- in case there are multiple matches.
-        while index and index + #filename < #abs_filename do
-          index = string.find(abs_filename, filename, index + 1, true)
-        end
-        -- we assume here index is not nil because the abs_filename must contain the
-        -- relative filename
-        local dirname = string.sub(abs_filename, 1, index - 2)
-        if core.is_project_folder(dirname) then
-          core.scan_project_folder(dirname, filename)
+      if hovered_item.dir.files_limit and not hovered_item.expanded then
+        local dirname = hovered_item.dir.name
+        if core.scan_project_subdir(dirname, hovered_item.filename) then
           self:invalidate_cache(dirname)
         end
       end
