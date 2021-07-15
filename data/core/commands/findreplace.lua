@@ -14,7 +14,7 @@ local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
 
 local function doc()
-  return last_view and last_view.doc or core.active_view.doc
+  return core.active_view:is(DocView) and core.active_view.doc or last_view.doc
 end
 
 local function get_find_tooltip()
