@@ -7,8 +7,8 @@
 
 void dirmonitor_init();
 void dirmonitor_deinit();
-void dirmonitor_push_event(dmon_watch_id watch_id, dmon_action action, const char *filepath,
-  const char *oldfilepath);
+void dirmonitor_watch_callback(dmon_watch_id watch_id, dmon_action action, const char *rootdir,
+  const char *filepath, const char *oldfilepath, void *user);
 
 #endif
 

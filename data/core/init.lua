@@ -336,7 +336,7 @@ local function project_scan_add_file(watch_id, filepath)
       project_dir_entry = core.project_directories[i]
     end
   end
-  if not project_dir_entry then return end
+  if not project_dir_entry or common.match_pattern(filepath, config.ignore_files) then return end
   local size_limit = config.file_size_limit * 10e5
   local fileinfo = get_project_file_info(project_dir_entry.name, PATHSEP .. filepath, size_limit)
   local index, match = file_search(project_dir_entry.files, fileinfo)

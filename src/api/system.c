@@ -660,20 +660,11 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
-static void watch_callback(dmon_watch_id watch_id, dmon_action action, const char* rootdir,
-  const char* filepath, const char* oldfilepath, void* user)
-{
-  (void)(user);
-  (void)(rootdir);
-  dirmonitor_push_event(watch_id, action, filepath, oldfilepath);
-}
-
 static int f_watch_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-  fprintf(stderr, "DEBUG: watching dir: %s\n", path); fflush(stderr);
-  dmon_watch_id watch_id = dmon_watch(path, watch_callback, DMON_WATCHFLAGS_RECURSIVE, NULL);
+  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, DMON_WATCHFLAGS_RECURSIVE, NULL);
+  if (watch_id.id == 0) { luaL_error(L, "directory monitoring watch failed"); }
   lua_pushnumber(L, watch_id.id);
-  // FIXME: we ignore if there is an error.
   return 1;
 }
 
@@ -683,7 +674,8 @@ static int f_watch_dir(lua_State *L) {
 #define PATHSEP '/'
 #endif
 
-
+/* Special purpose filepath compare function. Corresponds to the
+   order used in the TreeView view of the project's files. */
 static int f_path_compare(lua_State *L) {
   const char *path1 = luaL_checkstring(L, 1);
   const char *type1_s = luaL_checkstring(L, 2);
@@ -692,20 +684,25 @@ static int f_path_compare(lua_State *L) {
   const int len1 = strlen(path1), len2 = strlen(path2);
   int type1 = strcmp(type1_s, "dir") != 0;
   int type2 = strcmp(type2_s, "dir") != 0;
+  /* Find the index of the common part of the path. */
   int i;
   for (i = 0; i < len1 && i < len2; i++) {
     if (path1[i] != path2[i]) break;
   }
+  /* If a path separator is present in the name after the common part we consider
+     the entry like a directory. */
   if (strchr(path1 + i, PATHSEP)) {
     type1 = 0;
   }
   if (strchr(path2 + i, PATHSEP)) {
     type2 = 0;
   }
+  /* If types are different "dir" types comes before "file" types. */
   if (type1 != type2) {
     lua_pushboolean(L, type1 < type2);
     return 1;
   }
+  /* If types are the same compare the files' path alphabetically. */
   lua_pushboolean(L, strcmp(path1 + i, path2 + i) < 0);
   return 1;
 }
