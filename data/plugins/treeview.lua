@@ -358,7 +358,7 @@ local treeview_node = node:split("left", view, {x = true}, true)
 -- in the treeview node.
 local toolbar_view = nil
 local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
-if config.toolbarview ~= false and toolbar_plugin then
+if config.plugins.toolbarview ~= false and toolbar_plugin then
   toolbar_view = ToolbarView()
   treeview_node:split("down", toolbar_view, {y = true})
   local min_toolbar_width = toolbar_view:get_min_width()

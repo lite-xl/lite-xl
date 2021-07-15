@@ -712,7 +712,7 @@ function core.load_plugins()
         local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
         ls[#ls + 1] = filename
       end
-      if version_match and config[basename] ~= false then
+      if version_match and config.plugins[basename] ~= false then
         local modname = "plugins." .. basename
         local ok = core.try(require, modname)
         if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
