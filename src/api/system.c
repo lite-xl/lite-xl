@@ -689,7 +689,21 @@ static int f_path_compare(lua_State *L) {
     return 1;
   }
   /* If types are the same compare the files' path alphabetically. */
-  lua_pushboolean(L, strcmp(path1 + i, path2 + i) < 0);
+  int cfr = 0;
+  int len_min = (len1 < len2 ? len1 : len2);
+  for (int j = i; j <= len_min; j++) {
+    if (path1[j] == path2[j]) continue;
+    if (path1[j] == 0 || path2[j] == 0) {
+      cfr = (path1[j] == 0);
+    } else if (path1[j] == PATHSEP || path2[j] == PATHSEP) {
+      /* For comparison we treat PATHSEP as if it was the string terminator. */
+      cfr = (path1[j] == PATHSEP);
+    } else {
+      cfr = (path1[j] < path2[j]);
+    }
+    break;
+  }
+  lua_pushboolean(L, cfr);
   return 1;
 }
 
