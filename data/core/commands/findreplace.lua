@@ -10,27 +10,27 @@ local StatusView = require "core.statusview"
 local max_last_finds = 50
 local last_finds, last_view, last_fn, last_text, last_sel
 
-local case_insensitive = config.find_case_insensitive or false
-local plain = config.find_plain or false
+local case_sensitive = config.find_case_sensitive or false
+local find_regex = config.find_regex or false
 
 local function doc()
-  return last_view and last_view.doc or core.active_view.doc
+  return core.active_view:is(DocView) and core.active_view.doc or last_view.doc
 end
 
 local function get_find_tooltip()
   local rf = keymap.get_binding("find-replace:repeat-find")
-  local ti = keymap.get_binding("find-replace:toggle-insensitivity")
-  local tr = keymap.get_binding("find-replace:toggle-plain")
-  return (plain and "[Plain] " or "") ..
-    (case_insensitive and "[Insensitive] " or "") ..
+  local ti = keymap.get_binding("find-replace:toggle-sensitivity")
+  local tr = keymap.get_binding("find-replace:toggle-regex")
+  return (find_regex and "[Regex] " or "") ..
+    (case_sensitive and "[Sensitive] " or "") ..
     (rf and ("Press " .. rf .. " to select the next match.") or "") ..
     (ti and (" " .. ti .. " toggles case sensitivity.") or "") ..
-    (tr and (" " .. tr .. " toggles plain find.") or "")
+    (tr and (" " .. tr .. " toggles regex find.") or "")
 end
 
 local function update_preview(sel, search_fn, text)
   local ok, line1, col1, line2, col2 =
-    pcall(search_fn, last_view.doc, sel[1], sel[2], text, case_insensitive, plain)
+    pcall(search_fn, last_view.doc, sel[1], sel[2], text, case_sensitive, find_regex)
   if ok and line1 and text ~= "" then
     last_view.doc:set_selection(line2, col2, line1, col1)
     last_view:scroll_to_line(line2, true)
@@ -105,15 +105,15 @@ command.add(has_selection, {
 
 command.add("core.docview", {
   ["find-replace:find"] = function()
-    find("Find Text", function(doc, line, col, text, case_insensitive, plain)
-      local opt = { wrap = true, no_case = case_insensitive, regex = not plain }
+    find("Find Text", function(doc, line, col, text, case_sensitive, find_regex)
+      local opt = { wrap = true, no_case = not case_sensitive, regex = find_regex }
       return search.find(doc, line, col, text, opt)
     end)
   end,
 
   ["find-replace:replace"] = function()
     replace("Text", doc():get_text(doc():get_selection(true)), function(text, old, new)
-      if plain then
+      if not find_regex then
         return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
       end
       local result, matches = regex.gsub(regex.compile(old), text, new)
@@ -150,7 +150,7 @@ command.add(valid_for_finding, {
       core.error("No find to continue from")
     else
       local sl1, sc1, sl2, sc2 = doc():get_selection(true)
-      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc2, last_text, case_insensitive, plain)
+      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc2, last_text, case_sensitive, find_regex)
       if line1 then
         if last_view.doc ~= doc() then
           last_finds = {}
@@ -177,14 +177,14 @@ command.add(valid_for_finding, {
 })
 
 command.add("core.commandview", {
-  ["find-replace:toggle-insensitivity"] = function()
-    case_insensitive = not case_insensitive
+  ["find-replace:toggle-sensitivity"] = function()
+    case_sensitive = not case_sensitive
     core.status_view:show_tooltip(get_find_tooltip())
     update_preview(last_sel, last_fn, last_text)
   end,
 
-  ["find-replace:toggle-plain"] = function()
-    plain = not plain
+  ["find-replace:toggle-regex"] = function()
+    find_regex = not find_regex
     core.status_view:show_tooltip(get_find_tooltip())
     update_preview(last_sel, last_fn, last_text)
   end
