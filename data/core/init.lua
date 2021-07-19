@@ -150,24 +150,25 @@ local function get_directory_files(root, path, t, recursive, begin_hook)
 end
 
 
+local function show_max_files_warning()
+  core.status_view:show_message("!", style.accent,
+    "Too many files in project directory: stopped reading at "..
+    config.max_project_files.." files. For more information see "..
+    "usage.md at github.com/franko/lite-xl."
+    )
+end
+
 -- Populate a project folder top directory by scanning the filesystem.
-function core.scan_project_folder(index)
+local function scan_project_folder(index)
   local dir = core.project_directories[index]
   local t, entries_count = get_directory_files(dir.name, "", {}, true)
   if entries_count > config.max_project_files then
     dir.files_limit = true
-    if core.status_view then -- FIXME
-    core.status_view:show_message("!", style.accent,
-      "Too many files in project directory: stopped reading at "..
-      config.max_project_files.." files. For more information see "..
-      "usage.md at github.com/franko/lite-xl."
-      )
+    if core.status_view then -- May be not yet initialized.
+      show_max_files_warning()
     end
   end
   dir.files = t
-  if dir.name == core.project_dir then
-    core.project_files = dir.files
-  end
 end
 
 
@@ -177,15 +178,18 @@ function core.add_project_directory(path)
   -- The field item.topdir will identify it as a top level directory.
   path = common.normalize_path(path)
   local watch_id = system.watch_dir(path)
-  print("DEBUG watch_id:", watch_id)
-  table.insert(core.project_directories, {
+  local dir = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files_limit = false,
     is_dirty = true,
     watch_id = watch_id,
-  })
-  core.scan_project_folder(#core.project_directories)
+  }
+  table.insert(core.project_directories, dir)
+  scan_project_folder(#core.project_directories)
+  if path == core.project_dir then
+    core.project_files = dir.files
+  end
   core.redraw = true
 end
 
@@ -323,13 +327,11 @@ local function project_scan_remove_file(watch_id, filepath)
     end
   end
   if not project_dir_entry then return end
-  print("LOOKING for", filepath, " in", project_dir_entry and project_dir_entry.name)
   local fileinfo = { filename = filepath }
   for _, filetype in ipairs {"dir", "file"} do
     fileinfo.type = filetype
     local index, match = file_search(project_dir_entry.files, fileinfo)
     if match then
-      print("FOUND", filepath, " at index", index)
       table.remove(project_dir_entry.files, index)
       project_dir_entry.is_dirty = true
       return
@@ -595,6 +597,12 @@ function core.init()
     core.log("Opening project %q from directory %s", pname, pdir)
   end
   local got_project_error = not core.load_project_module()
+
+  -- We assume we have just a single project directory here. Now that StatusView
+  -- is there show max files warning if needed.
+  if core.project_directories[1].files_limit then
+    show_max_files_warning()
+  end
 
   for _, filename in ipairs(files) do
     core.root_view:open_doc(core.open_doc(filename))
@@ -1030,7 +1038,6 @@ function core.on_event(type, ...)
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
   elseif type == "dirchange" then
-    print("DEBUG: dirchange", select(1, ...), select(2, ...), select(3, ...))
     core.on_dir_change(...)
   elseif type == "quit" then
     core.quit()
