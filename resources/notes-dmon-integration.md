@@ -1,3 +1,16 @@
+
+`core.set_project_dir`:
+    Reset project directories and set its directory.
+    It chdir into the directory, empty the `core.project_directories` and add
+    the given directory.
+    `core.add_project_directory`:
+        Add a new top-level directory to the project.
+        Also called from modules and commands outside core.init.
+        `core.scan_project_folder`:
+            Scan all files for a given top-level project directory.
+            Can emit a warning about file limit.
+            Called only from within core.init module.
+
 `core.scan_project_folder`: (renamed to `core.scan_project_subdir`)
     scan a single folder, without recursion. Used when too many files.
 
