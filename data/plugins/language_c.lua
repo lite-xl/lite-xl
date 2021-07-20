@@ -55,6 +55,17 @@ syntax.add {
     ["true"]     = "literal",
     ["false"]    = "literal",
     ["NULL"]     = "literal",
+    ["#include"] = "keyword",
+    ["#if"] = "keyword",
+    ["#ifdef"] = "keyword",
+    ["#ifndef"] = "keyword",
+    ["#else"] = "keyword",
+    ["#elseif"] = "keyword",
+    ["#endif"] = "keyword",
+    ["#define"] = "keyword",
+    ["#warning"] = "keyword",
+    ["#error"] = "keyword",
+    ["#pragma"] = "keyword",
   },
 }
 

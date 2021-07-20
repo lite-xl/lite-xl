@@ -1,5 +1,5 @@
 
--- So that in addition to regex.gsub(pattern, string), we can also do 
+-- So that in addition to regex.gsub(pattern, string), we can also do
 -- pattern:gsub(string).
 regex.__index = function(table, key) return regex[key]; end
 
@@ -9,7 +9,7 @@ regex.match = function(pattern_string, string, offset, options)
   return regex.cmatch(pattern, string, offset or 1, options or 0)
 end
 
--- Will iterate back through any UTF-8 bytes so that we don't replace bits 
+-- Will iterate back through any UTF-8 bytes so that we don't replace bits
 -- mid character.
 local function previous_character(str, index)
   local byte
@@ -32,7 +32,7 @@ end
 
 -- Build off matching. For now, only support basic replacements, but capture
 -- groupings should be doable. We can even have custom group replacements and
--- transformations and stuff in lua. Currently, this takes group replacements 
+-- transformations and stuff in lua. Currently, this takes group replacements
 -- as \1 - \9.
 -- Should work on UTF-8 text.
 regex.gsub = function(pattern_string, str, replacement)
@@ -48,8 +48,8 @@ regex.gsub = function(pattern_string, str, replacement)
       if #indices > 2 then
         for i = 1, (#indices/2 - 1) do
           currentReplacement = string.gsub(
-            currentReplacement, 
-            "\\" .. i, 
+            currentReplacement,
+            "\\" .. i,
             str:sub(indices[i*2+1], end_character(str,indices[i*2+2]-1))
           )
         end
@@ -57,10 +57,10 @@ regex.gsub = function(pattern_string, str, replacement)
       currentReplacement = string.gsub(currentReplacement, "\\%d", "")
       table.insert(replacements, { indices[1], #currentReplacement+indices[1] })
       if indices[1] > 1 then
-        result = result .. 
+        result = result ..
           str:sub(1, previous_character(str, indices[1])) .. currentReplacement
       else
-        result = result .. currentReplacement      
+        result = result .. currentReplacement
       end
       str = str:sub(indices[2])
     end

@@ -108,6 +108,7 @@ keymap.add_direct {
   ["ctrl+shift+c"] = "core:change-project-folder",
   ["ctrl+shift+o"] = "core:open-project-folder",
   ["alt+return"] = "core:toggle-fullscreen",
+  ["f11"] = "core:toggle-fullscreen",
 
   ["alt+shift+j"] = "root:split-left",
   ["alt+shift+l"] = "root:split-right",

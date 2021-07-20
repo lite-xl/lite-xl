@@ -620,24 +620,6 @@ do
 end
 
 
--- DEPRECATED function
-core.doc_save_hooks = {}
-function core.add_save_hook(fn)
-  core.error("The function core.add_save_hook is deprecated." ..
-    " Modules should now directly override the Doc:save function.")
-  core.doc_save_hooks[#core.doc_save_hooks + 1] = fn
-end
-
-
--- DEPRECATED function
-function core.on_doc_save(filename)
-  -- for backward compatibility in modules. Hooks are deprecated, the function Doc:save
-  -- should be directly overidded.
-  for _, hook in ipairs(core.doc_save_hooks) do
-    hook(filename)
-  end
-end
-
 local function quit_with_function(quit_fn, force)
   if force then
     delete_temp_files()
@@ -695,24 +677,27 @@ function core.load_plugins()
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
   }
-  for _, root_dir in ipairs {USERDIR, DATADIR} do
+  local files = {}
+  for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. "/plugins"
-    local files = system.list_dir(plugin_dir)
-    for _, filename in ipairs(files or {}) do
-      local basename = filename:match("(.-)%.lua$") or filename
-      local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
-      if not version_match then
-        core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-        local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
-        ls[#ls + 1] = filename
-      end
-      if version_match and config.plugins[basename] ~= false then
-        local modname = "plugins." .. basename
-        local ok = core.try(require, modname)
-        if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
-        if not ok then
-          no_errors = false
-        end
+    for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
+      files[filename] = plugin_dir -- user plugins will always replace system plugins
+    end
+  end
+
+  for filename, plugin_dir in pairs(files) do
+    local basename = filename:match("(.-)%.lua$") or filename
+    local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+    if not version_match then
+      core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
+      local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
+      table.insert(list, filename)
+    end
+    if version_match and core.plugins[basename] ~= false then
+      local ok = core.try(require, "plugins." .. basename)
+      if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
+      if not ok then
+        no_errors = false
       end
     end
   end
@@ -809,10 +794,30 @@ function core.normalize_to_project_dir(filename)
 end
 
 
+-- The function below works like system.absolute_path except it
+-- doesn't fail if the file does not exist. We consider that the
+-- current dir is core.project_dir so relative filename are considered
+-- to be in core.project_dir.
+-- Please note that .. or . in the filename are not taken into account.
+-- This function should get only filenames normalized using
+-- common.normalize_path function.
+function core.project_absolute_path(filename)
+  if filename:match('^%a:\\') or filename:find('/', 1, true) then
+    return filename
+  else
+    return core.project_dir .. PATHSEP .. filename
+  end
+end
+
+
 function core.open_doc(filename)
+  local new_file = not filename or not system.get_file_info(filename)
+  local abs_filename
   if filename then
+    -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    local abs_filename = system.absolute_path(filename)
+    filename = core.normalize_to_project_dir(filename)
+    abs_filename = core.project_absolute_path(filename)
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
@@ -820,8 +825,7 @@ function core.open_doc(filename)
     end
   end
   -- no existing doc for filename; create new
-  filename = filename and core.normalize_to_project_dir(filename)
-  local doc = Doc(filename)
+  local doc = Doc(filename, abs_filename, new_file)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
   return doc

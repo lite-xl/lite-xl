@@ -17,10 +17,34 @@ local function split_lines(text)
   return res
 end
 
-function Doc:new(filename)
+
+local function splice(t, at, remove, insert)
+  insert = insert or {}
+  local offset = #insert - remove
+  local old_len = #t
+  if offset < 0 then
+    for i = at - offset, old_len - offset do
+      t[i + offset] = t[i]
+    end
+  elseif offset > 0 then
+    for i = old_len, at, -1 do
+      t[i + offset] = t[i]
+    end
+  end
+  for i, item in ipairs(insert) do
+    t[at + i - 1] = item
+  end
+end
+
+
+function Doc:new(filename, abs_filename, new_file)
+  self.new_file = new_file
   self:reset()
   if filename then
-    self:load(filename)
+    self:set_filename(filename, abs_filename)
+    if not new_file then
+      self:load(filename)
+    end
   end
 end
 
@@ -47,16 +71,15 @@ function Doc:reset_syntax()
 end
 
 
-function Doc:set_filename(filename)
+function Doc:set_filename(filename, abs_filename)
   self.filename = filename
-  self.abs_filename = system.absolute_path(filename)
+  self.abs_filename = abs_filename
 end
 
 
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
   self:reset()
-  self:set_filename(filename)
   self.lines = {}
   for line in fp:lines() do
     if line:byte(-1) == 13 then
@@ -73,17 +96,20 @@ function Doc:load(filename)
 end
 
 
-function Doc:save(filename)
-  filename = filename or assert(self.filename, "no filename set to default to")
+function Doc:save(filename, abs_filename)
+  if not filename then
+    assert(self.filename, "no filename set to default to")
+    filename = self.filename
+    abs_filename = self.abs_filename
+  end
   local fp = assert( io.open(filename, "wb") )
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)
   end
   fp:close()
-  if filename then
-    self:set_filename(filename)
-  end
+  self:set_filename(filename, abs_filename)
+  self.new_file = false
   self:reset_syntax()
   self:clean()
 end
@@ -95,7 +121,7 @@ end
 
 
 function Doc:is_dirty()
-  return self.clean_change_id ~= self:get_change_id()
+  return self.clean_change_id ~= self:get_change_id() or self.new_file
 end
 
 

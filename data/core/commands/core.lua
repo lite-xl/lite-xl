@@ -104,11 +104,20 @@ command.add(nil, {
     end, function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end, nil, function(text)
-      local path_stat, err = system.get_file_info(common.home_expand(text))
+      local filename = common.home_expand(text)
+      local path_stat, err = system.get_file_info(filename)
       if err then
-        core.error("Cannot open file %q: %q", text, err)
+        if err:find("No such file", 1, true) then
+          -- check if the containing directory exists
+          local dirname = common.dirname(filename)
+          local dir_stat = dirname and system.get_file_info(dirname)
+          if not dirname or (dir_stat and dir_stat.type == 'dir') then
+            return true
+          end
+        end
+        core.error("Cannot open file %s: %s", text, err)
       elseif path_stat.type == 'dir' then
-        core.error("Cannot open %q, is a folder", text)
+        core.error("Cannot open %s, is a folder", text)
       else
         return true
       end
