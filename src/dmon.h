@@ -6,23 +6,23 @@
 //  watches directories for file or directory changes.
 //
 // clang-format off
-// Usage: 
+// Usage:
 //      define DMON_IMPL and include this file to use it:
 //          #define DMON_IMPL
 //          #include "dmon.h"
 //
-//      dmon_init():    
-//          Call this once at the start of your program. 
+//      dmon_init():
+//          Call this once at the start of your program.
 //          This will start a low-priority monitoring thread
-//      dmon_deinit(): 
+//      dmon_deinit():
 //          Call this when your work with dmon is finished, usually on program terminate
 //          This will free resources and stop the monitoring thread
 //      dmon_watch:
 //          Watch for directories
 //          You can watch multiple directories by calling this function multiple times
 //              rootdir: root directory to monitor
-//              watch_cb: callback function to receive events. 
-//                        NOTE that this function is called from another thread, so you should 
+//              watch_cb: callback function to receive events.
+//                        NOTE that this function is called from another thread, so you should
 //                        beware of data races in your application when accessing data within this
 //                        callback
 //              flags: watch flags, see dmon_watch_flags_t
@@ -35,12 +35,12 @@
 //
 // Configuration:
 //      You can customize some low-level functionality like malloc and logging by overriding macros:
-//  
-//      DMON_MALLOC, DMON_FREE, DMON_REALLOC: 
+//
+//      DMON_MALLOC, DMON_FREE, DMON_REALLOC:
 //          define these macros to override memory allocations
 //          default is 'malloc', 'free' and 'realloc'
-//      DMON_ASSERT: 
-//          define this to provide your own assert 
+//      DMON_ASSERT:
+//          define this to provide your own assert
 //          default is 'assert'
 //      DMON_LOG_ERROR:
 //          define this to provide your own logging mechanism
@@ -60,9 +60,9 @@
 //
 // TODO:
 //      - DMON_WATCHFLAGS_FOLLOW_SYMLINKS does not resolve files
-//      - implement DMON_WATCHFLAGS_OUTOFSCOPE_LINKS 
+//      - implement DMON_WATCHFLAGS_OUTOFSCOPE_LINKS
 //      - implement DMON_WATCHFLAGS_IGNORE_DIRECTORIES
-//  
+//
 // History:
 //      1.0.0       First version. working Win32/Linux backends
 //      1.1.0       MacOS backend
@@ -86,9 +86,9 @@
 
 typedef struct { uint32_t id; } dmon_watch_id;
 
-// Pass these flags to `dmon_watch` 
+// Pass these flags to `dmon_watch`
 typedef enum dmon_watch_flags_t {
-    DMON_WATCHFLAGS_RECURSIVE = 0x1,            // monitor all child directories 
+    DMON_WATCHFLAGS_RECURSIVE = 0x1,            // monitor all child directories
     DMON_WATCHFLAGS_FOLLOW_SYMLINKS = 0x2,      // resolve symlinks (linux only)
     DMON_WATCHFLAGS_OUTOFSCOPE_LINKS = 0x4,     // TODO: not implemented yet
     DMON_WATCHFLAGS_IGNORE_DIRECTORIES = 0x8    // TODO: not implemented yet
@@ -197,7 +197,7 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #       include <stdio.h>
 #       define DMON_LOG_DEBUG(s)    do { puts(s); } while(0)
 #   else
-#       define DMON_LOG_DEBUG(s)    
+#       define DMON_LOG_DEBUG(s)
 #   endif
 #endif
 
@@ -230,7 +230,7 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #endif
 
 #ifndef dmon__min
-#   define dmon__min(a, b) ((a) < (b) ? (a) : (b))    
+#   define dmon__min(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
 #ifndef dmon__max
@@ -364,7 +364,7 @@ typedef void (dmon__watch_cb)(dmon_watch_id, dmon_action, const char*, const cha
 typedef struct dmon__win32_event {
     char filepath[DMON_MAX_PATH];
     DWORD action;
-    dmon_watch_id watch_id; 
+    dmon_watch_id watch_id;
     bool skip;
 } dmon__win32_event;
 
@@ -753,6 +753,10 @@ _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t m
 
             dmon__watch_subdir subdir;
             dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watchdir);
+            if (strstr(subdir.rootdir, watch->rootdir) == subdir.rootdir) {
+                dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watchdir + strlen(watch->rootdir));
+            }
+
             stb_sb_push(watch->subdirs, subdir);
             stb_sb_push(watch->wds, wd);
 
@@ -761,6 +765,19 @@ _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t m
         }
     }
     closedir(dir);
+}
+
+_DMON_PRIVATE const char* dmon__find_subdir(const dmon__watch_state* watch, int wd)
+{
+    const int* wds = watch->wds;
+    for (int i = 0, c = stb_sb_count(wds); i < c; i++) {
+        if (wd == wds[i]) {
+            return watch->subdirs[i].rootdir;
+        }
+    }
+
+    DMON_ASSERT(0);
+    return NULL;
 }
 
 _DMON_PRIVATE void dmon__inotify_process_events(void)
@@ -772,43 +789,54 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
         }
 
         // remove redundant modify events on a single file
-        if (ev->mask == IN_MODIFY) {
+        if (ev->mask & IN_MODIFY) {
             for (int j = i + 1; j < c; j++) {
                 dmon__inotify_event* check_ev = &_dmon.events[j];
-                if (check_ev->mask == IN_MODIFY && strcmp(ev->filepath, check_ev->filepath) == 0) {
+                if ((check_ev->mask & IN_MODIFY) && strcmp(ev->filepath, check_ev->filepath) == 0) {
                     ev->skip = true;
                     break;
+                } else if ((ev->mask & IN_ISDIR) && (check_ev->mask & (IN_ISDIR|IN_MODIFY))) {
+                    // in some cases, particularly when created files under sub directories
+                    // there can be two modify events for a single subdir one with trailing slash and one without
+                    // remove traling slash from both cases and test
+                    int l1 = strlen(ev->filepath);
+                    int l2 = strlen(check_ev->filepath);
+                    if (ev->filepath[l1-1] == '/')          ev->filepath[l1-1] = '\0';
+                    if (check_ev->filepath[l2-1] == '/')    check_ev->filepath[l2-1] = '\0';
+                    if (strcmp(ev->filepath, check_ev->filepath) == 0) {
+                        ev->skip = true;
+                        break;
+                    }
                 }
             }
-        } else if (ev->mask == IN_CREATE) {
+        } else if (ev->mask & IN_CREATE) {
             bool loop_break = false;
             for (int j = i + 1; j < c && !loop_break; j++) {
                 dmon__inotify_event* check_ev = &_dmon.events[j];
-                if (check_ev->mask == IN_MOVED_FROM &&
-                    strcmp(ev->filepath, check_ev->filepath) == 0) {
+                if ((check_ev->mask & IN_MOVED_FROM) && strcmp(ev->filepath, check_ev->filepath) == 0) {
                     // there is a case where some programs (like gedit):
                     // when we save, it creates a temp file, and moves it to the file being modified
                     // search for these cases and remove all of them
                     for (int k = j + 1; k < c; k++) {
                         dmon__inotify_event* third_ev = &_dmon.events[k];
-                        if (third_ev->mask == IN_MOVED_TO && check_ev->cookie == third_ev->cookie) {
+                        if (third_ev->mask & IN_MOVED_TO && check_ev->cookie == third_ev->cookie) {
                             third_ev->mask = IN_MODIFY;    // change to modified
                             ev->skip = check_ev->skip = true;
                             loop_break = true;
                             break;
                         }
                     }
-                } else if (check_ev->mask == IN_MODIFY && strcmp(ev->filepath, check_ev->filepath) == 0) {
+                } else if ((check_ev->mask & IN_MODIFY) && strcmp(ev->filepath, check_ev->filepath) == 0) {
                     // Another case is that file is copied. CREATE and MODIFY happens sequentially
                     // so we ignore MODIFY event
                     check_ev->skip = true;
                 }
             }
-        } else if (ev->mask == IN_MOVED_FROM) {
+        } else if (ev->mask & IN_MOVED_FROM) {
             bool move_valid = false;
             for (int j = i + 1; j < c; j++) {
                 dmon__inotify_event* check_ev = &_dmon.events[j];
-                if (check_ev->mask == IN_MOVED_TO && ev->cookie == check_ev->cookie) {
+                if (check_ev->mask & IN_MOVED_TO && ev->cookie == check_ev->cookie) {
                     move_valid = true;
                     break;
                 }
@@ -820,11 +848,11 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
             if (!move_valid) {
                 ev->mask = IN_DELETE;
             }
-        } else if (ev->mask == IN_MOVED_TO) {
+        } else if (ev->mask & IN_MOVED_TO) {
             bool move_valid = false;
             for (int j = 0; j < i; j++) {
                 dmon__inotify_event* check_ev = &_dmon.events[j];
-                if (check_ev->mask == IN_MOVED_FROM && ev->cookie == check_ev->cookie) {
+                if (check_ev->mask & IN_MOVED_FROM && ev->cookie == check_ev->cookie) {
                     move_valid = true;
                     break;
                 }
@@ -851,26 +879,45 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
             continue;
         }
 
-        switch (ev->mask) {
-        case IN_CREATE:
+        if (ev->mask & IN_CREATE) {
+            if (ev->mask & IN_ISDIR) {
+                if (watch->watch_flags & DMON_WATCHFLAGS_RECURSIVE) {
+                    char watchdir[DMON_MAX_PATH];
+                    dmon__strcpy(watchdir, sizeof(watchdir), watch->rootdir);
+                    dmon__strcat(watchdir, sizeof(watchdir), ev->filepath);
+                    dmon__strcat(watchdir, sizeof(watchdir), "/");
+                    uint32_t mask = IN_MOVED_TO | IN_CREATE | IN_MOVED_FROM | IN_DELETE | IN_MODIFY;
+                    int wd = inotify_add_watch(watch->fd, watchdir, mask);
+                    _DMON_UNUSED(wd);
+                    DMON_ASSERT(wd != -1);
+
+                    dmon__watch_subdir subdir;
+                    dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watchdir);
+                    if (strstr(subdir.rootdir, watch->rootdir) == subdir.rootdir) {
+                        dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watchdir + strlen(watch->rootdir));
+                    }
+
+                    stb_sb_push(watch->subdirs, subdir);
+                    stb_sb_push(watch->wds, wd);
+                }
+            }
             watch->watch_cb(ev->watch_id, DMON_ACTION_CREATE, watch->rootdir, ev->filepath, NULL, watch->user_data);
-            break;
-        case IN_MODIFY:
+        }
+        else if (ev->mask & IN_MODIFY) {
             watch->watch_cb(ev->watch_id, DMON_ACTION_MODIFY, watch->rootdir, ev->filepath, NULL, watch->user_data);
-            break;
-        case IN_MOVED_FROM: {
+        }
+        else if (ev->mask & IN_MOVED_FROM) {
             for (int j = i + 1; j < c; j++) {
                 dmon__inotify_event* check_ev = &_dmon.events[j];
-                if (check_ev->mask == IN_MOVED_TO && ev->cookie == check_ev->cookie) {
+                if (check_ev->mask & IN_MOVED_TO && ev->cookie == check_ev->cookie) {
                     watch->watch_cb(check_ev->watch_id, DMON_ACTION_MOVE, watch->rootdir,
                                     check_ev->filepath, ev->filepath, watch->user_data);
                     break;
                 }
             }
-        } break;
-        case IN_DELETE:
+        }
+        else if (ev->mask & IN_DELETE) {
             watch->watch_cb(ev->watch_id, DMON_ACTION_DELETE, watch->rootdir, ev->filepath, NULL, watch->user_data);
-            break;
         }
     }
 
@@ -928,7 +975,8 @@ static void* dmon__thread(void* arg)
                         struct inotify_event* iev = (struct inotify_event*)&buff[offset];
 
                         char filepath[DMON_MAX_PATH];
-                        dmon__strcpy(filepath, sizeof(filepath), iev->name);
+                        dmon__strcpy(filepath, sizeof(filepath), dmon__find_subdir(watch, iev->wd));
+                        dmon__strcat(filepath, sizeof(filepath), iev->name);
 
                         // TODO: ignore directories if flag is set
 
@@ -1068,7 +1116,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
         return dmon__make_id(0);
     }
     dmon__watch_subdir subdir;
-    dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watch->rootdir);
+    dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), "");   // root dir is just a dummy entry
     stb_sb_push(watch->subdirs, subdir);
     stb_sb_push(watch->wds, wd);
 
@@ -1379,7 +1427,7 @@ _DMON_PRIVATE void dmon__fsevent_callback(ConstFSEventStreamRef stream_ref, void
         dmon__strcpy(abs_filepath, sizeof(abs_filepath), filepath);
 
         // normalize path (TODO: have to recheck this to be consistent with other platforms)
-        dmon__tolower(abs_filepath, sizeof(abs_filepath), 
+        dmon__tolower(abs_filepath, sizeof(abs_filepath),
             dmon__unixpath(abs_filepath, sizeof(abs_filepath), abs_filepath));
 
         // strip the root dir
