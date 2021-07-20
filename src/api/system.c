@@ -675,7 +675,8 @@ static int f_watch_dir(lua_State *L) {
 #endif
 
 /* Special purpose filepath compare function. Corresponds to the
-   order used in the TreeView view of the project's files. */
+   order used in the TreeView view of the project's files. Returns true iff
+   path1 < path2 in the TreeView order. */
 static int f_path_compare(lua_State *L) {
   const char *path1 = luaL_checkstring(L, 1);
   const char *type1_s = luaL_checkstring(L, 2);
@@ -685,16 +686,19 @@ static int f_path_compare(lua_State *L) {
   int type1 = strcmp(type1_s, "dir") != 0;
   int type2 = strcmp(type2_s, "dir") != 0;
   /* Find the index of the common part of the path. */
-  int i;
+  int offset = 0, i;
   for (i = 0; i < len1 && i < len2; i++) {
     if (path1[i] != path2[i]) break;
+    if (path1[i] == PATHSEP) {
+      offset = i + 1;
+    }
   }
   /* If a path separator is present in the name after the common part we consider
      the entry like a directory. */
-  if (strchr(path1 + i, PATHSEP)) {
+  if (strchr(path1 + offset, PATHSEP)) {
     type1 = 0;
   }
-  if (strchr(path2 + i, PATHSEP)) {
+  if (strchr(path2 + offset, PATHSEP)) {
     type2 = 0;
   }
   /* If types are different "dir" types comes before "file" types. */
@@ -705,7 +709,7 @@ static int f_path_compare(lua_State *L) {
   /* If types are the same compare the files' path alphabetically. */
   int cfr = 0;
   int len_min = (len1 < len2 ? len1 : len2);
-  for (int j = i; j <= len_min; j++) {
+  for (int j = offset; j <= len_min; j++) {
     if (path1[j] == path2[j]) continue;
     if (path1[j] == 0 || path2[j] == 0) {
       cfr = (path1[j] == 0);
