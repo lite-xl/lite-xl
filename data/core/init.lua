@@ -342,11 +342,11 @@ local style = require "core.style"
 
 -- enable or disable plugin loading setting config entries:
 
--- enable trimwhitespace, otherwise it is disable by default:
--- config.trimwhitespace = true
+-- enable plugins.trimwhitespace, otherwise it is disable by default:
+-- config.plugins.trimwhitespace = true
 --
 -- disable detectindent, otherwise it is enabled by default
--- config.detectindent = false
+-- config.plugins.detectindent = false
 ]])
   init_file:close()
 end
@@ -693,7 +693,7 @@ function core.load_plugins()
       local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
       table.insert(list, filename)
     end
-    if version_match and core.plugins[basename] ~= false then
+    if version_match and config.plugins[basename] ~= false then
       local ok = core.try(require, "plugins." .. basename)
       if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
       if not ok then
