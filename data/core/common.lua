@@ -263,16 +263,6 @@ function common.home_expand(text)
 end
 
 
-function common.normalize_path(filename)
-  if PATHSEP == '\\' then
-    filename = filename:gsub('[/\\]', '\\')
-    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
-    return drive and drive:upper() .. rem or filename
-  end
-  return filename
-end
-
-
 local function split_on_slash(s, sep_pattern)
   local t = {}
   if s:match("^[/\\]") then

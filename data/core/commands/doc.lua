@@ -53,57 +53,6 @@ local function save(filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
--- returns the size of the original indent, and the indent
--- in your config format, rounded either up or down
-local function get_line_indent(line, rnd_up)
-  local _, e = line:find("^[ \t]+")
-  local soft_tab = string.rep(" ", config.indent_size)
-  if config.tab_type == "hard" then
-    local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
-    return e, indent:gsub(" +", rnd_up and "\t" or "")
-  else
-    local indent = e and line:sub(1, e):gsub("\t", soft_tab) or ""
-    local number = #indent / #soft_tab
-    return e, indent:sub(1,
-      (rnd_up and math.ceil(number) or math.floor(number))*#soft_tab)
-  end
-end
-
--- un/indents text; behaviour varies based on selection and un/indent.
--- * if there's a selection, it will stay static around the
---   text for both indenting and unindenting.
--- * if you are in the beginning whitespace of a line, and are indenting, the
---   cursor will insert the exactly appropriate amount of spaces, and jump the
---   cursor to the beginning of first non whitespace characters
--- * if you are not in the beginning whitespace of a line, and you indent, it
---   inserts the appropriate whitespace, as if you typed them normally.
--- * if you are unindenting, the cursor will jump to the start of the line,
---   and remove the appropriate amount of spaces (or a tab).
-local function indent_text(unindent)
-  local text = get_indent_string()
-  local line1, col1, line2, col2, swap = doc_multiline_selection(true)
-  local _, se = doc().lines[line1]:find("^[ \t]+")
-  local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
-  if unindent or doc():has_selection() or in_beginning_whitespace then
-    local l1d, l2d = #doc().lines[line1], #doc().lines[line2]
-    for line = line1, line2 do
-      local e, rnded = get_line_indent(doc().lines[line], unindent)
-      doc():remove(line, 1, line, (e or 0) + 1)
-      doc():insert(line, 1,
-        unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
-    end
-    l1d, l2d = #doc().lines[line1] - l1d, #doc().lines[line2] - l2d
-    if (unindent or in_beginning_whitespace) and not doc():has_selection() then
-      local start_cursor = (se and se + 1 or 1) + l1d or #(doc().lines[line1])
-      doc():set_selection(line1, start_cursor, line2, start_cursor, swap)
-    else
-      doc():set_selection(line1, col1 + l1d, line2, col2 + l2d, swap)
-    end
-  else
-    doc():text_input(text)
-  end
-end
-
 local function cut_or_copy(delete)
   local full_text = ""
   for idx, line1, col1, line2, col2 in doc():get_selections() do

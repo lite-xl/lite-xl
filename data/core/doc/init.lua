@@ -18,25 +18,6 @@ local function split_lines(text)
 end
 
 
-local function splice(t, at, remove, insert)
-  insert = insert or {}
-  local offset = #insert - remove
-  local old_len = #t
-  if offset < 0 then
-    for i = at - offset, old_len - offset do
-      t[i + offset] = t[i]
-    end
-  elseif offset > 0 then
-    for i = old_len, at, -1 do
-      t[i + offset] = t[i]
-    end
-  end
-  for i, item in ipairs(insert) do
-    t[at + i - 1] = item
-  end
-end
-
-
 function Doc:new(filename, abs_filename, new_file)
   self.new_file = new_file
   self:reset()
