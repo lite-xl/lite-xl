@@ -285,6 +285,12 @@ end
 
 
 function common.relative_path(ref_dir, dir)
+  if #ref_dir>2 and ref_dir:sub(2,2)==':'
+    and #dir>2 and dir:sub(2,2)==':'
+      and ref_dir:sub(1,1)~=dir:sub(1,1) then
+    -- Windows, different drives, system.absolute_path fails for C:\..\D:\
+    return dir
+  end    
   local ref_ls = split_on_slash(ref_dir)
   local dir_ls = split_on_slash(dir)
   local i = 1
