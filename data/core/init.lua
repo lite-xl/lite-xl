@@ -109,7 +109,8 @@ end
 -- When recursing "root" will always be the same, only "path" will change.
 -- Returns a list of file "items". In eash item the "filename" will be the
 -- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(root, path, t, recursive)
+local function get_directory_files(root, path, t, recursive, begin_hook)
+  if begin_hook then begin_hook() end
   local size_limit = config.file_size_limit * 10e5
   local all = system.list_dir(root .. path) or {}
   local dirs, files = {}, {}
@@ -131,7 +132,7 @@ local function get_directory_files(root, path, t, recursive)
   for _, f in ipairs(dirs) do
     table.insert(t, f)
     if recursive and entries_count <= max_entries then
-      local subdir_t, subdir_count = get_directory_files(root, PATHSEP .. f.filename, t, recursive)
+      local subdir_t, subdir_count = get_directory_files(root, PATHSEP .. f.filename, t, recursive, begin_hook)
       entries_count = entries_count + subdir_count
       f.scanned = true
     end
@@ -267,7 +268,7 @@ local function files_list_replace(a, i1, i2, b)
 end
 
 local function rescan_project_subdir(dir, filename_rooted)
-  local new_files = get_directory_files(dir.name, filename_rooted, {}, true)
+  local new_files = get_directory_files(dir.name, filename_rooted, {}, true, coroutine.yield)
   local index, n = 0, #dir.files
   if filename_rooted ~= "" then
     local filename = strip_leading_path(filename_rooted)
@@ -1039,6 +1040,12 @@ end
 
 local scheduled_rescan = {}
 
+function core.has_pending_rescan()
+  for _ in pairs(scheduled_rescan) do
+    return true
+  end
+end
+
 function core.dir_rescan_add_job(dir, filepath)
   local dirpath = filepath:match("^(.+)[/\\].+$")
   local dirpath_rooted = dirpath and PATHSEP .. dirpath or ""
@@ -1077,7 +1084,7 @@ function core.dir_rescan_add_job(dir, filepath)
       end
       coroutine.yield(0.2)
     end
-  end, dir)
+  end)
 end
 
 
@@ -1236,7 +1243,7 @@ function core.run()
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
-    local need_more_work = run_threads()
+    local need_more_work = run_threads() or core.has_pending_rescan()
     if core.restart_request or core.quit_request then break end
     if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
