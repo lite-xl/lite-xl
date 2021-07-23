@@ -6,12 +6,12 @@
     `core.add_project_directory`:
         Add a new top-level directory to the project.
         Also called from modules and commands outside core.init.
-        `core.scan_project_folder`:
+        local function `scan_project_folder`:
             Scan all files for a given top-level project directory.
             Can emit a warning about file limit.
             Called only from within core.init module.
 
-`core.scan_project_folder`: (renamed to `core.scan_project_subdir`)
+`core.scan_project_subdir`: (before was named `core.scan_project_folder`)
     scan a single folder, without recursion. Used when too many files.
 
 New local function `scan_project_folder`:

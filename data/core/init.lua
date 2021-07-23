@@ -112,8 +112,7 @@ end
 -- When recursing "root" will always be the same, only "path" will change.
 -- Returns a list of file "items". In eash item the "filename" will be the
 -- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(root, path, t, recursive, begin_hook)
-  if begin_hook then begin_hook() end
+local function get_directory_files(root, path, t, recursive)
   local size_limit = config.file_size_limit * 10e5
   local all = system.list_dir(root .. path) or {}
   local dirs, files = {}, {}
@@ -233,6 +232,7 @@ function core.scan_project_subdir(dirname, filename)
           if file.scanned then return end
           local new_files = get_directory_files(dirname, PATHSEP .. filename, {})
           for _, new_file in ipairs(new_files) do
+            -- FIXME: add index bounds to limit the scope of the search.
             project_scan_add_entry(dir, new_file)
           end
           file.scanned = true
@@ -240,6 +240,58 @@ function core.scan_project_subdir(dirname, filename)
         end
       end
     end
+  end
+end
+
+-- for "a" inclusive from i1 + 1 and i2
+local function files_list_match(a, i1, i2, b)
+  if i2 - i1 ~= #b then return false end
+  for i = 1, #b do
+    if a[i1 + i].filename ~= b[i].filename or a[i1 + i].type ~= b[i].type then
+      return false
+    end
+  end
+  return true
+end
+
+-- arguments like for files_list_match
+local function files_list_replace(a, i1, i2, b)
+  local nmin = math.min(i2 - i1, #b)
+  for i = 1, nmin do
+    a[i1 + i] = b[i]
+  end
+  for j = 1, i2 - i1 - nmin do
+    table.remove(a, i1 + nmin + 1)
+  end
+  for j = 1, #b - nmin do
+    table.insert(a, i1 + nmin + 1, b[nmin + j])
+  end
+end
+
+local function rescan_project_subdir(dir, filename_rooted)
+  local new_files = get_directory_files(dir.name, filename_rooted, {}, true)
+  local index, n = 0, #dir.files
+  if filename_rooted ~= "" then
+    local filename = strip_leading_path(filename_rooted)
+    for i, file in ipairs(dir.files) do
+      local file = dir.files[i]
+      if file.filename == filename then
+        index, n = i, #dir.files - i
+        for j = 1, #dir.files - i do
+          if not common.path_belongs_to(dir.files[i + j].filename, filename) then
+            n = j - 1
+            break
+          end
+        end
+        break
+      end
+    end
+  end
+
+  if not files_list_match(dir.files, index, index + n, new_files) then
+    files_list_replace(dir.files, index, index + n, new_files)
+    dir.is_dirty = true
+    return true
   end
 end
 
@@ -319,44 +371,39 @@ function core.project_files_number()
 end
 
 
-local function project_scan_remove_file(watch_id, filepath)
-  local project_dir_entry
+local function project_dir_by_watch_id(watch_id)
   for i = 1, #core.project_directories do
     if core.project_directories[i].watch_id == watch_id then
-      project_dir_entry = core.project_directories[i]
+      return core.project_directories[i]
     end
   end
-  if not project_dir_entry then return end
+end
+
+
+local function project_scan_remove_file(dir, filepath)
   local fileinfo = { filename = filepath }
   for _, filetype in ipairs {"dir", "file"} do
     fileinfo.type = filetype
-    local index, match = file_search(project_dir_entry.files, fileinfo)
+    local index, match = file_search(dir.files, fileinfo)
     if match then
-      table.remove(project_dir_entry.files, index)
-      project_dir_entry.is_dirty = true
+      table.remove(dir.files, index)
+      dir.is_dirty = true
       return
     end
   end
 end
 
 
-local function project_scan_add_file(watch_id, filepath)
-  local project_dir_entry
-  for i = 1, #core.project_directories do
-    if core.project_directories[i].watch_id == watch_id then
-      project_dir_entry = core.project_directories[i]
-    end
-  end
-  if not project_dir_entry then return end
+local function project_scan_add_file(dir, filepath)
   for fragment in string.gmatch(filepath, "([^/\\]+)") do
     if common.match_pattern(fragment, config.ignore_files) then
       return
     end
   end
   local size_limit = config.file_size_limit * 10e5
-  local fileinfo = get_project_file_info(project_dir_entry.name, PATHSEP .. filepath, size_limit)
+  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, size_limit)
   if fileinfo then
-    project_scan_add_entry(project_dir_entry, fileinfo)
+    project_scan_add_entry(dir, fileinfo)
   end
 end
 
@@ -992,12 +1039,58 @@ function core.try(fn, ...)
   return false, err
 end
 
+local scheduled_rescan = {}
+
+local function dir_rescan_add_job(dir, filepath)
+  local dirpath = filepath:match("^(.+)[/\\].+$")
+  local dirpath_rooted = dirpath and PATHSEP .. dirpath or ""
+  local abs_dirpath = dir.name .. dirpath_rooted
+  if dirpath then
+    local _, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
+    if not dir_match then return end
+  end
+  local new_time = system.get_time() + 1
+  local remove_list = {}
+  for _, rescan in pairs(scheduled_rescan) do
+    if abs_dirpath == rescan.abs_path or common.path_belongs_to(abs_dirpath, rescan.abs_path) then
+      -- abs_dirpath is a subpath of a scan already ongoing: skip
+      rescan.time_limit = new_time
+      return
+    elseif common.path_belongs_to(rescan.abs_path, abs_dirpath) then
+      table.insert(remove_list, rescan.abs_path)
+    end
+  end
+  for _, key_path in ipairs(remove_list) do
+    scheduled_rescan[key_path] = nil
+  end
+  scheduled_rescan[abs_dirpath] = {dir = dir, path = dirpath_rooted, abs_path = abs_dirpath, time_limit = new_time}
+  core.add_thread(function()
+    while true do
+      local rescan = scheduled_rescan[abs_dirpath]
+      if not rescan then return end
+      if system.get_time() > rescan.time_limit then
+        local has_changes = rescan_project_subdir(rescan.dir, rescan.path)
+        if has_changes then
+          rescan.time_limit = new_time
+        else
+          scheduled_rescan[rescan.abs_path] = nil
+          return
+        end
+      end
+      coroutine.yield(0.2)
+    end
+  end, dir)
+end
+
 
 function core.on_dir_change(watch_id, action, filepath)
+  local dir = project_dir_by_watch_id(watch_id)
+  if not dir then return end
+  dir_rescan_add_job(dir, filepath)
   if action == "delete" then
-    project_scan_remove_file(watch_id, filepath)
+    project_scan_remove_file(dir, filepath)
   elseif action == "create" then
-    project_scan_add_file(watch_id, filepath)
+    project_scan_add_file(dir, filepath)
   end
 end
 
