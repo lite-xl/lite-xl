@@ -1042,16 +1042,19 @@ function core.dir_rescan_add_job(dir, filepath)
   for _, key_path in ipairs(remove_list) do
     scheduled_rescan[key_path] = nil
   end
+  print("DEBUG: adding rescan thread for", abs_dirpath)
   scheduled_rescan[abs_dirpath] = {dir = dir, path = dirpath_rooted, abs_path = abs_dirpath, time_limit = new_time}
   core.add_thread(function()
     while true do
       local rescan = scheduled_rescan[abs_dirpath]
-      if not rescan then return end
+      if not rescan then print("DEBUG: cancel rescan for", abs_dirpath); return end
       if system.get_time() > rescan.time_limit then
         local has_changes = rescan_project_subdir(rescan.dir, rescan.path)
+        print("DEBUG: rescan done for", abs_dirpath, " changes", has_changes)
         if has_changes then
           rescan.time_limit = new_time
         else
+          print("DEBUG: terminating rescan for", abs_dirpath)
           scheduled_rescan[rescan.abs_path] = nil
           return
         end
@@ -1214,6 +1217,7 @@ end)
 
 function core.run()
   local idle_iterations = 0
+  local debug_count = 0
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
@@ -1231,6 +1235,8 @@ function core.run()
           local dt = math.ceil(t / h) * h - t
           system.wait_event(dt + 1 / config.fps)
         else
+          print("DEBUG:", debug_count, " application WAITING")
+          debug_count = debug_count + 1
           system.wait_event()
         end
       end
