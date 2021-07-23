@@ -264,12 +264,18 @@ end
 local function files_list_replace(a, i1, i2, b)
   local nmin = math.min(i2 - i1, #b)
   for i = 1, nmin do
+    -- DEBUG
+    if a[i1 + i].filename ~= b[i].filename or a[i1 + i].type ~= b[i].type then
+      print("DEBUG FIX changed: ", a[i1 + i].filename, b[i].filename)
+    end
     a[i1 + i] = b[i]
   end
   for j = 1, i2 - i1 - nmin do
+    print("DEBUG FIX removing: ", a[i1 + nmin + 1].filename)
     table.remove(a, i1 + nmin + 1)
   end
   for j = 1, #b - nmin do
+    print("DEBUG FIX adding: ", b[nmin + j].filename)
     table.insert(a, i1 + nmin + j, b[nmin + j])
   end
 end
