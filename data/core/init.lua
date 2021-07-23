@@ -270,7 +270,7 @@ local function files_list_replace(a, i1, i2, b)
     table.remove(a, i1 + nmin + 1)
   end
   for j = 1, #b - nmin do
-    table.insert(a, i1 + nmin + 1, b[nmin + j])
+    table.insert(a, i1 + nmin + j, b[nmin + j])
   end
 end
 
