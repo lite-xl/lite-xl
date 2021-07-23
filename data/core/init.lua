@@ -172,6 +172,7 @@ local function scan_project_folder(index)
     end
   end
   dir.files = t
+  core.dir_rescan_add_job(dir, ".")
 end
 
 
@@ -1012,7 +1013,7 @@ end
 
 local scheduled_rescan = {}
 
-local function dir_rescan_add_job(dir, filepath)
+function core.dir_rescan_add_job(dir, filepath)
   local dirpath = filepath:match("^(.+)[/\\].+$")
   local dirpath_rooted = dirpath and PATHSEP .. dirpath or ""
   local abs_dirpath = dir.name .. dirpath_rooted
@@ -1057,7 +1058,7 @@ end
 function core.on_dir_change(watch_id, action, filepath)
   local dir = project_dir_by_watch_id(watch_id)
   if not dir then return end
-  dir_rescan_add_job(dir, filepath)
+  core.dir_rescan_add_job(dir, filepath)
   if action == "delete" then
     project_scan_remove_file(dir, filepath)
   elseif action == "create" then
