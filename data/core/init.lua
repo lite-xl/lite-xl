@@ -244,11 +244,16 @@ function core.scan_project_subdir(dirname, filename)
   end
 end
 
--- for "a" inclusive from i1 + 1 and i2
-local function files_list_match(a, i1, i2, b)
-  if i2 - i1 ~= #b then return false end
-  for i = 1, #b do
-    if a[i1 + i].filename ~= b[i].filename or a[i1 + i].type ~= b[i].type then
+
+local function files_info_equal(a, b)
+  return a.filename == b.filename and a.type == b.type
+end
+
+-- for "a" inclusive from i1 + 1 and i1 + n
+local function files_list_match(a, i1, n, b)
+  if n ~= #b then return false end
+  for i = 1, n do
+    if not files_info_equal(a[i1 + i], b[i]) then
       return false
     end
   end
@@ -256,16 +261,22 @@ local function files_list_match(a, i1, i2, b)
 end
 
 -- arguments like for files_list_match
-local function files_list_replace(a, i1, i2, b)
-  local nmin = math.min(i2 - i1, #b)
-  for i = 1, nmin do
-    a[i1 + i] = b[i]
-  end
-  for j = 1, i2 - i1 - nmin do
-    table.remove(a, i1 + nmin + 1)
-  end
-  for j = 1, #b - nmin do
-    table.insert(a, i1 + nmin + j, b[nmin + j])
+local function files_list_replace(as, i1, n, bs)
+  local m = #bs
+  local i, j = 1, 1
+  while i <= m or i <= n do
+    local a, b = as[i1 + i], bs[j]
+    if i > n or (j <= m and not files_info_equal(a, b) and
+      not system.path_compare(a.filename, a.type, b.filename, b.type))
+    then
+      table.insert(as, i1 + i, b)
+      i, j, n = i + 1, j + 1, n + 1
+    elseif j > m or system.path_compare(a.filename, a.type, b.filename, b.type) then
+      table.remove(as, i1 + i)
+      n = n - 1
+    else
+      i, j = i + 1, j + 1
+    end
   end
 end
 
@@ -289,8 +300,8 @@ local function rescan_project_subdir(dir, filename_rooted)
     end
   end
 
-  if not files_list_match(dir.files, index, index + n, new_files) then
-    files_list_replace(dir.files, index, index + n, new_files)
+  if not files_list_match(dir.files, index, n, new_files) then
+    files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
     return true
   end
