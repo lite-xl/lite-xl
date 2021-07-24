@@ -273,9 +273,11 @@ local function files_list_replace(as, i1, n, bs)
     if i > n or (j <= m and not files_info_equal(a, b) and
       not system.path_compare(a.filename, a.type, b.filename, b.type))
     then
+      print("DEBUG FIX insert: ", b.filename, "before:", as[i1 + i] and as[i1 + i].filename)
       table.insert(as, i1 + i, b)
       i, j, n = i + 1, j + 1, n + 1
     elseif j > m or system.path_compare(a.filename, a.type, b.filename, b.type) then
+      print("DEBUG FIX remove: ", a.filename, "before:", as[i1 + i + 1] and as[i1 + i + 1].filename)
       table.remove(as, i1 + i)
       n = n - 1
     else
