@@ -95,11 +95,13 @@ end
 
 -- compute a file's info entry completed with "filename" to be used
 -- in project scan or falsy if it shouldn't appear in the list.
-local function get_project_file_info(root, file, size_limit)
+local function get_project_file_info(root, file)
   local info = system.get_file_info(root .. file)
   if info then
     info.filename = strip_leading_path(file)
-    return info.size < size_limit and info
+    return (info.size < config.file_size_limit * 1e6 and
+      not common.match_pattern(info.filename, config.ignore_files)
+      and info)
   end
 end
 
@@ -114,20 +116,17 @@ end
 -- complete file path relative to "root" *without* the trailing '/'.
 local function get_directory_files(root, path, t, recursive, begin_hook)
   if begin_hook then begin_hook() end
-  local size_limit = config.file_size_limit * 10e5
   local all = system.list_dir(root .. path) or {}
   local dirs, files = {}, {}
 
   local entries_count = 0
   local max_entries = config.max_project_files
   for _, file in ipairs(all) do
-    if not common.match_pattern(file, config.ignore_files) then
-      local info = get_project_file_info(root, path .. PATHSEP .. file, size_limit)
-      if info then
-        table.insert(info.type == "dir" and dirs or files, info)
-        entries_count = entries_count + 1
-        if recursive and entries_count > max_entries then return nil, entries_count end
-      end
+    local info = get_project_file_info(root, path .. PATHSEP .. file)
+    if info then
+      table.insert(info.type == "dir" and dirs or files, info)
+      entries_count = entries_count + 1
+      if recursive and entries_count > max_entries then return nil, entries_count end
     end
   end
 
@@ -301,19 +300,16 @@ end
 -- Filter files and yields file's directory and info table. This latter
 -- is filled to be like required by project directories "files" list.
 local function find_files_rec(root, path)
-  local size_limit = config.file_size_limit * 10e5
   local all = system.list_dir(root .. path) or {}
   for _, file in ipairs(all) do
-    if not common.match_pattern(file, config.ignore_files) then
-      local file = path .. PATHSEP .. file
-      local info = system.get_file_info(root .. file)
-      if info and info.size < size_limit then
-        info.filename = strip_leading_path(file)
-        if info.type == "file" then
-          coroutine.yield(root, info)
-        else
-          find_files_rec(root, PATHSEP .. info.filename)
-        end
+    local file = path .. PATHSEP .. file
+    local info = system.get_file_info(root .. file)
+    if info then
+      info.filename = strip_leading_path(file)
+      if info.type == "file" then
+        coroutine.yield(root, info)
+      else
+        find_files_rec(root, PATHSEP .. info.filename)
       end
     end
   end
@@ -402,8 +398,7 @@ local function project_scan_add_file(dir, filepath)
       return
     end
   end
-  local size_limit = config.file_size_limit * 10e5
-  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, size_limit)
+  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath)
   if fileinfo then
     project_scan_add_entry(dir, fileinfo)
   end
