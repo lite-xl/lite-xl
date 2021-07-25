@@ -118,29 +118,27 @@ end
 -- When recursing "root" will always be the same, only "path" will change.
 -- Returns a list of file "items". In eash item the "filename" will be the
 -- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(root, path, t, recursive, begin_hook)
+local function get_directory_files(dir, root, path, t, begin_hook, max_files)
   if begin_hook then begin_hook() end
   local all = system.list_dir(root .. path) or {}
   local dirs, files = {}, {}
 
   local entries_count = 0
-  local max_entries = config.max_project_files
   for _, file in ipairs(all) do
     local info = get_project_file_info(root, path .. PATHSEP .. file)
     if info then
       table.insert(info.type == "dir" and dirs or files, info)
       entries_count = entries_count + 1
-      if recursive and entries_count > max_entries then return nil, entries_count end
     end
   end
 
   table.sort(dirs, compare_file)
   for _, f in ipairs(dirs) do
     table.insert(t, f)
-    if recursive and entries_count <= max_entries then
-      local subdir_t, subdir_count = get_directory_files(root, PATHSEP .. f.filename, t, recursive, begin_hook)
-      entries_count = entries_count + subdir_count
-      f.scanned = true
+    if (not max_files or entries_count <= max_files) and core.project_subdir_is_shown(dir, f.filename) then
+      local sub_limit = max_files and max_files - entries_count
+      local _, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, begin_hook, sub_limit)
+      entries_count = entries_count + n
     end
   end
 
@@ -150,6 +148,16 @@ local function get_directory_files(root, path, t, recursive, begin_hook)
   end
 
   return t, entries_count
+end
+
+
+function core.project_subdir_set_show(dir, filename, show)
+  dir.shown_subdir[filename] = show
+end
+
+
+function core.project_subdir_is_shown(dir, filename)
+  return not dir.files_limit or dir.shown_subdir[filename]
 end
 
 
@@ -164,7 +172,7 @@ end
 -- Populate a project folder top directory by scanning the filesystem.
 local function scan_project_folder(index)
   local dir = core.project_directories[index]
-  local t, entries_count = get_directory_files(dir.name, "", {}, true)
+  local t, entries_count = get_directory_files(dir, dir.name, "", {}, nil, config.max_project_files)
   if entries_count > config.max_project_files then
     dir.files_limit = true
     if core.status_view then -- May be not yet initialized.
@@ -188,6 +196,7 @@ function core.add_project_directory(path)
     files_limit = false,
     is_dirty = true,
     watch_id = watch_id,
+    shown_subdir = {},
   }
   table.insert(core.project_directories, dir)
   scan_project_folder(#core.project_directories)
@@ -283,9 +292,7 @@ local function project_subdir_bounds(dir, filename)
 end
 
 local function rescan_project_subdir(dir, filename_rooted)
-  local recursive = not dir.files_limit
-  if not recursive then print("DEBUG performing non-recursive scan") end
-  local new_files = get_directory_files(dir.name, filename_rooted, {}, recursive, coroutine.yield)
+  local new_files = get_directory_files(dir, dir.name, filename_rooted, {}, coroutine.yield)
   local index, n = 0, #dir.files
   if filename_rooted ~= "" then
     local filename = strip_leading_path(filename_rooted)
@@ -303,9 +310,9 @@ end
 function core.scan_project_subdir(dir, filename)
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
-    local new_files = get_directory_files(dir.name, PATHSEP .. filename, {})
+    local new_files = get_directory_files(dir, dir.name, PATHSEP .. filename, {})
     files_list_replace(dir.files, index, n, new_files)
-    file.scanned = true
+    dir.is_dirty = true
     return true
   end
 end
@@ -1025,6 +1032,7 @@ function core.has_pending_rescan()
   end
 end
 
+
 function core.dir_rescan_add_job(dir, filepath)
   local dirpath = filepath:match("^(.+)[/\\].+$")
   local dirpath_rooted = dirpath and PATHSEP .. dirpath or ""
@@ -1032,9 +1040,8 @@ function core.dir_rescan_add_job(dir, filepath)
   if dirpath then
     -- check if the directory is in the project files list, if not exit
     local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
-    if dir.files_limit and not dir.files[dir_index].scanned then -- DEBUG ONLY
-      print("DEBUG do not start a rescan job foe", abs_dirpath) end
-    if not dir_match or (dir.files_limit and not dir.files[dir_index].scanned) then return end
+    local dir_filename = dir.files[dir_index].filename
+    if not dir_match or not core.project_subdir_is_shown(dir, dir_filename) then return end
   end
   local new_time = system.get_time() + 1
 
