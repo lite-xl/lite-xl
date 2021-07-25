@@ -284,6 +284,7 @@ end
 
 local function rescan_project_subdir(dir, filename_rooted)
   local recursive = not dir.files_limit
+  if not recursive then print("DEBUG performing non-recursive scan") end
   local new_files = get_directory_files(dir.name, filename_rooted, {}, recursive, coroutine.yield)
   local index, n = 0, #dir.files
   if filename_rooted ~= "" then
@@ -1031,6 +1032,8 @@ function core.dir_rescan_add_job(dir, filepath)
   if dirpath then
     -- check if the directory is in the project files list, if not exit
     local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
+    if dir.files_limit and not dir.files[dir_index].scanned then -- DEBUG ONLY
+      print("DEBUG do not start a rescan job foe", abs_dirpath) end
     if not dir_match or (dir.files_limit and not dir.files[dir_index].scanned) then return end
   end
   local new_time = system.get_time() + 1
