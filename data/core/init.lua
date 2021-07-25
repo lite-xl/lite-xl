@@ -224,27 +224,6 @@ local function project_scan_add_entry(dir, fileinfo)
 end
 
 
-function core.scan_project_subdir(dirname, filename)
-  for _, dir in ipairs(core.project_directories) do
-    if dir.name == dirname then
-      for i, file in ipairs(dir.files) do
-        local file = dir.files[i]
-        if file.filename == filename then
-          if file.scanned then return end
-          local new_files = get_directory_files(dirname, PATHSEP .. filename, {})
-          for _, new_file in ipairs(new_files) do
-            -- FIXME: add index bounds to limit the scope of the search.
-            project_scan_add_entry(dir, new_file)
-          end
-          file.scanned = true
-          return true
-        end
-      end
-    end
-  end
-end
-
-
 local function files_info_equal(a, b)
   return a.filename == b.filename and a.type == b.type
 end
@@ -280,29 +259,46 @@ local function files_list_replace(as, i1, n, bs)
   end
 end
 
+local function project_subdir_bounds(dir, filename)
+  local index, n = 0, #dir.files
+  for i, file in ipairs(dir.files) do
+    local file = dir.files[i]
+    if file.filename == filename then
+      index, n = i, #dir.files - i
+      for j = 1, #dir.files - i do
+        if not common.path_belongs_to(dir.files[i + j].filename, filename) then
+          n = j - 1
+          break
+        end
+      end
+      return index, n, file
+    end
+  end
+end
+
 local function rescan_project_subdir(dir, filename_rooted)
-  local new_files = get_directory_files(dir.name, filename_rooted, {}, true, coroutine.yield)
+  local recursive = not dir.files_limit
+  local new_files = get_directory_files(dir.name, filename_rooted, {}, recursive, coroutine.yield)
   local index, n = 0, #dir.files
   if filename_rooted ~= "" then
     local filename = strip_leading_path(filename_rooted)
-    for i, file in ipairs(dir.files) do
-      local file = dir.files[i]
-      if file.filename == filename then
-        index, n = i, #dir.files - i
-        for j = 1, #dir.files - i do
-          if not common.path_belongs_to(dir.files[i + j].filename, filename) then
-            n = j - 1
-            break
-          end
-        end
-        break
-      end
-    end
+    index, n = project_subdir_bounds(dir, filename)
   end
 
   if not files_list_match(dir.files, index, n, new_files) then
     files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
+    return true
+  end
+end
+
+
+function core.scan_project_subdir(dir, filename)
+  local index, n, file = project_subdir_bounds(dir, filename)
+  if index then
+    local new_files = get_directory_files(dir.name, PATHSEP .. filename, {})
+    files_list_replace(dir.files, index, n, new_files)
+    file.scanned = true
     return true
   end
 end
@@ -1060,10 +1056,13 @@ function core.dir_rescan_add_job(dir, filepath)
   local dirpath_rooted = dirpath and PATHSEP .. dirpath or ""
   local abs_dirpath = dir.name .. dirpath_rooted
   if dirpath then
-    local _, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
-    if not dir_match then return end
+    -- check if the directory is in the project files list, if not exit
+    local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
+    if not dir_match or (dir.files_limit and not dir.files[dir_index].scanned) then return end
   end
   local new_time = system.get_time() + 1
+
+  -- evaluate new rescan request versus existing rescan
   local remove_list = {}
   for _, rescan in pairs(scheduled_rescan) do
     if abs_dirpath == rescan.abs_path or common.path_belongs_to(abs_dirpath, rescan.abs_path) then
@@ -1071,12 +1070,14 @@ function core.dir_rescan_add_job(dir, filepath)
       rescan.time_limit = new_time
       return
     elseif common.path_belongs_to(rescan.abs_path, abs_dirpath) then
+      -- abs_dirpath already cover this rescan: add to the list of rescan to be removed
       table.insert(remove_list, rescan.abs_path)
     end
   end
   for _, key_path in ipairs(remove_list) do
     scheduled_rescan[key_path] = nil
   end
+
   scheduled_rescan[abs_dirpath] = {dir = dir, path = dirpath_rooted, abs_path = abs_dirpath, time_limit = new_time}
   core.add_thread(function()
     while true do
@@ -1085,6 +1086,7 @@ function core.dir_rescan_add_job(dir, filepath)
       if system.get_time() > rescan.time_limit then
         local has_changes = rescan_project_subdir(rescan.dir, rescan.path)
         if has_changes then
+          core.redraw = true -- we run without an event, from a thread
           rescan.time_limit = new_time
         else
           scheduled_rescan[rescan.abs_path] = nil

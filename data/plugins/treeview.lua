@@ -218,8 +218,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
       create_directory_in(hovered_item)
     else
       if hovered_item.dir.files_limit and not hovered_item.expanded then
-        local dirname = hovered_item.dir.name
-        core.scan_project_subdir(dirname, hovered_item.filename)
+        core.scan_project_subdir(hovered_item.dir, hovered_item.filename)
       end
       hovered_item.expanded = not hovered_item.expanded
     end
