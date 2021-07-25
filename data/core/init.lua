@@ -174,6 +174,7 @@ local function scan_project_folder(index)
   local dir = core.project_directories[index]
   local t, entries_count = get_directory_files(dir, dir.name, "", {}, nil, config.max_project_files)
   if entries_count > config.max_project_files then
+    print("DEBUG setting files limit FLAG for", dir.name)
     dir.files_limit = true
     if core.status_view then -- May be not yet initialized.
       show_max_files_warning()
@@ -1041,7 +1042,8 @@ function core.dir_rescan_add_job(dir, filepath)
     -- check if the directory is in the project files list, if not exit
     local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
     local dir_filename = dir.files[dir_index].filename
-    if not dir_match or not core.project_subdir_is_shown(dir, dir_filename) then return end
+    if not dir_match or not core.project_subdir_is_shown(dir, dir_filename) then
+      print("DEBUG do not start a rescan job for", abs_dirpath); return end
   end
   local new_time = system.get_time() + 1
 
