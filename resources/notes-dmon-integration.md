@@ -14,7 +14,7 @@
 `core.scan_project_subdir`: (before was named `core.scan_project_folder`)
     scan a single folder, without recursion. Used when too many files.
 
-New local function `scan_project_folder`:
+Local function `scan_project_folder`:
     Populate the project folder top directory. Done only once when the directory
     is added to the project.
 
@@ -24,6 +24,13 @@ New local function `scan_project_folder`:
 `core.set_project_dir`:
     Set the initial project directory.
 
+`core.dir_rescan_add_job`:
+    Add a job to rescan after an elapsed time a project's subdirectory to fix for any
+    changes.
+
+Local function `rescan_project_subdir`:
+    Rescan a project's subdirectory, compare to the current version and patch the list if
+    a difference is found.
 
 
 `core.project_scan_thread`:
