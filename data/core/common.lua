@@ -285,9 +285,9 @@ end
 
 
 function common.relative_path(ref_dir, dir)
-  if #ref_dir>2 and ref_dir:sub(2,2)==':'
-    and #dir>2 and dir:sub(2,2)==':'
-      and ref_dir:sub(1,1)~=dir:sub(1,1) then
+  local drive_pattern = "^(%a):\\"
+  local drive, ref_drive = dir:match(drive_pattern), ref_dir:match(drive_pattern)
+  if drive and ref_drive and drive ~= ref_drive then
     -- Windows, different drives, system.absolute_path fails for C:\..\D:\
     return dir
   end    
