@@ -1,5 +1,6 @@
 -- mod-version:1 -- lite-xl 1.16
 local core = require "core"
+local command = require "core.command"
 local common = require "core.common"
 local DocView = require "core.docview"
 local LogView = require "core.logview"
@@ -188,9 +189,9 @@ local function save_directories()
 end
 
 
-local function save_workspace()
+local function save_workspace(filename)
   local root = get_unlocked_root(core.root_view.root_node)
-  local workspace_filename = get_workspace_filename(core.project_dir)
+  local workspace_filename = filename or get_workspace_filename(core.project_dir)
   local fp = io.open(workspace_filename, "w")
   if fp then
     local node_text = common.serialize(save_node(root))
@@ -201,8 +202,8 @@ local function save_workspace()
 end
 
 
-local function load_workspace()
-  local workspace = consume_workspace_file(core.project_dir)
+local function load_workspace(_workspace)
+  local workspace = _workspace or consume_workspace_file(core.project_dir)
   if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
     local active_view = load_node(root, workspace.documents)
@@ -238,3 +239,44 @@ function core.run(...)
   core.run = run
   return core.run(...)
 end
+
+local function open_workspace_file(filename)
+  local workspace = loadfile(filename)
+  workspace = workspace and workspace()
+  if workspace then
+    core.root_view:close_all_docviews()
+    core.set_project_dir(workspace.path)
+    load_workspace(workspace)
+  else
+    core.error("cannot load workspace from %s", filename)
+  end
+end
+
+command.add(nil,{
+  ["workspace:save-workspace-as"] = function()
+    core.command_view:set_text(core.normalize_to_project_dir(core.project_dir .. '.ws'))
+    core.command_view:enter("Save Workspace As", function(filename)
+      save_workspace(common.home_expand(filename))
+    end, function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+    end)
+  end,
+  ["workspace:open-workspace-file"] = function()
+    local view = core.active_view
+    if view.doc and view.doc.abs_filename then
+      local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
+      if dirname then
+        dirname = core.normalize_to_project_dir(dirname)
+        local text = dirname == core.project_dir and "" or common.home_encode(dirname) .. PATHSEP
+        core.command_view:set_text(text)
+      end
+    end
+    core.command_view:enter("Open Workspace File", function(text)
+      open_workspace_file(system.absolute_path(common.home_expand(text)))
+    end, function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+    end, nil, function(text)
+      open_workspace_file(common.home_expand(text))
+    end)
+  end,
+})
