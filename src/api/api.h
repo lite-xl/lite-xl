@@ -8,6 +8,7 @@
 #define API_TYPE_FONT "Font"
 #define API_TYPE_REPLACE "Replace"
 #define API_TYPE_PROCESS "Process"
+#define API_TYPE_REGEX "Regex"
 
 void api_load_libs(lua_State *L);
 
