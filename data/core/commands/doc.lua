@@ -43,7 +43,12 @@ local function append_line_if_last_line(line)
 end
 
 local function save(filename)
-  doc():save(filename and core.normalize_to_project_dir(filename))
+  local abs_filename
+  if filename then
+    filename = core.normalize_to_project_dir(filename)
+    abs_filename = core.project_absolute_path(filename)
+  end
+  doc():save(filename, abs_filename)
   local saved_filename = doc().filename
   core.log("Saved \"%s\"", saved_filename)
 end
@@ -363,12 +368,14 @@ local commands = {
     end
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", function(filename)
-      doc():save(filename)
+      save(common.home_expand(filename))
       core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
       if filename ~= old_filename then
         os.remove(old_filename)
       end
-    end, common.path_suggest)
+    end, function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+    end)
   end,
 
 
