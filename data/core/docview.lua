@@ -112,7 +112,8 @@ end
 
 
 function DocView:get_gutter_width()
-  return self:get_font():get_width(#self.doc.lines) + style.padding.x * 2
+  local padding = style.padding.x * 2
+  return self:get_font():get_width(#self.doc.lines) + padding, padding
 end
 
 
@@ -381,7 +382,7 @@ function DocView:draw_line_body(idx, x, y)
 end
 
 
-function DocView:draw_line_gutter(idx, x, y)
+function DocView:draw_line_gutter(idx, x, y, width)
   local color = style.line_number
   for _, line1, _, line2 in self.doc:get_selections(true) do
     if idx >= line1 and idx <= line2 then
@@ -391,7 +392,7 @@ function DocView:draw_line_gutter(idx, x, y)
   end
   local yoffset = self:get_line_text_y_offset()
   x = x + style.padding.x
-  renderer.draw_text(self:get_font(), idx, x, y + yoffset, color)
+  common.draw_text(self:get_font(), color, idx, "right", x, y + yoffset, width,  self:get_line_height())
 end
 
 
@@ -420,12 +421,12 @@ function DocView:draw()
   local lh = self:get_line_height()
 
   local x, y = self:get_line_screen_position(minline)
+  local gw, gpad = self:get_gutter_width()
   for i = minline, maxline do
-    self:draw_line_gutter(i, self.position.x, y)
+    self:draw_line_gutter(i, self.position.x, y, gpad and gw - gpad or gw)
     y = y + lh
   end
 
-  local gw = self:get_gutter_width()
   local pos = self.position
   x, y = self:get_line_screen_position(minline)
   core.push_clip_rect(pos.x + gw, pos.y, self.size.x, self.size.y)

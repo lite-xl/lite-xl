@@ -300,6 +300,12 @@ end
 
 
 function common.relative_path(ref_dir, dir)
+  local drive_pattern = "^(%a):\\"
+  local drive, ref_drive = dir:match(drive_pattern), ref_dir:match(drive_pattern)
+  if drive and ref_drive and drive ~= ref_drive then
+    -- Windows, different drives, system.absolute_path fails for C:\..\D:\
+    return dir
+  end    
   local ref_ls = split_on_slash(ref_dir)
   local dir_ls = split_on_slash(dir)
   local i = 1

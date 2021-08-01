@@ -646,8 +646,8 @@ local function check_plugin_version(filename)
   if info ~= nil and info.type == "dir" then
     filename = filename .. "/init.lua"
     info = system.get_file_info(filename)
-    if not info then return true end
   end
+  if not info or not filename:match("%.lua$") then return false end
   local f = io.open(filename, "r")
   if not f then return false end
   local version_match = false
@@ -667,7 +667,7 @@ local function check_plugin_version(filename)
     end
   end
   f:close()
-  return version_match
+  return true, version_match
 end
 
 
