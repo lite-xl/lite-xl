@@ -49,7 +49,7 @@ function ContextMenu:register(predicate, items)
   local width, height = 0, 0 --precalculate the size of context menu
   for i, item in ipairs(items) do
     if item ~= DIVIDER then
-      item.info = keymap.reverse_map[item.command]
+      item.info = item.info or keymap.reverse_map[item.command]
     end
     local lw, lh = get_item_size(item)
     width = math.max(width, lw)
@@ -129,6 +129,7 @@ function ContextMenu:on_mouse_moved(px, py)
 end
 
 function ContextMenu:on_selected(item)
+  if item.disabled then return end
   if type(item.command) == "string" then
     command.perform(item.command)
   else
@@ -203,11 +204,12 @@ function ContextMenu:draw_context_menu()
     if item == DIVIDER then
       renderer.draw_rect(x, y, w, h, style.caret)
     else
-      if i == self.selected then
+      if i == self.selected and not self.disabled then
         renderer.draw_rect(x, y, w, h, style.selection)
       end
 
-      common.draw_text(style.font, style.text, item.text, "left", x + style.padding.x, y, w, h)
+      local text_color = item.disabled and style.dim or style.text
+      common.draw_text(style.font, text_color, item.text, "left", x + style.padding.x, y, w, h)
       if item.info then
         common.draw_text(style.font, style.dim, item.info, "right", x, y, w - style.padding.x, h)
       end
