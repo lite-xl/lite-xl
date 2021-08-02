@@ -124,9 +124,21 @@ function Doc:get_selection(sort)
   return line1, col1, line2, col2, sort
 end
 
+function Doc:get_selection_text(limit)
+  limit = limit or math.huge
+  local result = {}
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    if idx > limit then break end
+    if line1 ~= line2 or col1 ~= col2 then
+      local text = self:get_text(line1, col1, line2, col2)
+      if text ~= "" then result[#result + 1] = text end
+    end
+  end
+  return table.concat(result, "\n")
+end
+
 function Doc:has_selection()
-  local line1, col1, line2, col2 = self:get_selection(false)
-  return line1 ~= line2 or col1 ~= col2
+  local line1, col1, line2, col2 = self:get_selection(false)  return line1 ~= line2 or col1 ~= col2
 end
 
 function Doc:sanitize_selection()
