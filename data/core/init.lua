@@ -9,6 +9,7 @@ local RootView
 local StatusView
 local TitleView
 local CommandView
+local ContextMenu
 local NagView
 local DocView
 local Doc
@@ -417,6 +418,40 @@ local function reload_on_user_module_save()
 end
 
 
+local function find_selected_occurence()
+  local doc = core.active_view.doc
+  if not doc or not doc:has_selection() then return end
+
+  -- get selection. If #358 is merged we won't need this
+  local text = {}
+  for idx, line1, col1, line2, col2 in doc:get_selections() do
+    if line1 ~= line2 or col1 ~= col2 then
+      local t = doc:get_text(line1, col1, line2, col2)
+      if t ~= "" then text[#text + 1] = t end
+    end
+  end
+  text = table.concat(text, "\n")
+
+  command.perform "find-replace:find"
+  core.command_view:set_text(text)
+  core.command_view:submit()
+end
+
+
+local function setup_context_menu()
+  local info = keymap.reverse_map["find-replace:find"]
+  core.context_menu:register("core.docview", {
+    { text = "Find Occurence...",  command = find_selected_occurence, info = info },
+    ContextMenu.DIVIDER,
+    { text = "Cut",                command = "doc:cut" },
+    { text = "Copy",               command = "doc:copy" },
+    { text = "Paste",              command = "doc:paste" },
+    ContextMenu.DIVIDER,
+    { text = "Command Palette...", command = "core:find-command" }
+  })
+end
+
+
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
@@ -424,6 +459,7 @@ function core.init()
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
   CommandView = require "core.commandview"
+  ContextMenu = require "core.contextmenu"
   NagView = require "core.nagview"
   DocView = require "core.docview"
   Doc = require "core.doc"
@@ -498,6 +534,7 @@ function core.init()
 
   core.root_view = RootView()
   core.command_view = CommandView()
+  core.context_menu = ContextMenu()
   core.status_view = StatusView()
   core.nag_view = NagView()
   core.title_view = TitleView()
@@ -560,6 +597,7 @@ function core.init()
       end)
   end
 
+  setup_context_menu()
   reload_on_user_module_save()
 end
 

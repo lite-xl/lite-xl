@@ -741,6 +741,7 @@ end
 -- Function to intercept mouse pressed events on the active view.
 -- Do nothing by default.
 function RootView.on_view_mouse_pressed(button, x, y, clicks)
+  return core.context_menu:on_mouse_pressed(button, x, y, clicks)
 end
 
 
@@ -800,6 +801,8 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     core.active_view:on_mouse_moved(x, y, dx, dy)
     return
   end
+
+  if core.context_menu:on_mouse_moved(x, y, dx, dy) then return end
 
   if self.dragged_divider then
     local node = self.dragged_divider
@@ -874,11 +877,13 @@ function RootView:update()
   copy_position_and_size(self.root_node, self)
   self.root_node:update()
   self.root_node:update_layout()
+  core.context_menu:update()
 end
 
 
 function RootView:draw()
   self.root_node:draw()
+  core.context_menu:draw()
   while #self.deferred_draws > 0 do
     local t = table.remove(self.deferred_draws)
     t.fn(table.unpack(t))
