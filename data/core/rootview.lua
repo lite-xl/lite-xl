@@ -239,7 +239,7 @@ end
 
 
 function Node:get_divider_overlapping_point(px, py)
-  if self.type ~= "leaf" then
+  if self.type ~= "leaf" and py > 6 then
     local p = 6
     local x, y, w, h = self:get_divider_rect()
     x, y = x - p, y - p
@@ -746,7 +746,7 @@ end
 
 function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  if div and y > 10 then
+  if div then
     self.dragged_divider = div
     return
   end
