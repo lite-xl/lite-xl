@@ -240,12 +240,15 @@ end
 
 function Node:get_divider_overlapping_point(px, py)
   if self.type ~= "leaf" then
-    local p = 6
-    local x, y, w, h = self:get_divider_rect()
-    x, y = x - p, y - p
-    w, h = w + p * 2, h + p * 2
-    if px > x and py > y and px < x + w and py < y + h then
-      return self
+    local axis = self.type == "hsplit" and "x" or "y"
+    if self.a:is_resizable(axis) and self.b:is_resizable(axis) then
+      local p = 6
+      local x, y, w, h = self:get_divider_rect()
+      x, y = x - p, y - p
+      w, h = w + p * 2, h + p * 2
+      if px > x and py > y and px < x + w and py < y + h then
+        return self
+      end
     end
     return self.a:get_divider_overlapping_point(px, py)
         or self.b:get_divider_overlapping_point(px, py)
@@ -823,10 +826,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   if node and node:get_scroll_button_index(x, y) then
     core.request_cursor("arrow")
   elseif div then
-    local axis = (div.type == "hsplit" and "x" or "y")
-    if div.a:is_resizable(axis) and div.b:is_resizable(axis) then
-      core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
-    end
+    core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
   elseif tab_index then
     core.request_cursor("arrow")
   elseif node then
