@@ -746,7 +746,7 @@ end
 
 function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  if div then
+  if div and y > 10 then
     self.dragged_divider = div
     return
   end
