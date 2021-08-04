@@ -239,8 +239,8 @@ end
 
 
 function Node:get_divider_overlapping_point(px, py)
-  if self.type ~= "leaf" and py > 6 then
-    local p = 6
+  local p = 6
+  if self.type ~= "leaf" and py > p then
     local x, y, w, h = self:get_divider_rect()
     x, y = x - p, y - p
     w, h = w + p * 2, h + p * 2
