@@ -95,7 +95,7 @@ local function keymap_macos(keymap)
     ["cmd+shift+right"] = "doc:select-to-next-word-end",
     ["cmd+shift+["] = "doc:select-to-previous-block-start",
     ["cmd+shift+]"] = "doc:select-to-next-block-end",
-    ["shift+home"] = "doc:select-to-start-of-line",
+    ["shift+home"] = "doc:select-to-start-of-indentation",
     ["shift+end"] = "doc:select-to-end-of-line",
     ["cmd+shift+home"] = "doc:select-to-start-of-doc",
     ["cmd+shift+end"] = "doc:select-to-end-of-doc",

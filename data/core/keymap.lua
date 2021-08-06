@@ -199,7 +199,7 @@ keymap.add_direct {
   ["ctrl+shift+right"] = "doc:select-to-next-word-end",
   ["ctrl+shift+["] = "doc:select-to-previous-block-start",
   ["ctrl+shift+]"] = "doc:select-to-next-block-end",
-  ["shift+home"] = "doc:select-to-start-of-line",
+  ["shift+home"] = "doc:select-to-start-of-indentation",
   ["shift+end"] = "doc:select-to-end-of-line",
   ["ctrl+shift+home"] = "doc:select-to-start-of-doc",
   ["ctrl+shift+end"] = "doc:select-to-end-of-doc",
