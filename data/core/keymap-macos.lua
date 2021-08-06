@@ -80,7 +80,7 @@ local function keymap_macos(keymap)
     ["cmd+right"] = "doc:move-to-next-word-end",
     ["cmd+["] = "doc:move-to-previous-block-start",
     ["cmd+]"] = "doc:move-to-next-block-end",
-    ["home"] = "doc:move-to-start-of-line",
+    ["home"] = "doc:move-to-start-of-indentation",
     ["end"] = "doc:move-to-end-of-line",
     ["cmd+home"] = "doc:move-to-start-of-doc",
     ["cmd+end"] = "doc:move-to-end-of-doc",

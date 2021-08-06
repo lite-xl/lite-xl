@@ -117,6 +117,10 @@ function translate.start_of_line(doc, line, col)
   return line, 1
 end
 
+function translate.start_of_indentation(doc, line, col)
+  local s, e = doc.lines[line]:find("^%s*")
+  return line, col > e + 1 and e + 1 or 1
+end
 
 function translate.end_of_line(doc, line, col)
   return line, math.huge

@@ -184,7 +184,7 @@ keymap.add_direct {
   ["ctrl+right"] = "doc:move-to-next-word-end",
   ["ctrl+["] = "doc:move-to-previous-block-start",
   ["ctrl+]"] = "doc:move-to-next-block-end",
-  ["home"] = "doc:move-to-start-of-line",
+  ["home"] = "doc:move-to-start-of-indentation",
   ["end"] = "doc:move-to-end-of-line",
   ["ctrl+home"] = "doc:move-to-start-of-doc",
   ["ctrl+end"] = "doc:move-to-end-of-doc",
