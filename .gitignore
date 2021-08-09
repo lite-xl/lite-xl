@@ -5,6 +5,7 @@ submodules/
 subprojects/lua/
 subprojects/libagg/
 subprojects/reproc/
+/appimage*
 .ccls-cache
 .lite-debug.log
 .run*
@@ -13,7 +14,6 @@ subprojects/reproc/
 *.zip
 *.DS_Store
 *App*
-appimage*
 compile_commands.json
 error.txt
 lite-xl*
