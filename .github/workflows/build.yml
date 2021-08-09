@@ -3,14 +3,45 @@ name: CI
 on:
   push:
     branches:
-      - '*'
+    - '*'
+  # Temporarily disabled
+    #tags:
+    #- 'v[0-9]*'
   pull_request:
     branches:
-      - '*'
+    - '*'
 
 jobs:
-  build-linux:
-    name: Build Linux
+  # Note: not using git-archive(-all) because it can't include subprojects ignored by git
+  archive_source_code:
+    name: Source Code Tarball
+    runs-on: ubuntu-18.04
+    # Only on tags/releases
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+    - name: Set Environment Variables
+      run: echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-src" >> "$GITHUB_ENV"
+    - uses: actions/checkout@v2
+    - name: Python Setup
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.6
+    - name: Install Dependencies
+      run: |
+        sudo apt-get install -qq ninja-build
+        pip3 install meson
+    - name: Archive source code
+      shell: bash
+      run: bash scripts/source-package.sh --destdir "${INSTALL_NAME}"
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Source Code Tarball
+        path: ${{ env.INSTALL_NAME }}.tar.gz
+
+  # All builds use lhelper only for releases, using --static build argument,
+  # otherwise for normal builds dependencies are dynamically linked.
+  build_linux:
+    name: Linux
     runs-on: ubuntu-18.04
     strategy:
       matrix:
@@ -21,48 +52,226 @@ jobs:
       CC: ${{ matrix.config.cc }}
       CXX: ${{ matrix.config.cxx }}
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.6
-      - name: Install dependencies
-        run: |
-          sudo apt-get install -qq libsdl2-dev libfreetype6 ninja-build
-          pip3 install meson
-      - name: Build package
-        run: bash build-packages.sh x86-64
-      - name: upload packages
-        uses: actions/upload-artifact@v2
-        with:
-          name: Ubuntu Package
-          path: lite-xl-linux-*.tar.gz
+    - name: Set Archive Name
+      if: ${{ matrix.config.cc == 'gcc' }}
+      run: |
+        echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux" >> "$GITHUB_ENV"
+    - uses: actions/checkout@v2
+    - name: Python Setup
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.6
+    - name: Update Packages
+      run: sudo apt-get update
+    - name: Install Meson
+      run: |
+        sudo apt-get install -qq ninja-build
+        pip3 install meson
+    - name: Install Dependencies
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      run: sudo apt-get install -qq libsdl2-dev libfreetype6
+    - name: Build
+      if: ${{ matrix.config.cc == 'gcc' && !startsWith(github.ref, 'refs/tags/') }}
+      run: bash scripts/build.sh --prefix /
+    - name: Release Build
+      if: ${{ matrix.config.cc == 'gcc' && startsWith(github.ref, 'refs/tags/') }}
+      run: bash scripts/build.sh --prefix / --static
+    - name: Package
+      if: ${{ matrix.config.cc == 'gcc' }}
+      run: |
+        DESTDIR="$(pwd)/$INSTALL_NAME" meson install --skip-subprojects -C build
+        tar czvf "${INSTALL_NAME}".tar.gz "${INSTALL_NAME}"
+    - name: AppImage
+      if: ${{ matrix.config.cc == 'gcc' && startsWith(github.ref, 'refs/tags/') }}
+      run: bash scripts/appimage.sh --nobuild --static --version ${{ env.INSTALL_REF }}
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      if: ${{ matrix.config.cc == 'gcc' }}
+      with:
+        name: Linux Artifacts
+        path: |
+          ${{ env.INSTALL_NAME }}.tar.gz
+          LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
 
-  build-macox:
-    name: Build Mac OS X
+  build_macos:
+    name: macOS (x86_64)
     runs-on: macos-10.15
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+    - name: System Information
+      run: |
+        system_profiler SPSoftwareDataType
+        gcc -v
+        xcodebuild -version
+    - name: Set Archive Name
+      run: |
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos" >> "$GITHUB_ENV"
+        bash --version
+    - uses: actions/checkout@v2
+    - name: Python Setup
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install Build Tools
+      run: |
+        brew install ninja
+        pip3 install meson
+        cd ~; npm install appdmg; cd -
+        ~/node_modules/appdmg/bin/appdmg.js --version
+    - name: Install Dependencies
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      run: brew install sdl2
+    - name: Install LHelper Dependencies
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      run: brew install bash md5sha1sum
+    - name: Build
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      run: bash scripts/build.sh --prefix "${GITHUB_WORKSPACE}/Lite XL.app"
+    - name: Release Build
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      run: |
+        bash --version
+        bash scripts/build.sh --prefix "${GITHUB_WORKSPACE}/Lite XL.app" --static
+    - name: Error Logs
+      if: failure()
+      run: |
+        mkdir ${INSTALL_NAME}
+        cp /usr/var/lhenv/lite-xl/logs/* ${INSTALL_NAME}
+        tar czvf ${INSTALL_NAME}.tar.gz ${INSTALL_NAME}
+    - name: Install
+      run: meson install --skip-subprojects -C build
+    - name: Create DMG Image
+      run: bash scripts/appdmg.sh ${{ env.INSTALL_NAME }}
+    - name: Upload DMG Image
+      uses: actions/upload-artifact@v2
+      with:
+        name: macOS DMG Image
+        path: ${{ env.INSTALL_NAME }}.dmg
+    - name: Upload Error Logs
+      uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: Error Logs
+        path: ${{ env.INSTALL_NAME }}.tar.gz
+
+  build_windows_msys2:
+    name: Windows
+    runs-on: windows-2019
     strategy:
       matrix:
-        config:
-        # - { name: "GCC", cc: gcc-10, cxx: g++-10 }
-        - { name: "clang", cc: clang, cxx: clang++ }
-    env:
-      CC: ${{ matrix.config.cc }}
-      CXX: ${{ matrix.config.cxx }}
+        msystem: [MINGW32, MINGW64]
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9
-      - name: Install dependencies
-        run: |
-          pip3 install meson
-          brew install ninja sdl2
-      - name: Build package
-        run: bash build-packages.sh x86-64
-      - name: upload packages
-        uses: actions/upload-artifact@v2
-        with:
-          name: Mac OS X Package
-          path: lite-xl-macosx-*.zip
+    - uses: actions/checkout@v2
+    - uses: msys2/setup-msys2@v2
+      with:
+        #msystem: MINGW64
+        msystem: ${{ matrix.msystem }}
+        update: true
+        install: >-
+          base-devel
+          git
+          zip
+    - name: Set Environment Variables
+      run: echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-$(echo $MSYSTEM | awk '{print tolower($0)}')" >> "$GITHUB_ENV"
+    - name: Install Dependencies
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      run: |
+        pacman --noconfirm -S \
+          ${MINGW_PACKAGE_PREFIX}-gcc \
+          ${MINGW_PACKAGE_PREFIX}-meson \
+          ${MINGW_PACKAGE_PREFIX}-ninja \
+          ${MINGW_PACKAGE_PREFIX}-pkg-config \
+          ${MINGW_PACKAGE_PREFIX}-freetype \
+          ${MINGW_PACKAGE_PREFIX}-pcre2 \
+          ${MINGW_PACKAGE_PREFIX}-SDL2
+    - name: Install Release Dependencies
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      run: |
+        pacman --noconfirm -S \
+          ${MINGW_PACKAGE_PREFIX}-gcc \
+          ${MINGW_PACKAGE_PREFIX}-meson \
+          ${MINGW_PACKAGE_PREFIX}-ninja \
+          ${MINGW_PACKAGE_PREFIX}-pkg-config
+    - name: Build
+      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      run: bash scripts/build.sh --prefix /
+    - name: Release Build
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      run: |
+        bash --version
+        bash scripts/build.sh --prefix / --static
+    - name: Error Logs
+      if: failure()
+      run: |
+        mkdir ${INSTALL_NAME}
+        cp /usr/var/lhenv/lite-xl/logs/* ${INSTALL_NAME}
+        tar czvf ${INSTALL_NAME}.tar.gz ${INSTALL_NAME}
+    - name: Package
+      run: bash scripts/msys2-package.sh --destdir ${INSTALL_NAME}
+    - name: Build Installer
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      run: bash scripts/innosetup/innosetup.sh
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Windows Artifacts
+        path: |
+          LiteXL*.exe
+          ${{ env.INSTALL_NAME }}.zip
+    - name: Upload Error Logs
+      uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: Error Logs
+        path: ${{ env.INSTALL_NAME }}.tar.gz
+
+  deploy:
+    name: Deployment
+    runs-on: ubuntu-18.04
+    # Temporarily disabled
+    if: false
+    #if: startsWith(github.ref, 'refs/tags/')
+    needs:
+    - archive_source_code
+    - build_linux
+    - build_macos
+    - build_windows_msys2
+    steps:
+    - name: Set Environment Variables
+      run: echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+    - uses: actions/download-artifact@v2
+      with:
+        name: Linux Artifacts
+    - uses: actions/download-artifact@v2
+      with:
+        name: macOS DMG Image
+    - uses: actions/download-artifact@v2
+      with:
+        name: Source Code Tarball
+    - uses: actions/download-artifact@v2
+      with:
+        name: Windows Artifacts
+    - name: Display File Information
+      shell: bash
+      run: ls -lR
+    # Note: not using `actions/create-release@v1`
+    #       because it cannot update an existing release
+    #       see https://github.com/actions/create-release/issues/29
+    - uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.INSTALL_REF }}
+        name: Release ${{ env.INSTALL_REF }}
+        draft: false
+        prerelease: false
+        files: |
+          lite-xl-${{ env.INSTALL_REF }}-*
+          LiteXL*.AppImage
+          LiteXL*.exe
