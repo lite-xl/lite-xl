@@ -75,6 +75,8 @@ copy_lite_build () {
   else
     cp "$builddir/src/lite-xl" "$bindir"
   fi
+  mkdir -p "$datadir/core"
+  cp "$builddir/start.lua" "$datadir/core"
   for module_name in core plugins colors fonts; do
     cp -r "data/$module_name" "$datadir"
   done
