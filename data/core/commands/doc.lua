@@ -418,6 +418,7 @@ local translations = {
   ["start-of-line"] = translate.start_of_line,
   ["end-of-line"] = translate.end_of_line,
   ["start-of-word"] = translate.start_of_word,
+  ["start-of-indentation"] = translate.start_of_indentation,
   ["end-of-word"] = translate.end_of_word,
   ["previous-line"] = DocView.translate.previous_line,
   ["next-line"] = DocView.translate.next_line,
