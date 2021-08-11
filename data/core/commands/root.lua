@@ -26,7 +26,7 @@ local t = {
 
   ["root:close-all-others"] = function()
     local active_doc, docs = core.active_view and core.active_view.doc, {}
-    for k, v in pairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
+    for i, v in ipairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
     core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
   end,
   
