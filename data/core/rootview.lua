@@ -594,12 +594,13 @@ function Node:is_empty()
 end
 
 
-function Node:close_all_docviews()
+function Node:close_all_docviews(keep_inactive)
   if self.type == "leaf" then
     local i = 1
     while i <= #self.views do
       local view = self.views[i]
-      if view:is(DocView) and not view:is(CommandView) then
+      if view:is(DocView) and not view:is(CommandView) and 
+        (not keep_inactive or view ~= self.active_view) then
         table.remove(self.views, i)
       else
         i = i + 1
@@ -609,8 +610,8 @@ function Node:close_all_docviews()
       self:add_view(EmptyView())
     end
   else
-    self.a:close_all_docviews()
-    self.b:close_all_docviews()
+    self.a:close_all_docviews(keep_inactive)
+    self.b:close_all_docviews(keep_inactive)
     if self.a:is_empty() and not self.a.is_primary_node then
       self:consume(self.b)
     elseif self.b:is_empty() and not self.b.is_primary_node then
@@ -736,8 +737,8 @@ function RootView:open_doc(doc)
 end
 
 
-function RootView:close_all_docviews()
-  self.root_node:close_all_docviews()
+function RootView:close_all_docviews(keep_inactive)
+  self.root_node:close_all_docviews(keep_inactive)
 end
 
 

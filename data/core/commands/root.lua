@@ -21,9 +21,15 @@ local t = {
   end,
 
   ["root:close-all"] = function()
-    core.confirm_close_all(core.root_view.close_all_docviews, core.root_view)
+    core.confirm_close_docs(core.docs, core.root_view.close_all_docviews, core.root_view)
   end,
 
+  ["root:close-all-others"] = function()
+    local active_doc, docs = core.active_view and core.active_view.doc, {}
+    for k, v in pairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
+    core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
+  end,
+  
   ["root:switch-to-previous-tab"] = function()
     local node = core.root_view:get_active_node()
     local idx = node:get_view_idx(core.active_view)
