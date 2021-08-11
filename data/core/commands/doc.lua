@@ -53,18 +53,6 @@ local function save(filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
-
-local function split_cursor(direction)
-  local new_cursors = {}
-  for _, line1, col1 in doc():get_selections() do
-    if line1 > 1 and line1 < #doc().lines then
-      table.insert(new_cursors, { line1 + direction, col1 })
-    end
-  end
-  for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
-  core.blink_reset()
-end
-
 local function cut_or_copy(delete)
   local full_text = ""
   for idx, line1, col1, line2, col2 in doc():get_selections() do
@@ -79,10 +67,19 @@ local function cut_or_copy(delete)
       doc().cursor_clipboard[idx] = ""
     end
   end
-  if #doc().cursor_clipboard > 1 then 
-    doc().cursor_clipboard["hash"] = system.hash(full_text)
-  end
+  doc().cursor_clipboard["full"] = full_text
   system.set_clipboard(full_text)
+end
+
+local function split_cursor(direction)
+  local new_cursors = {}
+  for _, line1, col1 in doc():get_selections() do
+    if line1 > 1 and line1 < #doc().lines then
+      table.insert(new_cursors, { line1 + direction, col1 })
+    end
+  end
+  for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
+  core.blink_reset()
 end
 
 local commands = {
@@ -105,7 +102,7 @@ local commands = {
   ["doc:paste"] = function()
     local clipboard = system.get_clipboard()
     -- If the clipboard has changed since our last look, use that instead
-    if doc().cursor_clipboard["hash"] ~= system.hash(clipboard) then
+    if doc().cursor_clipboard["full"] ~= clipboard then
       doc().cursor_clipboard = {}
     end
     for idx, line1, col1, line2, col2 in doc():get_selections() do
