@@ -83,10 +83,7 @@ static void font_refs_clear(lua_State *L) {
   font_refs_len = 0;
 }
 
-/* 32bit fnv-1a hash */
-#define HASH_INITIAL 2166136261
-
-static void hash(unsigned *h, const void *data, int size) {
+void rencache_hash(unsigned *h, const void *data, int size) {
   const unsigned char *p = data;
   while (size--) {
     *h = (*h ^ *p++) * 16777619;
@@ -227,7 +224,7 @@ static void update_overlapping_cells(RenRect r, unsigned h) {
   for (int y = y1; y <= y2; y++) {
     for (int x = x1; x <= x2; x++) {
       int idx = cell_idx(x, y);
-      hash(&cells[idx], &h, sizeof(h));
+      rencache_hash(&cells[idx], &h, sizeof(h));
     }
   }
 }
@@ -255,8 +252,8 @@ void rencache_end_frame(lua_State *L) {
     if (cmd->type == SET_CLIP) { cr = cmd->rect; }
     RenRect r = intersect_rects(cmd->rect, cr);
     if (r.width == 0 || r.height == 0) { continue; }
-    unsigned h = HASH_INITIAL;
-    hash(&h, cmd, cmd->size);
+    unsigned h = RENCACHE_HASH_INITIAL;
+    rencache_hash(&h, cmd, cmd->size);
     update_overlapping_cells(r, h);
   }
 
@@ -271,7 +268,7 @@ void rencache_end_frame(lua_State *L) {
       if (cells[idx] != cells_prev[idx]) {
         push_rect((RenRect) { x, y, 1, 1 }, &rect_count);
       }
-      cells_prev[idx] = HASH_INITIAL;
+      cells_prev[idx] = RENCACHE_HASH_INITIAL;
     }
   }
 

@@ -5,8 +5,12 @@
 #include <lua.h>
 #include "renderer.h"
 
+/* 32bit fnv-1a hash */
+#define RENCACHE_HASH_INITIAL 2166136261
+
 void rencache_show_debug(bool enable);
 void rencache_set_clip_rect(RenRect rect);
+void rencache_hash(unsigned *h, const void *data, int size);
 void rencache_draw_rect(RenRect rect, RenColor color);
 int  rencache_draw_text(lua_State *L, FontDesc *font_desc, int font_index, const char *text, int x, int y, RenColor color,
   bool draw_subpixel, CPReplaceTable *replacements, RenColor replace_color);

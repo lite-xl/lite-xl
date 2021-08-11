@@ -173,6 +173,7 @@ function Doc:merge_cursors(idx)
       if self.selections[i] == self.selections[j] and
         self.selections[i+1] == self.selections[j+1] then
           common.splice(self.selections, i, 4)
+          common.splice(self.cursor_clipboard, i, 1)
           break
       end
     end

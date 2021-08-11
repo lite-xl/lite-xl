@@ -637,6 +637,14 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
+static int f_hash(lua_State* L) {
+  unsigned i = RENCACHE_HASH_INITIAL;
+  size_t strLen;
+  const char *str = luaL_checklstring(L, 1, &strLen);
+  rencache_hash(&i, str, strLen) ;
+  lua_pushnumber(L, i);
+  return 1;
+}
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -664,6 +672,7 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "hash",                f_hash                },
   { NULL, NULL }
 };
 
