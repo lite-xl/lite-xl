@@ -80,7 +80,7 @@ local function cut_or_copy(delete)
     end
   end
   if #doc().cursor_clipboard > 1 then 
-    doc().cursor_clipboard["hash"] = system.hash(system.get_clipboard())
+    doc().cursor_clipboard["hash"] = system.hash(full_text)
   end
   system.set_clipboard(full_text)
 end
