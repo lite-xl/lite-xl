@@ -178,6 +178,7 @@ function Doc:merge_cursors(idx)
       end
     end
   end
+  if #self.selections <= 4 then self.cursor_clipboard = {} end
 end
 
 local function selection_iterator(invariant, idx)
