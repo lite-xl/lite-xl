@@ -67,6 +67,7 @@ local function cut_or_copy(delete)
       doc().cursor_clipboard[idx] = ""
     end
   end
+  doc().cursor_clipboard["full"] = full_text
   system.set_clipboard(full_text)
 end
 
@@ -99,8 +100,13 @@ local commands = {
   end,
 
   ["doc:paste"] = function()
+    local clipboard = system.get_clipboard()
+    -- If the clipboard has changed since our last look, use that instead
+    if doc().cursor_clipboard["full"] ~= clipboard then
+      doc().cursor_clipboard = {}
+    end
     for idx, line1, col1, line2, col2 in doc():get_selections() do
-      local value = doc().cursor_clipboard[idx] or system.get_clipboard()
+      local value = doc().cursor_clipboard[idx] or clipboard
       doc():text_input(value:gsub("\r", ""), idx)
     end
   end,
