@@ -564,10 +564,10 @@ function core.init()
 end
 
 
-function core.confirm_close_all(close_fn, ...)
+function core.confirm_close_docs(docs, close_fn, ...)
   local dirty_count = 0
   local dirty_name
-  for _, doc in ipairs(core.docs) do
+  for _, doc in ipairs(docs or core.docs) do
     if doc:is_dirty() then
       dirty_count = dirty_count + 1
       dirty_name = doc:get_name()
@@ -627,7 +627,7 @@ local function quit_with_function(quit_fn, force)
     save_session()
     quit_fn()
   else
-    core.confirm_close_all(quit_with_function, quit_fn, true)
+    core.confirm_close_docs(core.docs, quit_with_function, quit_fn, true)
   end
 end
 
