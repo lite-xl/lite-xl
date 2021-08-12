@@ -16,11 +16,6 @@ conf_data.set('PROJECT_BUILD_DIR', meson.current_build_dir())
 conf_data.set('PROJECT_SOURCE_DIR', meson.current_source_dir())
 conf_data.set('PROJECT_VERSION', meson.project_version())
 
-configure_file(
-    input : 'scripts/start.lua.in',
-    output : 'start.lua',
-    configuration : conf_data
-)
 if host_machine.system() == 'windows'
     configure_file(
         input : 'scripts/innosetup/innosetup.iss.in',
@@ -117,13 +112,19 @@ endif
 
 install_data('licenses/licenses.md', install_dir : lite_docdir)
 
-foreach data_module : ['core', 'fonts', 'plugins', 'colors']
+install_subdir('data' / 'core' , install_dir : lite_datadir, exclude_files : 'start.lua')
+foreach data_module : ['fonts', 'plugins', 'colors']
     install_subdir('data' / data_module , install_dir : lite_datadir)
 endforeach
 
-install_data(
-    meson.current_build_dir() / 'start.lua', install_dir : lite_datadir / 'core'
+configure_file(
+    input : 'data/core/start.lua',
+    output : 'start.lua',
+    configuration : conf_data,
+    install : true,
+    install_dir : lite_datadir / 'core',
 )
+
 #===============================================================================
 # Targets
 #===============================================================================
