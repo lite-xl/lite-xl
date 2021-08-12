@@ -284,7 +284,7 @@ function common.normalize_path(filename)
   local parts = split_on_slash(filename, PATHSEP)
   local accu = {}
   for _, part in ipairs(parts) do
-    if part == '..' and #accu > 0 then
+    if part == '..' and #accu > 0 and accu[#accu] ~= ".." then
       table.remove(accu)
     elseif part ~= '.' then
       table.insert(accu, part)
