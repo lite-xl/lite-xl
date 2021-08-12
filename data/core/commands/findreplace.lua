@@ -29,8 +29,8 @@ local function get_find_tooltip()
 end
 
 local function update_preview(sel, search_fn, text)
-  local ok, line1, col1, line2, col2 =
-    pcall(search_fn, last_view.doc, sel[1], sel[2], text, case_sensitive, find_regex)
+  local ok, line1, col1, line2, col2 = pcall(search_fn, last_view.doc,
+    sel[1], sel[2], text, case_sensitive, find_regex)
   if ok and line1 and text ~= "" then
     last_view.doc:set_selection(line2, col2, line1, col1)
     last_view:scroll_to_line(line2, true)
@@ -116,7 +116,7 @@ command.add("core.docview", {
       if not find_regex then
         return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
       end
-      local result, matches = regex.gsub(regex.compile(old), text, new)
+      local result, matches = regex.gsub(regex.compile(old, "m"), text, new)
       return result, #matches
     end)
   end,
@@ -180,12 +180,12 @@ command.add("core.commandview", {
   ["find-replace:toggle-sensitivity"] = function()
     case_sensitive = not case_sensitive
     core.status_view:show_tooltip(get_find_tooltip())
-    update_preview(last_sel, last_fn, last_text)
+    if last_sel then update_preview(last_sel, last_fn, last_text) end
   end,
 
   ["find-replace:toggle-regex"] = function()
     find_regex = not find_regex
     core.status_view:show_tooltip(get_find_tooltip())
-    update_preview(last_sel, last_fn, last_text)
+    if last_sel then update_preview(last_sel, last_fn, last_text) end
   end
 })
