@@ -71,6 +71,8 @@ lite_build_package_windows () {
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  # copy the meson generated start.lua file
+  cp "$build/start.lua" "$datadir/core"
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
@@ -97,6 +99,8 @@ lite_build_package_macos () {
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  # copy the meson generated start.lua file
+  cp "$build/start.lua" "$datadir/core"
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
@@ -135,6 +139,8 @@ lite_build_package_linux () {
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
+  # copy the meson generated start.lua file
+  cp "$build/start.lua" "$datadir/core"
   for module_name in plugins colors; do
     cp -r "$build/third/data/$module_name" "$datadir"
   done
