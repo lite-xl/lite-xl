@@ -1,0 +1,48 @@
+version: build-{build}
+configuration: Release
+#skip_non_tags: true
+
+environment:
+  matrix:
+  - job_name: macOS
+    appveyor_build_worker_image: macos
+    INSTALL_NAME: lite-xl-$(APPVEYOR_REPO_TAG_NAME)-macos
+
+for:
+- matrix:
+    only:
+    - job_name: macOS
+  init: |
+    system_profiler SPSoftwareDataType
+    bash --version
+    gcc -v
+    xcodebuild -version
+  install: |
+    brew install bash meson
+    cd ~; npm install appdmg; cd -
+    ~/node_modules/appdmg/bin/appdmg.js --version
+  build_script: |
+    pushd ${APPVEYOR_BUILD_FOLDER}
+    bash --version
+    bash scripts/build.sh --prefix "${APPVEYOR_BUILD_FOLDER}/Lite XL.app" --static --universal
+    popd
+  after_build: |
+    pushd ${APPVEYOR_BUILD_FOLDER}
+    meson install --skip-subprojects -C build
+    bash scripts/appdmg.sh ${INSTALL_NAME}
+    popd
+  test: off
+  artifacts:
+  - name: macOS DMG Image
+    path: "lite-xl-*.dmg"
+
+deploy:
+- provider: GitHub
+  auth_token:
+    secure: tLA00Q1sedyGxYAY9m8ZO//dMJ/HLQ5v8pFWSfUqKMcssQSa3zjQaoAWisKQsvYf
+  artifact: macOS DMG Image
+  draft: false
+  prerelease: false
+  force_update: true
+  on:
+    APPVEYOR_REPO_TAG: true

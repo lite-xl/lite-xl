@@ -14,9 +14,10 @@ show_help(){
   echo
   echo "-b --builddir DIRNAME     Sets the name of the build directory (not path)."
   echo "                          Default: 'build'."
-  echo "-p --prefix               Install directory prefix. Mandatory."
+  echo "-p --prefix PREFIX        Install directory prefix. Mandatory."
   echo "-s --static               Specify if building using static libraries"
   echo "                          by using lhelper tool."
+  echo "-u --universal            Universal binary (macOS only)."
   echo
 }
 
@@ -48,17 +49,28 @@ install_lhelper() {
 }
 
 build() {
-  CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
-    --buildtype=release \
-    --prefix "$PREFIX" \
-    --wrap-mode=forcefallback \
-    "${BUILD_DIR}"
+  if [[ "$OSTYPE" == "darwin"* && $UNIVERSAL == true ]]; then
+    meson setup \
+      --buildtype=release \
+      --prefix "$PREFIX" \
+      --wrap-mode=forcefallback \
+      --cross-file=scripts/meson-macos-arm64.ini \
+      --cross-file=scripts/meson-macos-x86_64.ini \
+      "${BUILD_DIR}"
+  else
+    CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
+      --buildtype=release \
+      --prefix "$PREFIX" \
+      --wrap-mode=forcefallback \
+      "${BUILD_DIR}"
+  fi
 
-  meson compile -C build
+  meson compile -C "${BUILD_DIR}"
 }
 
 BUILD_DIR=build
 STATIC_BUILD=false
+UNIVERSAL=false
 
 for i in "$@"; do
   case $i in
@@ -78,6 +90,10 @@ for i in "$@"; do
       ;;
     -s|--static)
       STATIC_BUILD=true
+      shift
+      ;;
+    -u|--universal)
+      UNIVERSAL=true
       shift
       ;;
     *)
