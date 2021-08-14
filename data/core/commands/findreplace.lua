@@ -87,6 +87,8 @@ local function replace(kind, default, fn)
     end, function() end, function()
       core.status_view:remove_tooltip()
     end)
+  end, function() end, function()
+    core.status_view:remove_tooltip()
   end)
 end
 
