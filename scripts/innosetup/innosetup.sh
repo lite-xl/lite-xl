@@ -17,6 +17,23 @@ show_help(){
   echo
 }
 
+innosetup() {
+  # MSYS2 ldd command seems to be only 64bit, so use ntldd
+  # see https://github.com/msys2/MINGW-packages/issues/4164
+  if [[ $MSYSTEM == "MINGW64" ]]; then
+    ARCH=x64
+  else
+    ARCH=Win32
+  fi
+
+  local mingwLibsDir=$BUILD_DIR/mingwLibs$ARCH
+  mkdir -p "$mingwLibsDir"
+  ntldd -R "$BUILD_DIR/src/lite-xl.exe" | grep mingw | awk '{print $3}' | sed 's#\\#/#g' | xargs -I '{}' cp -v '{}' $mingwLibsDir
+
+  /c/Program\ Files\ \(x86\)/Inno\ Setup\ 6/ISCC.exe -dARCH=$ARCH $BUILD_DIR/innosetup.iss
+  mv $BUILD_DIR/LiteXL*.exe $(pwd)
+}
+
 BUILD_DIR=build
 
 for i in "$@"; do
@@ -41,15 +58,4 @@ if [[ -n $1 ]]; then
   exit 1
 fi
 
-# TODO: Required MinGW dlls are built only (?) when using lhelper on 64 bit
-if [[ $MSYSTEM == "MINGW64" ]]; then
-  ARCH=x64;
-  mingwLibsDir=$BUILD_DIR/mingwLibs$ARCH
-  mkdir -p "$mingwLibsDir"
-  ldd "$BUILD_DIR/src/lite-xl.exe" | grep mingw | awk '{print $3}' | xargs -I '{}' cp -v '{}' $mingwLibsDir
-else
-  ARCH=Win32
-fi
-
-/c/Program\ Files\ \(x86\)/Inno\ Setup\ 6/ISCC.exe -dARCH=$ARCH $BUILD_DIR/innosetup.iss
-mv $BUILD_DIR/LiteXL*.exe $(pwd)
+innosetup

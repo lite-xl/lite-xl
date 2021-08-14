@@ -53,4 +53,10 @@ fi
 
 DESTDIR="$(pwd)/${DEST_DIR}" meson install --skip-subprojects -C ${BUILD_DIR}
 
+cp $MINGW_PREFIX/bin/libfreetype-* \
+   $MINGW_PREFIX/bin/libpcre2-8-* \
+   $MINGW_PREFIX/bin/libwinpthread-* \
+   $MINGW_PREFIX/bin/SDL2* \
+   ${DEST_DIR}
+
 zip -9rv ${DEST_DIR}.zip ${DEST_DIR}/*
