@@ -74,7 +74,7 @@ end
 local function split_cursor(direction)
   local new_cursors = {}
   for _, line1, col1 in doc():get_selections() do
-    if line1 > 1 and line1 < #doc().lines then
+    if line1 + direction >= 1 and line1 + direction <= #doc().lines then
       table.insert(new_cursors, { line1 + direction, col1 })
     end
   end
