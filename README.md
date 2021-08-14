@@ -1,5 +1,6 @@
 # Lite XL
 
+[![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
 [![Discord Badge Image]](https://discord.gg/RWzqC3nx7K)
 
 ![screenshot-dark]
@@ -86,6 +87,7 @@ the terms of the MIT license. See [LICENSE] for details.
 See the [licenses] file for details on licenses used by the required dependencies.
 
 
+[CI]:                         https://github.com/lite-xl/lite-xl/actions/workflows/build.yml/badge.svg
 [Discord Badge Image]:        https://img.shields.io/discord/847122429742809208?label=discord&logo=discord
 [screenshot-dark]:            https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png
 [lite]:                       https://github.com/rxi/lite
