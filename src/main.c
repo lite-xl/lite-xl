@@ -9,10 +9,6 @@
   #include <windows.h>
 #elif __linux__
   #include <unistd.h>
-  #include <SDL_syswm.h>
-  #include <X11/Xlib.h>
-  #include <X11/Xatom.h>
-  #include <X11/Xresource.h>
   #include <signal.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
@@ -22,35 +18,9 @@
 SDL_Window *window;
 
 static double get_scale(void) {
-#ifdef _WIN32
-  float dpi;
+  float dpi = 96.0;
   SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
   return dpi / 96.0;
-#elif __linux__
-  SDL_SysWMinfo info;
-  XrmDatabase db;
-  XrmValue value;
-  char *type = NULL;
-
-  SDL_VERSION(&info.version);
-  if (!SDL_GetWindowWMInfo(window, &info)
-      || info.subsystem != SDL_SYSWM_X11)
-    return 1.0;
-
-  char *resource = XResourceManagerString(info.info.x11.display);
-  if (resource == NULL)
-    return 1.0;
-
-  XrmInitialize();
-  db = XrmGetStringDatabase(resource);
-  if (XrmGetResource(db, "Xft.dpi", "String", &type, &value) == False
-      || value.addr == NULL)
-    return 1.0;
-
-  return atof(value.addr) / 96.0;
-#else
-  return 1.0;
-#endif
 }
 
 
