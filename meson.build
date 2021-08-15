@@ -53,7 +53,6 @@ endif
 #===============================================================================
 libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
-libx11 = dependency('x11', required : false)
 lua_dep = dependency('lua5.2', required : false)
 pcre2_dep = dependency('libpcre2-8')
 sdl_dep = dependency('sdl2', method: 'config-tool')
@@ -73,7 +72,7 @@ reproc_subproject = subproject('reproc',
 )
 reproc_dep = reproc_subproject.get_variable('reproc_dep')
 
-lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl, libx11]
+lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl]
 
 if host_machine.system() == 'windows'
     # Note that we need to explicitly add the windows socket DLL because
