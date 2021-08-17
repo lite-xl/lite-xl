@@ -130,12 +130,15 @@ lite_build_package_linux () {
   if [ "$portable" == "-portable" ]; then
     local bindir="$pdir"
     local datadir="$pdir/data"
+    local docdir="$pdir/doc"
   else
     local bindir="$pdir/bin"
     local datadir="$pdir/share/lite-xl"
+    local docdir="$pdir/share/doc/lite-xl"
   fi
   mkdir -p "$bindir"
   mkdir -p "$datadir"
+  mkdir -p "$docdir"
   for module_name in core plugins colors fonts; do
     copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
   done
@@ -145,10 +148,12 @@ lite_build_package_linux () {
     cp -r "$build/third/data/$module_name" "$datadir"
   done
   cp "$build/src/lite-xl" "$bindir"
+  cp "licenses/licenses.md" "$docdir"
   strip "$bindir/lite-xl"
   if [ -z "$portable" ]; then
-    mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps"
-    cp "resources/linux/lite-xl.desktop" "$pdir/share/applications"
+    mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps" "$pdir/share/metainfo"
+    cp "resources/linux/org.lite-xl.lite-xl.desktop" "$pdir/share/applications"
+    cp "resources/linux/org.lite-xl.lite-xl.appdata.xml" "$pdir/share/metainfo"
     cp "resources/icons/lite-xl.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
   fi
   pushd ".package-build"
