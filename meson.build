@@ -54,6 +54,7 @@ endif
 libm = cc.find_library('m', required : false)
 libdl = cc.find_library('dl', required : false)
 lua_dep = dependency('lua5.2', required : false)
+reproc_dep = dependency('reproc', required : false)
 pcre2_dep = dependency('libpcre2-8')
 sdl_dep = dependency('sdl2', method: 'config-tool')
 
@@ -64,13 +65,15 @@ if not lua_dep.found()
     lua_dep = lua_subproject.get_variable('lua_dep')
 endif
 
-reproc_subproject = subproject('reproc',
-    default_options: [
-        'default_library=static', 'multithreaded=false',
-        'reproc-cpp=false', 'examples=false'
-    ]
-)
-reproc_dep = reproc_subproject.get_variable('reproc_dep')
+if not reproc_dep.found()
+    reproc_subproject = subproject('reproc',
+        default_options: [
+            'default_library=static', 'multithreaded=false',
+            'reproc-cpp=false', 'examples=false'
+        ]
+    )
+    reproc_dep = reproc_subproject.get_variable('reproc_dep')
+endif
 
 lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl]
 
