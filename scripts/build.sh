@@ -14,7 +14,9 @@ show_help(){
   echo
   echo "-b --builddir DIRNAME     Sets the name of the build directory (not path)."
   echo "                          Default: 'build'."
-  echo "-p --prefix               Install directory prefix. Mandatory."
+  echo "-f --forcefallback        Forces to use Meson downloaded subprojects."
+  echo "-p --prefix PREFIX        Install directory prefix."
+  echo "                          Default: '/usr/local'."
   echo "-s --static               Specify if building using static libraries"
   echo "                          by using lhelper tool."
   echo
@@ -51,13 +53,15 @@ build() {
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
     --buildtype=release \
     --prefix "$PREFIX" \
-    --wrap-mode=forcefallback \
+    $FORCE_FALLBACK \
     "${BUILD_DIR}"
 
   meson compile -C build
 }
 
 BUILD_DIR=build
+FORCE_FALLBACK=
+PREFIX=/usr/local
 STATIC_BUILD=false
 
 for i in "$@"; do
@@ -69,6 +73,10 @@ for i in "$@"; do
     -b|--builddir)
       BUILD_DIR="$2"
       shift
+      shift
+      ;;
+    -f|--forcefallback)
+      FORCE_FALLBACK="--wrap-mode=forcefallback"
       shift
       ;;
     -p|--prefix)
@@ -88,11 +96,6 @@ done
 
 if [[ -n $1 ]]; then
   show_help
-  exit 1
-fi
-
-if [[ -z $PREFIX ]]; then
-  echo "ERROR: prefix argument is missing."
   exit 1
 fi
 

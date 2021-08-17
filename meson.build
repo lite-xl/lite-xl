@@ -57,20 +57,26 @@ lua_dep = dependency('lua5.2', required : false)
 pcre2_dep = dependency('libpcre2-8')
 sdl_dep = dependency('sdl2', method: 'config-tool')
 
-if not lua_dep.found()
+if get_option('wrap_mode') == 'forcefallback'
     lua_subproject = subproject('lua',
         default_options: ['shared=false', 'use_readline=false', 'app=false']
     )
     lua_dep = lua_subproject.get_variable('lua_dep')
+else
+    lua_dep = dependency('lua5.2', required : false, fallback: 'lua')
 endif
 
-reproc_subproject = subproject('reproc',
-    default_options: [
-        'default_library=static', 'multithreaded=false',
-        'reproc-cpp=false', 'examples=false'
-    ]
-)
-reproc_dep = reproc_subproject.get_variable('reproc_dep')
+if get_option('wrap_mode') == 'forcefallback'
+    reproc_subproject = subproject('reproc',
+        default_options: [
+            'default_library=static', 'multithreaded=false',
+            'reproc-cpp=false', 'examples=false'
+        ]
+    )
+    reproc_dep = reproc_subproject.get_variable('reproc_dep')
+else
+    reproc_dep = dependency('reproc', required : false, fallback: 'reproc')
+endif
 
 lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl]
 

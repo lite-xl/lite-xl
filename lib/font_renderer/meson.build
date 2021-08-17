@@ -1,9 +1,10 @@
 freetype_dep = dependency('freetype2')
 
-libagg_dep = dependency('libagg', required: false)
-if not libagg_dep.found()
-  libagg_subproject = subproject('libagg')
-  libagg_dep = libagg_subproject.get_variable('libagg_dep')
+if get_option('wrap_mode') == 'forcefallback'
+    libagg_subproject = subproject('libagg')
+    libagg_dep = libagg_subproject.get_variable('libagg_dep')
+else
+    libagg_dep = dependency('libagg', required: false, fallback: 'libagg')
 endif
 
 font_renderer_sources = [

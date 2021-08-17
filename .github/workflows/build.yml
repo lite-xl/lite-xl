@@ -73,10 +73,10 @@ jobs:
       run: sudo apt-get install -qq libsdl2-dev libfreetype6
     - name: Build
       if: ${{ matrix.config.cc == 'gcc' && !startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix /
+      run: bash scripts/build.sh --forcefallback --prefix /
     - name: Release Build
       if: ${{ matrix.config.cc == 'gcc' && startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix / --static
+      run: bash scripts/build.sh --forcefallback --prefix / --static
     - name: Package
       if: ${{ matrix.config.cc == 'gcc' }}
       run: |
@@ -129,12 +129,12 @@ jobs:
       run: brew install bash md5sha1sum
     - name: Build
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix "${GITHUB_WORKSPACE}/Lite XL.app"
+      run: bash scripts/build.sh --forcefallback --prefix "${GITHUB_WORKSPACE}/Lite XL.app"
     - name: Release Build
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
         bash --version
-        bash scripts/build.sh --prefix "${GITHUB_WORKSPACE}/Lite XL.app" --static
+        bash scripts/build.sh --forcefallback --prefix "${GITHUB_WORKSPACE}/Lite XL.app" --static
     - name: Error Logs
       if: failure()
       run: |
@@ -200,12 +200,12 @@ jobs:
           ${MINGW_PACKAGE_PREFIX}-pkg-config
     - name: Build
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix /
+      run: bash scripts/build.sh --forcefallback --prefix /
     - name: Release Build
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
         bash --version
-        bash scripts/build.sh --prefix / --static
+        bash scripts/build.sh --forcefallback --prefix / --static
     - name: Error Logs
       if: failure()
       run: |
