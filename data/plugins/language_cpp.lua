@@ -1,4 +1,4 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 pcall(require, "plugins.language_c")
 
 local syntax = require "core.syntax"

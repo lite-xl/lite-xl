@@ -661,8 +661,8 @@ local function check_plugin_version(filename)
     -- Future versions will look only at the mod-version tag.
     local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)$')
     if version then
-      -- we consider the version tag 1.16 equivalent to mod-version:1
-      version_match = (version == '1.16' and MOD_VERSION == "1")
+      -- we consider the version tag 2.0 equivalent to mod-version:2
+      version_match = (version == '2.0' and MOD_VERSION == "2")
       break
     end
   end
