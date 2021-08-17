@@ -1,5 +1,41 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.0
+
+The 2.0 version of lite contains *breaking changes* to lite, in terms of how plugin settings are structured;
+any custom plugins may need to be adjusted accordingly (see note below about plugin namespacing).
+
+Contains the following new features:
+
+Full PCRE (regex) support for find and replace, as well as in language syntax definitions. Can be accessed 
+programatically via the lua `regex` module.
+
+A full, finalized subprocess API, using libreproc. Subprocess can be started and interacted with using
+`Process.new`.
+
+Support for multi-cursor editing. Cursors can be created by either ctrl+clicking on the screen, or by using
+the keyboard shortcuts ctrl+shift+up/down to create an additional cursor on the previous/next line.
+
+All build systems other than meson removed.
+
+A more organized directory structure has been implemented; in particular a docs folder which contains C api
+documentation, and a resource folder which houses all build resources.
+
+Plugin config namespacing has been implemented. This means that instead of using `config.myplugin.a`, 
+to read settings, and `config.myplugin = false` to disable plugins, this has been changed to 
+`config.plugins.myplugin.a`, and `config.plugins.myplugin = false` repsectively. This may require changes to
+your user plugin, or to any custom plugins you have.
+
+A context menu on right click has been added.
+
+Changes to how we deal with indentation have been implemented; in particular, hitting home no longer brings you
+to the start of a line, it'll bring you to the start of indentation, which is more in line with other editors.
+
+Lineguide, and scale plugins moved into the core, and removed from `lite-plugins`. This may also require you to 
+adjust your personal plugin folder to remove these if they're present.
+
+In addition, there have been many other small fixes and improvements, too numerous to list here.
+
 ### 1.16.11
 
 When opening directories with too many files lite-xl now keep diplaying files and directories in the treeview.
