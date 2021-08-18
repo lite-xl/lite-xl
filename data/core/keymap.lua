@@ -5,7 +5,7 @@ keymap.modkeys = {}
 keymap.map = {}
 keymap.reverse_map = {}
 
-local macos = rawget(_G, "MACOS_RESOURCES")
+local macos = rawget(_G, "MACOS")
 
 -- Thanks to mathewmariani, taken from his lite-macos github repository.
 local modkeys_os = require("core.modkeys-" .. (macos and "macos" or "generic"))
