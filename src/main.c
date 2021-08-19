@@ -18,9 +18,13 @@
 SDL_Window *window;
 
 static double get_scale(void) {
+#ifdef __APPLE__
+    return 1.0;
+#else
   float dpi = 96.0;
   SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
   return dpi / 96.0;
+#endif
 }
 
 
