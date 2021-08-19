@@ -78,8 +78,10 @@ static void init_window_icon(void) {
 #endif
 
 #ifdef __APPLE__
-void set_macos_bundle_resources(lua_State *L);
 void enable_momentum_scroll();
+#ifdef MACOS_USE_BUNDLE
+void set_macos_bundle_resources(lua_State *L);
+#endif
 #endif
 
 int main(int argc, char **argv) {
@@ -138,8 +140,12 @@ init_lua:
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
-  set_macos_bundle_resources(L);
+  lua_pushboolean(L, true);
+  lua_setglobal(L, "MACOS");
   enable_momentum_scroll();
+  #ifdef MACOS_USE_BUNDLE
+    set_macos_bundle_resources(L);
+  #endif
 #endif
 
   const char *init_lite_code = \
