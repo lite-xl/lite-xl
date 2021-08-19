@@ -32,7 +32,11 @@ lite_build () {
   local build="$1"
   build_dir_is_usable "$build" || exit 1
   rm -fr "$build"
-  meson setup --buildtype=release "$build" || exit 1
+  setup_options=()
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    setup_options+=(-Dbundle=true)
+  fi
+  meson setup "${setup_options[@]}" "$build" || exit 1
   ninja -C "$build" || exit 1
 }
 

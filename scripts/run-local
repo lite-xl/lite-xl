@@ -47,10 +47,7 @@ if [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "mingw"* ]]; then
 fi
 
 rundir=".run"
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  bindir="$rundir"
-  datadir="$rundir"
-elif [ "$option_portable" == on ]; then
+if [ "$option_portable" == on ]; then
   bindir="$rundir"
   datadir="$rundir/data"
 else
