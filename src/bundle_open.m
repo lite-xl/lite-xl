@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #include "lua.h"
 
+#ifdef MACOS_USE_BUNDLE
 void set_macos_bundle_resources(lua_State *L)
 { @autoreleasepool
 {
@@ -25,7 +26,7 @@ void set_macos_bundle_resources(lua_State *L)
     lua_pushstring(L, resource_path);
     lua_setglobal(L, "MACOS_RESOURCES");
 }}
-
+#endif
 
 /* Thanks to mathewmariani, taken from his lite-macos github repository. */
 void enable_momentum_scroll() {
