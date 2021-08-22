@@ -874,6 +874,23 @@ function core.error(...)
 end
 
 
+function core.get_log(i)
+  if i == nil then
+    local r = {}
+    for _, item in ipairs(core.log_items) do
+      table.insert(r, core.get_log(item))
+    end
+    return table.concat(r, "\n")
+  end
+  local item = type(i) == "number" and core.log_items[i] or i
+  local text = string.format("[%s] %s at %s", os.date(nil, item.time), item.text, item.at)
+  if item.info then
+    text = string.format("%s\n%s\n", text, item.info)
+  end
+  return text
+end
+
+
 function core.try(fn, ...)
   local err
   local ok, res = xpcall(fn, function(msg)
