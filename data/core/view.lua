@@ -3,6 +3,7 @@ local config = require "core.config"
 local style = require "core.style"
 local common = require "core.common"
 local Object = require "core.object"
+local keymap = require "core.keymap"
 
 
 local View = Object:extend()
@@ -46,9 +47,9 @@ function View:get_name()
   return "---"
 end
 
-
+-- Returns `y, x` for compatibility
 function View:get_scrollable_size()
-  return math.huge
+  return math.huge, 0 -- TODO: invert y and x
 end
 
 
@@ -99,9 +100,13 @@ function View:on_text_input(text)
 end
 
 
-function View:on_mouse_wheel(y)
+function View:on_mouse_wheel(quant)
   if self.scrollable then
-    self.scroll.to.y = self.scroll.to.y + y * -config.mouse_wheel_scroll
+    if keymap.modkeys["shift"] then
+      self.scroll.to.x = self.scroll.to.x + quant * -config.mouse_wheel_scroll
+    else
+      self.scroll.to.y = self.scroll.to.y + quant * -config.mouse_wheel_scroll
+    end
   end
 end
 
@@ -121,8 +126,12 @@ end
 
 
 function View:clamp_scroll_position()
-  local max = self:get_scrollable_size() - self.size.y
-  self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max)
+  local scrollsize_y, scrollsize_x = self:get_scrollable_size()
+  scrollsize_x = scrollsize_x or 0 -- FIXME: not every subclass returns the second value
+  local max_x = scrollsize_x - self.size.x
+  local max_y = scrollsize_y - self.size.y
+  self.scroll.to.x = common.clamp(self.scroll.to.x, 0, max_x)
+  self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max_y)
 end
 
 
