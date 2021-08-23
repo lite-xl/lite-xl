@@ -32,6 +32,7 @@ end
 
 function Doc:reset()
   self.lines = { "\n" }
+  self.long_lines = { line_numbers = { [1] = true }, length = 0 }
   self.selections = { 1, 1, 1, 1 }
   self.cursor_clipboard = {}
   self.undo_stack = { idx = 1 }
@@ -60,19 +61,32 @@ end
 
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
+  local max_length = 0
+  local line_numbers = { [1] = true }
   self:reset()
   self.lines = {}
+  local i = 1
   for line in fp:lines() do
     if line:byte(-1) == 13 then
       line = line:sub(1, -2)
       self.crlf = true
     end
     table.insert(self.lines, line .. "\n")
+    local line_len = string.len(line)
+    if line_len > max_length then
+      max_length = line_len
+      line_numbers = { [i] = true } -- new longest line
+    elseif line_len == max_length then
+      line_numbers[i] = true -- add to longest lines
+    end
+    i = i + 1
   end
   if #self.lines == 0 then
     table.insert(self.lines, "\n")
   end
   fp:close()
+  self.long_lines.line_numbers = line_numbers
+  self.long_lines.length = max_length
   self:reset_syntax()
 end
 
@@ -347,6 +361,20 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   push_undo(undo_stack, time, "selection", unpack(self.selections))
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
+  if #lines > 1 then
+    -- Need to shift all the subsequent long lines
+    local line_numbers = {}
+    for n in pairs(self.long_lines.line_numbers) do
+      if n > line then
+        line_numbers[n + #lines - 1] = true
+      else
+        line_numbers[n] = true
+      end
+    end
+    self.long_lines.line_numbers = line_numbers
+  end
+  self:update_max_line_len_range(line, line2)
+
   -- update highlighter and assure selection is in bounds
   self.highlighter:invalidate(line)
   self:sanitize_selection()
@@ -373,6 +401,23 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
     local column_removal = line2 == cline2 and col2 < ccol1 and (line2 == line1 and col2 - col1 or col2) or 0
     self:set_selections(idx, cline1 - line_removal, ccol1 - column_removal, cline2 - line_removal, ccol2 - column_removal)
   end
+
+  local nlines = line2 - line1 + 1
+  if nlines > 1 then
+    -- Need to shift all the subsequent long lines
+    local line_numbers = {}
+    for n in pairs(self.long_lines.line_numbers) do
+      if n > line2 then
+        line_numbers[n - nlines + 1] = true
+      elseif n > line1 then
+        line_numbers[n] = nil -- invalidate any line that has been deleted
+      else
+        line_numbers[n] = true
+      end
+    end
+    self.long_lines.line_numbers = line_numbers
+  end
+  self:update_max_line_len_range(line1, line2)
 
   -- update highlighter and assure selection is in bounds
   self.highlighter:invalidate(line1)
@@ -527,6 +572,34 @@ function Doc:indent_text(unindent, line1, col1, line2, col2)
   end
   self:insert(line1, col1, text)
   return line1, col1 + #text, line1, col1 + #text
+end
+
+function Doc:update_max_line_len_range(start_line, end_line)
+  local line_numbers = self.long_lines.line_numbers
+  local max_length = self.long_lines.length
+  end_line = math.min(end_line, #self.lines)
+
+  for line=start_line,end_line do
+    local line_len = string.len(self.lines[line])
+    if line_len > max_length then
+      max_length = line_len
+      line_numbers = { [line] = true }
+    elseif line_len == max_length then
+      line_numbers[line] = true
+    else
+      line_numbers[line] = nil
+    end
+  end
+
+  if common.get_table_size(line_numbers) == 0 then
+    -- Recalc needed
+    self.long_lines.length = 0
+    self.long_lines.line_numbers = { [1] = true }
+    return self:update_max_line_len_range(1, #self.lines)
+  end
+
+  self.long_lines.line_numbers = line_numbers
+  self.long_lines.length = max_length
 end
 
 -- For plugins to add custom actions of document change
