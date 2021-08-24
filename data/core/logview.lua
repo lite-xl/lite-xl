@@ -137,7 +137,7 @@ function LogView:draw()
 
   local th = style.font:get_height()
   local lh = th + style.padding.y -- for one line
-  for _, item, x, y, w, h in self:each_item() do
+  for _, item, x, y, w in self:each_item() do
     x = x + style.padding.x
 
     local time = os.date(nil, item.time)
