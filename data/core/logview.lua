@@ -122,29 +122,12 @@ end
 
 local function draw_text_multiline(font, text, x, y, color)
   local th = font:get_height()
-  local resx, resy = x, y
+  local resx = x
   for line in text:gmatch("[^\n]+") do
-    resy = y
     resx = renderer.draw_text(style.font, line, x, y, color)
     y = y + th
   end
-  return resx, resy
-end
-
-
-local function draw_text_elipsis(font, color, text, x, y, w, h, elipsis_style)
-  elipsis_style = elipsis_style or "end"
-  local c = font:get_width("_")
-  local approxc = math.floor(w / c)
-  if #text > approxc then
-    if elipsis_style == "end" then
-      text = string.sub(text, 1, approxc - 3) .. "..."
-    elseif elipsis_style == "middle" then
-      local mid = math.floor(#text / 2)
-      text = string.sub(text, 1, mid - 3) .. "..." .. string.sub(text, mid)
-    end
-  end
-  return common.draw_text(font, color, text, "left", x, y, w, h)
+  return resx, y
 end
 
 
@@ -154,7 +137,6 @@ function LogView:draw()
   local th = style.font:get_height()
   local lh = th + style.padding.y -- for one line
   for _, item, x, y, w, h in self:each_item() do
-    core.push_clip_rect(x, y, w, h)
     x = x + style.padding.x
 
     local time = os.date(nil, item.time)
@@ -167,22 +149,21 @@ function LogView:draw()
 
     if is_expanded(item) then
       y = y + common.round(style.padding.y / 2)
-      draw_text_multiline(style.font, item.text, x, y, style.text)
-      y = y + th
+      _, y = draw_text_multiline(style.font, item.text, x, y, style.text)
 
       local at = "at " .. common.home_encode(item.at)
-      draw_text_elipsis(style.font, style.dim, at, x, y, w, lh, "middle")
-      y = y + th
+      _, y = common.draw_text(style.font, style.dim, at, "left", x, y, w, lh)
 
       if item.info then
-        draw_text_multiline(style.font, item.info, x, y, style.dim)
+        _, y = draw_text_multiline(style.font, item.info, x, y, style.dim)
       end
     else
-      draw_text_elipsis(style.font, style.text, item.text, x, y, w, lh)
-      y = y + th
+      local line, has_newline = string.match(item.text, "([^\n]+)(\n?)")
+      if has_newline ~= "" then
+        line = line .. " ..."
+      end
+      _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
     end
-
-    core.pop_clip_rect()
   end
 end
 
