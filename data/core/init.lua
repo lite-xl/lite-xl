@@ -687,17 +687,19 @@ function core.load_plugins()
 
   for filename, plugin_dir in pairs(files) do
     local basename = filename:match("(.-)%.lua$") or filename
-    local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
-    if not version_match then
-      core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-      local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
-      table.insert(list, filename)
-    end
-    if version_match and config.plugins[basename] ~= false then
-      local ok = core.try(require, "plugins." .. basename)
-      if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
-      if not ok then
-        no_errors = false
+    local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+    if is_lua_file then
+      if not version_match then
+        core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
+        local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
+        table.insert(list, filename)
+      end
+      if version_match and config.plugins[basename] ~= false then
+        local ok = core.try(require, "plugins." .. basename)
+        if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
+        if not ok then
+          no_errors = false
+        end
       end
     end
   end
