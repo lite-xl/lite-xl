@@ -557,7 +557,7 @@ function Doc:update_max_line_len_range(start_line, end_line)
     elseif line_len == max_length then
       line_numbers[line] = true
     else
-      line_numbers[line] = nil
+      if line_numbers[line] then line_numbers[line] = nil end
     end
   end
 
