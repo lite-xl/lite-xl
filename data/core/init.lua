@@ -494,6 +494,7 @@ function core.init()
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
+  core.quit_request = false
   core.replacements = whitespace_replacements()
 
   core.root_view = RootView()
@@ -632,7 +633,7 @@ local function quit_with_function(quit_fn, force)
 end
 
 function core.quit(force)
-  quit_with_function(os.exit, force)
+  quit_with_function(function() core.quit_request = true end, force)
 end
 
 
@@ -1032,7 +1033,7 @@ function core.run()
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads()
-    if core.restart_request then break end
+    if core.restart_request or core.quit_request then break end
     if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
