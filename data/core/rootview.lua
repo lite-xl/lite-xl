@@ -596,15 +596,15 @@ end
 
 function Node:close_all_docviews(keep_active)
   if self.type == "leaf" then
-    local i = 1
-    while i <= #self.views do
-      local view = self.views[i]
+    local remove_views = { }
+    for i,view in pairs(self.views) do
       if view:is(DocView) and not view:is(CommandView) and 
         (not keep_active or view ~= self.active_view) then
-        table.remove(self.views, i)
-      else
-        i = i + 1
+        table.insert(remove_views, view)
       end
+    end
+    for i,view in pairs(remove_views) do
+      self:remove_view(core.root_view.root_node, view)
     end
     if #self.views == 0 and self.is_primary_node then
       self:add_view(EmptyView())
