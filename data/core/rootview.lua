@@ -8,6 +8,7 @@ local View = require "core.view"
 local CommandView = require "core.commandview"
 local NagView = require "core.nagview"
 local DocView = require "core.docview"
+local LogView = require "core.logview"
 
 
 local EmptyView = View:extend()
@@ -595,19 +596,35 @@ end
 
 
 function Node:close_all_docviews(keep_active)
+  local node_active_view = self.active_view
+  local lost_active_view = false
   if self.type == "leaf" then
     local i = 1
     while i <= #self.views do
       local view = self.views[i]
-      if view:is(DocView) and not view:is(CommandView) and 
+      if (view:is(DocView) or view:is(LogView)) and not view:is(CommandView) and
         (not keep_active or view ~= self.active_view) then
         table.remove(self.views, i)
+        if view == node_active_view then
+          lost_active_view = true
+        end
       else
         i = i + 1
       end
     end
-    if #self.views == 0 and self.is_primary_node then
-      self:add_view(EmptyView())
+    self.tab_offset = 1
+    if #self.views == 0 then
+      if self.is_primary_node then
+        self:add_view(EmptyView())
+      elseif node_active_view == core.active_view then
+        -- Apparently we never gets here. In practice the primary node
+        -- is cleared first and get the active view on the empty view it sets.
+        local default_view = core.root_view:get_primary_node().views[1]
+        core.set_active_view(default_view)
+      end
+    elseif #self.views > 0 and lost_active_view then
+      -- We never get there either
+      self:set_active_view(self.views[1])
     end
   else
     self.a:close_all_docviews(keep_active)
