@@ -444,8 +444,8 @@ function Node:scroll_tabs_to_visible()
       self.tab_offset = index
     elseif self.tab_offset + tabs_number - 1 < index then
       self.tab_offset = index - tabs_number + 1
-    elseif tabs_number < config.max_tabs and self.tab_offset > 1 then
-      self.tab_offset = #self.views - config.max_tabs + 1
+    elseif tabs_number < config.max_tabs then
+      self.tab_offset = 1
     end
   end
 end
