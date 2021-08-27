@@ -613,17 +613,15 @@ function Node:close_all_docviews(keep_active)
       end
     end
     self.tab_offset = 1
-    if #self.views == 0 then
-      if self.is_primary_node then
-        self:add_view(EmptyView())
-      elseif node_active_view == core.active_view then
-        -- Apparently we never gets here. In practice the primary node
-        -- is cleared first and get the active view on the empty view it sets.
-        local default_view = core.root_view:get_primary_node().views[1]
-        core.set_active_view(default_view)
-      end
+    if #self.views == 0 and self.is_primary_node then
+      -- if we are not the primary view and we had the active view it doesn't
+      -- matter to reattribute the active view because, within the close_all_docviews
+      -- top call, the primary node will take the active view anyway.
+      -- Set the empty view and takes the active view.
+      self:add_view(EmptyView())
     elseif #self.views > 0 and lost_active_view then
-      -- We never get there either
+      -- In practice we never get there but if a view remain we need
+      -- to reset the Node's active view.
       self:set_active_view(self.views[1])
     end
   else
