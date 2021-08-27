@@ -15,6 +15,8 @@ end
 
 local CommandView = DocView:extend()
 
+CommandView.context = "application"
+
 local max_suggestions = 10
 
 local noop = function() end

@@ -5,6 +5,7 @@ local View = require "core.view"
 
 local LogView = View:extend()
 
+LogView.context = "session"
 
 function LogView:new()
   LogView.super.new(self)

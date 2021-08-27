@@ -5,10 +5,8 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local Object = require "core.object"
 local View = require "core.view"
-local CommandView = require "core.commandview"
 local NagView = require "core.nagview"
 local DocView = require "core.docview"
-local LogView = require "core.logview"
 
 
 local EmptyView = View:extend()
@@ -602,8 +600,7 @@ function Node:close_all_docviews(keep_active)
     local i = 1
     while i <= #self.views do
       local view = self.views[i]
-      if (view:is(DocView) or view:is(LogView)) and not view:is(CommandView) and
-        (not keep_active or view ~= self.active_view) then
+      if view.context == "session" and (not keep_active or view ~= self.active_view) then
         table.remove(self.views, i)
         if view == node_active_view then
           lost_active_view = true

@@ -7,6 +7,10 @@ local Object = require "core.object"
 
 local View = Object:extend()
 
+-- context can be "application" or "session". The instance of objects
+-- with context "session" will be closed when a project session is
+-- terminated. The context "application" is for functional UI elements.
+View.context = "application"
 
 function View:new()
   self.position = { x = 0, y = 0 }

@@ -9,6 +9,7 @@ local View = require "core.view"
 
 local ResultsView = View:extend()
 
+ResultsView.context = "session"
 
 function ResultsView:new(text, fn)
   ResultsView.super.new(self)
