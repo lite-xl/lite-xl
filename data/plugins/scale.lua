@@ -81,25 +81,25 @@ function RootView:on_mouse_wheel(d, ...)
 end
 
 local function res_scale()
-    scale_level = 0
-    set_scale(default_scale)
+  scale_level = 0
+  set_scale(default_scale)
 end
 
 local function inc_scale()
-    scale_level = scale_level + 1
-    set_scale(default_scale + scale_level * scale_steps)
+  scale_level = scale_level + 1
+  set_scale(default_scale + scale_level * scale_steps)
 end
 
 local function dec_scale()
-    local new_scale_level = default_scale + (scale_level - 1) * scale_steps
+  local new_scale_level = default_scale + (scale_level - 1) * scale_steps
     
-    if new_scale_level < MIN_SCALE then
-      set_scale(MIN_SCALE)
-      return
-    end
+  if new_scale_level < MIN_SCALE then
+    set_scale(MIN_SCALE)
+    return
+  end
     
-    scale_level = scale_level - 1
-    set_scale(default_scale + scale_level * scale_steps)
+  scale_level = scale_level - 1
+  set_scale(default_scale + scale_level * scale_steps)
 end
 
 
