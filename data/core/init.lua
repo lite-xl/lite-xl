@@ -746,8 +746,12 @@ end
 
 function core.set_active_view(view)
   assert(view, "Tried to set active view to nil")
-  if core.active_view and core.active_view.force_focus then return end
   if view ~= core.active_view then
+    if core.active_view and core.active_view.force_focus then
+      core.next_active_view = view
+      return
+    end
+    core.next_active_view = nil
     if view.doc and view.doc.filename then
       core.set_visited(view.doc.filename)
     end
