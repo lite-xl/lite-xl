@@ -262,13 +262,23 @@ end
 
 
 function Node:get_tab_overlapping_point(px, py)
-  if #self.views == 1 then return nil end
+  if not self:should_show_tabs() then return nil end
   local tabs_number = self:get_visible_tabs_number()
   local x1, y1, w, h = self:get_tab_rect(self.tab_offset)
   local x2, y2 = self:get_tab_rect(self.tab_offset + tabs_number)
   if px >= x1 and py >= y1 and px < x2 and py < y1 + h then
     return math.floor((px - x1) / w) + self.tab_offset
   end
+end
+
+
+function Node:should_show_tabs()
+  if self.locked then return false end
+  if #self.views > 1 then return true
+  elseif config.always_show_tabs then
+    return not self.views[1]:is(EmptyView)
+  end
+  return false
 end
 
 
@@ -415,7 +425,7 @@ end
 function Node:update_layout()
   if self.type == "leaf" then
     local av = self.active_view
-    if #self.views > 1 then
+    if self:should_show_tabs() then
       local _, _, _, th = self:get_tab_rect(1)
       av.position.x, av.position.y = self.position.x, self.position.y + th
       av.size.x, av.size.y = self.size.x, self.size.y - th
@@ -570,7 +580,7 @@ end
 
 function Node:draw()
   if self.type == "leaf" then
-    if #self.views > 1 then
+    if self:should_show_tabs() then
       self:draw_tabs()
     end
     local pos, size = self.active_view.position, self.active_view.size
