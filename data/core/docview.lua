@@ -9,6 +9,7 @@ local View = require "core.view"
 
 local DocView = View:extend()
 
+DocView.context = "session"
 
 local function move_to_line_offset(dv, line, col, offset)
   local xo = dv.last_x_offset

@@ -494,6 +494,7 @@ function core.init()
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
+  core.quit_request = false
   core.replacements = whitespace_replacements()
 
   core.root_view = RootView()
@@ -632,7 +633,7 @@ local function quit_with_function(quit_fn, force)
 end
 
 function core.quit(force)
-  quit_with_function(os.exit, force)
+  quit_with_function(function() core.quit_request = true end, force)
 end
 
 
@@ -687,17 +688,19 @@ function core.load_plugins()
 
   for filename, plugin_dir in pairs(files) do
     local basename = filename:match("(.-)%.lua$") or filename
-    local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
-    if not version_match then
-      core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-      local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
-      table.insert(list, filename)
-    end
-    if version_match and config.plugins[basename] ~= false then
-      local ok = core.try(require, "plugins." .. basename)
-      if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
-      if not ok then
-        no_errors = false
+    local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+    if is_lua_file then
+      if not version_match then
+        core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
+        local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
+        table.insert(list, filename)
+      end
+      if version_match and config.plugins[basename] ~= false then
+        local ok = core.try(require, "plugins." .. basename)
+        if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
+        if not ok then
+          no_errors = false
+        end
       end
     end
   end
@@ -743,8 +746,12 @@ end
 
 function core.set_active_view(view)
   assert(view, "Tried to set active view to nil")
-  if core.active_view and core.active_view.force_focus then return end
   if view ~= core.active_view then
+    if core.active_view and core.active_view.force_focus then
+      core.next_active_view = view
+      return
+    end
+    core.next_active_view = nil
     if view.doc and view.doc.filename then
       core.set_visited(view.doc.filename)
     end
@@ -1047,7 +1054,7 @@ function core.run()
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads()
-    if core.restart_request then break end
+    if core.restart_request or core.quit_request then break end
     if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run

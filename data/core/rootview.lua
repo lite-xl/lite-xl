@@ -5,7 +5,6 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local Object = require "core.object"
 local View = require "core.view"
-local CommandView = require "core.commandview"
 local NagView = require "core.nagview"
 local DocView = require "core.docview"
 
@@ -605,19 +604,32 @@ end
 
 
 function Node:close_all_docviews(keep_active)
+  local node_active_view = self.active_view
+  local lost_active_view = false
   if self.type == "leaf" then
     local i = 1
     while i <= #self.views do
       local view = self.views[i]
-      if view:is(DocView) and not view:is(CommandView) and 
-        (not keep_active or view ~= self.active_view) then
+      if view.context == "session" and (not keep_active or view ~= self.active_view) then
         table.remove(self.views, i)
+        if view == node_active_view then
+          lost_active_view = true
+        end
       else
         i = i + 1
       end
     end
+    self.tab_offset = 1
     if #self.views == 0 and self.is_primary_node then
+      -- if we are not the primary view and we had the active view it doesn't
+      -- matter to reattribute the active view because, within the close_all_docviews
+      -- top call, the primary node will take the active view anyway.
+      -- Set the empty view and takes the active view.
       self:add_view(EmptyView())
+    elseif #self.views > 0 and lost_active_view then
+      -- In practice we never get there but if a view remain we need
+      -- to reset the Node's active view.
+      self:set_active_view(self.views[1])
     end
   else
     self.a:close_all_docviews(keep_active)
