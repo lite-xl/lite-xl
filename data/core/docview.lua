@@ -279,7 +279,8 @@ end
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
-  if self:scrollbar_overlaps_point(x, y) or self.dragging_scrollbar then
+  local overlap_v, overlap_h = self:scrollbar_overlaps_point(x, y)
+  if overlap_v or overlap_h or self.dragging_v_scrollbar or self.dragging_h_scrollbar then
     self.cursor = "arrow"
   else
     self.cursor = "ibeam"
