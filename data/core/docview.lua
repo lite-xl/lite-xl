@@ -104,8 +104,10 @@ function DocView:get_scrollable_size()
     long_line = l
     break
   end
-  return self:get_line_height() * (#self.doc.lines - 1) + self.size.y, 
-         self:get_col_x_offset(long_line, self.doc.long_lines.length) + self.size.x - xmargin
+  local size_v = self:get_line_height() * (#self.doc.lines - 1) + self.size.y
+  local size_h = self:get_col_x_offset(long_line, self.doc.long_lines.length)
+                 + self.size.x - (self.size.x - self:get_gutter_width()) + xmargin
+  return size_v, size_h
 end
 
 
