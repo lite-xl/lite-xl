@@ -170,6 +170,7 @@ keymap.add_direct {
   ["ctrl+a"] = "doc:select-all",
   ["ctrl+d"] = { "find-replace:select-next", "doc:select-word" },
   ["ctrl+l"] = "doc:select-lines",
+  ["ctrl+shift+l"] = { "find-replace:select-all", "doc:select-word" },
   ["ctrl+/"] = "doc:toggle-line-comments",
   ["ctrl+up"] = "doc:move-lines-up",
   ["ctrl+down"] = "doc:move-lines-down",
