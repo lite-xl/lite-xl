@@ -13,7 +13,7 @@ config.plugins.scale = {
   use_mousewheel = true
 }
 
-local MIN_SCALE = 0.25;
+local MINIMUM_SCALE = 0.25;
 
 local scale_level = 0
 local scale_steps = 0.05
@@ -90,16 +90,9 @@ local function inc_scale()
   set_scale(default_scale + scale_level * scale_steps)
 end
 
-local function dec_scale()
-  local new_scale_level = default_scale + (scale_level - 1) * scale_steps
-    
-  if new_scale_level < MIN_SCALE then
-    set_scale(MIN_SCALE)
-    return
-  end
-    
+local function dec_scale()  
   scale_level = scale_level - 1
-  set_scale(default_scale + scale_level * scale_steps)
+  set_scale(math.max(default_scale + scale_level * scale_steps), MINIMUM_SCALE)
 end
 
 
