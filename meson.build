@@ -1,12 +1,10 @@
 project('lite-xl',
     ['c', 'cpp'],
-    version : '2.0.0',
+    version : '2.0.1',
     license : 'MIT',
     meson_version : '>= 0.54',
     default_options : ['c_std=gnu11', 'cpp_std=c++03']
 )
-# TODO: the project version could be automatically generated from git with:
-#   version : run_command('bash', 'scripts/version.sh').stdout(),
 
 #===============================================================================
 # Configuration
