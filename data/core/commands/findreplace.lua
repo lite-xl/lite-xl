@@ -96,13 +96,33 @@ local function has_selection()
   return core.active_view:is(DocView) and core.active_view.doc:has_selection()
 end
 
-command.add(has_selection, {
-  ["find-replace:select-next"] = function()
-    local l1, c1, l2, c2 = doc():get_selection(true)
-    local text = doc():get_text(l1, c1, l2, c2)
-    l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
-    if l2 then doc():set_selection(l2, c2, l1, c1) end
+local function has_unique_selection() 
+  local text = nil
+  for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
+    if line1 == line2 and col1 == col2 then return false end
+    local selection = doc():get_text(line1, col1, line2, col2)
+    if text ~= nil and text ~= selection then return false end
+    text = selection
   end
+  return text ~= nil
+end
+
+local function select_next(all)
+  local il1, ic1 = doc():get_selection(true)
+  for idx, l1, c1, l2, c2 in doc():get_selections(true, true) do
+    local text = doc():get_text(l1, c1, l2, c2)
+    repeat
+      l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
+      if l1 == il1 and c1 == ic1 then break end
+      if l2 then doc():add_selection(l2, c2, l1, c1) end
+    until not all or not l2
+    break
+  end
+end
+
+command.add(has_unique_selection, {
+  ["find-replace:select-next"] = function() select_next(false) end,
+  ["find-replace:select-all"] = function() select_next(true) end
 })
 
 command.add("core.docview", {

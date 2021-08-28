@@ -66,6 +66,7 @@ local function keymap_macos(keymap)
     ["cmd+a"] = "doc:select-all",
     ["cmd+d"] = { "find-replace:select-next", "doc:select-word" },
     ["cmd+l"] = "doc:select-lines",
+    ["cmd+shift+l"] = { "find-replace:select-all", "doc:select-word" },
     ["cmd+/"] = "doc:toggle-line-comments",
     ["cmd+up"] = "doc:move-lines-up",
     ["cmd+down"] = "doc:move-lines-down",
