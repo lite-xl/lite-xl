@@ -72,7 +72,7 @@ function Doc:load(filename)
       self.crlf = true
     end
     table.insert(self.lines, line .. "\n")
-    local line_len = string.len(line)
+    local line_len = string.len(line) + 1 -- account for newline
     if line_len > max_length then
       max_length = line_len
       line_numbers = { [i] = true } -- new longest line
