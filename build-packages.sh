@@ -14,10 +14,9 @@ copy_directory_from_repo () {
 }
 
 _archive () {
-  if [[ -d ".git" || $BUILD_PROHIBIT_GIT -eq 1 ]]; then
+  if [[ $git_available -eq 1 ]]; then
     git archive "$1" "$2" --format=tar | tar xf - -C "$3" "$4"
   else
-    echo ".git not found, falling back to UNIX operation"
     cp -r "$2" "$3"
   fi
 }
@@ -29,14 +28,12 @@ build_dir_is_usable () {
     echo "invalid build directory, no path allowed: \"$build\""
     return 1
   fi
-  if [[ -d ".git" || $BUILD_PROHIBIT_GIT -eq 1 ]]; then
+  if [[ $git_available -eq 1 ]]; then
     git ls-files --error-unmatch "$build" &> /dev/null
     if [ $? == 0 ]; then
       echo "invalid path, \"$build\" is under revision control"
       return 1
     fi
-    else
-      echo ".git not found, skipping check for revision control"
   fi
 }
 
@@ -203,7 +200,6 @@ lite_copy_third_party_modules () {
   mv "$build/lite-colors-master/colors" "$build/third/data"
   rm -fr "$build/lite-colors-master"
 }
-
 unset arch
 while [ ! -z {$1+x} ]; do
   case $1 in
@@ -226,8 +222,15 @@ if [ -z ${arch+set} ]; then
   exit 1
 fi
 
+ if [[ -d ".git" || $BUILD_PROHIBIT_GIT -ne 0 ]]; then
+   git_available=1;
+ else
+   echo "Use of git prohibited. Either '.git' wasn't found or BUILD_PROHIBIT_GIT was set."
+   git_available=0;
+ fi
+
 if [ -z ${use_branch+set} ]; then
-  if [[ -d ".git" || $BUILD_PROHIBIT_GIT -eq 1 ]]; then
+  if [[ $git_available -eq 1 ]]; then
     use_branch="$(git rev-parse --abbrev-ref HEAD)"
   else
     # it really doesn't matter if git isn't present
