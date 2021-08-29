@@ -14,7 +14,7 @@ copy_directory_from_repo () {
 }
 
 _archive () {
-  if [[ -d ".git" ]]; then
+  if [[ -d ".git" || $BUILD_PROHIBIT_GIT -eq 1 ]]; then
     git archive "$1" "$2" --format=tar | tar xf - -C "$3" "$4"
   else
     echo ".git not found, falling back to UNIX operation"
@@ -29,7 +29,7 @@ build_dir_is_usable () {
     echo "invalid build directory, no path allowed: \"$build\""
     return 1
   fi
-  if [[ -d ".git" ]]; then
+  if [[ -d ".git" || $BUILD_PROHIBIT_GIT -eq 1 ]]; then
     git ls-files --error-unmatch "$build" &> /dev/null
     if [ $? == 0 ]; then
       echo "invalid path, \"$build\" is under revision control"
@@ -227,7 +227,7 @@ if [ -z ${arch+set} ]; then
 fi
 
 if [ -z ${use_branch+set} ]; then
-  if [[ -d ".git" ]]; then
+  if [[ -d ".git" || $BUILD_PROHIBIT_GIT -eq 1 ]]; then
     use_branch="$(git rev-parse --abbrev-ref HEAD)"
   else
     # it really doesn't matter if git isn't present
