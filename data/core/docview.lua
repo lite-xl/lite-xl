@@ -366,16 +366,20 @@ function DocView:draw_line_body(idx, x, y)
       local x1 = x + self:get_col_x_offset(idx, col1)
       local x2 = x + self:get_col_x_offset(idx, col2)
       local lh = self:get_line_height()
-      renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+      if x1 ~= x2 then
+        renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+      end
     end
   end
+  local draw_highlight = nil
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     -- draw line highlight if caret is on this line
-    if config.highlight_current_line and (line1 == line2 and col1 == col2)
+    if draw_highlight ~= false and config.highlight_current_line
     and line1 == idx and core.active_view == self then
-      self:draw_line_highlight(x + self.scroll.x, y)
+      draw_highlight = (line1 == line2 and col1 == col2)
     end
   end
+  if draw_highlight then self:draw_line_highlight(x + self.scroll.x, y) end
 
   -- draw line's text
   self:draw_line_text(idx, x, y)
