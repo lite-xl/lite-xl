@@ -7,6 +7,16 @@ local Object = require "core.object"
 
 local View = Object:extend()
 
+-- Override how objects are created. This allows for automatic Views registration
+function View:extend(register_name)
+  local new_class = View.super.extend(self)
+  if register_name then
+    new_class.registered_name = register_name
+    core.register_view(register_name, new_class)
+  end
+  return new_class
+end
+
 -- context can be "application" or "session". The instance of objects
 -- with context "session" will be closed when a project session is
 -- terminated. The context "application" is for functional UI elements.
