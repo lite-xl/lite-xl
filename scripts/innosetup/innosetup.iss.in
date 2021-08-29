@@ -9,7 +9,7 @@
 ; Use /dArch option to create a setup for a different architecture, e.g.:
 ; iscc /dArch=x86 innosetup.iss
 #ifndef Arch
-#define Arch "x64"
+  #define Arch "x64"
 #endif
 
 [Setup]
@@ -27,8 +27,11 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 
 #if Arch=="x64"
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode={#Arch}
+  ArchitecturesAllowed=x64
+  ArchitecturesInstallIn64BitMode=x64
+  #define ArchInternal "x86_64"
+#else
+  #define ArchInternal "i686"
 #endif
 
 AllowNoIcons=yes
@@ -48,7 +51,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 UsedUserAreasWarning=no
 
 OutputDir=.
-OutputBaseFilename=LiteXL-{#MyAppVersion}-{#Arch}-setup
+OutputBaseFilename=LiteXL-{#MyAppVersion}-{#ArchInternal}-setup
 ;DisableDirPage=yes
 ;DisableProgramGroupPage=yes
 
@@ -67,18 +70,16 @@ Name: "portablemode"; Description: "Portable Mode"; Flags: unchecked
 
 [Files]
 Source: "{#BuildDir}/src/lite-xl.exe"; DestDir: "{app}"; Flags: ignoreversion
-; MSYS2 produces no external dlls on 32 bit builds when using lhelper
-#if Arch=="x64"
-Source: "{#BuildDir}/mingwLibs{#Arch}/*"; DestDir: "{app}"; Flags: ignoreversion
-#endif
+Source: "{#BuildDir}/mingwLibs{#Arch}/*"; DestDir: "{app}"; Flags: ignoreversion ; Check: DirExists(ExpandConstant('{#BuildDir}/mingwLibs{#Arch}'))
 Source: "{#SourceDir}/data/*"; DestDir: "{app}/data"; Flags: ignoreversion recursesubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Check: not WizardIsTaskSelected('portablemode')
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; Check: not WizardIsTaskSelected('portablemode')
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon; Check: not WizardIsTaskSelected('portablemode')
+; Name: "{usersendto}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 
 [Run]
 Filename: "{app}/{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
