@@ -692,7 +692,7 @@ function core.load_plugins()
     if is_lua_file then
       if not version_match then
         core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-        local list = refused_list[plugin_dir:find(USERDIR) == 1 and 'userdir' or 'datadir'].plugins
+        local list = refused_list[plugin_dir:find(USERDIR, 1, true) == 1 and 'userdir' or 'datadir'].plugins
         table.insert(list, filename)
       end
       if version_match and config.plugins[basename] ~= false then
