@@ -6,9 +6,11 @@ if [ ! -e "src/api/api.h" ]; then
   exit 1
 fi
 
+source scripts/common.sh
+
 show_help(){
   echo
-  echo $0
+  echo "Usage: $0 <OPTIONS>"
   echo
   echo "Available options:"
   echo
@@ -23,7 +25,7 @@ show_help(){
 }
 
 ARCH="$(uname -m)"
-BUILD_DIR=build
+BUILD_DIR="$(get_default_build_dir)"
 RUN_BUILD=true
 STATIC_BUILD=false
 
@@ -67,7 +69,7 @@ if [[ -n $1 ]]; then
   exit 1
 fi
 
-setup_appimagetool(){
+setup_appimagetool() {
   if ! which appimagetool > /dev/null ; then
     if [ ! -e appimagetool ]; then
       if ! wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage" ; then
@@ -80,7 +82,7 @@ setup_appimagetool(){
   fi
 }
 
-download_appimage_apprun(){
+download_appimage_apprun() {
   if [ ! -e AppRun ]; then
     if ! wget -O AppRun "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-${ARCH}" ; then
       echo "Could not download AppRun for the arch '${ARCH}'."
@@ -91,7 +93,7 @@ download_appimage_apprun(){
   fi
 }
 
-build_litexl(){
+build_litexl() {
   if [ -e build ]; then
     rm -rf build
   fi
@@ -106,7 +108,7 @@ build_litexl(){
   meson compile -C ${BUILD_DIR}
 }
 
-generate_appimage(){
+generate_appimage() {
   if [ -e LiteXL.AppDir ]; then
     rm -rf LiteXL.AppDir
   fi
