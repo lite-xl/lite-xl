@@ -49,11 +49,11 @@ If you compile Lite XL yourself, it is recommended to use the script
 `build-packages.sh`:
 
 ```sh
-bash build-packages.sh <arch>
+bash build-packages.sh -h
 ```
 
-The script will run Meson and create a zip file with the application or,
-for Linux, a tar compressed archive. Lite XL can be easily installed
+The script will run Meson and create a tar compressed archive with the application or,
+for Windows, a zip file. Lite XL can be easily installed
 by unpacking the archive in any directory of your choice.
 
 Otherwise the following is an example of basic commands if you want to customize
@@ -65,7 +65,15 @@ meson compile -C build
 DESTDIR="$(pwd)/lite-xl" meson install --skip-subprojects -C build
 ```
 
-where `<prefix>` might be one of `/`, `/usr` or `/opt`, the default is `/usr/local`.
+where `<prefix>` might be one of `/`, `/usr` or `/opt`, the default is `/`.
+To build a bundle application on macOS:
+
+```sh
+meson setup --buildtype=release --Dbundle=true --prefix / build
+meson compile -C build
+DESTDIR="$(pwd)/Lite XL.app" meson install --skip-subprojects -C build
+```
+
 Please note that the package is relocatable to any prefix and the option prefix
 affects only the place where the application is actually installed.
 

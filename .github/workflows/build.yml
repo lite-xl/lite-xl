@@ -1,26 +1,25 @@
 name: CI
 
+# All builds use lhelper only for releases,
+# otherwise for normal builds dependencies are dynamically linked.
+
 on:
   push:
     branches:
     - '*'
-  # Temporarily disabled
-    #tags:
-    #- 'v[0-9]*'
+#   tags:
+#   - 'v[0-9]*'
   pull_request:
     branches:
     - '*'
 
 jobs:
-  # Note: not using git-archive(-all) because it can't include subprojects ignored by git
   archive_source_code:
     name: Source Code Tarball
     runs-on: ubuntu-18.04
     # Only on tags/releases
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-    - name: Set Environment Variables
-      run: echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-src" >> "$GITHUB_ENV"
     - uses: actions/checkout@v2
     - name: Python Setup
       uses: actions/setup-python@v2
@@ -30,16 +29,14 @@ jobs:
       run: |
         sudo apt-get install -qq ninja-build
         pip3 install meson
-    - name: Archive source code
+    - name: Package
       shell: bash
-      run: bash scripts/source-package.sh --destdir "${INSTALL_NAME}"
+      run: bash scripts/package.sh --version ${GITHUB_REF##*/} --debug --source
     - uses: actions/upload-artifact@v2
       with:
         name: Source Code Tarball
-        path: ${{ env.INSTALL_NAME }}.tar.gz
+        path: "lite-xl-*-src.tar.gz"
 
-  # All builds use lhelper only for releases, using --static build argument,
-  # otherwise for normal builds dependencies are dynamically linked.
   build_linux:
     name: Linux
     runs-on: ubuntu-18.04
@@ -52,11 +49,12 @@ jobs:
       CC: ${{ matrix.config.cc }}
       CXX: ${{ matrix.config.cxx }}
     steps:
-    - name: Set Archive Name
+    - name: Set Environment Variables
       if: ${{ matrix.config.cc == 'gcc' }}
       run: |
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux" >> "$GITHUB_ENV"
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)" >> "$GITHUB_ENV"
     - uses: actions/checkout@v2
     - name: Python Setup
       uses: actions/setup-python@v2
@@ -64,27 +62,24 @@ jobs:
         python-version: 3.6
     - name: Update Packages
       run: sudo apt-get update
-    - name: Install Meson
-      run: |
-        sudo apt-get install -qq ninja-build
-        pip3 install meson
     - name: Install Dependencies
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: sudo apt-get install -qq libsdl2-dev libfreetype6
+      run: bash scripts/install-dependencies.sh --debug
+    - name: Install Release Dependencies
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      run: |
+        bash scripts/install-dependencies.sh --debug --lhelper
+        bash scripts/lhelper.sh --debug
     - name: Build
-      if: ${{ matrix.config.cc == 'gcc' && !startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix /
-    - name: Release Build
-      if: ${{ matrix.config.cc == 'gcc' && startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix / --static
+      run: |
+        bash --version
+        bash scripts/build.sh --debug --forcefallback
     - name: Package
       if: ${{ matrix.config.cc == 'gcc' }}
-      run: |
-        DESTDIR="$(pwd)/$INSTALL_NAME" meson install --skip-subprojects -C build
-        tar czvf "${INSTALL_NAME}".tar.gz "${INSTALL_NAME}"
+      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary
     - name: AppImage
       if: ${{ matrix.config.cc == 'gcc' && startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/appimage.sh --nobuild --static --version ${{ env.INSTALL_REF }}
+      run: bash scripts/appimage.sh --nobuild --version ${INSTALL_REF}
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
       if: ${{ matrix.config.cc == 'gcc' }}
@@ -104,47 +99,42 @@ jobs:
     - name: System Information
       run: |
         system_profiler SPSoftwareDataType
+        bash --version
         gcc -v
         xcodebuild -version
-    - name: Set Archive Name
+    - name: Set Environment Variables
       run: |
-        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos" >> "$GITHUB_ENV"
-        bash --version
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-$(uname -m)" >> "$GITHUB_ENV"
     - uses: actions/checkout@v2
     - name: Python Setup
       uses: actions/setup-python@v2
       with:
         python-version: 3.9
-    - name: Install Build Tools
-      run: |
-        brew install ninja
-        pip3 install meson
-        cd ~; npm install appdmg; cd -
-        ~/node_modules/appdmg/bin/appdmg.js --version
     - name: Install Dependencies
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: brew install sdl2
-    - name: Install LHelper Dependencies
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      run: brew install bash md5sha1sum
-    - name: Build
-      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix "${GITHUB_WORKSPACE}/Lite XL.app"
-    - name: Release Build
+      run: bash scripts/install-dependencies.sh --debug
+    - name: Install Release Dependencies
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
+        bash scripts/install-dependencies.sh --debug --lhelper
+        bash scripts/lhelper.sh --debug
+    - name: Build
+      run: |
         bash --version
-        bash scripts/build.sh --prefix "${GITHUB_WORKSPACE}/Lite XL.app" --static
+        bash scripts/build.sh --bundle --debug --forcefallback
     - name: Error Logs
       if: failure()
       run: |
         mkdir ${INSTALL_NAME}
         cp /usr/var/lhenv/lite-xl/logs/* ${INSTALL_NAME}
         tar czvf ${INSTALL_NAME}.tar.gz ${INSTALL_NAME}
-    - name: Install
-      run: meson install --skip-subprojects -C build
+#   - name: Package
+#     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+#     run:  bash scripts/package.sh --version ${INSTALL_REF} --debug --addons
     - name: Create DMG Image
-      run: bash scripts/appdmg.sh ${{ env.INSTALL_NAME }}
+      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg
     - name: Upload DMG Image
       uses: actions/upload-artifact@v2
       with:
@@ -178,34 +168,20 @@ jobs:
           git
           zip
     - name: Set Environment Variables
-      run: echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-$(echo $MSYSTEM | awk '{print tolower($0)}')" >> "$GITHUB_ENV"
+      run: |
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-$(uname -m)" >> "$GITHUB_ENV"
+        echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
     - name: Install Dependencies
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: |
-        pacman --noconfirm -S \
-          ${MINGW_PACKAGE_PREFIX}-gcc \
-          ${MINGW_PACKAGE_PREFIX}-meson \
-          ${MINGW_PACKAGE_PREFIX}-ninja \
-          ${MINGW_PACKAGE_PREFIX}-pkg-config \
-          ${MINGW_PACKAGE_PREFIX}-freetype \
-          ${MINGW_PACKAGE_PREFIX}-pcre2 \
-          ${MINGW_PACKAGE_PREFIX}-SDL2
+      run: bash scripts/install-dependencies.sh --debug
     - name: Install Release Dependencies
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      run: |
-        pacman --noconfirm -S \
-          ${MINGW_PACKAGE_PREFIX}-gcc \
-          ${MINGW_PACKAGE_PREFIX}-meson \
-          ${MINGW_PACKAGE_PREFIX}-ninja \
-          ${MINGW_PACKAGE_PREFIX}-pkg-config
+      run: bash scripts/install-dependencies.sh --debug --lhelper
     - name: Build
-      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/build.sh --prefix /
-    - name: Release Build
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
         bash --version
-        bash scripts/build.sh --prefix / --static
+        bash scripts/build.sh --debug --forcefallback
     - name: Error Logs
       if: failure()
       run: |
@@ -213,10 +189,10 @@ jobs:
         cp /usr/var/lhenv/lite-xl/logs/* ${INSTALL_NAME}
         tar czvf ${INSTALL_NAME}.tar.gz ${INSTALL_NAME}
     - name: Package
-      run: bash scripts/msys2-package.sh --destdir ${INSTALL_NAME}
+      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary
     - name: Build Installer
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/innosetup/innosetup.sh
+      run: bash scripts/innosetup/innosetup.sh --debug
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
       with:
@@ -234,9 +210,8 @@ jobs:
   deploy:
     name: Deployment
     runs-on: ubuntu-18.04
-    # Temporarily disabled
+#   if: startsWith(github.ref, 'refs/tags/')
     if: false
-    #if: startsWith(github.ref, 'refs/tags/')
     needs:
     - archive_source_code
     - build_linux

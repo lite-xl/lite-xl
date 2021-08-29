@@ -10,6 +10,7 @@ subprojects/reproc/
 .lite-debug.log
 .run*
 *.diff
+*.exe
 *.tar.gz
 *.zip
 *.DS_Store
@@ -17,3 +18,4 @@ subprojects/reproc/
 compile_commands.json
 error.txt
 lite-xl*
+LiteXL*
