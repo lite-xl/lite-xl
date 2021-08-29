@@ -7,9 +7,46 @@ local translate = require "core.doc.translate"
 local View = require "core.view"
 
 
-local DocView = View:extend()
+local DocView = View:extend("DocView")
 
 DocView.context = "session"
+
+
+function DocView:get_content()
+  return {
+      active = (core.active_view == self),
+      filename = self.doc.filename,
+      selection = { self.doc:get_selection() },
+      scroll = { x = self.scroll.to.x, y = self.scroll.to.y },
+      text = not self.doc.filename and self.doc:get_text(1, 1, math.huge, math.huge)
+    }
+end
+
+
+function DocView.from_content(t)
+  local dv
+  if not t.filename then
+    -- document not associated to a file
+    dv = DocView(core.open_doc())
+    if t.text then dv.doc:insert(1, 1, t.text) end
+  else
+    -- we have a filename, try to read the file
+    local ok, doc = pcall(core.open_doc, t.filename)
+    if ok then
+      dv = DocView(doc)
+    end
+  end
+  -- doc view "dv" can be nil here if the filename associated to the document
+  -- cannot be read.
+  if dv and dv.doc then
+    dv.doc:set_selection(table.unpack(t.selection))
+    dv.last_line, dv.last_col = dv.doc:get_selection()
+    dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
+    dv.scroll.y, dv.scroll.to.y = t.scroll.y, t.scroll.y
+  end
+  return dv
+end
+
 
 local function move_to_line_offset(dv, line, col, offset)
   local xo = dv.last_x_offset

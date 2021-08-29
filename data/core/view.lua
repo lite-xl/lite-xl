@@ -7,6 +7,7 @@ local Object = require "core.object"
 
 local View = Object:extend()
 
+
 -- Override how objects are created. This allows for automatic Views registration
 function View:extend(register_name)
   local new_class = View.super.extend(self)
@@ -17,10 +18,25 @@ function View:extend(register_name)
   return new_class
 end
 
+
 -- context can be "application" or "session". The instance of objects
 -- with context "session" will be closed when a project session is
 -- terminated. The context "application" is for functional UI elements.
 View.context = "application"
+
+
+-- Returns a table that contains what shall be saved in a workspace file.
+function View:get_content()
+  return { }
+end
+
+
+-- Returns a View created from the specified parameter `content`, which contains
+-- what was returned from `View:get_content`.
+function View.from_content(content)
+  return View()
+end
+
 
 function View:new()
   self.position = { x = 0, y = 0 }
@@ -29,6 +45,7 @@ function View:new()
   self.cursor = "arrow"
   self.scrollable = false
 end
+
 
 function View:move_towards(t, k, dest, rate)
   if type(t) ~= "table" then
