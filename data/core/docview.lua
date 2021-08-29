@@ -98,18 +98,15 @@ end
 
 
 function DocView:get_scrollable_size()
-  local xmargin = 3 * self:get_font():get_width(' ') -- from DocView:scroll_to_make_visible
-  local long_line = 1
-  for l,_ in pairs(self.doc.long_lines.line_numbers) do -- get any of the longest lines
-    long_line = l
-    break
-  end
-  local size_v = self:get_line_height() * (#self.doc.lines - 1) + self.size.y
-  local size_h = self:get_col_x_offset(long_line, self.doc.long_lines.length)
-                 + self.size.x - (self.size.x - self:get_gutter_width()) + xmargin
-  return size_v, size_h
+  return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
 
+function DocView:get_h_scrollable_size()
+  local xmargin = 3 * self:get_font():get_width(' ') -- from DocView:scroll_to_make_visible
+  local long_line = next(self.doc.long_lines.line_numbers) or 1
+  return self:get_col_x_offset(long_line, self.doc.long_lines.length)
+         + self:get_gutter_width() + xmargin
+end
 
 function DocView:get_font()
   return style[self.font]
@@ -281,8 +278,8 @@ end
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
-  local overlap_v, overlap_h = self:scrollbar_overlaps_point(x, y)
-  if overlap_v or overlap_h or self.dragging_v_scrollbar or self.dragging_h_scrollbar then
+  if self:scrollbar_overlaps_point(x, y) or self.dragging_scrollbar
+     or self:h_scrollbar_overlaps_point(x, y) or self.dragging_h_scrollbar then
     self.cursor = "arrow"
   else
     self.cursor = "ibeam"
@@ -453,6 +450,7 @@ function DocView:draw()
   core.pop_clip_rect()
 
   self:draw_scrollbar()
+  self:draw_h_scrollbar()
 end
 
 
