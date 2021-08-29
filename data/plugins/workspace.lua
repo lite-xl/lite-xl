@@ -90,7 +90,7 @@ local function load_view(t)
     t.type = nil
     return class.from_content and class.from_content(t)
   end
-  return require(t.module)() -- FIXME: is this needed? If a class is not registered, it should not be loaded
+  core.error("Could not restore view %q", t.type)
 end
 
 
