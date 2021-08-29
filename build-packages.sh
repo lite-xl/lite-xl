@@ -10,7 +10,16 @@ copy_directory_from_repo () {
   fi
   local dirname="$1"
   local destdir="$2"
-  git archive "$use_branch" "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
+  _archive "$use_branch" "$dirname" "$destdir" "${tar_options[@]}"
+}
+
+_archive () {
+  if [[ -d ".git" ]]; then
+    git archive "$1" "$2" --format=tar | tar xf - -C "$3" "$4"
+  else
+    echo ".git not found, falling back to UNIX operation"
+    cp -r "$2" "$3"
+  fi
 }
 
 # Check if build directory is ok to be used to build.
@@ -20,10 +29,14 @@ build_dir_is_usable () {
     echo "invalid build directory, no path allowed: \"$build\""
     return 1
   fi
-  git ls-files --error-unmatch "$build" &> /dev/null
-  if [ $? == 0 ]; then
-    echo "invalid path, \"$build\" is under revision control"
-    return 1
+  if [[ -d ".git" ]]; then
+    git ls-files --error-unmatch "$build" &> /dev/null
+    if [ $? == 0 ]; then
+      echo "invalid path, \"$build\" is under revision control"
+      return 1
+    fi
+    else
+      echo ".git not found, skipping check for revision control"
   fi
 }
 
@@ -214,7 +227,12 @@ if [ -z ${arch+set} ]; then
 fi
 
 if [ -z ${use_branch+set} ]; then
-  use_branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [[ -d ".git" ]]; then
+    use_branch="$(git rev-parse --abbrev-ref HEAD)"
+  else
+    # it really doesn't matter if git isn't present
+    use_branch="master"
+  fi
 fi
 
 build_dir=".build-$arch"
