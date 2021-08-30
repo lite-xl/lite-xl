@@ -274,6 +274,13 @@ static int f_set_cursor(lua_State *L) {
 }
 
 
+static int f_capture_mouse(lua_State *L) {
+  int enable = lua_toboolean(L, 1);
+  SDL_CaptureMouse(enable);
+  return 0;
+}
+
+
 static int f_set_window_title(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
   SDL_SetWindowTitle(window, title);
@@ -642,6 +649,7 @@ static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
   { "set_cursor",          f_set_cursor          },
+  { "capture_mouse",       f_capture_mouse       },
   { "set_window_title",    f_set_window_title    },
   { "set_window_mode",     f_set_window_mode     },
   { "get_window_mode",     f_get_window_mode     },
