@@ -393,12 +393,5 @@ function common.rm(path, recursively)
   return true
 end
 
-function common.get_table_size(t)
-  local count = 0
-  for _ in pairs(t) do
-    count = count + 1
-  end
-  return count
-end
 
 return common

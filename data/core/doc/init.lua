@@ -32,7 +32,7 @@ end
 
 function Doc:reset()
   self.lines = { "\n" }
-  self.long_lines = { line_numbers = { [1] = true }, length = 0 }
+  self.long_lines = { line_numbers = { }, length = 0 }
   self.selections = { 1, 1, 1, 1 }
   self.cursor_clipboard = {}
   self.undo_stack = { idx = 1 }
@@ -62,7 +62,7 @@ end
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
   local max_length = 0
-  local line_numbers = { [1] = true }
+  local line_numbers = { }
   self:reset()
   self.lines = {}
   local i = 1
@@ -72,14 +72,15 @@ function Doc:load(filename)
       self.crlf = true
     end
     table.insert(self.lines, line .. "\n")
-    local line_len = string.len(line) + 1 -- account for newline
-    if line_len > max_length then
+    local line_len = #line + 1 -- account for newline
+    if line_len >= max_length then
       max_length = line_len
-      line_numbers = { [i] = true } -- new longest line
-    elseif line_len == max_length then
-      line_numbers[i] = true -- add to longest lines
+      line_numbers[i] = line_len
     end
     i = i + 1
+  end
+  for n, len in pairs(line_numbers) do
+    line_numbers[n] = len >= max_length and len or nil
   end
   if #self.lines == 0 then
     table.insert(self.lines, "\n")
@@ -363,12 +364,12 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   if #lines > 1 then
     -- Need to shift all the subsequent long lines
-    local line_numbers = {}
-    for n in pairs(self.long_lines.line_numbers) do
+    local line_numbers = { }
+    for n, len in pairs(self.long_lines.line_numbers) do
       if n > line then
-        line_numbers[n + #lines - 1] = true
+        line_numbers[n + #lines - 1] = len
       else
-        line_numbers[n] = true
+        line_numbers[n] = len
       end
     end
     self.long_lines.line_numbers = line_numbers
@@ -405,14 +406,14 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   local nlines = line2 - line1 + 1
   if nlines > 1 then
     -- Need to shift all the subsequent long lines
-    local line_numbers = {}
-    for n in pairs(self.long_lines.line_numbers) do
+    local line_numbers = { }
+    for n, len in pairs(self.long_lines.line_numbers) do
       if n > line2 then
-        line_numbers[n - nlines + 1] = true
+        line_numbers[n - nlines + 1] = len
       elseif n > line1 then
         line_numbers[n] = nil -- invalidate any line that has been deleted
       else
-        line_numbers[n] = true
+        line_numbers[n] = len
       end
     end
     self.long_lines.line_numbers = line_numbers
@@ -580,27 +581,28 @@ function Doc:update_max_line_len_range(start_line, end_line)
   end_line = math.min(end_line, #self.lines)
 
   for line=start_line,end_line do
-    local line_len = string.len(self.lines[line])
-    if line_len > max_length then
+    local line_len = #self.lines[line]
+    if line_len >= max_length then
       max_length = line_len
-      line_numbers = { [line] = true }
-    elseif line_len == max_length then
-      line_numbers[line] = true
+      line_numbers[line] = line_len
     else
       if line_numbers[line] then line_numbers[line] = nil end
     end
   end
-
-  if common.get_table_size(line_numbers) == 0 then
+  for n, len in pairs(line_numbers) do
+    line_numbers[n] = len >= max_length and len or nil
+  end
+  if not next(line_numbers) then
     -- Recalc needed
     self.long_lines.length = 0
-    self.long_lines.line_numbers = { [1] = true }
+    self.long_lines.line_numbers = { }
     return self:update_max_line_len_range(1, #self.lines)
   end
 
   self.long_lines.line_numbers = line_numbers
   self.long_lines.length = max_length
 end
+
 
 -- For plugins to add custom actions of document change
 function Doc:on_text_change(type)
