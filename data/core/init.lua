@@ -39,6 +39,7 @@ end
 local registered_views = { }
 function core.register_view(name, class)
   registered_views[name] = class
+  class.registered_name = name
 end
 
 function core.get_registered_view(name)

@@ -7,9 +7,11 @@ local translate = require "core.doc.translate"
 local View = require "core.view"
 
 
-local DocView = View:extend("DocView")
+local DocView = View:extend()
 
 DocView.context = "session"
+
+core.register_view("doc", DocView)
 
 
 function DocView:get_content()
