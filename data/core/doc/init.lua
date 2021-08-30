@@ -575,6 +575,7 @@ function Doc:indent_text(unindent, line1, col1, line2, col2)
   return line1, col1 + #text, line1, col1 + #text
 end
 
+
 function Doc:update_max_line_len_range(start_line, end_line)
   local line_numbers = self.long_lines.line_numbers
   local max_length = self.long_lines.length
@@ -595,7 +596,7 @@ function Doc:update_max_line_len_range(start_line, end_line)
   if not next(line_numbers) then
     -- Recalc needed
     self.long_lines.length = 0
-    self.long_lines.line_numbers = { }
+    self.long_lines.line_numbers = line_numbers
     return self:update_max_line_len_range(1, #self.lines)
   end
 
