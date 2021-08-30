@@ -42,7 +42,7 @@ lite_build () {
   local build="$1"
   build_dir_is_usable "$build" || exit 1
   rm -fr "$build"
-  setup_options=()
+  setup_options=("${@:2}")
   if [[ "$OSTYPE" == "darwin"* ]]; then
     setup_options+=(-Dbundle=true)
   fi
@@ -55,7 +55,8 @@ lite_build_pgo () {
   local build="$1"
   build_dir_is_usable "$build" || exit 1
   rm -fr "$build"
-  meson setup --buildtype=release -Db_pgo=generate "$build" || exit 1
+  echo meson setup --buildtype=release "${@:2}" -Db_pgo=generate "$build"
+  meson setup --buildtype=release "${@:2}" -Db_pgo=generate "$build" || exit 1
   ninja -C "$build" || exit 1
   copy_directory_from_repo data "$build/src"
   "$build/src/lite-xl"
@@ -200,9 +201,15 @@ lite_copy_third_party_modules () {
   mv "$build/lite-colors-master/colors" "$build/third/data"
   rm -fr "$build/lite-colors-master"
 }
+
+build_opts=()
 unset arch
 while [ ! -z {$1+x} ]; do
   case $1 in
+  -renderer)
+    build_opts+=("-Drenderer=true")
+    shift
+    ;;
   -pgo)
     pgo=true
     shift
@@ -241,9 +248,9 @@ fi
 build_dir=".build-$arch"
 
 if [ -z ${pgo+set} ]; then
-  lite_build "$build_dir"
+  lite_build "$build_dir" "${build_opts[@]}"
 else
-  lite_build_pgo "$build_dir"
+  lite_build_pgo "$build_dir" "${build_opts[@]}"
 fi
 lite_copy_third_party_modules "$build_dir"
 lite_build_package "$build_dir" "$arch"
