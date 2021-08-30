@@ -76,6 +76,15 @@ function core.set_project_dir(new_dir, change_project_fn)
 end
 
 
+function core.fork(file)
+  local lite_path = EXEDIR .. PATHSEP .. common.basename(ARGS[1])
+  -- there is no way to "detach" processes with reproc
+  -- we have to use system.exec and system specific commands.
+  local cmd = PLATFORM == "Windows" and "start %q %q" or "%q %q"
+  system.exec(string.format(cmd, lite_path, file))
+end
+
+
 function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dir_path_abs, core.on_quit_project) then
     core.root_view:close_all_docviews()
