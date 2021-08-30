@@ -322,6 +322,7 @@ end
 function Doc:raw_insert(line, col, text, undo_stack, time)
   -- split text into lines and merge with line at insertion point
   local lines = split_lines(text)
+  local len = #lines[#lines]
   local before = self.lines[line]:sub(1, col - 1)
   local after = self.lines[line]:sub(col)
   for i = 1, #lines - 1 do
@@ -332,6 +333,14 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   -- splice lines into line array
   common.splice(self.lines, line, 1, lines)
+  
+  -- keep cursors where they should be
+  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+    if cline1 < line then break end
+    local line_addition = (line < cline1 or col < ccol1) and #lines - 1 or 0
+    local column_addition = line == cline1 and ccol1 > col and len or 0
+    self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition, ccol2 + column_addition)
+  end
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
@@ -356,6 +365,14 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
 
   -- splice line into line array
   common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
+  
+  -- move all cursors back if they share a line with the removed text
+  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+    if cline1 < line2 then break end
+    local line_removal = line2 - line1
+    local column_removal = line2 == cline2 and col2 < ccol1 and (line2 == line1 and col2 - col1 or col2) or 0
+    self:set_selections(idx, cline1 - line_removal, ccol1 - column_removal, cline2 - line_removal, ccol2 - column_removal)
+  end
 
   -- update highlighter and assure selection is in bounds
   self.highlighter:invalidate(line1)
@@ -392,7 +409,7 @@ end
 
 
 function Doc:text_input(text, idx)
-  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx or true) do
     if line1 ~= line2 or col1 ~= col2 then
       self:delete_to_cursor(sidx)
     end
