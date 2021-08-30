@@ -12,7 +12,7 @@ local Doc = require "core.doc"
 
 config.plugins.autocomplete = { 
 	-- Amount of characters that need to be written for autocomplete
-	min_len = 1,
+	min_len = 3,
 	-- The max amount of visible items
 	max_height = 6,
 	-- The max amount of scrollable items
