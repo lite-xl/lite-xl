@@ -786,6 +786,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
     else
+      system.capture_mouse(true)
       self.dragged_node = { node, idx }
       node:set_active_view(node.views[idx])
     end
@@ -798,14 +799,25 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
 end
 
 
-function RootView:on_mouse_released(...)
+function RootView:on_mouse_released(button, x, y)
   if self.dragged_divider then
     self.dragged_divider = nil
   end
   if self.dragged_node then
+    local _, _, _, h = Node.get_tab_rect(self.dragged_node[1], self.dragged_node[2])
+    if x < 0 or x > self.size.x or y < 0 or y > h then
+      local tab = self.dragged_node[1].views[self.dragged_node[2]]
+      if tab:is(DocView) then
+        local filename = tab.doc.abs_filename or tab.doc.filename or "unsaved"
+        core.fork(filename)
+      else
+        core.log("tab splitting is not supported for this View")
+      end
+    end
+    system.capture_mouse(false)
     self.dragged_node = nil
   end
-  self.root_node:on_mouse_released(...)
+  self.root_node:on_mouse_released(button, x, y)
 end
 
 
