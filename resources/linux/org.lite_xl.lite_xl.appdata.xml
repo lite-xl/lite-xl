@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
-  <id>org.lite-xl.lite-xl</id>
+  <id>org.lite_xl.lite_xl</id>
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
   <name>Lite XL</name>
   <summary>A lightweight text editor written in Lua</summary>
+  <content_rating type="oars-1.0" />
 
   <description>
     <p>
@@ -25,4 +26,8 @@
   <provides>
     <binary>lite-xl</binary>
   </provides>
+
+  <releases>
+    <release version="2.0.1" date="2021-08-28" />
+  </releases>
 </component>

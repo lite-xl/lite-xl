@@ -6,5 +6,5 @@ Exec=lite-xl %F
 Icon=lite-xl
 Terminal=false
 StartupNotify=false
-Categories=Utility;TextEditor;Development;
+Categories=Development;IDE;
 MimeType=text/plain;

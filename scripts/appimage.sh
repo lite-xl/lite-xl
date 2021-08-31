@@ -117,7 +117,7 @@ generate_appimage(){
   mv AppRun LiteXL.AppDir/
   # These could be symlinks but it seems they doesn't work with AppimageLauncher
   cp resources/icons/lite-xl.svg LiteXL.AppDir/
-  cp resources/linux/org.lite-xl.lite-xl.desktop LiteXL.AppDir/
+  cp resources/linux/org.lite_xl.lite_xl.desktop LiteXL.AppDir/
 
   if [[ $STATIC_BUILD == false ]]; then
     echo "Copying libraries..."
