@@ -448,20 +448,23 @@ function core.init()
   local project_dir_explicit = false
   local files = {}
   local delayed_error
+  local macos = rawget(_G, "MACOS")
   for i = 2, #ARGS do
-    local arg_filename = strip_trailing_slash(ARGS[i])
-    local info = system.get_file_info(arg_filename) or {}
-    if info.type == "file" then
-      local file_abs = system.absolute_path(arg_filename)
-      if file_abs then
-        table.insert(files, file_abs)
-        project_dir = file_abs:match("^(.+)[/\\].+$")
+    if not (macos and ARGS[i]:match("^-psn_[%d]+_[%d]+")) then
+      local arg_filename = strip_trailing_slash(ARGS[i])
+      local info = system.get_file_info(arg_filename) or {}
+      if info.type == "file" then
+        local file_abs = system.absolute_path(arg_filename)
+        if file_abs then
+          table.insert(files, file_abs)
+          project_dir = file_abs:match("^(.+)[/\\].+$")
+        end
+      elseif info.type == "dir" then
+        project_dir = arg_filename
+        project_dir_explicit = true
+      else
+        delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
       end
-    elseif info.type == "dir" then
-      project_dir = arg_filename
-      project_dir_explicit = true
-    else
-      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
     end
   end
 
