@@ -92,10 +92,10 @@ else
         install_data('resources/icons/lite-xl.svg',
             install_dir : 'share/icons/hicolor/scalable/apps'
         )
-        install_data('resources/linux/org.lite-xl.lite-xl.desktop',
+        install_data('resources/linux/org.lite_xl.lite_xl.desktop',
             install_dir : 'share/applications'
         )
-        install_data('resources/linux/org.lite-xl.lite-xl.appdata.xml',
+        install_data('resources/linux/org.lite_xl.lite_xl.appdata.xml',
             install_dir : 'share/metainfo'
         )
     endif

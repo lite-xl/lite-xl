@@ -167,8 +167,8 @@ lite_build_package_linux () {
   strip "$bindir/lite-xl"
   if [ -z "$portable" ]; then
     mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps" "$pdir/share/metainfo"
-    cp "resources/linux/org.lite-xl.lite-xl.desktop" "$pdir/share/applications"
-    cp "resources/linux/org.lite-xl.lite-xl.appdata.xml" "$pdir/share/metainfo"
+    cp "resources/linux/org.lite_xl.lite_xl.desktop" "$pdir/share/applications"
+    cp "resources/linux/org.lite_xl.lite_xl.appdata.xml" "$pdir/share/metainfo"
     cp "resources/icons/lite-xl.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
   fi
   pushd ".package-build"
