@@ -44,9 +44,12 @@ end
 
 local function perform(name)
   local cmd = command.map[name]
-  if cmd and cmd.predicate() then
-    cmd.perform()
-    return true
+  if cmd then
+    local ok, pass = pcall(cmd.predicate)
+    if ok and pass then
+      cmd.perform()
+      return true
+    end
   end
   return false
 end
