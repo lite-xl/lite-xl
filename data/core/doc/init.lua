@@ -479,17 +479,18 @@ function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
 end
 
 function Doc:replace(fn)
-  local has_selection = false
+  local has_selection, n = false, 0
   for idx, line1, col1, line2, col2 in self:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then 
-      self:replace_cursor(idx, line1, col1, line2, col2, fn)
+      n = n + self:replace_cursor(idx, line1, col1, line2, col2, fn)
       has_selection = true
     end
   end
   if not has_selection then
     self:set_selection(table.unpack(self.selections))
-    self:replace_cursor(1, 1, 1, #self.lines, #self.lines[#self.lines], fn)
+    n = n + self:replace_cursor(1, 1, 1, #self.lines, #self.lines[#self.lines], fn)
   end
+  return n
 end
 
 
