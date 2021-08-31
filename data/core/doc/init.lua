@@ -418,12 +418,7 @@ function Doc:text_input(text, idx)
   end
 end
 
-
-function Doc:replace(fn)
-  local line1, col1, line2, col2 = self:get_selection(true)
-  if line1 == line2 and col1 == col2 then
-    line1, col1, line2, col2 = 1, 1, #self.lines, #self.lines[#self.lines]
-  end
+function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
   local old_text = self:get_text(line1, col1, line2, col2)
   local new_text, n = fn(old_text)
   if old_text ~= new_text then
@@ -431,10 +426,24 @@ function Doc:replace(fn)
     self:remove(line1, col1, line2, col2)
     if line1 == line2 and col1 == col2 then
       line2, col2 = self:position_offset(line1, col1, #new_text)
-      self:set_selection(line1, col1, line2, col2)
+      self:set_selections(idx, line1, col1, line2, col2)
     end
   end
   return n
+end
+
+function Doc:replace(fn)
+  local has_selection = false
+  for idx, line1, col1, line2, col2 in self:get_selections(true) do
+    if line1 ~= line2 or col1 ~= col2 then 
+      self:replace_cursor(idx, line1, col1, line2, col2, fn)
+      has_selection = true
+    end
+  end
+  if not has_selection then
+    self:set_selection(table.unpack(self.selections))
+    self:replace_cursor(1, 1, 1, #self.lines, #self.lines[#self.lines], fn)
+  end
 end
 
 
