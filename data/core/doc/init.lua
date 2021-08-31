@@ -117,7 +117,11 @@ end
 
 
 function Doc:is_dirty()
-  return self.clean_change_id ~= self:get_change_id() or self.new_file
+  if self.new_file then
+    return #self.lines > 1 or #self.lines[1] > 1
+  else
+    return self.clean_change_id ~= self:get_change_id()
+  end
 end
 
 
