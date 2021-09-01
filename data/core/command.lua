@@ -45,7 +45,7 @@ end
 local function perform(name)
   local cmd = command.map[name]
   if cmd then
-    local ok, pass = pcall(cmd.predicate)
+    local ok, pass = core.try(cmd.predicate)
     if ok and pass then
       cmd.perform()
       return true
