@@ -5,6 +5,6 @@ Comment=A lightweight text editor written in Lua
 Exec=lite-xl %F
 Icon=lite-xl
 Terminal=false
-StartupNotify=false
+StartupWMClass=lite-xl
 Categories=Development;IDE;
 MimeType=text/plain;
