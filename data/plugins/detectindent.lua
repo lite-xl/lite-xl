@@ -24,6 +24,30 @@ end
 local function optimal_indent_from_stat(stat)
   if #stat == 0 then return nil, 0 end
   local bins = {}
+  print(common.serialize(stat))
+  for k = 1, #stat do
+    local indent = stat[k][1]
+    local penalty, score_max = 0, 0
+    for i = 1, #stat do
+      local eval_indent, eval_count = unpack(stat[i])
+      score_max = score_max + eval_count
+      if eval_indent < indent or (eval_indent > indent and eval_indent % indent ~= 0) then
+        penalty = penalty + eval_count
+      end
+    end
+    if k == 1 then print('SCORE MAX', score_max) end
+    bins[#bins + 1] = {indent, score_max - penalty}
+  end
+  print(common.serialize(bins))
+  table.sort(bins, function(a, b) return a[2] > b[2] end)
+  return bins[1][1], bins[1][2]
+end
+
+--[[
+local function optimal_indent_from_stat(stat)
+  if #stat == 0 then return nil, 0 end
+  local bins = {}
+  print(common.serialize(stat))
   for k = 1, #stat do
     local indent = stat[k][1]
     local score = 0
@@ -41,10 +65,11 @@ local function optimal_indent_from_stat(stat)
     end
     bins[#bins + 1] = {indent, score}
   end
+  print(common.serialize(bins))
   table.sort(bins, function(a, b) return a[2] > b[2] end)
   return bins[1][1], bins[1][2]
 end
-
+]]
 
 -- return nil if it is a comment or blank line or the initial part of the
 -- line otherwise.
