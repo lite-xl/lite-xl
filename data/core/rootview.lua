@@ -804,8 +804,8 @@ function RootView:on_mouse_released(button, x, y)
     self.dragged_divider = nil
   end
   if self.dragged_node then
-    local _, _, _, h = Node.get_tab_rect(self.dragged_node[1], self.dragged_node[2])
-    if x < 0 or x > self.size.x or y < 0 or y > h then
+    local ox, oy = self:get_content_offset()
+    if x < ox or x > self.size.x or y < oy or y > self.size.y then
       local tab = self.dragged_node[1].views[self.dragged_node[2]]
       if tab:is(DocView) then
         local filename = tab.doc.abs_filename or tab.doc.filename or "unsaved"
