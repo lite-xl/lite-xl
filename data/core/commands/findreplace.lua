@@ -133,6 +133,7 @@ command.add("core.docview", {
   end,
 
   ["find-replace:replace"] = function()
+    if not doc() then return end
     replace("Text", doc():get_text(doc():get_selection(true)), function(text, old, new)
       if not find_regex then
         return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
@@ -144,7 +145,7 @@ command.add("core.docview", {
 
   ["find-replace:replace-symbol"] = function()
     local first = ""
-    if doc():has_selection() then
+    if doc() and doc():has_selection() then
       local text = doc():get_text(doc():get_selection())
       first = text:match(config.symbol_pattern) or ""
     end
