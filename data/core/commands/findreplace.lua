@@ -14,7 +14,8 @@ local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
 
 local function doc()
-  return core.active_view:is(DocView) and core.active_view.doc or last_view.doc
+  return core.active_view:is(DocView) and core.active_view.doc
+          or (last_view and last_view:is(DocView)) and last_view.doc
 end
 
 local function get_find_tooltip()
@@ -92,12 +93,9 @@ local function replace(kind, default, fn)
   end)
 end
 
-local function has_selection()
-  return core.active_view:is(DocView) and core.active_view.doc:has_selection()
-end
 
 local function has_unique_selection()
-  if not core.active_view:is(DocView) then return false end
+  if not doc() then return false end
   local text = nil
   for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
     if line1 == line2 and col1 == col2 then return false end
