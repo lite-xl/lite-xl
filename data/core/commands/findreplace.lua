@@ -96,7 +96,8 @@ local function has_selection()
   return core.active_view:is(DocView) and core.active_view.doc:has_selection()
 end
 
-local function has_unique_selection() 
+local function has_unique_selection()
+  if not core.active_view:is(DocView) then return false end
   local text = nil
   for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
     if line1 == line2 and col1 == col2 then return false end
