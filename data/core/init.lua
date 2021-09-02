@@ -809,7 +809,7 @@ end
 -- This function should get only filenames normalized using
 -- common.normalize_path function.
 function core.project_absolute_path(filename)
-  if filename:match('^%a:\\') or filename:find('/', 1, true) then
+  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
     return filename
   else
     return core.project_dir .. PATHSEP .. filename
