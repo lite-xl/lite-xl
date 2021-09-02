@@ -7,6 +7,9 @@
 
 #ifdef _WIN32
   #include <windows.h>
+  #include "SDL_syswm.h"
+  #include <dwmapi.h>
+  #include <winreg.h>
 #elif __linux__
   #include <unistd.h>
   #include <signal.h>
@@ -26,6 +29,49 @@ static double get_scale(void) {
   return dpi / 96.0;
 #endif
 }
+
+#if _WIN32
+static HWND GetWindowHandle(SDL_Window* window){
+    SDL_SysWMinfo sysInfo;
+
+    SDL_VERSION(&sysInfo.version);
+    SDL_GetWindowWMInfo(window, &sysInfo);
+    return sysInfo.info.win.window;
+}
+
+static int GetWinDarkMode() {
+  
+     LPCSTR subKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+     LPCSTR pValue = "AppsUseLightTheme";
+     DWORD options = 0;
+     REGSAM samDesired = KEY_READ;
+     HKEY OpenResult;
+     DWORD flags = RRF_RT_ANY;
+
+     //Allocationg memory for a DWORD value.
+     DWORD dataType;
+
+     WCHAR value[255];
+     PVOID pvData = value;
+
+     DWORD size = sizeof(value);
+
+     LONG err = RegOpenKeyEx(HKEY_CURRENT_USER, subKey, options, samDesired, &OpenResult);
+
+     if (err == ERROR_SUCCESS) {
+      err = RegGetValueA(OpenResult, NULL, pValue, flags, &dataType, pvData, &size);
+      if (err == ERROR_SUCCESS) {
+        return *(DWORD*)pvData;
+      }
+      else
+        err = 0;
+      RegCloseKey(OpenResult);
+     }
+     else
+      err = 0;
+     return err;
+}
+#endif
 
 
 static void get_exe_filename(char *buf, int sz) {
@@ -71,6 +117,8 @@ static void init_window_icon(void) {
 #define LITE_OS_HOME "USERPROFILE"
 #define LITE_PATHSEP_PATTERN "\\\\"
 #define LITE_NONPATHSEP_PATTERN "[^\\\\]+"
+#define USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 19
+#define USE_IMMERSIVE_DARK_MODE 20
 #else
 #define LITE_OS_HOME "HOME"
 #define LITE_PATHSEP_PATTERN "/"
@@ -111,6 +159,12 @@ int main(int argc, char **argv) {
   window = SDL_CreateWindow(
     "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, dm.w * 0.8, dm.h * 0.8,
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
+  #if _WIN32
+    HWND handle = GetWindowHandle(window);
+    int mode = GetWinDarkMode()? 0 : 1;
+    if (DwmSetWindowAttribute(handle, USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, &mode, 4) != 0)
+      DwmSetWindowAttribute(handle, USE_IMMERSIVE_DARK_MODE, &mode, 4);
+  #endif
   init_window_icon();
   ren_init(window);
 
