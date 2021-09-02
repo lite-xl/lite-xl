@@ -437,8 +437,10 @@ menu:register(
 command.add(nil, {
   ["treeview:toggle"] = function()
     view.visible = not view.visible
-  end,
+  end})
 
+
+command.add(function() return view.hovered_item ~= nil end, {
   ["treeview:rename"] = function()
     local old_filename = view.hovered_item.filename
     local old_abs_filename = view.hovered_item.abs_filename
