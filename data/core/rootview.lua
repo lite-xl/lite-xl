@@ -858,7 +858,9 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   local node = self.root_node:get_child_overlapping_point(x, y)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local tab_index = node and node:get_tab_overlapping_point(x, y)
-  if node and node:get_scroll_button_index(x, y) then
+  if self.dragged_node then
+    core.request_cursor("arrow")
+  elseif node and node:get_scroll_button_index(x, y) then
     core.request_cursor("arrow")
   elseif div then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
