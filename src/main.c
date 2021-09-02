@@ -64,11 +64,11 @@ static int GetWinDarkMode() {
         return *(DWORD*)pvData;
       }
       else
-        err = 0;
+        err = 1;
       RegCloseKey(OpenResult);
      }
      else
-      err = 0;
+      err = 1;
      return err;
 }
 #endif
