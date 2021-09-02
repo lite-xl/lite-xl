@@ -441,11 +441,24 @@ command.add(nil, {
 
   ["treeview:rename"] = function()
     local old_filename = view.hovered_item.filename
+    local old_abs_filename = view.hovered_item.abs_filename
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", function(filename)
-      os.rename(old_filename, filename)
+      filename = core.normalize_to_project_dir(filename)
+      local abs_filename = core.project_absolute_path(filename)
+      local res, err = os.rename(old_abs_filename, abs_filename)
+      if res then -- successfully renamed
+        for _, doc in ipairs(core.docs) do
+          if doc.abs_filename and old_abs_filename == doc.abs_filename then
+            doc:set_filename(filename, abs_filename) -- make doc point to the new filename
+            break -- only first needed
+          end
+        end
+        core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+      else
+        core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
+      end
       core.reschedule_project_scan()
-      core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
     end, common.path_suggest)
   end,
 
