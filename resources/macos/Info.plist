@@ -17,13 +17,11 @@
     <key>NSHighResolutionCapable</key>
     <true />
     <key>LSMinimumSystemVersion</key>
-    <string>10.13</string>
-    <key>CFBundleSignature</key>
-    <string>lite</string>
-    <key>CFBundleSupportedPlatforms</key>
-    <array>
-      <string>MacOSX</string>
-    </array>
+    <string>10.11.0</string>
+    <key>NSQuitAlwaysKeepsWindows</key>
+    <false />
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false />
     <key>NSDocumentsFolderUsageDescription</key>
     <string>To access, edit and index your projects.</string>
     <key>NSDesktopFolderUsageDescription</key>
@@ -31,7 +29,7 @@
     <key>NSDownloadsFolderUsageDescription</key>
     <string>To access, edit and index your projects.</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.0.1</string>
+    <string>2.0</string>
     <key>NSHumanReadableCopyright</key>
     <string>© 2019-2021 Francesco Abbate</string>
   </dict>
