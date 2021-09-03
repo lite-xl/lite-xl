@@ -46,7 +46,7 @@ lite_build () {
   if [[ "$OSTYPE" == "darwin"* ]]; then
     setup_options+=(-Dbundle=true)
   fi
-  meson setup "${setup_options[@]}" "$build" || exit 1
+  meson setup --buildtype=release "${setup_options[@]}" "$build" || exit 1
   ninja -C "$build" || exit 1
 }
 
