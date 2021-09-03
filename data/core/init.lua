@@ -17,7 +17,7 @@ local core = {}
 
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
-  if ok then
+  if ok and t then
     return t.recents, t.window, t.window_mode
   end
   return {}
@@ -441,7 +441,7 @@ function core.init()
     elseif window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
-    core.recent_projects = recent_projects
+    core.recent_projects = recent_projects or {}
   end
 
   local project_dir = core.recent_projects[1] or "."
