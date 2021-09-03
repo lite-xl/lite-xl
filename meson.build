@@ -83,13 +83,7 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
     lite_docdir = 'Contents/Resources'
     lite_datadir = 'Contents/Resources'
     install_data('resources/icons/icon.icns', install_dir : 'Contents/Resources')
-    configure_file(
-        input : 'resources/macos/Info.plist.in',
-        output : 'Info.plist',
-        configuration : conf_data,
-        install : true,
-        install_dir : 'Contents'
-    )
+    install_data('resources/macos/Info.plist', install_dir : 'Contents')
 else
     lite_bindir = 'bin'
     lite_docdir = 'share/doc/lite-xl'
