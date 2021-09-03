@@ -19,8 +19,9 @@
 	<key>NSDesktopFolderUsageDescription</key><string>To access, edit and index your projects.</string>
 	<key>NSDownloadsFolderUsageDescription</key><string>To access, edit and index your projects.</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0</string>
+    <string>@PROJECT_VERSION@</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2019-2021 Francesco Abbate</string>
 </dict>
 </plist> 
+
