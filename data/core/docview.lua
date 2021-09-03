@@ -161,15 +161,13 @@ function DocView:get_col_x_offset(line, col)
   local xoffset = 0
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
-    for char in common.utf8_chars(text) do
-      if column == col then
-        return xoffset / font:subpixel_scale()
-      end
-      xoffset = xoffset + font:get_width_subpixel(char)
-      column = column + #char
+    local remainder = math.min(col - column, #text)
+    xoffset = xoffset + font:get_width_subpixel(string.sub(text, 1, remainder))
+    column = column + remainder
+    if column == col then
+      return xoffset / font:subpixel_scale()
     end
   end
-
   return xoffset / default_font:subpixel_scale()
 end
 
