@@ -120,7 +120,7 @@ lite_build_package_macos () {
     cp -r "$build/third/data/$module_name" "$datadir"
   done
   cp resources/icons/icon.icns "$appdir/Contents/Resources/icon.icns"
-  cp resources/macos/Info.plist "$appdir/Contents/Info.plist"
+  cp "$build/Info.plist" "$appdir/Contents/Info.plist"
   cp "$build/src/lite-xl" "$bindir/lite-xl"
   strip "$bindir/lite-xl"
   pushd ".package-build"
