@@ -14,13 +14,6 @@ conf_data.set('PROJECT_BUILD_DIR', meson.current_build_dir())
 conf_data.set('PROJECT_SOURCE_DIR', meson.current_source_dir())
 conf_data.set('PROJECT_VERSION', meson.project_version())
 
-if host_machine.system() == 'windows'
-    configure_file(
-        input : 'scripts/innosetup/innosetup.iss.in',
-        output : 'innosetup.iss',
-        configuration : conf_data
-    )
-endif
 #===============================================================================
 # Compiler Settings
 #===============================================================================
@@ -127,3 +120,4 @@ configure_file(
 #===============================================================================
 subdir('lib/font_renderer')
 subdir('src')
+subdir('scripts')
