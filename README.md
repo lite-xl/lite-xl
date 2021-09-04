@@ -7,7 +7,7 @@
 
 A lightweight text editor written in Lua, adapted from [lite].
 
-* **[Get Lite XL]** — Download for Windows, Linux and Mac OS (notarized app).
+* **[Get Lite XL]** — Download for Windows, Linux and Mac OS.
 * **[Get plugins]** — Add additional functionality, adapted for Lite XL.
 * **[Get color themes]** — Add additional colors themes.
 
