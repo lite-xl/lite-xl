@@ -51,5 +51,5 @@ else
   ARCH=Win32
 fi
 
-/c/Program\ Files\ \(x86\)/Inno\ Setup\ 6/ISCC.exe -dARCH=$ARCH $BUILD_DIR/innosetup.iss
+/c/Program\ Files\ \(x86\)/Inno\ Setup\ 6/ISCC.exe -dARCH=$ARCH $BUILD_DIR/scripts/innosetup.iss
 mv $BUILD_DIR/LiteXL*.exe $(pwd)
