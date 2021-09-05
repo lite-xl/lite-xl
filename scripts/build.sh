@@ -21,6 +21,7 @@ show_help() {
   echo "-p --prefix PREFIX        Install directory prefix. Default: '/'."
   echo "-B --bundle               Create an App bundle (macOS only)"
   echo "-P --portable             Create a portable binary package."
+  echo "-O --pgo                  Use profile guided optimizations (pgo)."
   echo "                          macOS: disabled when used with --bundle,"
   echo "                          Windows: Implicit being the only option."
   echo
@@ -33,6 +34,7 @@ main() {
   local force_fallback
   local bundle
   local portable
+  local pgo
 
   for i in "$@"; do
     case $i in
@@ -70,6 +72,10 @@ main() {
         portable="-Dportable=true"
         shift
         ;;
+      -O|--pgo)
+        pgo="-Db_pgo=generate"
+        shift
+        ;;
       *)
         # unknown option
         ;;
@@ -94,9 +100,18 @@ main() {
     $force_fallback \
     $bundle \
     $portable \
+    $pgo \
     "${build_dir}"
 
   meson compile -C "${build_dir}"
+
+  if [ ! -z ${pgo+x} ]; then
+    cp -r data "${build_dir}/src"
+    "${build_dir}/src/lite-xl"
+    meson configure -Db_pgo=use "${build_dir}"
+    meson compile -C "${build_dir}"
+    rm -fr "${build_dir}/data"
+  fi
 }
 
 main "$@"
