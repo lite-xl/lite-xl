@@ -25,6 +25,8 @@ show_help() {
   echo "-f --forcefallback        Force to build subprojects dependencies statically."
   echo "-B --bundle               Create an App bundle (macOS only)"
   echo "-P --portable             Create a portable package."
+  echo "-O --pgo                  Use profile guided optimizations (pgo)."
+  echo "                          Requires running the application iteractively."
   echo
   echo "Package options:"
   echo
@@ -55,6 +57,7 @@ main() {
   local bundle
   local innosetup
   local portable
+  local pgo
 
   for i in "$@"; do
     case $i in
@@ -110,6 +113,10 @@ main() {
         source="--source"
         shift
         ;;
+      -O|--pgo)
+        pgo="--pgo"
+        shift
+        ;;
       --debug)
         debug="--debug"
         set -x
@@ -137,7 +144,8 @@ main() {
     $debug \
     $force_fallback \
     $bundle \
-    $portable
+    $portable \
+    $pgo
 
   source scripts/package.sh \
     ${build_dir_option[@]} \
