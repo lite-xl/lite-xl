@@ -56,6 +56,7 @@ function DocView:new(doc)
   self.doc = assert(doc)
   self.font = "code_font"
   self.last_x_offset = {}
+  self.step_cache = {}
 end
 
 
@@ -98,14 +99,22 @@ end
 
 
 function DocView:get_scrollable_size()
-  return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
+  if self.step_cache.enabled and self.step_cache.scrollable_size ~= nil then
+    return self.step_cache.scrollable_size
+  end
+  self.step_cache.scrollable_size = self:get_line_height() * (#self.doc.lines - 1) + self.size.y
+  return self.step_cache.scrollable_size
 end
 
 function DocView:get_h_scrollable_size()
+  if self.step_cache.enabled and self.step_cache.h_scrollable_size ~= nil then
+    return self.step_cache.h_scrollable_size
+  end
   local xmargin = 3 * self:get_font():get_width(' ') -- from DocView:scroll_to_make_visible
   local long_line = next(self.doc.long_lines.line_numbers) or 1
-  return self:get_col_x_offset(long_line, self.doc.long_lines.length)
-         + self:get_gutter_width() + xmargin
+  self.step_cache.h_scrollable_size = self:get_col_x_offset(long_line, self.doc.long_lines.length)
+                                      + self:get_gutter_width() + xmargin
+  return self.step_cache.h_scrollable_size
 end
 
 function DocView:get_font()
@@ -276,6 +285,7 @@ end
 
 
 function DocView:on_mouse_moved(x, y, ...)
+  self.step_cache.enabled = true
   DocView.super.on_mouse_moved(self, x, y, ...)
 
   if self:scrollbar_overlaps_point(x, y) or self.dragging_scrollbar
@@ -299,6 +309,7 @@ function DocView:on_mouse_moved(x, y, ...)
       self.doc:set_selection(mouse_selection(self.doc, clicks, l1, c1, l2, c2))
     end
   end
+  self.step_cache.enabled = false
 end
 
 
@@ -312,8 +323,14 @@ function DocView:on_text_input(text)
   self.doc:text_input(text)
 end
 
+function DocView:invalidate_step_cache()
+  self.step_cache.scrollable_size = nil
+  self.step_cache.h_scrollable_size = nil
+end
 
 function DocView:update()
+  self:invalidate_step_cache()
+  self.step_cache.enabled = true
   -- scroll to make caret visible and reset blink timer if it moved
   local line, col = self.doc:get_selection()
   if (line ~= self.last_line or col ~= self.last_col) and self.size.x > 0 then
@@ -335,6 +352,7 @@ function DocView:update()
   end
 
   DocView.super.update(self)
+  self.step_cache.enabled = false
 end
 
 
@@ -425,6 +443,7 @@ function DocView:draw_overlay()
 end
 
 function DocView:draw()
+  self.step_cache.enabled = true
   self:draw_background(style.background)
 
   self:get_font():set_tab_size(config.indent_size)
@@ -451,6 +470,7 @@ function DocView:draw()
 
   self:draw_scrollbar()
   self:draw_h_scrollbar()
+  self.step_cache.enabled = false
 end
 
 

@@ -19,9 +19,8 @@ function View:new()
   self.scroll = { x = 0, y = 0, to = { x = 0, y = 0 } }
   self.cursor = "arrow"
   self.scrollable = false
-  self.h_scrollable_size = 0
-  self.scrollable_size = math.huge
 end
+
 
 function View:move_towards(t, k, dest, rate)
   if type(t) ~= "table" then
@@ -65,7 +64,7 @@ end
 
 
 function View:get_scrollbar_rect()
-  local sz = self.scrollable_size
+  local sz = self:get_scrollable_size()
   if sz <= self.size.y or sz == math.huge then
     return 0, 0, 0, 0
   end
@@ -79,7 +78,7 @@ end
 
 
 function View:get_h_scrollbar_rect()
-  local sz = self.h_scrollable_size
+  local sz = self:get_h_scrollable_size()
   if sz <= self.size.x or sz == math.huge then
     return 0, 0, 0, 0
   end
@@ -123,10 +122,10 @@ end
 
 function View:on_mouse_moved(x, y, dx, dy)
   if self.dragging_scrollbar then
-    local delta = self.scrollable_size / self.size.y * dy
+    local delta = self:get_scrollable_size() / self.size.y * dy
     self.scroll.to.y = self.scroll.to.y + delta
   elseif self.dragging_h_scrollbar then
-    local delta = self.h_scrollable_size / self.size.x * dx
+    local delta = self:get_h_scrollable_size() / self.size.x * dx
     self.scroll.to.x = self.scroll.to.x + delta
   end
   self.hovered_scrollbar = self:scrollbar_overlaps_point(x, y)
@@ -165,16 +164,14 @@ end
 
 
 function View:clamp_scroll_position()
-  local max_x = self.h_scrollable_size - self.size.x
-  local max_y = self.scrollable_size - self.size.y
+  local max_x = self:get_h_scrollable_size() - self.size.x
+  local max_y = self:get_scrollable_size() - self.size.y
   self.scroll.to.x = common.clamp(self.scroll.to.x, 0, max_x)
   self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max_y)
 end
 
 
 function View:update()
-  self.scrollable_size = self:get_scrollable_size()
-  self.h_scrollable_size = self:get_h_scrollable_size()
   self:clamp_scroll_position()
   self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3)
   self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3)
