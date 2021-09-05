@@ -55,7 +55,7 @@ main() {
     if [[ $lhelper == true ]]; then
       brew install bash md5sha1sum ninja
     else
-      brew install ninja sdl2
+      brew install bash ninja sdl2
     fi
     pip3 install meson
     cd ~; npm install appdmg; cd -

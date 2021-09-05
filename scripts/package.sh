@@ -192,10 +192,12 @@ main() {
   local exe_file="$(pwd)/${dest_dir}/lite-xl"
   local package_name=lite-xl$version-$platform-$arch
   local bundle=false
+  local portable=false
   local stripcmd="strip"
 
   if [[ -d "${data_dir}" ]]; then
-    # Portable archive
+    echo "Creating a portable, compressed archive..."
+    portable=true
     exe_file="$(pwd)/${dest_dir}/lite-xl"
     if [[ $platform == "windows" ]]; then
       exe_file="${exe_file}.exe"
@@ -205,15 +207,20 @@ main() {
       package_name+="-portable"
     fi
   elif [[ $platform == "macos" && ! -d "${data_dir}" ]]; then
-    # macOS bundle app
-    bundle=true
-    # Specify "bundle" on compressed archive only, implicit on images
-    if [[ $dmg == false ]]; then package_name+="-bundle"; fi
-    rm -rf "Lite XL.app"; mv "${dest_dir}" "Lite XL.app"
-    dest_dir="Lite XL.app"
     data_dir="$(pwd)/${dest_dir}/Contents/Resources"
-    exe_file="$(pwd)/${dest_dir}/Contents/MacOS/lite-xl"
-  else
+    if [[ -d "${data_dir}" ]]; then
+      echo "Creating a macOS bundle application..."
+      bundle=true
+      # Specify "bundle" on compressed archive only, implicit on images
+      if [[ $dmg == false ]]; then package_name+="-bundle"; fi
+      rm -rf "Lite XL.app"; mv "${dest_dir}" "Lite XL.app"
+      dest_dir="Lite XL.app"
+      exe_file="$(pwd)/${dest_dir}/Contents/MacOS/lite-xl"
+    fi
+  fi
+
+  if [[ $bundle == false && $portable == false ]]; then
+    echo "Creating a compressed archive..."
     data_dir="$(pwd)/${dest_dir}/$prefix/share/lite-xl"
     exe_file="$(pwd)/${dest_dir}/$prefix/bin/lite-xl"
   fi
