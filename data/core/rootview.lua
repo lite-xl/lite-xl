@@ -754,6 +754,7 @@ function RootView:open_doc(doc)
   local view = DocView(doc)
   node:add_view(view)
   self.root_node:update_layout()
+  view:update_drawing_cache()
   view:scroll_to_line(view.doc:get_selection(), true, true)
   return view
 end
