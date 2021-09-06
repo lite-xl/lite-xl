@@ -102,6 +102,11 @@ end
 local function update_cache(doc)
   local type, size, score = detect_indent_stat(doc)
   local score_threshold = 4
+  if score < score_threshold then
+    -- use default values
+    type = config.tab_type
+    size = config.indent_size
+  end
   cache[doc] = { type = type, size = size, confirmed = (score >= score_threshold) }
   doc.indent_info = cache[doc]
 end
