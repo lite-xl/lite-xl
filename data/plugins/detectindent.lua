@@ -114,8 +114,11 @@ function Doc:new(...)
   if not cache[self].confirmed then
     core.add_thread(function ()
       while not cache[self].confirmed do
-        update_cache(self)
-        coroutine.yield(1)
+        if cache[self].need_update then
+          update_cache(self)
+          cache[self].need_update = false
+        end
+        coroutine.yield()
       end
     end, self)
   end
@@ -124,7 +127,7 @@ end
 local clean = Doc.clean
 function Doc:clean(...)
   clean(self, ...)
-  update_cache(self)
+  cache[self].need_update = true
 end
 
 
