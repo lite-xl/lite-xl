@@ -49,7 +49,9 @@ local function find(label, search_fn)
   core.command_view:set_text(text, true)
   core.status_view:show_tooltip(get_find_tooltip())
 
-  core.command_view:enter(label, function(text)
+  core.command_view:set_hidden_suggestions()
+  core.command_view:enter(label, function(text, item)
+    table.insert(core.previous_find, text)
     core.status_view:remove_tooltip()
     if found then
       last_fn, last_text = search_fn, text
@@ -61,6 +63,7 @@ local function find(label, search_fn)
   end, function(text)
     found = update_preview(last_sel, search_fn, text)
     last_fn, last_text = search_fn, text
+    return core.previous_find
   end, function(explicit)
     core.status_view:remove_tooltip()
     if explicit then
