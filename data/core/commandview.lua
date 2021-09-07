@@ -89,7 +89,7 @@ end
 
 
 function CommandView:move_suggestion_idx(dir)
-  local current_suggestion = self.suggestions[self.suggestion_idx].text
+  local current_suggestion = #self.suggestions > 0 and self.suggestions[self.suggestion_idx].text
   if self.show_suggestions or self:get_text() == current_suggestion then
     local n = self.suggestion_idx + dir
     self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
