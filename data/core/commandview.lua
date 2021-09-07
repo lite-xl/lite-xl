@@ -89,14 +89,27 @@ end
 
 
 function CommandView:move_suggestion_idx(dir)
-  local current_suggestion = #self.suggestions > 0 and self.suggestions[self.suggestion_idx].text
-  if self.show_suggestions or self:get_text() == current_suggestion then
+  if self.show_suggestions then
     local n = self.suggestion_idx + dir
     self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
-  end
-  self:complete()
-  self.last_change_id = self.doc:get_change_id()
-  if not self.show_suggestions then
+    self:complete()
+    self.last_change_id = self.doc:get_change_id()
+  else
+    local current_suggestion = #self.suggestions > 0 and self.suggestions[self.suggestion_idx].text
+    local text = self:get_text()
+    if text == current_suggestion then
+      local n = self.suggestion_idx + dir
+      if n == 0 and self.save_suggestion then
+        self:set_text(self.save_suggestion)
+      else
+        self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
+        self:complete()
+      end
+    else
+      self.save_suggestion = text
+      self:complete()
+    end
+    self.last_change_id = self.doc:get_change_id()
     self.state.suggest(self:get_text())
   end
 end
@@ -147,6 +160,7 @@ function CommandView:exit(submitted, inexplicit)
   self.suggestions = {}
   if not submitted then cancel(not inexplicit) end
   self.show_suggestions = true
+  self.save_suggestion = nil
 end
 
 

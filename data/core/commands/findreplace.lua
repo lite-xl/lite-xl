@@ -41,6 +41,16 @@ local function update_preview(sel, search_fn, text)
   end
 end
 
+
+local function insert_unique(t, v)
+  local n = #t
+  for i = 1, n do
+    if t[i] == v then return end
+  end
+  t[n + 1] = v
+end
+
+
 local function find(label, search_fn)
   last_view, last_sel, last_finds = core.active_view,
     { core.active_view.doc:get_selection() }, {}
@@ -51,7 +61,7 @@ local function find(label, search_fn)
 
   core.command_view:set_hidden_suggestions()
   core.command_view:enter(label, function(text, item)
-    table.insert(core.previous_find, text)
+    insert_unique(core.previous_find, text)
     core.status_view:remove_tooltip()
     if found then
       last_fn, last_text = search_fn, text
@@ -80,12 +90,13 @@ local function replace(kind, default, fn)
   core.status_view:show_tooltip(get_find_tooltip())
   core.command_view:set_hidden_suggestions()
   core.command_view:enter("Find To Replace " .. kind, function(old)
+    insert_unique(core.previous_find, old)
     core.command_view:set_text(old, true)
 
     local s = string.format("Replace %s %q With", kind, old)
     core.command_view:set_hidden_suggestions()
     core.command_view:enter(s, function(new)
-      table.insert(core.previous_replace, new)
+      insert_unique(core.previous_replace, new)
       local n = doc():replace(function(text)
         return fn(text, old, new)
       end)
