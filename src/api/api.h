@@ -11,4 +11,9 @@
 
 void api_load_libs(lua_State *L);
 
+#ifdef _WIN32
+#include <windows.h>
+int api_windows_dark_theme_activated();
+#endif
+
 #endif
