@@ -21,6 +21,7 @@ void api_load_libs(lua_State *L) {
   }
 }
 
+#ifdef _WIN32
 int api_windows_dark_theme_activated()
 {
     DWORD   type;
@@ -38,3 +39,4 @@ int api_windows_dark_theme_activated()
         return value == 0? 1 : 0;
     return 0;
 }
+#endif
