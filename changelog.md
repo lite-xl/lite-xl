@@ -1,5 +1,40 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.0.2
+
+Fix problem project directory when starting the application from Launcher on macOS.
+
+Improved LogView by @takase1121.
+
+Fix problem when trying to close an unsaved new document.
+Fix `treeview:open-in-system` command on Windows.
+Fix rename command to update name of document if opened.
+Contributed by @Guldoman.
+
+Improve the find and replace dialog so that previously used expressions can be recalled
+using "up" and "down" keys.
+
+Multi-cursors fixes and improvement by @adamharrison.
+
+Build package script rewrite and enhancement by @redtide.
+
+Use bigger fonts by default.
+
+Other minor improvements and fixes.
+
+### 2.0.1
+
+Fix a few bugs and we mandate the mod-version 2 for plugins.
+This means that users should ensure they have up-to-date plugins for Lite XL 2.0.
+
+Here some details about the bug fixes:
+
+- fix a bug that created a fatal error when using the command to change project folder or when closing all the active documents
+- add a limit to avoid scaling fonts too much and fix a related invalid memory access for very small fonts
+- fix focus problem with NagView when switching project directory
+- fix error that prevented the verification of plugins versions
+- fix error on X11 that caused a bug window event on exit
+
 ### 2.0
 
 The 2.0 version of lite contains *breaking changes* to lite, in terms of how plugin settings are structured;
