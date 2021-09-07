@@ -496,6 +496,7 @@ function core.init()
 
   core.redraw = true
   core.visited_files = {}
+  core.previous_find = {}
   core.restart_request = false
   core.quit_request = false
   core.replacements = whitespace_replacements()
