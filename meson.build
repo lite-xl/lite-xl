@@ -14,13 +14,6 @@ conf_data.set('PROJECT_BUILD_DIR', meson.current_build_dir())
 conf_data.set('PROJECT_SOURCE_DIR', meson.current_source_dir())
 conf_data.set('PROJECT_VERSION', meson.project_version())
 
-if host_machine.system() == 'windows'
-    configure_file(
-        input : 'scripts/innosetup/innosetup.iss.in',
-        output : 'innosetup.iss',
-        configuration : conf_data
-    )
-endif
 #===============================================================================
 # Compiler Settings
 #===============================================================================
@@ -49,27 +42,29 @@ endif
 #===============================================================================
 # Dependencies
 #===============================================================================
-libm = cc.find_library('m', required : false)
-libdl = cc.find_library('dl', required : false)
-lua_dep = dependency('lua5.2', fallback: ['lua', 'lua_dep'],
-    default_options: ['shared=false', 'use_readline=false', 'app=false']
-)
-pcre2_dep = dependency('libpcre2-8')
-sdl_dep = dependency('sdl2', method: 'config-tool')
-reproc_dep = dependency('reproc', fallback: ['reproc', 'reproc_dep'],
-    default_options: [
-        'default_library=static', 'multithreaded=false',
-        'reproc-cpp=false', 'examples=false'
-    ]
-)
+if not get_option('source-only')
+    libm = cc.find_library('m', required : false)
+    libdl = cc.find_library('dl', required : false)
+    lua_dep = dependency('lua5.2', fallback: ['lua', 'lua_dep'],
+        default_options: ['shared=false', 'use_readline=false', 'app=false']
+    )
+    pcre2_dep = dependency('libpcre2-8')
+    sdl_dep = dependency('sdl2', method: 'config-tool')
+    reproc_dep = dependency('reproc', fallback: ['reproc', 'reproc_dep'],
+        default_options: [
+            'default_library=static', 'multithreaded=false',
+            'reproc-cpp=false', 'examples=false'
+        ]
+    )
 
-lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl]
+    lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl]
 
-if host_machine.system() == 'windows'
-    # Note that we need to explicitly add the windows socket DLL because
-    # the pkg-config file from reproc does not include it.
-    lite_deps += meson.get_compiler('cpp').find_library('ws2_32', required: true)
-    lite_deps += meson.get_compiler('cpp').find_library('dwmapi', required: true)
+    if host_machine.system() == 'windows'
+        # Note that we need to explicitly add the windows socket DLL because
+        # the pkg-config file from reproc does not include it.
+        lite_deps += meson.get_compiler('cpp').find_library('ws2_32', required: true)
+        lite_deps += meson.get_compiler('cpp').find_library('dwmapi', required: true)
+    endif
 endif
 #===============================================================================
 # Install Configuration
@@ -84,7 +79,13 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
     lite_docdir = 'Contents/Resources'
     lite_datadir = 'Contents/Resources'
     install_data('resources/icons/icon.icns', install_dir : 'Contents/Resources')
-    install_data('resources/macos/Info.plist', install_dir : 'Contents')
+    configure_file(
+        input : 'resources/macos/Info.plist.in',
+        output : 'Info.plist',
+        configuration : conf_data,
+        install : true,
+        install_dir : 'Contents'
+    )
 else
     lite_bindir = 'bin'
     lite_docdir = 'share/doc/lite-xl'
@@ -120,5 +121,8 @@ configure_file(
 #===============================================================================
 # Targets
 #===============================================================================
-subdir('lib/font_renderer')
-subdir('src')
+if not get_option('source-only')
+    subdir('lib/font_renderer')
+    subdir('src')
+    subdir('scripts')
+endif

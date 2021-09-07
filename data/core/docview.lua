@@ -102,10 +102,17 @@ function DocView:get_scrollable_size()
 end
 
 function DocView:get_h_scrollable_size()
-  local xmargin = 3 * self:get_font():get_width(' ') -- from DocView:scroll_to_make_visible
-  local long_line = next(self.doc.long_lines.line_numbers) or 1
-  return self:get_col_x_offset(long_line, self.doc.long_lines.length)
-         + self:get_gutter_width() + xmargin
+  local doc_change_id = self.doc:get_change_id()
+  if self.last_doc_change_id ~= doc_change_id then
+    self.last_doc_change_id = doc_change_id
+    local xmargin = 3 * self:get_font():get_width(' ') -- from DocView:scroll_to_make_visible
+    -- TODO: make Doc calculate the real longest line in pixels, not in characters,
+    -- as the current implementation only works for monospace fonts
+    local long_line = next(self.doc.long_lines.line_numbers) or 1
+    self.h_scrollable_size = self:get_col_x_offset(long_line, self.doc.long_lines.length)
+                             + self:get_gutter_width() + xmargin
+  end
+  return self.h_scrollable_size
 end
 
 function DocView:get_font()

@@ -17,7 +17,7 @@ local core = {}
 
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
-  if ok then
+  if ok and t then
     return t.recents, t.window, t.window_mode
   end
   return {}
@@ -441,7 +441,7 @@ function core.init()
     elseif window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
-    core.recent_projects = recent_projects
+    core.recent_projects = recent_projects or {}
   end
 
   local project_dir = core.recent_projects[1] or "."
@@ -809,7 +809,7 @@ end
 -- This function should get only filenames normalized using
 -- common.normalize_path function.
 function core.project_absolute_path(filename)
-  if filename:match('^%a:\\') or filename:find('/', 1, true) then
+  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
     return filename
   else
     return core.project_dir .. PATHSEP .. filename
