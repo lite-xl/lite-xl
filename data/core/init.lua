@@ -461,7 +461,10 @@ function core.init()
       project_dir = arg_filename
       project_dir_explicit = true
     else
-      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
+      if not ARGS[i]:match("^-psn") then
+        delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      end
     end
   end
 
