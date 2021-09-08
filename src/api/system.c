@@ -99,6 +99,10 @@ static int f_poll_event(lua_State *L) {
   char buf[16];
   int mx, my, wx, wy;
   SDL_Event e;
+#ifdef _WIN32
+  if (SDL_GetEventState(SDL_SYSWMEVENT) == SDL_DISABLE)
+    SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
+#endif
 
 top:
   if ( !SDL_PollEvent(&e) ) {
