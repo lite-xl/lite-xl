@@ -9,7 +9,6 @@
   #include <windows.h>
   #include "SDL_syswm.h"
   #include <dwmapi.h>
-  #include <winreg.h>
 #elif __linux__
   #include <unistd.h>
   #include <signal.h>
