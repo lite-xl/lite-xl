@@ -536,7 +536,7 @@ command.add(function() return view.hovered_item ~= nil end, {
     local hovered_item = view.hovered_item
 
     if PLATFORM == "Windows" then
-      system.exec("start " .. hovered_item.abs_filename)
+      system.exec(string.format("start \"\" %q", hovered_item.abs_filename))
     elseif string.find(PLATFORM, "Mac") then
       system.exec(string.format("open %q", hovered_item.abs_filename))
     elseif PLATFORM == "Linux" then

@@ -3,7 +3,6 @@ local config = require "core.config"
 local style = require "core.style"
 local common = require "core.common"
 local Object = require "core.object"
-local keymap = require "core.keymap"
 
 
 local View = Object:extend()
@@ -57,11 +56,6 @@ function View:get_scrollable_size()
 end
 
 
-function View:get_h_scrollable_size()
-  return 0
-end
-
-
 function View:get_scrollbar_rect()
   local sz = self:get_scrollable_size()
   if sz <= self.size.y or sz == math.huge then
@@ -76,29 +70,9 @@ function View:get_scrollbar_rect()
 end
 
 
-function View:get_h_scrollbar_rect()
-  local sz = self:get_h_scrollable_size()
-  if sz <= self.size.x or sz == math.huge then
-    return 0, 0, 0, 0
-  end
-  local w = math.max(20, self.size.x * self.size.x / sz)
-  return
-    self.position.x + self.scroll.x * (self.size.x - w) / (sz - self.size.x),
-    self.position.y + self.size.y - style.scrollbar_size,
-    w,
-    style.scrollbar_size
-end
-
-
 function View:scrollbar_overlaps_point(x, y)
   local sx, sy, sw, sh = self:get_scrollbar_rect()
-  return x >= sx - sw * 3 and x < sx + sw and y >= sy and y <= sy + sh
-end
-
-
-function View:h_scrollbar_overlaps_point(x, y)
-  local sx, sy, sw, sh = self:get_h_scrollbar_rect()
-  return x >= sx and x <= sx + sw and y > sy - sh * 3 and y <= sy + sh
+  return x >= sx - sw * 3 and x < sx + sw and y >= sy and y < sy + sh
 end
 
 
@@ -106,16 +80,12 @@ function View:on_mouse_pressed(button, x, y, clicks)
   if self:scrollbar_overlaps_point(x, y) then
     self.dragging_scrollbar = true
     return true
-  elseif self:h_scrollbar_overlaps_point(x, y) then
-    self.dragging_h_scrollbar = true
-    return true
   end
 end
 
 
 function View:on_mouse_released(button, x, y)
   self.dragging_scrollbar = false
-  self.dragging_h_scrollbar = false
 end
 
 
@@ -123,12 +93,8 @@ function View:on_mouse_moved(x, y, dx, dy)
   if self.dragging_scrollbar then
     local delta = self:get_scrollable_size() / self.size.y * dy
     self.scroll.to.y = self.scroll.to.y + delta
-  elseif self.dragging_h_scrollbar then
-    local delta = self:get_h_scrollable_size() / self.size.x * dx
-    self.scroll.to.x = self.scroll.to.x + delta
   end
   self.hovered_scrollbar = self:scrollbar_overlaps_point(x, y)
-  self.hovered_h_scrollbar = self:h_scrollbar_overlaps_point(x, y)
 end
 
 
@@ -137,13 +103,9 @@ function View:on_text_input(text)
 end
 
 
-function View:on_mouse_wheel(quant)
+function View:on_mouse_wheel(y)
   if self.scrollable then
-    if keymap.modkeys["shift"] then
-      self.scroll.to.x = self.scroll.to.x + quant * -config.mouse_wheel_scroll
-    else
-      self.scroll.to.y = self.scroll.to.y + quant * -config.mouse_wheel_scroll
-    end
+    self.scroll.to.y = self.scroll.to.y + y * -config.mouse_wheel_scroll
   end
 end
 
@@ -163,10 +125,8 @@ end
 
 
 function View:clamp_scroll_position()
-  local max_x = self:get_h_scrollable_size() - self.size.x
-  local max_y = self:get_scrollable_size() - self.size.y
-  self.scroll.to.x = common.clamp(self.scroll.to.x, 0, max_x)
-  self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max_y)
+  local max = self:get_scrollable_size() - self.size.y
+  self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max)
 end
 
 
@@ -187,15 +147,6 @@ end
 function View:draw_scrollbar()
   local x, y, w, h = self:get_scrollbar_rect()
   local highlight = self.hovered_scrollbar or self.dragging_scrollbar
-  local color = highlight and style.scrollbar2 or style.scrollbar
-  renderer.draw_rect(x, y, w, h, color)
-end
-
-
-function View:draw_h_scrollbar()
-  local x, y, w, h = self:get_h_scrollbar_rect()
-  local highlight = self.hovered_h_scrollbar and not self.hovered_scrollbar
-                    or self.dragging_h_scrollbar
   local color = highlight and style.scrollbar2 or style.scrollbar
   renderer.draw_rect(x, y, w, h, color)
 end
