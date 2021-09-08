@@ -11,4 +11,11 @@
 
 void api_load_libs(lua_State *L);
 
+#ifdef _WIN32
+  #define WINDOWS_DARK_MODE_BEFORE_20H1 19
+  #define WINDOWS_DARK_MODE 20
+  #include <windows.h>
+  int api_windows_dark_theme_activated();
+#endif
+
 #endif

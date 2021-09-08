@@ -20,3 +20,23 @@ void api_load_libs(lua_State *L) {
     luaL_requiref(L, libs[i].name, libs[i].func, 1);
   }
 }
+
+#ifdef _WIN32
+int api_windows_dark_theme_activated()
+ {
+     DWORD   type;
+     DWORD   value;
+     DWORD   count = 4;
+     LSTATUS st = RegGetValue(
+         HKEY_CURRENT_USER,
+         TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+         TEXT("AppsUseLightTheme"),
+         RRF_RT_REG_DWORD,
+         &type,
+         &value,
+         &count );
+     if ( st == ERROR_SUCCESS && type == REG_DWORD )
+         return value == 0? 1 : 0;
+     return 0;
+ }
+ #endif
