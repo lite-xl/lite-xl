@@ -10,7 +10,7 @@ local RootView = require "core.rootview"
 local DocView = require "core.docview"
 local Doc = require "core.doc"
 
-config.plugins.autocomplete = { 
+config.plugins.autocomplete = {
 	-- Amount of characters that need to be written for autocomplete
 	min_len = 3,
 	-- The max amount of visible items
@@ -502,6 +502,11 @@ command.add(predicate, {
     suggestions_idx = math.min(suggestions_idx + 1, #suggestions)
   end,
 
+  ["autocomplete:cycle"] = function()
+    local newidx = suggestions_idx + 1
+    suggestions_idx = newidx > #suggestions and 1 or newidx
+  end,
+
   ["autocomplete:cancel"] = function()
     reset_suggestions()
   end,
@@ -511,9 +516,11 @@ command.add(predicate, {
 -- Keymaps
 --
 keymap.add {
-  ["tab"]    = "autocomplete:complete",
+  ["return"] = "autocomplete:complete",
+  ["keypad enter"] = "autocomplete:complete",
   ["up"]     = "autocomplete:previous",
   ["down"]   = "autocomplete:next",
+  ["tab"]    = "autocomplete:cycle",
   ["escape"] = "autocomplete:cancel",
 }
 
