@@ -77,7 +77,7 @@ local function remove_only(tbl, k, v)
 end
 
 
-function keymap.unbind(cmd, key)
+function keymap.unbind(key, cmd)
   remove_only(keymap.map, key, cmd)
   remove_only(keymap.reverse_map, cmd, key)
 end
