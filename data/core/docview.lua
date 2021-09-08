@@ -101,19 +101,6 @@ function DocView:get_scrollable_size()
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
 
-function DocView:get_h_scrollable_size()
-  local doc_change_id = self.doc:get_change_id()
-  if self.last_doc_change_id ~= doc_change_id then
-    self.last_doc_change_id = doc_change_id
-    local xmargin = 3 * self:get_font():get_width(' ') -- from DocView:scroll_to_make_visible
-    -- TODO: make Doc calculate the real longest line in pixels, not in characters,
-    -- as the current implementation only works for monospace fonts
-    local long_line = next(self.doc.long_lines.line_numbers) or 1
-    self.h_scrollable_size = self:get_col_x_offset(long_line, self.doc.long_lines.length)
-                             + self:get_gutter_width() + xmargin
-  end
-  return self.h_scrollable_size
-end
 
 function DocView:get_font()
   return style[self.font]
@@ -285,8 +272,7 @@ end
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
-  if self:scrollbar_overlaps_point(x, y) or self.dragging_scrollbar
-     or self:h_scrollbar_overlaps_point(x, y) or self.dragging_h_scrollbar then
+  if self:scrollbar_overlaps_point(x, y) or self.dragging_scrollbar then
     self.cursor = "arrow"
   else
     self.cursor = "ibeam"
@@ -457,7 +443,6 @@ function DocView:draw()
   core.pop_clip_rect()
 
   self:draw_scrollbar()
-  self:draw_h_scrollbar()
 end
 
 
