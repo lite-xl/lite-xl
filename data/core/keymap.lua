@@ -5,10 +5,9 @@ keymap.modkeys = {}
 keymap.map = {}
 keymap.reverse_map = {}
 
-local macos = rawget(_G, "MACOS")
 
 -- Thanks to mathewmariani, taken from his lite-macos github repository.
-local modkeys_os = require("core.modkeys-" .. (macos and "macos" or "generic"))
+local modkeys_os = require("core.modkeys-" .. (MACOS and "macos" or "generic"))
 local modkey_map = modkeys_os.map
 local modkeys = modkeys_os.keys
 
@@ -30,14 +29,15 @@ function keymap.add_direct(map)
     end
     keymap.map[stroke] = commands
     for _, cmd in ipairs(commands) do
-      keymap.reverse_map[cmd] = stroke
+      keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
+      table.insert(keymap.reverse_map[cmd], stroke)
     end
   end
 end
 
 function keymap.add(map, overwrite)
   for stroke, commands in pairs(map) do
-    if macos then
+    if MACOS then
       stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
     end
     if type(commands) == "string" then
@@ -52,14 +52,39 @@ function keymap.add(map, overwrite)
       end
     end
     for _, cmd in ipairs(commands) do
-      keymap.reverse_map[cmd] = stroke
+      keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
+      table.insert(keymap.reverse_map[cmd], stroke)
     end
   end
 end
 
 
+local function remove_only(tbl, k, v)
+  for key, values in pairs(tbl) do
+    if key == k then
+      if v then
+        for i, value in ipairs(values) do
+          if value == v then
+            table.remove(values, i)
+          end
+        end
+      else
+        tbl[key] = nil
+      end
+      break
+    end
+  end
+end
+
+
+function keymap.unbind(cmd, key)
+  remove_only(keymap.map, key, cmd)
+  remove_only(keymap.reverse_map, cmd, key)
+end
+
+
 function keymap.get_binding(cmd)
-  return keymap.reverse_map[cmd]
+  return table.unpack(keymap.reverse_map[cmd] or {})
 end
 
 
@@ -94,7 +119,7 @@ function keymap.on_key_released(k)
 end
 
 
-if macos then
+if MACOS then
   local keymap_macos = require("core.keymap-macos")
   keymap_macos(keymap)
   return keymap
