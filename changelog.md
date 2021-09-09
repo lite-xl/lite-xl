@@ -35,6 +35,9 @@ Here some details about the bug fixes:
 - fix error that prevented the verification of plugins versions
 - fix error on X11 that caused a bug window event on exit
 
+Change behavior of `ctrl+d` to add a multi-cursor selection to the next occurrence.
+The old behavior to move the selection to the next occurrence is now done using the shortcut `ctrl+f3`.
+
 ### 2.0
 
 The 2.0 version of lite contains *breaking changes* to lite, in terms of how plugin settings are structured;

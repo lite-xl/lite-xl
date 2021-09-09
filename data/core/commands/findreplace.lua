@@ -160,8 +160,14 @@ local function select_next(all)
 end
 
 command.add(has_unique_selection, {
-  ["find-replace:select-next"] = function() select_next(false) end,
-  ["find-replace:select-all"] = function() select_next(true) end
+  ["find-replace:select-next"] = function()
+    local l1, c1, l2, c2 = doc():get_selection(true)
+    local text = doc():get_text(l1, c1, l2, c2)
+    l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
+    if l2 then doc():set_selection(l2, c2, l1, c1) end
+  end,
+  ["find-replace:select-add-next"] = function() select_next(false) end,
+  ["find-replace:select-add-all"] = function() select_next(true) end
 })
 
 command.add("core.docview", {
