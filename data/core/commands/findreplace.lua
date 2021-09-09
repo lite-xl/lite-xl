@@ -12,6 +12,7 @@ local last_finds, last_view, last_fn, last_text, last_sel
 
 local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
+local found_expression
 
 local function doc()
   return core.active_view:is(DocView) and core.active_view.doc or last_view.doc
@@ -34,10 +35,10 @@ local function update_preview(sel, search_fn, text)
   if ok and line1 and text ~= "" then
     last_view.doc:set_selection(line2, col2, line1, col1)
     last_view:scroll_to_line(line2, true)
-    return true
+    found_expression = true
   else
     last_view.doc:set_selection(unpack(sel))
-    return false
+    found_expression = false
   end
 end
 
@@ -54,7 +55,8 @@ end
 local function find(label, search_fn)
   last_view, last_sel, last_finds = core.active_view,
     { core.active_view.doc:get_selection() }, {}
-  local text, found = last_view.doc:get_text(unpack(last_sel)), false
+  local text = last_view.doc:get_text(unpack(last_sel))
+  found_expression = false
 
   core.command_view:set_text(text, true)
   core.status_view:show_tooltip(get_find_tooltip())
@@ -63,7 +65,7 @@ local function find(label, search_fn)
   core.command_view:enter(label, function(text, item)
     insert_unique(core.previous_find, text)
     core.status_view:remove_tooltip()
-    if found then
+    if found_expression then
       last_fn, last_text = search_fn, text
     else
       core.error("Couldn't find %q", text)
@@ -71,7 +73,7 @@ local function find(label, search_fn)
       last_view:scroll_to_make_visible(unpack(last_sel))
     end
   end, function(text)
-    found = update_preview(last_sel, search_fn, text)
+    update_preview(last_sel, search_fn, text)
     last_fn, last_text = search_fn, text
     return core.previous_find
   end, function(explicit)
