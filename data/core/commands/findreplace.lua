@@ -135,7 +135,9 @@ command.add("core.docview", {
   end,
 
   ["find-replace:replace"] = function()
-    replace("Text", doc():get_text(doc():get_selection(true)), function(text, old, new)
+    local selected_text = doc():get_text(doc():get_selection())
+    local has_newlines = selected_text:find("\n", 1, true)
+    replace("Text", has_newlines and "" or selected_text, function(text, old, new)
       if not find_regex then
         return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
       end
