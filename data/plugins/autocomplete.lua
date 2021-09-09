@@ -516,11 +516,9 @@ command.add(predicate, {
 -- Keymaps
 --
 keymap.add {
-  ["return"] = "autocomplete:complete",
-  ["keypad enter"] = "autocomplete:complete",
+  ["tab"]    = "autocomplete:complete",
   ["up"]     = "autocomplete:previous",
   ["down"]   = "autocomplete:next",
-  ["tab"]    = "autocomplete:cycle",
   ["escape"] = "autocomplete:cancel",
 }
 
