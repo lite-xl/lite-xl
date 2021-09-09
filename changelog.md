@@ -1,5 +1,10 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.0.2
+
+Change behavior of `ctrl+d` to add a multi-cursor selection to the next occurrence.
+The old behavior to move the selection to the next occurrence is now done using the shortcut `ctrl+F3`.
+
 ### 2.0
 
 The 2.0 version of lite contains *breaking changes* to lite, in terms of how plugin settings are structured;
