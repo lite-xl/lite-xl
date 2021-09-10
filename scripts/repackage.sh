@@ -10,7 +10,7 @@ copy_directory_from_repo () {
   fi
   local dirname="$1"
   local destdir="$2"
-  git archive master "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
+  git archive "$lite_branch" "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
 }
 
 lite_copy_third_party_modules () {
@@ -23,10 +23,15 @@ lite_copy_third_party_modules () {
     rm "$build/rxi-lite-colors.zip"
 }
 
+lite_branch=master
 while [ ! -z ${1+x} ]; do
   case "$1" in
     -dir)
     use_dir="$(realpath $2)"
+    shift 2
+    ;;
+    -branch)
+    lite_branch="$2"
     shift 2
     ;;
     *)
