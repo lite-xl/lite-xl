@@ -142,7 +142,7 @@ local function is_in_any_selection(line, col)
   return false
 end
 
-local function select_next(all)
+local function select_add_next(all)
   local il1, ic1 = doc():get_selection(true)
   for idx, l1, c1, l2, c2 in doc():get_selections(true, true) do
     local text = doc():get_text(l1, c1, l2, c2)
@@ -161,15 +161,22 @@ local function select_next(all)
   end
 end
 
-command.add(has_unique_selection, {
-  ["find-replace:select-next"] = function()
-    local l1, c1, l2, c2 = doc():get_selection(true)
-    local text = doc():get_text(l1, c1, l2, c2)
+local function select_next(reverse)
+  local l1, c1, l2, c2 = doc():get_selection(true)
+  local text = doc():get_text(l1, c1, l2, c2)
+  if reverse then
+    l1, c1, l2, c2 = search.find(doc(), l1, c1, text, { wrap = true, reverse = true })
+  else
     l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
-    if l2 then doc():set_selection(l2, c2, l1, c1) end
-  end,
-  ["find-replace:select-add-next"] = function() select_next(false) end,
-  ["find-replace:select-add-all"] = function() select_next(true) end
+  end
+  if l2 then doc():set_selection(l2, c2, l1, c1) end
+end
+
+command.add(has_unique_selection, {
+  ["find-replace:select-next"] = select_next,
+  ["find-replace:select-previous"] = function() select_next(true) end,
+  ["find-replace:select-add-next"] = select_add_next,
+  ["find-replace:select-add-all"] = function() select_add_next(true) end
 })
 
 command.add("core.docview", {
