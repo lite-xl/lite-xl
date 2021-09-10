@@ -7,8 +7,7 @@ local DocView = require "core.docview"
 local CommandView = require "core.commandview"
 local StatusView = require "core.statusview"
 
-local max_last_finds = 50
-local last_finds, last_view, last_fn, last_text, last_sel
+local last_view, last_fn, last_text, last_sel
 
 local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
@@ -54,9 +53,9 @@ end
 
 
 local function find(label, search_fn)
-  last_view, last_sel, last_finds = core.active_view,
-    { core.active_view.doc:get_selection() }, {}
-  local text = last_view.doc:get_text(table.unpack(last_sel))
+  last_view, last_sel = core.active_view,
+    { core.active_view.doc:get_selection() }
+  local text = last_view.doc:get_text(unpack(last_sel))
   found_expression = false
 
   core.command_view:set_text(text, true)
