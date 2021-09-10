@@ -78,6 +78,8 @@ for filename in $(ls -1 *.zip *.tar.*); do
     fi
     rm "$filename"
     find lite-xl -name lite -exec chmod a+x '{}' \;
+    start_file=$(find lite-xl -name start.lua)
+    lite_version=$(cat "$start_file" | awk 'match($0, /^\s*VERSION\s*=\s*"(.+)"/, a) { print(a[1]) }')
     xcoredir="$(find lite-xl -type d -name 'core')"
     coredir="$(dirname $xcoredir)"
     echo "coredir: $coredir"
@@ -86,6 +88,7 @@ for filename in $(ls -1 *.zip *.tar.*); do
         rm -fr "$coredir/$module_name"
         (cd .. && copy_directory_from_repo --strip-components=1 "data/$module_name" "$workdir/$coredir")
     done
+    sed -i "s/@PROJECT_VERSION@/$lite_version/g" "$start_file"
     for module_name in plugins colors; do
         cp -r "third/data/$module_name" "$coredir"
     done
