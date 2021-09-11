@@ -3,7 +3,6 @@ build*/
 lhelper/
 submodules/
 subprojects/lua/
-subprojects/libagg/
 subprojects/reproc/
 /appimage*
 .ccls-cache
