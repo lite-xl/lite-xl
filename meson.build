@@ -63,7 +63,7 @@ if not get_option('source-only')
     if host_machine.system() == 'windows'
         # Note that we need to explicitly add the windows socket DLL because
         # the pkg-config file from reproc does not include it.
-        lite_deps += meson.get_compiler('cpp').find_library('ws2_32', required: true)
+        lite_deps += meson.get_compiler('c').find_library('ws2_32', required: true)
     endif
 endif
 #===============================================================================
