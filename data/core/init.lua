@@ -393,15 +393,6 @@ function core.remove_project_directory(path)
   return false
 end
 
-
-local function whitespace_replacements()
-  local r = renderer.replacements.new()
-  r:add(" ", "·")
-  r:add("\t", "»")
-  return r
-end
-
-
 local function reload_on_user_module_save()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
   local doc_save = Doc.save
@@ -499,7 +490,6 @@ function core.init()
   core.visited_files = {}
   core.restart_request = false
   core.quit_request = false
-  core.replacements = whitespace_replacements()
 
   core.root_view = RootView()
   core.command_view = CommandView()
