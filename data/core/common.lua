@@ -276,6 +276,7 @@ end
 
 
 function common.normalize_path(filename)
+  if not filename then return end
   if PATHSEP == '\\' then
     filename = filename:gsub('[/\\]', '\\')
     local drive, rem = filename:match('^([a-zA-Z])(:.*)')
@@ -290,7 +291,8 @@ function common.normalize_path(filename)
       table.insert(accu, part)
     end
   end
-  return table.concat(accu, PATHSEP)
+  local npath = table.concat(accu, PATHSEP)
+  return npath == "" and PATHSEP or npath
 end
 
 

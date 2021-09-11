@@ -1,6 +1,6 @@
 project('lite-xl',
     ['c', 'cpp'],
-    version : '2.0.1',
+    version : '2.0.2',
     license : 'MIT',
     meson_version : '>= 0.54',
     default_options : ['c_std=gnu11', 'cpp_std=c++03']

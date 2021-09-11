@@ -17,10 +17,7 @@ local core = {}
 
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
-  if ok and t then
-    return t.recents, t.window, t.window_mode
-  end
-  return {}
+  return ok and t or {}
 end
 
 
@@ -30,6 +27,8 @@ local function save_session()
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size())),
       ", window_mode=", common.serialize(system.get_window_mode()),
+      ", previous_find=", common.serialize(core.previous_find),
+      ", previous_replace=", common.serialize(core.previous_replace),
       "}\n")
     fp:close()
   end
@@ -320,8 +319,8 @@ local style = require "core.style"
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
--- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
--- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
+-- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 14 * SCALE)
+-- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 14 * SCALE)
 --
 -- font names used by lite:
 -- style.font          : user interface
@@ -435,13 +434,15 @@ function core.init()
   end
 
   do
-    local recent_projects, window_position, window_mode = load_session()
-    if window_mode == "normal" then
-      system.set_window_size(table.unpack(window_position))
-    elseif window_mode == "maximized" then
+    local session = load_session()
+    if session.window_mode == "normal" then
+      system.set_window_size(table.unpack(session.window))
+    elseif session.window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
-    core.recent_projects = recent_projects or {}
+    core.recent_projects = session.recents or {}
+    core.previous_find = session.previous_find or {}
+    core.previous_replace = session.previous_replace or {}
   end
 
   local project_dir = core.recent_projects[1] or "."
@@ -461,7 +462,10 @@ function core.init()
       project_dir = arg_filename
       project_dir_explicit = true
     else
-      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
+      if not ARGS[i]:match("^-psn") then
+        delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      end
     end
   end
 
