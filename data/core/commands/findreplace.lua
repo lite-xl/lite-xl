@@ -14,7 +14,8 @@ local find_regex = config.find_regex or false
 local found_expression
 
 local function doc()
-  return core.active_view:is(DocView) and core.active_view.doc or last_view.doc
+  local is_DocView = core.active_view:is(DocView) and not core.active_view:is(CommandView)
+  return is_DocView and core.active_view.doc or last_view.doc
 end
 
 local function get_find_tooltip()
