@@ -10,7 +10,7 @@ copy_directory_from_repo () {
   fi
   local dirname="$1"
   local destdir="$2"
-  git archive master "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
+  git archive "$lite_branch" "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
 }
 
 lite_copy_third_party_modules () {
@@ -23,10 +23,15 @@ lite_copy_third_party_modules () {
     rm "$build/rxi-lite-colors.zip"
 }
 
+lite_branch=master
 while [ ! -z ${1+x} ]; do
   case "$1" in
     -dir)
     use_dir="$(realpath $2)"
+    shift 2
+    ;;
+    -branch)
+    lite_branch="$2"
     shift 2
     ;;
     *)
@@ -73,6 +78,8 @@ for filename in $(ls -1 *.zip *.tar.*); do
     fi
     rm "$filename"
     find lite-xl -name lite -exec chmod a+x '{}' \;
+    start_file=$(find lite-xl -name start.lua)
+    lite_version=$(cat "$start_file" | awk 'match($0, /^\s*VERSION\s*=\s*"(.+)"/, a) { print(a[1]) }')
     xcoredir="$(find lite-xl -type d -name 'core')"
     coredir="$(dirname $xcoredir)"
     echo "coredir: $coredir"
@@ -81,6 +88,7 @@ for filename in $(ls -1 *.zip *.tar.*); do
         rm -fr "$coredir/$module_name"
         (cd .. && copy_directory_from_repo --strip-components=1 "data/$module_name" "$workdir/$coredir")
     done
+    sed -i "s/@PROJECT_VERSION@/$lite_version/g" "$start_file"
     for module_name in plugins colors; do
         cp -r "third/data/$module_name" "$coredir"
     done

@@ -23,7 +23,7 @@ end
 -- Moves to the end of the identified character.
 local function end_character(str, index)
   local byte = string.byte(str, index + 1)
-  while byte >= 128 and byte < 192 do
+  while byte and byte >= 128 and byte < 192 do
     index = index + 1
     byte = string.byte(str, index + 1)
   end
