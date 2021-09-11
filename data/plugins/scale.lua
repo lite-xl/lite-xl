@@ -50,10 +50,10 @@ local function set_scale(scale)
     style.tab_width      = style.tab_width      * s
 
     for _, name in ipairs {"font", "big_font", "icon_font", "icon_big_font", "code_font"} do
-      renderer.font.set_size(style[name], s * style[name]:get_size())
+      style[name] = renderer.font.copy(style[name], s * style[name]:get_size())
     end
   else
-    renderer.font.set_size(style.code_font, s * style.code_font:get_size())
+    style.code_font = renderer.font.copy(style.code_font, s * style.code_font:get_size())
   end
 
   for _, font in pairs(style.syntax_fonts) do
