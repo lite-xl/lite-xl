@@ -121,7 +121,6 @@ configure_file(
 # Targets
 #===============================================================================
 if not get_option('source-only')
-    subdir('lib/font_renderer')
     subdir('src')
     subdir('scripts')
 endif
