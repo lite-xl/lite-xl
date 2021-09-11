@@ -1,9 +1,9 @@
 project('lite-xl',
-    ['c', 'cpp'],
+    ['c'],
     version : '2.0.2',
     license : 'MIT',
     meson_version : '>= 0.54',
-    default_options : ['c_std=gnu11', 'cpp_std=c++03']
+    default_options : ['c_std=gnu11']
 )
 
 #===============================================================================
@@ -33,7 +33,7 @@ endif
 #===============================================================================
 lite_link_args = []
 if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
-    lite_link_args += ['-static-libgcc', '-static-libstdc++']
+    lite_link_args += ['-static-libgcc']
 endif
 
 if host_machine.system() == 'darwin'
