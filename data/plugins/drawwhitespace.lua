@@ -18,6 +18,7 @@ function DocView:draw_line_text(idx, x, y)
     renderer.draw_text(font, string.rep("·", e - s + 1), tx, ty, color)
     offset = e + 1
   end
+  offset = 1
   while true do
     s, e = text:find("\t", offset)
     if not s then break end
