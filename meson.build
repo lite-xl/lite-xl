@@ -49,6 +49,7 @@ if not get_option('source-only')
         default_options: ['shared=false', 'use_readline=false', 'app=false']
     )
     pcre2_dep = dependency('libpcre2-8')
+    freetype_dep = dependency('freetype2')
     sdl_dep = dependency('sdl2', method: 'config-tool')
     reproc_dep = dependency('reproc', fallback: ['reproc', 'reproc_dep'],
         default_options: [
@@ -57,7 +58,7 @@ if not get_option('source-only')
         ]
     )
 
-    lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl]
+    lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl, freetype_dep]
 
     if host_machine.system() == 'windows'
         # Note that we need to explicitly add the windows socket DLL because
