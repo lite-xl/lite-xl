@@ -638,6 +638,103 @@ static int f_set_window_opacity(lua_State *L) {
 }
 
 
+
+typedef struct {
+  const char* symbol;
+  void* address;
+} lua_function_node;
+
+#define P(FUNC) { "lua_" #FUNC, (void*)(lua_##FUNC) }
+static void* api_require(const char* symbol) {
+  static lua_function_node nodes[] = {
+    P(absindex), P(arith), P(atpanic), P(callk), P(checkstack), 
+    P(close), P(compare), P(concat), P(copy), P(createtable), P(dump), 
+    P(error),  P(gc), P(getallocf), P(getctx), P(getfield), P(getglobal),
+    P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
+    P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
+    P(getuservalue), P(insert), P(isnumber), 
+    P(isstring), P(isuserdata), P(len), P(load), 
+    P(newstate), P(newthread), P(newuserdata), P(next), 
+    P(pcallk), P(pushboolean), P(pushcclosure), 
+    P(pushfstring), P(pushinteger), P(pushlightuserdata),
+    P(pushlstring), P(pushnil), P(pushnumber), P(pushstring),
+    P(pushthread), P(pushunsigned), P(pushvalue), P(pushvfstring), P(rawequal),
+    P(rawget), P(rawgeti), P(rawgetp), P(rawlen), P(rawset), P(rawseti),
+    P(rawsetp), P(remove), P(replace), P(resume), P(setallocf), 
+    P(setfield), P(setglobal), P(sethook), P(setlocal), P(setmetatable), 
+    P(settable), P(settop), P(setupvalue), P(setuservalue), P(status), 
+    P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
+    P(tonumberx), P(topointer), P(tothread), 
+    P(tounsignedx), P(touserdata), P(type), P(typename), P(upvalueid),
+    P(upvaluejoin), P(version), P(xmove), P(yieldk)
+  };
+  for (int i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
+    if (strcmp(nodes[i].symbol, symbol) == 0)
+      return nodes[i].address;
+  }
+  return NULL;
+}
+
+static int loader_plugin(lua_State* L) {
+  size_t sname, modlen, pathlen;
+  char buffer[512] = "lua_open_";
+  const char* modname = luaL_checklstring(L, -2, &modlen);
+  const char* path = luaL_checklstring(L, -1, &pathlen);
+  void* library = SDL_LoadObject(path);
+  if (modlen == 0 || !library)
+    return luaL_error(L, "Unable to load %s: %s", modname, SDL_GetError());
+  for (sname = modlen - 1; sname > 0 && modname[sname] != '.'; --sname);
+  strncat(buffer, &modname[sname], modlen - sname + 1);
+  int (*entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, buffer);
+  if (!entrypoint) {
+    return luaL_error(L, "Unable to load %s: Can't find entrypoint. Requires a \
+      function defined as int %s(lua_State* L, void* (*symbol)(const char*))", 
+    path, buffer);
+  }
+  lua_pushlightuserdata(L, library);
+  lua_setfield(L, LUA_REGISTRYINDEX, modname);
+  if (entrypoint(L, api_require) == 0)
+    return luaL_error(L, "Unable to load %s: Your entrypoint must return at\
+      least one argument.");
+  return 1;
+}
+
+#if _WIN32
+  #define PATH_SEPARATOR '\\'
+#else
+  #define PATH_SEPARATOR '/'
+#endif
+static int f_searcher_plugin(lua_State *L) {
+  size_t len, cpath_len, cpath_idx = 0, cpath_q = 0;
+  const char* modname = luaL_checklstring(L, -1, &len);
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "cpath");
+  const char* cpath = luaL_checklstring(L, -1, &cpath_len);
+  char lib[8192];
+  for (size_t i = 0; i <= cpath_len; ++i) {
+    if (i == cpath_len || cpath[i] == ';') {
+      if (cpath_q) {
+        size_t offset = cpath_q - cpath_idx;
+        strncpy(lib, &cpath[cpath_idx], offset);
+        for (size_t j = 0; j < len && j < sizeof(lib) - 1; ++j)
+          lib[offset++] = modname[j] != '.' ? modname[j] : PATH_SEPARATOR;
+        lib[offset++] = '\0';
+        struct stat s;
+        if (!stat(lib, &s)) {
+          lua_pushcfunction(L, loader_plugin);
+          lua_pushlstring(L, lib, offset);
+          return 2;
+        }
+      }
+      cpath_idx = i + 1;
+      cpath_q = 0;
+    } else if (cpath[i] == '?') {
+      cpath_q = i;
+    }
+  }
+  return 0;
+}
+
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
@@ -664,6 +761,7 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "searcher_plugin",     f_searcher_plugin     },
   { NULL, NULL }
 };
 
