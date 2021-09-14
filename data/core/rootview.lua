@@ -128,6 +128,18 @@ function Node:split(dir, view, locked, resizable)
   return self.b
 end
 
+
+function Node:is_application()
+  if self.type == "leaf" then
+    for i = 1, #self.views do
+      if self.views[i].context == "application" then return true end
+    end
+  else
+    return self.a:is_application() or self.b:is_application()
+  end
+end
+
+
 function Node:remove_view(root, view)
   if #self.views > 1 then
     local idx = self:get_view_idx(view)
@@ -142,7 +154,7 @@ function Node:remove_view(root, view)
     local parent = self:get_parent_node(root)
     local is_a = (parent.a == self)
     local other = parent[is_a and "b" or "a"]
-    if other:get_locked_size() then
+    if self.is_primary_node and other:is_application() then
       self.views = {}
       self:add_view(EmptyView())
     else
