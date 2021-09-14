@@ -19,4 +19,5 @@ package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
+package.cpath = DATADIR .. '/?.' .. (MACOS and 'lib' or (WINDOWS and 'dll' or 'so')) .. ';' .. package.cpath
 package.searchers[3] = system.searcher_plugin

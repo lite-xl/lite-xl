@@ -684,12 +684,12 @@ static int loader_plugin(lua_State* L) {
   if (modlen == 0 || !library)
     return luaL_error(L, "Unable to load %s: %s", modname, SDL_GetError());
   for (sname = modlen - 1; sname > 0 && modname[sname] != '.'; --sname);
-  strncat(buffer, &modname[sname], modlen - sname + 1);
+  strcat(buffer, &modname[sname+1]);
   int (*entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, buffer);
   if (!entrypoint) {
-    return luaL_error(L, "Unable to load %s: Can't find entrypoint. Requires a \
-      function defined as int %s(lua_State* L, void* (*symbol)(const char*))", 
-    path, buffer);
+    return luaL_error(L, "Unable to load %s: Can't find entrypoint. Requires a "
+      "function defined as int %s(lua_State* L, void* (*symbol)(const char*))", 
+    modname, buffer);
   }
   lua_pushlightuserdata(L, library);
   lua_setfield(L, LUA_REGISTRYINDEX, modname);
@@ -701,7 +701,13 @@ static int loader_plugin(lua_State* L) {
 
 #if _WIN32
   #define PATH_SEPARATOR '\\'
-#else
+  #define DYNAMIC_SUFFIX "dll"
+#else 
+  #if __APPLE__
+    #define DYNAMIC_SUFFIX "lib"
+  #else
+    #define DYNAMIC_SUFFIX "so"
+  #endif
   #define PATH_SEPARATOR '/'
 #endif
 static int f_searcher_plugin(lua_State *L) {
@@ -716,13 +722,14 @@ static int f_searcher_plugin(lua_State *L) {
       if (cpath_q) {
         size_t offset = cpath_q - cpath_idx;
         strncpy(lib, &cpath[cpath_idx], offset);
-        for (size_t j = 0; j < len && j < sizeof(lib) - 1; ++j)
+        for (size_t j = 0; j < len && j < sizeof(lib) - 3; ++j)
           lib[offset++] = modname[j] != '.' ? modname[j] : PATH_SEPARATOR;
         lib[offset++] = '\0';
+        strcat(lib, "." DYNAMIC_SUFFIX);
         struct stat s;
         if (!stat(lib, &s)) {
           lua_pushcfunction(L, loader_plugin);
-          lua_pushlstring(L, lib, offset);
+          lua_pushstring(L, lib);
           return 2;
         }
       }
