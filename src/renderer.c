@@ -46,6 +46,7 @@ typedef struct RenFont {
   short max_height, space_advance, tab_advance;
   bool subpixel;
   ERenFontHinting hinting;
+  unsigned char style;
   char path[0];
 } RenFont;
 
@@ -92,6 +93,17 @@ static int font_set_render_options(RenFont* font) {
   return 0;
 }
 
+static int font_set_style(FT_Outline* outline, int x_translation, unsigned char style) {
+  FT_Outline_Translate(outline, x_translation, 0 );
+  if (style & FONT_STYLE_BOLD)
+    FT_Outline_EmboldenXY(outline, 1 << 5, 0);
+  if (style & FONT_STYLE_ITALIC) {
+    FT_Matrix matrix = { 1 << 16, 1 << 14, 0, 1 << 16 };
+    FT_Outline_Transform(outline, &matrix);
+  }
+  return 0;
+}
+
 static GlyphSet* font_load_glyphset(RenFont* font, int idx) {
   GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
   unsigned int render_option = font_set_render_options(font), load_option = font_set_load_options(font);
@@ -99,7 +111,7 @@ static GlyphSet* font_load_glyphset(RenFont* font, int idx) {
   unsigned int byte_width = font->subpixel ? 3 : 1;
   for (int i = 0; i < 256; ++i) {
     int glyph_index = FT_Get_Char_Index( font->face, i + idx * MAX_GLYPHSET);
-    if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY) || FT_Render_Glyph(font->face->glyph, render_option))
+    if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY) || font_set_style(&font->face->glyph->outline, 0, font->style) || FT_Render_Glyph(font->face->glyph, render_option))
       continue;
     FT_GlyphSlot slot = font->face->glyph;
     int glyph_width = slot->bitmap.width / byte_width;
@@ -107,7 +119,7 @@ static GlyphSet* font_load_glyphset(RenFont* font, int idx) {
     pen_x += glyph_width;
     font->max_height = slot->bitmap.rows > font->max_height ? slot->bitmap.rows : font->max_height;
     // xadvance for some reason should be computed like this.
-    if (FT_Load_Glyph(font->face, glyph_index, FT_LOAD_BITMAP_METRICS_ONLY) || FT_Render_Glyph(font->face->glyph, render_option))
+    if (FT_Load_Glyph(font->face, glyph_index, FT_LOAD_BITMAP_METRICS_ONLY) || font_set_style(&slot->outline, 0, font->style) || FT_Render_Glyph(font->face->glyph, render_option))
       continue;
     set->metrics[i].xadvance = (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f;
       
@@ -120,7 +132,7 @@ static GlyphSet* font_load_glyphset(RenFont* font, int idx) {
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
         continue;
       FT_GlyphSlot slot = font->face->glyph;
-      FT_Outline_Translate(&slot->outline, (64 / bitmaps_cached) * j, 0 );
+      font_set_style(&slot->outline, (64 / bitmaps_cached) * j, font->style);
       if (FT_Render_Glyph(slot, render_option))
         continue; 
       for (int line = 0; line < slot->bitmap.rows; ++line) {
@@ -148,7 +160,7 @@ static GlyphSet* font_get_glyphset(RenFont* font, int codepoint) {
   return font->sets[idx];
 }
 
-RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned char hinting) {
+RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned char hinting, unsigned char style) {
   FT_Face face;
   if (FT_New_Face( library, path, 0, &face))
     return NULL;
@@ -161,6 +173,7 @@ RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned cha
   font->size = size;
   font->subpixel = subpixel;
   font->hinting = hinting;
+  font->style = style;
   GlyphSet* set = font_get_glyphset(font, ' ');
   font->space_advance = (int)set->metrics[' '].xadvance;
   font->tab_advance = font->space_advance * 2;
@@ -171,7 +184,7 @@ RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned cha
 }
 
 RenFont* ren_font_copy(RenFont* font, float size) {
-  return ren_font_load(font->path, size, font->subpixel, font->hinting);
+  return ren_font_load(font->path, size, font->subpixel, font->hinting, font->style);
 }
 
 void ren_font_free(RenFont* font) {
@@ -225,17 +238,17 @@ int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor colo
     int bitmap_index = font->subpixel ? (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED) : 0;
     unsigned char* source_pixels = set->surface[bitmap_index]->pixels;
     int start_x = pen_x + metric->bitmap_left, endX = metric->x1 - metric->x0 + pen_x;
-    int glyph_end = metric->x1, glyphStart = metric->x0;
+    int glyph_end = metric->x1, glyph_start = metric->x0;
     if (color.a > 0 && endX >= clip.x && start_x <= clip_end_x) {
       for (int line = metric->y0; line < metric->y1; ++line) {
-        int targetY = line + y - metric->y0 - metric->bitmap_top + font->size;
-        if (targetY < clip.y)
+        int target_y = line + y - metric->y0 - metric->bitmap_top + font->size;
+        if (target_y < clip.y)
           continue;
-        if (targetY >= clip_end_y)
+        if (target_y >= clip_end_y)
           break;
-        unsigned int* destination_pixel = (unsigned int*)&destination_pixels[surface->pitch * targetY + start_x * bytes_per_pixel];
+        unsigned int* destination_pixel = (unsigned int*)&destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel];
         unsigned char* source_pixel = &source_pixels[line * set->surface[bitmap_index]->pitch + metric->x0 * (font->subpixel ? 3 : 1)];
-        for (int x = glyphStart; x < glyph_end; ++x) {
+        for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color >> 16) & 0xFF, (destination_color >> 8) & 0xFF, (destination_color >> 0) & 0xFF, (destination_color >> 24) & 0xFF };
           if (font->subpixel) {

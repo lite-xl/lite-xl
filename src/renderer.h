@@ -7,10 +7,11 @@
 
 typedef struct RenFont RenFont;
 typedef enum { FONT_HINTING_NONE, FONT_HINTING_SLIGHT, FONT_HINTING_FULL } ERenFontHinting;
+typedef enum { FONT_STYLE_BOLD = 1, FONT_STYLE_ITALIC = 2 } ERenFontStyle;
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 
-RenFont* ren_font_load(const char *filename, float size, bool subpixel, unsigned char hinting);
+RenFont* ren_font_load(const char *filename, float size, bool subpixel, unsigned char hinting, unsigned char style);
 RenFont* ren_font_copy(RenFont* font, float size);
 void ren_font_free(RenFont *font);
 void ren_font_set_tab_size(RenFont *font, int n);

@@ -5,7 +5,7 @@
 static int f_font_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);
-  unsigned int font_hinting = FONT_HINTING_SLIGHT;
+  unsigned int font_hinting = FONT_HINTING_SLIGHT, font_style = 0;
   bool subpixel = true;
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
@@ -37,10 +37,16 @@ static int f_font_load(lua_State *L) {
         }
       }
     }
+    lua_getfield(L, 3, "italic");
+    if (lua_toboolean(L, -1))
+      font_style |= FONT_STYLE_ITALIC;
+    lua_getfield(L, 3, "bold");
+    if (lua_toboolean(L, -1))
+      font_style |= FONT_STYLE_BOLD;
     lua_pop(L, 1);
   }
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, subpixel, font_hinting);
+  *font = ren_font_load(filename, size, subpixel, font_hinting, font_style);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
