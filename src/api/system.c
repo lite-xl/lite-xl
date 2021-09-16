@@ -675,7 +675,7 @@ static void* api_require(const char* symbol) {
   return NULL;
 }
 
-static int loader_plugin(lua_State* L) {
+static int f_load_native_plugin(lua_State* L) {
   size_t sname, modlen, pathlen;
   char buffer[512] = "lua_open_";
   const char* modname = luaL_checklstring(L, -2, &modlen);
@@ -699,48 +699,6 @@ static int loader_plugin(lua_State* L) {
   return 1;
 }
 
-#if _WIN32
-  #define PATH_SEPARATOR '\\'
-  #define DYNAMIC_SUFFIX "dll"
-#else 
-  #if __APPLE__
-    #define DYNAMIC_SUFFIX "lib"
-  #else
-    #define DYNAMIC_SUFFIX "so"
-  #endif
-  #define PATH_SEPARATOR '/'
-#endif
-static int f_searcher_plugin(lua_State *L) {
-  size_t len, cpath_len, cpath_idx = 0, cpath_q = 0;
-  const char* modname = luaL_checklstring(L, -1, &len);
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "cpath");
-  const char* cpath = luaL_checklstring(L, -1, &cpath_len);
-  char lib[8192];
-  for (size_t i = 0; i <= cpath_len; ++i) {
-    if (i == cpath_len || cpath[i] == ';') {
-      if (cpath_q) {
-        size_t offset = cpath_q - cpath_idx;
-        strncpy(lib, &cpath[cpath_idx], offset);
-        for (size_t j = 0; j < len && j < sizeof(lib) - 3; ++j)
-          lib[offset++] = modname[j] != '.' ? modname[j] : PATH_SEPARATOR;
-        lib[offset++] = '\0';
-        strcat(lib, "." DYNAMIC_SUFFIX);
-        struct stat s;
-        if (!stat(lib, &s)) {
-          lua_pushcfunction(L, loader_plugin);
-          lua_pushstring(L, lib);
-          return 2;
-        }
-      }
-      cpath_idx = i + 1;
-      cpath_q = 0;
-    } else if (cpath[i] == '?') {
-      cpath_q = i;
-    }
-  }
-  return 0;
-}
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -768,7 +726,7 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
-  { "searcher_plugin",     f_searcher_plugin     },
+  { "load_native_plugin",  f_load_native_plugin  },
   { NULL, NULL }
 };
 

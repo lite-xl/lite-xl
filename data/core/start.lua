@@ -19,5 +19,17 @@ package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
-package.cpath = DATADIR .. '/?.' .. (MACOS and 'lib' or (WINDOWS and 'dll' or 'so')) .. ';' .. package.cpath
-package.searchers[3] = system.searcher_plugin
+
+local dynamic_suffix = MACOS and 'lib' or (WINDOWS and 'dll' or 'so')
+package.cpath = DATADIR .. '/?.' .. dynamic_suffix .. ';' .. package.cpath
+package.searchers[3] = function(modname)
+  local s,e = 0
+  repeat
+    e = package.cpath:find(";", s) or #package.cpath
+    local path = package.cpath:sub(s, e - 1):gsub("?", modname:gsub("%.", "/"))
+    if system.get_file_info(path) then
+      return system.load_native_plugin, path
+    end
+    s = e + 1
+  until s > #package.cpath
+end
