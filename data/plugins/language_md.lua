@@ -14,7 +14,7 @@ syntax.add {
     { pattern = { "```ruby", "```" },       type = "string", syntax = ".rb" },
     { pattern = { "```perl", "```" },       type = "string", syntax = ".pl" },
     { pattern = { "```php", "```" },        type = "string", syntax = ".php" },
-    { pattern = { "```javascript", "```" }, type = "string", syntax = ".js" },,
+    { pattern = { "```javascript", "```" }, type = "string", syntax = ".js" },
     { pattern = { "```html", "```" },       type = "string", syntax = ".html" },
     { pattern = { "```xml", "```" },        type = "string", syntax = ".xml" },
     { pattern = { "```css", "```" },        type = "string", syntax = ".css" },
