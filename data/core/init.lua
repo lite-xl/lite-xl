@@ -675,6 +675,7 @@ local function check_plugin_version(filename)
   return true, version_match
 end
 
+
 function core.load_plugins()
   local no_errors = true
   local refused_list = {
