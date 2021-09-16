@@ -22,6 +22,7 @@ package.path = USERDIR .. '/?/init.lua;' .. package.path
 
 local dynamic_suffix = MACOS and 'lib' or (WINDOWS and 'dll' or 'so')
 package.cpath = DATADIR .. '/?.' .. dynamic_suffix .. ';' .. package.cpath
+package.cpath = USERDIR .. '/?.' .. dynamic_suffix .. ';' .. package.cpath
 package.searchers[3] = function(modname)
   local s,e = 0
   repeat

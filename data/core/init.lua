@@ -426,8 +426,6 @@ function core.init()
   NagView = require "core.nagview"
   DocView = require "core.docview"
   Doc = require "core.doc"
-  local PluginTest = require "plugins.sample"
-  print(PluginTest.example)
 
   if PATHSEP == '\\' then
     USERDIR = common.normalize_path(USERDIR)
