@@ -237,9 +237,9 @@ int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor colo
     GlyphMetric* metric = &set->metrics[codepoint % 256];
     int bitmap_index = font->subpixel ? (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED) : 0;
     unsigned char* source_pixels = set->surface[bitmap_index]->pixels;
-    int start_x = pen_x + metric->bitmap_left, endX = metric->x1 - metric->x0 + pen_x;
+    int start_x = pen_x + metric->bitmap_left, end_x = metric->x1 - metric->x0 + pen_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
-    if (color.a > 0 && endX >= clip.x && start_x <= clip_end_x) {
+    if (color.a > 0 && end_x >= clip.x && start_x <= clip_end_x) {
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line + y - metric->y0 - metric->bitmap_top + font->size;
         if (target_y < clip.y)
@@ -274,6 +274,8 @@ int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor colo
     }
     pen_x += metric->xadvance ? metric->xadvance : font->space_advance;
   }
+  if (font->style & FONT_STYLE_UNDERLINE)
+    ren_draw_rect((RenRect){ x, y + ren_font_get_height(font) - 1, pen_x - x, 1 }, color);
   return pen_x;
 }
 

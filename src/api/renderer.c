@@ -21,7 +21,6 @@ static int f_font_load(lua_State *L) {
         }
       }
     }
-    lua_pop(L, 1);
     lua_getfield(L, 3, "hinting");
     if (lua_isstring(L, -1)) {
       const char *hinting = lua_tostring(L, -1);
@@ -43,7 +42,10 @@ static int f_font_load(lua_State *L) {
     lua_getfield(L, 3, "bold");
     if (lua_toboolean(L, -1))
       font_style |= FONT_STYLE_BOLD;
-    lua_pop(L, 1);
+    lua_getfield(L, 3, "underline");
+    if (lua_toboolean(L, -1))
+      font_style |= FONT_STYLE_UNDERLINE;
+    lua_pop(L, 5);
   }
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
   *font = ren_font_load(filename, size, subpixel, font_hinting, font_style);
