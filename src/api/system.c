@@ -645,6 +645,7 @@ typedef struct {
 } lua_function_node;
 
 #define P(FUNC) { "lua_" #FUNC, (void*)(lua_##FUNC) }
+#define U(FUNC) { "luaL_" #FUNC, (void*)(luaL_##FUNC) }
 static void* api_require(const char* symbol) {
   static lua_function_node nodes[] = {
     P(absindex), P(arith), P(atpanic), P(callk), P(checkstack), 
@@ -652,21 +653,26 @@ static void* api_require(const char* symbol) {
     P(error),  P(gc), P(getallocf), P(getctx), P(getfield), P(getglobal),
     P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
     P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
-    P(getuservalue), P(insert), P(isnumber), 
-    P(isstring), P(isuserdata), P(len), P(load), 
-    P(newstate), P(newthread), P(newuserdata), P(next), 
-    P(pcallk), P(pushboolean), P(pushcclosure), 
-    P(pushfstring), P(pushinteger), P(pushlightuserdata),
-    P(pushlstring), P(pushnil), P(pushnumber), P(pushstring),
-    P(pushthread), P(pushunsigned), P(pushvalue), P(pushvfstring), P(rawequal),
-    P(rawget), P(rawgeti), P(rawgetp), P(rawlen), P(rawset), P(rawseti),
-    P(rawsetp), P(remove), P(replace), P(resume), P(setallocf), 
-    P(setfield), P(setglobal), P(sethook), P(setlocal), P(setmetatable), 
-    P(settable), P(settop), P(setupvalue), P(setuservalue), P(status), 
-    P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
-    P(tonumberx), P(topointer), P(tothread), 
-    P(tounsignedx), P(touserdata), P(type), P(typename), P(upvalueid),
-    P(upvaluejoin), P(version), P(xmove), P(yieldk)
+    P(getuservalue), P(insert), P(isnumber), P(isstring), P(isuserdata), 
+    P(len), P(load), P(newstate), P(newthread), P(newuserdata), P(next), 
+    P(pcallk), P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
+    P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber), 
+    P(pushstring), P(pushthread), P(pushunsigned), P(pushvalue), 
+    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti), P(rawgetp), P(rawlen),
+    P(rawset), P(rawseti), P(rawsetp), P(remove), P(replace), P(resume), 
+    P(setallocf), P(setfield), P(setglobal), P(sethook), P(setlocal), 
+    P(setmetatable), P(settable), P(settop), P(setupvalue), P(setuservalue), 
+    P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
+    P(tonumberx), P(topointer), P(tothread),  P(tounsignedx), P(touserdata),
+    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove), 
+    P(yieldk), U(checkversion_), U(getmetafield), U(callmeta), U(tolstring), 
+    U(argerror), U(checknumber), U(optnumber), U(checkinteger), 
+    U(checkunsigned), U(checkstack), U(checktype), U(checkany), 
+    U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
+    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring), 
+    U(newstate), U(len), U(setfuncs), U(getsubtable), U(buffinit), 
+    U(prepbuffsize), U(addlstring), U(addstring), U(addvalue), U(pushresult),
+    U(pushresultsize), U(buffinitsize)
   };
   for (int i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
     if (strcmp(nodes[i].symbol, symbol) == 0)
@@ -676,26 +682,26 @@ static void* api_require(const char* symbol) {
 }
 
 static int f_load_native_plugin(lua_State* L) {
-  size_t sname, modlen, pathlen;
-  char buffer[512] = "lua_open_";
-  const char* modname = luaL_checklstring(L, -2, &modlen);
+  size_t sname, namelen, pathlen;
+  char olib[512];
+  const char* name = luaL_checklstring(L, -2, &namelen);
   const char* path = luaL_checklstring(L, -1, &pathlen);
   void* library = SDL_LoadObject(path);
-  if (modlen == 0 || !library)
-    return luaL_error(L, "Unable to load %s: %s", modname, SDL_GetError());
-  for (sname = modlen - 1; sname > 0 && modname[sname] != '.'; --sname);
-  strcat(buffer, &modname[sname+1]);
-  int (*entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, buffer);
+  if (name == 0 || !library)
+    return luaL_error(L, "Unable to load %s: %s", name, SDL_GetError());
+  for (sname = namelen - 1; sname > 0 && name[sname] != '.'; --sname);
+  snprintf(olib, sizeof(olib), "lua_open_%s", &name[sname+1]); olib[511] = 0;
+  int (*entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, olib);
   if (!entrypoint) {
     return luaL_error(L, "Unable to load %s: Can't find entrypoint. Requires a "
-      "function defined as int %s(lua_State* L, void* (*symbol)(const char*))", 
-    modname, buffer);
+      "function defined as int %s(lua_State* L, void* XL)", 
+    name, olib);
   }
   lua_pushlightuserdata(L, library);
-  lua_setfield(L, LUA_REGISTRYINDEX, modname);
+  lua_setfield(L, LUA_REGISTRYINDEX, name);
   if (entrypoint(L, api_require) == 0)
-    return luaL_error(L, "Unable to load %s: Your entrypoint must return at\
-      least one argument.");
+    return luaL_error(L, "Unable to load %s: Your entrypoint must return at "
+    " least one value.", name);
   return 1;
 }
 

@@ -20,7 +20,8 @@ LUA_HEADERS=`pkg-config --cflags lua5.2 | sed 's/^-I//' | sed 's/$/\/*.h/'`
 grep -h "^LUA\(LIB\)*_API" $LUA_HEADERS | sed "s/LUA\(LIB\)*_API //" | sed "s/(lua/(*lua/" | grep -v ",\s*$" | sed "s/^/static /"
 grep -h "#define luaL*_" $LUA_HEADERS | grep -v "\\\s*$" | grep -v "\(assert\|lock\)" | grep -v "\(asm\|int32\)" | grep -v "#define lua_number2integer(i,n)\s*lua_number2int(i, n)"
 echo "#define IMPORT_SYMBOL(name, ret, ...) name = (ret (*)(__VA_ARGS__))symbol(#name)"
-echo "static void lite_init_plugin(void* (*symbol(const char*))) {"
+echo "static void lite_xl_plugin_init(void* XL) {"
+echo "\tvoid* (*symbol)(const char*) = (void* (*)(const char*))XL;"
 grep -h "^LUA\(LIB\)*_API" $LUA_HEADERS | sed "s/LUA\(LIB\)*_API //" | sed "s/(lua/(*lua/" | grep -v ",\s*$" | sed "s/^\([^)]*\)(\*\(lua\w*\))\s*(/\tIMPORT_SYMBOL(\2, \1,/"
 echo "}"
 echo "#endif"
@@ -197,7 +198,8 @@ static void (*luaL_openlibs) (lua_State *L);
 #define lua_str2number(s,p)	strtod((s), (p))
 #define lua_strx2number(s,p)	strtod((s), (p))
 #define IMPORT_SYMBOL(name, ret, ...) name = (ret (*)(__VA_ARGS__))symbol(#name)
-static void lite_init_plugin(void* (*symbol(const char*))) {
+static void lite_xl_plugin_init(void* XL) {
+	void* (*symbol)(const char*) = (void* (*)(const char*))XL;
 	IMPORT_SYMBOL(luaL_checkversion_, void ,lua_State *L, lua_Number ver);
 	IMPORT_SYMBOL(luaL_getmetafield, int ,lua_State *L, int obj, const char *e);
 	IMPORT_SYMBOL(luaL_callmeta, int ,lua_State *L, int obj, const char *e);
