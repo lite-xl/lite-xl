@@ -637,8 +637,8 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
-
-
+// Symbol table for native plugin loading. Allows for a statically
+// bound lua library to be used by native plugins.
 typedef struct {
   const char* symbol;
   void* address;
