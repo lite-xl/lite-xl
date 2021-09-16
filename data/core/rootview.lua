@@ -142,7 +142,14 @@ function Node:remove_view(root, view)
     local parent = self:get_parent_node(root)
     local is_a = (parent.a == self)
     local other = parent[is_a and "b" or "a"]
-    if other:get_locked_size() then
+    local locked_size_x, locked_size_y = other:get_locked_size()
+    local locked_size
+    if parent.type == "hsplit" then
+      locked_size = locked_size_x
+    else
+      locked_size = locked_size_y
+    end
+    if self.is_primary_node or locked_size then
       self.views = {}
       self:add_view(EmptyView())
     else
