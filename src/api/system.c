@@ -683,26 +683,34 @@ static void* api_require(const char* symbol) {
 
 static int f_load_native_plugin(lua_State* L) {
   size_t sname, namelen, pathlen;
-  char olib[512];
+  int results;
+  char olib[512]; olib[sizeof(olib)-1] = 0;
   const char* name = luaL_checklstring(L, -2, &namelen);
   const char* path = luaL_checklstring(L, -1, &pathlen);
   void* library = SDL_LoadObject(path);
   if (name == 0 || !library)
     return luaL_error(L, "Unable to load %s: %s", name, SDL_GetError());
-  for (sname = namelen - 1; sname > 0 && name[sname] != '.'; --sname);
-  snprintf(olib, sizeof(olib), "lua_open_%s", &name[sname+1]); olib[511] = 0;
-  int (*entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, olib);
-  if (!entrypoint) {
-    return luaL_error(L, "Unable to load %s: Can't find entrypoint. Requires a "
-      "function defined as int %s(lua_State* L, void* XL)", 
-    name, olib);
-  }
   lua_pushlightuserdata(L, library);
   lua_setfield(L, LUA_REGISTRYINDEX, name);
-  if (entrypoint(L, api_require) == 0)
+  for (sname = namelen - 1; sname > 0 && name[sname] != '.'; --sname);
+  snprintf(olib, sizeof(olib), "lua_open_lite_xl_%s", &name[sname+1]); 
+  int (*ext_entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, olib);
+  if (!ext_entrypoint) {
+    snprintf(olib, sizeof(olib), "lua_open_%s", &name[sname+1]);
+    int (*entrypoint)(lua_State* L) = SDL_LoadFunction(library, olib);
+    if (!entrypoint) {
+      return luaL_error(L, "Unable to load %s: Can't find entrypoint. Requires a "
+        "function defined as int lua_open_lite_xl_%s(lua_State* L, void* XL)", 
+        name, &name[sname+1]);
+    }
+    results = entrypoint(L);
+  } else {
+    results = ext_entrypoint(L, api_require);
+  }
+  if (!results)
     return luaL_error(L, "Unable to load %s: Your entrypoint must return at "
     " least one value.", name);
-  return 1;
+  return results;
 }
 
 

@@ -6,7 +6,7 @@ as it has an entrypoint that looks like the following, where xxxxx is the plugin
 
 #include "lite_xl_plugin_api.h"
 
-int lua_open_xxxxx(lua_State* L, void* XL) {
+int lua_open_lite_xl_xxxxx(lua_State* L, void* XL) {
   lite_xl_plugin_init(XL);
   ...
   return 1;
@@ -27,7 +27,7 @@ echo "as it has an entrypoint that looks like the following, where xxxxx is the 
 echo
 echo '#include "lite_xl_plugin_api.h"'
 echo
-echo "int lua_open_xxxxx(lua_State* L, void* XL) {"
+echo "int lua_open_lite_xl_xxxxx(lua_State* L, void* XL) {"
 echo "  lite_xl_plugin_init(XL);"
 echo "  ..."
 echo "  return 1;"
