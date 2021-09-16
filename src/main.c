@@ -146,7 +146,7 @@ init_lua:
   #ifdef MACOS_USE_BUNDLE
     set_macos_bundle_resources(L);
   #endif
-#elsif _WIN32
+#elif _WIN32
   lua_setglobal(L, "WINDOWS");
 #else
   lua_setglobal(L, "LINUX");
