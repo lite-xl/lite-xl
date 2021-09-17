@@ -453,6 +453,7 @@ command.add(function() return view.hovered_item ~= nil end, {
         for _, doc in ipairs(core.docs) do
           if doc.abs_filename and old_abs_filename == doc.abs_filename then
             doc:set_filename(filename, abs_filename) -- make doc point to the new filename
+            doc:reset_syntax()
             break -- only first needed
           end
         end
