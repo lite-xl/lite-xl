@@ -44,6 +44,8 @@ style.scrollbar2 = { common.color "#4b4b52" }
 style.nagbar = { common.color "#FF0000" }
 style.nagbar_text = { common.color "#FFFFFF" }
 style.nagbar_dim = { common.color "rgba(0, 0, 0, 0.45)" }
+style.drag_overlay = { common.color "rgba(255,255,255,0.1)" }
+style.drag_overlay_tab = { common.color "#93DDFA" }
 
 style.syntax = {}
 style.syntax["normal"] = { common.color "#e1e1e6" }
