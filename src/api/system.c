@@ -26,14 +26,11 @@ static const char* button_name(int button) {
 }
 
 
-static char* key_name(char *dst, int sym) {
-  strcpy(dst, SDL_GetKeyName(sym));
-  char *p = dst;
+static void str_tolower(char *p) {
   while (*p) {
     *p = tolower(*p);
     p++;
   }
-  return dst;
 }
 
 struct HitTestInfo {
@@ -91,6 +88,23 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
   }
 
   return SDL_HITTEST_NORMAL;
+}
+
+static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
+
+static const char *get_key_name(const SDL_Event *e, char *buf) {
+  SDL_Scancode scancode = e->key.keysym.scancode;
+  /* Is the scancode from the keypad and the number-lock off?
+  ** We assume that SDL_SCANCODE_KP_1 up to SDL_SCANCODE_KP_9 and SDL_SCANCODE_KP_0
+  ** and SDL_SCANCODE_KP_PERIOD are declared in SDL2 in that order. */
+  if (scancode >= SDL_SCANCODE_KP_1 && scancode <= SDL_SCANCODE_KP_1 + 10 &&
+    !(KMOD_NUM & SDL_GetModState())) {
+    return numpad[scancode - SDL_SCANCODE_KP_1];
+  } else {
+    strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
+    str_tolower(buf);
+    return buf;
+  }
 }
 
 static int f_poll_event(lua_State *L) {
@@ -162,7 +176,7 @@ top:
       }
 #endif
       lua_pushstring(L, "keypressed");
-      lua_pushstring(L, key_name(buf, e.key.keysym.sym));
+      lua_pushstring(L, get_key_name(&e, buf));
       return 2;
 
     case SDL_KEYUP:
@@ -176,7 +190,7 @@ top:
       }
 #endif
       lua_pushstring(L, "keyreleased");
-      lua_pushstring(L, key_name(buf, e.key.keysym.sym));
+      lua_pushstring(L, get_key_name(&e, buf));
       return 2;
 
     case SDL_TEXTINPUT:
