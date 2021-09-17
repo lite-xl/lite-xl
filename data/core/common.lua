@@ -41,6 +41,11 @@ function common.lerp(a, b, t)
 end
 
 
+function common.distance(x1, y1, x2, y2)
+    return math.sqrt(math.pow(x2-x1, 2)+math.pow(y2-y1, 2))
+end
+
+
 function common.color(str)
   local r, g, b, a = str:match("#(%x%x)(%x%x)(%x%x)")
   if r then
