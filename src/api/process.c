@@ -275,27 +275,29 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   if (stream != STDOUT_FD && stream != STDERR_FD)
     return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
-  if (read_size > LUAL_BUFFERSIZE)
-    return luaL_error(L, "can only read a maximum of %d at once", LUAL_BUFFERSIZE);
   luaL_Buffer b;
   luaL_buffinit(L, &b);
-  uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
-  long length;
-  #if _WIN32
-    DWORD dwRead;
-    length = ReadFile(self->child_pipes[stream][0], buffer, read_size, &dwRead, NULL) ? dwRead : -1;
-  #else
-    length = read(self->child_pipes[stream][0], buffer, read_size);
-    if (length == 0 && !poll_process(self, WAIT_NONE))
+  for (int chunk = 0; chunk < (int)ceil(read_size / (float)LUAL_BUFFERSIZE); ++chunk) {
+    uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
+    int chunk_size = chunk * LUAL_BUFFERSIZE > read_size ? read_size % LUAL_BUFFERSIZE : LUAL_BUFFERSIZE;
+    long length;
+    #if _WIN32
+      DWORD dwRead;
+      length = ReadFile(self->child_pipes[stream][0], buffer, chunk_size, &dwRead, NULL) ? dwRead : -1;
+    #else
+      length = read(self->child_pipes[stream][0], buffer, chunk_size);
+      if (length == 0 && !poll_process(self, WAIT_NONE))
+        return 0;
+      else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        length = 0;
+    #endif
+    if (length < 0) {
+      signal_process(self, SIGNAL_TERM);
       return 0;
-    else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-      length = 0;
-  #endif
-  if (length < 0) {
-    signal_process(self, SIGNAL_TERM);
-    return 0;
-  } 
-  luaL_addsize(&b, length);
+    } else if (length == 0)
+      break;
+    luaL_addsize(&b, length);
+  }
   luaL_pushresult(&b);
   return 1;
 }
