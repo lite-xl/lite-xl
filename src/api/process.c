@@ -74,13 +74,14 @@ static bool poll_process(process_t* proc, int timeout) {
     #else
       int status;
       pid_t wait_response = waitpid(proc->pid, &status, WNOHANG);
-      if (wait_response > 0) {
+      if (wait_response != 0) {
         proc->running = false;
         proc->returncode = WEXITSTATUS(status);
         break;
       }
     #endif
-    SDL_Delay(5);
+    if (timeout)
+      SDL_Delay(5);
   } while (timeout == WAIT_INFINITE || SDL_GetTicks() - ticks < timeout);
   if (!proc->running) {
     close_fd(proc->child_pipes[STDIN_FD ][1]);
@@ -111,12 +112,12 @@ static bool signal_process(process_t* proc, signal_e sig) {
   return true;
 }
 
-
 static int process_start(lua_State* L) {
   size_t env_len = 0, key_len, val_len;
   const char *cmd[256], *env[256] = { NULL };
   bool detach = false;
-  #if LUA_VERSION_NUM > 51
+  luaL_checktype(L, 1, LUA_TTABLE);
+  #if LUA_VERSION_NUM > 501
     lua_len(L, 1);
   #else
     lua_pushnumber(L, (int)lua_objlen(L, 1));
@@ -241,22 +242,24 @@ static int process_start(lua_State* L) {
   return 1;
 }
 
-
 static int g_read(lua_State* L, int stream, unsigned long read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   if (stream != STDOUT_FD && stream != STDERR_FD)
     return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
+  if (read_size > LUAL_BUFFERSIZE)
+    return luaL_error(L, "can only read a maximum of %d at once", LUAL_BUFFERSIZE);
   luaL_Buffer b;
   luaL_buffinit(L, &b);
-  luaL_addsize(&b, read_size);
   uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
   long length;
   #if _WIN32
     DWORD dwRead;
-    length = ReadFile(self->child_pipes[stream][0], buffer, READ_BUF_SIZE, &dwRead, NULL) ? dwRead : -1;
+    length = ReadFile(self->child_pipes[stream][0], buffer, read_size, &dwRead, NULL) ? dwRead : -1;
   #else
     length = read(self->child_pipes[stream][0], buffer, read_size);
-    if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+    if (length == 0 && !poll_process(self, WAIT_NONE))
+      return 0;
+    else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
       length = 0;
   #endif
   if (length < 0) {
@@ -275,9 +278,11 @@ static int f_write(lua_State* L) {
   long length;
   #if _WIN32
     DWORD dwWritten;
-    length = WriteFile(self->child_pipes[STDIN_FD][0], data, data_size, &dwWritten, NULL) ? dwWritten : -1;
+    length = WriteFile(self->child_pipes[STDIN_FD][1], data, data_size, &dwWritten, NULL) ? dwWritten : -1;
   #else
-    length = write(self->child_pipes[STDIN_FD][0], data, data_size);
+    length = write(self->child_pipes[STDIN_FD][1], data, data_size);
+    if (length < 0)
+      perror(NULL);
     if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
       length = 0;
   #endif
@@ -292,11 +297,7 @@ static int f_write(lua_State* L) {
 static int f_close_stream(lua_State* L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   int stream = luaL_checknumber(L, 2);
-  switch (stream) {
-    case STDIN_FD: close_fd(self->child_pipes[stream][1]); break;
-    case STDOUT_FD: 
-    case STDERR_FD: close_fd(self->child_pipes[stream][0]); break;
-  }
+  close_fd(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
   lua_pushboolean(L, 1);
   return 1;
 }
@@ -311,14 +312,7 @@ static int process_strerror(lua_State* L) {
   return 1;
 }
 
-static int f_gc(lua_State* L) {
-  process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  signal_process(self, SIGNAL_TERM);
-  return 0;
-}
-
 static int f_tostring(lua_State* L) {
-  luaL_checkudata(L, 1, API_TYPE_PROCESS);
   lua_pushliteral(L, API_TYPE_PROCESS);
   return 1;
 }
@@ -358,26 +352,16 @@ static int f_wait(lua_State* L) {
   return 1;
 }
 
-static int f_terminate(lua_State* L) {
+static int self_signal(lua_State* L, signal_e sig) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   signal_process(self, SIGNAL_TERM);
   lua_pushboolean(L, 1);
   return 1;
 }
-
-static int f_kill(lua_State* L) {
-  process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  signal_process(self, SIGNAL_KILL);
-  lua_pushboolean(L, 1);
-  return 1;
-}
-
-static int f_break(lua_State* L) {
-  process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  signal_process(self, SIGNAL_BREAK);
-  lua_pushboolean(L, 1);
-  return 1;
-}
+static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
+static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
+static int f_break(lua_State* L) { return self_signal(L, SIGNAL_BREAK); }
+static int f_gc(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 
 static int f_running(lua_State* L) {
   process_t* self = (process_t*)luaL_checkudata(L, 1, API_TYPE_PROCESS);  
