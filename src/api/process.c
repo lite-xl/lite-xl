@@ -47,7 +47,10 @@ typedef enum {
 typedef enum {
   STDIN_FD,
   STDOUT_FD,
-  STDERR_FD
+  STDERR_FD,
+  // Special values for redirection.
+  NULL_REDIRECT = -1,
+  PARENT_REDIRECT = -2
 } filed_e;
 
 #ifdef _WIN32
@@ -114,8 +117,9 @@ static bool signal_process(process_t* proc, signal_e sig) {
 
 static int process_start(lua_State* L) {
   size_t env_len = 0, key_len, val_len;
-  const char *cmd[256], *env[256] = { NULL };
+  const char *cmd[256], *env[256] = { NULL }, *cwd = NULL;
   bool detach = false;
+  int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
   luaL_checktype(L, 1, LUA_TTABLE);
   #if LUA_VERSION_NUM > 501
     lua_len(L, 1);
@@ -143,15 +147,22 @@ static int process_start(lua_State* L) {
       }
     } else
       lua_pop(L, 1);
-    lua_getfield(L, 2, "detach");
-    detach = lua_toboolean(L, -1);
-      
+    lua_getfield(L, 2, "detach");  detach = lua_toboolean(L, -1);
+    lua_getfield(L, 2, "timeout"); deadline = luaL_optnumber(L, -1, deadline);
+    lua_getfield(L, 2, "cwd");     cwd = luaL_optstring(L, -1, NULL);
+    lua_getfield(L, 2, "stdin");   new_fds[STDIN_FD] = luaL_optnumber(L, -1, STDIN_FD);
+    lua_getfield(L, 2, "stdout");  new_fds[STDOUT_FD] = luaL_optnumber(L, -1, STDOUT_FD);
+    lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
+    for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
+      if (new_fds[stream] > STDERR_FD || new_fds[stream] < PARENT_REDIRECT)
+        return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
+    }
   }
   env[env_len] = NULL;
   
   process_t* self = lua_newuserdata(L, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
-  self->deadline = 10;
+  self->deadline = deadline;
   #if _WIN32
     char pipeNameBuffer[MAX_PATH];
     for (int i = 0; i < 3; ++i) {
@@ -180,8 +191,7 @@ static int process_start(lua_State* L) {
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
-    char commandLine[32767] = { 0 };
-    char environmentBlock[32767];
+    char commandLine[32767] = { 0 }, environmentBlock[32767];
     int offset = 0;
     strcpy(commandLine, cmd[0]);
     for (size_t i = 1; i < arg_len; ++i) {
@@ -219,25 +229,25 @@ static int process_start(lua_State* L) {
       }
       return luaL_error(L, "Error running fork: %d.", self->pid);
     } else if (!self->pid) {
-      dup2(self->child_pipes[STDOUT_FD][1], STDOUT_FD);
-      dup2(self->child_pipes[STDERR_FD][1], STDERR_FD);
-      dup2(self->child_pipes[STDIN_FD ][0], STDIN_FD);
-      close(self->child_pipes[STDIN_FD ][1]);
-      close(self->child_pipes[STDOUT_FD][0]);
-      close(self->child_pipes[STDERR_FD][0]);
-      if (detach)
-        setsid();
-      execvp((const char*)cmd[0], (char* const*)cmd);
-      const char* message = strerror(errno);
-      int result = write(STDERR_FD, message, strlen(message)+1);
-      exit(result == strlen(message)+1 ? -1 : -2);
+      for (int stream = 0; stream < 3; ++stream) {
+        if (new_fds[stream] == NULL_REDIRECT) { // Close the stream if we don't want it.
+          close(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
+          close(stream);
+        } else if (new_fds[stream] != PARENT_REDIRECT) // Use the parent handles if we redirect to parent.
+          dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
+        close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
+      }
+      if ((!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
+        execvp((const char*)cmd[0], (char* const*)cmd);  
+      const char* msg = strerror(errno);
+      int result = write(STDERR_FD, msg, strlen(msg)+1);
+      exit(result == strlen(msg)+1 ? -1 : -2);
     }
   #endif
   for (size_t i = 0; i < env_len; ++i)
     free((char*)env[i]);
-  close_fd(self->child_pipes[STDIN_FD ][0]);
-  close_fd(self->child_pipes[STDOUT_FD][1]);
-  close_fd(self->child_pipes[STDERR_FD][1]);
+  for (int stream = 0; stream < 3; ++stream)
+    close_fd(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
   self->running = true;
   return 1;
 }
@@ -281,8 +291,6 @@ static int f_write(lua_State* L) {
     length = WriteFile(self->child_pipes[STDIN_FD][1], data, data_size, &dwWritten, NULL) ? dwWritten : -1;
   #else
     length = write(self->child_pipes[STDIN_FD][1], data, data_size);
-    if (length < 0)
-      perror(NULL);
     if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
       length = 0;
   #endif
@@ -395,13 +403,6 @@ int luaopen_process(lua_State *L) {
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
 
-  // constants
-  API_CONSTANT_DEFINE(L, -1, "ERROR_INVAL", -1);
-  API_CONSTANT_DEFINE(L, -1, "ERROR_TIMEDOUT", -2);
-  API_CONSTANT_DEFINE(L, -1, "ERROR_PIPE", -3);
-  API_CONSTANT_DEFINE(L, -1, "ERROR_NOMEM", -4);
-  API_CONSTANT_DEFINE(L, -1, "ERROR_WOULDBLOCK", -4);
-
   API_CONSTANT_DEFINE(L, -1, "WAIT_INFINITE", WAIT_INFINITE);
   API_CONSTANT_DEFINE(L, -1, "WAIT_DEADLINE", WAIT_DEADLINE);
 
@@ -409,11 +410,12 @@ int luaopen_process(lua_State *L) {
   API_CONSTANT_DEFINE(L, -1, "STREAM_STDOUT", STDOUT_FD);
   API_CONSTANT_DEFINE(L, -1, "STREAM_STDERR", STDERR_FD);
 
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DEFAULT", 0);
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_PIPE", 1);
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_PARENT", 2);
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DISCARD", 4);
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", 8);
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DEFAULT", 0); // Nothing?
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", STDOUT_FD);  // Redirects stderr into stdout.
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDERR", STDERR_FD);  // Redirects stderr into stdout.
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_PARENT", PARENT_REDIRECT); // Redirects to parent's STDOUT/STDERR
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DISCARD", NULL_REDIRECT); // Closes the filehandle, discarding it.
+  // API_CONSTANT_DEFINE(L, -1, "REDIRECT_PIPE", 1);   // Literally can't find any mention of this on google.
 
   return 1;
 }
