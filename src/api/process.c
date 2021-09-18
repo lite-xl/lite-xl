@@ -186,14 +186,14 @@ static int process_start(lua_State* L) {
             self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
               PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 120 * 1000, NULL);
             if (!self->child_pipes[i][0])
-              return luaL_error(L, "Error creating read pipe.");
+              return luaL_error(L, "Error creating read pipe: %d.", GetLastError());
             self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
             if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
               CloseHandle(self->child_pipes[i][0]);
-              return luaL_error(L, "Error creating write pipe.");
+              return luaL_error(L, "Error creating write pipe: %d.", GetLastError());
             }
             if (!SetHandleInformation(self->child_pipes[STDIN_FD ][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0))
-              return luaL_error(L, "Error inheriting pipes.");
+              return luaL_error(L, "Error inheriting pipes: %d.", GetLastError());
           }
         } break;
       }
@@ -238,7 +238,7 @@ static int process_start(lua_State* L) {
   #else
     for (int i = 0; i < 3; ++i) {
       if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][0], F_SETFL, O_NONBLOCK) == -1 || fcntl(self->child_pipes[i][1], F_SETFL, O_NONBLOCK) == -1)
-        return luaL_error(L, "Error creating pipes: %d", errno);
+        return luaL_error(L, "Error creating pipes: %s", strerror(errno));
     }
     self->pid = (long)fork();
     if (self->pid < 0) {
@@ -246,7 +246,7 @@ static int process_start(lua_State* L) {
         close(self->child_pipes[i][0]);
         close(self->child_pipes[i][1]);
       }
-      return luaL_error(L, "Error running fork: %d.", self->pid);
+      return luaL_error(L, "Error running fork: %s.", strerror(errno));
     } else if (!self->pid) {
       for (int stream = 0; stream < 3; ++stream) {
         if (new_fds[stream] == REDIRECT_DISCARD) { // Close the stream if we don't want it.
