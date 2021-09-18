@@ -155,7 +155,7 @@ init_lua:
     "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
     "  local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
-    "  core = require('core')\n"
+    "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
     "  core.run()\n"
     "end, function(err)\n"
