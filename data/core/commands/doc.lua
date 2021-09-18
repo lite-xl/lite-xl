@@ -63,6 +63,14 @@ local function cut_or_copy(delete)
       end
       full_text = full_text == "" and text or (full_text .. "\n" .. text)
       doc().cursor_clipboard[idx] = text
+    elseif line1 == line2 and col1 == col2 then
+      local text = doc():get_text(line1, 1, line2, math.huge)
+      text = (text .. "\n")
+      if delete then
+        doc():remove(line1, 1, line1 + 1, 1)
+      end
+      full_text = full_text == "" and text or (full_text .. "\n" .. text)
+      doc().cursor_clipboard[idx] = text
     else
       doc().cursor_clipboard[idx] = ""
     end
