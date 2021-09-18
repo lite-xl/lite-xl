@@ -305,7 +305,7 @@ static int f_close_stream(lua_State* L) {
 static int process_strerror(lua_State* L) {
   int error_code = luaL_checknumber(L, 1);
   if (error_code < 0)
-    lua_pushnumber(L, error_code);
+    lua_pushstring(L, strerror(error_code));
   else
     lua_pushnil(L);
   return 1;
