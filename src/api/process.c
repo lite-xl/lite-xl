@@ -49,8 +49,9 @@ typedef enum {
   STDOUT_FD,
   STDERR_FD,
   // Special values for redirection.
-  NULL_REDIRECT = -1,
-  PARENT_REDIRECT = -2
+  REDIRECT_DEFAULT = -1,
+  REDIRECT_DISCARD = -2,
+  REDIRECT_PARENT = -3,
 } filed_e;
 
 #ifdef _WIN32
@@ -154,7 +155,7 @@ static int process_start(lua_State* L) {
     lua_getfield(L, 2, "stdout");  new_fds[STDOUT_FD] = luaL_optnumber(L, -1, STDOUT_FD);
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
-      if (new_fds[stream] > STDERR_FD || new_fds[stream] < PARENT_REDIRECT)
+      if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT)
         return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
     }
   }
@@ -164,33 +165,48 @@ static int process_start(lua_State* L) {
   luaL_setmetatable(L, API_TYPE_PROCESS);
   self->deadline = deadline;
   #if _WIN32
-    char pipeNameBuffer[MAX_PATH];
     for (int i = 0; i < 3; ++i) {
-      sprintf(pipeNameBuffer, "\\\\.\\Pipe\\RemoteExeAnon.%08lx.%08lx", GetCurrentProcessId(), InterlockedIncrement(&PipeSerialNumber));
-      HANDLE readPipeHandle = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-        PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 120 * 1000, NULL);
-      if (!readPipeHandle)
-        return luaL_error(L, "Error creating read pipe.");
-      HANDLE writePipeHandle = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
-      if (writePipeHandle == INVALID_HANDLE_VALUE) {
-        CloseHandle(readPipeHandle);
-        return luaL_error(L, "Error creating write pipe.");
+      switch (new_fds[i]) {
+        case REDIRECT_PARENT:
+          switch (i) {
+            case STDIN_FD: self->child_pipes[i][0] = GetStdHandle(STD_INPUT_HANDLE); break;
+            case STDOUT_FD: self->child_pipes[i][1] = GetStdHandle(STD_OUTPUT_HANDLE); break;
+            case STDERR_FD: self->child_pipes[i][1] = GetStdHandle(STD_ERROR_HANDLE); break;
+          }
+          self->child_pipes[i][i == STDIN_FD ? 1 : 0] = INVALID_HANDLE_VALUE;
+        break;
+        case REDIRECT_DISCARD: self->child_pipes[i] = { INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE }; break;
+        default: {
+          if (new_fds[i] == i) {
+            char pipeNameBuffer[MAX_PATH];
+            sprintf(pipeNameBuffer, "\\\\.\\Pipe\\RemoteExeAnon.%08lx.%08lx", GetCurrentProcessId(), InterlockedIncrement(&PipeSerialNumber));
+            self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+              PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 120 * 1000, NULL);
+            if (!self->child_pipes[i][0])
+              return luaL_error(L, "Error creating read pipe.");
+            self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
+            if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
+              CloseHandle(self->child_pipes[i][0]);
+              return luaL_error(L, "Error creating write pipe.");
+            }
+            if (!SetHandleInformation(self->child_pipes[STDIN_FD ][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0))
+              return luaL_error(L, "Error inheriting pipes.");
+          }
+        } break;
       }
-      self->child_pipes[i][0] = readPipeHandle;
-      self->child_pipes[i][1] = writePipeHandle;
     }
-    if (!SetHandleInformation(self->child_pipes[STDIN_FD ][1], HANDLE_FLAG_INHERIT, 0) ||
-        !SetHandleInformation(self->child_pipes[STDOUT_FD][0], HANDLE_FLAG_INHERIT, 0) ||
-        !SetHandleInformation(self->child_pipes[STDERR_FD][0], HANDLE_FLAG_INHERIT, 0)
-    )
-      return luaL_error(L, "Error inheriting pipes.");
+    for (int i = 0; i < 3; ++i) {
+      if (new_fds[i] != i)
+        self->child_pipes[i] = self->child_pipes[new_fds[i]];
+    }
     STARTUPINFO siStartInfo;
     memset(&self->process_information, 0, sizeof(self->process_information));
     memset(&siStartInfo, 0, sizeof(siStartInfo));
     siStartInfo.cb = sizeof(siStartInfo);
-    siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
-    siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
+    siStartInfo.dwFlags = STARTF_USESTDHANDLES;
     siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
+    siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
+    siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
     char commandLine[32767] = { 0 }, environmentBlock[32767];
     int offset = 0;
     strcpy(commandLine, cmd[0]);
@@ -230,10 +246,10 @@ static int process_start(lua_State* L) {
       return luaL_error(L, "Error running fork: %d.", self->pid);
     } else if (!self->pid) {
       for (int stream = 0; stream < 3; ++stream) {
-        if (new_fds[stream] == NULL_REDIRECT) { // Close the stream if we don't want it.
+        if (new_fds[stream] == REDIRECT_DISCARD) { // Close the stream if we don't want it.
           close(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
           close(stream);
-        } else if (new_fds[stream] != PARENT_REDIRECT) // Use the parent handles if we redirect to parent.
+        } else if (new_fds[stream] != REDIRECT_PARENT) // Use the parent handles if we redirect to parent.
           dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
@@ -410,12 +426,11 @@ int luaopen_process(lua_State *L) {
   API_CONSTANT_DEFINE(L, -1, "STREAM_STDOUT", STDOUT_FD);
   API_CONSTANT_DEFINE(L, -1, "STREAM_STDERR", STDERR_FD);
 
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DEFAULT", 0); // Nothing?
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", STDOUT_FD);  // Redirects stderr into stdout.
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDERR", STDERR_FD);  // Redirects stderr into stdout.
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_PARENT", PARENT_REDIRECT); // Redirects to parent's STDOUT/STDERR
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DISCARD", NULL_REDIRECT); // Closes the filehandle, discarding it.
-  // API_CONSTANT_DEFINE(L, -1, "REDIRECT_PIPE", 1);   // Literally can't find any mention of this on google.
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DEFAULT", REDIRECT_DEFAULT);
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", STDOUT_FD); 
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDERR", STDERR_FD);
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_PARENT", REDIRECT_PARENT); // Redirects to parent's STDOUT/STDERR
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_DISCARD", REDIRECT_DISCARD); // Closes the filehandle, discarding it.
 
   return 1;
 }
