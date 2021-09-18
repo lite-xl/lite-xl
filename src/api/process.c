@@ -381,7 +381,7 @@ static int f_wait(lua_State* L) {
 
 static int self_signal(lua_State* L, signal_e sig) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  signal_process(self, SIGNAL_TERM);
+  signal_process(self, sig);
   lua_pushboolean(L, 1);
   return 1;
 }
