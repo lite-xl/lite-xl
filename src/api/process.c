@@ -231,7 +231,7 @@ static int process_start(lua_State* L) {
       environmentBlock[offset++] = 0;
     }
     environmentBlock[offset++] = 0;
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, detach ? DETACHED_PROCESS : 0, env_len > 0 ? environmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
+    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, detach ? DETACHED_PROCESS : CREATE_NO_WINDOW, env_len > 0 ? environmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
       return luaL_error(L, "Error creating a process: %d.", GetLastError());
     self->pid = (long)self->process_information.dwProcessId;
     if (detach) 
@@ -286,6 +286,8 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
     #if _WIN32
       DWORD dwRead;
       length = ReadFile(self->child_pipes[stream][0], buffer, chunk_size, &dwRead, NULL) ? dwRead : -1;
+      if (length < 0 && GetLastError() == ERROR_IO_PENDING)
+        length = 0;
     #else
       length = read(self->child_pipes[stream][0], buffer, chunk_size);
       if (length == 0 && !poll_process(self, WAIT_NONE))
