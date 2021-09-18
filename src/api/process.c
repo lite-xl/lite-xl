@@ -175,7 +175,10 @@ static int process_start(lua_State* L) {
           }
           self->child_pipes[i][i == STDIN_FD ? 1 : 0] = INVALID_HANDLE_VALUE;
         break;
-        case REDIRECT_DISCARD: self->child_pipes[i] = { INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE }; break;
+        case REDIRECT_DISCARD: 
+          self->child_pipes[i][0] = INVALID_HANDLE_VALUE; 
+          self->child_pipes[i][1] = INVALID_HANDLE_VALUE; 
+        break;
         default: {
           if (new_fds[i] == i) {
             char pipeNameBuffer[MAX_PATH];
@@ -226,7 +229,7 @@ static int process_start(lua_State* L) {
       environmentBlock[offset++] = 0;
     }
     environmentBlock[offset++] = 0;
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, detach ? DETACHED_PROCESS : 0, env_len > 0 ? environmentBlock : NULL, NULL, &siStartInfo, &self->process_information))
+    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, detach ? DETACHED_PROCESS : 0, env_len > 0 ? environmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
       return luaL_error(L, "Error creating a process: %d.", GetLastError());
     self->pid = (long)self->process_information.dwProcessId;
     if (detach) 
