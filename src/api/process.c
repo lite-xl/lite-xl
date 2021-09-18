@@ -199,8 +199,10 @@ static int process_start(lua_State* L) {
       }
     }
     for (int i = 0; i < 3; ++i) {
-      if (new_fds[i] != i)
-        self->child_pipes[i] = self->child_pipes[new_fds[i]];
+      if (new_fds[i] != i) {
+        self->child_pipes[i][0] = self->child_pipes[new_fds[i]][0];
+        self->child_pipes[i][1] = self->child_pipes[new_fds[i]][1];
+      }
     }
     STARTUPINFO siStartInfo;
     memset(&self->process_information, 0, sizeof(self->process_information));
