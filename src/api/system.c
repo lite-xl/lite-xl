@@ -98,7 +98,7 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
   ** We assume that SDL_SCANCODE_KP_1 up to SDL_SCANCODE_KP_9 and SDL_SCANCODE_KP_0
   ** and SDL_SCANCODE_KP_PERIOD are declared in SDL2 in that order. */
   if (scancode >= SDL_SCANCODE_KP_1 && scancode <= SDL_SCANCODE_KP_1 + 10 &&
-    !(KMOD_NUM & SDL_GetModState())) {
+    !(e->key.keysym.mod & KMOD_NUM)) {
     return numpad[scancode - SDL_SCANCODE_KP_1];
   } else {
     strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
