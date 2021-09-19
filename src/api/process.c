@@ -165,7 +165,7 @@ static int process_start(lua_State* L) {
   env[env_len] = NULL;
   
   process_t* self = lua_newuserdata(L, sizeof(process_t));
-  memset(self, 0, sizeof(self));
+  memset(self, 0, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
   self->deadline = deadline;
   #if _WIN32
@@ -280,13 +280,13 @@ static int process_start(lua_State* L) {
 
 static int g_read(lua_State* L, int stream, unsigned long read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  long length;
+  long length = 0;
   if (stream != STDOUT_FD && stream != STDERR_FD)
     return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
   #if _WIN32
     if (self->reading[stream] || !ReadFile(self->child_pipes[stream][0], self->buffer[stream], READ_BUF_SIZE, NULL, &self->overlapped[stream])) {
       if (self->reading[stream] || GetLastError() == ERROR_IO_PENDING) {
-        stream->reading[stream] = true;
+        self->reading[stream] = true;
         DWORD bytesTransferred = 0;
         if (GetOverlappedResult(self->child_pipes[stream][0], &self->overlapped[stream], &bytesTransferred, false)) {
           self->reading[stream] = false;
@@ -299,6 +299,7 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
     } else {
       length = self->overlapped[stream].InternalHigh;
     }
+    lua_pushlstring(self->buffer[stream], length);
   #else
     luaL_Buffer b;
     luaL_buffinit(L, &b);
