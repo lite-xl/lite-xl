@@ -299,7 +299,7 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
     } else {
       length = self->overlapped[stream].InternalHigh;
     }
-    lua_pushlstring(self->buffer[stream], length);
+    lua_pushlstring(L, self->buffer[stream], length);
   #else
     luaL_Buffer b;
     luaL_buffinit(L, &b);
