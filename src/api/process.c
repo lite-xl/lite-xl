@@ -27,6 +27,9 @@ typedef struct {
   #if _WIN32
     PROCESS_INFORMATION process_information;
     HANDLE child_pipes[3][2];
+    OVERLAPPED overlapped[2];
+    bool reading[2];
+    char buffer[2][READ_BUF_SIZE];
   #else
     int child_pipes[3][2];
   #endif
@@ -162,6 +165,7 @@ static int process_start(lua_State* L) {
   env[env_len] = NULL;
   
   process_t* self = lua_newuserdata(L, sizeof(process_t));
+  memset(self, 0, sizeof(self));
   luaL_setmetatable(L, API_TYPE_PROCESS);
   self->deadline = deadline;
   #if _WIN32
@@ -184,16 +188,17 @@ static int process_start(lua_State* L) {
             char pipeNameBuffer[MAX_PATH];
             sprintf(pipeNameBuffer, "\\\\.\\Pipe\\RemoteExeAnon.%08lx.%08lx", GetCurrentProcessId(), InterlockedIncrement(&PipeSerialNumber));
             self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-              PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 120 * 1000, NULL);
+              PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 0, NULL);
             if (!self->child_pipes[i][0])
               return luaL_error(L, "Error creating read pipe: %d.", GetLastError());
-            self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
+            self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
             if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
               CloseHandle(self->child_pipes[i][0]);
               return luaL_error(L, "Error creating write pipe: %d.", GetLastError());
             }
-            if (!SetHandleInformation(self->child_pipes[STDIN_FD ][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0))
-              return luaL_error(L, "Error inheriting pipes: %d.", GetLastError());
+            if (!SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
+                !SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 0 : 1], HANDLE_FLAG_INHERIT, 1))
+                  return luaL_error(L, "Error inheriting pipes: %d.", GetLastError());
           }
         } break;
       }
@@ -208,7 +213,7 @@ static int process_start(lua_State* L) {
     memset(&self->process_information, 0, sizeof(self->process_information));
     memset(&siStartInfo, 0, sizeof(siStartInfo));
     siStartInfo.cb = sizeof(siStartInfo);
-    siStartInfo.dwFlags = STARTF_USESTDHANDLES;
+    siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
     siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
@@ -275,34 +280,41 @@ static int process_start(lua_State* L) {
 
 static int g_read(lua_State* L, int stream, unsigned long read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
+  long length;
   if (stream != STDOUT_FD && stream != STDERR_FD)
     return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
-  luaL_Buffer b;
-  luaL_buffinit(L, &b);
-  for (int chunk = 0; chunk < (int)ceil(read_size / (float)LUAL_BUFFERSIZE); ++chunk) {
-    uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
-    int chunk_size = chunk * LUAL_BUFFERSIZE > read_size ? read_size % LUAL_BUFFERSIZE : LUAL_BUFFERSIZE;
-    long length;
-    #if _WIN32
-      DWORD dwRead;
-      length = ReadFile(self->child_pipes[stream][0], buffer, chunk_size, &dwRead, NULL) ? dwRead : -1;
-      if (length < 0 && GetLastError() == ERROR_IO_PENDING)
-        length = 0;
-    #else
-      length = read(self->child_pipes[stream][0], buffer, chunk_size);
-      if (length == 0 && !poll_process(self, WAIT_NONE))
+  #if _WIN32
+    if (self->reading[stream] || !ReadFile(self->child_pipes[stream][0], self->buffer[stream], READ_BUF_SIZE, NULL, &self->overlapped[stream])) {
+      if (self->reading[stream] || GetLastError() == ERROR_IO_PENDING) {
+        stream->reading[stream] = true;
+        DWORD bytesTransferred = 0;
+        if (GetOverlappedResult(self->child_pipes[stream][0], &self->overlapped[stream], &bytesTransferred, false)) {
+          self->reading[stream] = false;
+          length = bytesTransferred;
+        }
+      } else {
+        signal_process(self, SIGNAL_TERM);
         return 0;
-      else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-        length = 0;
-    #endif
+      }
+    } else {
+      length = self->overlapped[stream].InternalHigh;
+    }
+  #else
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
+    length = read(self->child_pipes[stream][0], buffer, read_size > READ_BUF_SIZE ? READ_BUF_SIZE : read_size);
+    if (length == 0 && !poll_process(self, WAIT_NONE))
+      return 0;
+    else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+      length = 0;
     if (length < 0) {
       signal_process(self, SIGNAL_TERM);
       return 0;
-    } else if (length == 0)
-      break;
+    }
     luaL_addsize(&b, length);
-  }
-  luaL_pushresult(&b);
+    luaL_pushresult(&b);
+  #endif
   return 1;
 }
 
