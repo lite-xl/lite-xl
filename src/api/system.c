@@ -662,11 +662,31 @@ static int f_set_window_opacity(lua_State *L) {
 
 static int f_watch_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, DMON_WATCHFLAGS_RECURSIVE, NULL);
+  const int recursive = lua_toboolean(L, 2);
+  uint32_t dmon_flags = (recursive ? DMON_WATCHFLAGS_RECURSIVE : 0);
+  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL);
   if (watch_id.id == 0) { luaL_error(L, "directory monitoring watch failed"); }
   lua_pushnumber(L, watch_id.id);
   return 1;
 }
+
+#if __linux__
+static int f_watch_dir_add(lua_State *L) {
+  dmon_watch_id watch_id;
+  watch_id.id = luaL_checkinteger(L, 1);
+  const char *subdir = luaL_checkstring(L, 2);
+  lua_pushboolean(L, dmon_watch_add(watch_id, subdir));
+  return 1;
+}
+
+static int f_watch_dir_rm(lua_State *L) {
+  dmon_watch_id watch_id;
+  watch_id.id = luaL_checkinteger(L, 1);
+  const char *subdir = luaL_checkstring(L, 2);
+  lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
+  return 1;
+}
+#endif
 
 #ifdef _WIN32
 #define PATHSEP '\\'
@@ -754,6 +774,10 @@ static const luaL_Reg lib[] = {
   { "set_window_opacity",  f_set_window_opacity  },
   { "watch_dir",           f_watch_dir           },
   { "path_compare",        f_path_compare        },
+#if __linux__
+  { "watch_dir_add",       f_watch_dir_add       },
+  { "watch_dir_rm",        f_watch_dir_rm        },
+#endif
   { NULL, NULL }
 };
 
