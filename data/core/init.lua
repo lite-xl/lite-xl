@@ -146,6 +146,14 @@ end
 
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
+  if dir.files_limit and PLATFORM == "Linux" then
+    local fullpath = dir.name .. PATHSEP .. filename
+    local watch_fn = show and system.watch_dir_add or system.watch_dir_rm
+    local success = watch_fn(dir.watch_id, fullpath)
+    if not success then
+      core.log("Internal warning: error calling system.watch_dir_%s", show and "add" or "rm")
+    end
+  end
 end
 
 
@@ -168,9 +176,15 @@ local function scan_project_folder(index)
   local t, entries_count = get_directory_files(dir, dir.name, "", {}, nil, config.max_project_files)
   if entries_count > config.max_project_files then
     dir.files_limit = true
+    -- Watch non-recursively on Linux only.
+    -- The reason is recursively watching with dmon on linux
+    -- doesn't work on very large directories.
+    dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
     if core.status_view then -- May be not yet initialized.
       show_max_files_warning()
     end
+  else
+    dir.watch_id = system.watch_dir(dir.name, true)
   end
   dir.files = t
   core.dir_rescan_add_job(dir, ".")
@@ -182,13 +196,11 @@ function core.add_project_directory(path)
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = common.normalize_path(path)
-  local watch_id = system.watch_dir(path)
   local dir = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files_limit = false,
     is_dirty = true,
-    watch_id = watch_id,
     shown_subdir = {},
   }
   table.insert(core.project_directories, dir)
@@ -298,15 +310,16 @@ local function rescan_project_subdir(dir, filename_rooted)
 end
 
 
-function core.scan_project_subdir(dir, filename)
+function core.update_project_subdir(dir, filename, expanded)
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
-    local new_files = get_directory_files(dir, dir.name, PATHSEP .. filename, {})
+    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}) or {}
     files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
     return true
   end
 end
+
 
 -- Find files and directories recursively reading from the filesystem.
 -- Filter files and yields file's directory and info table. This latter
