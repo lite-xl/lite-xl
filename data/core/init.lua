@@ -153,6 +153,9 @@ end
 
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
+  if dir.files_limit then
+    system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. filename)
+  end
 end
 
 
@@ -176,9 +179,13 @@ local function scan_project_folder(index)
   if entries_count > config.max_project_files then
     print("DEBUG setting files limit FLAG for", dir.name)
     dir.files_limit = true
+    -- Watch non-recursively
+    dir.watch_id = system.watch_dir(path, false)
     if core.status_view then -- May be not yet initialized.
       show_max_files_warning()
     end
+  else
+    dir.watch_id = system.watch_dir(path, true)
   end
   dir.files = t
   core.dir_rescan_add_job(dir, ".")
@@ -190,13 +197,13 @@ function core.add_project_directory(path)
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = normalize_path(path)
-  local watch_id = system.watch_dir(path);
+  -- local watch_id = system.watch_dir(path)
   local dir = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files_limit = false,
     is_dirty = true,
-    watch_id = watch_id,
+    -- watch_id = watch_id,
     shown_subdir = {},
   }
   table.insert(core.project_directories, dir)
