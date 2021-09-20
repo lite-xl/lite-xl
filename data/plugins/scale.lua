@@ -56,6 +56,10 @@ local function set_scale(scale)
     renderer.font.set_size(style.code_font, s * style.code_font:get_size())
   end
 
+  for _, font in pairs(style.syntax_fonts) do
+    renderer.font.set_size(font, s * font:get_size())
+  end
+
   -- restore scroll positions
   for view, n in pairs(scrolls) do
     view.scroll.y = n * (view:get_scrollable_size() - view.size.y)
