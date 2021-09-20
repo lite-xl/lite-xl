@@ -216,9 +216,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     else
       hovered_item.expanded = not hovered_item.expanded
       if hovered_item.dir.files_limit then
-        if hovered_item.expanded then
-          core.scan_project_subdir(hovered_item.dir, hovered_item.filename)
-        end
+        core.update_project_subdir(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
         core.project_subdir_set_show(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
       end
     end
