@@ -11,6 +11,7 @@ libx11 = dependency('x11', required : false)
 lua_dep = dependency('lua5.2', required : false)
 pcre2_dep = dependency('libpcre2-8')
 sdl_dep = dependency('sdl2', method: 'config-tool')
+threads_dep = dependency('threads')
 
 if not lua_dep.found()
     lua_subproject = subproject('lua', default_options: ['shared=false', 'use_readline=false', 'app=false'])
@@ -20,7 +21,7 @@ endif
 reproc_subproject = subproject('reproc', default_options: ['default_library=static', 'multithreaded=false', 'reproc-cpp=false', 'examples=false'])
 reproc_dep = reproc_subproject.get_variable('reproc_dep')
 
-lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl, libx11]
+lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl, threads_dep, libx11]
 
 if host_machine.system() == 'windows'
     # Note that we need to explicitly add the windows socket DLL because
