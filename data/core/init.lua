@@ -187,12 +187,12 @@ local function scan_project_folder(index)
     print("DEBUG setting files limit FLAG for", dir.name)
     dir.files_limit = true
     -- Watch non-recursively
-    dir.watch_id = system.watch_dir(path, false)
+    dir.watch_id = system.watch_dir(dir.name, false)
     if core.status_view then -- May be not yet initialized.
       show_max_files_warning()
     end
   else
-    dir.watch_id = system.watch_dir(path, true)
+    dir.watch_id = system.watch_dir(dir.name, true)
   end
   dir.files = t
   core.dir_rescan_add_job(dir, ".")

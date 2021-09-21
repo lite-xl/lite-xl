@@ -840,14 +840,14 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
         pthread_mutex_unlock(&_dmon.mutex);
         return false;
     }
-    inotify_rm_watch(fd, watch->wds[i]);
+    inotify_rm_watch(watch->fd, watch->wds[i]);
 
     for (int j = i; j < c - 1; j++) {
-        memcpy(watch->subdir + j, watch->subdir + j + 1, sizeof(dmon__watch_subdir));
-        memcpy(watch->wds    + j, watch->wds    + j + 1, sizeof(int));
+        memcpy(watch->subdirs + j, watch->subdirs + j + 1, sizeof(dmon__watch_subdir));
+        memcpy(watch->wds + j, watch->wds + j + 1, sizeof(int));
     }
-    stb__sbraw(watch->subdir)[1] = c - 1;
-    stb__sbraw(watch->wds   )[1] = c - 1;
+    stb__sbraw(watch->subdirs)[1] = c - 1;
+    stb__sbraw(watch->wds)[1] = c - 1;
 
     pthread_mutex_unlock(&_dmon.mutex);
     return true;
