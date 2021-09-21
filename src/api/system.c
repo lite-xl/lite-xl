@@ -690,7 +690,8 @@ static int f_load_native_plugin(lua_State* L) {
   void* library = SDL_LoadObject(path);
   if (name == 0 || !library)
     return luaL_error(L, "Unable to load %s: %s", name, SDL_GetError());
-  lua_getfield(L, LUA_REGISTRYINDEX, "native_plugins");
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "native_plugins");
   lua_pushlightuserdata(L, library);
   lua_setfield(L, -2, name);
   lua_pop(L, 1);

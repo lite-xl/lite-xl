@@ -22,6 +22,7 @@ package.path = USERDIR .. '/?/init.lua;' .. package.path
 
 local dynamic_suffix = MACOS and 'lib' or (WINDOWS and 'dll' or 'so')
 package.cpath = DATADIR .. '/?.' .. dynamic_suffix .. ";" .. USERDIR .. '/?.' .. dynamic_suffix
+package.native_plugins = {}
 package.searchers[3] = function(modname)
   local path = package.searchpath(modname, package.cpath)
   if not path then return nil end
