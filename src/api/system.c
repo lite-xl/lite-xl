@@ -668,6 +668,7 @@ static int f_watch_dir_rm(lua_State *L) {
   dmon_watch_id watch_id;
   watch_id.id = luaL_checkinteger(L, 1);
   const char *subdir = luaL_checkstring(L, 2);
+  fprintf(stderr, "f_watch_dir_rm id: %d, subdir: %s\n", watch_id.id, subdir);
   lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
   return 1;
 }

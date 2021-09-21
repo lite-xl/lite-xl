@@ -828,10 +828,22 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
     pthread_mutex_lock(&_dmon.mutex);
     dmon__watch_state* watch = &_dmon.watches[id.id - 1];
 
+    char subdir[DMON_MAX_PATH];
+    dmon__strcpy(subdir, sizeof(subdir), watchdir);
+    if (strstr(subdir, watch->rootdir) == subdir) {
+        dmon__strcpy(subdir, sizeof(subdir), watchdir + strlen(watch->rootdir));
+    }
+
+    int dirlen = (int)strlen(subdir);
+    if (subdir[dirlen - 1] != '/') {
+        subdir[dirlen] = '/';
+        subdir[dirlen + 1] = '\0';
+    }
+
     int i, c = stb_sb_count(watch->subdirs);
     for (i = 0; i < c; i++) {
-        const dmon__watch_subdir *subdir = &watch->subdirs[i];
-        if (strcmp(subdir->rootdir, watchdir) == 0) {
+        fprintf(stderr, "compare >%s< >%s<\n", watch->subdirs[i].rootdir, subdir);
+        if (strcmp(watch->subdirs[i].rootdir, subdir) == 0) {
             break;
         }
     }
@@ -842,12 +854,17 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
     }
     inotify_rm_watch(watch->fd, watch->wds[i]);
 
+#if 0
+    /* FIXME: in theory we should remove the entry but if done we can get a
+    ** fail in the dmon__thread when looking up for the subdir with
+    ** dmon__find_subdir */
     for (int j = i; j < c - 1; j++) {
         memcpy(watch->subdirs + j, watch->subdirs + j + 1, sizeof(dmon__watch_subdir));
         memcpy(watch->wds + j, watch->wds + j + 1, sizeof(int));
     }
     stb__sbraw(watch->subdirs)[1] = c - 1;
     stb__sbraw(watch->wds)[1] = c - 1;
+#endif
 
     pthread_mutex_unlock(&_dmon.mutex);
     return true;
@@ -1093,7 +1110,11 @@ static void* dmon__thread(void* arg)
 
         timeout.tv_sec = 0;
         timeout.tv_usec = 100000;
+        /* FIXME: the unlock/lock around select are a temporary solution to avoid
+        ** a deadlock with dmon_watch_add. */
+        pthread_mutex_unlock(&_dmon.mutex);
         if (select(FD_SETSIZE, &rfds, NULL, NULL, &timeout)) {
+            pthread_mutex_lock(&_dmon.mutex);
             for (int i = 0; i < _dmon.num_watches; i++) {
                 dmon__watch_state* watch = &_dmon.watches[i];
                 if (FD_ISSET(watch->fd, &rfds)) {
