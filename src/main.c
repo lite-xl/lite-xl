@@ -152,6 +152,9 @@ init_lua:
   lua_setglobal(L, "LINUX");
 #endif
 
+  lua_newtable(L);
+  lua_setfield(L, LUA_REGISTRYINDEX, "native_plugins");
+
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"

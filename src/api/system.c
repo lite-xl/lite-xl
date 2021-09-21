@@ -690,8 +690,10 @@ static int f_load_native_plugin(lua_State* L) {
   void* library = SDL_LoadObject(path);
   if (name == 0 || !library)
     return luaL_error(L, "Unable to load %s: %s", name, SDL_GetError());
+  lua_getfield(L, LUA_REGISTRYINDEX, "native_plugins");
   lua_pushlightuserdata(L, library);
-  lua_setfield(L, LUA_REGISTRYINDEX, name);
+  lua_setfield(L, -2, name);
+  lua_pop(L, 1);
   for (sname = namelen - 1; sname > 0 && name[sname] != '.'; --sname);
   snprintf(olib, sizeof(olib), "lua_open_lite_xl_%s", &name[sname+1]); 
   int (*ext_entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, olib);
