@@ -154,7 +154,14 @@ end
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
   if dir.files_limit then
-    system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. filename)
+    local fullpath = dir.name .. PATHSEP .. filename
+    if show then
+      local success = system.watch_dir_add(dir.watch_id, fullpath)
+      print("DEBUG: watch_dir_add", fullpath, "success:", success)
+    else
+      local success = system.watch_dir_rm(dir.watch_id, fullpath)
+      print("DEBUG: watch_dir_rm", fullpath, "success:", success)
+    end
   end
 end
 

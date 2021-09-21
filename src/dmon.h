@@ -116,6 +116,7 @@ DMON_API_DECL  dmon_watch_id dmon_watch(const char* rootdir,
                          uint32_t flags, void* user_data);
 DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 DMON_API_DECL bool dmon_watch_add(dmon_watch_id id, const char* subdir);
+DMON_API_DECL bool dmon_watch_rm(dmon_watch_id id, const char* subdir);
 
 #ifdef __cplusplus
 }
@@ -815,6 +816,38 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
 
     stb_sb_push(watch->subdirs, subdir);
     stb_sb_push(watch->wds, wd);
+
+    pthread_mutex_unlock(&_dmon.mutex);
+    return true;
+}
+
+DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
+{
+    DMON_ASSERT(id.id > 0 && id.id <= DMON_MAX_WATCHES);
+
+    pthread_mutex_lock(&_dmon.mutex);
+    dmon__watch_state* watch = &_dmon.watches[id.id - 1];
+
+    int i, c = stb_sb_count(watch->subdirs);
+    for (i = 0; i < c; i++) {
+        const dmon__watch_subdir *subdir = &watch->subdirs[i];
+        if (strcmp(subdir->rootdir, watchdir) == 0) {
+            break;
+        }
+    }
+    if (i >= c) {
+        _DMON_LOG_ERRORF("Watch directory '%s' is not valid", watchdir);
+        pthread_mutex_unlock(&_dmon.mutex);
+        return false;
+    }
+    inotify_rm_watch(fd, watch->wds[i]);
+
+    for (int j = i; j < c - 1; j++) {
+        memcpy(watch->subdir + j, watch->subdir + j + 1, sizeof(dmon__watch_subdir));
+        memcpy(watch->wds    + j, watch->wds    + j + 1, sizeof(int));
+    }
+    stb__sbraw(watch->subdir)[1] = c - 1;
+    stb__sbraw(watch->wds   )[1] = c - 1;
 
     pthread_mutex_unlock(&_dmon.mutex);
     return true;

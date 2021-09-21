@@ -660,8 +660,15 @@ static int f_watch_dir_add(lua_State *L) {
   dmon_watch_id watch_id;
   watch_id.id = luaL_checkinteger(L, 1);
   const char *subdir = luaL_checkstring(L, 2);
-  bool success = dmon_watch_add(watch_id, subdir);
-  lua_pushboolean(L, success);
+  lua_pushboolean(L, dmon_watch_add(watch_id, subdir));
+  return 1;
+}
+
+static int f_watch_dir_rm(lua_State *L) {
+  dmon_watch_id watch_id;
+  watch_id.id = luaL_checkinteger(L, 1);
+  const char *subdir = luaL_checkstring(L, 2);
+  lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
   return 1;
 }
 
@@ -751,6 +758,7 @@ static const luaL_Reg lib[] = {
   { "set_window_opacity",  f_set_window_opacity  },
   { "watch_dir",           f_watch_dir           },
   { "watch_dir_add",       f_watch_dir_add       },
+  { "watch_dir_rm",        f_watch_dir_rm        },
   { "path_compare",        f_path_compare        },
   { NULL, NULL }
 };
