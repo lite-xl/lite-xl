@@ -141,15 +141,10 @@ init_lua:
 
   lua_pushboolean(L, true);
 #ifdef __APPLE__
-  lua_setglobal(L, "MACOS");
   enable_momentum_scroll();
   #ifdef MACOS_USE_BUNDLE
     set_macos_bundle_resources(L);
   #endif
-#elif _WIN32
-  lua_setglobal(L, "WINDOWS");
-#else
-  lua_setglobal(L, "LINUX");
 #endif
 
   const char *init_lite_code = \
