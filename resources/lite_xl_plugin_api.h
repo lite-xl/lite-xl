@@ -50,6 +50,8 @@ echo "typedef int (*lua_Writer) (lua_State *L, const void* p, size_t sz, void* u
 LUA_HEADERS=`pkg-config --cflags lua5.2 | sed 's/^-I//' | sed 's/$/\/*.h/'`
 grep -h "^LUA\(LIB\)*_API" $LUA_HEADERS | sed "s/LUA\(LIB\)*_API //" | sed "s/(lua/(*lua/" | grep -v ",\s*$" | sed "s/^/static /"
 grep -h "#define luaL*_" $LUA_HEADERS | grep -v "\\\s*$" | grep -v "\(assert\|lock\)" | grep -v "\(asm\|int32\)" | grep -v "#define lua_number2integer(i,n)\s*lua_number2int(i, n)"
+echo "#define lua_pushliteral(L, s) lua_pushlstring(L, "" s, (sizeof(s)/sizeof(char))-1)"
+echo "#define lua_pushglobaltable(L) lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS)"
 echo "#define IMPORT_SYMBOL(name, ret, ...) name = (ret (*)(__VA_ARGS__))symbol(#name)"
 echo "static void lite_xl_plugin_init(void* XL) {"
 echo "\tvoid* (*symbol)(const char*) = (void* (*)(const char*))XL;"
@@ -228,6 +230,8 @@ static void (*luaL_openlibs) (lua_State *L);
 #define lua_number2str(s,n)	sprintf((s), LUA_NUMBER_FMT, (n))
 #define lua_str2number(s,p)	strtod((s), (p))
 #define lua_strx2number(s,p)	strtod((s), (p))
+#define lua_pushliteral(L, s) lua_pushlstring(L,  s, (sizeof(s)/sizeof(char))-1)
+#define lua_pushglobaltable(L) lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS)
 #define IMPORT_SYMBOL(name, ret, ...) name = (ret (*)(__VA_ARGS__))symbol(#name)
 static void lite_xl_plugin_init(void* XL) {
 	void* (*symbol)(const char*) = (void* (*)(const char*))XL;
