@@ -164,7 +164,9 @@ RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned cha
   FT_Face face;
   if (FT_New_Face( library, path, 0, &face))
     return NULL;
-  if (FT_Set_Pixel_Sizes(face, 0, (int)size))
+
+  const int surface_scale = renwin_surface_scale(&window_renderer);
+  if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
     goto failure;
   int len = strlen(path);
   RenFont* font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
@@ -212,7 +214,8 @@ int ren_font_get_width(RenFont *font, const char *text) {
     text = utf8_to_codepoint(text, &codepoint);
     width += font_get_glyphset(font, codepoint)->metrics[codepoint % 256].xadvance;
   }
-  return width;
+  const int surface_scale = renwin_surface_scale(&window_renderer);
+  return width / surface_scale;
 }
 
 float ren_font_get_size(RenFont *font) {
@@ -225,7 +228,10 @@ int ren_font_get_height(RenFont *font) {
 int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor color) {
   SDL_Surface *surface = renwin_get_surface(&window_renderer);
   const RenRect clip = window_renderer.clip;
-  float pen_x = x;
+
+  const int surface_scale = renwin_surface_scale(&window_renderer);
+  float pen_x = x * surface_scale;
+  y *= surface_scale;
   int bytes_per_pixel = surface->format->BytesPerPixel;
   const char* end = text + strlen(text);
   unsigned char* destination_pixels = surface->pixels;
@@ -241,7 +247,7 @@ int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor colo
     int glyph_end = metric->x1, glyph_start = metric->x0;
     if (color.a > 0 && end_x >= clip.x && start_x <= clip_end_x) {
       for (int line = metric->y0; line < metric->y1; ++line) {
-        int target_y = line + y - metric->y0 - metric->bitmap_top + font->size;
+        int target_y = line + y - metric->y0 - metric->bitmap_top + font->size * surface_scale;
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
@@ -275,8 +281,8 @@ int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor colo
     pen_x += metric->xadvance ? metric->xadvance : font->space_advance;
   }
   if (font->style & FONT_STYLE_UNDERLINE)
-    ren_draw_rect((RenRect){ x, y + ren_font_get_height(font) - 1, pen_x - x, 1 }, color);
-  return pen_x;
+    ren_draw_rect((RenRect){ x, y / surface_scale + ren_font_get_height(font) - 1, (pen_x - x) / surface_scale, 1 }, color);
+  return pen_x / surface_scale;
 }
 
 /******************* Rectangles **********************/
