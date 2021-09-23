@@ -140,8 +140,6 @@ init_lua:
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
-  lua_pushboolean(L, true);
-  lua_setglobal(L, "MACOS");
   enable_momentum_scroll();
   #ifdef MACOS_USE_BUNDLE
     set_macos_bundle_resources(L);
