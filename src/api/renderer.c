@@ -168,11 +168,11 @@ static int f_draw_rect(lua_State *L) {
 static int f_draw_text(lua_State *L) {
   RenFont** font = luaL_checkudata(L, 1, API_TYPE_FONT);
   const char *text = luaL_checkstring(L, 2);
-  int x_subpixel = luaL_checknumber(L, 3);
+  float x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x_subpixel = rencache_draw_text(L, *font, text, x_subpixel, y, color);
-  lua_pushnumber(L, x_subpixel);
+  x = rencache_draw_text(L, *font, text, x, y, color);
+  lua_pushnumber(L, x);
   return 1;
 }
 

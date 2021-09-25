@@ -127,9 +127,10 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-int rencache_draw_text(lua_State *L, RenFont *font, const char *text, int x, int y, RenColor color)
+float rencache_draw_text(lua_State *L, RenFont *font, const char *text, int x, int y, RenColor color)
 {
-  RenRect rect = { x, y, ren_font_get_width(font, text), ren_font_get_height(font) };
+  float width = ren_font_get_width(font, text);
+  RenRect rect = { x, y, (int)width, ren_font_get_height(font) };
   if (rects_overlap(screen_rect, rect)) {
     int sz = strlen(text) + 1;
     Command *cmd = push_command(DRAW_TEXT, COMMAND_BARE_SIZE + sz);
@@ -141,7 +142,7 @@ int rencache_draw_text(lua_State *L, RenFont *font, const char *text, int x, int
       cmd->tab_size = ren_font_get_tab_size(font);
     }
   }
-  return x + rect.width;
+  return x + width;
 }
 
 

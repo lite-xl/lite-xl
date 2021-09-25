@@ -42,8 +42,8 @@ typedef struct {
 typedef struct RenFont {
   FT_Face face;
   GlyphSet* sets[MAX_GLYPHSET];
-  float size;
-  short max_height, space_advance, tab_advance;
+  float size, space_advance, tab_advance;
+  short max_height;
   bool subpixel;
   ERenFontHinting hinting;
   unsigned char style;
@@ -212,7 +212,8 @@ float ren_font_get_width(RenFont *font, const char *text) {
   while (text < end) {
     unsigned int codepoint;
     text = utf8_to_codepoint(text, &codepoint);
-    width += font_get_glyphset(font, codepoint)->metrics[codepoint % 256].xadvance;
+    float advance = font_get_glyphset(font, codepoint)->metrics[codepoint % 256].xadvance;
+    width += advance ? advance : font->space_advance;
   }
   const int surface_scale = renwin_surface_scale(&window_renderer);
   return width / surface_scale;
@@ -225,7 +226,7 @@ int ren_font_get_height(RenFont *font) {
   return font->size + 3;
 }
 
-int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor color) {
+float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor color) {
   SDL_Surface *surface = renwin_get_surface(&window_renderer);
   const RenRect clip = window_renderer.clip;
 

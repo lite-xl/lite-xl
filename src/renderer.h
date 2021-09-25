@@ -19,7 +19,7 @@ int ren_font_get_tab_size(RenFont *font);
 float ren_font_get_width(RenFont *font, const char *text);
 int ren_font_get_height(RenFont *font);
 float ren_font_get_size(RenFont *font);
-int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor color);
+float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor color);
 
 void ren_draw_rect(RenRect rect, RenColor color);
 
