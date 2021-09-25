@@ -246,13 +246,15 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
     unsigned char* source_pixels = set->surface[bitmap_index]->pixels;
     int start_x = pen_x + metric->bitmap_left, end_x = metric->x1 - metric->x0 + pen_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
-    if (color.a > 0 && end_x >= clip.x && start_x <= clip_end_x) {
+    if (color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line + y - metric->y0 - metric->bitmap_top + font->size * surface_scale;
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
           break;
+        if (start_x + (glyph_end - glyph_start) >= clip_end_x)
+          glyph_end = glyph_start + (clip_end_x - start_x);
         unsigned int* destination_pixel = (unsigned int*)&destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel];
         unsigned char* source_pixel = &source_pixels[line * set->surface[bitmap_index]->pitch + metric->x0 * (font->subpixel ? 3 : 1)];
         for (int x = glyph_start; x < glyph_end; ++x) {
