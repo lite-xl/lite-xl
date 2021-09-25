@@ -127,7 +127,7 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-float rencache_draw_text(lua_State *L, RenFont *font, const char *text, int x, int y, RenColor color)
+float rencache_draw_text(lua_State *L, RenFont *font, const char *text, float x, int y, RenColor color)
 {
   float width = ren_font_get_width(font, text);
   RenRect rect = { x, y, (int)width, ren_font_get_height(font) };
