@@ -16,7 +16,7 @@ RenFont* ren_font_copy(RenFont* font, float size);
 void ren_font_free(RenFont *font);
 void ren_font_set_tab_size(RenFont *font, int n);
 int ren_font_get_tab_size(RenFont *font);
-int ren_font_get_width(RenFont *font, const char *text);
+float ren_font_get_width(RenFont *font, const char *text);
 int ren_font_get_height(RenFont *font);
 float ren_font_get_size(RenFont *font);
 int ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor color);

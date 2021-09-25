@@ -206,8 +206,8 @@ int ren_font_get_tab_size(RenFont *font) {
   return font_get_glyphset(font, '\t')->metrics['\t'].xadvance / font->space_advance;
 }
 
-int ren_font_get_width(RenFont *font, const char *text) {
-  int width = 0;
+float ren_font_get_width(RenFont *font, const char *text) {
+  float width = 0;
   const char* end = text + strlen(text);
   while (text < end) {
     unsigned int codepoint;
