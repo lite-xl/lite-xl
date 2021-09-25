@@ -25,6 +25,7 @@ typedef struct {
   RenRect rect;
   RenColor color;
   RenFont *font;
+  float text_x;
   char text[0];
 } Command;
 
@@ -139,6 +140,7 @@ float rencache_draw_text(lua_State *L, RenFont *font, const char *text, float x,
       cmd->color = color;
       cmd->font = font;
       cmd->rect = rect;
+      cmd->text_x = x;
       cmd->tab_size = ren_font_get_tab_size(font);
     }
   }
@@ -247,7 +249,7 @@ void rencache_end_frame(lua_State *L) {
           break;
         case DRAW_TEXT:
           ren_font_set_tab_size(cmd->font, cmd->tab_size);
-          ren_draw_text(cmd->font, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color);
+          ren_draw_text(cmd->font, cmd->text, cmd->text_x, cmd->rect.y, cmd->color);
           break;
       }
     }
