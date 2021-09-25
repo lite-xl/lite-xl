@@ -695,39 +695,40 @@ static void* api_require(const char* symbol) {
   return NULL;
 }
 
-static int f_load_native_plugin(lua_State* L) {
-  size_t sname, namelen, pathlen;
-  int results;
-  char olib[512]; olib[sizeof(olib)-1] = 0;
-  const char* name = luaL_checklstring(L, -2, &namelen);
-  const char* path = luaL_checklstring(L, -1, &pathlen);
-  void* library = SDL_LoadObject(path);
-  if (name == 0 || !library)
+static int f_load_native_plugin(lua_State *L) {
+  char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
+  int result;
+
+  const char *name = luaL_checkstring(L, 1);
+  const char *path = luaL_checkstring(L, 2);
+  void *library = SDL_LoadObject(path);
+  if (!library)
     return luaL_error(L, "Unable to load %s: %s", name, SDL_GetError());
+
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "native_plugins");
   lua_pushlightuserdata(L, library);
   lua_setfield(L, -2, name);
   lua_pop(L, 1);
-  for (sname = namelen - 1; sname > 0 && name[sname] != '.'; --sname);
-  snprintf(olib, sizeof(olib), "lua_open_lite_xl_%s", &name[sname+1]); 
-  int (*ext_entrypoint)(lua_State* L, void*) = SDL_LoadFunction(library, olib);
+
+  const char *basename = strrchr(name, '.');
+  basename = !basename ? name : basename + 1;
+  snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_lite_xl_%s", basename);
+  int (*ext_entrypoint) (lua_State *L, void*) = SDL_LoadFunction(library, entrypoint_name);
   if (!ext_entrypoint) {
-    snprintf(olib, sizeof(olib), "lua_open_%s", &name[sname+1]);
-    int (*entrypoint)(lua_State* L) = SDL_LoadFunction(library, olib);
-    if (!entrypoint) {
-      return luaL_error(L, "Unable to load %s: Can't find entrypoint. Requires a "
-        "function defined as int lua_open_lite_xl_%s(lua_State* L, void* XL)", 
-        name, &name[sname+1]);
-    }
-    results = entrypoint(L);
+    snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_%s", basename);
+    int (*entrypoint)(lua_State *L) = SDL_LoadFunction(library, entrypoint_name);
+    if (!entrypoint)
+      return luaL_error(L, "Unable to load %s: Can't find %s(lua_State *L, void *XL)", name, entrypoint_name);
+    result = entrypoint(L);
   } else {
-    results = ext_entrypoint(L, api_require);
+    result = ext_entrypoint(L, api_require);
   }
-  if (!results)
-    return luaL_error(L, "Unable to load %s: Your entrypoint must return at "
-    " least one value.", name);
-  return results;
+
+  if (!result)
+    return luaL_error(L, "Unable to load %s: entrypoint must return a value", name);
+
+  return result;
 }
 
 
