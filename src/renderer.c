@@ -77,10 +77,11 @@ static int font_set_load_options(RenFont* font) {
 
 static int font_set_render_options(RenFont* font) {
   if (font->subpixel) {
+    unsigned char weights[] = { 0x10, 0x40, 0x70, 0x40, 0x10 } ;
     switch (font->hinting) {
       case FONT_HINTING_NONE:   FT_Library_SetLcdFilter(library, FT_LCD_FILTER_NONE); break;
-      case FONT_HINTING_SLIGHT: FT_Library_SetLcdFilter(library, FT_LCD_FILTER_LIGHT); break;
-      case FONT_HINTING_FULL:   FT_Library_SetLcdFilter(library, FT_LCD_FILTER_DEFAULT); break;
+      case FONT_HINTING_SLIGHT:
+      case FONT_HINTING_FULL:   FT_Library_SetLcdFilter(library, FT_LCD_FILTER_LIGHT); FT_Library_SetLcdFilterWeights(library, weights); break;
     }
     return FT_RENDER_MODE_LCD;
   } else {
