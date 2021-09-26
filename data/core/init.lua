@@ -323,15 +323,16 @@ local function rescan_project_subdir(dir, filename_rooted)
 end
 
 
-function core.scan_project_subdir(dir, filename)
+function core.update_project_subdir(dir, filename, expanded)
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
-    local new_files = get_directory_files(dir, dir.name, PATHSEP .. filename, {})
+    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}) or {}
     files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
     return true
   end
 end
+
 
 -- Find files and directories recursively reading from the filesystem.
 -- Filter files and yields file's directory and info table. This latter
