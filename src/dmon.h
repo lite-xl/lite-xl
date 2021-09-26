@@ -892,7 +892,6 @@ _DMON_PRIVATE const char* dmon__find_subdir(const dmon__watch_state* watch, int 
         }
     }
 
-    DMON_ASSERT(0);
     return NULL;
 }
 
@@ -1129,18 +1128,21 @@ static void* dmon__thread(void* arg)
                     while (offset < len) {
                         struct inotify_event* iev = (struct inotify_event*)&buff[offset];
 
-                        char filepath[DMON_MAX_PATH];
-                        dmon__strcpy(filepath, sizeof(filepath), dmon__find_subdir(watch, iev->wd));
-                        dmon__strcat(filepath, sizeof(filepath), iev->name);
+                        const char *subdir = dmon__find_subdir(watch, iev->wd);
+                        if (subdir) {
+                            char filepath[DMON_MAX_PATH];
+                            dmon__strcpy(filepath, sizeof(filepath), subdir);
+                            dmon__strcat(filepath, sizeof(filepath), iev->name);
 
-                        // TODO: ignore directories if flag is set
+                            // TODO: ignore directories if flag is set
 
-                        if (stb_sb_count(_dmon.events) == 0) {
-                            usecs_elapsed = 0;
+                            if (stb_sb_count(_dmon.events) == 0) {
+                                usecs_elapsed = 0;
+                            }
+                            dmon__inotify_event dev = { { 0 }, iev->mask, iev->cookie, watch->id, false };
+                            dmon__strcpy(dev.filepath, sizeof(dev.filepath), filepath);
+                            stb_sb_push(_dmon.events, dev);
                         }
-                        dmon__inotify_event dev = { { 0 }, iev->mask, iev->cookie, watch->id, false };
-                        dmon__strcpy(dev.filepath, sizeof(dev.filepath), filepath);
-                        stb_sb_push(_dmon.events, dev);
 
                         offset += sizeof(struct inotify_event) + iev->len;
                     }
