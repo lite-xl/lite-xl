@@ -184,6 +184,7 @@ init_lua:
   lua_pcall(L, 0, 1, 0);
   if (lua_toboolean(L, -1)) {
     lua_close(L);
+    rencache_invalidate();
     goto init_lua;
   }
 
