@@ -115,6 +115,7 @@ DMON_API_DECL  dmon_watch_id dmon_watch(const char* rootdir,
                          uint32_t flags, void* user_data);
 DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 DMON_API_DECL bool dmon_watch_add(dmon_watch_id id, const char* subdir);
+DMON_API_DECL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir);
 
 #ifdef __cplusplus
 }
@@ -830,6 +831,55 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     if (!skip_lock)
         pthread_mutex_unlock(&_dmon.mutex);
 
+    return true;
+}
+
+DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
+{
+    DMON_ASSERT(id.id > 0 && id.id <= DMON_MAX_WATCHES);
+
+    bool skip_lock = pthread_self() == _dmon.thread_handle;
+
+    if (!skip_lock)
+        pthread_mutex_lock(&_dmon.mutex);
+
+    dmon__watch_state* watch = &_dmon.watches[id.id - 1];
+
+    char subdir[DMON_MAX_PATH];
+    dmon__strcpy(subdir, sizeof(subdir), watchdir);
+    if (strstr(subdir, watch->rootdir) == subdir) {
+        dmon__strcpy(subdir, sizeof(subdir), watchdir + strlen(watch->rootdir));
+    }
+
+    int dirlen = (int)strlen(subdir);
+    if (subdir[dirlen - 1] != '/') {
+        subdir[dirlen] = '/';
+        subdir[dirlen + 1] = '\0';
+    }
+
+    int i, c = stb_sb_count(watch->subdirs);
+    for (i = 0; i < c; i++) {
+        if (strcmp(watch->subdirs[i].rootdir, subdir) == 0) {
+            break;
+        }
+    }
+    if (i >= c) {
+        _DMON_LOG_ERRORF("Watch directory '%s' is not valid", watchdir);
+        if (!skip_lock)
+            pthread_mutex_unlock(&_dmon.mutex);
+        return false;
+    }
+    inotify_rm_watch(watch->fd, watch->wds[i]);
+
+    for (int j = i; j < c - 1; j++) {
+        memcpy(watch->subdirs + j, watch->subdirs + j + 1, sizeof(dmon__watch_subdir));
+        memcpy(watch->wds + j, watch->wds + j + 1, sizeof(int));
+    }
+    stb__sbraw(watch->subdirs)[1] = c - 1;
+    stb__sbraw(watch->wds)[1] = c - 1;
+
+    if (!skip_lock)
+        pthread_mutex_unlock(&_dmon.mutex);
     return true;
 }
 
