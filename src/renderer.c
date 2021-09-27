@@ -81,7 +81,7 @@ static int font_set_render_options(RenFont* font) {
     switch (font->hinting) {
       case FONT_HINTING_NONE:   FT_Library_SetLcdFilter(library, FT_LCD_FILTER_NONE); break;
       case FONT_HINTING_SLIGHT:
-      case FONT_HINTING_FULL:   FT_Library_SetLcdFilter(library, FT_LCD_FILTER_LIGHT); FT_Library_SetLcdFilterWeights(library, weights); break;
+      case FONT_HINTING_FULL: FT_Library_SetLcdFilterWeights(library, weights); break;
     }
     return FT_RENDER_MODE_LCD;
   } else {
