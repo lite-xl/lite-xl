@@ -100,7 +100,7 @@ See the [licenses] file for details on licenses used by the required dependencie
 [screenshot-dark]:            https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png
 [lite]:                       https://github.com/rxi/lite
 [website]:                    https://lite-xl.github.io
-[build]:                      https://lite-xl.github.io/en/build
+[build]:                      https://lite-xl.github.io/en/documentation/build/
 [Get Lite XL]:                https://github.com/franko/lite-xl/releases/latest
 [Get plugins]:                https://github.com/franko/lite-plugins
 [Get color themes]:           https://github.com/rxi/lite-colors
