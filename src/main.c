@@ -20,13 +20,12 @@
 SDL_Window *window;
 
 static double get_scale(void) {
-#ifdef __APPLE__
-    return 1.0;
-#else
-  float dpi = 96.0;
-  SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
-  return dpi / 96.0;
+#ifndef __APPLE__
+  float dpi;
+  if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0)
+    return dpi / 96.0;
 #endif
+  return 1.0;
 }
 
 #ifdef _WIN32
@@ -159,8 +158,6 @@ init_lua:
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
-  lua_pushboolean(L, true);
-  lua_setglobal(L, "MACOS");
   enable_momentum_scroll();
   #ifdef MACOS_USE_BUNDLE
     set_macos_bundle_resources(L);
@@ -205,6 +202,7 @@ init_lua:
   lua_pcall(L, 0, 1, 0);
   if (lua_toboolean(L, -1)) {
     lua_close(L);
+    rencache_invalidate();
     goto init_lua;
   }
 
