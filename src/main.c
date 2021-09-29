@@ -52,6 +52,7 @@ static void get_exe_filename(char *buf, int sz) {
 
 static void init_window_icon(void) {
 #ifndef _WIN32
+#ifndef __APPLE__
   #include "../resources/icons/icon.inl"
   (void) icon_rgba_len; /* unused */
   SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(
@@ -63,6 +64,7 @@ static void init_window_icon(void) {
     0xff000000);
   SDL_SetWindowIcon(window, surf);
   SDL_FreeSurface(surf);
+#endif
 #endif
 }
 
