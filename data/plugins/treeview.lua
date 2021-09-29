@@ -443,7 +443,6 @@ command.add(function() return view.hovered_item ~= nil end, {
       else
         core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
       end
-      core.reschedule_project_scan()
     end, common.path_suggest)
   end,
 
@@ -458,7 +457,6 @@ command.add(function() return view.hovered_item ~= nil end, {
       file:write("")
       file:close()
       core.root_view:open_doc(core.open_doc(doc_filename))
-      core.reschedule_project_scan()
       core.log("Created %s", doc_filename)
     end, common.path_suggest)
   end,
@@ -471,7 +469,6 @@ command.add(function() return view.hovered_item ~= nil end, {
     core.command_view:enter("Folder Name", function(filename)
       local dir_path = core.project_dir .. PATHSEP .. filename
       common.mkdirp(dir_path)
-      core.reschedule_project_scan()
       core.log("Created %s", dir_path)
     end, common.path_suggest)
   end,
@@ -508,7 +505,6 @@ command.add(function() return view.hovered_item ~= nil end, {
               return
             end
           end
-          core.reschedule_project_scan()
           core.log("Deleted \"%s\"", filename)
         end
       end
