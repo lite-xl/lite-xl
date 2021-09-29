@@ -64,7 +64,6 @@ static void init_window_icon(void) {
   SDL_SetWindowIcon(window, surf);
   SDL_FreeSurface(surf);
 #endif
-#endif
 }
 
 #ifdef _WIN32
