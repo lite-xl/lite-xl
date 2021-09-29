@@ -656,6 +656,7 @@ static int f_watch_dir(lua_State *L) {
   return 1;
 }
 
+#if __linux__
 static int f_watch_dir_add(lua_State *L) {
   dmon_watch_id watch_id;
   watch_id.id = luaL_checkinteger(L, 1);
@@ -672,6 +673,7 @@ static int f_watch_dir_rm(lua_State *L) {
   lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
   return 1;
 }
+#endif
 
 #ifdef _WIN32
 #define PATHSEP '\\'
@@ -758,9 +760,11 @@ static const luaL_Reg lib[] = {
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
   { "watch_dir",           f_watch_dir           },
+  { "path_compare",        f_path_compare        },
+#if __linux__
   { "watch_dir_add",       f_watch_dir_add       },
   { "watch_dir_rm",        f_watch_dir_rm        },
-  { "path_compare",        f_path_compare        },
+#endif
   { NULL, NULL }
 };
 

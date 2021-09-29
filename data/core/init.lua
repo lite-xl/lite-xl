@@ -155,13 +155,15 @@ function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
   if dir.files_limit then
     local fullpath = dir.name .. PATHSEP .. filename
-    if show then
-      local success = system.watch_dir_add(dir.watch_id, fullpath)
-      print("DEBUG: watch_dir_add", fullpath, "success:", success)
-    else
-      print("DEBUG dir", dir.name, "filename", filename, "watch_id:", dir.watch_id)
-      local success = system.watch_dir_rm(dir.watch_id, fullpath)
-      print("DEBUG: watch_dir_rm", fullpath, "success:", success)
+    if PLATFORM == "Linux" then
+      if show then
+        local success = system.watch_dir_add(dir.watch_id, fullpath)
+        print("DEBUG: watch_dir_add", fullpath, "success:", success)
+      else
+        print("DEBUG dir", dir.name, "filename", filename, "watch_id:", dir.watch_id)
+        local success = system.watch_dir_rm(dir.watch_id, fullpath)
+        print("DEBUG: watch_dir_rm", fullpath, "success:", success)
+      end
     end
   end
 end
@@ -187,8 +189,10 @@ local function scan_project_folder(index)
   if entries_count > config.max_project_files then
     print("DEBUG setting files limit FLAG for", dir.name)
     dir.files_limit = true
-    -- Watch non-recursively
-    dir.watch_id = system.watch_dir(dir.name, false)
+    -- Watch non-recursively on Linux only.
+    -- The reason is recursively watching with dmon on linux
+    -- doesn't work on very large directories.
+    dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
     if core.status_view then -- May be not yet initialized.
       show_max_files_warning()
     end
