@@ -66,9 +66,8 @@ command.add(nil, {
   end,
 
   ["core:find-file"] = function()
-    -- FIXME: core.project_files_limit was removed!
-    if core.project_files_limit then
-      return command.perform "core:open-file"
+    if not core.project_files_number() then
+       return command.perform "core:open-file"
     end
     local files = {}
     for dir, item in core.get_project_files() do
