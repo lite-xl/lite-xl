@@ -51,7 +51,7 @@ static void get_exe_filename(char *buf, int sz) {
 
 
 static void init_window_icon(void) {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__APPLE__)
   #include "../resources/icons/icon.inl"
   (void) icon_rgba_len; /* unused */
   SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(
