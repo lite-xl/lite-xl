@@ -2,9 +2,9 @@
 #include <lauxlib.h>
 
 #include "api.h"
-#include "fontdesc.h"
-#include "renderer.h"
-#include "rencache.h"
+#include "../fontdesc.h"
+#include "../renderer.h"
+#include "../rencache.h"
 
 static int f_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);

@@ -1,5 +1,5 @@
 #include "api.h"
-#include "renderer.h"
+#include "../renderer.h"
 
 
 static int f_new(lua_State *L) {

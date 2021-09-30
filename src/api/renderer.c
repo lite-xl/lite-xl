@@ -1,6 +1,6 @@
 #include "api.h"
-#include "renderer.h"
-#include "rencache.h"
+#include "../renderer.h"
+#include "../rencache.h"
 
 
 static RenColor checkcolor(lua_State *L, int idx, int def) {

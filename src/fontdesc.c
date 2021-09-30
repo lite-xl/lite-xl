@@ -1,5 +1,7 @@
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "fontdesc.h"
 #include "renderer.h"

@@ -1,9 +1,9 @@
 #ifndef API_H
 #define API_H
 
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
 
 #define API_TYPE_FONT "Font"
 #define API_TYPE_REPLACE "Replace"

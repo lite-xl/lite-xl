@@ -1,4 +1,4 @@
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
-#include "rencache.h"
+#include "../rencache.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
@@ -662,29 +662,29 @@ typedef struct {
 #define U(FUNC) { "luaL_" #FUNC, (void*)(luaL_##FUNC) }
 static void* api_require(const char* symbol) {
   static lua_function_node nodes[] = {
-    P(absindex), P(arith), P(atpanic), P(callk), P(checkstack), 
-    P(close), P(compare), P(concat), P(copy), P(createtable), P(dump), 
+    P(absindex), P(arith), P(atpanic), P(callk), P(checkstack),
+    P(close), P(compare), P(concat), P(copy), P(createtable), P(dump),
     P(error),  P(gc), P(getallocf), P(getctx), P(getfield), P(getglobal),
     P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
     P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
-    P(getuservalue), P(insert), P(isnumber), P(isstring), P(isuserdata), 
-    P(len), P(load), P(newstate), P(newthread), P(newuserdata), P(next), 
+    P(getuservalue), P(insert), P(isnumber), P(isstring), P(isuserdata),
+    P(len), P(load), P(newstate), P(newthread), P(newuserdata), P(next),
     P(pcallk), P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
-    P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber), 
-    P(pushstring), P(pushthread), P(pushunsigned), P(pushvalue), 
+    P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber),
+    P(pushstring), P(pushthread), P(pushunsigned), P(pushvalue),
     P(pushvfstring), P(rawequal), P(rawget), P(rawgeti), P(rawgetp), P(rawlen),
-    P(rawset), P(rawseti), P(rawsetp), P(remove), P(replace), P(resume), 
-    P(setallocf), P(setfield), P(setglobal), P(sethook), P(setlocal), 
-    P(setmetatable), P(settable), P(settop), P(setupvalue), P(setuservalue), 
+    P(rawset), P(rawseti), P(rawsetp), P(remove), P(replace), P(resume),
+    P(setallocf), P(setfield), P(setglobal), P(sethook), P(setlocal),
+    P(setmetatable), P(settable), P(settop), P(setupvalue), P(setuservalue),
     P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
     P(tonumberx), P(topointer), P(tothread),  P(tounsignedx), P(touserdata),
-    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove), 
-    P(yieldk), U(checkversion_), U(getmetafield), U(callmeta), U(tolstring), 
-    U(argerror), U(checknumber), U(optnumber), U(checkinteger), 
-    U(checkunsigned), U(checkstack), U(checktype), U(checkany), 
+    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove),
+    P(yieldk), U(checkversion_), U(getmetafield), U(callmeta), U(tolstring),
+    U(argerror), U(checknumber), U(optnumber), U(checkinteger),
+    U(checkunsigned), U(checkstack), U(checktype), U(checkany),
     U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
-    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring), 
-    U(newstate), U(len), U(setfuncs), U(getsubtable), U(buffinit), 
+    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring),
+    U(newstate), U(len), U(setfuncs), U(getsubtable), U(buffinit),
     U(prepbuffsize), U(addlstring), U(addstring), U(addvalue), U(pushresult),
     U(pushresultsize), U(buffinitsize)
   };
