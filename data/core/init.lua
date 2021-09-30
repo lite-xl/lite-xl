@@ -17,10 +17,7 @@ local core = {}
 
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
-  if ok then
-    return t.recents, t.window, t.window_mode
-  end
-  return {}
+  return ok and t or {}
 end
 
 
@@ -30,20 +27,16 @@ local function save_session()
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size())),
       ", window_mode=", common.serialize(system.get_window_mode()),
+      ", previous_find=", common.serialize(core.previous_find),
+      ", previous_replace=", common.serialize(core.previous_replace),
       "}\n")
     fp:close()
   end
 end
 
 
-local function normalize_path(s)
-  local drive, path = s:match("^([a-z]):([/\\].*)")
-  return drive and drive:upper() .. ":" .. path or s
-end
-
-
 local function update_recents_project(action, dir_path_abs)
-  local dirname = normalize_path(dir_path_abs)
+  local dirname = common.normalize_path(dir_path_abs)
   if not dirname then return end
   local recents = core.recent_projects
   local n = #recents
@@ -63,7 +56,7 @@ function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
   if chdir_ok then
     if change_project_fn then change_project_fn() end
-    core.project_dir = normalize_path(new_dir)
+    core.project_dir = common.normalize_path(new_dir)
     core.project_directories = {}
     core.add_project_directory(new_dir)
     return true
@@ -153,17 +146,14 @@ end
 
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
-  if dir.files_limit then
+  if dir.files_limit and PLATFORM == "Linux" then
     local fullpath = dir.name .. PATHSEP .. filename
-    if PLATFORM == "Linux" then
-      if show then
-        local success = system.watch_dir_add(dir.watch_id, fullpath)
-        print("DEBUG: watch_dir_add", fullpath, "success:", success)
-      else
-        print("DEBUG dir", dir.name, "filename", filename, "watch_id:", dir.watch_id)
-        local success = system.watch_dir_rm(dir.watch_id, fullpath)
-        print("DEBUG: watch_dir_rm", fullpath, "success:", success)
-      end
+    local watch_fn = show and system.watch_dir_add or system.watch_dir_rm
+    print("DEBUG dir", dir.name, "filename", filename, "watch_id:", dir.watch_id, "show:", show)
+    local success = watch_fn(dir.watch_id, fullpath)
+    print("DEBUG: ", show and "watch_dir_add" or "watch_dir_rm", fullpath, "success:", success)
+    if not success then
+      core.log("Internal warning: error calling system.watch_dir_%s", show and "add" or "rm")
     end
   end
 end
@@ -208,14 +198,12 @@ function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
-  path = normalize_path(path)
-  -- local watch_id = system.watch_dir(path)
+  path = common.normalize_path(path)
   local dir = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files_limit = false,
     is_dirty = true,
-    -- watch_id = watch_id,
     shown_subdir = {},
   }
   table.insert(core.project_directories, dir)
@@ -490,8 +478,8 @@ local style = require "core.style"
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
--- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
--- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
+-- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 14 * SCALE)
+-- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 14 * SCALE)
 --
 -- font names used by lite:
 -- style.font          : user interface
@@ -512,11 +500,11 @@ local style = require "core.style"
 
 -- enable or disable plugin loading setting config entries:
 
--- enable trimwhitespace, otherwise it is disable by default:
--- config.trimwhitespace = true
+-- enable plugins.trimwhitespace, otherwise it is disable by default:
+-- config.plugins.trimwhitespace = true
 --
 -- disable detectindent, otherwise it is enabled by default
--- config.detectindent = false
+-- config.plugins.detectindent = false
 ]])
   init_file:close()
 end
@@ -592,13 +580,15 @@ function core.init()
   end
 
   do
-    local recent_projects, window_position, window_mode = load_session()
-    if window_mode == "normal" then
-      system.set_window_size(table.unpack(window_position))
-    elseif window_mode == "maximized" then
+    local session = load_session()
+    if session.window_mode == "normal" then
+      system.set_window_size(table.unpack(session.window))
+    elseif session.window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
-    core.recent_projects = recent_projects
+    core.recent_projects = session.recents or {}
+    core.previous_find = session.previous_find or {}
+    core.previous_replace = session.previous_replace or {}
   end
 
   local project_dir = core.recent_projects[1] or "."
@@ -618,7 +608,10 @@ function core.init()
       project_dir = arg_filename
       project_dir_explicit = true
     else
-      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
+      if not ARGS[i]:match("^-psn") then
+        delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      end
     end
   end
 
@@ -651,6 +644,7 @@ function core.init()
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
+  core.quit_request = false
   core.replacements = whitespace_replacements()
 
   core.root_view = RootView()
@@ -726,10 +720,10 @@ function core.init()
 end
 
 
-function core.confirm_close_all(close_fn, ...)
+function core.confirm_close_docs(docs, close_fn, ...)
   local dirty_count = 0
   local dirty_name
-  for _, doc in ipairs(core.docs) do
+  for _, doc in ipairs(docs or core.docs) do
     if doc:is_dirty() then
       dirty_count = dirty_count + 1
       dirty_name = doc:get_name()
@@ -782,24 +776,6 @@ do
 end
 
 
--- DEPRECATED function
-core.doc_save_hooks = {}
-function core.add_save_hook(fn)
-  core.error("The function core.add_save_hook is deprecated." ..
-    " Modules should now directly override the Doc:save function.")
-  core.doc_save_hooks[#core.doc_save_hooks + 1] = fn
-end
-
-
--- DEPRECATED function
-function core.on_doc_save(filename)
-  -- for backward compatibility in modules. Hooks are deprecated, the function Doc:save
-  -- should be directly overidded.
-  for _, hook in ipairs(core.doc_save_hooks) do
-    hook(filename)
-  end
-end
-
 local function quit_with_function(quit_fn, force)
   if force then
     delete_temp_files()
@@ -807,12 +783,12 @@ local function quit_with_function(quit_fn, force)
     save_session()
     quit_fn()
   else
-    core.confirm_close_all(quit_with_function, quit_fn, true)
+    core.confirm_close_docs(core.docs, quit_with_function, quit_fn, true)
   end
 end
 
 function core.quit(force)
-  quit_with_function(os.exit, force)
+  quit_with_function(function() core.quit_request = true end, force)
 end
 
 
@@ -826,8 +802,8 @@ local function check_plugin_version(filename)
   if info ~= nil and info.type == "dir" then
     filename = filename .. "/init.lua"
     info = system.get_file_info(filename)
-    if not info then return true end
   end
+  if not info or not filename:match("%.lua$") then return false end
   local f = io.open(filename, "r")
   if not f then return false end
   local version_match = false
@@ -841,13 +817,13 @@ local function check_plugin_version(filename)
     -- Future versions will look only at the mod-version tag.
     local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)$')
     if version then
-      -- we consider the version tag 1.16 equivalent to mod-version:1
-      version_match = (version == '1.16' and MOD_VERSION == "1")
+      -- we consider the version tag 2.0 equivalent to mod-version:2
+      version_match = (version == '2.0' and MOD_VERSION == "2")
       break
     end
   end
   f:close()
-  return version_match
+  return true, version_match
 end
 
 
@@ -857,20 +833,25 @@ function core.load_plugins()
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
   }
-  for _, root_dir in ipairs {USERDIR, DATADIR} do
+  local files = {}
+  for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. "/plugins"
-    local files = system.list_dir(plugin_dir)
-    for _, filename in ipairs(files or {}) do
-      local basename = filename:match("(.-)%.lua$") or filename
-      local version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+    for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
+      files[filename] = plugin_dir -- user plugins will always replace system plugins
+    end
+  end
+
+  for filename, plugin_dir in pairs(files) do
+    local basename = filename:match("(.-)%.lua$") or filename
+    local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
+    if is_lua_file then
       if not version_match then
         core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-        local ls = refused_list[root_dir == USERDIR and 'userdir' or 'datadir'].plugins
-        ls[#ls + 1] = filename
+        local list = refused_list[plugin_dir:find(USERDIR, 1, true) == 1 and 'userdir' or 'datadir'].plugins
+        table.insert(list, filename)
       end
-      if version_match and config[basename] ~= false then
-        local modname = "plugins." .. basename
-        local ok = core.try(require, modname)
+      if version_match and config.plugins[basename] ~= false then
+        local ok = core.try(require, "plugins." .. basename)
         if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
         if not ok then
           no_errors = false
@@ -920,8 +901,12 @@ end
 
 function core.set_active_view(view)
   assert(view, "Tried to set active view to nil")
-  if core.active_view and core.active_view.force_focus then return end
   if view ~= core.active_view then
+    if core.active_view and core.active_view.force_focus then
+      core.next_active_view = view
+      return
+    end
+    core.next_active_view = nil
     if view.doc and view.doc.filename then
       core.set_visited(view.doc.filename)
     end
@@ -971,10 +956,30 @@ function core.normalize_to_project_dir(filename)
 end
 
 
+-- The function below works like system.absolute_path except it
+-- doesn't fail if the file does not exist. We consider that the
+-- current dir is core.project_dir so relative filename are considered
+-- to be in core.project_dir.
+-- Please note that .. or . in the filename are not taken into account.
+-- This function should get only filenames normalized using
+-- common.normalize_path function.
+function core.project_absolute_path(filename)
+  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
+    return filename
+  else
+    return core.project_dir .. PATHSEP .. filename
+  end
+end
+
+
 function core.open_doc(filename)
+  local new_file = not filename or not system.get_file_info(filename)
+  local abs_filename
   if filename then
+    -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    local abs_filename = system.absolute_path(filename)
+    filename = core.normalize_to_project_dir(filename)
+    abs_filename = core.project_absolute_path(filename)
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
@@ -982,8 +987,7 @@ function core.open_doc(filename)
     end
   end
   -- no existing doc for filename; create new
-  filename = core.normalize_to_project_dir(filename)
-  local doc = Doc(filename)
+  local doc = Doc(filename, abs_filename, new_file)
   table.insert(core.docs, doc)
   core.log_quiet(filename and "Opened doc \"%s\"" or "Opened new doc", filename)
   return doc
@@ -1032,6 +1036,23 @@ function core.error(...)
 end
 
 
+function core.get_log(i)
+  if i == nil then
+    local r = {}
+    for _, item in ipairs(core.log_items) do
+      table.insert(r, core.get_log(item))
+    end
+    return table.concat(r, "\n")
+  end
+  local item = type(i) == "number" and core.log_items[i] or i
+  local text = string.format("[%s] %s at %s", os.date(nil, item.time), item.text, item.at)
+  if item.info then
+    text = string.format("%s\n%s\n", text, item.info)
+  end
+  return text
+end
+
+
 function core.try(fn, ...)
   local err
   local ok, res = xpcall(fn, function(msg)
@@ -1061,9 +1082,12 @@ function core.dir_rescan_add_job(dir, filepath)
   if dirpath then
     -- check if the directory is in the project files list, if not exit
     local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
-    local dir_filename = dir.files[dir_index].filename
-    if not dir_match or not core.project_subdir_is_shown(dir, dir_filename) then
-      print("DEBUG do not start a rescan job for", abs_dirpath); return end
+    -- Note that is dir_match is false dir_index greaten than the last valid index.
+    -- We use dir_index to index dir.files below only if dir_match is true.
+    if not dir_match or not core.project_subdir_is_shown(dir, dir.files[dir_index].filename) then
+      print("DEBUG do not start a rescan job for", abs_dirpath)
+      return
+    end
   end
   local new_time = system.get_time() + 1
 
@@ -1263,9 +1287,9 @@ function core.run()
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
-    local need_more_work = run_threads()
-    if core.restart_request then break end
-    if not did_redraw and not need_more_work and not core.has_pending_rescan() then
+    local need_more_work = run_threads() or core.has_pending_rescan()
+    if core.restart_request or core.quit_request then break end
+    if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
       -- and set "redraw" flag.

@@ -9,10 +9,6 @@
   #include <windows.h>
 #elif __linux__
   #include <unistd.h>
-  #include <SDL_syswm.h>
-  #include <X11/Xlib.h>
-  #include <X11/Xatom.h>
-  #include <X11/Xresource.h>
   #include <signal.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
@@ -24,34 +20,12 @@
 SDL_Window *window;
 
 static double get_scale(void) {
-#ifdef _WIN32
-  float dpi;
+#ifdef __APPLE__
+    return 1.0;
+#else
+  float dpi = 96.0;
   SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
   return dpi / 96.0;
-#elif __linux__
-  SDL_SysWMinfo info;
-  XrmDatabase db;
-  XrmValue value;
-  char *type = NULL;
-
-  SDL_VERSION(&info.version);
-  if (!SDL_GetWindowWMInfo(window, &info)
-      || info.subsystem != SDL_SYSWM_X11)
-    return 1.0;
-
-  char *resource = XResourceManagerString(info.info.x11.display);
-  if (resource == NULL)
-    return 1.0;
-
-  XrmInitialize();
-  db = XrmGetStringDatabase(resource);
-  if (XrmGetResource(db, "Xft.dpi", "String", &type, &value) == False
-      || value.addr == NULL)
-    return 1.0;
-
-  return atof(value.addr) / 96.0;
-#else
-  return 1.0;
 #endif
 }
 
@@ -106,8 +80,10 @@ static void init_window_icon(void) {
 #endif
 
 #ifdef __APPLE__
-void set_macos_bundle_resources(lua_State *L);
 void enable_momentum_scroll();
+#ifdef MACOS_USE_BUNDLE
+void set_macos_bundle_resources(lua_State *L);
+#endif
 #endif
 
 int main(int argc, char **argv) {
@@ -168,16 +144,20 @@ init_lua:
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
-  set_macos_bundle_resources(L);
+  lua_pushboolean(L, true);
+  lua_setglobal(L, "MACOS");
   enable_momentum_scroll();
+  #ifdef MACOS_USE_BUNDLE
+    set_macos_bundle_resources(L);
+  #endif
 #endif
 
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
-    "  local exedir = EXEFILE:match(\"^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$\")\n"
-    "  local prefix = exedir:match(\"^(.*)" LITE_PATHSEP_PATTERN "bin$\")\n"
+    "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
+    "  local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
     "  core = require('core')\n"
     "  core.init()\n"

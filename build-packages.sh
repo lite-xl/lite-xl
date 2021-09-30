@@ -1,216 +1,164 @@
 #!/bin/bash
+set -e
 
-# strip-components is normally set to 1 to strip the initial "data" from the
-# directory path.
-copy_directory_from_repo () {
-  local tar_options=()
-  if [[ $1 == --strip-components=* ]]; then
-    tar_options+=($1)
-    shift
-  fi
-  local dirname="$1"
-  local destdir="$2"
-  git archive "$use_branch" "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
+if [ ! -e "src/api/api.h" ]; then
+  echo "Please run this script from the root directory of Lite XL."; exit 1
+fi
+
+source scripts/common.sh
+
+show_help() {
+  echo
+  echo "Usage: $0 <OPTIONS>"
+  echo
+  echo "Common options:"
+  echo
+  echo "-h --help                 Show this help and exit."
+  echo "-b --builddir DIRNAME     Set the name of the build directory (not path)."
+  echo "                          Default: '$(get_default_build_dir)'."
+  echo "-p --prefix PREFIX        Install directory prefix."
+  echo "                          Default: '/'."
+  echo "   --debug                Debug this script."
+  echo
+  echo "Build options:"
+  echo
+  echo "-f --forcefallback        Force to build subprojects dependencies statically."
+  echo "-B --bundle               Create an App bundle (macOS only)"
+  echo "-P --portable             Create a portable package."
+  echo "-O --pgo                  Use profile guided optimizations (pgo)."
+  echo "                          Requires running the application iteractively."
+  echo
+  echo "Package options:"
+  echo
+  echo "-d --destdir DIRNAME      Set the name of the package directory (not path)."
+  echo "                          Default: 'lite-xl'."
+  echo "-v --version VERSION      Sets the version on the package name."
+  echo "-A --appimage             Create an AppImage (Linux only)."
+  echo "-D --dmg                  Create a DMG disk image (macOS only)."
+  echo "                          Requires NPM and AppDMG."
+  echo "-I --innosetup            Create an InnoSetup installer (Windows only)."
+  echo "-S --source               Create a source code package,"
+  echo "                          including subprojects dependencies."
+  echo
 }
 
-# Check if build directory is ok to be used to build.
-build_dir_is_usable () {
-  local build="$1"
-  if [[ $build == */* || -z "$build" ]]; then
-    echo "invalid build directory, no path allowed: \"$build\""
-    return 1
-  fi
-  git ls-files --error-unmatch "$build" &> /dev/null
-  if [ $? == 0 ]; then
-    echo "invalid path, \"$build\" is under revision control"
-    return 1
-  fi
-}
+main() {
+  local build_dir
+  local build_dir_option=()
+  local dest_dir
+  local dest_dir_option=()
+  local prefix
+  local prefix_option=()
+  local version
+  local version_option=()
+  local debug
+  local force_fallback
+  local appimage
+  local bundle
+  local innosetup
+  local portable
+  local pgo
 
-# Ordinary release build
-lite_build () {
-  local build="$1"
-  build_dir_is_usable "$build" || exit 1
-  rm -fr "$build"
-  meson setup --buildtype=release "$build" || exit 1
-  ninja -C "$build" || exit 1
-}
-
-# Build using Profile Guided Optimizations (PGO)
-lite_build_pgo () {
-  local build="$1"
-  build_dir_is_usable "$build" || exit 1
-  rm -fr "$build"
-  meson setup --buildtype=release -Db_pgo=generate "$build" || exit 1
-  ninja -C "$build" || exit 1
-  copy_directory_from_repo data "$build/src"
-  "$build/src/lite-xl"
-  meson configure -Db_pgo=use "$build"
-  ninja -C "$build" || exit 1
-}
-
-lite_build_package_windows () {
-  local portable="-msys"
-  if [ "$1" == "-portable" ]; then
-    portable=""
-    shift
-  fi
-  local build="$1"
-  local arch="$2"
-  local os="win"
-  local pdir=".package-build/lite-xl"
-  if [ -z "$portable" ]; then
-    local bindir="$pdir"
-    local datadir="$pdir/data"
-  else
-    local bindir="$pdir/bin"
-    local datadir="$pdir/share/lite-xl"
-  fi
-  mkdir -p "$bindir"
-  mkdir -p "$datadir"
-  for module_name in core plugins colors fonts; do
-    copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
+  for i in "$@"; do
+    case $i in
+      -h|--help)
+        show_help
+        exit 0
+        ;;
+      -b|--builddir)
+        build_dir="$2"
+        shift
+        shift
+        ;;
+      -d|--destdir)
+        dest_dir="$2"
+        shift
+        shift
+        ;;
+      -f|--forcefallback)
+        force_fallback="--forcefallback"
+        shift
+        ;;
+      -p|--prefix)
+        prefix="$2"
+        shift
+        shift
+        ;;
+      -v|--version)
+        version="$2"
+        shift
+        shift
+        ;;
+      -A|--appimage)
+        appimage="--appimage"
+        shift
+        ;;
+      -B|--bundle)
+        bundle="--bundle"
+        shift
+        ;;
+      -D|--dmg)
+        dmg="--dmg"
+        shift
+        ;;
+      -I|--innosetup)
+        innosetup="--innosetup"
+        shift
+        ;;
+      -P|--portable)
+        portable="--portable"
+        shift
+        ;;
+      -S|--source)
+        source="--source"
+        shift
+        ;;
+      -O|--pgo)
+        pgo="--pgo"
+        shift
+        ;;
+      --debug)
+        debug="--debug"
+        set -x
+        shift
+        ;;
+      *)
+        # unknown option
+        ;;
+    esac
   done
-  for module_name in plugins colors; do
-    cp -r "$build/third/data/$module_name" "$datadir"
-  done
-  cp "$build/src/lite-xl.exe" "$bindir"
-  strip --strip-all "$bindir/lite-xl.exe"
-  pushd ".package-build"
-  local package_name="lite-xl-$os-$arch$portable.zip"
-  zip "$package_name" -r "lite-xl"
-  mv "$package_name" ..
-  popd
-  rm -fr ".package-build"
-  echo "created package $package_name"
-}
 
-lite_build_package_macos () {
-  local build="$1"
-  local arch="$2"
-  local os="macos"
-
-  local appdir=".package-build/lite-xl.app"
-  local bindir="$appdir/Contents/MacOS"
-  local datadir="$appdir/Contents/Resources"
-  mkdir -p "$bindir" "$datadir"
-  for module_name in core plugins colors fonts; do
-    copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
-  done
-  for module_name in plugins colors; do
-    cp -r "$build/third/data/$module_name" "$datadir"
-  done
-  cp resources/icons/icon.icns "$appdir/Contents/Resources/icon.icns"
-  cp resources/macos/Info.plist "$appdir/Contents/Info.plist"
-  cp "$build/src/lite-xl" "$bindir/lite-xl"
-  strip "$bindir/lite-xl"
-  pushd ".package-build"
-  local package_name="lite-xl-$os-$arch.zip"
-  zip "$package_name" -r "lite-xl.app"
-  mv "$package_name" ..
-  popd
-  rm -fr ".package-build"
-  echo "created package $package_name"
-}
-
-lite_build_package_linux () {
-  local portable=""
-  if [ "$1" == "-portable" ]; then
-    portable="-portable"
-    shift
-  fi
-  local build="$1"
-  local arch="$2"
-  local os="linux"
-  local pdir=".package-build/lite-xl"
-  if [ "$portable" == "-portable" ]; then
-    local bindir="$pdir"
-    local datadir="$pdir/data"
-  else
-    local bindir="$pdir/bin"
-    local datadir="$pdir/share/lite-xl"
-  fi
-  mkdir -p "$bindir"
-  mkdir -p "$datadir"
-  for module_name in core plugins colors fonts; do
-    copy_directory_from_repo --strip-components=1 "data/$module_name" "$datadir"
-  done
-  for module_name in plugins colors; do
-    cp -r "$build/third/data/$module_name" "$datadir"
-  done
-  cp "$build/src/lite-xl" "$bindir"
-  strip "$bindir/lite-xl"
-  if [ -z "$portable" ]; then
-    mkdir -p "$pdir/share/applications" "$pdir/share/icons/hicolor/scalable/apps"
-    cp "resources/linux/lite-xl.desktop" "$pdir/share/applications"
-    cp "resources/icons/lite-xl.svg" "$pdir/share/icons/hicolor/scalable/apps/lite-xl.svg"
-  fi
-  pushd ".package-build"
-  local package_name="lite-xl-$os-$arch$portable.tar.gz"
-  tar czf "$package_name" "lite-xl"
-  mv "$package_name" ..
-  popd
-  rm -fr ".package-build"
-  echo "created package $package_name"
-}
-
-lite_build_package () {
-  if [[ "$OSTYPE" == msys || "$OSTYPE" == win32 ]]; then
-    lite_build_package_windows "$@"
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-    lite_build_package_macos "$@"
-  elif [[ "$OSTYPE" == "linux"* || "$OSTYPE" == "freebsd"* ]]; then
-    lite_build_package_linux "$@"
-  else
-    echo "Unknown OS type \"$OSTYPE\""
+  if [[ -n $1 ]]; then
+    show_help
     exit 1
   fi
+
+  if [[ -n $build_dir ]]; then build_dir_option=("--builddir" "${build_dir}"); fi
+  if [[ -n $dest_dir ]]; then dest_dir_option=("--destdir" "${dest_dir}"); fi
+  if [[ -n $prefix ]]; then prefix_option=("--prefix" "${prefix}"); fi
+  if [[ -n $version ]]; then version_option=("--version" "${version}"); fi
+
+  source scripts/build.sh \
+    ${build_dir_option[@]} \
+    ${prefix_option[@]} \
+    $debug \
+    $force_fallback \
+    $bundle \
+    $portable \
+    $pgo
+
+  source scripts/package.sh \
+    ${build_dir_option[@]} \
+    ${dest_dir_option[@]} \
+    ${prefix_option[@]} \
+    ${version_option[@]} \
+    --binary \
+    --addons \
+    $debug \
+    $appimage \
+    $dmg \
+    $innosetup \
+    $source
 }
 
-lite_copy_third_party_modules () {
-  local build="$1"
-  curl --insecure -L "https://github.com/rxi/lite-colors/archive/master.zip" -o "$build/rxi-lite-colors.zip"
-  mkdir -p "$build/third/data/colors" "$build/third/data/plugins"
-  unzip "$build/rxi-lite-colors.zip" -d "$build"
-  mv "$build/lite-colors-master/colors" "$build/third/data"
-  rm -fr "$build/lite-colors-master"
-}
-
-unset arch
-while [ ! -z {$1+x} ]; do
-  case $1 in
-  -pgo)
-    pgo=true
-    shift
-    ;;
-  -branch=*)
-    use_branch="${1#-branch=}"
-    shift
-    ;;
-  *)
-    arch="$1"
-    break
-  esac
-done
-
-if [ -z ${arch+set} ]; then
-  echo "usage: $0 [options] <arch>"
-  exit 1
-fi
-
-if [ -z ${use_branch+set} ]; then
-  use_branch="$(git rev-parse --abbrev-ref HEAD)"
-fi
-
-build_dir=".build-$arch"
-
-if [ -z ${pgo+set} ]; then
-  lite_build "$build_dir"
-else
-  lite_build_pgo "$build_dir"
-fi
-lite_copy_third_party_modules "$build_dir"
-lite_build_package "$build_dir" "$arch"
-if [[ ! ( "$OSTYPE" == "linux"* || "$OSTYPE" == "freebsd"* || "$OSTYPE" == "darwin"* ) ]]; then
-  lite_build_package -portable "$build_dir" "$arch"
-fi
+main "$@"

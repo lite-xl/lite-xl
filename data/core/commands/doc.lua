@@ -43,9 +43,13 @@ local function append_line_if_last_line(line)
 end
 
 local function save(filename)
-  doc():save(filename and core.normalize_to_project_dir(filename))
+  local abs_filename
+  if filename then
+    filename = core.normalize_to_project_dir(filename)
+    abs_filename = core.project_absolute_path(filename)
+  end
+  doc():save(filename, abs_filename)
   local saved_filename = doc().filename
-  core.on_doc_save(saved_filename)
   core.log("Saved \"%s\"", saved_filename)
 end
 
@@ -63,13 +67,14 @@ local function cut_or_copy(delete)
       doc().cursor_clipboard[idx] = ""
     end
   end
+  doc().cursor_clipboard["full"] = full_text
   system.set_clipboard(full_text)
 end
 
 local function split_cursor(direction)
   local new_cursors = {}
   for _, line1, col1 in doc():get_selections() do
-    if line1 > 1 and line1 < #doc().lines then
+    if line1 + direction >= 1 and line1 + direction <= #doc().lines then
       table.insert(new_cursors, { line1 + direction, col1 })
     end
   end
@@ -95,8 +100,13 @@ local commands = {
   end,
 
   ["doc:paste"] = function()
+    local clipboard = system.get_clipboard()
+    -- If the clipboard has changed since our last look, use that instead
+    if doc().cursor_clipboard["full"] ~= clipboard then
+      doc().cursor_clipboard = {}
+    end
     for idx, line1, col1, line2, col2 in doc():get_selections() do
-      local value = doc().cursor_clipboard[idx] or system.get_clipboard()
+      local value = doc().cursor_clipboard[idx] or clipboard
       doc():text_input(value:gsub("\r", ""), idx)
     end
   end,
@@ -364,12 +374,14 @@ local commands = {
     end
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", function(filename)
-      doc():save(filename)
+      save(common.home_expand(filename))
       core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
       if filename ~= old_filename then
         os.remove(old_filename)
       end
-    end, common.path_suggest)
+    end, function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+    end)
   end,
 
 
@@ -412,6 +424,7 @@ local translations = {
   ["start-of-line"] = translate.start_of_line,
   ["end-of-line"] = translate.end_of_line,
   ["start-of-word"] = translate.start_of_word,
+  ["start-of-indentation"] = translate.start_of_indentation,
   ["end-of-word"] = translate.end_of_word,
   ["previous-line"] = DocView.translate.previous_line,
   ["next-line"] = DocView.translate.next_line,

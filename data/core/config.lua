@@ -11,6 +11,7 @@ config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
 config.undo_merge_timeout = 0.3
 config.max_undos = 10000
 config.max_tabs = 10
+config.always_show_tabs = false
 config.highlight_current_line = true
 config.line_height = 1.2
 config.indent_size = 2
@@ -27,7 +28,9 @@ config.tab_close_button = true
 
 -- Disable plugin loading setting to false the config entry
 -- of the same name.
-config.trimwhitespace = false
-config.lineguide = false
+config.plugins = {}
+
+config.plugins.trimwhitespace = false
+config.plugins.lineguide = false
 
 return config

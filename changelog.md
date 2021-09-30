@@ -1,5 +1,85 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.0.2
+
+Fix problem project directory when starting the application from Launcher on macOS.
+
+Improved LogView. Entries can now be expanded and there is a context menu to copy the item's content.
+
+Change the behavior of `ctrl+d` to add a multi-cursor selection to the next occurrence.
+The old behavior to move the selection to the next occurrence is now done using the shortcut `ctrl+f3`.
+
+Added a command to create a multi-cursor with all the occurrences of the current selection.
+Activated with the shortcut `ctrl+shift+l`.
+
+Fix problem when trying to close an unsaved new document.
+
+No longer shows an error for the `-psn` argument passed to the application on macOS.
+
+Fix `treeview:open-in-system` command on Windows.
+
+Fix rename command to update name of document if opened.
+
+Improve the find and replace dialog so that previously used expressions can be recalled
+using "up" and "down" keys.
+
+Build package script rewrite with many improvements.
+
+Use bigger fonts by default.
+
+Other minor improvements and fixes.
+
+With many thanks to the contributors: @adamharrison, @takase1121, @Guldoman, @redtide, @Timofffee, @boppyt, @Jan200101.
+
+### 2.0.1
+
+Fix a few bugs and we mandate the mod-version 2 for plugins.
+This means that users should ensure they have up-to-date plugins for Lite XL 2.0.
+
+Here some details about the bug fixes:
+
+- fix a bug that created a fatal error when using the command to change project folder or when closing all the active documents
+- add a limit to avoid scaling fonts too much and fix a related invalid memory access for very small fonts
+- fix focus problem with NagView when switching project directory
+- fix error that prevented the verification of plugins versions
+- fix error on X11 that caused a bug window event on exit
+
+### 2.0
+
+The 2.0 version of lite contains *breaking changes* to lite, in terms of how plugin settings are structured;
+any custom plugins may need to be adjusted accordingly (see note below about plugin namespacing).
+
+Contains the following new features:
+
+Full PCRE (regex) support for find and replace, as well as in language syntax definitions. Can be accessed 
+programatically via the lua `regex` module.
+
+A full, finalized subprocess API, using libreproc. Subprocess can be started and interacted with using
+`Process.new`.
+
+Support for multi-cursor editing. Cursors can be created by either ctrl+clicking on the screen, or by using
+the keyboard shortcuts ctrl+shift+up/down to create an additional cursor on the previous/next line.
+
+All build systems other than meson removed.
+
+A more organized directory structure has been implemented; in particular a docs folder which contains C api
+documentation, and a resource folder which houses all build resources.
+
+Plugin config namespacing has been implemented. This means that instead of using `config.myplugin.a`, 
+to read settings, and `config.myplugin = false` to disable plugins, this has been changed to 
+`config.plugins.myplugin.a`, and `config.plugins.myplugin = false` repsectively. This may require changes to
+your user plugin, or to any custom plugins you have.
+
+A context menu on right click has been added.
+
+Changes to how we deal with indentation have been implemented; in particular, hitting home no longer brings you
+to the start of a line, it'll bring you to the start of indentation, which is more in line with other editors.
+
+Lineguide, and scale plugins moved into the core, and removed from `lite-plugins`. This may also require you to 
+adjust your personal plugin folder to remove these if they're present.
+
+In addition, there have been many other small fixes and improvements, too numerous to list here.
+
 ### 1.16.11
 
 When opening directories with too many files lite-xl now keep diplaying files and directories in the treeview.

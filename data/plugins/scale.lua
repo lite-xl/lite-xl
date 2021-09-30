@@ -1,4 +1,4 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -8,8 +8,12 @@ local style = require "core.style"
 local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
 
-config.scale_mode = "code"
-config.scale_use_mousewheel = true
+config.plugins.scale = {
+  mode = "code",
+  use_mousewheel = true
+}
+
+local MINIMUM_SCALE = 0.25;
 
 local scale_level = 0
 local scale_steps = 0.05
@@ -35,7 +39,7 @@ local function set_scale(scale)
   -- we set scale_level in case this was called by user
   scale_level = (scale - default_scale) / scale_steps
 
-  if config.scale_mode == "ui" then
+  if config.plugins.scale.mode == "ui" then
     SCALE = scale
 
     style.padding.x      = style.padding.x      * s
@@ -68,7 +72,7 @@ end
 local on_mouse_wheel = RootView.on_mouse_wheel
 
 function RootView:on_mouse_wheel(d, ...)
-  if keymap.modkeys["ctrl"] and config.scale_use_mousewheel then
+  if keymap.modkeys["ctrl"] and config.plugins.scale.use_mousewheel then
     if d < 0 then command.perform "scale:decrease" end
     if d > 0 then command.perform "scale:increase" end
   else
@@ -77,18 +81,18 @@ function RootView:on_mouse_wheel(d, ...)
 end
 
 local function res_scale()
-    scale_level = 0
-    set_scale(default_scale)
+  scale_level = 0
+  set_scale(default_scale)
 end
 
 local function inc_scale()
-    scale_level = scale_level + 1
-    set_scale(default_scale + scale_level * scale_steps)
+  scale_level = scale_level + 1
+  set_scale(default_scale + scale_level * scale_steps)
 end
 
-local function dec_scale()
-    scale_level = scale_level - 1
-    set_scale(default_scale + scale_level * scale_steps)
+local function dec_scale()  
+  scale_level = scale_level - 1
+  set_scale(math.max(default_scale + scale_level * scale_steps), MINIMUM_SCALE)
 end
 
 

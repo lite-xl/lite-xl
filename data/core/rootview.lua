@@ -5,7 +5,6 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local Object = require "core.object"
 local View = require "core.view"
-local CommandView = require "core.commandview"
 local NagView = require "core.nagview"
 local DocView = require "core.docview"
 
@@ -240,12 +239,15 @@ end
 
 function Node:get_divider_overlapping_point(px, py)
   if self.type ~= "leaf" then
-    local p = 6
-    local x, y, w, h = self:get_divider_rect()
-    x, y = x - p, y - p
-    w, h = w + p * 2, h + p * 2
-    if px > x and py > y and px < x + w and py < y + h then
-      return self
+    local axis = self.type == "hsplit" and "x" or "y"
+    if self.a:is_resizable(axis) and self.b:is_resizable(axis) then
+      local p = 6
+      local x, y, w, h = self:get_divider_rect()
+      x, y = x - p, y - p
+      w, h = w + p * 2, h + p * 2
+      if px > x and py > y and px < x + w and py < y + h then
+        return self
+      end
     end
     return self.a:get_divider_overlapping_point(px, py)
         or self.b:get_divider_overlapping_point(px, py)
@@ -259,13 +261,23 @@ end
 
 
 function Node:get_tab_overlapping_point(px, py)
-  if #self.views == 1 then return nil end
+  if not self:should_show_tabs() then return nil end
   local tabs_number = self:get_visible_tabs_number()
   local x1, y1, w, h = self:get_tab_rect(self.tab_offset)
   local x2, y2 = self:get_tab_rect(self.tab_offset + tabs_number)
   if px >= x1 and py >= y1 and px < x2 and py < y1 + h then
     return math.floor((px - x1) / w) + self.tab_offset
   end
+end
+
+
+function Node:should_show_tabs()
+  if self.locked then return false end
+  if #self.views > 1 then return true
+  elseif config.always_show_tabs then
+    return not self.views[1]:is(EmptyView)
+  end
+  return false
 end
 
 
@@ -412,7 +424,7 @@ end
 function Node:update_layout()
   if self.type == "leaf" then
     local av = self.active_view
-    if #self.views > 1 then
+    if self:should_show_tabs() then
       local _, _, _, th = self:get_tab_rect(1)
       av.position.x, av.position.y = self.position.x, self.position.y + th
       av.size.x, av.size.y = self.size.x, self.size.y - th
@@ -567,7 +579,7 @@ end
 
 function Node:draw()
   if self.type == "leaf" then
-    if #self.views > 1 then
+    if self:should_show_tabs() then
       self:draw_tabs()
     end
     local pos, size = self.active_view.position, self.active_view.size
@@ -591,23 +603,37 @@ function Node:is_empty()
 end
 
 
-function Node:close_all_docviews()
+function Node:close_all_docviews(keep_active)
+  local node_active_view = self.active_view
+  local lost_active_view = false
   if self.type == "leaf" then
     local i = 1
     while i <= #self.views do
       local view = self.views[i]
-      if view:is(DocView) and not view:is(CommandView) then
+      if view.context == "session" and (not keep_active or view ~= self.active_view) then
         table.remove(self.views, i)
+        if view == node_active_view then
+          lost_active_view = true
+        end
       else
         i = i + 1
       end
     end
+    self.tab_offset = 1
     if #self.views == 0 and self.is_primary_node then
+      -- if we are not the primary view and we had the active view it doesn't
+      -- matter to reattribute the active view because, within the close_all_docviews
+      -- top call, the primary node will take the active view anyway.
+      -- Set the empty view and takes the active view.
       self:add_view(EmptyView())
+    elseif #self.views > 0 and lost_active_view then
+      -- In practice we never get there but if a view remain we need
+      -- to reset the Node's active view.
+      self:set_active_view(self.views[1])
     end
   else
-    self.a:close_all_docviews()
-    self.b:close_all_docviews()
+    self.a:close_all_docviews(keep_active)
+    self.b:close_all_docviews(keep_active)
     if self.a:is_empty() and not self.a.is_primary_node then
       self:consume(self.b)
     elseif self.b:is_empty() and not self.b.is_primary_node then
@@ -733,8 +759,8 @@ function RootView:open_doc(doc)
 end
 
 
-function RootView:close_all_docviews()
-  self.root_node:close_all_docviews()
+function RootView:close_all_docviews(keep_active)
+  self.root_node:close_all_docviews(keep_active)
 end
 
 
@@ -823,10 +849,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   if node and node:get_scroll_button_index(x, y) then
     core.request_cursor("arrow")
   elseif div then
-    local axis = (div.type == "hsplit" and "x" or "y")
-    if div.a:is_resizable(axis) and div.b:is_resizable(axis) then
-      core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
-    end
+    core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
   elseif tab_index then
     core.request_cursor("arrow")
   elseif node then

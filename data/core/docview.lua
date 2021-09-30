@@ -9,6 +9,7 @@ local View = require "core.view"
 
 local DocView = View:extend()
 
+DocView.context = "session"
 
 local function move_to_line_offset(dv, line, col, offset)
   local xo = dv.last_x_offset
@@ -112,7 +113,8 @@ end
 
 
 function DocView:get_gutter_width()
-  return self:get_font():get_width(#self.doc.lines) + style.padding.x * 2
+  local padding = style.padding.x * 2
+  return self:get_font():get_width(#self.doc.lines) + padding, padding
 end
 
 
@@ -365,23 +367,27 @@ function DocView:draw_line_body(idx, x, y)
       local x1 = x + self:get_col_x_offset(idx, col1)
       local x2 = x + self:get_col_x_offset(idx, col2)
       local lh = self:get_line_height()
-      renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+      if x1 ~= x2 then
+        renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+      end
     end
   end
+  local draw_highlight = nil
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     -- draw line highlight if caret is on this line
-    if config.highlight_current_line and (line1 == line2 and col1 == col2)
+    if draw_highlight ~= false and config.highlight_current_line
     and line1 == idx and core.active_view == self then
-      self:draw_line_highlight(x + self.scroll.x, y)
+      draw_highlight = (line1 == line2 and col1 == col2)
     end
   end
+  if draw_highlight then self:draw_line_highlight(x + self.scroll.x, y) end
 
   -- draw line's text
   self:draw_line_text(idx, x, y)
 end
 
 
-function DocView:draw_line_gutter(idx, x, y)
+function DocView:draw_line_gutter(idx, x, y, width)
   local color = style.line_number
   for _, line1, _, line2 in self.doc:get_selections(true) do
     if idx >= line1 and idx <= line2 then
@@ -391,7 +397,7 @@ function DocView:draw_line_gutter(idx, x, y)
   end
   local yoffset = self:get_line_text_y_offset()
   x = x + style.padding.x
-  renderer.draw_text(self:get_font(), idx, x, y + yoffset, color)
+  common.draw_text(self:get_font(), color, idx, "right", x, y + yoffset, width,  self:get_line_height())
 end
 
 
@@ -420,12 +426,12 @@ function DocView:draw()
   local lh = self:get_line_height()
 
   local x, y = self:get_line_screen_position(minline)
+  local gw, gpad = self:get_gutter_width()
   for i = minline, maxline do
-    self:draw_line_gutter(i, self.position.x, y)
+    self:draw_line_gutter(i, self.position.x, y, gpad and gw - gpad or gw)
     y = y + lh
   end
 
-  local gw = self:get_gutter_width()
   local pos = self.position
   x, y = self:get_line_screen_position(minline)
   core.push_clip_rect(pos.x + gw, pos.y, self.size.x, self.size.y)

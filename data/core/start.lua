@@ -1,6 +1,6 @@
 -- this file is used by lite-xl to setup the Lua environment when starting
-VERSION = "1.16.11"
-MOD_VERSION = "1"
+VERSION = "@PROJECT_VERSION@"
+MOD_VERSION = "2"
 
 SCALE = tonumber(os.getenv("LITE_SCALE")) or SCALE
 PATHSEP = package.config:sub(1, 1)
@@ -19,4 +19,3 @@ package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
-
