@@ -1578,8 +1578,11 @@ _DMON_PRIVATE void dmon__fsevent_callback(ConstFSEventStreamRef stream_ref, void
             dmon__unixpath(abs_filepath, sizeof(abs_filepath), abs_filepath));
 
         // strip the root dir
-        DMON_ASSERT(strstr(abs_filepath, watch->rootdir) == abs_filepath);
-        dmon__strcpy(ev.filepath, sizeof(ev.filepath), abs_filepath + strlen(watch->rootdir));
+        size_t len = strlen(watch->rootdir);
+        // FIXME: filesystems on macOS can be case sensitive or not. The check below
+        // ignore case but we should check if the filesystem is case sensitive.
+        DMON_ASSERT(strncasecmp(abs_filepath, watch->rootdir, len) == 0);
+        dmon__strcpy(ev.filepath, sizeof(ev.filepath), abs_filepath + len);
 
         ev.event_flags = flags;
         ev.event_id = event_id;
