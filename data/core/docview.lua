@@ -98,6 +98,9 @@ end
 
 
 function DocView:get_scrollable_size()
+  if not config.scroll_past_end then
+    return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2
+  end
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
 
