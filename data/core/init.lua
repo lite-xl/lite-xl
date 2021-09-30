@@ -1077,8 +1077,9 @@ function core.dir_rescan_add_job(dir, filepath)
   if dirpath then
     -- check if the directory is in the project files list, if not exit
     local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
-    local dir_filename = dir.files[dir_index].filename
-    if not dir_match or not core.project_subdir_is_shown(dir, dir_filename) then return end
+    -- Note that is dir_match is false dir_index greaten than the last valid index.
+    -- We use dir_index to index dir.files below only if dir_match is true.
+    if not dir_match or not core.project_subdir_is_shown(dir, dir.files[dir_index].filename) then return end
   end
   local new_time = system.get_time() + 1
 
