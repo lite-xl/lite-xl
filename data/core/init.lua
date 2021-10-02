@@ -79,6 +79,9 @@ function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dir_path_abs, core.on_quit_project) then
     core.root_view:close_all_docviews()
     update_recents_project("add", dir_path_abs)
+    if not core.load_project_module() then
+      command.perform("core:open-log")
+    end
     core.on_enter_project(dir_path_abs)
   end
 end
