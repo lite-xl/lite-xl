@@ -35,13 +35,13 @@ typedef struct {
 } GlyphMetric;
 
 typedef struct {
-  SDL_Surface* surface[SUBPIXEL_BITMAPS_CACHED];
+  SDL_Surface* surface;
   GlyphMetric metrics[256]; 
 } GlyphSet;
 
 typedef struct RenFont {
   FT_Face face;
-  GlyphSet* sets[MAX_GLYPHSET];
+  GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_GLYPHSET];
   float size, space_advance, tab_advance;
   short max_height;
   bool subpixel;
@@ -105,29 +105,24 @@ static int font_set_style(FT_Outline* outline, int x_translation, unsigned char 
   return 0;
 }
 
-static GlyphSet* font_load_glyphset(RenFont* font, int idx) {
-  GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
+void font_load_glyphset(RenFont* font, int idx) {
   unsigned int render_option = font_set_render_options(font), load_option = font_set_load_options(font);
-  int pen_x = 0, bitmaps_cached = font->subpixel ? SUBPIXEL_BITMAPS_CACHED : 1;
+  int bitmaps_cached = font->subpixel ? SUBPIXEL_BITMAPS_CACHED : 1;
   unsigned int byte_width = font->subpixel ? 3 : 1;
-  for (int i = 0; i < 256; ++i) {
-    int glyph_index = FT_Get_Char_Index( font->face, i + idx * MAX_GLYPHSET);
-    if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY) || font_set_style(&font->face->glyph->outline, 0, font->style) || FT_Render_Glyph(font->face->glyph, render_option))
-      continue;
-    FT_GlyphSlot slot = font->face->glyph;
-    int glyph_width = slot->bitmap.width / byte_width;
-    set->metrics[i] = (GlyphMetric){ pen_x, pen_x + glyph_width, 0, slot->bitmap.rows, slot->bitmap_left, slot->bitmap_top, (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f};
-    pen_x += glyph_width;
-    font->max_height = slot->bitmap.rows > font->max_height ? slot->bitmap.rows : font->max_height;
-    // xadvance for some reason should be computed like this.
-    if (FT_Load_Glyph(font->face, glyph_index, FT_LOAD_BITMAP_METRICS_ONLY) || font_set_style(&slot->outline, 0, font->style) || FT_Render_Glyph(font->face->glyph, render_option))
-      continue;
-    set->metrics[i].xadvance = (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f;
-      
-  }
-  for (int j = 0; j < bitmaps_cached; ++j) {
-    set->surface[j] = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->subpixel ? 24 : 8, 0, 0, 0, 0));
-    unsigned char* pixels = set->surface[j]->pixels;
+  for (int j = 0, pen_x = 0; j < bitmaps_cached; ++j) {
+    GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
+    for (int i = 0; i < 256; ++i) {
+      int glyph_index = FT_Get_Char_Index( font->face, i + idx * MAX_GLYPHSET);
+      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY) || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option))
+        continue;
+      FT_GlyphSlot slot = font->face->glyph;
+      int glyph_width = slot->bitmap.width / byte_width;
+      set->metrics[i] = (GlyphMetric){ pen_x, pen_x + glyph_width, 0, slot->bitmap.rows, slot->bitmap_left, slot->bitmap_top, (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f};
+      pen_x += glyph_width;
+      font->max_height = slot->bitmap.rows > font->max_height ? slot->bitmap.rows : font->max_height;
+    }
+    set->surface = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->subpixel ? 24 : 8, 0, 0, 0, 0));
+    unsigned char* pixels = set->surface->pixels;
     for (int i = 0; i < 256; ++i) {
       int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
@@ -137,28 +132,20 @@ static GlyphSet* font_load_glyphset(RenFont* font, int idx) {
       if (FT_Render_Glyph(slot, render_option))
         continue; 
       for (int line = 0; line < slot->bitmap.rows; ++line) {
-        int target_offset = set->surface[j]->pitch * line + set->metrics[i].x0 * byte_width;
+        int target_offset = set->surface->pitch * line + set->metrics[i].x0 * byte_width;
         int source_offset = line * slot->bitmap.pitch;
         memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
       }
     }
+    font->sets[j][idx] = set;
   }
-  return set;
 }
 
-static void font_free_glyphset(GlyphSet* set) {
-  for (int i = 0; i < SUBPIXEL_BITMAPS_CACHED; ++i) {
-    if (set->surface[i])
-      SDL_FreeSurface(set->surface[i]);
-  }
-  free(set);
-}
-
-static GlyphSet* font_get_glyphset(RenFont* font, int codepoint) {
+static GlyphSet* font_get_glyphset(RenFont* font, int codepoint, int subpixel_idx) {
   int idx = (codepoint >> 8) % MAX_GLYPHSET;
-  if (!font->sets[idx])
-    font->sets[idx] = font_load_glyphset(font, idx);
-  return font->sets[idx];
+  if (!font->sets[subpixel_idx][idx])
+    font_load_glyphset(font, idx);
+  return font->sets[subpixel_idx][idx];
 }
 
 RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned char hinting, unsigned char style) {
@@ -177,7 +164,7 @@ RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned cha
   font->subpixel = subpixel;
   font->hinting = hinting;
   font->style = style;
-  GlyphSet* set = font_get_glyphset(font, ' ');
+  GlyphSet* set = font_get_glyphset(font, ' ', 0);
   font->space_advance = (int)set->metrics[' '].xadvance;
   font->tab_advance = font->space_advance * 2;
   return font;
@@ -191,20 +178,26 @@ RenFont* ren_font_copy(RenFont* font, float size) {
 }
 
 void ren_font_free(RenFont* font) {
-  for (int i = 0; i < MAX_GLYPHSET; ++i) {
-    if (font->sets[i])
-      font_free_glyphset(font->sets[i]);
+  for (int i = 0; i < SUBPIXEL_BITMAPS_CACHED; ++i) {
+    for (int j = 0; j < MAX_GLYPHSET; ++j) {
+      if (font->sets[i][j]) {
+        if (font->sets[i][j]->surface)
+          SDL_FreeSurface(font->sets[i][j]->surface);
+        free(font->sets[i][j]);
+      }
+    }
   }
   FT_Done_Face(font->face);
   free(font);
 }
 
 void ren_font_set_tab_size(RenFont *font, int n) {
-  font_get_glyphset(font, '\t')->metrics['\t'].xadvance = font->space_advance * n;
+  for (int i = 0; i < (font->subpixel ? SUBPIXEL_BITMAPS_CACHED : 1); ++i) 
+    font_get_glyphset(font, '\t', i)->metrics['\t'].xadvance = font->space_advance * n;
 }
 
 int ren_font_get_tab_size(RenFont *font) {
-  return font_get_glyphset(font, '\t')->metrics['\t'].xadvance / font->space_advance;
+  return font_get_glyphset(font, '\t', 0)->metrics['\t'].xadvance / font->space_advance;
 }
 
 float ren_font_get_width(RenFont *font, const char *text) {
@@ -213,7 +206,7 @@ float ren_font_get_width(RenFont *font, const char *text) {
   while (text < end) {
     unsigned int codepoint;
     text = utf8_to_codepoint(text, &codepoint);
-    float advance = font_get_glyphset(font, codepoint)->metrics[codepoint % 256].xadvance;
+    float advance = font_get_glyphset(font, codepoint, 0)->metrics[codepoint % 256].xadvance;
     width += advance ? advance : font->space_advance;
   }
   const int surface_scale = renwin_surface_scale(&window_renderer);
@@ -241,11 +234,11 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
   while (text < end) {
     unsigned int codepoint, r, g, b;
     text = utf8_to_codepoint(text, &codepoint);
-    GlyphSet* set = font_get_glyphset(font, codepoint);
-    GlyphMetric* metric = &set->metrics[codepoint % 256];
     int bitmap_index = font->subpixel ? (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED) : 0;
-    unsigned char* source_pixels = set->surface[bitmap_index]->pixels;
-    int start_x = pen_x + metric->bitmap_left, end_x = metric->x1 - metric->x0 + pen_x;
+    GlyphSet* set = font_get_glyphset(font, codepoint, bitmap_index);
+    GlyphMetric* metric = &set->metrics[codepoint % 256];
+    unsigned char* source_pixels = set->surface->pixels;
+    int start_x = floor(pen_x) + metric->bitmap_left, end_x = metric->x1 - metric->x0 + pen_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
     if (color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       for (int line = metric->y0; line < metric->y1; ++line) {
@@ -257,7 +250,7 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
         if (start_x + (glyph_end - glyph_start) >= clip_end_x)
           glyph_end = glyph_start + (clip_end_x - start_x);
         unsigned int* destination_pixel = (unsigned int*)&destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel];
-        unsigned char* source_pixel = &source_pixels[line * set->surface[bitmap_index]->pitch + metric->x0 * (font->subpixel ? 3 : 1)];
+        unsigned char* source_pixel = &source_pixels[line * set->surface->pitch + metric->x0 * (font->subpixel ? 3 : 1)];
         for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color >> 16) & 0xFF, (destination_color >> 8) & 0xFF, (destination_color >> 0) & 0xFF, (destination_color >> 24) & 0xFF };
@@ -282,7 +275,7 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
         }
       }
     }
-    pen_x += metric->xadvance ? metric->xadvance : font->space_advance;
+    pen_x += metric->xadvance ? metric->xadvance  : font->space_advance;
   }
   if (font->style & FONT_STYLE_UNDERLINE)
     ren_draw_rect((RenRect){ x, y / surface_scale + ren_font_get_height(font) - 1, (pen_x - x) / surface_scale, 1 }, color);
