@@ -56,11 +56,10 @@ function ResultsView:begin_search(text, fn)
 
   core.add_thread(function()
     local i = 1
-    local re = regex.compile(config.ignore_files, "i")
     for dir_name, file in core.get_project_files() do
       if file.type == "file" then
         local path = (dir_name == core.project_dir and "" or (dir_name .. PATHSEP))
-        if not regex.cmatch(re, path) then
+        if not common.match_pattern(file.filename, config.ignore_files) then
           find_all_matches_in_file(self.results, path .. file.filename, fn)
         end
       end
