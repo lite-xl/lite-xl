@@ -301,7 +301,8 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
     local line1, col1, line2, col2 = table.unpack(cmd)
     self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
   elseif cmd.type == "selection" then
-    self.selections = { unpack(cmd) }
+    self.selections = { table.unpack(cmd) }
+    self:sanitize_selection()
   end
 
   modified = modified or (cmd.type ~= "selection")
