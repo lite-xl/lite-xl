@@ -411,10 +411,12 @@ function DocView:draw_overlay()
     local T = config.blink_period
     for _, line, col in self.doc:get_selections() do
       if line >= minline and line <= maxline
-      and (core.blink_timer - core.blink_start) % T < T / 2
       and system.window_has_focus() then
-        local x, y = self:get_line_screen_position(line)
-        self:draw_caret(x + self:get_col_x_offset(line, col), y)
+        if config.disable_blink
+        or (core.blink_timer - core.blink_start) % T < T / 2 then
+          local x, y = self:get_line_screen_position(line)
+          self:draw_caret(x + self:get_col_x_offset(line, col), y)
+        end
       end
     end
   end
