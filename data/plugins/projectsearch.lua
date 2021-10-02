@@ -1,6 +1,7 @@
 -- mod-version:2 -- lite-xl 2.0
 local core = require "core"
 local common = require "core.common"
+local config = require "core.config"
 local keymap = require "core.keymap"
 local command = require "core.command"
 local style = require "core.style"
@@ -55,10 +56,13 @@ function ResultsView:begin_search(text, fn)
 
   core.add_thread(function()
     local i = 1
+    local re = regex.compile(config.ignore_files, "i")
     for dir_name, file in core.get_project_files() do
       if file.type == "file" then
         local path = (dir_name == core.project_dir and "" or (dir_name .. PATHSEP))
-        find_all_matches_in_file(self.results, path .. file.filename, fn)
+        if not regex.cmatch(re, path) then
+          find_all_matches_in_file(self.results, path .. file.filename, fn)
+        end
       end
       self.last_file_idx = i
       i = i + 1
@@ -242,7 +246,7 @@ command.add(nil, {
     core.command_view:enter("Find Regex In Project", function(text)
       local re = regex.compile(text, "i")
       begin_search(text, function(line_text)
-        return regex.cmatch(re, line_text) 
+        return regex.cmatch(re, line_text)
       end)
     end)
   end,
@@ -277,22 +281,22 @@ command.add(ResultsView, {
   ["project-search:refresh"] = function()
     core.active_view:refresh()
   end,
-  
+
   ["project-search:move-to-previous-page"] = function()
     local view = core.active_view
     view.scroll.to.y = view.scroll.to.y - view.size.y
   end,
-  
+
   ["project-search:move-to-next-page"] = function()
     local view = core.active_view
     view.scroll.to.y = view.scroll.to.y + view.size.y
   end,
-  
+
   ["project-search:move-to-start-of-doc"] = function()
     local view = core.active_view
     view.scroll.to.y = 0
   end,
-  
+
   ["project-search:move-to-end-of-doc"] = function()
     local view = core.active_view
     view.scroll.to.y = view:get_scrollable_size()
