@@ -13,9 +13,6 @@ config.plugins.scale = {
   use_mousewheel = true
 }
 
-local MINIMUM_SCALE = 0.25;
-
-local scale_level = 0
 local scale_steps = 0.05
 
 local current_scale = SCALE
@@ -35,9 +32,6 @@ local function set_scale(scale)
 
   local s = scale / current_scale
   current_scale = scale
-
-  -- we set scale_level in case this was called by user
-  scale_level = (scale - default_scale) / scale_steps
 
   if config.plugins.scale.mode == "ui" then
     SCALE = scale
@@ -85,18 +79,15 @@ function RootView:on_mouse_wheel(d, ...)
 end
 
 local function res_scale()
-  scale_level = 0
   set_scale(default_scale)
 end
 
 local function inc_scale()
-  scale_level = scale_level + 1
-  set_scale(default_scale + scale_level * scale_steps)
+  set_scale(current_scale + scale_steps)
 end
 
-local function dec_scale()  
-  scale_level = scale_level - 1
-  set_scale(math.max(default_scale + scale_level * scale_steps), MINIMUM_SCALE)
+local function dec_scale()
+  set_scale(current_scale - scale_steps)
 end
 
 
