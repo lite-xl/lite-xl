@@ -85,6 +85,8 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 #endif
 
+int luaopen_bit32 (lua_State *L);
+
 int main(int argc, char **argv) {
 #ifdef _WIN32
   HINSTANCE lib = LoadLibrary("user32.dll");
@@ -121,6 +123,8 @@ int main(int argc, char **argv) {
 init_lua:
   L = luaL_newstate();
   luaL_openlibs(L);
+  luaopen_bit32(L);
+  lua_setglobal(L, "bit32");
   api_load_libs(L);
 
 
