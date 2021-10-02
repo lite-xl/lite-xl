@@ -12,6 +12,9 @@
   #include <signal.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
+  #include <CoreFoundation/CoreFoundation.h>
+  #include <objc/runtime.h>
+  #include <objc/message.h>
 #endif
 
 
@@ -77,10 +80,20 @@ static void init_window_icon(void) {
 #endif
 
 #ifdef __APPLE__
-void enable_momentum_scroll();
-#ifdef MACOS_USE_BUNDLE
-void set_macos_bundle_resources(lua_State *L);
-#endif
+  static void enable_momentum_scroll() {
+    void* standardUserDefaults = objc_msgSend(objc_getClass("NSUserDefaults"), NSSelectorFromString(CFSTR("standardUserDefaults")));
+    objc_msgSend(standardUserDefaults, "setBool", true, CFSTR("AppleMomentumScrollSupported"));
+  }
+  #ifdef MACOS_USE_BUNDLE
+    static void set_macos_bundle_resources(lua_State *L) {
+      id autoreleasePool = objc_msgSend(objc_msgSend(objc_getClass("NSAutoreleasePool"), sel_registerName("alloc")), sel_registerName("init"));
+      void* obj = objc_msgSend(objc_getClass("NSBundle"), NSSelectorFromString(CFSTR("mainBundle")));
+      const char* utf8string = objc_msgSend(objc_msgSend(obj, NSSelectorFromString(CFSTR("resourcePath"))), NSSelectorFromString(CFSTR("UTF8String")));
+      lua_pushstring(L, utf8string);
+      lua_setglobal(L, "MACOS_RESOURCES");
+      objc_msgSend(autoreleasePool, sel_registerName("drain"));
+    }
+  #endif
 #endif
 
 int main(int argc, char **argv) {
