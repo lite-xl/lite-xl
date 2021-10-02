@@ -14,8 +14,6 @@ lite_rc = []
 if host_machine.system() == 'windows'
     windows = import('windows')
     lite_rc += windows.compile_resources('../resources/icons/icon.rc')
-elif host_machine.system() == 'darwin'
-    lite_sources += 'bundle_open.m'
 endif
 
 lite_include = include_directories('.')
