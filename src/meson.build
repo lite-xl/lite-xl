@@ -8,6 +8,7 @@ lite_sources = [
     'api/system.c',
     'api/process.c',
     'dirmonitor.c',
+    'lbitlib.c',
     'renderer.c',
     'renwindow.c',
     'fontdesc.c',

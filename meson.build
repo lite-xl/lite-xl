@@ -46,7 +46,7 @@ if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
     threads_dep = dependency('threads')
-    lua_dep = dependency('luajit', fallback: ['luajit', 'lua_dep'],
+    lua_dep = dependency('luajit', fallback: ['luajit', 'luajit_dep'],
         default_options: ['default_library=static']
     )
     pcre2_dep = dependency('libpcre2-8')
