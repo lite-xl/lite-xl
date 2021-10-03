@@ -98,6 +98,9 @@ end
 
 
 function DocView:get_scrollable_size()
+  if not config.scroll_past_end then
+    return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2
+  end
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
 
@@ -150,14 +153,14 @@ function DocView:get_col_x_offset(line, col)
     local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
       if column == col then
-        return xoffset / font:subpixel_scale()
+        return xoffset
       end
-      xoffset = xoffset + font:get_width_subpixel(char)
+      xoffset = xoffset + font:get_width(char)
       column = column + #char
     end
   end
 
-  return xoffset / default_font:subpixel_scale()
+  return xoffset
 end
 
 
@@ -166,14 +169,12 @@ function DocView:get_x_offset_col(line, x)
 
   local xoffset, last_i, i = 0, 1, 1
   local default_font = self:get_font()
-  local subpixel_scale = default_font:subpixel_scale()
-  local x_subpixel = subpixel_scale * x + subpixel_scale / 2
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
-      local w = font:get_width_subpixel(char)
-      if xoffset >= subpixel_scale * x then
-        return (xoffset - x_subpixel > w / 2) and last_i or i
+      local w = font:get_width(char)
+      if xoffset >= x then
+        return (xoffset - x > w / 2) and last_i or i
       end
       xoffset = xoffset + w
       last_i = i
@@ -339,16 +340,11 @@ end
 
 function DocView:draw_line_text(idx, x, y)
   local default_font = self:get_font()
-  local subpixel_scale = default_font:subpixel_scale()
-  local tx, ty = subpixel_scale * x, y + self:get_line_text_y_offset()
+  local tx, ty = x, y + self:get_line_text_y_offset()
   for _, type, text in self.doc.highlighter:each_token(idx) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
-    if config.draw_whitespace then
-      tx = renderer.draw_text_subpixel(font, text, tx, ty, color, core.replacements, style.syntax.comment)
-    else
-      tx = renderer.draw_text_subpixel(font, text, tx, ty, color)
-    end
+    tx = renderer.draw_text(font, text, tx, ty, color)
   end
 end
 
@@ -408,10 +404,12 @@ function DocView:draw_overlay()
     local T = config.blink_period
     for _, line, col in self.doc:get_selections() do
       if line >= minline and line <= maxline
-      and (core.blink_timer - core.blink_start) % T < T / 2
       and system.window_has_focus() then
-        local x, y = self:get_line_screen_position(line)
-        self:draw_caret(x + self:get_col_x_offset(line, col), y)
+        if config.disable_blink
+        or (core.blink_timer - core.blink_start) % T < T / 2 then
+          local x, y = self:get_line_screen_position(line)
+          self:draw_caret(x + self:get_col_x_offset(line, col), y)
+        end
       end
     end
   end
