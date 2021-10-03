@@ -651,6 +651,7 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
+#ifdef LITE_XL_USE_PLUGIN_API
 // Symbol table for native plugin loading. Allows for a statically
 // bound lua library to be used by native plugins.
 typedef struct {
@@ -730,6 +731,7 @@ static int f_load_native_plugin(lua_State *L) {
 
   return result;
 }
+#endif
 
 
 static const luaL_Reg lib[] = {
@@ -758,7 +760,9 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
-  { "load_native_plugin",  f_load_native_plugin  },
+#ifdef LITE_XL_USE_PLUGIN_API
+ { "load_native_plugin",  f_load_native_plugin  },
+#endif
   { NULL, NULL }
 };
 

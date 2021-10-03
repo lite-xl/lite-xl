@@ -2,3 +2,5 @@ option('bundle', type : 'boolean', value : false, description: 'Build a macOS bu
 option('source-only', type : 'boolean', value : false, description: 'Configure source files only, doesn\'t checks for dependencies')
 option('portable', type : 'boolean', value : false, description: 'Portable install')
 option('renderer', type : 'boolean', value : false, description: 'Use SDL renderer')
+option('plugin-api', type : 'boolean', value : true, description: 'Enable native plugin API')
+

@@ -28,6 +28,11 @@ lite_cargs = []
 if get_option('renderer') or host_machine.system() == 'darwin'
     lite_cargs += '-DLITE_USE_SDL_RENDERER'
 endif
+
+if get_option('plugin-api')
+    lite_cargs += '-DLITE_XL_USE_PLUGIN_API'
+endif
+
 #===============================================================================
 # Linker Settings
 #===============================================================================
