@@ -2,9 +2,10 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <math.h>
-#include <ft2build.h>
-#include <freetype/ftlcdfil.h>
-#include <freetype/ftoutln.h>
+#include <freetype2/ft2build.h>
+#include <freetype2/freetype/freetype.h>
+#include <freetype2/freetype/ftlcdfil.h>
+#include <freetype2/freetype/ftoutln.h>
 #include FT_FREETYPE_H
 
 #include "renderer.h"
@@ -36,7 +37,7 @@ typedef struct {
 
 typedef struct {
   SDL_Surface* surface;
-  GlyphMetric metrics[256]; 
+  GlyphMetric metrics[256];
 } GlyphSet;
 
 typedef struct RenFont {
@@ -133,7 +134,7 @@ void font_load_glyphset(RenFont* font, int idx) {
       FT_GlyphSlot slot = font->face->glyph;
       font_set_style(&slot->outline, (64 / bitmaps_cached) * j, font->style);
       if (FT_Render_Glyph(slot, render_option))
-        continue; 
+        continue;
       for (int line = 0; line < slot->bitmap.rows; ++line) {
         int target_offset = set->surface->pitch * line + set->metrics[i].x0 * byte_width;
         int source_offset = line * slot->bitmap.pitch;
@@ -169,7 +170,7 @@ RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned cha
   font->space_advance = (int)font_get_glyphset(font, ' ', 0)->metrics[' '].xadvance;
   font->tab_advance = font->space_advance * 2;
   return font;
-  failure:  
+  failure:
   FT_Done_Face(face);
   return NULL;
 }
@@ -193,7 +194,7 @@ void ren_font_free(RenFont* font) {
 }
 
 void ren_font_set_tab_size(RenFont *font, int n) {
-  for (int i = 0; i < (font->subpixel ? SUBPIXEL_BITMAPS_CACHED : 1); ++i) 
+  for (int i = 0; i < (font->subpixel ? SUBPIXEL_BITMAPS_CACHED : 1); ++i)
     font_get_glyphset(font, '\t', i)->metrics['\t'].xadvance = font->space_advance * n;
 }
 
