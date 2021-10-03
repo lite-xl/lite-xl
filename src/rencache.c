@@ -16,31 +16,18 @@
 #define COMMAND_BUF_SIZE (1024 * 512)
 #define COMMAND_BARE_SIZE offsetof(Command, text)
 
-enum { SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_TEXT_SUBPIXEL };
+enum { SET_CLIP, DRAW_TEXT, DRAW_RECT };
 
 typedef struct {
   int8_t type;
   int8_t tab_size;
-  int8_t subpixel_scale;
-  int8_t x_subpixel_offset;
   int32_t size;
   RenRect rect;
   RenColor color;
-  FontDesc *font_desc;
-  CPReplaceTable *replacements;
-  RenColor replace_color;
+  RenFont *font;
+  float text_x;
   char text[0];
 } Command;
-
-#define FONT_REFS_MAX 12
-struct FontRef {
-  FontDesc *font_desc;
-  int index;
-};
-typedef struct FontRef FontRef;
-FontRef font_refs[FONT_REFS_MAX];
-int font_refs_len = 0;
-
 
 static unsigned cells_buf1[CELLS_X * CELLS_Y];
 static unsigned cells_buf2[CELLS_X * CELLS_Y];
@@ -52,36 +39,9 @@ static int command_buf_idx;
 static RenRect screen_rect;
 static bool show_debug;
 
-
 static inline int min(int a, int b) { return a < b ? a : b; }
 static inline int max(int a, int b) { return a > b ? a : b; }
 
-static int font_refs_add(lua_State *L, FontDesc *font_desc, int index) {
-  for (int i = 0; i < font_refs_len; i++) {
-    if (font_refs[i].font_desc == font_desc) {
-      return font_refs[i].index;
-    }
-  }
-
-  if (font_refs_len >= FONT_REFS_MAX) {
-    fprintf(stderr, "Warning: (" __FILE__ "): exhausted font reference buffer\n");
-    return LUA_NOREF;
-  }
-
-  lua_pushvalue(L, index);
-  int ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
-  font_refs[font_refs_len++] = (FontRef) { font_desc, ref };
-  return ref;
-}
-
-
-static void font_refs_clear(lua_State *L) {
-  for (int i = 0; i < font_refs_len; i++) {
-    luaL_unref(L, LUA_REGISTRYINDEX, font_refs[i].index);
-  }
-  font_refs_len = 0;
-}
 
 /* 32bit fnv-1a hash */
 #define HASH_INITIAL 2166136261
@@ -168,35 +128,23 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-int rencache_draw_text(lua_State *L, FontDesc *font_desc, int font_index,
-  const char *text, int x, int y, RenColor color, bool draw_subpixel,
-  CPReplaceTable *replacements, RenColor replace_color)
+float rencache_draw_text(lua_State *L, RenFont *font, const char *text, float x, int y, RenColor color)
 {
-  int subpixel_scale;
-  int w_subpixel = ren_get_font_width(font_desc, text, &subpixel_scale);
-  RenRect rect;
-  rect.x = (draw_subpixel ? ren_font_subpixel_round(x, subpixel_scale, -1) : x);
-  rect.y = y;
-  rect.width = ren_font_subpixel_round(w_subpixel, subpixel_scale, 0);
-  rect.height = ren_get_font_height(font_desc);
-
-  if (rects_overlap(screen_rect, rect) && font_refs_add(L, font_desc, font_index) >= 0) {
+  float width = ren_font_get_width(font, text);
+  RenRect rect = { x, y, (int)width, ren_font_get_height(font) };
+  if (rects_overlap(screen_rect, rect)) {
     int sz = strlen(text) + 1;
-    Command *cmd = push_command(draw_subpixel ? DRAW_TEXT_SUBPIXEL : DRAW_TEXT, COMMAND_BARE_SIZE + sz);
+    Command *cmd = push_command(DRAW_TEXT, COMMAND_BARE_SIZE + sz);
     if (cmd) {
       memcpy(cmd->text, text, sz);
       cmd->color = color;
-      cmd->font_desc = font_desc;
+      cmd->font = font;
       cmd->rect = rect;
-      cmd->subpixel_scale = (draw_subpixel ? subpixel_scale : 1);
-      cmd->x_subpixel_offset = x - subpixel_scale * rect.x;
-      cmd->tab_size = font_desc_get_tab_size(font_desc);
-      cmd->replacements = replacements;
-      cmd->replace_color = replace_color;
+      cmd->text_x = x;
+      cmd->tab_size = ren_font_get_tab_size(font);
     }
   }
-
-  return x + (draw_subpixel ? w_subpixel : rect.width);
+  return x + width;
 }
 
 
@@ -214,7 +162,6 @@ void rencache_begin_frame(lua_State *L) {
     screen_rect.height = h;
     rencache_invalidate();
   }
-  font_refs_clear(L);
 }
 
 
@@ -301,15 +248,8 @@ void rencache_end_frame(lua_State *L) {
           ren_draw_rect(cmd->rect, cmd->color);
           break;
         case DRAW_TEXT:
-          font_desc_set_tab_size(cmd->font_desc, cmd->tab_size);
-          ren_draw_text(cmd->font_desc, cmd->text, cmd->rect.x, cmd->rect.y, cmd->color,
-            cmd->replacements, cmd->replace_color);
-          break;
-        case DRAW_TEXT_SUBPIXEL:
-          font_desc_set_tab_size(cmd->font_desc, cmd->tab_size);
-          ren_draw_text_subpixel(cmd->font_desc, cmd->text,
-            cmd->subpixel_scale * cmd->rect.x + cmd->x_subpixel_offset, cmd->rect.y, cmd->color,
-            cmd->replacements, cmd->replace_color);
+          ren_font_set_tab_size(cmd->font, cmd->tab_size);
+          ren_draw_text(cmd->font, cmd->text, cmd->text_x, cmd->rect.y, cmd->color);
           break;
       }
     }

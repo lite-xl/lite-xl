@@ -168,16 +168,6 @@ local commands = {
     doc():set_selection(line, col)
   end,
 
-
-  ["doc:indent"] = function()
-    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-      local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
-      if l1 then
-        doc():set_selections(idx, l1, c1, l2, c2)
-      end
-    end
-  end,
-
   ["doc:select-lines"] = function()
     for idx, line1, _, line2 in doc():get_selections(true) do
       append_line_if_last_line(line2)
