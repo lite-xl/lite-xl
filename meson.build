@@ -38,8 +38,6 @@ endif
 
 if host_machine.system() == 'darwin'
     lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
-    # the linker aguments below are needed by luajit on macOS
-    lite_link_args += ['-pagezero_size', '10000', '-image_base', '100000000']
 endif
 #===============================================================================
 # Dependencies
