@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -ex
 
 if [ ! -e "src/api/api.h" ]; then
@@ -27,4 +27,4 @@ cat > lite-xl-dmg.json << EOF
   ]
 }
 EOF
-~/node_modules/appdmg/bin/appdmg.js lite-xl-dmg.json "$(pwd)/$1.dmg"
+appdmg lite-xl-dmg.json "$(pwd)/$1.dmg"

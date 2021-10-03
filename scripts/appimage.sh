@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/bin/sh
 set -ex
 
 if [ ! -e "src/api/api.h" ]; then

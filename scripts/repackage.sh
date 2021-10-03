@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # strip-components is normally set to 1 to strip the initial "data" from the
 # directory path.
@@ -41,7 +41,7 @@ while [ ! -z ${1+x} ]; do
   esac
 done
 
-wget="wget --retry-connrefused --waitretry=1 --read-timeout=20 --no-check-certificate" 
+wget="wget --retry-connrefused --waitretry=1 --read-timeout=20 --no-check-certificate"
 
 workdir=".repackage"
 rm -fr "$workdir" && mkdir "$workdir" && pushd "$workdir"

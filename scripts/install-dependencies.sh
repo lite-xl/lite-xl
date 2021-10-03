@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -ex
 
 if [ ! -e "src/api/api.h" ]; then
@@ -53,9 +53,9 @@ main() {
     pip3 install meson
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     if [[ $lhelper == true ]]; then
-      brew install bash md5sha1sum ninja
+      brew install md5sha1sum ninja
     else
-      brew install bash ninja sdl2
+      brew install ninja sdl2
     fi
     pip3 install meson
     cd ~; npm install appdmg; cd -

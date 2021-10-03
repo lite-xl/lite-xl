@@ -49,7 +49,7 @@ If you compile Lite XL yourself, it is recommended to use the script
 `build-packages.sh`:
 
 ```sh
-bash build-packages.sh -h
+sh build-packages.sh -h
 ```
 
 The script will run Meson and create a tar compressed archive with the application or,

@@ -99,7 +99,7 @@ jobs:
     - name: System Information
       run: |
         system_profiler SPSoftwareDataType
-        bash --version
+        sh --version
         gcc -v
         xcodebuild -version
     - name: Set Environment Variables
@@ -114,16 +114,16 @@ jobs:
         python-version: 3.9
     - name: Install Dependencies
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/install-dependencies.sh --debug
+      run: sh scripts/install-dependencies.sh --debug
     - name: Install Release Dependencies
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       run: |
-        bash scripts/install-dependencies.sh --debug --lhelper
-        bash scripts/lhelper.sh --debug
+        sh scripts/install-dependencies.sh --debug --lhelper
+        sh scripts/lhelper.sh --debug
     - name: Build
       run: |
-        bash --version
-        bash scripts/build.sh --bundle --debug --forcefallback
+        sh --version
+        sh scripts/build.sh --bundle --debug --forcefallback
     - name: Error Logs
       if: failure()
       run: |
@@ -132,9 +132,9 @@ jobs:
         tar czvf ${INSTALL_NAME}.tar.gz ${INSTALL_NAME}
 #   - name: Package
 #     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-#     run:  bash scripts/package.sh --version ${INSTALL_REF} --debug --addons
+#     run:  sh scripts/package.sh --version ${INSTALL_REF} --debug --addons
     - name: Create DMG Image
-      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg
+      run: sh scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg
     - name: Upload DMG Image
       uses: actions/upload-artifact@v2
       with:
