@@ -49,7 +49,7 @@ if not get_option('source-only')
     libdl = cc.find_library('dl', required : false)
     threads_dep = dependency('threads')
     lua_dep = dependency('luajit', fallback: ['luajit', 'lua_dep'],
-        default_options: ['default_library=static']
+        default_options: ['default_library=static', 'app=false']
     )
     pcre2_dep = dependency('libpcre2-8')
     sdl_dep = dependency('sdl2', method: 'config-tool')
