@@ -243,8 +243,8 @@ static int process_start(lua_State* L) {
       CloseHandle(self->process_information.hProcess);
     CloseHandle(self->process_information.hThread);
   #else
-    for (int i = 0; i < 3; ++i) {
-      if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][0], F_SETFL, O_NONBLOCK) == -1 || fcntl(self->child_pipes[i][1], F_SETFL, O_NONBLOCK) == -1)
+    for (int i = 0; i < 3; ++i) { // Make only the parents fd's non-blocking. Children should block.
+      if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][i == STDIN_FD ? 1 : 0], F_SETFL, O_NONBLOCK) == -1)
         return luaL_error(L, "Error creating pipes: %s", strerror(errno));
     }
     self->pid = (long)fork();
@@ -334,7 +334,7 @@ static int f_write(lua_State* L) {
   #endif
   if (length < 0) {
     signal_process(self, SIGNAL_TERM);
-    return 0;
+    return luaL_error(L, "error writing to process: %s", strerror(errno));
   }
   lua_pushnumber(L, length);
   return 1;
