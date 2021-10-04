@@ -1033,6 +1033,11 @@ function RootView:on_focus_lost(...)
 end
 
 
+function RootView:on_ime_text_editing(...)
+  core.active_view:on_ime_text_editing(...)
+end
+
+
 function RootView:interpolate_drag_overlay(overlay)
   self:move_towards(overlay, "x", overlay.to.x)
   self:move_towards(overlay, "y", overlay.to.y)

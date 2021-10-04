@@ -193,6 +193,14 @@ top:
       lua_pushstring(L, get_key_name(&e, buf));
       return 2;
 
+    case SDL_TEXTEDITING:
+      fprintf(stderr, "textediting: %s (%d, %d)\n", e.edit.text, e.edit.start, e.edit.length); fflush(stderr);
+      lua_pushstring(L, "textediting");
+      lua_pushstring(L, e.edit.text);
+      lua_pushnumber(L, e.edit.start);
+      lua_pushnumber(L, e.edit.length);
+      return 4;
+
     case SDL_TEXTINPUT:
       lua_pushstring(L, "textinput");
       lua_pushstring(L, e.text.text);
@@ -652,6 +660,16 @@ static int f_set_window_opacity(lua_State *L) {
 }
 
 
+static int f_set_ime_input_rect(lua_State *L) {
+  SDL_Rect r;
+  r.x = luaL_checkinteger(L, 1);
+  r.y = luaL_checkinteger(L, 2);
+  r.w = luaL_checkinteger(L, 3);
+  r.h = luaL_checkinteger(L, 4);
+  SDL_SetTextInputRect(&r);
+  return 0;
+}
+
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
@@ -678,6 +696,7 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "set_ime_input_rect",  f_set_ime_input_rect  },
   { NULL, NULL }
 };
 

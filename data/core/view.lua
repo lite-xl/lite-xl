@@ -102,6 +102,9 @@ function View:on_text_input(text)
   -- no-op
 end
 
+-- no-op
+View.on_ime_text_editing = View.on_text_input
+
 
 function View:on_mouse_wheel(y)
   if self.scrollable then

@@ -954,6 +954,9 @@ function core.on_event(type, ...)
     end
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
+  elseif type == "textediting" then
+    core.root_view:on_ime_text_editing(...)
+    did_keymap = keymap.on_key_pressed(...)
   elseif type == "quit" then
     core.quit()
   end

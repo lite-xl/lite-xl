@@ -309,6 +309,29 @@ function DocView:on_text_input(text)
 end
 
 
+function DocView:draw_ime_text_editing(text, start, len)
+  local line, col = self.doc:get_selection()
+  local x, y = self:get_line_screen_position(line)
+  x = x + get_col_x_offset(line, col)
+  local default_font = self:get_font()
+  local subpixel_scale = default_font:subpixel_scale()
+  local tx, ty = subpixel_scale * x, y + self:get_line_text_y_offset()
+  renderer.draw_text_subpixel(default_font, text, tx, ty, style.text)
+end
+
+
+function DocView:on_ime_text_editing(text, start, len)
+  local line, col = self.doc:get_selection()
+  local x, y = self:get_line_screen_position(line)
+  x = x + get_col_x_offset(line, col)
+  local h = self:get_line_height()
+  local w = self:get_font():get_width(5)
+  system.set_ime_input_rect(x, y, w, h)
+
+  core.root_view:defer_draw(draw_ime_text_editing, self, text, start, len)
+end
+
+
 function DocView:update()
   -- scroll to make caret visible and reset blink timer if it moved
   local line, col = self.doc:get_selection()
