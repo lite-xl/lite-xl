@@ -48,7 +48,7 @@ main() {
     # FIXME: This should be set in ~/.bash_profile if not using CI
     # export PATH="${HOME}/.local/bin:${PATH}"
     mkdir -p "${lhelper_prefix}/bin"
-    pushd lhelper; bash install "${lhelper_prefix}"; popd
+    pushd lhelper; sh install "${lhelper_prefix}"; popd
 
     if [[ "$OSTYPE" == "darwin"* ]]; then
       CC=clang CXX=clang++ lhelper create lite-xl -n
