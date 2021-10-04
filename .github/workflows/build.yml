@@ -72,7 +72,6 @@ jobs:
         sh scripts/lhelper.sh --debug
     - name: Build
       run: |
-        sh --version
         sh scripts/build.sh --debug --forcefallback
     - name: Package
       if: ${{ matrix.config.cc == 'gcc' }}
@@ -99,7 +98,6 @@ jobs:
     - name: System Information
       run: |
         system_profiler SPSoftwareDataType
-        sh --version
         gcc -v
         xcodebuild -version
     - name: Set Environment Variables
