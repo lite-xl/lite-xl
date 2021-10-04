@@ -5,7 +5,7 @@ if [ ! -e "src/api/api.h" ]; then
   echo "Please run this script from the root directory of Lite XL."; exit 1
 fi
 
-source scripts/common.sh
+. scripts/common.sh
 
 show_help() {
   echo
