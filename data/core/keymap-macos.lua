@@ -96,6 +96,8 @@ local function keymap_macos(keymap)
     ["shift+lclick"] = "doc:select-to-cursor",
     ["ctrl+lclick"] = "doc:split-cursor",
     ["lclick"] = "doc:set-cursor",
+    ["dlclick"] = "doc:select-word",
+    ["tlclick"] = "doc:select-lines",
     ["shift+left"] = "doc:select-to-previous-char",
     ["shift+right"] = "doc:select-to-next-char",
     ["shift+up"] = "doc:select-to-previous-line",

@@ -922,7 +922,9 @@ function core.on_event(type, ...)
   elseif type == "mousemoved" then
     core.root_view:on_mouse_moved(...)
   elseif type == "mousepressed" then
-    core.root_view:on_mouse_pressed(...)
+    if not core.root_view:on_mouse_pressed(...) then
+      did_keymap = keymap.on_mouse_pressed(...)
+    end
   elseif type == "mousereleased" then
     core.root_view:on_mouse_released(...)
   elseif type == "mousewheel" then

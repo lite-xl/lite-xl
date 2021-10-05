@@ -389,6 +389,12 @@ local commands = {
     core.log("Removed \"%s\"", filename)
   end,
     
+  ["doc:select-to-cursor"] = function(x, y, clicks) 
+    local line1, col1 = select(3, doc():get_selection())
+    local line2, col2 = dv():resolve_screen_position(x, y)
+    doc():set_selection(line2, col2, line1, col1)
+  end,
+  
   ["doc:set-cursor"] = function(x, y, clicks) 
     local line, col = dv():resolve_screen_position(x, y)
     doc():set_selection(line, col, line, col)

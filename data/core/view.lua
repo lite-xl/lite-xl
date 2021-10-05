@@ -3,7 +3,7 @@ local config = require "core.config"
 local style = require "core.style"
 local common = require "core.common"
 local Object = require "core.object"
-local keymap = require "core.keymap"
+
 
 local View = Object:extend()
 
@@ -76,13 +76,11 @@ function View:scrollbar_overlaps_point(x, y)
 end
 
 
-local click_prefixes = { "", "d", "t" }
 function View:on_mouse_pressed(button, x, y, clicks)
   if self:scrollbar_overlaps_point(x, y) then
     self.dragging_scrollbar = true
     return true
   end
-  return keymap.on_key_pressed(click_prefixes[((clicks - 1) % 3) + 1] .. button:sub(1,1) .. "click", x, y, clicks)
 end
 
 

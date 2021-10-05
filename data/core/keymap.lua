@@ -85,6 +85,10 @@ function keymap.on_key_pressed(k, ...)
   return false
 end
 
+local click_prefixes = { "", "d", "t" }
+function keymap.on_mouse_pressed(button, x, y, clicks)
+  return keymap.on_key_pressed(click_prefixes[((clicks - 1) % 3) + 1] .. button:sub(1,1) .. "click", x, y, clicks)
+end
 
 function keymap.on_key_released(k)
   local mk = modkey_map[k]
