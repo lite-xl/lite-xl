@@ -42,10 +42,10 @@ function command.get_all_valid()
 end
 
 
-local function perform(name)
+local function perform(name, ...)
   local cmd = command.map[name]
-  if cmd and cmd.predicate() then
-    cmd.perform()
+  if cmd and cmd.predicate(...) then
+    cmd.perform(...)
     return true
   end
   return false

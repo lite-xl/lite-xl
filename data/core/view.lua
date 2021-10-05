@@ -3,7 +3,7 @@ local config = require "core.config"
 local style = require "core.style"
 local common = require "core.common"
 local Object = require "core.object"
-
+local keymap = require "core.keymap"
 
 local View = Object:extend()
 
@@ -81,6 +81,7 @@ function View:on_mouse_pressed(button, x, y, clicks)
     self.dragging_scrollbar = true
     return true
   end
+  return keymap.on_key_pressed(button:sub(1,1) .. "click", x, y, clicks)
 end
 
 

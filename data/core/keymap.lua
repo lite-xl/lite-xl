@@ -63,7 +63,7 @@ function keymap.get_binding(cmd)
 end
 
 
-function keymap.on_key_pressed(k)
+function keymap.on_key_pressed(k, ...)
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
@@ -73,13 +73,13 @@ function keymap.on_key_pressed(k)
     end
   else
     local stroke = key_to_stroke(k)
-    local commands = keymap.map[stroke]
+    local commands, performed = keymap.map[stroke]
     if commands then
       for _, cmd in ipairs(commands) do
-        local performed = command.perform(cmd)
+        performed = command.perform(cmd, ...)
         if performed then break end
       end
-      return true
+      return performed
     end
   end
   return false
@@ -193,6 +193,9 @@ keymap.add_direct {
   ["pageup"] = "doc:move-to-previous-page",
   ["pagedown"] = "doc:move-to-next-page",
 
+  ["shift+lclick"] = "doc:select-to-cursor",
+  ["ctrl+lclick"] = "doc:split-cursor",
+  ["lclick"] = "doc:set-cursor",
   ["shift+left"] = "doc:select-to-previous-char",
   ["shift+right"] = "doc:select-to-next-char",
   ["shift+up"] = "doc:select-to-previous-line",
