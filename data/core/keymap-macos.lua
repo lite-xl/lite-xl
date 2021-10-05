@@ -93,6 +93,9 @@ local function keymap_macos(keymap)
     ["pageup"] = "doc:move-to-previous-page",
     ["pagedown"] = "doc:move-to-next-page",
 
+    ["shift+lclick"] = "doc:select-to-cursor",
+    ["ctrl+lclick"] = "doc:split-cursor",
+    ["lclick"] = "doc:set-cursor",
     ["shift+left"] = "doc:select-to-previous-char",
     ["shift+right"] = "doc:select-to-next-char",
     ["shift+up"] = "doc:select-to-previous-line",
