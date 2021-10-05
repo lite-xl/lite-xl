@@ -388,27 +388,15 @@ local commands = {
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
   end,
-  
-  ["doc:select-to-cursor"] = function(x, y, clicks) 
-    if clicks % 2 == 1 then
-      local line1, col1 = select(3, doc():get_selection())
-      local line2, col2 = dv():resolve_screen_position(x, y)
-      doc():set_selection(line2, col2, line1, col1)
-    end
-  end,
-  
+    
   ["doc:set-cursor"] = function(x, y, clicks) 
     local line, col = dv():resolve_screen_position(x, y)
-    doc():set_selection(dv():mouse_selection(doc(), clicks, line, col, line, col))
-    dv().mouse_selecting = { line, col, clicks = clicks }
-    core.blink_reset()
+    doc():set_selection(line, col, line, col)
   end,
   
   ["doc:split-cursor"] = function(x, y, clicks) 
     local line, col = dv():resolve_screen_position(x, y)
-    doc():add_selection(dv():mouse_selection(doc(), clicks, line, col, line, col))
-    dv().mouse_selecting = { line, col, clicks = clicks }
-    core.blink_reset()
+    doc():add_selection(line, col, line, col)
   end,
 
   ["doc:create-cursor-previous-line"] = function()
