@@ -405,12 +405,14 @@ local commands = {
   
   ["doc:set-cursor-word"] = function(x, y, clicks) 
     local line, col = dv():resolve_screen_position(x, y)
+    doc():set_selection(line, col, line, col)
     command.perform("doc:select-word")
     dv().mouse_selecting = { line, col }
   end,
   
   ["doc:set-cursor-line"] = function(x, y, clicks) 
     local line, col = dv():resolve_screen_position(x, y)
+    doc():set_selection(line, col, line, col)
     command.perform("doc:select-lines")
     dv().mouse_selecting = { line, col }
   end,
