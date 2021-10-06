@@ -392,12 +392,27 @@ local commands = {
   ["doc:select-to-cursor"] = function(x, y, clicks) 
     local line1, col1 = select(3, doc():get_selection())
     local line2, col2 = dv():resolve_screen_position(x, y)
+    dv().mouse_selecting = { line1, col1 }
     doc():set_selection(line2, col2, line1, col1)
   end,
   
   ["doc:set-cursor"] = function(x, y, clicks) 
     local line, col = dv():resolve_screen_position(x, y)
     doc():set_selection(line, col, line, col)
+    dv().mouse_selecting = { line, col }
+    core.blink_reset()
+  end,
+  
+  ["doc:set-cursor-word"] = function(x, y, clicks) 
+    local line, col = dv():resolve_screen_position(x, y)
+    command.perform("doc:select-word")
+    dv().mouse_selecting = { line, col }
+  end,
+  
+  ["doc:set-cursor-line"] = function(x, y, clicks) 
+    local line, col = dv():resolve_screen_position(x, y)
+    command.perform("doc:select-lines")
+    dv().mouse_selecting = { line, col }
   end,
   
   ["doc:split-cursor"] = function(x, y, clicks) 

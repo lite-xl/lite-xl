@@ -224,15 +224,6 @@ function DocView:scroll_to_make_visible(line, col)
   end
 end
 
-function DocView:on_mouse_pressed(button, x, y, clicks)
-  local line, col = self:resolve_screen_position(x, y)
-  self.mouse_selecting = { line, col, clicks = clicks }
-  if DocView.super.on_mouse_pressed(self, button, x, y, clicks) then
-    return
-  end
-  core.blink_reset()
-end
-
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
@@ -245,7 +236,6 @@ function DocView:on_mouse_moved(x, y, ...)
   if self.mouse_selecting then
     local l1, c1 = self:resolve_screen_position(x, y)
     local l2, c2 = table.unpack(self.mouse_selecting)
-    local clicks = self.mouse_selecting.clicks
     if keymap.modkeys["ctrl"] then
       if l1 > l2 then l1, l2 = l2, l1 end
       self.doc.selections = { }
