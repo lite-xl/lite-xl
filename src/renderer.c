@@ -238,7 +238,8 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
     int bitmap_index = font->subpixel ? (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED) : 0;
     GlyphSet* set = font_get_glyphset(font, codepoint, bitmap_index + (bitmap_index < 0 ? SUBPIXEL_BITMAPS_CACHED : 0));
     GlyphMetric* metric = &set->metrics[codepoint % 256];
-    int start_x = floor(pen_x) + metric->bitmap_left, end_x = metric->x1 - metric->x0 + pen_x;
+    int start_x = floor(pen_x) + metric->bitmap_left;
+    int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       unsigned char* source_pixels = set->surface->pixels;
