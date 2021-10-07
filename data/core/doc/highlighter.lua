@@ -44,10 +44,23 @@ function Highlighter:reset()
   self.max_wanted_line = 0
 end
 
-
 function Highlighter:invalidate(idx)
   self.first_invalid_line = math.min(self.first_invalid_line, idx)
   self.max_wanted_line = math.min(self.max_wanted_line, #self.doc.lines)
+end
+
+function Highlighter:insert_notify(line, n)
+  self:invalidate(line)
+  for i = 1, n do
+    table.insert(self.lines, line, nil)
+  end
+end
+
+function Highlighter:remove_notify(line, n)
+  self:invalidate(line)
+  for i = 1, n do
+    table.remove(self.lines, line)
+  end
 end
 
 
