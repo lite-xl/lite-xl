@@ -24,7 +24,7 @@ function Highlighter:new(doc)
         for i = self.first_invalid_line, max do
           local state = (i > 1) and self.lines[i - 1].state
           local line = self.lines[i]
-          if not (line and line.init_state == state) then
+          if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
             self.lines[i] = self:tokenize_line(i, state)
           end
         end
