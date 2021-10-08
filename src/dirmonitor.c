@@ -5,6 +5,7 @@
 
 #define DMON_IMPL
 #include "dmon.h"
+#include "dmon_extra.h"
 
 #include "dirmonitor.h"
 

@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "dmon.h"
+#include "dmon_extra.h"
 
 void dirmonitor_init();
 void dirmonitor_deinit();
