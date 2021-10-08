@@ -5,13 +5,10 @@ local Doc = require "core.doc"
 
 local times = setmetatable({}, { __mode = "k" })
 
-local autoreload_scan_rate = 5
-
 local function update_time(doc)
   local info = system.get_file_info(doc.filename)
   times[doc] = info.modified
 end
-
 
 local function reload_doc(doc)
   local fp = io.open(doc.filename, "r")
@@ -28,23 +25,19 @@ local function reload_doc(doc)
   core.log_quiet("Auto-reloaded doc \"%s\"", doc.filename)
 end
 
+local on_modify = core.on_dirmonitor_modify
 
-core.add_thread(function()
-  while true do
-    -- check all doc modified times
-    for _, doc in ipairs(core.docs) do
-      local info = system.get_file_info(doc.filename or "")
-      if info and times[doc] ~= info.modified then
-        reload_doc(doc)
-      end
-      coroutine.yield()
+core.on_dirmonitor_modify = function(dir, filepath)
+  local abs_filename = dir.name .. PATHSEP .. filepath
+  for _, doc in ipairs(core.docs) do
+    local info = system.get_file_info(doc.filename or "")
+    if doc.abs_filename == abs_filename and info and times[doc] ~= info.modified then
+      reload_doc(doc)
+      break
     end
-
-    -- wait for next scan
-    coroutine.yield(autoreload_scan_rate)
   end
-end)
-
+  on_modify(dir, filepath)
+end
 
 -- patch `Doc.save|load` to store modified time
 local load = Doc.load

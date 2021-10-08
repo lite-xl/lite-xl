@@ -1123,6 +1123,7 @@ function core.dir_rescan_add_job(dir, filepath)
 end
 
 
+-- no-op but can be overrided by plugins
 function core.on_dirmonitor_modify()
 end
 
