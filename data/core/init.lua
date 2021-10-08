@@ -1123,6 +1123,10 @@ function core.dir_rescan_add_job(dir, filepath)
 end
 
 
+function core.on_dirmonitor_modify()
+end
+
+
 function core.on_dir_change(watch_id, action, filepath)
   local dir = project_dir_by_watch_id(watch_id)
   if not dir then return end
@@ -1131,6 +1135,9 @@ function core.on_dir_change(watch_id, action, filepath)
     project_scan_remove_file(dir, filepath)
   elseif action == "create" then
     project_scan_add_file(dir, filepath)
+    core.on_dirmonitor_modify(dir, filepath);
+  elseif action == "modify" then
+    core.on_dirmonitor_modify(dir, filepath);
   end
 end
 

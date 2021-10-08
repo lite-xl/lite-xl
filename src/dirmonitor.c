@@ -52,8 +52,6 @@ void dirmonitor_watch_callback(dmon_watch_id watch_id, dmon_action action, const
     send_sdl_event(watch_id, DMON_ACTION_DELETE, oldfilepath);
     send_sdl_event(watch_id, DMON_ACTION_CREATE, filepath);
     break;
-  case DMON_ACTION_MODIFY:
-    break;
   default:
     send_sdl_event(watch_id, action, filepath);
   }

@@ -240,7 +240,19 @@ top:
     case SDL_USEREVENT:
       lua_pushstring(L, "dirchange");
       lua_pushnumber(L, e.user.code >> 16);
-      lua_pushstring(L, (e.user.code & 0xffff) == DMON_ACTION_DELETE ? "delete" : "create");
+      switch (e.user.code & 0xffff) {
+        case DMON_ACTION_DELETE:
+          lua_pushstring(L, "delete");
+          break;
+        case DMON_ACTION_CREATE:
+          lua_pushstring(L, "create");
+          break;
+        case DMON_ACTION_MODIFY:
+          lua_pushstring(L, "modify");
+          break;
+        default:
+          return luaL_error(L, "unknown dmon event action: %d", e.user.code & 0xffff);
+      }
       lua_pushstring(L, e.user.data1);
       free(e.user.data1);
       return 4;
