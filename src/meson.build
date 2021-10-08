@@ -22,11 +22,11 @@ elif host_machine.system() == 'darwin'
     lite_sources += 'bundle_open.m'
 endif
 
-lite_include = include_directories('.')
+lite_includes += include_directories('.')
 
 executable('lite-xl',
     lite_sources + lite_rc,
-    include_directories: [lite_include, font_renderer_include],
+    include_directories: lite_includes,
     dependencies: lite_deps,
     c_args: lite_cargs,
     objc_args: lite_cargs,

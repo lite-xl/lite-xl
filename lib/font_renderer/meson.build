@@ -9,7 +9,7 @@ font_renderer_sources = [
 
 font_renderer_cdefs = ['-DFONT_RENDERER_HEIGHT_HACK']
 
-font_renderer_include = include_directories('.')
+lite_includes += include_directories('.')
 
 libfontrenderer = static_library('fontrenderer',
     font_renderer_sources,

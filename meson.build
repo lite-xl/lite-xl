@@ -23,6 +23,7 @@ endif
 
 cc = meson.get_compiler('c')
 
+lite_includes = []
 lite_cargs = []
 # On macos we need to use the SDL renderer to support retina displays
 if get_option('renderer') or host_machine.system() == 'darwin'
@@ -118,11 +119,9 @@ configure_file(
     install_dir : lite_datadir / 'core',
 )
 
-#===============================================================================
-# Targets
-#===============================================================================
 if not get_option('source-only')
     subdir('lib/font_renderer')
+    subdir('lib/dmon')
     subdir('src')
     subdir('scripts')
 endif
