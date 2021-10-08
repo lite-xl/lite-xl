@@ -23,28 +23,13 @@ local function init_args(doc, line, col, text, opt)
 end
 
 
-local function plain_rfind(text, pattern, index)
-  local len = #text
-  text = text:reverse()
-  pattern = pattern:reverse()
-  if index >= 0 then
-    index = len - index + 1
-  else
-    index = index * -1
-  end
-  local s, e = text:find(pattern, index, true)
-  return e and len - e + 1, s and len - s + 1
-end
-
-
 local function rfind(text, pattern, index, plain)
-  if plain then return plain_rfind(text, pattern, index) end
-  local s, e = text:find(pattern)
+  local s, e = text:find(pattern, 1, plain)
   local last_s, last_e
   if index < 0 then index = #text - index + 1 end
   while e and e <= index do
     last_s, last_e = s, e
-    s, e = text:find(pattern, s + 1)
+    s, e = text:find(pattern, s + 1, plain)
   end
   return last_s, last_e
 end
