@@ -22,26 +22,20 @@ local function init_args(doc, line, col, text, opt)
   return doc, line, col, text, opt
 end
 
+-- This function is needed to uniform the behavior of
+-- `regex:cmatch` and `string.find`.
+local function regex_func(text, re, index, _)
+  local s, e = re:cmatch(text, index)
+  return s, e and e - 1
+end
 
-local function rfind(text, pattern, index, plain)
-  local s, e = text:find(pattern, 1, plain)
+local function rfind(func, text, pattern, index, plain)
+  local s, e = func(text, pattern, 1, plain)
   local last_s, last_e
   if index < 0 then index = #text - index + 1 end
   while e and e <= index do
     last_s, last_e = s, e
-    s, e = text:find(pattern, s + 1, plain)
-  end
-  return last_s, last_e
-end
-
-
-local function rcmatch(re, text, index)
-  local s, e = re:cmatch(text)
-  local last_s, last_e
-  if index < 0 then index = #text - index + 1 end
-  while e and e <= index + 1 do
-    last_s, last_e = s, e
-    s, e = re:cmatch(text, s + 1)
+    s, e = func(text, pattern, s + 1, plain)
   end
   return last_s, last_e
 end
@@ -49,10 +43,11 @@ end
 
 function search.find(doc, line, col, text, opt)
   doc, line, col, text, opt = init_args(doc, line, col, text, opt)
-
-  local re
+  local pattern = text
+  local search_func = string.find
   if opt.regex then
-    re = regex.compile(text, opt.no_case and "i" or "")
+    pattern = regex.compile(text, opt.no_case and "i" or "")
+    search_func = regex_func
   end
   local start, finish, step = line, #doc.lines, 1
   if opt.reverse then
@@ -60,32 +55,19 @@ function search.find(doc, line, col, text, opt)
   end
   for line = start, finish, step do
     local line_text = doc.lines[line]
-    if opt.regex then
-      local s, e
-      if opt.reverse then
-        s, e = rcmatch(re, line_text, col - 1)
-      else
-        s, e = re:cmatch(line_text, col)
-      end
-      if s then
-        return line, s, line, e
-      end
-      col = opt.reverse and -1 or 1
-    else
-      if opt.no_case then
-        line_text = line_text:lower()
-      end
-      local s, e
-      if opt.reverse then
-        s, e = rfind(line_text, text, col - 1, true)
-      else
-        s, e = line_text:find(text, col, true)
-      end
-      if s then
-        return line, s, line, e + 1
-      end
-      col = opt.reverse and -1 or 1
+    if opt.no_case and not opt.regex then
+      line_text = line_text:lower()
     end
+    local s, e
+    if opt.reverse then
+      s, e = rfind(search_func, line_text, pattern, col - 1)
+    else
+      s, e = search_func(line_text, pattern, col)
+    end
+    if s then
+      return line, s, line, e + 1
+    end
+    col = opt.reverse and -1 or 1
   end
 
   if opt.wrap then
