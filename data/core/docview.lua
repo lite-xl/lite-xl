@@ -439,7 +439,7 @@ function DocView:draw()
 
   local pos = self.position
   x, y = self:get_line_screen_position(minline)
-  core.push_clip_rect(pos.x + gw, pos.y, self.size.x, self.size.y)
+  core.push_clip_rect(pos.x + gw, pos.y, self.size.x - gw, self.size.y)
   for i = minline, maxline do
     self:draw_line_body(i, x, y)
     y = y + lh
