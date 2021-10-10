@@ -442,23 +442,20 @@ function core.init()
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
   local files = {}
-  local delayed_error
   for i = 2, #ARGS do
     local arg_filename = strip_trailing_slash(ARGS[i])
     local info = system.get_file_info(arg_filename) or {}
-    if info.type == "file" then
-      local file_abs = system.absolute_path(arg_filename)
-      if file_abs then
-        table.insert(files, file_abs)
-        project_dir = file_abs:match("^(.+)[/\\].+$")
-      end
-    elseif info.type == "dir" then
+    if info.type == "dir" then
       project_dir = arg_filename
       project_dir_explicit = true
     else
       -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
       if not ARGS[i]:match("^-psn") then
-        delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+        local file_abs = common.absolute_path(arg_filename)
+        if file_abs then
+          table.insert(files, file_abs)
+          project_dir = file_abs:match("^(.+)[/\\].+$")
+        end
       end
     end
   end
@@ -522,10 +519,6 @@ function core.init()
 
   for _, filename in ipairs(files) do
     core.root_view:open_doc(core.open_doc(filename))
-  end
-
-  if delayed_error then
-    core.error(delayed_error)
   end
 
   if not plugins_success or got_user_error or got_project_error then
