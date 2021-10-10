@@ -411,15 +411,8 @@ end
 -- calculating the sizes is the same for hsplits and vsplits, except the x/y
 -- axis are swapped; this function lets us use the same code for both
 local function calc_split_sizes(self, x, y, x1, x2, y1, y2)
-  local n
   local ds = ((x1 and x1 < 1) or (x2 and x2 < 1)) and 0 or style.divider_size
-  if x1 then
-    n = x1 + ds
-  elseif x2 then
-    n = self.size[x] - x2
-  else
-    n = math.floor(self.size[x] * self.divider)
-  end
+  local n = math.floor(x1 and x1 + ds or (x2 and self.size[x] - x2 or self.size[x] * self.divider))
   self.a.position[x] = self.position[x]
   self.a.position[y] = self.position[y]
   self.a.size[x] = n - ds
