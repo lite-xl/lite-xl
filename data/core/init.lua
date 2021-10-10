@@ -593,6 +593,25 @@ local function add_config_files_hooks()
 end
 
 
+-- The function below works like system.absolute_path except it
+-- doesn't fail if the file does not exist. We consider that the
+-- current dir is core.project_dir so relative filename are considered
+-- to be in core.project_dir.
+-- Please note that .. or . in the filename are not taken into account.
+-- This function should get only filenames normalized using
+-- common.normalize_path function.
+function core.project_absolute_path(filename)
+  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
+    return common.normalize_path(filename)
+  elseif not core.project_dir then
+    local cwd = system.absolute_path(".")
+    return cwd .. PATHSEP .. common.normalize_path(filename)
+  else
+    return core.project_dir .. PATHSEP .. filename
+  end
+end
+
+
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
@@ -626,23 +645,20 @@ function core.init()
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
   local files = {}
-  local delayed_error
   for i = 2, #ARGS do
     local arg_filename = strip_trailing_slash(ARGS[i])
     local info = system.get_file_info(arg_filename) or {}
-    if info.type == "file" then
-      local file_abs = system.absolute_path(arg_filename)
-      if file_abs then
-        table.insert(files, file_abs)
-        project_dir = file_abs:match("^(.+)[/\\].+$")
-      end
-    elseif info.type == "dir" then
+    if info.type == "dir" then
       project_dir = arg_filename
       project_dir_explicit = true
     else
       -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
       if not ARGS[i]:match("^-psn") then
-        delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+        local file_abs = core.project_absolute_path(arg_filename)
+        if file_abs then
+          table.insert(files, file_abs)
+          project_dir = file_abs:match("^(.+)[/\\].+$")
+        end
       end
     end
   end
@@ -726,10 +742,6 @@ function core.init()
 
   for _, filename in ipairs(files) do
     core.root_view:open_doc(core.open_doc(filename))
-  end
-
-  if delayed_error then
-    core.error(delayed_error)
   end
 
   if not plugins_success or got_user_error or got_project_error then
@@ -999,22 +1011,6 @@ function core.normalize_to_project_dir(filename)
     filename = common.relative_path(core.project_dir, filename)
   end
   return filename
-end
-
-
--- The function below works like system.absolute_path except it
--- doesn't fail if the file does not exist. We consider that the
--- current dir is core.project_dir so relative filename are considered
--- to be in core.project_dir.
--- Please note that .. or . in the filename are not taken into account.
--- This function should get only filenames normalized using
--- common.normalize_path function.
-function core.project_absolute_path(filename)
-  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
-    return filename
-  else
-    return core.project_dir .. PATHSEP .. filename
-  end
 end
 
 
