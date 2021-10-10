@@ -7,15 +7,15 @@ local DocView = require "core.docview"
 local CommandView = require "core.commandview"
 local StatusView = require "core.statusview"
 
-local max_last_finds = 50
-local last_finds, last_view, last_fn, last_text, last_sel
+local last_view, last_fn, last_text, last_sel
 
 local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
 local found_expression
 
 local function doc()
-  return core.active_view:is(DocView) and core.active_view.doc or last_view.doc
+  local is_DocView = core.active_view:is(DocView) and not core.active_view:is(CommandView)
+  return is_DocView and core.active_view.doc or last_view.doc
 end
 
 local function get_find_tooltip()
@@ -53,8 +53,8 @@ end
 
 
 local function find(label, search_fn)
-  last_view, last_sel, last_finds = core.active_view,
-    { core.active_view.doc:get_selection() }, {}
+  last_view, last_sel = core.active_view,
+    { core.active_view.doc:get_selection() }
   local text = last_view.doc:get_text(unpack(last_sel))
   found_expression = false
 
@@ -142,7 +142,7 @@ local function is_in_any_selection(line, col)
   return false
 end
 
-local function select_next(all)
+local function select_add_next(all)
   local il1, ic1 = doc():get_selection(true)
   for idx, l1, c1, l2, c2 in doc():get_selections(true, true) do
     local text = doc():get_text(l1, c1, l2, c2)
@@ -161,21 +161,28 @@ local function select_next(all)
   end
 end
 
-command.add(has_unique_selection, {
-  ["find-replace:select-next"] = function()
-    local l1, c1, l2, c2 = doc():get_selection(true)
-    local text = doc():get_text(l1, c1, l2, c2)
+local function select_next(reverse)
+  local l1, c1, l2, c2 = doc():get_selection(true)
+  local text = doc():get_text(l1, c1, l2, c2)
+  if reverse then
+    l1, c1, l2, c2 = search.find(doc(), l1, c1, text, { wrap = true, reverse = true })
+  else
     l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
-    if l2 then doc():set_selection(l2, c2, l1, c1) end
-  end,
-  ["find-replace:select-add-next"] = function() select_next(false) end,
-  ["find-replace:select-add-all"] = function() select_next(true) end
+  end
+  if l2 then doc():set_selection(l2, c2, l1, c1) end
+end
+
+command.add(has_unique_selection, {
+  ["find-replace:select-next"] = select_next,
+  ["find-replace:select-previous"] = function() select_next(true) end,
+  ["find-replace:select-add-next"] = select_add_next,
+  ["find-replace:select-add-all"] = function() select_add_next(true) end
 })
 
 command.add("core.docview", {
   ["find-replace:find"] = function()
-    find("Find Text", function(doc, line, col, text, case_sensitive, find_regex)
-      local opt = { wrap = true, no_case = not case_sensitive, regex = find_regex }
+    find("Find Text", function(doc, line, col, text, case_sensitive, find_regex, find_reverse)
+      local opt = { wrap = true, no_case = not case_sensitive, regex = find_regex, reverse = find_reverse }
       return search.find(doc, line, col, text, opt)
     end)
   end,
@@ -221,29 +228,29 @@ command.add(valid_for_finding, {
       core.error("No find to continue from")
     else
       local sl1, sc1, sl2, sc2 = doc():get_selection(true)
-      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc2, last_text, case_sensitive, find_regex)
+      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc2, last_text, case_sensitive, find_regex, false)
       if line1 then
-        if last_view.doc ~= doc() then
-          last_finds = {}
-        end
-        if #last_finds >= max_last_finds then
-          table.remove(last_finds, 1)
-        end
-        table.insert(last_finds, { sl1, sc1, sl2, sc2 })
         doc():set_selection(line2, col2, line1, col1)
         last_view:scroll_to_line(line2, true)
+      else
+        core.error("Couldn't find %q", last_text)
       end
     end
   end,
 
   ["find-replace:previous-find"] = function()
-    local sel = table.remove(last_finds)
-    if not sel or doc() ~= last_view.doc then
-      core.error("No previous finds")
-      return
+    if not last_fn then
+      core.error("No find to continue from")
+    else
+      local sl1, sc1, sl2, sc2 = doc():get_selection(true)
+      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc1, last_text, case_sensitive, find_regex, true)
+      if line1 then
+        doc():set_selection(line2, col2, line1, col1)
+        last_view:scroll_to_line(line2, true)
+      else
+        core.error("Couldn't find %q", last_text)
+      end
     end
-    doc():set_selection(table.unpack(sel))
-    last_view:scroll_to_line(sel[3], true)
   end,
 })
 
