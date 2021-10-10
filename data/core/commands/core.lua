@@ -103,6 +103,15 @@ command.add(nil, {
     core.root_view:open_doc(core.open_doc())
   end,
 
+  ["core:new-named-doc"] = function()
+    core.command_view:enter(
+      "File name",
+      function(text)
+        core.root_view:open_doc(core.open_doc(text))
+      end
+    )
+  end,
+
   ["core:open-file"] = function()
     local view = core.active_view
     if view.doc and view.doc.abs_filename then
