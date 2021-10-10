@@ -18,6 +18,7 @@ function View:new()
   self.scroll = { x = 0, y = 0, to = { x = 0, y = 0 } }
   self.cursor = "arrow"
   self.scrollable = false
+  self.touch = { click = false, node = nil }
 end
 
 function View:move_towards(t, k, dest, rate)
@@ -109,6 +110,31 @@ function View:on_mouse_wheel(y)
   end
 end
 
+function View:on_touch_pressed(x, y, ...)
+  if self:scrollbar_overlaps_point(x, y) then
+    self.dragging_scrollbar = true
+    return true
+  end
+end
+
+
+function View:on_touch_released(...)
+  self.dragging_scrollbar = false
+end
+
+
+function View:on_touch_moved(x, y, dx, dy, ...)
+  if self.dragging_scrollbar then
+    local delta = self:get_scrollable_size() / self.size.y * dy
+    self.scroll.to.y = self.scroll.to.y + delta
+  end
+  self.hovered_scrollbar = self:scrollbar_overlaps_point(x, y)
+
+  if self.scrollable then
+    self.scroll.to.y = self.scroll.to.y + dy * -config.touch_vertical_scroll
+    self.scroll.to.x = self.scroll.to.x + dx * -config.touch_horizontal_scroll
+  end
+end
 
 function View:get_content_bounds()
   local x = self.scroll.x
@@ -127,6 +153,7 @@ end
 function View:clamp_scroll_position()
   local max = self:get_scrollable_size() - self.size.y
   self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max)
+  self.scroll.to.x = common.clamp(self.scroll.to.x, 0, self.size.x)
 end
 
 

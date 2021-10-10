@@ -301,6 +301,30 @@ function DocView:on_mouse_released(button)
   self.mouse_selecting = nil
 end
 
+function DocView:on_touch_pressed(x, y, ...)
+  local caught = DocView.super.on_touch_pressed(self, x, y, ...)
+  if caught then
+    return
+  end
+
+  self.touch.click = true
+  core.blink_reset()
+end
+
+function DocView:on_touch_moved(x, y, ...)
+  DocView.super.on_touch_moved(self, x, y, ...)
+
+  self.touch.click = false
+end
+
+function DocView:on_touch_released(x, y, ...)
+  DocView.super.on_touch_released(self, x, y, ...)
+
+  if (self.touch.click) then
+    local line, col = self:resolve_screen_position(x, y)
+    self.doc:set_selection(mouse_selection(self.doc, 1, line, col, line, col))
+  end
+end
 
 function DocView:on_text_input(text)
   self.doc:text_input(text)

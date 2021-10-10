@@ -91,6 +91,22 @@ function Node:on_mouse_released(...)
 end
 
 
+function Node:on_touch_moved(...)
+  if self.type == "leaf" then
+    self.active_view:on_touch_moved(...)
+  else
+    self:propagate("on_touch_moved", ...)
+  end
+end
+
+function Node:on_touch_released(...)
+  if self.type == "leaf" then
+    self.active_view:on_touch_released(...)
+  else
+    self:propagate("on_touch_released", ...)
+  end
+end
+
 function Node:consume(node)
   for k, _ in pairs(self) do self[k] = nil end
   for k, v in pairs(node) do self[k] = v   end
@@ -1019,6 +1035,129 @@ function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
   node.active_view:on_mouse_wheel(...)
+end
+
+function RootView:on_touch_pressed(x, y, ...)
+  self.touch.node = self.root_node:get_child_overlapping_point(x, y)
+
+  local div = self.root_node:get_divider_overlapping_point(x, y)
+  if div then
+    self.dragged_divider = div
+    return
+  end
+  local node = self.root_node:get_child_overlapping_point(x, y)
+  if node.hovered_scroll_button > 0 then
+    node:scroll_tabs(node.hovered_scroll_button)
+    return
+  end
+  local idx = node:get_tab_overlapping_point(x, y)
+  if idx then
+    if node.hovered_close == idx then
+      node:close_view(self.root_node, node.views[idx])
+    else
+      self.dragged_node = { node = node, idx = idx, dragging = false, drag_start_x = x, drag_start_y = y}
+      node:set_active_view(node.views[idx])
+    end
+  elseif not self.dragged_node then -- avoid sending on_touch_pressed events when dragging tabs
+    core.set_active_view(node.active_view)
+    node.active_view:on_touch_pressed(x, y, ...)
+  end
+end
+
+function RootView:on_touch_released(x, y, ...)
+  self.touch.node = nil
+
+  if self.dragged_divider then
+    self.dragged_divider = nil
+  end
+
+  if self.dragged_node then
+
+    if self.dragged_node.dragging then
+      local node = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
+      local dragged_node = self.dragged_node.node
+
+      if node and not node.locked
+         -- don't do anything if dragging onto own node, with only one view
+         and (node ~= dragged_node or #node.views > 1) then
+        local split_type = node:get_split_type(self.mouse.x, self.mouse.y)
+        local view = dragged_node.views[self.dragged_node.idx]
+
+        if split_type ~= "middle" and split_type ~= "tab" then -- needs splitting
+          local new_node = node:split(split_type)
+          self.root_node:get_node_for_view(view):remove_view(self.root_node, view)
+          new_node:add_view(view)
+        elseif split_type == "middle" and node ~= dragged_node then -- move to other node
+          dragged_node:remove_view(self.root_node, view)
+          node:add_view(view)
+          self.root_node:get_node_for_view(view):set_active_view(view)
+        elseif split_type == "tab" then -- move besides other tabs
+          local tab_index = node:get_drag_overlay_tab_position(self.mouse.x, self.mouse.y, dragged_node, self.dragged_node.idx)
+          dragged_node:remove_view(self.root_node, view)
+          node:add_view(view, tab_index)
+          self.root_node:get_node_for_view(view):set_active_view(view)
+        end
+        self.root_node:update_layout()
+        core.redraw = true
+      end
+    end
+    self:set_show_overlay(self.drag_overlay, false)
+    self:set_show_overlay(self.drag_overlay_tab, false)
+    if self.dragged_node and self.dragged_node.dragging then
+      core.request_cursor("arrow")
+    end
+    self.dragged_node = nil
+
+  else -- avoid sending on_touch_released events when dragging tabs
+    self.root_node:on_touch_released(x, y, ...)
+  end
+end
+
+function RootView:on_touch_moved(x, y, dx, dy)
+  if core.active_view == core.nag_view then
+    core.active_view:on_touch_moved(x, y, dx, dy)
+    return
+  end
+
+  if self.dragged_divider then
+    local node = self.dragged_divider
+    if node.type == "hsplit" then
+      x = common.clamp(x, 0, self.root_node.size.x * 0.95)
+      resize_child_node(node, "x", x, dx)
+    elseif node.type == "vsplit" then
+      y = common.clamp(y, 0, self.root_node.size.y * 0.95)
+      resize_child_node(node, "y", y, dy)
+    end
+    node.divider = common.clamp(node.divider, 0.01, 0.99)
+    return
+  end
+
+  local dn = self.dragged_node
+  if dn and not dn.dragging then
+    -- start dragging only after enough movement
+    dn.dragging = common.distance(x, y, dn.drag_start_x, dn.drag_start_y) > style.tab_width * .05
+    if dn.dragging then
+      core.request_cursor("hand")
+    end
+  end
+
+  -- avoid sending on_touch_moved events when dragging tabs
+  if dn then return end
+
+  self.touch.node:on_touch_moved(x, y, dx, dy)
+
+  local node = self.root_node:get_child_overlapping_point(x, y)
+  local div = self.root_node:get_divider_overlapping_point(x, y)
+  local tab_index = node and node:get_tab_overlapping_point(x, y)
+  if node and node:get_scroll_button_index(x, y) then
+    core.request_cursor("arrow")
+  elseif div then
+    core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
+  elseif tab_index then
+    core.request_cursor("arrow")
+  elseif node then
+    core.request_cursor(node.active_view.cursor)
+  end
 end
 
 

@@ -925,6 +925,12 @@ function core.on_event(type, ...)
     core.root_view:on_mouse_released(...)
   elseif type == "mousewheel" then
     core.root_view:on_mouse_wheel(...)
+  elseif type == "touchmoved" then
+    core.root_view:on_touch_moved(...)
+  elseif type == "touchpressed" then
+    core.root_view:on_touch_pressed(...)
+  elseif type == "touchreleased" then
+    core.root_view:on_touch_released(...)
   elseif type == "resized" then
     core.window_mode = system.get_window_mode()
   elseif type == "minimized" or type == "maximized" or type == "restored" then

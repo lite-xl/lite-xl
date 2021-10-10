@@ -45,6 +45,11 @@ system.fileinfo = {}
 --- * "mousemoved" -> x, y, relative_x, relative_y
 --- * "mousewheel" -> y
 ---
+---Touch events:
+--- * "touchpressed" -> x, y, timestamp
+--- * "touchreleased" -> x, y, timestamp
+--- * "touchmoved" -> x, y, relative_x, relative_y, timestamp
+---
 ---@return string type
 ---@return any? arg1
 ---@return any? arg2

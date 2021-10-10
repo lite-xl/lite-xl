@@ -114,6 +114,21 @@ function NagView:on_mouse_pressed(button, mx, my, clicks)
   end
 end
 
+function NagView:on_touch_moved(...)
+  NagView.super.on_touch_moved(self, ...)
+end
+
+function NagView:on_touch_pressed(tx, ty, ...)
+  if NagView.super.on_touch_pressed(self, tx, ty, ...) then return end
+  for i, _, x,y,w,h in self:each_option() do
+    if tx >= x and ty >= y and tx < x + w and ty < y + h then
+      self:change_hovered(i)
+      command.perform "dialog:select"
+      break
+    end
+  end
+end
+
 function NagView:on_text_input(text)
   if text:lower() == "y" then
     command.perform "dialog:select-yes"

@@ -220,7 +220,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
   if not hovered_item then
     return
   elseif hovered_item.type == "dir" then
-    if keymap.modkeys["ctrl"] and button == "left" then
+    if keymap.modkeys["ctrl"] then
       create_directory_in(hovered_item)
     else
       if core.project_files_limit and not hovered_item.expanded then
@@ -249,6 +249,65 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
   end
 end
 
+function TreeView:on_touch_moved(...)
+  TreeView.super.on_touch_moved(self, ...)
+  self.touch.click = false
+end
+
+function TreeView:on_touch_pressed(tx, ty, ...)
+  local caught = TreeView.super.on_touch_pressed(self, tx, ty, ...)
+  if caught then
+    return
+  end
+
+  self.touch.click = true
+end
+
+function TreeView:on_touch_released(tx, ty, ...)
+  TreeView.super.on_touch_released(self, ...)
+
+  if (self.touch.click) then
+    for item, x,y,w,h in self:each_item() do
+      if tx > x and ty > y and tx <= x + w and ty <= y + h then
+        self.hovered_item = nil
+        local hovered_item = item
+
+        if not hovered_item then
+          return
+        elseif hovered_item.type == "dir" then
+          if core.project_files_limit and not hovered_item.expanded then
+            local filename, abs_filename = hovered_item.filename, hovered_item.abs_filename
+            local index = 0
+            -- The loop below is used to find the first match starting from the end
+            -- in case there are multiple matches.
+            while index and index + #filename < #abs_filename do
+              index = string.find(abs_filename, filename, index + 1, true)
+            end
+            -- we assume here index is not nil because the abs_filename must contain the
+            -- relative filename
+            local dirname = string.sub(abs_filename, 1, index - 2)
+            if core.is_project_folder(dirname) then
+              core.scan_project_folder(dirname, filename)
+              self:invalidate_cache(dirname)
+            end
+          end
+          hovered_item.expanded = not hovered_item.expanded
+        else
+          core.try(function()
+            local doc_filename = core.normalize_to_project_dir(hovered_item.abs_filename)
+            core.root_view:open_doc(core.open_doc(doc_filename))
+          end)
+        end
+      end
+    end
+  end
+end
+
+function TreeView:clamp_scroll_position()
+  local max = self:get_scrollable_size() - self.size.y
+  self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max)
+  self.scroll.to.x = 0
+end
 
 function TreeView:update()
   -- update width

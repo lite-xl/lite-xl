@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include <SDL_touch.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -15,12 +16,15 @@
 
 extern SDL_Window *window;
 
+#define LEFT_CLICK "left"
+#define MIDDLE_CLICK "middle"
+#define RIGHT_CLICK "right"
 
 static const char* button_name(int button) {
   switch (button) {
-    case 1  : return "left";
-    case 2  : return "middle";
-    case 3  : return "right";
+    case 1  : return LEFT_CLICK;
+    case 2  : return MIDDLE_CLICK;
+    case 3  : return RIGHT_CLICK;
     default : return "?";
   }
 }
@@ -110,6 +114,7 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
 static int f_poll_event(lua_State *L) {
   char buf[16];
   int mx, my, wx, wy;
+  int w, h;
   SDL_Event e;
 
 top:
@@ -235,6 +240,42 @@ top:
       lua_pushstring(L, "mousewheel");
       lua_pushnumber(L, e.wheel.y);
       return 2;
+
+    case SDL_FINGERDOWN:
+      SDL_GetWindowSize(window, &w, &h);
+
+      lua_pushstring(L, "touchpressed");
+      lua_pushnumber(L, (Sint32)(e.tfinger.x * w));
+      lua_pushnumber(L, (Sint32)(e.tfinger.y * h));
+      lua_pushnumber(L, e.tfinger.timestamp);
+      return 4;
+
+    case SDL_FINGERUP:
+      SDL_GetWindowSize(window, &w, &h);
+
+      lua_pushstring(L, "touchreleased");
+      lua_pushnumber(L, (Sint32)(e.tfinger.x * w));
+      lua_pushnumber(L, (Sint32)(e.tfinger.y * h));
+      lua_pushnumber(L, e.tfinger.timestamp);
+      return 4;
+
+    case SDL_FINGERMOTION:
+      SDL_GetWindowSize(window, &w, &h);
+
+      while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_FINGERMOTION, SDL_FINGERMOTION) > 0) {
+        e.tfinger.x = event_plus.tfinger.x;
+        e.tfinger.y = event_plus.tfinger.y;
+        e.tfinger.dx += event_plus.tfinger.dx;
+        e.tfinger.dy += event_plus.tfinger.dy;
+      }
+
+      lua_pushstring(L, "touchmoved");
+      lua_pushnumber(L, (Sint32)(e.tfinger.x * w));
+      lua_pushnumber(L, (Sint32)(e.tfinger.y * h));
+      lua_pushnumber(L, (Sint32)(e.tfinger.dx * w));
+      lua_pushnumber(L, (Sint32)(e.tfinger.dy * h));
+      lua_pushnumber(L, e.tfinger.timestamp);
+      return 6;
 
     default:
       goto top;
