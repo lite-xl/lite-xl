@@ -54,6 +54,7 @@ end
 function Doc:set_filename(filename, abs_filename)
   self.filename = filename
   self.abs_filename = abs_filename
+  self:reset_syntax()
 end
 
 
@@ -95,7 +96,6 @@ function Doc:save(filename, abs_filename)
   fp:close()
   self:set_filename(filename, abs_filename)
   self.new_file = false
-  self:reset_syntax()
   self:clean()
 end
 
