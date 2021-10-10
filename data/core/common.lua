@@ -331,6 +331,31 @@ function common.relative_path(ref_dir, dir)
 end
 
 
+function common.absolute_path(path)
+  local abs_path = system.absolute_path(path)
+  if not abs_path then
+    path = common.normalize_path(path)
+    if path:match("^" .. PATHSEP) then
+      return path
+    end
+    local split_path = split_on_slash(path)
+    for i = #split_path, 1, -1 do
+      if path ~= PATHSEP then
+        path = common.dirname(path) or "."
+        abs_path = system.absolute_path(path)
+      else
+        abs_path = path
+      end
+      if abs_path then
+        abs_path = abs_path .. PATHSEP .. table.concat(split_path, PATHSEP, i)
+        break
+      end
+    end
+  end
+  return abs_path
+end
+
+
 function common.mkdirp(path)
   local stat = system.get_file_info(path)
   if stat and stat.type then
