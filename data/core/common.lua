@@ -1,8 +1,8 @@
 local common = {}
 
 
-function common.is_utf8_cont(char)
-  local byte = char:byte()
+function common.is_utf8_cont(s, offset)
+  local byte = s:byte(offset or 1)
   return byte >= 0x80 and byte < 0xc0
 end
 
