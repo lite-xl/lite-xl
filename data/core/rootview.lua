@@ -595,7 +595,7 @@ function Node:draw()
       self:draw_tabs()
     end
     local pos, size = self.active_view.position, self.active_view.size
-    core.push_clip_rect(pos.x, pos.y, pos.x + size.x, pos.y + size.y)
+    core.push_clip_rect(pos.x, pos.y, size.x, size.y)
     self.active_view:draw()
     core.pop_clip_rect()
   else
