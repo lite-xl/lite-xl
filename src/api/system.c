@@ -12,6 +12,8 @@
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
+#elseif __linux__
+  #include <sys/vfs.h>
 #endif
 
 extern SDL_Window *window;
@@ -545,6 +547,45 @@ static int f_get_file_info(lua_State *L) {
   return 1;
 }
 
+#if __linux__
+// https://man7.org/linux/man-pages/man2/statfs.2.html
+
+struct f_type_names {
+  uint32_t magic;
+  const char *name;
+};
+
+static struct f_type_names fs_names[] = {
+  { 0xef53,     "ext2/ext3" },
+  { 0x6969,     "nfs"       },
+  { 0x65735546, "fuse"      },
+  { 0x517b,     "smb"       },
+  { 0xfe534d42, "smb2"      },
+  { 0x52654973, "reiserfs"  },
+  { 0x01021994, "tmpfs"     },
+  { 0x858458f6, "ramfs"     },
+  { 0x5346544e, "ntfs"      },
+  { 0x0,        NULL        },
+};
+
+static int f_get_fs_type(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  struct statfs buf;
+  int status = statfs(path, &buf);
+  if (status != 0) {
+    return luaL_error(L, "error calling statfs on %s", path);
+  }
+  for (int i = 0; fs_names[i].magic; i++) {
+    if (fs_names[i].magic == buf.f_type) {
+      lua_pushstring(L, fs_names[i].name);
+      return 1;
+    }
+  }
+  lua_pushstring(L, "unknown");
+  return 1;
+}
+#endif
+
 
 static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
@@ -789,6 +830,7 @@ static const luaL_Reg lib[] = {
 #if __linux__
   { "watch_dir_add",       f_watch_dir_add       },
   { "watch_dir_rm",        f_watch_dir_rm        },
+  { "get_fs_type",         f_get_fs_type         },
 #endif
   { NULL, NULL }
 };
