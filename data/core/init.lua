@@ -36,7 +36,7 @@ end
 
 
 local function update_recents_project(action, dir_path_abs)
-  local dirname = common.normalize_path(dir_path_abs)
+  local dirname = common.normalize_volume(dir_path_abs)
   if not dirname then return end
   local recents = core.recent_projects
   local n = #recents
@@ -56,7 +56,7 @@ function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
   if chdir_ok then
     if change_project_fn then change_project_fn() end
-    core.project_dir = common.normalize_path(new_dir)
+    core.project_dir = common.normalize_volume(new_dir)
     core.project_directories = {}
     core.add_project_directory(new_dir)
     return true
@@ -198,7 +198,7 @@ function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
-  path = common.normalize_path(path)
+  path = common.normalize_volume(path)
   local dir = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
@@ -572,9 +572,9 @@ function core.init()
   Doc = require "core.doc"
 
   if PATHSEP == '\\' then
-    USERDIR = common.normalize_path(USERDIR)
-    DATADIR = common.normalize_path(DATADIR)
-    EXEDIR  = common.normalize_path(EXEDIR)
+    USERDIR = common.normalize_volume(USERDIR)
+    DATADIR = common.normalize_volume(DATADIR)
+    EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
   do
