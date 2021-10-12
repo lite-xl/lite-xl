@@ -256,6 +256,8 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
         for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color >> 16) & 0xFF, (destination_color >> 8) & 0xFF, (destination_color >> 0) & 0xFF, (destination_color >> 24) & 0xFF };
+          if (start_x + (x - glyph_start) < clip.x)
+            continue;
           if (font->subpixel) {
             SDL_Color src = { *source_pixel++, *source_pixel++, *source_pixel++ };
             r = color.r * src.r + dst.r * (255 - src.r) + 127;
