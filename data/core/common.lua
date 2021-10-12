@@ -282,22 +282,41 @@ end
 
 function common.normalize_path(filename)
   if not filename then return end
+  local volume
   if PATHSEP == '\\' then
     filename = filename:gsub('[/\\]', '\\')
-    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
-    filename = drive and drive:upper() .. rem or filename
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    if drive then
+      volume, filename = drive:upper(), rem
+    else
+      drive, rem = filename:match('^(\\\\[^\\]+\\[^\\]+\\)(.*)')
+      if drive then
+        volume, filename = drive, rem
+      end
+    end
+  else
+    local relpath = filename:match('^/(.+)')
+    if relpath then
+      volume, filepath = "/", relpath
+    end
   end
   local parts = split_on_slash(filename, PATHSEP)
   local accu = {}
   for _, part in ipairs(parts) do
-    if part == '..' and #accu > 0 and accu[#accu] ~= ".." then
-      table.remove(accu)
+    if part == '..' then
+      if #accu > 0 and accu[#accu] ~= ".." then
+        table.remove(accu)
+      elseif volume then
+        error("invalid path " .. volume .. filename)
+      else
+        table.insert(accu, part)
+      end
     elseif part ~= '.' then
       table.insert(accu, part)
     end
   end
   local npath = table.concat(accu, PATHSEP)
-  return npath == "" and PATHSEP or npath
+  return (volume or "") .. (npath == "" and PATHSEP or npath)
 end
 
 
