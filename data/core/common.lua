@@ -315,7 +315,7 @@ function common.normalize_path(filename)
   else
     local relpath = filename:match('^/(.+)')
     if relpath then
-      volume, filepath = "/", relpath
+      volume, filename = "/", relpath
     end
   end
   local parts = split_on_slash(filename, PATHSEP)
