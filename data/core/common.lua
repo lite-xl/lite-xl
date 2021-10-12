@@ -280,6 +280,24 @@ local function split_on_slash(s, sep_pattern)
 end
 
 
+-- The filename argument given to the function is supposed to
+-- come from system.absolute_path and as such should be an
+-- absolute path without . or .. elements.
+-- This function exists because on Windows the drive letter returned
+-- by system.absolute_path is sometimes with a lower case and sometimes
+-- with an upper case to we normalize to upper case.
+function common.normalize_volume(filename)
+  if not filename then return end
+  if PATHSEP == '\\' then
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    if drive then
+      return drive:upper() .. rem
+    end
+  end
+  return filename
+end
+
+
 function common.normalize_path(filename)
   if not filename then return end
   local volume
