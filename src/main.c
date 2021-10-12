@@ -11,6 +11,7 @@
   #include <unistd.h>
   #include <signal.h>
 #elif __APPLE__
+  #include <unistd.h>
   #include <mach-o/dyld.h>
 #endif
 
@@ -84,6 +85,16 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 
 int main(int argc, char **argv) {
+#ifndef _WIN32
+  pid_t pid = fork();
+  if (pid)
+  {
+    // fork off the process so we can return control of the terminal to the user
+    // not applicable on Windows since applications using the GUI subsystem don't reserve the command prompt
+    return 0;
+  }
+#endif
+
 #ifdef _WIN32
   HINSTANCE lib = LoadLibrary("user32.dll");
   int (*SetProcessDPIAware)() = (void*) GetProcAddress(lib, "SetProcessDPIAware");
