@@ -32,8 +32,7 @@ static void get_exe_filename(char *buf, int sz) {
   int len = GetModuleFileName(NULL, buf, sz - 1);
   buf[len] = '\0';
 #elif __linux__
-  char path[512];
-  sprintf(path, "/proc/%d/exe", getpid());
+  char path[] = "/proc/self/exe";
   int len = readlink(path, buf, sz - 1);
   buf[len] = '\0';
 #elif __APPLE__
