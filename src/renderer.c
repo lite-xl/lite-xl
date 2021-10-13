@@ -251,13 +251,16 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
           break;
         if (start_x + (glyph_end - glyph_start) >= clip_end_x)
           glyph_end = glyph_start + (clip_end_x - start_x);
+        else if (start_x < clip.x) {
+          int offset = clip.x - start_x;
+          start_x += offset;
+          glyph_start += offset;
+        }
         unsigned int* destination_pixel = (unsigned int*)&destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel];
-        unsigned char* source_pixel = &source_pixels[line * set->surface->pitch + metric->x0 * (font->subpixel ? 3 : 1)];
+        unsigned char* source_pixel = &source_pixels[line * set->surface->pitch + glyph_start * (font->subpixel ? 3 : 1)];
         for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color >> 16) & 0xFF, (destination_color >> 8) & 0xFF, (destination_color >> 0) & 0xFF, (destination_color >> 24) & 0xFF };
-          if (start_x + (x - glyph_start) < clip.x)
-            continue;
           if (font->subpixel) {
             SDL_Color src = { *source_pixel++, *source_pixel++, *source_pixel++ };
             r = color.r * src.r + dst.r * (255 - src.r) + 127;
