@@ -238,7 +238,8 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
     int bitmap_index = font->subpixel ? (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED) : 0;
     GlyphSet* set = font_get_glyphset(font, codepoint, bitmap_index + (bitmap_index < 0 ? SUBPIXEL_BITMAPS_CACHED : 0));
     GlyphMetric* metric = &set->metrics[codepoint % 256];
-    int start_x = floor(pen_x) + metric->bitmap_left, end_x = metric->x1 - metric->x0 + pen_x;
+    int start_x = floor(pen_x) + metric->bitmap_left;
+    int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       unsigned char* source_pixels = set->surface->pixels;
@@ -250,8 +251,13 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
           break;
         if (start_x + (glyph_end - glyph_start) >= clip_end_x)
           glyph_end = glyph_start + (clip_end_x - start_x);
+        else if (start_x < clip.x) {
+          int offset = clip.x - start_x;
+          start_x += offset;
+          glyph_start += offset;
+        }
         unsigned int* destination_pixel = (unsigned int*)&destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel];
-        unsigned char* source_pixel = &source_pixels[line * set->surface->pitch + metric->x0 * (font->subpixel ? 3 : 1)];
+        unsigned char* source_pixel = &source_pixels[line * set->surface->pitch + glyph_start * (font->subpixel ? 3 : 1)];
         for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color >> 16) & 0xFF, (destination_color >> 8) & 0xFF, (destination_color >> 0) & 0xFF, (destination_color >> 24) & 0xFF };
