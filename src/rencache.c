@@ -24,7 +24,7 @@ typedef struct {
   int32_t size;
   RenRect rect;
   RenColor color;
-  RenFont *font;
+  RenFont *fonts[FONT_FALLBACK_MAX];
   float text_x;
   char text[0];
 } Command;
@@ -128,20 +128,20 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-float rencache_draw_text(lua_State *L, RenFont *font, const char *text, float x, int y, RenColor color)
+float rencache_draw_text(lua_State *L, RenFont **fonts, const char *text, float x, int y, RenColor color)
 {
-  float width = ren_font_get_width(font, text);
-  RenRect rect = { x, y, (int)width, ren_font_get_height(font) };
+  float width = ren_font_group_get_width(fonts, text);
+  RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
   if (rects_overlap(screen_rect, rect)) {
     int sz = strlen(text) + 1;
     Command *cmd = push_command(DRAW_TEXT, COMMAND_BARE_SIZE + sz);
     if (cmd) {
       memcpy(cmd->text, text, sz);
       cmd->color = color;
-      cmd->font = font;
+      memcpy(cmd->fonts, fonts, sizeof(RenFont*)*FONT_FALLBACK_MAX);
       cmd->rect = rect;
       cmd->text_x = x;
-      cmd->tab_size = ren_font_get_tab_size(font);
+      cmd->tab_size = ren_font_group_get_tab_size(fonts);
     }
   }
   return x + width;
@@ -248,8 +248,8 @@ void rencache_end_frame(lua_State *L) {
           ren_draw_rect(cmd->rect, cmd->color);
           break;
         case DRAW_TEXT:
-          ren_font_set_tab_size(cmd->font, cmd->tab_size);
-          ren_draw_text(cmd->font, cmd->text, cmd->text_x, cmd->rect.y, cmd->color);
+          ren_font_group_set_tab_size(cmd->fonts, cmd->tab_size);
+          ren_draw_text(cmd->fonts, cmd->text, cmd->text_x, cmd->rect.y, cmd->color);
           break;
       }
     }
