@@ -412,7 +412,7 @@ end
 -- axis are swapped; this function lets us use the same code for both
 local function calc_split_sizes(self, x, y, x1, x2, y1, y2)
   local ds = ((x1 and x1 < 1) or (x2 and x2 < 1)) and 0 or style.divider_size
-  local n = math.floor(x1 and x1 + ds or (x2 and self.size[x] - x2 or self.size[x] * self.divider))
+  local n = x1 and x1 + ds or (x2 and self.size[x] - x2 or math.floor(self.size[x] * self.divider))
   self.a.position[x] = self.position[x]
   self.a.position[y] = self.position[y]
   self.a.size[x] = n - ds
@@ -675,6 +675,10 @@ end
 
 
 function Node:resize(axis, value)
+  -- the application works fine with non-integer values but to have pixel-perfect
+  -- placements of view elements, like the scrollbar, we round the value to be
+  -- an integer.
+  value = math.floor(value)
   if self.type == 'leaf' then
     -- If it is not locked we don't accept the
     -- resize operation here because for proportional panes the resize is

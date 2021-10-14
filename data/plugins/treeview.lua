@@ -238,6 +238,8 @@ function TreeView:update()
   if self.init_size then
     self.size.x = dest
     self.init_size = false
+  else
+    self:move_towards(self.size, "x", dest)
   end
 
   local duration = system.get_time() - self.tooltip.begin
