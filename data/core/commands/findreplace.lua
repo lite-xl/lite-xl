@@ -15,7 +15,7 @@ local found_expression
 
 local function doc()
   local is_DocView = core.active_view:is(DocView) and not core.active_view:is(CommandView)
-  return is_DocView and core.active_view.doc or last_view.doc
+  return is_DocView and core.active_view.doc or (last_view and last_view.doc)
 end
 
 local function get_find_tooltip()
@@ -117,7 +117,7 @@ local function has_selection()
 end
 
 local function has_unique_selection()
-  if not core.active_view:is(DocView) then return false end
+  if not doc() then return false end
   local text = nil
   for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
     if line1 == line2 and col1 == col2 then return false end
