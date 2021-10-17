@@ -38,7 +38,7 @@ typedef struct {
 typedef enum {
   SIGNAL_KILL,
   SIGNAL_TERM,
-  SIGNAL_BREAK
+  SIGNAL_INTERRUPT
 } signal_e;
 
 typedef enum {
@@ -105,13 +105,13 @@ static bool signal_process(process_t* proc, signal_e sig) {
     switch(sig) {
       case SIGNAL_TERM: terminate = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(proc->process_information.hProcess)); break;
       case SIGNAL_KILL: terminate = TerminateProcess(proc->process_information.hProcess, -1); break;
-      case SIGNAL_BREAK: DebugBreakProcess(proc->process_information.hProcess); break;
+      case SIGNAL_INTERRUPT: DebugBreakProcess(proc->process_information.hProcess); break;
     }
   #else
     switch (sig) {
       case SIGNAL_TERM: terminate = kill(proc->pid, SIGTERM) == 1; break;
       case SIGNAL_KILL: terminate = kill(proc->pid, SIGKILL) == 1; break;
-      case SIGNAL_BREAK: kill(proc->pid, SIGINT); break;
+      case SIGNAL_INTERRUPT: kill(proc->pid, SIGINT); break;
     }
   #endif
   if (terminate) 
@@ -406,7 +406,7 @@ static int self_signal(lua_State* L, signal_e sig) {
 }
 static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
-static int f_break(lua_State* L) { return self_signal(L, SIGNAL_BREAK); }
+static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
 static int f_gc(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 
 static int f_running(lua_State* L) {
@@ -430,7 +430,7 @@ static const struct luaL_Reg lib[] = {
   {"wait", f_wait},
   {"terminate", f_terminate},
   {"kill", f_kill},
-  {"break", f_break},
+  {"interrupt", f_interrupt},
   {"running", f_running},
   {NULL, NULL}
 };
