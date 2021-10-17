@@ -56,28 +56,24 @@ static int f_font_load(lua_State *L) {
 }
 
 static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
-  memset(fonts, 0, sizeof(fonts)*FONT_FALLBACK_MAX);
-  if (lua_type(L, 1) == LUA_TTABLE) {
-    for (int i = 0; i < FONT_FALLBACK_MAX; ++i) {
-      lua_rawgeti(L, 1, i+1);
-      bool nil = lua_isnil(L, -1);
-      if (!nil)
-        fonts[i] = *(RenFont**)luaL_checkudata(L, -1, API_TYPE_FONT);
-      lua_pop(L, 1);
-      if (nil)
-        break;
-    }
-    return true;
-  } else {
-    fonts[0] = *(RenFont**)luaL_checkudata(L, 1, API_TYPE_FONT);
+  memset(fonts, 0, sizeof(RenFont*)*FONT_FALLBACK_MAX);
+  if (lua_type(L, 1) != LUA_TTABLE) {
+    fonts[0] = *(RenFont**)luaL_checkudata(L, idx, API_TYPE_FONT);
     return false;
   }
+  int i = 0;
+  do {
+    lua_rawgeti(L, idx, i+1);
+    fonts[i] = !lua_isnil(L, -1) ? *(RenFont**)luaL_checkudata(L, -1, API_TYPE_FONT) : NULL;
+    lua_pop(L, 1);
+  } while (fonts[i] && i++ < FONT_FALLBACK_MAX);
+  return true;
 }
 
 static int f_font_copy(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
-  float size = lua_gettop(L) >= 2 ? luaL_checknumber(L, 2) : ren_font_group_get_height(fonts);
   bool table = font_retrieve(L, fonts, 1);
+  float size = lua_gettop(L) >= 2 ? luaL_checknumber(L, 2) : ren_font_group_get_height(fonts);
   if (table) {
     lua_newtable(L);
     luaL_setmetatable(L, API_TYPE_FONT);
