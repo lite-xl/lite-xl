@@ -105,7 +105,7 @@ static int font_set_style(FT_Outline* outline, int x_translation, unsigned char 
   return 0;
 }
 
-void font_load_glyphset(RenFont* font, int idx) {
+static void font_load_glyphset(RenFont* font, int idx) {
   unsigned int render_option = font_set_render_options(font), load_option = font_set_load_options(font);
   int bitmaps_cached = font->subpixel ? SUBPIXEL_BITMAPS_CACHED : 1;
   unsigned int byte_width = font->subpixel ? 3 : 1;
@@ -148,6 +148,20 @@ static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int su
   if (!font->sets[font->subpixel ? subpixel_idx : 0][idx])
     font_load_glyphset(font, idx);
   return font->sets[font->subpixel ? subpixel_idx : 0][idx];
+}
+
+static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFont** fonts, unsigned int codepoint, int bitmap_index) {
+  if (bitmap_index < 0)
+    bitmap_index += SUBPIXEL_BITMAPS_CACHED;
+  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
+    *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
+    *metric = &(*set)->metrics[codepoint % 256];
+    if ((*metric)->loaded || codepoint < 0xFF)
+      return fonts[i];
+  }
+  if (!(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
+    return font_group_get_glyph(set, metric, fonts, 0x25A1, bitmap_index);
+  return fonts[0];
 }
 
 RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned char hinting, unsigned char style) {
@@ -208,20 +222,6 @@ float ren_font_group_get_size(RenFont **fonts) {
 }
 int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->size + 3;
-}
-
-static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFont** fonts, unsigned int codepoint, int bitmap_index) {
-  if (bitmap_index < 0)
-    bitmap_index += SUBPIXEL_BITMAPS_CACHED;
-  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
-    *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
-    *metric = &(*set)->metrics[codepoint % 256];
-    if ((*metric)->loaded || codepoint < 0xFF)
-      return fonts[i];
-  }
-  if (!(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
-    return font_group_get_glyph(set, metric, fonts, 0x25A1, bitmap_index);
-  return fonts[0];
 }
 
 float ren_font_group_get_width(RenFont **fonts, const char *text) {
