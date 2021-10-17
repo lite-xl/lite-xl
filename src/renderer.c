@@ -211,6 +211,8 @@ int ren_font_group_get_height(RenFont **fonts) {
 }
 
 static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFont** fonts, unsigned int codepoint, int bitmap_index) {
+  if (bitmap_index < 0)
+    bitmap_index += SUBPIXEL_BITMAPS_CACHED;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
     *metric = &(*set)->metrics[codepoint % 256];
@@ -218,9 +220,8 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
       return fonts[i];
   }
   if (!(*metric)->loaded && codepoint > 0xFF) {
-    codepoint = 0x25A1;
-    *set = font_get_glyphset(fonts[0], codepoint, bitmap_index);
-    *metric = &(*set)->metrics[codepoint % 256];
+    *set = font_get_glyphset(fonts[0], 0x25A1, bitmap_index);
+    *metric = &(*set)->metrics[0x25A1 % 256];
   }
   return fonts[0];
 }
@@ -228,7 +229,7 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
 float ren_font_group_get_width(RenFont **fonts, const char *text) {
   float width = 0;
   const char* end = text + strlen(text);
-  GlyphMetric* metric; GlyphSet* set;
+  GlyphMetric* metric = NULL; GlyphSet* set = NULL;
   while (text < end) {
     unsigned int codepoint;
     text = utf8_to_codepoint(text, &codepoint);
@@ -243,7 +244,6 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   SDL_Surface *surface = renwin_get_surface(&window_renderer);
   const RenRect clip = window_renderer.clip;
 
-  RenFont* font;
   const int surface_scale = renwin_surface_scale(&window_renderer);
   float pen_x = x * surface_scale;
   y *= surface_scale;
@@ -254,10 +254,8 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   while (text < end) {
     unsigned int codepoint, r, g, b;
     text = utf8_to_codepoint(text, &codepoint);
-    GlyphSet* set; GlyphMetric* metric; 
-    int bitmap_index = (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED);
-    bitmap_index += (bitmap_index < 0 ? SUBPIXEL_BITMAPS_CACHED : 0);
-    font = font_group_get_glyph(&set, &metric, fonts, codepoint, bitmap_index);
+    GlyphSet* set = NULL; GlyphMetric* metric = NULL; 
+    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
