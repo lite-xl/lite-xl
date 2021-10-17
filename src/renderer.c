@@ -259,6 +259,8 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
+    if (!metric->loaded && codepoint > 0xFF)
+      ren_draw_rect((RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       unsigned char* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
