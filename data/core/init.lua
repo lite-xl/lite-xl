@@ -300,7 +300,7 @@ local function scan_project_folder(index)
     end
     watch_folder(dir)
     core.dir_rescan_add_job(dir, ".")
-  end)
+  end, nil, true)
 end
 
 
@@ -931,10 +931,17 @@ function core.show_title_bar(show)
 end
 
 
-function core.add_thread(f, weak_ref)
+function core.has_priority_threads()
+  for _, t in ipairs(core.threads) do
+    if t.prio then return true end
+  end
+end
+
+
+function core.add_thread(f, weak_ref, priority)
   local key = weak_ref or #core.threads + 1
   local fn = function() return core.try(f) end
-  core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
+  core.threads[key] = { cr = coroutine.create(fn), wake = 0, prio = priority }
   return key
 end
 
@@ -1078,12 +1085,6 @@ end
 
 local scheduled_rescan = {}
 
-function core.has_pending_rescan()
-  for _ in pairs(scheduled_rescan) do
-    return true
-  end
-end
-
 
 function core.dir_rescan_add_job(dir, filepath)
   local dirpath = filepath:match("^(.+)[/\\].+$")
@@ -1131,7 +1132,7 @@ function core.dir_rescan_add_job(dir, filepath)
       end
       coroutine.yield(0.2)
     end
-  end)
+  end, nil, true)
 end
 
 
@@ -1298,7 +1299,7 @@ function core.run()
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
-    local need_more_work = run_threads() or core.has_pending_rescan()
+    local need_more_work = run_threads() or core.has_priority_threads()
     if core.restart_request or core.quit_request then break end
     if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
