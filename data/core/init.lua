@@ -173,45 +173,10 @@ local function show_max_files_warning()
     )
 end
 
--- Populate a project folder top directory by scanning the filesystem.
-local function scan_project_folder(index)
-  local dir = core.project_directories[index]
-  local t, entries_count = get_directory_files(dir, dir.name, "", {}, nil, config.max_project_files)
-  if entries_count > config.max_project_files then
-    dir.files_limit = true
-    -- Watch non-recursively on Linux only.
-    -- The reason is recursively watching with dmon on linux
-    -- doesn't work on very large directories.
-    dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
-    if core.status_view then -- May be not yet initialized.
-      show_max_files_warning()
-    end
-  else
-    dir.watch_id = system.watch_dir(dir.name, true)
-  end
-  dir.files = t
-  core.dir_rescan_add_job(dir, ".")
-end
 
-
-function core.add_project_directory(path)
-  -- top directories has a file-like "item" but the item.filename
-  -- will be simply the name of the directory, without its path.
-  -- The field item.topdir will identify it as a top level directory.
-  path = common.normalize_volume(path)
-  local dir = {
-    name = path,
-    item = {filename = common.basename(path), type = "dir", topdir = true},
-    files_limit = false,
-    is_dirty = true,
-    shown_subdir = {},
-  }
-  table.insert(core.project_directories, dir)
-  scan_project_folder(#core.project_directories)
-  if path == core.project_dir then
-    core.project_files = dir.files
-  end
-  core.redraw = true
+local function watch_folder(dir)
+  local rec = dir.entries_count <= config.max_project_files or PLATFORM ~= "Linux"
+  dir.watch_id = system.watch_dir(dir.name, rec)
 end
 
 
@@ -304,12 +269,59 @@ local function rescan_project_subdir(dir, filename_rooted)
     local filename = strip_leading_path(filename_rooted)
     index, n = project_subdir_bounds(dir, filename)
   end
-
   if not files_list_match(dir.files, index, n, new_files) then
     files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
-    return true
   end
+  return #new_files - n
+end
+
+
+-- Populate a project folder top directory by scanning the filesystem.
+local function scan_project_folder(index)
+  local dir = core.project_directories[index]
+  dir.files, dir.entries_count = get_directory_files(dir, dir.name, "", {}, nil, 0)
+  local dirs_list = {}
+  for _, info in pairs(dir.files) do
+    if info.type == 'dir' then
+      dirs_list[#dirs_list + 1] = info
+    end
+  end
+  core.add_thread(function()
+    for _, info in pairs(dirs_list) do
+      local n = rescan_project_subdir(dir, PATHSEP .. info.filename)
+      dir.entries_count = dir.entries_count + n
+      if dir.entries_count > config.max_project_files then
+        dir.files_limit = true
+        show_max_files_warning()
+        break
+      end
+      coroutine.yield()
+    end
+    watch_folder(dir)
+    core.dir_rescan_add_job(dir, ".")
+  end)
+end
+
+
+function core.add_project_directory(path)
+  -- top directories has a file-like "item" but the item.filename
+  -- will be simply the name of the directory, without its path.
+  -- The field item.topdir will identify it as a top level directory.
+  path = common.normalize_volume(path)
+  local dir = {
+    name = path,
+    item = {filename = common.basename(path), type = "dir", topdir = true},
+    files_limit = false,
+    is_dirty = true,
+    shown_subdir = {},
+  }
+  table.insert(core.project_directories, dir)
+  scan_project_folder(#core.project_directories)
+  if path == core.project_dir then
+    core.project_files = dir.files
+  end
+  core.redraw = true
 end
 
 
@@ -1108,8 +1120,8 @@ function core.dir_rescan_add_job(dir, filepath)
       local rescan = scheduled_rescan[abs_dirpath]
       if not rescan then return end
       if system.get_time() > rescan.time_limit then
-        local has_changes = rescan_project_subdir(rescan.dir, rescan.path)
-        if has_changes then
+        local n_changes = rescan_project_subdir(rescan.dir, rescan.path)
+        if n_changes > 0 then
           core.redraw = true -- we run without an event, from a thread
           rescan.time_limit = new_time
         else
