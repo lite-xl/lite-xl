@@ -246,6 +246,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   const char* end = text + strlen(text);
   unsigned char* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
+  
   while (text < end) {
     unsigned int codepoint, r, g, b;
     text = utf8_to_codepoint(text, &codepoint);
@@ -275,12 +276,12 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
         unsigned char* source_pixel = &source_pixels[line * set->surface->pitch + glyph_start * (font->subpixel ? 3 : 1)];
         for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
-          SDL_Color dst = { (destination_color >> 16) & 0xFF, (destination_color >> 8) & 0xFF, (destination_color >> 0) & 0xFF, (destination_color >> 24) & 0xFF };
+          SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
           SDL_Color src = { *(font->subpixel ? source_pixel++ : source_pixel), *(font->subpixel ? source_pixel++ : source_pixel), *source_pixel++ };
           r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
-          *destination_pixel++ = dst.a << 24 | r << 16 | g << 8 | b;
+          *destination_pixel++ = dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
         }
       }
     }
@@ -323,14 +324,15 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   RenColor *d = (RenColor*) surface->pixels;
   d += x1 + y1 * surface->w;
   int dr = surface->w - (x2 - x1);
-
+  unsigned int translated = SDL_MapRGB(surface->format, color.r, color.g, color.b);
   if (color.a == 0xff) {
     SDL_Rect rect = { x1, y1, x2 - x1, y2 - y1 };
-    SDL_FillRect(surface, &rect, SDL_MapRGBA(surface->format, color.r, color.g, color.b, color.a));
+    SDL_FillRect(surface, &rect, translated);
   } else {
+    RenColor translated_color = (RenColor){ translated & 0xFF, (translated >> 8) & 0xFF, (translated >> 16) & 0xFF, color.a };
     for (int j = y1; j < y2; j++) {
       for (int i = x1; i < x2; i++, d++)
-        *d = blend_pixel(*d, color);
+        *d = blend_pixel(*d, translated_color);
       d += dr;
     }
   }
