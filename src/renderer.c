@@ -10,8 +10,6 @@
 #include "renderer.h"
 #include "renwindow.h"
 
-#define DIVIDE_BY_255_SIGNED(x, sign_val)  (((x) + (sign_val) + ((x)>>8)) >> 8)
-#define DIVIDE_BY_255(x)    DIVIDE_BY_255_SIGNED(x, 1)
 #define MAX_GLYPHSET 256
 #define SUBPIXEL_BITMAPS_CACHED 3
 
@@ -154,7 +152,6 @@ RenFont* ren_font_load(const char* path, float size, bool subpixel, unsigned cha
   FT_Face face;
   if (FT_New_Face( library, path, 0, &face))
     return NULL;
-
   const int surface_scale = renwin_surface_scale(&window_renderer);
   if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
     goto failure;
@@ -261,23 +258,10 @@ float ren_draw_text(RenFont *font, const char *text, float x, int y, RenColor co
         for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color >> 16) & 0xFF, (destination_color >> 8) & 0xFF, (destination_color >> 0) & 0xFF, (destination_color >> 24) & 0xFF };
-          if (font->subpixel) {
-            SDL_Color src = { *source_pixel++, *source_pixel++, *source_pixel++ };
-            r = color.r * src.r + dst.r * (255 - src.r) + 127;
-            r = DIVIDE_BY_255(r);
-            g = color.g * src.g + dst.g * (255 - src.g) + 127;
-            g = DIVIDE_BY_255(g);
-            b = color.b * src.b + dst.b * (255 - src.b) + 127;
-            b = DIVIDE_BY_255(b);
-          } else {
-            unsigned char intensity = *source_pixel++;
-            r = color.r * intensity + dst.r * (255 - intensity) + 127;
-            r = DIVIDE_BY_255(r);
-            g = color.g * intensity + dst.g * (255 - intensity) + 127;
-            g = DIVIDE_BY_255(g);
-            b = color.b * intensity + dst.b * (255 - intensity) + 127;
-            b = DIVIDE_BY_255(b);
-          }
+          SDL_Color src = { *(font->subpixel ? source_pixel++ : source_pixel), *(font->subpixel ? source_pixel++ : source_pixel), *source_pixel++ };
+          r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
+          g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
+          b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
           *destination_pixel++ = dst.a << 24 | r << 16 | g << 8 | b;
         }
       }
