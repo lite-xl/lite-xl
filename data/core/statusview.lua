@@ -6,6 +6,7 @@ local style = require "core.style"
 local DocView = require "core.docview"
 local LogView = require "core.logview"
 local View = require "core.view"
+local Object = require "core.object"
 
 
 local StatusView = View:extend()
@@ -70,7 +71,7 @@ local function draw_items(self, items, x, y, draw_fn)
   local color = style.text
 
   for _, item in ipairs(items) do
-    if type(item) == "userdata" then
+    if Object.is(item, renderer.font) then
       font = item
     elseif type(item) == "table" then
       color = item
