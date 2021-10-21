@@ -12,7 +12,7 @@
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
-#elseif __linux__
+#elif __linux__
   #include <sys/vfs.h>
 #endif
 

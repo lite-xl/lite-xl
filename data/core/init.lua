@@ -187,48 +187,6 @@ local function show_max_files_warning(dir)
   core.status_view:show_message("!", style.accent, message)
 end
 
--- Populate a project folder top directory by scanning the filesystem.
-local function scan_project_folder(index)
-  local dir = core.project_directories[index]
-  local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, 0, timed_max_files_pred)
-  if not complete then
-    dir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
-    dir.files_limit = true
-    -- Watch non-recursively on Linux only.
-    -- The reason is recursively watching with dmon on linux
-    -- doesn't work on very large directories.
-    dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
-    if core.status_view then -- May be not yet initialized.
-      show_max_files_warning(dir)
-    end
-  else
-    dir.watch_id = system.watch_dir(dir.name, true)
-  end
-  dir.files = t
-  core.dir_rescan_add_job(dir, ".")
-end
-
-
-function core.add_project_directory(path)
-  -- top directories has a file-like "item" but the item.filename
-  -- will be simply the name of the directory, without its path.
-  -- The field item.topdir will identify it as a top level directory.
-  path = common.normalize_volume(path)
-  local dir = {
-    name = path,
-    item = {filename = common.basename(path), type = "dir", topdir = true},
-    files_limit = false,
-    is_dirty = true,
-    shown_subdir = {},
-  }
-  table.insert(core.project_directories, dir)
-  scan_project_folder(#core.project_directories)
-  if path == core.project_dir then
-    core.project_files = dir.files
-  end
-  core.redraw = true
-end
-
 
 local function file_search(files, info)
   local filename, type = info.filename, info.type
@@ -325,6 +283,73 @@ local function rescan_project_subdir(dir, filename_rooted)
     dir.is_dirty = true
     return true
   end
+end
+
+
+local function add_dir_scan_thread(dir)
+  core.add_thread(function()
+    while true do
+      local has_changes = rescan_project_subdir(dir, "")
+      if has_changes then
+        core.redraw = true -- we run without an event, from a thread
+      end
+      coroutine.yield(5)
+    end
+  end)
+end
+
+-- Populate a project folder top directory by scanning the filesystem.
+local function scan_project_folder(index)
+  local dir = core.project_directories[index]
+  if PLATFORM == "Linux" then
+    local fstype = system.get_fs_type(dir.name)
+    dir.force_rescan = (fstype == "nfs" or fstype == "fuse")
+  end
+  local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, 0, timed_max_files_pred)
+  if not complete then
+    dir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
+    dir.files_limit = true
+    if not dir.force_rescan then
+      -- Watch non-recursively on Linux only.
+      -- The reason is recursively watching with dmon on linux
+      -- doesn't work on very large directories.
+      dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
+    end
+    if core.status_view then -- May be not yet initialized.
+      show_max_files_warning(dir)
+    end
+  else
+    if not dir.force_rescan then
+      dir.watch_id = system.watch_dir(dir.name, true)
+    end
+  end
+  dir.files = t
+  if dir.force_rescan then
+    add_dir_scan_thread(dir)
+  else
+    core.dir_rescan_add_job(dir, ".")
+  end
+end
+
+
+function core.add_project_directory(path)
+  -- top directories has a file-like "item" but the item.filename
+  -- will be simply the name of the directory, without its path.
+  -- The field item.topdir will identify it as a top level directory.
+  path = common.normalize_volume(path)
+  local dir = {
+    name = path,
+    item = {filename = common.basename(path), type = "dir", topdir = true},
+    files_limit = false,
+    is_dirty = true,
+    shown_subdir = {},
+  }
+  table.insert(core.project_directories, dir)
+  scan_project_folder(#core.project_directories)
+  if path == core.project_dir then
+    core.project_files = dir.files
+  end
+  core.redraw = true
 end
 
 
