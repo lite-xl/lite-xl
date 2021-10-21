@@ -106,6 +106,15 @@ local function get_project_file_info(root, file)
 end
 
 
+-- Predicate function to inhibit directory recursion in get_directory_files
+-- based on a time limit and the number of files.
+local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
+  local n_limit = entries_count <= config.max_project_files
+  local t_limit = t_elapsed < 20 / config.fps
+  return n_limit and t_limit and core.project_subdir_is_shown(dir, filename)
+end
+
+
 -- "root" will by an absolute path without trailing '/'
 -- "path" will be a path starting with '/' and without trailing '/'
 --    or the empty string.
@@ -114,12 +123,13 @@ end
 -- When recursing "root" will always be the same, only "path" will change.
 -- Returns a list of file "items". In eash item the "filename" will be the
 -- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(dir, root, path, t, begin_hook, max_files)
+local function get_directory_files(dir, root, path, t, entries_count, recurse_pred, begin_hook)
   if begin_hook then begin_hook() end
+  local t0 = system.get_time()
   local all = system.list_dir(root .. path) or {}
+  local t_elapsed = system.get_time() - t0
   local dirs, files = {}, {}
 
-  local entries_count = 0
   for _, file in ipairs(all) do
     local info = get_project_file_info(root, path .. PATHSEP .. file)
     if info then
@@ -128,13 +138,16 @@ local function get_directory_files(dir, root, path, t, begin_hook, max_files)
     end
   end
 
+  local recurse_complete = true
   table.sort(dirs, compare_file)
   for _, f in ipairs(dirs) do
     table.insert(t, f)
-    if (not max_files or entries_count <= max_files) and core.project_subdir_is_shown(dir, f.filename) then
-      local sub_limit = max_files and max_files - entries_count
-      local _, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, begin_hook, sub_limit)
-      entries_count = entries_count + n
+    if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
+      local _, complete, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, entries_count, recurse_pred, begin_hook)
+      recurse_complete = recurse_complete and complete
+      entries_count = n
+    else
+      recurse_complete = false
     end
   end
 
@@ -143,7 +156,7 @@ local function get_directory_files(dir, root, path, t, begin_hook, max_files)
     table.insert(t, f)
   end
 
-  return t, entries_count
+  return t, recurse_complete, entries_count
 end
 
 
@@ -165,26 +178,28 @@ function core.project_subdir_is_shown(dir, filename)
 end
 
 
-local function show_max_files_warning()
-  core.status_view:show_message("!", style.accent,
+local function show_max_files_warning(dir)
+  local message = dir.slow_filesystem and
+    "Filesystem is too slow: project files will not be indexed." or
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
     "usage.md at github.com/franko/lite-xl."
-    )
+  core.status_view:show_message("!", style.accent, message)
 end
 
 -- Populate a project folder top directory by scanning the filesystem.
 local function scan_project_folder(index)
   local dir = core.project_directories[index]
-  local t, entries_count = get_directory_files(dir, dir.name, "", {}, nil, config.max_project_files)
-  if entries_count > config.max_project_files then
+  local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, 0, timed_max_files_pred)
+  if not complete then
+    dir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
     dir.files_limit = true
     -- Watch non-recursively on Linux only.
     -- The reason is recursively watching with dmon on linux
     -- doesn't work on very large directories.
     dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
     if core.status_view then -- May be not yet initialized.
-      show_max_files_warning()
+      show_max_files_warning(dir)
     end
   else
     dir.watch_id = system.watch_dir(dir.name, true)
@@ -298,7 +313,7 @@ local function project_subdir_bounds(dir, filename)
 end
 
 local function rescan_project_subdir(dir, filename_rooted)
-  local new_files = get_directory_files(dir, dir.name, filename_rooted, {}, coroutine.yield)
+  local new_files = get_directory_files(dir, dir.name, filename_rooted, {}, 0, core.project_subdir_is_shown, coroutine.yield)
   local index, n = 0, #dir.files
   if filename_rooted ~= "" then
     local filename = strip_leading_path(filename_rooted)
@@ -316,7 +331,7 @@ end
 function core.update_project_subdir(dir, filename, expanded)
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
-    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}) or {}
+    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}, 0, core.project_subdir_is_shown) or {}
     files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
     return true
@@ -673,7 +688,7 @@ function core.init()
   -- We assume we have just a single project directory here. Now that StatusView
   -- is there show max files warning if needed.
   if core.project_directories[1].files_limit then
-    show_max_files_warning()
+    show_max_files_warning(core.project_directories[1])
   end
 
   for _, filename in ipairs(files) do
