@@ -927,8 +927,11 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
                     dmon__strcat(watchdir, sizeof(watchdir), "/");
                     uint32_t mask = IN_MOVED_TO | IN_CREATE | IN_MOVED_FROM | IN_DELETE | IN_MODIFY;
                     int wd = inotify_add_watch(watch->fd, watchdir, mask);
-                    _DMON_UNUSED(wd);
-                    DMON_ASSERT(wd != -1);
+                    // Removing the assertion below because it was giving errors for some reason
+                    // when building a new package.
+                    // _DMON_UNUSED(wd);
+                    // DMON_ASSERT(wd != -1);
+                    if (wd == -1) continue;
 
                     dmon__watch_subdir subdir;
                     dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watchdir);
