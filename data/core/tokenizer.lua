@@ -145,7 +145,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     repeat
       local next = res[2] + 1
       -- go to the start of the next utf-8 character
-      while common.is_utf8_cont(text, next) do
+      while text:byte(next) and common.is_utf8_cont(text, next) do
         next = next + 1
       end
       res = p.pattern and { text:find(at_start and "^" .. code or code, next) }
