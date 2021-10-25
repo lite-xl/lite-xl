@@ -50,7 +50,7 @@ if not get_option('source-only')
     )
     pcre2_dep = dependency('libpcre2-8')
     freetype_dep = dependency('freetype2')
-    sdl_dep = dependency('sdl2', method: 'config-tool')
+    sdl_dep = dependency('sdl2')
     reproc_dep = dependency('reproc', fallback: ['reproc', 'reproc_dep'],
         default_options: [
             'default_library=static', 'multithreaded=false',
