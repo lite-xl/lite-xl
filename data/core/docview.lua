@@ -121,13 +121,17 @@ function DocView:get_gutter_width()
 end
 
 
-function DocView:get_line_screen_position(idx)
+function DocView:get_line_screen_position(line, col)
   local x, y = self:get_content_offset()
   local lh = self:get_line_height()
   local gw = self:get_gutter_width()
-  return x + gw, y + (idx-1) * lh + style.padding.y
+  y = y + (line-1) * lh + style.padding.y
+  if col then
+    return x + gw + self:get_col_x_offset(line, col), y
+  else
+    return x + gw, y
+  end
 end
-
 
 function DocView:get_line_text_y_offset()
   local lh = self:get_line_height()
@@ -200,8 +204,9 @@ end
 function DocView:scroll_to_line(line, ignore_if_visible, instant)
   local min, max = self:get_visible_line_range()
   if not (ignore_if_visible and line > min and line < max) then
-    local lh = self:get_line_height()
-    self.scroll.to.y = math.max(0, lh * (line - 1) - self.size.y / 2)
+    local x, y = self:get_line_screen_position(line)
+    local ox, oy = self:get_content_offset()
+    self.scroll.to.y = math.max(0, y - oy - self.size.y / 2)
     if instant then
       self.scroll.y = self.scroll.to.y
     end
@@ -210,10 +215,10 @@ end
 
 
 function DocView:scroll_to_make_visible(line, col)
-  local min = self:get_line_height() * (line - 1)
-  local max = self:get_line_height() * (line + 2) - self.size.y
-  self.scroll.to.y = math.min(self.scroll.to.y, min)
-  self.scroll.to.y = math.max(self.scroll.to.y, max)
+  local ox, oy = self:get_content_offset()
+  local _, ly = self:get_line_screen_position(line, col)
+  local lh = self:get_line_height()
+  self.scroll.to.y = common.clamp(self.scroll.to.y, ly - oy - self.size.y + lh * 2, ly - oy - lh)
   local gw = self:get_gutter_width()
   local xoffset = self:get_col_x_offset(line, col)
   local xmargin = 3 * self:get_font():get_width(' ')
@@ -340,11 +345,11 @@ function DocView:draw_line_highlight(x, y)
 end
 
 
-function DocView:draw_line_text(idx, x, y)
+function DocView:draw_line_text(line, x, y)
   local default_font = self:get_font()
   local subpixel_scale = default_font:subpixel_scale()
   local tx, ty = subpixel_scale * x, y + self:get_line_text_y_offset()
-  for _, type, text in self.doc.highlighter:each_token(idx) do
+  for _, type, text in self.doc.highlighter:each_token(line) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
     if config.draw_whitespace then
@@ -353,6 +358,7 @@ function DocView:draw_line_text(idx, x, y)
       tx = renderer.draw_text_subpixel(font, text, tx, ty, color)
     end
   end
+  return self:get_line_height()
 end
 
 function DocView:draw_caret(x, y)
@@ -360,16 +366,37 @@ function DocView:draw_caret(x, y)
     renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
 end
 
-function DocView:draw_line_body(idx, x, y)
+function DocView:draw_line_body(line, x, y)
+  -- draw highlight if any selection ends on this line
+  local draw_highlight = false
+  local hcl = config.highlight_current_line
+  if hcl ~= false then
+    for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
+      if line1 == line then
+        if hcl == "no_selection" then
+          if (line1 ~= line2) or (col1 ~= col2) then
+            draw_highlight = false
+            break
+          end
+        end
+        draw_highlight = true
+        break
+      end
+    end
+  end
+  if draw_highlight and core.active_view == self then
+    self:draw_line_highlight(x + self.scroll.x, y)
+  end
+
   -- draw selection if it overlaps this line
+  local lh = self:get_line_height()
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
-    if idx >= line1 and idx <= line2 then
-      local text = self.doc.lines[idx]
-      if line1 ~= idx then col1 = 1 end
-      if line2 ~= idx then col2 = #text + 1 end
-      local x1 = x + self:get_col_x_offset(idx, col1)
-      local x2 = x + self:get_col_x_offset(idx, col2)
-      local lh = self:get_line_height()
+    if line >= line1 and line <= line2 then
+      local text = self.doc.lines[line]
+      if line1 ~= line then col1 = 1 end
+      if line2 ~= line then col2 = #text + 1 end
+      local x1 = x + self:get_col_x_offset(line, col1)
+      local x2 = x + self:get_col_x_offset(line, col2)
       if x1 ~= x2 then
         renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
       end
@@ -379,28 +406,30 @@ function DocView:draw_line_body(idx, x, y)
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     -- draw line highlight if caret is on this line
     if draw_highlight ~= false and config.highlight_current_line
-    and line1 == idx and core.active_view == self then
+    and line1 == line and core.active_view == self then
       draw_highlight = (line1 == line2 and col1 == col2)
     end
   end
   if draw_highlight then self:draw_line_highlight(x + self.scroll.x, y) end
 
   -- draw line's text
-  self:draw_line_text(idx, x, y)
+  return self:draw_line_text(line, x, y)
 end
 
 
-function DocView:draw_line_gutter(idx, x, y, width)
+function DocView:draw_line_gutter(line, x, y, width)
   local color = style.line_number
   for _, line1, _, line2 in self.doc:get_selections(true) do
-    if idx >= line1 and idx <= line2 then
+    if line >= line1 and line <= line2 then
       color = style.line_number2
       break
     end
   end
   local yoffset = self:get_line_text_y_offset()
   x = x + style.padding.x
-  common.draw_text(self:get_font(), color, idx, "right", x, y + yoffset, width,  self:get_line_height())
+  local lh = self:get_line_height()
+  common.draw_text(self:get_font(), color, line, "right", x, y + yoffset, width, lh)
+  return lh
 end
 
 
@@ -414,8 +443,7 @@ function DocView:draw_overlay()
       and system.window_has_focus() then
         if config.disable_blink
         or (core.blink_timer - core.blink_start) % T < T / 2 then
-          local x, y = self:get_line_screen_position(line)
-          self:draw_caret(x + self:get_col_x_offset(line, col), y)
+          self:draw_caret(self:get_line_screen_position(line, col))
         end
       end
     end
@@ -433,8 +461,7 @@ function DocView:draw()
   local x, y = self:get_line_screen_position(minline)
   local gw, gpad = self:get_gutter_width()
   for i = minline, maxline do
-    self:draw_line_gutter(i, self.position.x, y, gpad and gw - gpad or gw)
-    y = y + lh
+    y = y + (self:draw_line_gutter(i, self.position.x, y, gpad and gw - gpad or gw) or lh)
   end
 
   local pos = self.position
@@ -443,8 +470,7 @@ function DocView:draw()
   -- right side it is redundant with the Node's clip.
   core.push_clip_rect(pos.x + gw, pos.y, self.size.x - gw, self.size.y)
   for i = minline, maxline do
-    self:draw_line_body(i, x, y)
-    y = y + lh
+    y = y + (self:draw_line_body(i, x, y) or lh)
   end
   self:draw_overlay()
   core.pop_clip_rect()
