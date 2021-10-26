@@ -243,6 +243,7 @@ function CommandView:draw_line_gutter(idx, x, y)
   x = x + style.padding.x
   renderer.draw_text(self:get_font(), self.label, x, y + yoffset, color)
   core.pop_clip_rect()
+  return self:get_line_height()
 end
 
 
