@@ -9,7 +9,18 @@ local command = require "core.command"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 
-local LineWrapping = { mode = "letter", width_override = nil, guide = true, open_files = {} }
+config.plugins.linewrapping = {
+	-- The type of wrapping to perform. Can be "letter" or "word".
+  mode = "letter",
+	-- If nil, uses the DocView's size, otherwise, uses this exact width.
+  width_override = nil,
+	-- Whether or not to draw a guide
+  guide = true,
+  -- Whether or not to enable wrapping by default when opening files.
+  enable_by_default = false
+}
+
+local LineWrapping = {}
 
 -- Computes the breaks for a given line, width and mode. Returns a list of columns
 -- at which the line should be broken.
@@ -47,7 +58,7 @@ function LineWrapping.reconstruct_breaks(docview, default_font, width, line_offs
     docview.wrapped_line_to_idx = { }
     docview.wrapped_settings = { ["width"] = width, ["font"] = default_font }
     for i = line_offset or 1, #doc.lines do
-      for k, col in ipairs(LineWrapping.compute_line_breaks(doc, default_font, i, width)) do
+      for k, col in ipairs(LineWrapping.compute_line_breaks(doc, default_font, i, width, config.plugins.linewrapping.mode)) do
         table.insert(docview.wrapped_lines, i)
         table.insert(docview.wrapped_lines, col)
       end
@@ -72,7 +83,7 @@ end
 function LineWrapping.update_breaks(docview, line)
   local idx = docview.wrapped_line_to_idx[line]
   local offset = (idx - 1) * 2 + 1
-  local breaks = LineWrapping.compute_line_breaks(docview.doc, docview.wrapped_settings.font, line, docview.wrapped_settings.width)
+  local breaks = LineWrapping.compute_line_breaks(docview.doc, docview.wrapped_settings.font, line, docview.wrapped_settings.width, config.plugins.linewrapping.mode)
   local change = 0
   for i,b in ipairs(breaks) do
     if docview.wrapped_lines[offset] == line then
@@ -129,7 +140,7 @@ end
 
 -- Draws a guide if applicable to show where wrapping is occurring.
 function LineWrapping.draw_guide(docview)
-  if LineWrapping.guide and docview.wrapped_settings.width ~= math.huge then
+  if config.plugins.linewrapping.guide and docview.wrapped_settings.width ~= math.huge then
     local x, y = docview:get_content_offset()
     local gw = docview:get_gutter_width()
     renderer.draw_rect(x + gw + docview.wrapped_settings.width, y, 1, core.root_view.size.y, style.selection)
@@ -137,7 +148,7 @@ function LineWrapping.draw_guide(docview)
 end
 
 function LineWrapping.update_docview_breaks(docview)
-  local width = LineWrapping.width_override or (docview.size.x - docview:get_gutter_width())
+  local width = config.plugins.linewrapping.width_override or (docview.size.x - docview:get_gutter_width())
   if (not docview.wrapped_settings or docview.wrapped_settings.width == nil or width ~= docview.wrapped_settings.width) then
     docview.scroll.to.x = 0
     LineWrapping.reconstruct_breaks(docview, docview:get_font(), width)
@@ -224,12 +235,14 @@ local function get_line_col_from_index_and_x(docview, idx, x)
 end
 
 
+local open_files = {}
+
 local old_doc_insert = Doc.raw_insert
 function Doc:raw_insert(line, col, text, undo_stack, time)
   local old_lines = #self.lines
   old_doc_insert(self, line, col, text, undo_stack, time)
-  if LineWrapping.open_files[self] then
-    for i,docview in ipairs(LineWrapping.open_files[self]) do
+  if open_files[self] then
+    for i,docview in ipairs(open_files[self]) do
       if docview.wrapped_settings then
         local lines = #self.lines - old_lines
         if lines > 0 then LineWrapping.add_lines(docview, line, lines) end
@@ -244,8 +257,8 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   local start_line = line1 + 1
   local end_line = col2 == #self.lines[line2] and line2 or (line2 - 1)
   old_doc_remove(self, line1, col1, line2, col2, undo_stack, time)
-  if LineWrapping.open_files[self] then
-    for i,docview in ipairs(LineWrapping.open_files[self]) do
+  if open_files[self] then
+    for i,docview in ipairs(open_files[self]) do
       if docview.wrapped_settings then
         if start_line <= end_line then
           LineWrapping.remove_lines(start_line, end_line)
@@ -274,8 +287,11 @@ end
 local old_new = DocView.new
 function DocView:new(doc)
   old_new(self, doc)
-  if not LineWrapping.open_files[doc] then LineWrapping.open_files[doc] = {} end
-  table.insert(LineWrapping.open_files[doc], self)
+  if not open_files[doc] then open_files[doc] = {} end
+  table.insert(open_files[doc], self)
+  if config.plugins.linewrapping.enable_by_default then
+    LineWrapping.update_docview_breaks(self)
+  end
 end
 
 local old_scroll_to_make_visible = DocView.scroll_to_make_visible
