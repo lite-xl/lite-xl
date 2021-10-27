@@ -9,9 +9,10 @@ local command = require "core.command"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 
-local LineWrapping = { mode = "letter", width_override = nil, open_files = {} }
+local LineWrapping = { mode = "letter", width_override = nil, guide = true, open_files = {} }
 
--- Computes the breaks for a given line, width and mode.
+-- Computes the breaks for a given line, width and mode. Returns a list of columns
+-- at which the line should be broken.
 function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
   local xoffset, last_i, i = 0, 1, 1
   local splits = { 1 }
@@ -40,7 +41,6 @@ end
 -- each element represents line and column of the break. line_offset will check from the specified line
 -- if the first line has not changed breaks, it will stop there.
 function LineWrapping.reconstruct_breaks(docview, default_font, width, line_offset)
-  -- list of line/columns
   if width ~= math.huge then
     local doc = docview.doc
     docview.wrapped_lines = { }
@@ -68,6 +68,7 @@ function LineWrapping.reconstruct_breaks(docview, default_font, width, line_offs
   end
 end
 
+-- Updates the breaks for the various lines; with no extra new lines added.
 function LineWrapping.update_breaks(docview, line)
   local idx = docview.wrapped_line_to_idx[line]
   local offset = (idx - 1) * 2 + 1
@@ -93,6 +94,7 @@ function LineWrapping.update_breaks(docview, line)
   end
 end
 
+-- Removes lines from the document, and thus breaks.
 function LineWrapping.remove_lines(docview, line1, line2)
   local total_lines = line2 - line1 + 1
   local offset = (docview.wrapped_line_to_idx[line1] - 1) * 2 + 1
@@ -108,6 +110,7 @@ function LineWrapping.remove_lines(docview, line1, line2)
   end
 end
 
+-- Adds lines to the document, and thus breaks.
 function LineWrapping.add_lines(docview, line, line_count) 
   local offset = (docview.wrapped_line_to_idx[line] - 1) * 2 + 1
   for i = line, line + line_count - 1 do
@@ -124,15 +127,15 @@ function LineWrapping.add_lines(docview, line, line_count)
   end
 end
 
-
+-- Draws a guide if applicable to show where wrapping is occurring.
 function LineWrapping.draw_guide(docview)
-  if docview.wrapped_settings.width ~= math.huge then
+  if LineWrapping.guide and docview.wrapped_settings.width ~= math.huge then
     local x, y = docview:get_content_offset()
     local gw = docview:get_gutter_width()
     renderer.draw_rect(x + gw + docview.wrapped_settings.width, y, 1, core.root_view.size.y, style.selection)
   end
 end
-  
+
 function LineWrapping.update_docview_breaks(docview)
   local width = LineWrapping.width_override or (docview.size.x - docview:get_gutter_width())
   if (not docview.wrapped_settings or docview.wrapped_settings.width == nil or width ~= docview.wrapped_settings.width) then
@@ -173,10 +176,10 @@ local function get_total_wrapped_lines(docview)
 end
 
 -- If line end, gives the end of an index line, rather than the first character of the next line.
-local function get_line_idx_col_count(docview, line, col, line_end)
+local function get_line_idx_col_count(docview, line, col, line_end, ndoc)
   local doc = docview.doc
   if not docview.wrapped_settings then return common.clamp(line, 1, #doc.lines), col, 1, 1 end
-  if line > #doc.lines then return get_line_idx_col_count(doc, #doc.lines, #doc.lines[#doc.lines] + 1) end
+  if line > #doc.lines then return get_line_idx_col_count(docview, #doc.lines, #doc.lines[#doc.lines] + 1) end
   line = math.max(line, 1)
   local idx = docview.wrapped_line_to_idx[line] or 1
   local ncol, scol = 1, 1
@@ -198,16 +201,17 @@ local function get_line_idx_col_count(docview, line, col, line_end)
 end
 
 
-local function get_line_col_from_index_and_x(docview, default_font, idx, x)
+local function get_line_col_from_index_and_x(docview, idx, x)
   local doc = docview.doc
   local line, col = get_idx_line_col(docview, idx)
   local xoffset, last_i, i = 0, 1, 1
+  local default_font = docview:get_font()
   for _, type, text in docview.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
       if i > col then
         local w = font:get_width(char)
-        if xoffset >= x then
+        if xoffset + w >= x then
           return line, ((xoffset - x > w / 2) and last_i or i)
         end
         xoffset = xoffset + w
@@ -294,7 +298,7 @@ local old_get_x_offset_col = DocView.get_x_offset_col
 function DocView:get_x_offset_col(line, x)
   if not self.wrapped_settings then return old_get_x_offset_col(self, line, x) end
   local idx = get_line_idx_col_count(self, line)
-  return get_line_col_from_index_and_x(self, self:get_font(), idx, x)
+  return get_line_col_from_index_and_x(self, idx, x)
 end
 
 -- If line end is true, returns the end of the previous line, in a multi-line break.
@@ -340,7 +344,7 @@ function DocView:resolve_screen_position(x, y)
   if not self.wrapped_settings then return old_resolve_screen_position(self, x, y) end
   local ox, oy = self:get_line_screen_position(1)
   local idx = common.clamp(math.floor((y - oy) / self:get_line_height()) + 1, 1, get_total_wrapped_lines(self))
-  return get_line_col_from_index_and_x(self, self:get_font(), idx, x - ox)
+  return get_line_col_from_index_and_x(self, idx, x - ox)
 end
 
 local old_draw_line_text = DocView.draw_line_text
@@ -431,32 +435,36 @@ function DocView:draw_line_gutter(line, x, y, width)
   return (old_draw_line_gutter(self, line, x, y, width) or lh) * count
 end
 
+local old_translate_end_of_line = translate.end_of_line
 function translate.end_of_line(doc, line, col)
-  local idx, ncol = get_line_idx_col_count(self, line, col)
-  local nline, ncol2 = get_idx_line_col(self, idx + 1)
+  if not core.active_view or core.active_view.doc ~= doc or not core.active_view.wrapped_settings then old_translate_end_of_line(doc, line, col) end
+  local idx, ncol = get_line_idx_col_count(core.active_view, line, col)
+  local nline, ncol2 = get_idx_line_col(core.active_view, idx + 1)
   if nline ~= line then return line, math.huge end
   return line, ncol2 - 1
 end
 
+local old_translate_start_of_line = translate.start_of_line
 function translate.start_of_line(doc, line, col)
-  local idx, ncol = get_line_idx_col_count(self, line, col)
-  local nline, ncol2 = get_idx_line_col(self, idx - 1)
+  if not core.active_view or core.active_view.doc ~= doc or not core.active_view.wrapped_settings then old_translate_start_of_line(doc, line, col) end
+  local idx, ncol = get_line_idx_col_count(core.active_view, line, col)
+  local nline, ncol2 = get_idx_line_col(core.active_view, idx - 1)
   if nline ~= line then return line, 1 end
   return line, ncol2 + 1
 end
 
+local old_previous_line = DocView.translate.previous_line
 function DocView.translate.previous_line(doc, line, col, dv)
-  local idx, ncol = get_line_idx_col_count(self, line, col)
-  local nline, ncol2 = get_idx_line_col(self, idx - 1)
-  if nline ~= line then return line - 1, dv:get_col_x_offset(line, col) end
-  return nline, ncol2
+  if not dv.wrapped_settings then return old_previous_line(doc, line, col, dv) end
+  local idx, ncol = get_line_idx_col_count(dv, line, col)
+  return get_line_col_from_index_and_x(dv, idx - 1, dv:get_col_x_offset(line, col))
 end
 
+local old_next_line = DocView.translate.next_line
 function DocView.translate.next_line(doc, line, col, dv)
-  local idx, ncol = get_line_idx_col_count(self, line, col)
-  local nline, ncol2 = get_idx_line_col(self, idx + 1)
-  if nline ~= line then return line + 1, dv:get_col_x_offset(line, col) end
-  return nline, ncol2
+  if not dv.wrapped_settings then return old_next_line(doc, line, col, dv) end
+  local idx, ncol = get_line_idx_col_count(dv, line, col)
+  return get_line_col_from_index_and_x(dv, idx + 1, dv:get_col_x_offset(line, col))
 end
 
 command.add(nil, {

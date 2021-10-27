@@ -549,29 +549,29 @@ local commands = {
 
 
 local translations = {
-  ["previous-char"] = translate.previous_char,
-  ["next-char"] = translate.next_char,
-  ["previous-word-start"] = translate.previous_word_start,
-  ["next-word-end"] = translate.next_word_end,
-  ["previous-block-start"] = translate.previous_block_start,
-  ["next-block-end"] = translate.next_block_end,
-  ["start-of-doc"] = translate.start_of_doc,
-  ["end-of-doc"] = translate.end_of_doc,
-  ["start-of-line"] = translate.start_of_line,
-  ["end-of-line"] = translate.end_of_line,
-  ["start-of-word"] = translate.start_of_word,
-  ["start-of-indentation"] = translate.start_of_indentation,
-  ["end-of-word"] = translate.end_of_word,
-  ["previous-line"] = DocView.translate.previous_line,
-  ["next-line"] = DocView.translate.next_line,
-  ["previous-page"] = DocView.translate.previous_page,
-  ["next-page"] = DocView.translate.next_page,
+  ["previous-char"] = translate,
+  ["next-char"] = translate,
+  ["previous-word-start"] = translate,
+  ["next-word-end"] = translate,
+  ["previous-block-start"] = translate,
+  ["next-block-end"] = translate,
+  ["start-of-doc"] = translate,
+  ["end-of-doc"] = translate,
+  ["start-of-line"] = translate,
+  ["end-of-line"] = translate,
+  ["start-of-word"] = translate,
+  ["start-of-indentation"] = translate,
+  ["end-of-word"] = translate,
+  ["previous-line"] = DocView.translate,
+  ["next-line"] = DocView.translate,
+  ["previous-page"] = DocView.translate,
+  ["next-page"] = DocView.translate,
 }
 
-for name, fn in pairs(translations) do
-  commands["doc:move-to-" .. name] = function() doc():move_to(fn, dv()) end
-  commands["doc:select-to-" .. name] = function() doc():select_to(fn, dv()) end
-  commands["doc:delete-to-" .. name] = function() doc():delete_to(fn, dv()) end
+for name, obj in pairs(translations) do
+  commands["doc:move-to-" .. name] = function() doc():move_to(obj[name:gsub("-", "_")], dv()) end
+  commands["doc:select-to-" .. name] = function() doc():select_to(obj[name:gsub("-", "_")], dv()) end
+  commands["doc:delete-to-" .. name] = function() doc():delete_to(obj[name:gsub("-", "_")], dv()) end
 end
 
 commands["doc:move-to-previous-char"] = function()
