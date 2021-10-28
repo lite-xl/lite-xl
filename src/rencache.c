@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdalign.h>
 
 #include <lauxlib.h>
 #include "rencache.h"
@@ -84,6 +85,8 @@ static RenRect merge_rects(RenRect a, RenRect b) {
 
 
 static Command* push_command(int type, int size) {
+  size_t alignment = alignof(max_align_t) - 1;
+  size = (size + alignment) & ~alignment;
   Command *cmd = (Command*) (command_buf + command_buf_idx);
   int n = command_buf_idx + size;
   if (n > COMMAND_BUF_SIZE) {
