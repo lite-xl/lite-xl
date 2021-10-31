@@ -11,6 +11,7 @@
 #include "renwindow.h"
 
 #define MAX_GLYPHSET 256
+#define LOADABLE_GLYPHSETS 512
 #define SUBPIXEL_BITMAPS_CACHED 3
 
 static RenWindow window_renderer = {0};
@@ -34,12 +35,12 @@ typedef struct {
 
 typedef struct {
   SDL_Surface* surface;
-  GlyphMetric metrics[256]; 
+  GlyphMetric metrics[MAX_GLYPHSET]; 
 } GlyphSet;
 
 typedef struct RenFont {
   FT_Face face;
-  GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_GLYPHSET];
+  GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
   short max_height;
   bool subpixel;
@@ -110,7 +111,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
   for (int j = 0, pen_x = 0; j < bitmaps_cached; ++j) {
     GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
     font->sets[j][idx] = set;
-    for (int i = 0; i < 256; ++i) {
+    for (int i = 0; i < MAX_GLYPHSET; ++i) {
       int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY) || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option))
         continue;
@@ -124,7 +125,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       continue;
     set->surface = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->subpixel ? 24 : 8, 0, 0, 0, 0));
     unsigned char* pixels = set->surface->pixels;
-    for (int i = 0; i < 256; ++i) {
+    for (int i = 0; i < MAX_GLYPHSET; ++i) {
       int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
         continue;
@@ -142,7 +143,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
 }
 
 static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int subpixel_idx) {
-  int idx = (codepoint >> 8) % MAX_GLYPHSET;
+  int idx = (codepoint >> 8) % LOADABLE_GLYPHSETS;
   if (!font->sets[font->subpixel ? subpixel_idx : 0][idx])
     font_load_glyphset(font, idx);
   return font->sets[font->subpixel ? subpixel_idx : 0][idx];
