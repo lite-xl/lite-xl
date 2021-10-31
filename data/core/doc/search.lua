@@ -43,6 +43,7 @@ end
 
 function search.find(doc, line, col, text, opt)
   doc, line, col, text, opt = init_args(doc, line, col, text, opt)
+  local plain = not opt.pattern
   local pattern = text
   local search_func = string.find
   if opt.regex then
@@ -60,9 +61,9 @@ function search.find(doc, line, col, text, opt)
     end
     local s, e
     if opt.reverse then
-      s, e = rfind(search_func, line_text, pattern, col - 1)
+      s, e = rfind(search_func, line_text, pattern, col - 1, plain)
     else
-      s, e = search_func(line_text, pattern, col)
+      s, e = search_func(line_text, pattern, col, plain)
     end
     if s then
       return line, s, line, e + 1
