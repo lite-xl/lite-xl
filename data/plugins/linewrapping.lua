@@ -25,7 +25,7 @@ local LineWrapping = {}
 -- Computes the breaks for a given line, width and mode. Returns a list of columns
 -- at which the line should be broken.
 function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
-  local xoffset, last_i, i = 0, 1, 1
+  local xoffset, last_i, i, last_space, last_width = 0, 1, 1, 1, 0
   local splits = { 1 }
   for _, type, text in doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
@@ -35,8 +35,16 @@ function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
         w = font:get_width(char)
         xoffset = xoffset + w
         if xoffset > width then
-          table.insert(splits, i)
-          xoffset = w
+          if mode == "word" then
+            table.insert(splits, last_space + 1)
+            xoffset = xoffset - last_width + w
+          else
+            table.insert(splits, i)
+            xoffset = w
+          end
+        elseif char == ' ' then
+          last_space = i
+          last_width = xoffset
         end
         i = i + #char
       end
