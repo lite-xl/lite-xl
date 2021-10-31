@@ -56,8 +56,8 @@ function CommandView:get_name()
 end
 
 
-function CommandView:get_line_screen_position()
-  local x = CommandView.super.get_line_screen_position(self, 1)
+function CommandView:get_line_screen_position(line, col)
+  local x = CommandView.super.get_line_screen_position(self, 1, col)
   local _, y = self:get_content_offset()
   local lh = self:get_line_height()
   return x, y + (self.size.y - lh) / 2
