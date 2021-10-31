@@ -11,7 +11,7 @@
 #include "renwindow.h"
 
 #define MAX_GLYPHSET 256
-#define LOADABLE_GLYPHSETS 512
+#define MAX_LOADABLE_GLYPHSETS 512
 #define SUBPIXEL_BITMAPS_CACHED 3
 
 static RenWindow window_renderer = {0};
@@ -40,7 +40,7 @@ typedef struct {
 
 typedef struct RenFont {
   FT_Face face;
-  GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][LOADABLE_GLYPHSETS];
+  GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
   short max_height;
   bool subpixel;
@@ -143,7 +143,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
 }
 
 static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int subpixel_idx) {
-  int idx = (codepoint >> 8) % LOADABLE_GLYPHSETS;
+  int idx = (codepoint >> 8) % MAX_LOADABLE_GLYPHSETS;
   if (!font->sets[font->subpixel ? subpixel_idx : 0][idx])
     font_load_glyphset(font, idx);
   return font->sets[font->subpixel ? subpixel_idx : 0][idx];
