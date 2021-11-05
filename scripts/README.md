@@ -22,6 +22,7 @@ Various scripts and configurations used to configure, build, and package Lite XL
   and run Lite XL, mainly useful for CI and documentation purpose.
   Preferably not to be used in user systems.
 - **fontello-config.json**:    Used by the icons generator.
+- **generate_header.sh**: Generates a header file for native plugin API
 
 [1]: https://github.com/LinusU/node-appdmg
 [2]: https://docs.appimage.org/
