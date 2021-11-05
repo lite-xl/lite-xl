@@ -52,7 +52,7 @@ end
 function Highlighter:insert_notify(line, n)
   self:invalidate(line)
   for i = 1, n do
-    table.insert(self.lines, line, nil)
+    table.insert(self.lines, line, false)
   end
 end
 
