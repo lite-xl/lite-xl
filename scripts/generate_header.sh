@@ -90,8 +90,10 @@ generate_header() {
   echo
   print_self
   echo
-  echo "#include <stddef.h>"
+  echo "#include <stdarg.h>"
+  echo "#include <stdio.h> // for BUFSIZ? this is kinda weird"
 
+  cat "$LUA_PATH/luaconf.h"
   decl "$LUA_PATH/lua.h"
   decl "$LUA_PATH/lauxlib.h"
 
