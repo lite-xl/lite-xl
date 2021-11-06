@@ -1,5 +1,13 @@
 #!/bin/bash
 
+##### CONFIG
+
+# symbols to ignore
+IGNORE_SYM='luaL_pushmodule\|luaL_openlib'
+
+##### CONFIG
+
+
 # https://stackoverflow.com/a/13062682
 uncomment() {
   [ $# -eq 2 ] && arg="$1" || arg=""
@@ -27,15 +35,15 @@ sym_regex='^LUA\(LIB\)\?_API\s\+\([^(]\+\)\s*(\([^)]\+\))\s\+(\([^)]\+\));'
 
 # get funcptr declarations
 ptrize() {
-  grep '^LUA' | sed -e "s/$sym_regex/static \2(*\3) (\4);/"
+  grep '^LUA' | grep -v "$IGNORE_SYM" | sed -e "s/$sym_regex/static \2(*\3) (\4);/"
 }
 
 import_sym() {
-  grep '^LUA' | sed -e "s/$sym_regex/\tIMPORT_SYMBOL(\3, \2, \4);/"
+  grep '^LUA' | grep -v "$IGNORE_SYM" | sed -e "s/$sym_regex/\tIMPORT_SYMBOL(\3, \2, \4);/"
 }
 
 export_sym() {
-  grep '^LUA' | sed -e "s/$sym_regex/\t\tEXPORT_SYMBOL(\3),/"
+  grep '^LUA' | grep -v "$IGNORE_SYM" | sed -e "s/$sym_regex/\t\tEXPORT_SYMBOL(\3),/"
 }
 
 decl() {
@@ -47,7 +55,7 @@ decl() {
   # funcptrs
   ptrize <<< "$header1"
   # defines
-  grep '^#' <<< "$header"
+  (grep '^#' | grep -v "$IGNORE_SYM") <<< "$header"
 }
 
 decl_import() {
