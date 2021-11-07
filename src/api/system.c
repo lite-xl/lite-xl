@@ -602,9 +602,9 @@ static int f_fuzzy_match(lua_State *L) {
   int score = 0, run = 0, increment = files ? -1 : 1;
   const char* strTarget = files ? str + strLen - 1 : str;
   const char* ptnTarget = files ? ptn + ptnLen - 1 : ptn;
-  while (*strTarget && *ptnTarget) {
-    while (*strTarget == ' ') { strTarget += increment; }
-    while (*ptnTarget == ' ') { ptnTarget += increment; }
+  while (strTarget >= str && ptnTarget >= ptn && *strTarget && *ptnTarget) {
+    while (strTarget >= str && *strTarget == ' ') { strTarget += increment; }
+    while (ptnTarget >= ptn && *ptnTarget == ' ') { ptnTarget += increment; }
     if (tolower(*strTarget) == tolower(*ptnTarget)) {
       score += run * 10 - (*strTarget != *ptnTarget);
       run++;
@@ -615,7 +615,7 @@ static int f_fuzzy_match(lua_State *L) {
     }
     strTarget += increment;
   }
-  if (*ptnTarget) { return 0; }
+  if (ptnTarget >= ptn && *ptnTarget) { return 0; }
   lua_pushnumber(L, score - (int)strLen * 10);
   return 1;
 }
