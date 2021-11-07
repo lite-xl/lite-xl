@@ -225,6 +225,9 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     core.try(function()
+      if core.last_active_view and core.active_view == self then
+        core.set_active_view(core.last_active_view)
+      end
       local doc_filename = core.normalize_to_project_dir(hovered_item.abs_filename)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
