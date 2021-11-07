@@ -9,7 +9,8 @@ local fullscreen = false
 
 local function suggest_directory(text)
   text = common.home_expand(text)
-  return common.home_encode_list(text == "" and core.recent_projects or common.dir_path_suggest(text))
+  return common.home_encode_list(text == "" or text == common.home_expand(common.dirname(core.project_dir)) 
+    and core.recent_projects or common.dir_path_suggest(text))
 end
 
 command.add(nil, {
@@ -149,7 +150,7 @@ command.add(nil, {
   ["core:change-project-folder"] = function()
     local dirname = common.dirname(core.project_dir)
     if dirname then
-      core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
+      core.command_view:set_text(common.home_encode(dirname))
     end
     core.command_view:enter("Change Project Folder", function(text, item)
       text = system.absolute_path(common.home_expand(item and item.text or text))
@@ -166,7 +167,7 @@ command.add(nil, {
   ["core:open-project-folder"] = function()
     local dirname = common.dirname(core.project_dir)
     if dirname then
-      core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
+      core.command_view:set_text(common.home_encode(dirname))
     end
     core.command_view:enter("Open Project", function(text, item)
       text = common.home_expand(item and item.text or text)
