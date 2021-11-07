@@ -90,9 +90,10 @@ function keymap.on_mouse_wheel(delta, ...)
     and keymap.on_key_pressed("wheel", delta, ...)
 end
 
-local click_prefixes = { "", "d", "t" }
+local click_prefixes = { "s", "d", "t" }
 function keymap.on_mouse_pressed(button, x, y, clicks)
-  return keymap.on_key_pressed(click_prefixes[((clicks - 1) % 3) + 1] .. button:sub(1,1) .. "click", x, y, clicks)
+  return not keymap.on_key_pressed(click_prefixes[((clicks - 1) % 3) + 1] .. button:sub(1,1) .. "click", x, y, clicks)
+    keymap.on_key_pressed(button:sub(1,1) .. "click", x, y, clicks)
 end
 
 function keymap.on_key_released(k)
@@ -202,9 +203,9 @@ keymap.add_direct {
   ["pageup"] = "doc:move-to-previous-page",
   ["pagedown"] = "doc:move-to-next-page",
 
-  ["shift+lclick"] = "doc:select-to-cursor",
-  ["ctrl+lclick"] = "doc:split-cursor",
-  ["lclick"] = "doc:set-cursor",
+  ["shift+slclick"] = "doc:select-to-cursor",
+  ["ctrl+slclick"] = "doc:split-cursor",
+  ["slclick"] = "doc:set-cursor",
   ["dlclick"] = "doc:set-cursor-word",
   ["tlclick"] = "doc:set-cursor-line",
   ["shift+left"] = "doc:select-to-previous-char",
