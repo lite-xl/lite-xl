@@ -85,6 +85,11 @@ function keymap.on_key_pressed(k, ...)
   return false
 end
 
+function keymap.on_mouse_wheel(delta, ...)
+  return not keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
+    and keymap.on_key_pressed("wheel", delta, ...)
+end
+
 local click_prefixes = { "", "d", "t" }
 function keymap.on_mouse_pressed(button, x, y, clicks)
   return keymap.on_key_pressed(click_prefixes[((clicks - 1) % 3) + 1] .. button:sub(1,1) .. "click", x, y, clicks)

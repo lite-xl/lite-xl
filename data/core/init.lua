@@ -928,7 +928,9 @@ function core.on_event(type, ...)
   elseif type == "mousereleased" then
     core.root_view:on_mouse_released(...)
   elseif type == "mousewheel" then
-    core.root_view:on_mouse_wheel(...)
+    if not core.root_view:on_mouse_wheel(...) then
+      did_keymap = keymap.on_mouse_wheel(...)
+    end
   elseif type == "resized" then
     core.window_mode = system.get_window_mode()
   elseif type == "minimized" or type == "maximized" or type == "restored" then
