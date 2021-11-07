@@ -92,7 +92,7 @@ end
 
 local click_prefixes = { "s", "d", "t" }
 function keymap.on_mouse_pressed(button, x, y, clicks)
-  return not keymap.on_key_pressed(click_prefixes[((clicks - 1) % 3) + 1] .. button:sub(1,1) .. "click", x, y, clicks)
+  return not keymap.on_key_pressed(click_prefixes[((clicks - 1) % 3) + 1] .. button:sub(1,1) .. "click", x, y, clicks) and
     keymap.on_key_pressed(button:sub(1,1) .. "click", x, y, clicks)
 end
 
@@ -143,6 +143,7 @@ keymap.add_direct {
   ["alt+7"] = "root:switch-to-tab-7",
   ["alt+8"] = "root:switch-to-tab-8",
   ["alt+9"] = "root:switch-to-tab-9",
+  ["wheel"] = "root:scroll",
 
   ["ctrl+f"] = "find-replace:find",
   ["ctrl+r"] = "find-replace:replace",

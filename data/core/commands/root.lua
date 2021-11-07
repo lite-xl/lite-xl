@@ -3,6 +3,7 @@ local style = require "core.style"
 local DocView = require "core.docview"
 local command = require "core.command"
 local common = require "core.common"
+local config = require "core.config"
 
 
 local t = {
@@ -77,6 +78,14 @@ local t = {
     local n = (parent.a == node) and 0.1 or -0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
   end,
+  
+  ["root:scroll"] = function(delta)
+    if core.active_view and core.active_view.scrollable then
+      core.active_view.scroll.to.y = core.active_view.scroll.to.y + delta * -config.mouse_wheel_scroll
+      return true
+    end
+    return false
+  end
 }
 
 
