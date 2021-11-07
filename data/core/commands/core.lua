@@ -9,7 +9,7 @@ local fullscreen = false
 
 local function suggest_directory(text)
   text = common.home_expand(text)
-  return common.home_encode_list(text == "" or text == common.home_expand(common.dirname(core.project_dir)) 
+  return common.home_encode_list((text == "" or text == common.home_expand(common.dirname(core.project_dir))) 
     and core.recent_projects or common.dir_path_suggest(text))
 end
 
