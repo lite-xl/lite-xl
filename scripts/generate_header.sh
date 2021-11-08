@@ -47,6 +47,9 @@ export_sym() {
 }
 
 decl() {
+  echo "/** $(basename "$1") **/"
+  echo
+
   header="$(uncomment $1 | discard_preprocessors)"
   header1="$(onelineize <<< "$header")"
 
@@ -89,11 +92,15 @@ generate_header() {
   echo "#include <stdarg.h>"
   echo "#include <stdio.h> // for BUFSIZ? this is kinda weird"
   echo
+  echo "/** luaconf.h **/"
+  echo
+  uncomment "$LUA_PATH/luaconf.h"
   echo
 
-  cat "$LUA_PATH/luaconf.h"
   decl "$LUA_PATH/lua.h"
+  echo
   decl "$LUA_PATH/lauxlib.h"
+  echo
 
   echo "#define IMPORT_SYMBOL(name, ret, ...) name = (ret (*) (__VA_ARGS__)) symbol(#name)"
   echo "static void lite_xl_plugin_init(void *XL) {"
