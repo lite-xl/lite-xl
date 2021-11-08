@@ -146,6 +146,7 @@ generate_api_require() {
   echo -e "\tfor (int i = 0; i < sizeof(nodes) / sizeof(fnptr_t); i++)"
   echo -e "\t\tif (strcmp(nodes[i].name, symbol) == 0)"
   echo -e "\t\t\treturn nodes[i].addr;"
+  echo -e "\tfprintf(stderr, \"warning: %s cannot be exported.\", symbol);"
   echo -e "\treturn NULL;"
   echo "}"
   echo "#endif"
