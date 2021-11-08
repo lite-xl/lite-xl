@@ -161,6 +161,7 @@ static void *api_require(const char *symbol) {
 	for (int i = 0; i < sizeof(nodes) / sizeof(fnptr_t); i++)
 		if (strcmp(nodes[i].name, symbol) == 0)
 			return nodes[i].addr;
+	fprintf(stderr, "warning: %s cannot be exported.", symbol);
 	return NULL;
 }
 #endif
