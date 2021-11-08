@@ -362,6 +362,10 @@ function DocView:draw_line_body(idx, x, y)
       if line2 ~= idx then col2 = #text + 1 end
       local x1 = x + self:get_col_x_offset(idx, col1)
       local x2 = x + self:get_col_x_offset(idx, col2)
+      if line2 ~= idx and line1 ~= line2 then
+        -- draw selection on the whole line
+        x2 = x + self.scroll.x + self.size.x
+      end
       local lh = self:get_line_height()
       if x1 ~= x2 then
         renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
