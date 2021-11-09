@@ -3,6 +3,7 @@ local common = require "core.common"
 local command = require "core.command"
 local keymap = require "core.keymap"
 local LogView = require "core.logview"
+local config = require "core.config"
 
 
 local fullscreen = false
@@ -30,6 +31,10 @@ command.add(nil, {
     system.set_window_mode(fullscreen and "fullscreen" or "normal")
     core.show_title_bar(not fullscreen)
     core.title_view:configure_hit_test(not fullscreen)
+    
+    system.set_window_bordered(not config.borderless)
+    core.show_title_bar(config.borderless)
+    core.title_view:configure_hit_test(config.borderless)
   end,
 
   ["core:reload-module"] = function()
