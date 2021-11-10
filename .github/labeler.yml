@@ -14,16 +14,16 @@
   - subprojects/*
 
 "Category: Documentation":
-  - docs/*
+  - docs/**/*
 
 "Category: Resources":
-  - resources/*
+  - resources/**/*
 
 "Category: Themes":
   - data/colors/*
 
 "Category: Lua Core":
-  - data/core/*
+  - data/core/**/*
 
 "Category: Fonts":
   - data/fonts/*
@@ -32,4 +32,4 @@
   - data/plugins/*
 
 "Category: C Core":
-  - src/*
+  - src/**/*
