@@ -81,7 +81,7 @@ affects only the place where the application is actually installed.
 
 Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and download the version for your operating system.
 
-### Ubuntu
+### Linux
 
 Unzip the file and `cd` into the `lite-xl` directory:
 
@@ -90,7 +90,13 @@ tar -xzf <file>
 cd lite-xl
 ```
 
-Copy files over into appropriate directories:
+To run lite-xl without installing:
+```sh
+cd bin
+./lite-xl
+```
+
+To install lite-xl copy files over into appropriate directories:
 
 ```sh
 mkdir -p $HOME/.local/bin && cp bin/lite-xl $HOME/.local/bin
@@ -118,11 +124,9 @@ rm -f $HOME/.local/bin/lite-xl
 rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
           $HOME/.local/share/applications/org.lite_xl.lite_xl.desktop \
           $HOME/.local/share/metainfo/org.lite_xl.lite_xl.appdata.xml \
-          $HOME/.local/share/lite-xl \
-          $HOME/.local/share/doc/lite-xl
+          $HOME/.local/share/lite-xl
 ```
 
-You may need to `Alt + F2` and enter 'r' to see changes.
 
 ## Contributing
 
