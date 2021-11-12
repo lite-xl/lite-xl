@@ -149,10 +149,17 @@ function Node:remove_view(root, view)
     else
       locked_size = locked_size_y
     end
-    if self.is_primary_node or locked_size then
+    local next_primary
+    if self.is_primary_node then
+      next_primary = core.root_view:select_next_primary_node()
+    end
+    if locked_size or (self.is_primary_node and not next_primary) then
       self.views = {}
       self:add_view(EmptyView())
     else
+      if other == next_primary then
+        next_primary = parent
+      end
       parent:consume(other)
       local p = parent
       while p.type ~= "leaf" do
@@ -160,7 +167,7 @@ function Node:remove_view(root, view)
       end
       p:set_active_view(p.active_view)
       if self.is_primary_node then
-        p.is_primary_node = true
+        next_primary.is_primary_node = true
       end
     end
   end
@@ -820,6 +827,24 @@ end
 
 function RootView:get_primary_node()
   return get_primary_node(self.root_node)
+end
+
+
+local function select_next_primary_node(node)
+  if node.is_primary_node then return end
+  if node.type ~= "leaf" then
+    return select_next_primary_node(node.a) or select_next_primary_node(node.b)
+  else
+    local lx, ly = node:get_locked_size()
+    if not lx and not ly then
+      return node
+    end
+  end
+end
+
+
+function RootView:select_next_primary_node()
+  return select_next_primary_node(self.root_node)
 end
 
 

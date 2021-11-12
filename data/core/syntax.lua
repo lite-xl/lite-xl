@@ -22,7 +22,7 @@ end
 
 function syntax.get(filename, header)
   return find(filename, "files")
-      or find(header, "headers")
+      or (header and find(header, "headers"))
       or plain_text_syntax
 end
 
