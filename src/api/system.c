@@ -591,56 +591,32 @@ static int f_exec(lua_State *L) {
   return 0;
 }
 
-
 static int f_fuzzy_match(lua_State *L) {
   size_t strLen, ptnLen;
   const char *str = luaL_checklstring(L, 1, &strLen);
   const char *ptn = luaL_checklstring(L, 2, &ptnLen);
-  bool files = false;
-  if (lua_gettop(L) > 2 && lua_isboolean(L,3))
-    files = lua_toboolean(L, 3);
-
-  int score = 0;
-  int run = 0;
-
-  // Match things *backwards*. This allows for better matching on filenames than the above
+  // If true match things *backwards*. This allows for better matching on filenames than the above
   // function. For example, in the lite project, opening "renderer" has lib/font_render/build.sh
   // as the first result, rather than src/renderer.c. Clearly that's wrong.
-  if (files) {
-    const char* strEnd = str + strLen - 1;
-    const char* ptnEnd = ptn + ptnLen - 1;
-    while (strEnd >= str && ptnEnd >= ptn) {
-      while (*strEnd == ' ') { strEnd--; }
-      while (*ptnEnd == ' ') { ptnEnd--; }
-      if (tolower(*strEnd) == tolower(*ptnEnd)) {
-        score += run * 10 - (*strEnd != *ptnEnd);
-        run++;
-        ptnEnd--;
-      } else {
-        score -= 10;
-        run = 0;
-      }
-      strEnd--;
+  bool files = lua_gettop(L) > 2 && lua_isboolean(L,3) && lua_toboolean(L, 3);
+  int score = 0, run = 0, increment = files ? -1 : 1;
+  const char* strTarget = files ? str + strLen - 1 : str;
+  const char* ptnTarget = files ? ptn + ptnLen - 1 : ptn;
+  while (strTarget >= str && ptnTarget >= ptn && *strTarget && *ptnTarget) {
+    while (strTarget >= str && *strTarget == ' ') { strTarget += increment; }
+    while (ptnTarget >= ptn && *ptnTarget == ' ') { ptnTarget += increment; }
+    if (tolower(*strTarget) == tolower(*ptnTarget)) {
+      score += run * 10 - (*strTarget != *ptnTarget);
+      run++;
+      ptnTarget += increment;
+    } else {
+      score -= 10;
+      run = 0;
     }
-    if (ptnEnd >= ptn) { return 0; }
-  } else {
-    while (*str && *ptn) {
-      while (*str == ' ') { str++; }
-      while (*ptn == ' ') { ptn++; }
-      if (tolower(*str) == tolower(*ptn)) {
-        score += run * 10 - (*str != *ptn);
-        run++;
-        ptn++;
-      } else {
-        score -= 10;
-        run = 0;
-      }
-      str++;
-    }
-    if (*ptn) { return 0; }
+    strTarget += increment;
   }
-
-  lua_pushnumber(L, score - (int)strLen);
+  if (ptnTarget >= ptn && *ptnTarget) { return 0; }
+  lua_pushnumber(L, score - (int)strLen * 10);
   return 1;
 }
 
