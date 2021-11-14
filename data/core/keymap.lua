@@ -1,4 +1,5 @@
 local command = require "core.command"
+local config = require "core.config"
 local keymap = {}
 
 keymap.modkeys = {}
