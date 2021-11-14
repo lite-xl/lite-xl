@@ -92,8 +92,11 @@ function keymap.on_mouse_wheel(delta, ...)
 end
 
 function keymap.on_mouse_pressed(button, x, y, clicks)
-  return not keymap.on_key_pressed((((clicks - 1) % config.max_clicks) + 1)  .. button:sub(1,1) .. "click", x, y, clicks) and
-    keymap.on_key_pressed(button:sub(1,1) .. "click", x, y, clicks)
+  local click_number = (((clicks - 1) % config.max_clicks) + 1)
+  return not (keymap.on_key_pressed(click_number  .. button:sub(1,1) .. "click", x, y, clicks) or
+    keymap.on_key_pressed(button:sub(1,1) .. "click", x, y, clicks) or
+    keymap.on_key_pressed(click_number .. "click", x, y, clicks) or
+    keymap.on_key_pressed("click", x, y, clicks))
 end
 
 function keymap.on_key_released(k)
