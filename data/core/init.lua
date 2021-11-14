@@ -685,7 +685,7 @@ function core.load_plugins()
   end
   table.sort(ordered)
 
-  for i, filename in ipairs(ordered) do
+  for _, filename in ipairs(ordered) do
     local plugin_dir, basename = files[filename], filename:match("(.-)%.lua$") or filename
     local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
     if is_lua_file then
