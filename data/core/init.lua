@@ -675,16 +675,18 @@ function core.load_plugins()
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
   }
-  local files = {}
+  local files, ordered = {}, {}
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. "/plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
+      if not files[filename] then table.insert(ordered, filename) end
       files[filename] = plugin_dir -- user plugins will always replace system plugins
     end
   end
+  table.sort(ordered)
 
-  for filename, plugin_dir in pairs(files) do
-    local basename = filename:match("(.-)%.lua$") or filename
+  for _, filename in ipairs(ordered) do
+    local plugin_dir, basename = files[filename], filename:match("(.-)%.lua$") or filename
     local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
     if is_lua_file then
       if not version_match then
