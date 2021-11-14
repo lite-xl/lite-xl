@@ -21,8 +21,8 @@ static const char* button_name(int button) {
     case SDL_BUTTON_LEFT   : return "left";
     case SDL_BUTTON_MIDDLE : return "middle";
     case SDL_BUTTON_RIGHT  : return "right";
-    case SDL_BUTTON_X1     : return "x1";
-    case SDL_BUTTON_X2     : return "x2";
+    case SDL_BUTTON_X1     : return "x";
+    case SDL_BUTTON_X2     : return "y";
     default : return "?";
   }
 }
