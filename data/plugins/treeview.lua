@@ -243,7 +243,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     core.try(function()
-      local doc_filename = common.relative_path(core.project_dir, hovered_item.abs_filename)
+      local doc_filename = core.normalize_to_project_dir(hovered_item.abs_filename)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
@@ -453,6 +453,7 @@ command.add(function() return view.hovered_item ~= nil end, {
         for _, doc in ipairs(core.docs) do
           if doc.abs_filename and old_abs_filename == doc.abs_filename then
             doc:set_filename(filename, abs_filename) -- make doc point to the new filename
+            doc:reset_syntax()
             break -- only first needed
           end
         end

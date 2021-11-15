@@ -77,6 +77,57 @@ DESTDIR="$(pwd)/Lite XL.app" meson install --skip-subprojects -C build
 Please note that the package is relocatable to any prefix and the option prefix
 affects only the place where the application is actually installed.
 
+## Installing Prebuilt
+
+Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and download the version for your operating system.
+
+### Linux
+
+Unzip the file and `cd` into the `lite-xl` directory:
+
+```sh
+tar -xzf <file>
+cd lite-xl
+```
+
+To run lite-xl without installing:
+```sh
+cd bin
+./lite-xl
+```
+
+To install lite-xl copy files over into appropriate directories:
+
+```sh
+mkdir -p $HOME/.local/bin && cp bin/lite-xl $HOME/.local/bin
+cp -r share $HOME/.local
+```
+
+If `$HOME/.local/bin` is not in PATH:
+
+```sh
+echo -e 'export PATH=$PATH:$HOME/.local/bin' >> $HOME/.bashrc
+```
+
+To get the icon to show up in app launcher:
+
+```sh
+xdg-desktop-menu forceupdate
+```
+
+You may need to logout and login again to see icon in app launcher.
+
+To uninstall just run:
+
+```sh
+rm -f $HOME/.local/bin/lite-xl
+rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
+          $HOME/.local/share/applications/org.lite_xl.lite_xl.desktop \
+          $HOME/.local/share/metainfo/org.lite_xl.lite_xl.appdata.xml \
+          $HOME/.local/share/lite-xl
+```
+
+
 ## Contributing
 
 Any additional functionality that can be added through a plugin should be done
@@ -100,7 +151,7 @@ See the [licenses] file for details on licenses used by the required dependencie
 [screenshot-dark]:            https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png
 [lite]:                       https://github.com/rxi/lite
 [website]:                    https://lite-xl.github.io
-[build]:                      https://lite-xl.github.io/en/build
+[build]:                      https://lite-xl.github.io/en/documentation/build/
 [Get Lite XL]:                https://github.com/franko/lite-xl/releases/latest
 [Get plugins]:                https://github.com/franko/lite-plugins
 [Get color themes]:           https://github.com/rxi/lite-colors

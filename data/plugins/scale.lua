@@ -13,9 +13,6 @@ config.plugins.scale = {
   use_mousewheel = true
 }
 
-local MINIMUM_SCALE = 0.25;
-
-local scale_level = 0
 local scale_steps = 0.05
 
 local current_scale = SCALE
@@ -36,9 +33,6 @@ local function set_scale(scale)
   local s = scale / current_scale
   current_scale = scale
 
-  -- we set scale_level in case this was called by user
-  scale_level = (scale - default_scale) / scale_steps
-
   if config.plugins.scale.mode == "ui" then
     SCALE = scale
 
@@ -50,10 +44,14 @@ local function set_scale(scale)
     style.tab_width      = style.tab_width      * s
 
     for _, name in ipairs {"font", "big_font", "icon_font", "icon_big_font", "code_font"} do
-      renderer.font.set_size(style[name], s * style[name]:get_size())
+      style[name] = renderer.font.copy(style[name], s * style[name]:get_size())
     end
   else
-    renderer.font.set_size(style.code_font, s * style.code_font:get_size())
+    style.code_font = renderer.font.copy(style.code_font, s * style.code_font:get_size())
+  end
+
+  for _, font in pairs(style.syntax_fonts) do
+    renderer.font.set_size(font, s * font:get_size())
   end
 
   -- restore scroll positions
@@ -81,18 +79,15 @@ function RootView:on_mouse_wheel(d, ...)
 end
 
 local function res_scale()
-  scale_level = 0
   set_scale(default_scale)
 end
 
 local function inc_scale()
-  scale_level = scale_level + 1
-  set_scale(default_scale + scale_level * scale_steps)
+  set_scale(current_scale + scale_steps)
 end
 
-local function dec_scale()  
-  scale_level = scale_level - 1
-  set_scale(math.max(default_scale + scale_level * scale_steps), MINIMUM_SCALE)
+local function dec_scale()
+  set_scale(current_scale - scale_steps)
 end
 
 

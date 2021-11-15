@@ -5,9 +5,10 @@ keymap.modkeys = {}
 keymap.map = {}
 keymap.reverse_map = {}
 
+local macos = PLATFORM == "Mac OS X"
 
 -- Thanks to mathewmariani, taken from his lite-macos github repository.
-local modkeys_os = require("core.modkeys-" .. (MACOS and "macos" or "generic"))
+local modkeys_os = require("core.modkeys-" .. (macos and "macos" or "generic"))
 local modkey_map = modkeys_os.map
 local modkeys = modkeys_os.keys
 
@@ -37,7 +38,7 @@ end
 
 function keymap.add(map, overwrite)
   for stroke, commands in pairs(map) do
-    if MACOS then
+    if macos then
       stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
     end
     if type(commands) == "string" then
@@ -119,7 +120,7 @@ function keymap.on_key_released(k)
 end
 
 
-if MACOS then
+if macos then
   local keymap_macos = require("core.keymap-macos")
   keymap_macos(keymap)
   return keymap
@@ -193,9 +194,10 @@ keymap.add_direct {
   ["ctrl+shift+return"] = "doc:newline-above",
   ["ctrl+j"] = "doc:join-lines",
   ["ctrl+a"] = "doc:select-all",
-  ["ctrl+d"] = { "find-replace:select-next", "doc:select-word" },
+  ["ctrl+d"] = { "find-replace:select-add-next", "doc:select-word" },
+  ["ctrl+f3"] = "find-replace:select-next",
   ["ctrl+l"] = "doc:select-lines",
-  ["ctrl+shift+l"] = { "find-replace:select-all", "doc:select-word" },
+  ["ctrl+shift+l"] = { "find-replace:select-add-all", "doc:select-word" },
   ["ctrl+/"] = "doc:toggle-line-comments",
   ["ctrl+up"] = "doc:move-lines-up",
   ["ctrl+down"] = "doc:move-lines-down",

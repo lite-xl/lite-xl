@@ -102,7 +102,11 @@ end
 
 
 function Doc:is_dirty()
-  return self.clean_change_id ~= self:get_change_id() or self.new_file
+  if self.new_file then
+    return #self.lines > 1 or #self.lines[1] > 1
+  else
+    return self.clean_change_id ~= self:get_change_id()
+  end
 end
 
 
@@ -348,7 +352,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:invalidate(line)
+  self.highlighter:insert_notify(line, #lines - 1)
   self:sanitize_selection()
 end
 
@@ -375,7 +379,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   end
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:invalidate(line1)
+  self.highlighter:remove_notify(line1, line2 - line1)
   self:sanitize_selection()
 end
 

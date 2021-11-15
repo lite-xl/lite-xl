@@ -26,14 +26,11 @@ static const char* button_name(int button) {
 }
 
 
-static char* key_name(char *dst, int sym) {
-  strcpy(dst, SDL_GetKeyName(sym));
-  char *p = dst;
+static void str_tolower(char *p) {
   while (*p) {
     *p = tolower(*p);
     p++;
   }
-  return dst;
 }
 
 struct HitTestInfo {
@@ -91,6 +88,23 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
   }
 
   return SDL_HITTEST_NORMAL;
+}
+
+static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
+
+static const char *get_key_name(const SDL_Event *e, char *buf) {
+  SDL_Scancode scancode = e->key.keysym.scancode;
+  /* Is the scancode from the keypad and the number-lock off?
+  ** We assume that SDL_SCANCODE_KP_1 up to SDL_SCANCODE_KP_9 and SDL_SCANCODE_KP_0
+  ** and SDL_SCANCODE_KP_PERIOD are declared in SDL2 in that order. */
+  if (scancode >= SDL_SCANCODE_KP_1 && scancode <= SDL_SCANCODE_KP_1 + 10 &&
+    !(e->key.keysym.mod & KMOD_NUM)) {
+    return numpad[scancode - SDL_SCANCODE_KP_1];
+  } else {
+    strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
+    str_tolower(buf);
+    return buf;
+  }
 }
 
 static int f_poll_event(lua_State *L) {
@@ -162,7 +176,7 @@ top:
       }
 #endif
       lua_pushstring(L, "keypressed");
-      lua_pushstring(L, key_name(buf, e.key.keysym.sym));
+      lua_pushstring(L, get_key_name(&e, buf));
       return 2;
 
     case SDL_KEYUP:
@@ -176,7 +190,7 @@ top:
       }
 #endif
       lua_pushstring(L, "keyreleased");
-      lua_pushstring(L, key_name(buf, e.key.keysym.sym));
+      lua_pushstring(L, get_key_name(&e, buf));
       return 2;
 
     case SDL_TEXTINPUT:
@@ -577,56 +591,32 @@ static int f_exec(lua_State *L) {
   return 0;
 }
 
-
 static int f_fuzzy_match(lua_State *L) {
   size_t strLen, ptnLen;
   const char *str = luaL_checklstring(L, 1, &strLen);
   const char *ptn = luaL_checklstring(L, 2, &ptnLen);
-  bool files = false;
-  if (lua_gettop(L) > 2 && lua_isboolean(L,3))
-    files = lua_toboolean(L, 3);
-
-  int score = 0;
-  int run = 0;
-
-  // Match things *backwards*. This allows for better matching on filenames than the above
+  // If true match things *backwards*. This allows for better matching on filenames than the above
   // function. For example, in the lite project, opening "renderer" has lib/font_render/build.sh
   // as the first result, rather than src/renderer.c. Clearly that's wrong.
-  if (files) {
-    const char* strEnd = str + strLen - 1;
-    const char* ptnEnd = ptn + ptnLen - 1;
-    while (strEnd >= str && ptnEnd >= ptn) {
-      while (*strEnd == ' ') { strEnd--; }
-      while (*ptnEnd == ' ') { ptnEnd--; }
-      if (tolower(*strEnd) == tolower(*ptnEnd)) {
-        score += run * 10 - (*strEnd != *ptnEnd);
-        run++;
-        ptnEnd--;
-      } else {
-        score -= 10;
-        run = 0;
-      }
-      strEnd--;
+  bool files = lua_gettop(L) > 2 && lua_isboolean(L,3) && lua_toboolean(L, 3);
+  int score = 0, run = 0, increment = files ? -1 : 1;
+  const char* strTarget = files ? str + strLen - 1 : str;
+  const char* ptnTarget = files ? ptn + ptnLen - 1 : ptn;
+  while (strTarget >= str && ptnTarget >= ptn && *strTarget && *ptnTarget) {
+    while (strTarget >= str && *strTarget == ' ') { strTarget += increment; }
+    while (ptnTarget >= ptn && *ptnTarget == ' ') { ptnTarget += increment; }
+    if (tolower(*strTarget) == tolower(*ptnTarget)) {
+      score += run * 10 - (*strTarget != *ptnTarget);
+      run++;
+      ptnTarget += increment;
+    } else {
+      score -= 10;
+      run = 0;
     }
-    if (ptnEnd >= ptn) { return 0; }
-  } else {
-    while (*str && *ptn) {
-      while (*str == ' ') { str++; }
-      while (*ptn == ' ') { ptn++; }
-      if (tolower(*str) == tolower(*ptn)) {
-        score += run * 10 - (*str != *ptn);
-        run++;
-        ptn++;
-      } else {
-        score -= 10;
-        run = 0;
-      }
-      str++;
-    }
-    if (*ptn) { return 0; }
+    strTarget += increment;
   }
-
-  lua_pushnumber(L, score - (int)strLen);
+  if (ptnTarget >= ptn && *ptnTarget) { return 0; }
+  lua_pushnumber(L, score - (int)strLen * 10);
   return 1;
 }
 
@@ -635,6 +625,86 @@ static int f_set_window_opacity(lua_State *L) {
   int r = SDL_SetWindowOpacity(window, n);
   lua_pushboolean(L, r > -1);
   return 1;
+}
+
+// Symbol table for native plugin loading. Allows for a statically
+// bound lua library to be used by native plugins.
+typedef struct {
+  const char* symbol;
+  void* address;
+} lua_function_node;
+
+#define P(FUNC) { "lua_" #FUNC, (void*)(lua_##FUNC) }
+#define U(FUNC) { "luaL_" #FUNC, (void*)(luaL_##FUNC) }
+static void* api_require(const char* symbol) {
+  static lua_function_node nodes[] = {
+    P(absindex), P(arith), P(atpanic), P(callk), P(checkstack), 
+    P(close), P(compare), P(concat), P(copy), P(createtable), P(dump), 
+    P(error),  P(gc), P(getallocf), P(getctx), P(getfield), P(getglobal),
+    P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
+    P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
+    P(getuservalue), P(insert), P(isnumber), P(isstring), P(isuserdata), 
+    P(len), P(load), P(newstate), P(newthread), P(newuserdata), P(next), 
+    P(pcallk), P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
+    P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber), 
+    P(pushstring), P(pushthread), P(pushunsigned), P(pushvalue), 
+    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti), P(rawgetp), P(rawlen),
+    P(rawset), P(rawseti), P(rawsetp), P(remove), P(replace), P(resume), 
+    P(setallocf), P(setfield), P(setglobal), P(sethook), P(setlocal), 
+    P(setmetatable), P(settable), P(settop), P(setupvalue), P(setuservalue), 
+    P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
+    P(tonumberx), P(topointer), P(tothread),  P(tounsignedx), P(touserdata),
+    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove), 
+    P(yieldk), U(checkversion_), U(getmetafield), U(callmeta), U(tolstring), 
+    U(argerror), U(checknumber), U(optnumber), U(checkinteger), 
+    U(checkunsigned), U(checkstack), U(checktype), U(checkany), 
+    U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
+    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring), 
+    U(newstate), U(len), U(setfuncs), U(getsubtable), U(buffinit), 
+    U(prepbuffsize), U(addlstring), U(addstring), U(addvalue), U(pushresult),
+    U(pushresultsize), U(buffinitsize)
+  };
+  for (int i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
+    if (strcmp(nodes[i].symbol, symbol) == 0)
+      return nodes[i].address;
+  }
+  return NULL;
+}
+
+static int f_load_native_plugin(lua_State *L) {
+  char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
+  int result;
+
+  const char *name = luaL_checkstring(L, 1);
+  const char *path = luaL_checkstring(L, 2);
+  void *library = SDL_LoadObject(path);
+  if (!library)
+    return luaL_error(L, "Unable to load %s: %s", name, SDL_GetError());
+
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "native_plugins");
+  lua_pushlightuserdata(L, library);
+  lua_setfield(L, -2, name);
+  lua_pop(L, 1);
+
+  const char *basename = strrchr(name, '.');
+  basename = !basename ? name : basename + 1;
+  snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_lite_xl_%s", basename);
+  int (*ext_entrypoint) (lua_State *L, void*) = SDL_LoadFunction(library, entrypoint_name);
+  if (!ext_entrypoint) {
+    snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_%s", basename);
+    int (*entrypoint)(lua_State *L) = SDL_LoadFunction(library, entrypoint_name);
+    if (!entrypoint)
+      return luaL_error(L, "Unable to load %s: Can't find %s(lua_State *L, void *XL)", name, entrypoint_name);
+    result = entrypoint(L);
+  } else {
+    result = ext_entrypoint(L, api_require);
+  }
+
+  if (!result)
+    return luaL_error(L, "Unable to load %s: entrypoint must return a value", name);
+
+  return result;
 }
 
 
@@ -664,6 +734,7 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "load_native_plugin",  f_load_native_plugin  },
   { NULL, NULL }
 };
 

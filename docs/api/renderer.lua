@@ -19,6 +19,9 @@ renderer.color = {}
 ---@class renderer.fontoptions
 ---@field public antialiasing "'grayscale'" | "'subpixel'"
 ---@field public hinting "'slight'" | "'none'" | '"full"'
+-- @field public bold boolean
+-- @field public italic boolean
+-- @field public underline boolean
 renderer.fontoptions = {}
 
 ---

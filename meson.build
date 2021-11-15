@@ -1,9 +1,9 @@
 project('lite-xl',
-    ['c', 'cpp'],
-    version : '2.0.1',
+    ['c'],
+    version : '2.0.2',
     license : 'MIT',
     meson_version : '>= 0.54',
-    default_options : ['c_std=gnu11', 'cpp_std=c++03']
+    default_options : ['c_std=gnu11']
 )
 
 #===============================================================================
@@ -33,7 +33,7 @@ endif
 #===============================================================================
 lite_link_args = []
 if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
-    lite_link_args += ['-static-libgcc', '-static-libstdc++']
+    lite_link_args += ['-static-libgcc']
 endif
 
 if host_machine.system() == 'darwin'
@@ -49,6 +49,7 @@ if not get_option('source-only')
         default_options: ['shared=false', 'use_readline=false', 'app=false']
     )
     pcre2_dep = dependency('libpcre2-8')
+    freetype_dep = dependency('freetype2')
     sdl_dep = dependency('sdl2', method: 'config-tool')
     reproc_dep = dependency('reproc', fallback: ['reproc', 'reproc_dep'],
         default_options: [
@@ -57,12 +58,12 @@ if not get_option('source-only')
         ]
     )
 
-    lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl]
+    lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl, freetype_dep]
 
     if host_machine.system() == 'windows'
         # Note that we need to explicitly add the windows socket DLL because
         # the pkg-config file from reproc does not include it.
-        lite_deps += meson.get_compiler('cpp').find_library('ws2_32', required: true)
+        lite_deps += meson.get_compiler('c').find_library('ws2_32', required: true)
     endif
 endif
 #===============================================================================
@@ -121,7 +122,6 @@ configure_file(
 # Targets
 #===============================================================================
 if not get_option('source-only')
-    subdir('lib/font_renderer')
     subdir('src')
     subdir('scripts')
 endif

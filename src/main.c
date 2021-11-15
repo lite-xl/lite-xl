@@ -18,13 +18,12 @@
 SDL_Window *window;
 
 static double get_scale(void) {
-#ifdef __APPLE__
-    return 1.0;
-#else
-  float dpi = 96.0;
-  SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
-  return dpi / 96.0;
+#ifndef __APPLE__
+  float dpi;
+  if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0)
+    return dpi / 96.0;
 #endif
+  return 1.0;
 }
 
 
@@ -33,8 +32,7 @@ static void get_exe_filename(char *buf, int sz) {
   int len = GetModuleFileName(NULL, buf, sz - 1);
   buf[len] = '\0';
 #elif __linux__
-  char path[512];
-  sprintf(path, "/proc/%d/exe", getpid());
+  char path[] = "/proc/self/exe";
   int len = readlink(path, buf, sz - 1);
   buf[len] = '\0';
 #elif __APPLE__
@@ -52,7 +50,7 @@ static void get_exe_filename(char *buf, int sz) {
 
 
 static void init_window_icon(void) {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__APPLE__)
   #include "../resources/icons/icon.inl"
   (void) icon_rgba_len; /* unused */
   SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(
@@ -140,8 +138,6 @@ init_lua:
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
-  lua_pushboolean(L, true);
-  lua_setglobal(L, "MACOS");
   enable_momentum_scroll();
   #ifdef MACOS_USE_BUNDLE
     set_macos_bundle_resources(L);
@@ -155,7 +151,7 @@ init_lua:
     "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
     "  local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
-    "  core = require('core')\n"
+    "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
     "  core.run()\n"
     "end, function(err)\n"
@@ -186,6 +182,7 @@ init_lua:
   lua_pcall(L, 0, 1, 0);
   if (lua_toboolean(L, -1)) {
     lua_close(L);
+    rencache_invalidate();
     goto init_lua;
   }
 

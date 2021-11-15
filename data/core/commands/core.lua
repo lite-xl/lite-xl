@@ -148,7 +148,9 @@ command.add(nil, {
 
   ["core:change-project-folder"] = function()
     local dirname = common.dirname(core.project_dir)
-    core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
+    if dirname then
+      core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
+    end
     core.command_view:enter("Change Project Folder", function(text, item)
       text = system.absolute_path(common.home_expand(item and item.text or text))
       if text == core.project_dir then return end
@@ -162,6 +164,10 @@ command.add(nil, {
   end,
 
   ["core:open-project-folder"] = function()
+    local dirname = common.dirname(core.project_dir)
+    if dirname then
+      core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
+    end
     core.command_view:enter("Open Project", function(text, item)
       text = common.home_expand(item and item.text or text)
       local path_stat = system.get_file_info(text)

@@ -41,6 +41,11 @@ function common.lerp(a, b, t)
 end
 
 
+function common.distance(x1, y1, x2, y2)
+    return math.sqrt(math.pow(x2-x1, 2)+math.pow(y2-y1, 2))
+end
+
+
 function common.color(str)
   local r, g, b, a = str:match("#(%x%x)(%x%x)(%x%x)")
   if r then
@@ -276,6 +281,7 @@ end
 
 
 function common.normalize_path(filename)
+  if not filename then return end
   if PATHSEP == '\\' then
     filename = filename:gsub('[/\\]', '\\')
     local drive, rem = filename:match('^([a-zA-Z])(:.*)')
@@ -290,7 +296,8 @@ function common.normalize_path(filename)
       table.insert(accu, part)
     end
   end
-  return table.concat(accu, PATHSEP)
+  local npath = table.concat(accu, PATHSEP)
+  return npath == "" and PATHSEP or npath
 end
 
 

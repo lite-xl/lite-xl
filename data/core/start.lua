@@ -19,3 +19,12 @@ package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
+
+local dynamic_suffix = PLATFORM == "Mac OS X" and 'lib' or (PLATFORM == "Windows" and 'dll' or 'so')
+package.cpath = DATADIR .. '/?.' .. dynamic_suffix .. ";" .. USERDIR .. '/?.' .. dynamic_suffix
+package.native_plugins = {}
+package.searchers = { package.searchers[1], package.searchers[2], function(modname)
+  local path = package.searchpath(modname, package.cpath)
+  if not path then return nil end
+  return system.load_native_plugin, path
+end }

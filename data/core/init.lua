@@ -17,10 +17,7 @@ local core = {}
 
 local function load_session()
   local ok, t = pcall(dofile, USERDIR .. "/session.lua")
-  if ok and t then
-    return t.recents, t.window, t.window_mode
-  end
-  return {}
+  return ok and t or {}
 end
 
 
@@ -30,6 +27,8 @@ local function save_session()
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size())),
       ", window_mode=", common.serialize(system.get_window_mode()),
+      ", previous_find=", common.serialize(core.previous_find),
+      ", previous_replace=", common.serialize(core.previous_replace),
       "}\n")
     fp:close()
   end
@@ -80,6 +79,9 @@ function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dir_path_abs, core.on_quit_project) then
     core.root_view:close_all_docviews()
     update_recents_project("add", dir_path_abs)
+    if not core.load_project_module() then
+      command.perform("core:open-log")
+    end
     core.on_enter_project(dir_path_abs)
   end
 end
@@ -320,8 +322,8 @@ local style = require "core.style"
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
--- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
--- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
+-- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 14 * SCALE)
+-- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 14 * SCALE)
 --
 -- font names used by lite:
 -- style.font          : user interface
@@ -394,15 +396,6 @@ function core.remove_project_directory(path)
   return false
 end
 
-
-local function whitespace_replacements()
-  local r = renderer.replacements.new()
-  r:add(" ", "·")
-  r:add("\t", "»")
-  return r
-end
-
-
 local function reload_on_user_module_save()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
   local doc_save = Doc.save
@@ -435,13 +428,15 @@ function core.init()
   end
 
   do
-    local recent_projects, window_position, window_mode = load_session()
-    if window_mode == "normal" then
-      system.set_window_size(table.unpack(window_position))
-    elseif window_mode == "maximized" then
+    local session = load_session()
+    if session.window_mode == "normal" then
+      system.set_window_size(table.unpack(session.window))
+    elseif session.window_mode == "maximized" then
       system.set_window_mode("maximized")
     end
-    core.recent_projects = recent_projects or {}
+    core.recent_projects = session.recents or {}
+    core.previous_find = session.previous_find or {}
+    core.previous_replace = session.previous_replace or {}
   end
 
   local project_dir = core.recent_projects[1] or "."
@@ -461,7 +456,10 @@ function core.init()
       project_dir = arg_filename
       project_dir_explicit = true
     else
-      delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
+      if not ARGS[i]:match("^-psn") then
+        delayed_error = string.format("error: invalid file or directory %q", ARGS[i])
+      end
     end
   end
 
@@ -495,7 +493,6 @@ function core.init()
   core.visited_files = {}
   core.restart_request = false
   core.quit_request = false
-  core.replacements = whitespace_replacements()
 
   core.root_view = RootView()
   core.command_view = CommandView()
@@ -678,16 +675,18 @@ function core.load_plugins()
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
   }
-  local files = {}
+  local files, ordered = {}, {}
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. "/plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
+      if not files[filename] then table.insert(ordered, filename) end
       files[filename] = plugin_dir -- user plugins will always replace system plugins
     end
   end
+  table.sort(ordered)
 
-  for filename, plugin_dir in pairs(files) do
-    local basename = filename:match("(.-)%.lua$") or filename
+  for _, filename in ipairs(ordered) do
+    local plugin_dir, basename = files[filename], filename:match("(.-)%.lua$") or filename
     local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
     if is_lua_file then
       if not version_match then
