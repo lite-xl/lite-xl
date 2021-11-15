@@ -354,6 +354,18 @@ function DocView:draw_caret(x, y)
 end
 
 function DocView:draw_line_body(idx, x, y)
+  -- draw highlight if any selection ends on this line
+  local draw_highlight = false
+  for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
+    if line1 == idx then
+      draw_highlight = true
+      break
+    end
+  end
+  if draw_highlight and config.highlight_current_line and core.active_view == self then
+    self:draw_line_highlight(x + self.scroll.x, y)
+  end
+
   -- draw selection if it overlaps this line
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     if idx >= line1 and idx <= line2 then
@@ -368,15 +380,6 @@ function DocView:draw_line_body(idx, x, y)
       end
     end
   end
-  local draw_highlight = nil
-  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
-    -- draw line highlight if caret is on this line
-    if draw_highlight ~= false and config.highlight_current_line
-    and line1 == idx and core.active_view == self then
-      draw_highlight = (line1 == line2 and col1 == col2)
-    end
-  end
-  if draw_highlight then self:draw_line_highlight(x + self.scroll.x, y) end
 
   -- draw line's text
   self:draw_line_text(idx, x, y)
