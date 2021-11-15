@@ -30,7 +30,8 @@ function keymap.add_direct(map)
     end
     keymap.map[stroke] = commands
     for _, cmd in ipairs(commands) do
-      keymap.reverse_map[cmd] = stroke
+      keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
+      table.insert(keymap.reverse_map[cmd], stroke)
     end
   end
 end
@@ -52,14 +53,39 @@ function keymap.add(map, overwrite)
       end
     end
     for _, cmd in ipairs(commands) do
-      keymap.reverse_map[cmd] = stroke
+      keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
+      table.insert(keymap.reverse_map[cmd], stroke)
     end
   end
 end
 
 
+local function remove_only(tbl, k, v)
+  for key, values in pairs(tbl) do
+    if key == k then
+      if v then
+        for i, value in ipairs(values) do
+          if value == v then
+            table.remove(values, i)
+          end
+        end
+      else
+        tbl[key] = nil
+      end
+      break
+    end
+  end
+end
+
+
+function keymap.unbind(key, cmd)
+  remove_only(keymap.map, key, cmd)
+  remove_only(keymap.reverse_map, cmd, key)
+end
+
+
 function keymap.get_binding(cmd)
-  return keymap.reverse_map[cmd]
+  return table.unpack(keymap.reverse_map[cmd] or {})
 end
 
 
