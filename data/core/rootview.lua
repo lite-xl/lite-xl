@@ -857,27 +857,29 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
     self.dragged_divider = div
-    return
+    return true
   end
   local node = self.root_node:get_child_overlapping_point(x, y)
   if node.hovered_scroll_button > 0 then
     node:scroll_tabs(node.hovered_scroll_button)
-    return
+    return true
   end
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
+      return true
     else
       if button == "left" then
         self.dragged_node = { node = node, idx = idx, dragging = false, drag_start_x = x, drag_start_y = y}
       end
       node:set_active_view(node.views[idx])
+      return true
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
     core.set_active_view(node.active_view)
     if not self.on_view_mouse_pressed(button, x, y, clicks) then
-      node.active_view:on_mouse_pressed(button, x, y, clicks)
+      return node.active_view:on_mouse_pressed(button, x, y, clicks)
     end
   end
 end

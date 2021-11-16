@@ -18,9 +18,11 @@ extern SDL_Window *window;
 
 static const char* button_name(int button) {
   switch (button) {
-    case 1  : return "left";
-    case 2  : return "middle";
-    case 3  : return "right";
+    case SDL_BUTTON_LEFT   : return "left";
+    case SDL_BUTTON_MIDDLE : return "middle";
+    case SDL_BUTTON_RIGHT  : return "right";
+    case SDL_BUTTON_X1     : return "x";
+    case SDL_BUTTON_X2     : return "y";
     default : return "?";
   }
 }

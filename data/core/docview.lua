@@ -224,52 +224,6 @@ function DocView:scroll_to_make_visible(line, col)
   end
 end
 
-
-local function mouse_selection(doc, clicks, line1, col1, line2, col2)
-  local swap = line2 < line1 or line2 == line1 and col2 <= col1
-  if swap then
-    line1, col1, line2, col2 = line2, col2, line1, col1
-  end
-  if clicks % 4 == 2 then
-    line1, col1 = translate.start_of_word(doc, line1, col1)
-    line2, col2 = translate.end_of_word(doc, line2, col2)
-  elseif clicks % 4 == 3 then
-    if line2 == #doc.lines and doc.lines[#doc.lines] ~= "\n" then
-      doc:insert(math.huge, math.huge, "\n")
-    end
-    line1, col1, line2, col2 = line1, 1, line2 + 1, 1
-  end
-  if swap then
-    return line2, col2, line1, col1
-  end
-  return line1, col1, line2, col2
-end
-
-
-function DocView:on_mouse_pressed(button, x, y, clicks)
-  local caught = DocView.super.on_mouse_pressed(self, button, x, y, clicks)
-  if caught then
-    return
-  end
-  if keymap.modkeys["shift"] then
-    if clicks % 2 == 1 then
-      local line1, col1 = select(3, self.doc:get_selection())
-      local line2, col2 = self:resolve_screen_position(x, y)
-      self.doc:set_selection(line2, col2, line1, col1)
-    end
-  else
-    local line, col = self:resolve_screen_position(x, y)
-    if keymap.modkeys["ctrl"] then
-      self.doc:add_selection(mouse_selection(self.doc, clicks, line, col, line, col))
-    else
-      self.doc:set_selection(mouse_selection(self.doc, clicks, line, col, line, col))
-    end
-    self.mouse_selecting = { line, col, clicks = clicks }
-  end
-  core.blink_reset()
-end
-
-
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
@@ -282,7 +236,6 @@ function DocView:on_mouse_moved(x, y, ...)
   if self.mouse_selecting then
     local l1, c1 = self:resolve_screen_position(x, y)
     local l2, c2 = table.unpack(self.mouse_selecting)
-    local clicks = self.mouse_selecting.clicks
     if keymap.modkeys["ctrl"] then
       if l1 > l2 then l1, l2 = l2, l1 end
       self.doc.selections = { }
@@ -290,7 +243,7 @@ function DocView:on_mouse_moved(x, y, ...)
         self.doc:set_selections(i - l1 + 1, i, math.min(c1, #self.doc.lines[i]), i, math.min(c2, #self.doc.lines[i]))
       end
     else
-      self.doc:set_selection(mouse_selection(self.doc, clicks, l1, c1, l2, c2))
+      self.doc:set_selection(l1, c1, l2, c2)
     end
   end
 end

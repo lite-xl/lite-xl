@@ -32,6 +32,8 @@ local function keymap_macos(keymap)
     ["cmd+7"] = "root:switch-to-tab-7",
     ["cmd+8"] = "root:switch-to-tab-8",
     ["cmd+9"] = "root:switch-to-tab-9",
+    ["wheel"] = "root:scroll",
+    
     ["cmd+f"] = "find-replace:find",
     ["cmd+r"] = "find-replace:replace",
     ["f3"] = "find-replace:repeat-find",
@@ -93,6 +95,11 @@ local function keymap_macos(keymap)
     ["pageup"] = "doc:move-to-previous-page",
     ["pagedown"] = "doc:move-to-next-page",
 
+    ["shift+1lclick"] = "doc:select-to-cursor",
+    ["ctrl+1lclick"] = "doc:split-cursor",
+    ["1lclick"] = "doc:set-cursor",
+    ["2lclick"] = "doc:set-cursor-word",
+    ["3lclick"] = "doc:set-cursor-line",
     ["shift+left"] = "doc:select-to-previous-char",
     ["shift+right"] = "doc:select-to-next-char",
     ["shift+up"] = "doc:select-to-previous-line",

@@ -82,6 +82,16 @@ local function split_cursor(direction)
   core.blink_reset()
 end
 
+local function set_cursor(x, y, type)
+  local line, col = dv():resolve_screen_position(x, y)
+  doc():set_selection(line, col, line, col)
+  if type == "word" or type == "lines" then
+    command.perform("doc:select-" .. type)
+  end
+  dv().mouse_selecting = { line, col }
+  core.blink_reset()
+end
+
 local commands = {
   ["doc:undo"] = function()
     doc():undo()
@@ -387,6 +397,30 @@ local commands = {
     end
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
+  end,
+    
+  ["doc:select-to-cursor"] = function(x, y, clicks) 
+    local line1, col1 = select(3, doc():get_selection())
+    local line2, col2 = dv():resolve_screen_position(x, y)
+    dv().mouse_selecting = { line1, col1 }
+    doc():set_selection(line2, col2, line1, col1)
+  end,
+  
+  ["doc:set-cursor"] = function(x, y)
+    set_cursor(x, y, "set") 
+  end,
+  
+  ["doc:set-cursor-word"] = function(x, y) 
+    set_cursor(x, y, "word") 
+  end,  
+  
+  ["doc:set-cursor-line"] = function(x, y, clicks) 
+    set_cursor(x, y, "lines") 
+  end,
+  
+  ["doc:split-cursor"] = function(x, y, clicks) 
+    local line, col = dv():resolve_screen_position(x, y)
+    doc():add_selection(line, col, line, col)
   end,
 
   ["doc:create-cursor-previous-line"] = function()

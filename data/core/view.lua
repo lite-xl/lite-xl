@@ -102,13 +102,9 @@ function View:on_text_input(text)
   -- no-op
 end
 
-
 function View:on_mouse_wheel(y)
-  if self.scrollable then
-    self.scroll.to.y = self.scroll.to.y + y * -config.mouse_wheel_scroll
-  end
-end
 
+end
 
 function View:get_content_bounds()
   local x = self.scroll.x
