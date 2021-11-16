@@ -16,6 +16,8 @@ config.plugins.linewrapping = {
   width_override = nil,
 	-- Whether or not to draw a guide
   guide = true,
+  -- Whether or not we should indent ourselves like the first line of a wrapped block.
+  indent = true,
   -- Whether or not to enable wrapping by default when opening files.
   enable_by_default = false
 }
@@ -25,10 +27,14 @@ local LineWrapping = {}
 -- Computes the breaks for a given line, width and mode. Returns a list of columns
 -- at which the line should be broken.
 function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
-  local xoffset, last_i, i, last_space, last_width = 0, 1, 1, 1, 0
+  local xoffset, last_i, i, last_space, last_width, begin_width = 0, 1, 1, 1, 0, 0
   local splits = { 1 }
-  for _, type, text in doc.highlighter:each_token(line) do
+  for idx, type, text in doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
+    if idx == 1 and config.plugins.linewrapping.indent then
+      local _, indent_end = text:find("^%s+")
+      if indent_end then begin_width = font:get_width(text:sub(1, indent_end)) end
+    end
     local w = font:get_width(text)
     if xoffset + w > width then
       for char in common.utf8_chars(text) do
@@ -37,10 +43,10 @@ function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
         if xoffset > width then
           if mode == "word" then
             table.insert(splits, last_space + 1)
-            xoffset = xoffset - last_width + w
+            xoffset = xoffset - last_width + w + begin_width
           else
             table.insert(splits, i)
-            xoffset = w
+            xoffset = w + begin_width
           end
         elseif char == ' ' then
           last_space = i
@@ -53,7 +59,7 @@ function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
       i = i + #text
     end
   end
-  return splits
+  return splits, begin_width
 end
 
 -- breaks are held in a single table that contains n*2 elements, where n is the amount of line breaks.
@@ -64,15 +70,18 @@ function LineWrapping.reconstruct_breaks(docview, default_font, width, line_offs
     local doc = docview.doc
     docview.wrapped_lines = { }
     docview.wrapped_line_to_idx = { }
+    docview.wrapped_line_offsets = { }
     docview.wrapped_settings = { ["width"] = width, ["font"] = default_font }
     for i = line_offset or 1, #doc.lines do
-      for k, col in ipairs(LineWrapping.compute_line_breaks(doc, default_font, i, width, config.plugins.linewrapping.mode)) do
+      local breaks, offset = LineWrapping.compute_line_breaks(doc, default_font, i, width, config.plugins.linewrapping.mode)
+      table.insert(docview.wrapped_line_offsets, offset)
+      for k, col in ipairs(breaks) do
         table.insert(docview.wrapped_lines, i)
         table.insert(docview.wrapped_lines, col)
       end
     end
     -- list of indices for wrapped_lines, that are based on original line number
-    -- holds the index to the first in the wrapped_lines list
+    -- holds the index to the first in the wrapped_lines list.
     local last_wrap = nil
     for i = 1, #docview.wrapped_lines, 2 do
       if not last_wrap or last_wrap ~= docview.wrapped_lines[i] then
@@ -83,6 +92,7 @@ function LineWrapping.reconstruct_breaks(docview, default_font, width, line_offs
   else
     docview.wrapped_lines = nil
     docview.wrapped_line_to_idx = nil
+    docview.wrapped_line_offsets = nil
     docview.wrapped_settings = nil
   end
 end
@@ -91,7 +101,8 @@ end
 function LineWrapping.update_breaks(docview, line)
   local idx = docview.wrapped_line_to_idx[line]
   local offset = (idx - 1) * 2 + 1
-  local breaks = LineWrapping.compute_line_breaks(docview.doc, docview.wrapped_settings.font, line, docview.wrapped_settings.width, config.plugins.linewrapping.mode)
+  local breaks, begin_width = LineWrapping.compute_line_breaks(docview.doc, docview.wrapped_settings.font, line, docview.wrapped_settings.width, config.plugins.linewrapping.mode)
+  docview.wrapped_line_offsets[line] = begin_width
   local change = 0
   for i,b in ipairs(breaks) do
     if docview.wrapped_lines[offset] == line then
@@ -169,6 +180,7 @@ local function get_idx_line_col(docview, idx)
     if idx > #doc.lines then return #doc.lines, #doc.lines[#doc.lines] + 1 end
     return idx, 1 
   end
+  if idx < 1 then return 1, 1 end
   local offset = (idx - 1) * 2 + 1
   if offset > #docview.wrapped_lines then return #doc.lines, #doc.lines[#doc.lines] + 1 end
   return docview.wrapped_lines[offset], docview.wrapped_lines[offset + 1]
@@ -219,20 +231,21 @@ local function get_line_idx_col_count(docview, line, col, line_end, ndoc)
   return idx, ncol, count, scol
 end
 
-
 local function get_line_col_from_index_and_x(docview, idx, x)
   local doc = docview.doc
   local line, col = get_idx_line_col(docview, idx)
-  local xoffset, last_i, i = 0, 1, 1
+  if idx < 1 then return 1, 1 end
+  local xoffset, last_i, i = (col ~= 1 and docview.wrapped_line_offsets[line] or 0), col, 1
+  if x < xoffset then return line, col end
   local default_font = docview:get_font()
   for _, type, text in docview.doc.highlighter:each_token(line) do
-    local font = style.syntax_fonts[type] or default_font
+    local font, w = style.syntax_fonts[type] or default_font, 0
     for char in common.utf8_chars(text) do
-      if i > col then
-        local w = font:get_width(char)
-        if xoffset + w >= x then
-          return line, ((xoffset - x > w / 2) and last_i or i)
+      if i >= col then
+        if xoffset >= x then
+          return line, (xoffset - x > (w / 2) and last_i or i)
         end
+        w = font:get_width(char)
         xoffset = xoffset + w
       end
       last_i = i
@@ -330,7 +343,7 @@ local old_get_col_x_offset = DocView.get_col_x_offset
 function DocView:get_col_x_offset(line, col, line_end)
   if not self.wrapped_settings then return old_get_col_x_offset(self, line, col) end
   local idx, ncol, count, scol = get_line_idx_col_count(self, line, col, line_end)
-  local xoffset, i = 0, 1
+  local xoffset, i = (scol ~= 1 and self.wrapped_line_offsets[line] or 0), 1
   local default_font = self:get_font()
   for _, type, text in self.doc.highlighter:each_token(line) do
     if i + #text >= scol then   
@@ -375,7 +388,7 @@ local old_draw_line_text = DocView.draw_line_text
 function DocView:draw_line_text(line, x, y)
   if not self.wrapped_settings then return old_draw_line_text(self, line, x, y) end
   local default_font = self:get_font()
-  local tx, ty = x, y + self:get_line_text_y_offset()
+  local tx, ty, begin_width = x, y + self:get_line_text_y_offset(), self.wrapped_line_offsets[line]
   local lh = self:get_line_height()
   local idx, _, count = get_line_idx_col_count(self, line)
   local total_offset = 1
@@ -396,7 +409,7 @@ function DocView:draw_line_text(line, x, y)
       if total_offset ~= next_line_start_col or max_length == 0 then break end
       token_offset = token_offset + #rendered_text
       idx = idx + 1
-      tx, ty = x, ty + lh
+      tx, ty = x + begin_width, ty + lh
     end
   end
   return lh * count
