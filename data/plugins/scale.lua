@@ -67,17 +67,6 @@ local function get_scale()
   return current_scale
 end
 
-local on_mouse_wheel = RootView.on_mouse_wheel
-
-function RootView:on_mouse_wheel(d, ...)
-  if keymap.modkeys["ctrl"] and config.plugins.scale.use_mousewheel then
-    if d < 0 then command.perform "scale:decrease" end
-    if d > 0 then command.perform "scale:increase" end
-  else
-    return on_mouse_wheel(self, d, ...)
-  end
-end
-
 local function res_scale()
   set_scale(default_scale)
 end
@@ -101,6 +90,8 @@ keymap.add {
   ["ctrl+0"] = "scale:reset",
   ["ctrl+-"] = "scale:decrease",
   ["ctrl+="] = "scale:increase",
+  ["ctrl+wheelup"] = "scale:increase",
+  ["ctrl+wheeldown"] = "scale:decrease"
 }
 
 return {

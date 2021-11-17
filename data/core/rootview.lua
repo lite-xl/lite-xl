@@ -857,27 +857,29 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
     self.dragged_divider = div
-    return
+    return true
   end
   local node = self.root_node:get_child_overlapping_point(x, y)
   if node.hovered_scroll_button > 0 then
     node:scroll_tabs(node.hovered_scroll_button)
-    return
+    return true
   end
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
+      return true
     else
       if button == "left" then
         self.dragged_node = { node = node, idx = idx, dragging = false, drag_start_x = x, drag_start_y = y}
       end
       node:set_active_view(node.views[idx])
+      return true
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
     core.set_active_view(node.active_view)
     if not self.on_view_mouse_pressed(button, x, y, clicks) then
-      node.active_view:on_mouse_pressed(button, x, y, clicks)
+      return node.active_view:on_mouse_pressed(button, x, y, clicks)
     end
   end
 end
@@ -1000,17 +1002,18 @@ function RootView:on_mouse_moved(x, y, dx, dy)
 
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
-  local node = self.root_node:get_child_overlapping_point(x, y)
+  self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
+  
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  local tab_index = node and node:get_tab_overlapping_point(x, y)
-  if node and node:get_scroll_button_index(x, y) then
+  local tab_index = self.overlapping_node and self.overlapping_node:get_tab_overlapping_point(x, y)
+  if self.overlapping_node and self.overlapping_node:get_scroll_button_index(x, y) then
     core.request_cursor("arrow")
   elseif div then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
   elseif tab_index then
     core.request_cursor("arrow")
-  elseif node then
-    core.request_cursor(node.active_view.cursor)
+  elseif self.overlapping_node then
+    core.request_cursor(self.overlapping_node.active_view.cursor)
   end
 end
 
@@ -1018,7 +1021,7 @@ end
 function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
-  node.active_view:on_mouse_wheel(...)
+  return node.active_view:on_mouse_wheel(...)
 end
 
 
