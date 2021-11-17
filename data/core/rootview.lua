@@ -142,7 +142,14 @@ function Node:remove_view(root, view)
     local parent = self:get_parent_node(root)
     local is_a = (parent.a == self)
     local other = parent[is_a and "b" or "a"]
-    if other:get_locked_size() then
+    local locked_size_x, locked_size_y = other:get_locked_size()
+    local locked_size
+    if parent.type == "hsplit" then
+      locked_size = locked_size_x
+    else
+      locked_size = locked_size_y
+    end
+    if self.is_primary_node or locked_size then
       self.views = {}
       self:add_view(EmptyView())
     else
@@ -273,7 +280,10 @@ end
 
 function Node:should_show_tabs()
   if self.locked then return false end
-  if #self.views > 1 then return true
+  local dn = core.root_view.dragged_node
+  if #self.views > 1
+     or (dn and dn.dragging) then -- show tabs while dragging
+    return true
   elseif config.always_show_tabs then
     return not self.views[1]:is(EmptyView)
   end
@@ -506,6 +516,53 @@ function Node:update()
   end
 end
 
+function Node:draw_tab(text, is_active, is_hovered, is_close_hovered, x, y, w, h, standalone)
+  local ds = style.divider_size
+  local dots_width = style.font:get_width("…")
+  local color = style.dim
+  local padding_y = style.padding.y
+  renderer.draw_rect(x + w, y + padding_y, ds, h - padding_y * 2, style.dim)
+  if standalone then
+    renderer.draw_rect(x-1, y-1, w+2, h+2, style.background2)
+  end
+  if is_active then
+    color = style.text
+    renderer.draw_rect(x, y, w, h, style.background)
+    renderer.draw_rect(x + w, y, ds, h, style.divider)
+    renderer.draw_rect(x - ds, y, ds, h, style.divider)
+  end
+  local cx, cw, cspace = close_button_location(x, w)
+  local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
+  if show_close_button then
+    local close_style = is_close_hovered and style.text or style.dim
+    common.draw_text(style.icon_font, close_style, "C", nil, cx, y, 0, h)
+  end
+  if is_hovered then
+    color = style.text
+  end
+  local padx = style.padding.x
+  -- Normally we should substract "cspace" from text_avail_width and from the
+  -- clipping width. It is the padding space we give to the left and right of the
+  -- close button. However, since we are using dots to terminate filenames, we
+  -- choose to ignore "cspace" accepting that the text can possibly "touch" the
+  -- close button.
+  local text_avail_width = cx - x - padx
+  core.push_clip_rect(x, y, cx - x, h)
+  x, w = x + padx, w - padx * 2
+  local align = "center"
+  if style.font:get_width(text) > text_avail_width then
+    align = "left"
+    for i = 1, #text do
+      local reduced_text = text:sub(1, #text - i)
+      if style.font:get_width(reduced_text) + dots_width <= text_avail_width then
+        text = reduced_text .. "…"
+        break
+      end
+    end
+  end
+  common.draw_text(style.font, color, text, align, x, y, w, h)
+  core.pop_clip_rect()
+end
 
 function Node:draw_tabs()
   local x, y, w, h, scroll_padding = self:get_scroll_button_rect(1)
@@ -530,47 +587,9 @@ function Node:draw_tabs()
   for i = self.tab_offset, self.tab_offset + tabs_number - 1 do
     local view = self.views[i]
     local x, y, w, h = self:get_tab_rect(i)
-    local text = view:get_name()
-    local color = style.dim
-    local padding_y = style.padding.y
-    renderer.draw_rect(x + w, y + padding_y, ds, h - padding_y * 2, style.dim)
-    if view == self.active_view then
-      color = style.text
-      renderer.draw_rect(x, y, w, h, style.background)
-      renderer.draw_rect(x + w, y, ds, h, style.divider)
-      renderer.draw_rect(x - ds, y, ds, h, style.divider)
-    end
-    local cx, cw, cspace = close_button_location(x, w)
-    local show_close_button = ((view == self.active_view or i == self.hovered_tab) and config.tab_close_button)
-    if show_close_button then
-      local close_style = self.hovered_close == i and style.text or style.dim
-      common.draw_text(style.icon_font, close_style, "C", nil, cx, y, 0, h)
-    end
-    if i == self.hovered_tab then
-      color = style.text
-    end
-    local padx = style.padding.x
-    -- Normally we should substract "cspace" from text_avail_width and from the
-    -- clipping width. It is the padding space we give to the left and right of the
-    -- close button. However, since we are using dots to terminate filenames, we
-    -- choose to ignore "cspace" accepting that the text can possibly "touch" the
-    -- close button.
-    local text_avail_width = cx - x - padx
-    core.push_clip_rect(x, y, cx - x, h)
-    x, w = x + padx, w - padx * 2
-    local align = "center"
-    if style.font:get_width(text) > text_avail_width then
-      align = "left"
-      for i = 1, #text do
-        local reduced_text = text:sub(1, #text - i)
-        if style.font:get_width(reduced_text) + dots_width <= text_avail_width then
-          text = reduced_text .. "…"
-          break
-        end
-      end
-    end
-    common.draw_text(style.font, color, text, align, x, y, w, h)
-    core.pop_clip_rect()
+    self:draw_tab(view:get_name(), view == self.active_view,
+                  i == self.hovered_tab, i == self.hovered_close,
+                  x, y, w, h)
   end
 
   core.pop_clip_rect()
@@ -696,6 +715,62 @@ function Node:resize(axis, value)
 end
 
 
+function Node:get_split_type(mouse_x, mouse_y)
+  local x, y = self.position.x, self.position.y
+  local w, h = self.size.x, self.size.y
+  local _, _, _, tab_h = self:get_scroll_button_rect(1)
+  y = y + tab_h
+  h = h - tab_h
+
+  local local_mouse_x = mouse_x - x
+  local local_mouse_y = mouse_y - y
+  
+  if local_mouse_y < 0 then
+    return "tab"
+  else
+    local left_pct = local_mouse_x * 100 / w
+    local top_pct = local_mouse_y * 100 / h
+    if left_pct <= 30 then
+      return "left"
+    elseif left_pct >= 70 then
+      return "right"
+    elseif top_pct <= 30 then
+      return "up"
+    elseif top_pct >= 70 then
+      return "down"
+    end
+    return "middle"
+  end
+end
+
+
+function Node:get_drag_overlay_tab_position(x, y, dragged_node, dragged_index)
+  local tab_index = self:get_tab_overlapping_point(x, y)
+  if not tab_index then
+    local first_tab_x = self:get_tab_rect(1)
+    if x < first_tab_x then
+      -- mouse before first visible tab
+      tab_index = self.tab_offset or 1
+    else
+      -- mouse after last visible tab
+      tab_index = self:get_visible_tabs_number() + (self.tab_offset - 1 or 0)
+    end
+  end
+  local tab_x, tab_y, tab_w, tab_h = self:get_tab_rect(tab_index)
+  if x > tab_x + tab_w / 2 and tab_index <= #self.views then
+    -- use next tab
+    tab_x = tab_x + tab_w
+    tab_index = tab_index + 1
+  end
+  if self == dragged_node and dragged_index and tab_index > dragged_index then
+    -- the tab we are moving is counted in tab_index
+    tab_index = tab_index - 1
+    tab_x = tab_x - tab_w
+  end
+  return tab_index, tab_x, tab_y, tab_w, tab_h
+end
+
+
 local RootView = View:extend()
 
 function RootView:new()
@@ -703,6 +778,14 @@ function RootView:new()
   self.root_node = Node()
   self.deferred_draws = {}
   self.mouse = { x = 0, y = 0 }
+  self.drag_overlay = { x = 0, y = 0, w = 0, h = 0, visible = false, opacity = 0,
+                        base_color = style.drag_overlay,
+                        color = { table.unpack(style.drag_overlay) } }
+  self.drag_overlay.to = { x = 0, y = 0, w = 0, h = 0 }
+  self.drag_overlay_tab = { x = 0, y = 0, w = 0, h = 0, visible = false, opacity = 0,
+                            base_color = style.drag_overlay_tab,
+                            color = { table.unpack(style.drag_overlay_tab) } }
+  self.drag_overlay_tab.to = { x = 0, y = 0, w = 0, h = 0 }
 end
 
 
@@ -774,38 +857,101 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if div then
     self.dragged_divider = div
-    return
+    return true
   end
   local node = self.root_node:get_child_overlapping_point(x, y)
   if node.hovered_scroll_button > 0 then
     node:scroll_tabs(node.hovered_scroll_button)
-    return
+    return true
   end
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
+      return true
     else
-      self.dragged_node = { node, idx }
+      if button == "left" then
+        self.dragged_node = { node = node, idx = idx, dragging = false, drag_start_x = x, drag_start_y = y}
+      end
       node:set_active_view(node.views[idx])
+      return true
     end
-  else
+  elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
     core.set_active_view(node.active_view)
     if not self.on_view_mouse_pressed(button, x, y, clicks) then
-      node.active_view:on_mouse_pressed(button, x, y, clicks)
+      return node.active_view:on_mouse_pressed(button, x, y, clicks)
     end
   end
 end
 
 
-function RootView:on_mouse_released(...)
+function RootView:get_overlay_base_color(overlay)
+  if overlay == self.drag_overlay then
+    return style.drag_overlay
+  else
+    return style.drag_overlay_tab
+  end
+end
+
+
+function RootView:set_show_overlay(overlay, status)
+  overlay.visible = status
+  if status then -- reset colors
+    -- reload base_color
+    overlay.base_color = self:get_overlay_base_color(overlay)
+    overlay.color[1] = overlay.base_color[1]
+    overlay.color[2] = overlay.base_color[2]
+    overlay.color[3] = overlay.base_color[3]
+    overlay.color[4] = overlay.base_color[4]
+    overlay.opacity = 0
+  end
+end
+
+
+function RootView:on_mouse_released(button, x, y, ...)
   if self.dragged_divider then
     self.dragged_divider = nil
   end
   if self.dragged_node then
-    self.dragged_node = nil
+    if button == "left" then
+      if self.dragged_node.dragging then
+        local node = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
+        local dragged_node = self.dragged_node.node
+
+        if node and not node.locked
+           -- don't do anything if dragging onto own node, with only one view
+           and (node ~= dragged_node or #node.views > 1) then
+          local split_type = node:get_split_type(self.mouse.x, self.mouse.y)
+          local view = dragged_node.views[self.dragged_node.idx]
+
+          if split_type ~= "middle" and split_type ~= "tab" then -- needs splitting
+            local new_node = node:split(split_type)
+            self.root_node:get_node_for_view(view):remove_view(self.root_node, view)
+            new_node:add_view(view)
+          elseif split_type == "middle" and node ~= dragged_node then -- move to other node
+            dragged_node:remove_view(self.root_node, view)
+            node:add_view(view)
+            self.root_node:get_node_for_view(view):set_active_view(view)
+          elseif split_type == "tab" then -- move besides other tabs
+            local tab_index = node:get_drag_overlay_tab_position(self.mouse.x, self.mouse.y, dragged_node, self.dragged_node.idx)
+            dragged_node:remove_view(self.root_node, view)
+            node:add_view(view, tab_index)
+            self.root_node:get_node_for_view(view):set_active_view(view)
+          end
+          self.root_node:update_layout()
+          core.redraw = true
+        end
+      end
+      self:set_show_overlay(self.drag_overlay, false)
+      self:set_show_overlay(self.drag_overlay_tab, false)
+      if self.dragged_node and self.dragged_node.dragging then
+        core.request_cursor("arrow")
+      end
+      self.dragged_node = nil
+    end
+  else -- avoid sending on_mouse_released events when dragging tabs
+    self.root_node:on_mouse_released(button, x, y, ...)
   end
-  self.root_node:on_mouse_released(...)
 end
 
 
@@ -841,37 +987,33 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   end
 
   self.mouse.x, self.mouse.y = x, y
+
+  local dn = self.dragged_node
+  if dn and not dn.dragging then
+    -- start dragging only after enough movement
+    dn.dragging = common.distance(x, y, dn.drag_start_x, dn.drag_start_y) > style.tab_width * .05
+    if dn.dragging then
+      core.request_cursor("hand")
+    end
+  end
+
+  -- avoid sending on_mouse_moved events when dragging tabs
+  if dn then return end
+
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
-  local node = self.root_node:get_child_overlapping_point(x, y)
+  self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
+  
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  local tab_index = node and node:get_tab_overlapping_point(x, y)
-  if node and node:get_scroll_button_index(x, y) then
+  local tab_index = self.overlapping_node and self.overlapping_node:get_tab_overlapping_point(x, y)
+  if self.overlapping_node and self.overlapping_node:get_scroll_button_index(x, y) then
     core.request_cursor("arrow")
   elseif div then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
   elseif tab_index then
     core.request_cursor("arrow")
-  elseif node then
-    core.request_cursor(node.active_view.cursor)
-  end
-  if node and self.dragged_node and (self.dragged_node[1] ~= node or (tab_index and self.dragged_node[2] ~= tab_index))
-    and node.type == "leaf" and #node.views > 0 and node.views[1]:is(DocView) then
-      local tab = self.dragged_node[1].views[self.dragged_node[2]]
-      if self.dragged_node[1] ~= node then
-        for i, v in ipairs(node.views) do if v.doc == tab.doc then tab = nil break end end
-        if tab then
-          self.dragged_node[1]:remove_view(self.root_node, tab)
-          node:add_view(tab, tab_index)
-          self.root_node:update_layout()
-          self.dragged_node = { node, tab_index or #node.views }
-          core.redraw = true
-        end
-      else
-        table.remove(self.dragged_node[1].views, self.dragged_node[2])
-        table.insert(node.views, tab_index, tab)
-        self.dragged_node = { node, tab_index }
-      end
+  elseif self.overlapping_node then
+    core.request_cursor(self.overlapping_node.active_view.cursor)
   end
 end
 
@@ -879,7 +1021,7 @@ end
 function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
-  node.active_view:on_mouse_wheel(...)
+  return node.active_view:on_mouse_wheel(...)
 end
 
 
@@ -893,10 +1035,110 @@ function RootView:on_focus_lost(...)
   core.redraw = true
 end
 
+
+function RootView:interpolate_drag_overlay(overlay)
+  self:move_towards(overlay, "x", overlay.to.x)
+  self:move_towards(overlay, "y", overlay.to.y)
+  self:move_towards(overlay, "w", overlay.to.w)
+  self:move_towards(overlay, "h", overlay.to.h)
+
+  self:move_towards(overlay, "opacity", overlay.visible and 100 or 0)
+  overlay.color[4] = overlay.base_color[4] * overlay.opacity / 100
+end
+
+
 function RootView:update()
   copy_position_and_size(self.root_node, self)
   self.root_node:update()
   self.root_node:update_layout()
+
+  self:update_drag_overlay()
+  self:interpolate_drag_overlay(self.drag_overlay)
+  self:interpolate_drag_overlay(self.drag_overlay_tab)
+end
+
+
+function RootView:set_drag_overlay(overlay, x, y, w, h, immediate)
+  overlay.to.x = x
+  overlay.to.y = y
+  overlay.to.w = w
+  overlay.to.h = h
+  if immediate then
+    overlay.x = x
+    overlay.y = y
+    overlay.w = w
+    overlay.h = h
+  end
+  if not overlay.visible then
+    self:set_show_overlay(overlay, true)
+  end
+end
+
+
+local function get_split_sizes(split_type, x, y, w, h)
+  if split_type == "left" then
+    w = w * .5
+  elseif split_type == "right" then
+    x = x + w * .5
+    w = w * .5
+  elseif split_type == "up" then
+    h = h * .5
+  elseif split_type == "down" then
+    y = y + h * .5
+    h = h * .5
+  end
+  return x, y, w, h
+end
+
+
+function RootView:update_drag_overlay()
+  if not (self.dragged_node and self.dragged_node.dragging) then return end
+  local over = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
+  if over and not over.locked then
+    local _, _, _, tab_h = over:get_scroll_button_rect(1)
+    local x, y = over.position.x, over.position.y
+    local w, h = over.size.x, over.size.y
+    local split_type = over:get_split_type(self.mouse.x, self.mouse.y)
+
+    if split_type == "tab" and (over ~= self.dragged_node.node or #over.views > 1) then
+      local tab_index, tab_x, tab_y, tab_w, tab_h = over:get_drag_overlay_tab_position(self.mouse.x, self.mouse.y)
+      self:set_drag_overlay(self.drag_overlay_tab,
+                           tab_x + (tab_index and 0 or tab_w), tab_y,
+                           style.caret_width, tab_h,
+                           -- avoid showing tab overlay moving between nodes
+                           over ~= self.drag_overlay_tab.last_over)
+      self:set_show_overlay(self.drag_overlay, false)
+      self.drag_overlay_tab.last_over = over
+    else
+      if (over ~= self.dragged_node.node or #over.views > 1) then
+        y = y + tab_h
+        h = h - tab_h
+        x, y, w, h = get_split_sizes(split_type, x, y, w, h)
+      end
+      self:set_drag_overlay(self.drag_overlay, x, y, w, h)
+      self:set_show_overlay(self.drag_overlay_tab, false)
+    end
+  else
+    self:set_show_overlay(self.drag_overlay, false)
+    self:set_show_overlay(self.drag_overlay_tab, false)
+  end
+end
+
+
+function RootView:draw_grabbed_tab()
+  local dn = self.dragged_node
+  local _,_, w, h = dn.node:get_tab_rect(dn.idx)
+  local x = self.mouse.x - w / 2
+  local y = self.mouse.y - h / 2
+  local text = dn.node.views[dn.idx] and dn.node.views[dn.idx]:get_name() or ""
+  self.root_node:draw_tab(text, true, true, false, x, y, w, h, true)
+end
+
+
+function RootView:draw_drag_overlay(ov)
+  if ov.opacity > 0 then
+    renderer.draw_rect(ov.x, ov.y, ov.w, ov.h, ov.color)
+  end
 end
 
 
@@ -905,6 +1147,12 @@ function RootView:draw()
   while #self.deferred_draws > 0 do
     local t = table.remove(self.deferred_draws)
     t.fn(table.unpack(t))
+  end
+
+  self:draw_drag_overlay(self.drag_overlay)
+  self:draw_drag_overlay(self.drag_overlay_tab)
+  if self.dragged_node and self.dragged_node.dragging then
+    self:draw_grabbed_tab()
   end
   if core.cursor_change_req then
     system.set_cursor(core.cursor_change_req)

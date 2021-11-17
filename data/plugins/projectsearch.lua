@@ -92,7 +92,7 @@ end
 function ResultsView:on_mouse_pressed(...)
   local caught = ResultsView.super.on_mouse_pressed(self, ...)
   if not caught then
-    self:open_selected_result()
+    return self:open_selected_result()
   end
 end
 
@@ -108,6 +108,7 @@ function ResultsView:open_selected_result()
     dv.doc:set_selection(res.line, res.col)
     dv:scroll_to_line(res.line, false, true)
   end)
+  return true
 end
 
 
@@ -171,7 +172,7 @@ function ResultsView:draw()
   local ox, oy = self:get_content_offset()
   local x, y = ox + style.padding.x, oy + style.padding.y
   local files_number = core.project_files_number()
-  local per = files_number and self.last_file_idx / files_number or 1
+  local per = common.clamp(files_number and self.last_file_idx / files_number or 1, 0, 1)
   local text
   if self.searching then
     if files_number then

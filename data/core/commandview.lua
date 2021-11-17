@@ -34,6 +34,7 @@ function CommandView:new()
   self.suggestion_idx = 1
   self.suggestions = {}
   self.suggestions_height = 0
+  self.show_suggestions = true
   self.last_change_id = 0
   self.gutter_width = 0
   self.gutter_text_brightness = 0
@@ -42,6 +43,11 @@ function CommandView:new()
   self.font = "font"
   self.size.y = 0
   self.label = ""
+end
+
+
+function CommandView:set_hidden_suggestions()
+  self.show_suggestions = false
 end
 
 
@@ -83,10 +89,29 @@ end
 
 
 function CommandView:move_suggestion_idx(dir)
-  local n = self.suggestion_idx + dir
-  self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
-  self:complete()
-  self.last_change_id = self.doc:get_change_id()
+  if self.show_suggestions then
+    local n = self.suggestion_idx + dir
+    self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
+    self:complete()
+    self.last_change_id = self.doc:get_change_id()
+  else
+    local current_suggestion = #self.suggestions > 0 and self.suggestions[self.suggestion_idx].text
+    local text = self:get_text()
+    if text == current_suggestion then
+      local n = self.suggestion_idx + dir
+      if n == 0 and self.save_suggestion then
+        self:set_text(self.save_suggestion)
+      else
+        self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
+        self:complete()
+      end
+    else
+      self.save_suggestion = text
+      self:complete()
+    end
+    self.last_change_id = self.doc:get_change_id()
+    self.state.suggest(self:get_text())
+  end
 end
 
 
@@ -134,6 +159,8 @@ function CommandView:exit(submitted, inexplicit)
   self.doc:reset()
   self.suggestions = {}
   if not submitted then cancel(not inexplicit) end
+  self.show_suggestions = true
+  self.save_suggestion = nil
 end
 
 
@@ -187,7 +214,7 @@ function CommandView:update()
 
   -- update suggestions box height
   local lh = self:get_suggestion_line_height()
-  local dest = math.min(#self.suggestions, max_suggestions) * lh
+  local dest = self.show_suggestions and math.min(#self.suggestions, max_suggestions) * lh or 0
   self:move_towards("suggestions_height", dest)
 
   -- update suggestion cursor offset
@@ -256,7 +283,9 @@ end
 
 function CommandView:draw()
   CommandView.super.draw(self)
-  core.root_view:defer_draw(draw_suggestions_box, self)
+  if self.show_suggestions then
+    core.root_view:defer_draw(draw_suggestions_box, self)
+  end
 end
 
 

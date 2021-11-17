@@ -3,13 +3,13 @@ build*/
 lhelper/
 submodules/
 subprojects/lua/
-subprojects/libagg/
 subprojects/reproc/
 /appimage*
 .ccls-cache
 .lite-debug.log
 .run*
 *.diff
+*.exe
 *.tar.gz
 *.zip
 *.DS_Store
@@ -17,3 +17,4 @@ subprojects/reproc/
 compile_commands.json
 error.txt
 lite-xl*
+LiteXL*

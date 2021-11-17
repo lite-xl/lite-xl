@@ -5,6 +5,7 @@ config.fps = 60
 config.max_log_items = 80
 config.message_timeout = 5
 config.mouse_wheel_scroll = 50 * SCALE
+config.scroll_past_end = true
 config.file_size_limit = 10
 config.ignore_files = "^%."
 config.symbol_pattern = "[%a_][%w_]*"
@@ -23,9 +24,11 @@ config.max_project_files = 2000
 config.transitions = true
 config.animation_rate = 1.0
 config.blink_period = 0.8
+config.disable_blink = false
 config.draw_whitespace = false
 config.borderless = false
 config.tab_close_button = true
+config.max_clicks = 3
 
 -- Disable plugin loading setting to false the config entry
 -- of the same name.
@@ -33,5 +36,6 @@ config.plugins = {}
 
 config.plugins.trimwhitespace = false
 config.plugins.lineguide = false
+config.plugins.drawwhitespace = false
 
 return config

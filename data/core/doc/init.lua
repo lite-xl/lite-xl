@@ -102,7 +102,11 @@ end
 
 
 function Doc:is_dirty()
-  return self.clean_change_id ~= self:get_change_id() or self.new_file
+  if self.new_file then
+    return #self.lines > 1 or #self.lines[1] > 1
+  else
+    return self.clean_change_id ~= self:get_change_id()
+  end
 end
 
 
@@ -322,6 +326,7 @@ end
 function Doc:raw_insert(line, col, text, undo_stack, time)
   -- split text into lines and merge with line at insertion point
   local lines = split_lines(text)
+  local len = #lines[#lines]
   local before = self.lines[line]:sub(1, col - 1)
   local after = self.lines[line]:sub(col)
   for i = 1, #lines - 1 do
@@ -332,6 +337,14 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   -- splice lines into line array
   common.splice(self.lines, line, 1, lines)
+  
+  -- keep cursors where they should be
+  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+    if cline1 < line then break end
+    local line_addition = (line < cline1 or col < ccol1) and #lines - 1 or 0
+    local column_addition = line == cline1 and ccol1 > col and len or 0
+    self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition, ccol2 + column_addition)
+  end
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
@@ -339,7 +352,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:invalidate(line)
+  self.highlighter:insert_notify(line, #lines - 1)
   self:sanitize_selection()
 end
 
@@ -356,9 +369,17 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
 
   -- splice line into line array
   common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
+  
+  -- move all cursors back if they share a line with the removed text
+  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+    if cline1 < line2 then break end
+    local line_removal = line2 - line1
+    local column_removal = line2 == cline2 and col2 < ccol1 and (line2 == line1 and col2 - col1 or col2) or 0
+    self:set_selections(idx, cline1 - line_removal, ccol1 - column_removal, cline2 - line_removal, ccol2 - column_removal)
+  end
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:invalidate(line1)
+  self.highlighter:remove_notify(line1, line2 - line1)
   self:sanitize_selection()
 end
 
@@ -392,7 +413,7 @@ end
 
 
 function Doc:text_input(text, idx)
-  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx or true) do
     if line1 ~= line2 or col1 ~= col2 then
       self:delete_to_cursor(sidx)
     end
@@ -401,12 +422,7 @@ function Doc:text_input(text, idx)
   end
 end
 
-
-function Doc:replace(fn)
-  local line1, col1, line2, col2 = self:get_selection(true)
-  if line1 == line2 and col1 == col2 then
-    line1, col1, line2, col2 = 1, 1, #self.lines, #self.lines[#self.lines]
-  end
+function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
   local old_text = self:get_text(line1, col1, line2, col2)
   local new_text, n = fn(old_text)
   if old_text ~= new_text then
@@ -414,8 +430,23 @@ function Doc:replace(fn)
     self:remove(line1, col1, line2, col2)
     if line1 == line2 and col1 == col2 then
       line2, col2 = self:position_offset(line1, col1, #new_text)
-      self:set_selection(line1, col1, line2, col2)
+      self:set_selections(idx, line1, col1, line2, col2)
     end
+  end
+  return n
+end
+
+function Doc:replace(fn)
+  local has_selection, n = false, 0
+  for idx, line1, col1, line2, col2 in self:get_selections(true) do
+    if line1 ~= line2 or col1 ~= col2 then 
+      n = n + self:replace_cursor(idx, line1, col1, line2, col2, fn)
+      has_selection = true
+    end
+  end
+  if not has_selection then
+    self:set_selection(table.unpack(self.selections))
+    n = n + self:replace_cursor(1, 1, 1, #self.lines, #self.lines[#self.lines], fn)
   end
   return n
 end

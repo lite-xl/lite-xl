@@ -243,7 +243,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     end
   else
     core.try(function()
-      local doc_filename = common.relative_path(core.project_dir, hovered_item.abs_filename)
+      local doc_filename = core.normalize_to_project_dir(hovered_item.abs_filename)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
@@ -437,15 +437,31 @@ menu:register(
 command.add(nil, {
   ["treeview:toggle"] = function()
     view.visible = not view.visible
-  end,
+  end})
 
+
+command.add(function() return view.hovered_item ~= nil end, {
   ["treeview:rename"] = function()
     local old_filename = view.hovered_item.filename
+    local old_abs_filename = view.hovered_item.abs_filename
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", function(filename)
-      os.rename(old_filename, filename)
+      filename = core.normalize_to_project_dir(filename)
+      local abs_filename = core.project_absolute_path(filename)
+      local res, err = os.rename(old_abs_filename, abs_filename)
+      if res then -- successfully renamed
+        for _, doc in ipairs(core.docs) do
+          if doc.abs_filename and old_abs_filename == doc.abs_filename then
+            doc:set_filename(filename, abs_filename) -- make doc point to the new filename
+            doc:reset_syntax()
+            break -- only first needed
+          end
+        end
+        core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+      else
+        core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
+      end
       core.reschedule_project_scan()
-      core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
     end, common.path_suggest)
   end,
 
@@ -521,7 +537,7 @@ command.add(nil, {
     local hovered_item = view.hovered_item
 
     if PLATFORM == "Windows" then
-      system.exec("start " .. hovered_item.abs_filename)
+      system.exec(string.format("start \"\" %q", hovered_item.abs_filename))
     elseif string.find(PLATFORM, "Mac") then
       system.exec(string.format("open %q", hovered_item.abs_filename))
     elseif PLATFORM == "Linux" then
