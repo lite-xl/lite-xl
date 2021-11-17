@@ -37,7 +37,7 @@ local function update_preview(sel, search_fn, text)
     last_view:scroll_to_line(line2, true)
     found_expression = true
   else
-    last_view.doc:set_selection(unpack(sel))
+    last_view.doc:set_selection(table.unpack(sel))
     found_expression = false
   end
 end
@@ -55,7 +55,7 @@ end
 local function find(label, search_fn)
   last_view, last_sel, last_finds = core.active_view,
     { core.active_view.doc:get_selection() }, {}
-  local text = last_view.doc:get_text(unpack(last_sel))
+  local text = last_view.doc:get_text(table.unpack(last_sel))
   found_expression = false
 
   core.command_view:set_text(text, true)
@@ -69,8 +69,8 @@ local function find(label, search_fn)
       last_fn, last_text = search_fn, text
     else
       core.error("Couldn't find %q", text)
-      last_view.doc:set_selection(unpack(last_sel))
-      last_view:scroll_to_make_visible(unpack(last_sel))
+      last_view.doc:set_selection(table.unpack(last_sel))
+      last_view:scroll_to_make_visible(table.unpack(last_sel))
     end
   end, function(text)
     update_preview(last_sel, search_fn, text)
@@ -79,8 +79,8 @@ local function find(label, search_fn)
   end, function(explicit)
     core.status_view:remove_tooltip()
     if explicit then
-      last_view.doc:set_selection(unpack(last_sel))
-      last_view:scroll_to_make_visible(unpack(last_sel))
+      last_view.doc:set_selection(table.unpack(last_sel))
+      last_view:scroll_to_make_visible(table.unpack(last_sel))
     end
   end)
 end

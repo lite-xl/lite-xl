@@ -28,3 +28,6 @@ package.searchers = { package.searchers[1], package.searchers[2], function(modna
   if not path then return nil end
   return system.load_native_plugin, path
 end }
+
+table.pack = table.pack or pack or function(...) return {...} end
+table.unpack = table.unpack or unpack

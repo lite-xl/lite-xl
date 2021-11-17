@@ -155,7 +155,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         if count % 2 == 0 then break end
       end
     until not res[1] or not close or not target[3]
-    return unpack(res)
+    return table.unpack(res)
   end
   
   while i <= #text do

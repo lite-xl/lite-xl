@@ -202,9 +202,9 @@ local function selection_iterator(invariant, idx)
   local target = invariant[3] and (idx*4 - 7) or (idx*4 + 1)
   if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
   if invariant[2] then
-    return idx+(invariant[3] and -1 or 1), sort_positions(unpack(invariant[1], target, target+4))
+    return idx+(invariant[3] and -1 or 1), sort_positions(table.unpack(invariant[1], target, target+4))
   else
-    return idx+(invariant[3] and -1 or 1), unpack(invariant[1], target, target+4)
+    return idx+(invariant[3] and -1 or 1), table.unpack(invariant[1], target, target+4)
   end
 end
 
@@ -305,7 +305,7 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
     local line1, col1, line2, col2 = table.unpack(cmd)
     self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
   elseif cmd.type == "selection" then
-    self.selections = { unpack(cmd) }
+    self.selections = { table.unpack(cmd) }
   end
 
   modified = modified or (cmd.type ~= "selection")
@@ -348,7 +348,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
-  push_undo(undo_stack, time, "selection", unpack(self.selections))
+  push_undo(undo_stack, time, "selection", table.unpack(self.selections))
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
@@ -360,7 +360,7 @@ end
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- push undo
   local text = self:get_text(line1, col1, line2, col2)
-  push_undo(undo_stack, time, "selection", unpack(self.selections))
+  push_undo(undo_stack, time, "selection", table.unpack(self.selections))
   push_undo(undo_stack, time, "insert", line1, col1, text)
 
   -- get line content before/after removed text
