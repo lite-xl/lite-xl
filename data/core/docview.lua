@@ -9,6 +9,7 @@ local View = require "core.view"
 
 local DocView = View:extend()
 
+DocView.context = "session"
 
 local function move_to_line_offset(dv, line, col, offset)
   local xo = dv.last_x_offset
@@ -97,6 +98,9 @@ end
 
 
 function DocView:get_scrollable_size()
+  if not config.scroll_past_end then
+    return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2
+  end
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
 
@@ -149,14 +153,14 @@ function DocView:get_col_x_offset(line, col)
     local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
       if column == col then
-        return xoffset / font:subpixel_scale()
+        return xoffset
       end
-      xoffset = xoffset + font:get_width_subpixel(char)
+      xoffset = xoffset + font:get_width(char)
       column = column + #char
     end
   end
 
-  return xoffset / default_font:subpixel_scale()
+  return xoffset
 end
 
 
@@ -165,14 +169,12 @@ function DocView:get_x_offset_col(line, x)
 
   local xoffset, last_i, i = 0, 1, 1
   local default_font = self:get_font()
-  local subpixel_scale = default_font:subpixel_scale()
-  local x_subpixel = subpixel_scale * x + subpixel_scale / 2
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
-      local w = font:get_width_subpixel(char)
-      if xoffset >= subpixel_scale * x then
-        return (xoffset - x_subpixel > w / 2) and last_i or i
+      local w = font:get_width(char)
+      if xoffset >= x then
+        return (xoffset - x > w / 2) and last_i or i
       end
       xoffset = xoffset + w
       last_i = i
@@ -222,52 +224,6 @@ function DocView:scroll_to_make_visible(line, col)
   end
 end
 
-
-local function mouse_selection(doc, clicks, line1, col1, line2, col2)
-  local swap = line2 < line1 or line2 == line1 and col2 <= col1
-  if swap then
-    line1, col1, line2, col2 = line2, col2, line1, col1
-  end
-  if clicks % 4 == 2 then
-    line1, col1 = translate.start_of_word(doc, line1, col1)
-    line2, col2 = translate.end_of_word(doc, line2, col2)
-  elseif clicks % 4 == 3 then
-    if line2 == #doc.lines and doc.lines[#doc.lines] ~= "\n" then
-      doc:insert(math.huge, math.huge, "\n")
-    end
-    line1, col1, line2, col2 = line1, 1, line2 + 1, 1
-  end
-  if swap then
-    return line2, col2, line1, col1
-  end
-  return line1, col1, line2, col2
-end
-
-
-function DocView:on_mouse_pressed(button, x, y, clicks)
-  local caught = DocView.super.on_mouse_pressed(self, button, x, y, clicks)
-  if caught then
-    return
-  end
-  if keymap.modkeys["shift"] then
-    if clicks % 2 == 1 then
-      local line1, col1 = select(3, self.doc:get_selection())
-      local line2, col2 = self:resolve_screen_position(x, y)
-      self.doc:set_selection(line2, col2, line1, col1)
-    end
-  else
-    local line, col = self:resolve_screen_position(x, y)
-    if keymap.modkeys["ctrl"] then
-      self.doc:add_selection(mouse_selection(self.doc, clicks, line, col, line, col))
-    else
-      self.doc:set_selection(mouse_selection(self.doc, clicks, line, col, line, col))
-    end
-    self.mouse_selecting = { line, col, clicks = clicks }
-  end
-  core.blink_reset()
-end
-
-
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
@@ -280,7 +236,6 @@ function DocView:on_mouse_moved(x, y, ...)
   if self.mouse_selecting then
     local l1, c1 = self:resolve_screen_position(x, y)
     local l2, c2 = table.unpack(self.mouse_selecting)
-    local clicks = self.mouse_selecting.clicks
     if keymap.modkeys["ctrl"] then
       if l1 > l2 then l1, l2 = l2, l1 end
       self.doc.selections = { }
@@ -288,7 +243,7 @@ function DocView:on_mouse_moved(x, y, ...)
         self.doc:set_selections(i - l1 + 1, i, math.min(c1, #self.doc.lines[i]), i, math.min(c2, #self.doc.lines[i]))
       end
     else
-      self.doc:set_selection(mouse_selection(self.doc, clicks, l1, c1, l2, c2))
+      self.doc:set_selection(l1, c1, l2, c2)
     end
   end
 end
@@ -338,16 +293,11 @@ end
 
 function DocView:draw_line_text(idx, x, y)
   local default_font = self:get_font()
-  local subpixel_scale = default_font:subpixel_scale()
-  local tx, ty = subpixel_scale * x, y + self:get_line_text_y_offset()
+  local tx, ty = x, y + self:get_line_text_y_offset()
   for _, type, text in self.doc.highlighter:each_token(idx) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
-    if config.draw_whitespace then
-      tx = renderer.draw_text_subpixel(font, text, tx, ty, color, core.replacements, style.syntax.comment)
-    else
-      tx = renderer.draw_text_subpixel(font, text, tx, ty, color)
-    end
+    tx = renderer.draw_text(font, text, tx, ty, color)
   end
 end
 
@@ -357,6 +307,18 @@ function DocView:draw_caret(x, y)
 end
 
 function DocView:draw_line_body(idx, x, y)
+  -- draw highlight if any selection ends on this line
+  local draw_highlight = false
+  for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
+    if line1 == idx then
+      draw_highlight = true
+      break
+    end
+  end
+  if draw_highlight and config.highlight_current_line and core.active_view == self then
+    self:draw_line_highlight(x + self.scroll.x, y)
+  end
+
   -- draw selection if it overlaps this line
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     if idx >= line1 and idx <= line2 then
@@ -366,14 +328,9 @@ function DocView:draw_line_body(idx, x, y)
       local x1 = x + self:get_col_x_offset(idx, col1)
       local x2 = x + self:get_col_x_offset(idx, col2)
       local lh = self:get_line_height()
-      renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
-    end
-  end
-  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
-    -- draw line highlight if caret is on this line
-    if config.highlight_current_line and (line1 == line2 and col1 == col2)
-    and line1 == idx and core.active_view == self then
-      self:draw_line_highlight(x + self.scroll.x, y)
+      if x1 ~= x2 then
+        renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+      end
     end
   end
 
@@ -403,10 +360,12 @@ function DocView:draw_overlay()
     local T = config.blink_period
     for _, line, col in self.doc:get_selections() do
       if line >= minline and line <= maxline
-      and (core.blink_timer - core.blink_start) % T < T / 2
       and system.window_has_focus() then
-        local x, y = self:get_line_screen_position(line)
-        self:draw_caret(x + self:get_col_x_offset(line, col), y)
+        if config.disable_blink
+        or (core.blink_timer - core.blink_start) % T < T / 2 then
+          local x, y = self:get_line_screen_position(line)
+          self:draw_caret(x + self:get_col_x_offset(line, col), y)
+        end
       end
     end
   end

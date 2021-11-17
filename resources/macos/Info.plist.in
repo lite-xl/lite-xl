@@ -2,25 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-<key>CFBundleExecutable</key>
+	<key>CFBundleExecutable</key>
 	<string>lite-xl</string>
 	<key>CFBundleGetInfoString</key>
 	<string>lite-xl</string>
 	<key>CFBundleIconFile</key>
-	<string>icon</string>
+	<string>icon.icns</string>
 	<key>CFBundleName</key>
-	<string>lite-xl</string>
+	<string>Lite XL</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
-	<key>MinimumOSVersion</key><string>10.13</string>
-	<key>NSDocumentsFolderUsageDescription</key><string>To access, edit and index your projects.</string>
-	<key>NSDesktopFolderUsageDescription</key><string>To access, edit and index your projects.</string>
-	<key>NSDownloadsFolderUsageDescription</key><string>To access, edit and index your projects.</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.11</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>To access, edit and index your projects.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>To access, edit and index your projects.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>To access, edit and index your projects.</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.16.10</string>
+	<string>@PROJECT_VERSION@</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2019-2021 Francesco Abbate</string>
 </dict>
 </plist> 
+

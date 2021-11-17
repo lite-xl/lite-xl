@@ -41,6 +41,11 @@ function common.lerp(a, b, t)
 end
 
 
+function common.distance(x1, y1, x2, y2)
+    return math.sqrt(math.pow(x2-x1, 2)+math.pow(y2-y1, 2))
+end
+
+
 function common.color(str)
   local r, g, b, a = str:match("#(%x%x)(%x%x)(%x%x)")
   if r then
@@ -230,6 +235,12 @@ function common.basename(path)
 end
 
 
+-- can return nil if there is no directory part in the path
+function common.dirname(path)
+  return path:match("(.+)[\\/][^\\/]+$")
+end
+
+
 function common.home_encode(text)
   if HOME and string.find(text, HOME, 1, true) == 1 then
     local dir_pos = #HOME + 1
@@ -257,16 +268,6 @@ function common.home_expand(text)
 end
 
 
-function common.normalize_path(filename)
-  if PATHSEP == '\\' then
-    filename = filename:gsub('[/\\]', '\\')
-    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
-    return drive and drive:upper() .. rem or filename
-  end
-  return filename
-end
-
-
 local function split_on_slash(s, sep_pattern)
   local t = {}
   if s:match("^[/\\]") then
@@ -279,8 +280,29 @@ local function split_on_slash(s, sep_pattern)
 end
 
 
+function common.normalize_path(filename)
+  if not filename then return end
+  if PATHSEP == '\\' then
+    filename = filename:gsub('[/\\]', '\\')
+    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
+    filename = drive and drive:upper() .. rem or filename
+  end
+  local parts = split_on_slash(filename, PATHSEP)
+  local accu = {}
+  for _, part in ipairs(parts) do
+    if part == '..' and #accu > 0 and accu[#accu] ~= ".." then
+      table.remove(accu)
+    elseif part ~= '.' then
+      table.insert(accu, part)
+    end
+  end
+  local npath = table.concat(accu, PATHSEP)
+  return npath == "" and PATHSEP or npath
+end
+
+
 function common.path_belongs_to(filename, path)
-  return filename and string.find(filename, path .. PATHSEP, 1, true) == 1
+  return string.find(filename, path .. PATHSEP, 1, true) == 1
 end
 
 

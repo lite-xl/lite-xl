@@ -7,6 +7,10 @@ local Object = require "core.object"
 
 local View = Object:extend()
 
+-- context can be "application" or "session". The instance of objects
+-- with context "session" will be closed when a project session is
+-- terminated. The context "application" is for functional UI elements.
+View.context = "application"
 
 function View:new()
   self.position = { x = 0, y = 0 }
@@ -98,13 +102,9 @@ function View:on_text_input(text)
   -- no-op
 end
 
-
 function View:on_mouse_wheel(y)
-  if self.scrollable then
-    self.scroll.to.y = self.scroll.to.y + y * -config.mouse_wheel_scroll
-  end
-end
 
+end
 
 function View:get_content_bounds()
   local x = self.scroll.x

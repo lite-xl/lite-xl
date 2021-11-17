@@ -3,6 +3,7 @@ local style = require "core.style"
 local DocView = require "core.docview"
 local command = require "core.command"
 local common = require "core.common"
+local config = require "core.config"
 
 
 local t = {
@@ -21,9 +22,15 @@ local t = {
   end,
 
   ["root:close-all"] = function()
-    core.confirm_close_all(core.root_view.close_all_docviews, core.root_view)
+    core.confirm_close_docs(core.docs, core.root_view.close_all_docviews, core.root_view)
   end,
 
+  ["root:close-all-others"] = function()
+    local active_doc, docs = core.active_view and core.active_view.doc, {}
+    for i, v in ipairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
+    core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
+  end,
+  
   ["root:switch-to-previous-tab"] = function()
     local node = core.root_view:get_active_node()
     local idx = node:get_view_idx(core.active_view)
@@ -57,7 +64,7 @@ local t = {
       table.insert(node.views, idx + 1, core.active_view)
     end
   end,
-
+  
   ["root:shrink"] = function()
     local node = core.root_view:get_active_node()
     local parent = node:get_parent_node(core.root_view.root_node)
@@ -70,7 +77,7 @@ local t = {
     local parent = node:get_parent_node(core.root_view.root_node)
     local n = (parent.a == node) and 0.1 or -0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
-  end,
+  end
 }
 
 
@@ -116,3 +123,14 @@ command.add(function()
   local node = core.root_view:get_active_node()
   return not node:get_locked_size()
 end, t)
+
+command.add(nil, {
+  ["root:scroll"] = function(delta)
+    local view = (core.root_view.overlapping_node and core.root_view.overlapping_node.active_view) or core.active_view
+    if view and view.scrollable then
+      view.scroll.to.y = view.scroll.to.y + delta * -config.mouse_wheel_scroll
+      return true
+    end
+    return false
+  end
+})

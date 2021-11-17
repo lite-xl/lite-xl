@@ -21,11 +21,11 @@ style.tab_width = common.round(170 * SCALE)
 --
 -- On High DPI monitor or non RGB monitor you may consider using antialiasing grayscale instead.
 -- The antialiasing grayscale with full hinting is interesting for crisp font rendering.
-style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 13 * SCALE)
-style.big_font = style.font:copy(40 * SCALE)
-style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 14 * SCALE, {antialiasing="grayscale", hinting="full"})
-style.icon_big_font = style.icon_font:copy(20 * SCALE)
-style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 13 * SCALE)
+style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 15 * SCALE)
+style.big_font = style.font:copy(46 * SCALE)
+style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 16 * SCALE, {antialiasing="grayscale", hinting="full"})
+style.icon_big_font = style.icon_font:copy(23 * SCALE)
+style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 15 * SCALE)
 
 style.background = { common.color "#2e2e32" }
 style.background2 = { common.color "#252529" }
@@ -44,6 +44,8 @@ style.scrollbar2 = { common.color "#4b4b52" }
 style.nagbar = { common.color "#FF0000" }
 style.nagbar_text = { common.color "#FFFFFF" }
 style.nagbar_dim = { common.color "rgba(0, 0, 0, 0.45)" }
+style.drag_overlay = { common.color "rgba(255,255,255,0.1)" }
+style.drag_overlay_tab = { common.color "#93DDFA" }
 
 style.syntax = {}
 style.syntax["normal"] = { common.color "#e1e1e6" }

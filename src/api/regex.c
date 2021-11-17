@@ -74,11 +74,11 @@ static int f_pcre_match(lua_State *L) {
   }
   PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(md);
   if (ovector[0] > ovector[1]) {
-    /* We must guard against patterns such as /(?=.\K)/ that use \K in an 
+    /* We must guard against patterns such as /(?=.\K)/ that use \K in an
     assertion  to set the start of a match later than its end. In the editor,
     we just detect this case and give up. */
     luaL_error(L, "regex matching error: \\K was used in an assertion to "
-    " set the match start after its end"); 
+    " set the match start after its end");
     pcre2_match_data_free(md);
     return 0;
   }
@@ -103,8 +103,8 @@ int luaopen_regex(lua_State *L) {
   lua_setfield(L, LUA_REGISTRYINDEX, "regex");
   lua_pushnumber(L, PCRE2_ANCHORED);
   lua_setfield(L, -2, "ANCHORED");
-  lua_pushnumber(L, PCRE2_ANCHORED) ; 
-  lua_setfield(L, -2, "ENDANCHORED");  
+  lua_pushnumber(L, PCRE2_ANCHORED) ;
+  lua_setfield(L, -2, "ENDANCHORED");
   lua_pushnumber(L, PCRE2_NOTBOL);
   lua_setfield(L, -2, "NOTBOL");
   lua_pushnumber(L, PCRE2_NOTEOL);

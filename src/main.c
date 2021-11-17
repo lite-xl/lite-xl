@@ -9,10 +9,6 @@
   #include <windows.h>
 #elif __linux__
   #include <unistd.h>
-  #include <SDL_syswm.h>
-  #include <X11/Xlib.h>
-  #include <X11/Xatom.h>
-  #include <X11/Xresource.h>
   #include <signal.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
@@ -22,35 +18,12 @@
 SDL_Window *window;
 
 static double get_scale(void) {
-#ifdef _WIN32
+#ifndef __APPLE__
   float dpi;
-  SDL_GetDisplayDPI(0, NULL, &dpi, NULL);
-  return dpi / 96.0;
-#elif __linux__
-  SDL_SysWMinfo info;
-  XrmDatabase db;
-  XrmValue value;
-  char *type = NULL;
-
-  SDL_VERSION(&info.version);
-  if (!SDL_GetWindowWMInfo(window, &info)
-      || info.subsystem != SDL_SYSWM_X11)
-    return 1.0;
-
-  char *resource = XResourceManagerString(info.info.x11.display);
-  if (resource == NULL)
-    return 1.0;
-
-  XrmInitialize();
-  db = XrmGetStringDatabase(resource);
-  if (XrmGetResource(db, "Xft.dpi", "String", &type, &value) == False
-      || value.addr == NULL)
-    return 1.0;
-
-  return atof(value.addr) / 96.0;
-#else
-  return 1.0;
+  if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0)
+    return dpi / 96.0;
 #endif
+  return 1.0;
 }
 
 
@@ -59,8 +32,7 @@ static void get_exe_filename(char *buf, int sz) {
   int len = GetModuleFileName(NULL, buf, sz - 1);
   buf[len] = '\0';
 #elif __linux__
-  char path[512];
-  sprintf(path, "/proc/%d/exe", getpid());
+  char path[] = "/proc/self/exe";
   int len = readlink(path, buf, sz - 1);
   buf[len] = '\0';
 #elif __APPLE__
@@ -78,7 +50,7 @@ static void get_exe_filename(char *buf, int sz) {
 
 
 static void init_window_icon(void) {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__APPLE__)
   #include "../resources/icons/icon.inl"
   (void) icon_rgba_len; /* unused */
   SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(
@@ -104,8 +76,10 @@ static void init_window_icon(void) {
 #endif
 
 #ifdef __APPLE__
-void set_macos_bundle_resources(lua_State *L);
 void enable_momentum_scroll();
+#ifdef MACOS_USE_BUNDLE
+void set_macos_bundle_resources(lua_State *L);
+#endif
 #endif
 
 int main(int argc, char **argv) {
@@ -164,8 +138,10 @@ init_lua:
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
-  set_macos_bundle_resources(L);
   enable_momentum_scroll();
+  #ifdef MACOS_USE_BUNDLE
+    set_macos_bundle_resources(L);
+  #endif
 #endif
 
   const char *init_lite_code = \
@@ -175,7 +151,7 @@ init_lua:
     "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
     "  local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
-    "  core = require('core')\n"
+    "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
     "  core.run()\n"
     "end, function(err)\n"
@@ -206,6 +182,7 @@ init_lua:
   lua_pcall(L, 0, 1, 0);
   if (lua_toboolean(L, -1)) {
     lua_close(L);
+    rencache_invalidate();
     goto init_lua;
   }
 

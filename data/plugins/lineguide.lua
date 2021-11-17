@@ -1,4 +1,4 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 local config = require "core.config"
 local style = require "core.style"
 local DocView = require "core.docview"
@@ -6,9 +6,7 @@ local DocView = require "core.docview"
 local draw_overlay = DocView.draw_overlay
 
 function DocView:draw_overlay(...)
-  local ns = self:get_font():get_width_subpixel("n") * config.line_limit
-  local ss = self:get_font():subpixel_scale()
-  local offset = ns / ss
+  local offset = self:get_font():get_width("n") * config.line_limit
   local x = self:get_line_screen_position(1) + offset
   local y = self.position.y
   local w = math.ceil(SCALE * 1)
