@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 #include "api.h"
 #include "rencache.h"
-#include "api_require.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
@@ -650,6 +649,58 @@ static int f_set_window_opacity(lua_State *L) {
   int r = SDL_SetWindowOpacity(window, n);
   lua_pushboolean(L, r > -1);
   return 1;
+}
+
+typedef struct lua_function_node {
+  const char *symbol;
+  void *address;
+} lua_function_node;
+
+#define P(FUNC) { "lua_" #FUNC, (void*)(lua_##FUNC) }
+#define U(FUNC) { "luaL_" #FUNC, (void*)(luaL_##FUNC) }
+static void* api_require(const char* symbol) {
+  static lua_function_node nodes[] = {
+    P(atpanic), P(checkstack),
+    P(close), P(concat), P(copy), P(createtable), P(dump),
+    P(error),  P(gc), P(getallocf),  P(getfield),
+    P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
+    P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
+    P(insert), P(isnumber), P(isstring), P(isuserdata),
+    P(load), P(newstate), P(newthread), P(newuserdata), P(next),
+    P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
+    P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber),
+    P(pushstring), P(pushthread),  P(pushvalue),
+    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti),
+    P(rawset), P(rawseti),  P(remove), P(replace), P(resume),
+    P(setallocf), P(setfield), P(sethook), P(setlocal),
+    P(setmetatable), P(settable), P(settop), P(setupvalue),
+    P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
+    P(tonumberx), P(topointer), P(tothread),  P(touserdata),
+    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove),
+    U(getmetafield), U(callmeta), U(argerror), U(checknumber), U(optnumber),
+    U(checkinteger), U(checkstack), U(checktype), U(checkany),
+    U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
+    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring),
+    U(newstate), U(setfuncs), U(buffinit), U(addlstring), U(addstring),
+    U(addvalue), U(pushresult),
+    #if LUA_VERSION_NUM >= 502
+    P(absindex), P(arith), P(callk), P(compare), P(getctx), P(getglobal), P(getuservalue),
+    P(len), P(pcallk), P(pushunsigned), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
+    P(iscfunction), P(setuservalue), P(tounsignedx), P(yieldk),
+    U(checkversion_), U(tolstring),  U(checkunsigned), U(len), U(getsubtable), U(prepbuffsize),
+    U(pushresultsize), U(buffinitsize), U(checklstring), U(checkoption), U(gsub), U(loadbufferx),
+    U(loadfilex), U(optinteger), U(optlstring), U(optunsigned), U(requiref), U(traceback)
+    #else
+    P(objlen)
+    #endif
+
+  };
+  for (int i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
+    if (strcmp(nodes[i].symbol, symbol) == 0)
+      return nodes[i].address;
+  }
+  fprintf(stderr, "WARNING: %s is not available\n", symbol);
+  return NULL;
 }
 
 static int f_load_native_plugin(lua_State *L) {
