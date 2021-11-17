@@ -19,3 +19,6 @@ package.path = DATADIR .. '/?.lua;' .. package.path
 package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
+
+table.pack = table.pack or pack or function(...) return {...} end
+table.unpack = table.unpack or unpack
