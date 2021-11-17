@@ -64,7 +64,7 @@ local t = {
       table.insert(node.views, idx + 1, core.active_view)
     end
   end,
-
+  
   ["root:shrink"] = function()
     local node = core.root_view:get_active_node()
     local parent = node:get_parent_node(core.root_view.root_node)
@@ -77,14 +77,6 @@ local t = {
     local parent = node:get_parent_node(core.root_view.root_node)
     local n = (parent.a == node) and 0.1 or -0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
-  end,
-  
-  ["root:scroll"] = function(delta)
-    if core.active_view and core.active_view.scrollable then
-      core.active_view.scroll.to.y = core.active_view.scroll.to.y + delta * -config.mouse_wheel_scroll
-      return true
-    end
-    return false
   end
 }
 
@@ -131,3 +123,14 @@ command.add(function()
   local node = core.root_view:get_active_node()
   return not node:get_locked_size()
 end, t)
+
+command.add(nil, {
+  ["root:scroll"] = function(delta)
+    local view = (core.root_view.overlapping_node and core.root_view.overlapping_node.active_view) or core.active_view
+    if view and view.scrollable then
+      view.scroll.to.y = view.scroll.to.y + delta * -config.mouse_wheel_scroll
+      return true
+    end
+    return false
+  end
+})

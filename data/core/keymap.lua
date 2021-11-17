@@ -113,8 +113,8 @@ function keymap.on_key_pressed(k, ...)
 end
 
 function keymap.on_mouse_wheel(delta, ...)
-  return not keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
-    and keymap.on_key_pressed("wheel", delta, ...)
+  return not (keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
+    or keymap.on_key_pressed("wheel", delta, ...))
 end
 
 function keymap.on_mouse_pressed(button, x, y, clicks)
