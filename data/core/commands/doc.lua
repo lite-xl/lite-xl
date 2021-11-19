@@ -82,13 +82,13 @@ local function split_cursor(direction)
   core.blink_reset()
 end
 
-local function set_cursor(x, y, type)
+local function set_cursor(x, y, snap_type)
   local line, col = dv():resolve_screen_position(x, y)
   doc():set_selection(line, col, line, col)
-  if type == "word" or type == "lines" then
-    command.perform("doc:select-" .. type)
+  if snap_type == "word" or snap_type == "lines" then
+    command.perform("doc:select-" .. snap_type)
   end
-  dv().mouse_selecting = { line, col }
+  dv().mouse_selecting = { line, col, snap_type }
   core.blink_reset()
 end
 
@@ -402,7 +402,7 @@ local commands = {
   ["doc:select-to-cursor"] = function(x, y, clicks) 
     local line1, col1 = select(3, doc():get_selection())
     local line2, col2 = dv():resolve_screen_position(x, y)
-    dv().mouse_selecting = { line1, col1 }
+    dv().mouse_selecting = { line1, col1, nil }
     doc():set_selection(line2, col2, line1, col1)
   end,
   
