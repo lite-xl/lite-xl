@@ -40,6 +40,13 @@ end
 
 function Highlighter:reset()
   self.lines = {}
+  self:soft_reset()
+end
+
+function Highlighter:soft_reset()
+  for i=1,#self.lines do
+    self.lines[i] = false
+  end
   self.first_invalid_line = 1
   self.max_wanted_line = 0
 end
