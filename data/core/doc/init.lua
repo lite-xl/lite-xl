@@ -494,19 +494,21 @@ end
 function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
 
-local function get_indent_string()
-  if config.tab_type == "hard" then
+function Doc:get_indent_string()
+  local indent_type, indent_size = self:get_indent_info()
+  if indent_type == "hard" then
     return "\t"
   end
-  return string.rep(" ", config.indent_size)
+  return string.rep(" ", indent_size)
 end
 
 -- returns the size of the original indent, and the indent
 -- in your config format, rounded either up or down
-local function get_line_indent(line, rnd_up)
+function Doc:get_line_indent(line, rnd_up)
   local _, e = line:find("^[ \t]+")
-  local soft_tab = string.rep(" ", config.indent_size)
-  if config.tab_type == "hard" then
+  local indent_type, indent_size = self:get_indent_info()
+  local soft_tab = string.rep(" ", indent_size)
+  if indent_type == "hard" then
     local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
     return e, indent:gsub(" +", rnd_up and "\t" or "")
   else
@@ -528,14 +530,14 @@ end
 -- * if you are unindenting, the cursor will jump to the start of the line,
 --   and remove the appropriate amount of spaces (or a tab).
 function Doc:indent_text(unindent, line1, col1, line2, col2)
-  local text = get_indent_string()
+  local text = self:get_indent_string()
   local _, se = self.lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
   local has_selection = line1 ~= line2 or col1 ~= col2
   if unindent or has_selection or in_beginning_whitespace then
     local l1d, l2d = #self.lines[line1], #self.lines[line2]
     for line = line1, line2 do
-      local e, rnded = get_line_indent(self.lines[line], unindent)
+      local e, rnded = self:get_line_indent(self.lines[line], unindent)
       self:remove(line, 1, line, (e or 0) + 1)
       self:insert(line, 1,
         unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
