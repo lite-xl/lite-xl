@@ -424,8 +424,8 @@ end
 
 function DocView:draw()
   self:draw_background(style.background)
-
-  self:get_font():set_tab_size(config.indent_size)
+  local _, indent_size = self.doc:get_indent_info()
+  self:get_font():set_tab_size(indent_size)
 
   local minline, maxline = self:get_visible_line_range()
   local lh = self:get_line_height()
