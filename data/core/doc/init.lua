@@ -115,6 +115,14 @@ function Doc:clean()
 end
 
 
+function Doc:get_indent_info()
+  if not self.indent_info then return config.tab_type, config.indent_size, false end
+  return self.indent_info.type or config.tab_type,
+         self.indent_info.size or config.indent_size,
+         self.indent_info.confirmed
+end
+
+
 function Doc:get_change_id()
   return self.undo_stack.idx
 end
