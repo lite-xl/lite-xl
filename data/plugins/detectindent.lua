@@ -121,40 +121,17 @@ end
 local clean = Doc.clean
 function Doc:clean(...)
   clean(self, ...)
-  if not cache[self].confirmed then
+  local _, _, confirmed = self:get_indent_info()
+  if not confirmed then
     update_cache(self)
   end
 end
 
 
-local function with_indent_override(doc, fn, ...)
-  local c = cache[doc]
-  if not c then
-    return fn(...)
-  end
-  local type, size = config.tab_type, config.indent_size
-  config.tab_type, config.indent_size = c.type, c.size or config.indent_size
-  local r1, r2, r3 = fn(...)
-  config.tab_type, config.indent_size = type, size
-  return r1, r2, r3
-end
-
-
-local perform = command.perform
-function command.perform(...)
-  return with_indent_override(core.active_view.doc, perform, ...)
-end
-
-
-local draw = DocView.draw
-function DocView:draw(...)
-  return with_indent_override(self.doc, draw, self, ...)
-end
-
-
 local function set_indent_type(doc, type)
+  local _, indent_size = doc:get_indent_info()
   cache[doc] = {type = type,
-                size = cache[doc].value or config.indent_size,
+                size = indent_size,
                 confirmed = true}
   doc.indent_info = cache[doc]
 end
@@ -180,7 +157,8 @@ end
 
 
 local function set_indent_size(doc, size)
-  cache[doc] = {type = cache[doc].type or config.tab_type,
+  local indent_type = doc:get_indent_info()
+  cache[doc] = {type = indent_type,
                 size = size,
                 confirmed = true}
   doc.indent_info = cache[doc]
