@@ -42,6 +42,7 @@ function TreeView:new()
   self.target_size = default_treeview_size
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
+  self.color_overrides = {}
 end
 
 
@@ -280,6 +281,16 @@ function TreeView:draw_tooltip()
 end
 
 
+function TreeView:set_color_override(abs_filename, color)
+  self.color_overrides[abs_filename] = color
+end
+
+
+function TreeView:clear_all_color_overrides()
+  self.color_overrides = {}
+end
+
+
 function TreeView:draw()
   self:draw_background(style.background2)
 
@@ -303,6 +314,9 @@ function TreeView:draw()
       color = style.accent
     end
 
+    -- allow for color overrides
+    local icon_color = self.color_overrides[item.abs_filename] or color
+    
     -- icons
     x = x + item.depth * style.padding.x + style.padding.x
     if item.type == "dir" then
@@ -310,11 +324,11 @@ function TreeView:draw()
       local icon2 = item.expanded and "D" or "d"
       common.draw_text(style.icon_font, color, icon1, nil, x, y, 0, h)
       x = x + style.padding.x
-      common.draw_text(style.icon_font, color, icon2, nil, x, y, 0, h)
+      common.draw_text(style.icon_font, icon_color, icon2, nil, x, y, 0, h)
       x = x + icon_width
     else
       x = x + style.padding.x
-      common.draw_text(style.icon_font, color, "f", nil, x, y, 0, h)
+      common.draw_text(style.icon_font, icon_color, "f", nil, x, y, 0, h)
       x = x + icon_width
     end
 
