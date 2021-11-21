@@ -2,6 +2,7 @@
 local syntax = require "core.syntax"
 
 syntax.add {
+  name = "CSS",
   files = { "%.css$" },
   patterns = {
     { pattern = "\\.",                type = "normal"   },
