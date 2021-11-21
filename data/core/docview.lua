@@ -336,7 +336,7 @@ function DocView:draw_caret(x, y)
     renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
 end
 
-function DocView:draw_line_body(idx, x, y)
+function DocView:draw_line_body(line, x, y)
   -- draw highlight if any selection ends on this line
   local draw_highlight = false
   local hcl = config.highlight_current_line
