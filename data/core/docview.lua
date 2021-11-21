@@ -203,7 +203,8 @@ function DocView:scroll_to_line(line, ignore_if_visible, instant)
   local min, max = self:get_visible_line_range()
   if not (ignore_if_visible and line > min and line < max) then
     local x, y = self:get_line_screen_position(line)
-    self.scroll.to.y = math.max(0, y - self.size.y / 2)
+    local ox, oy = self:get_content_offset()
+    self.scroll.to.y = math.max(0, y - oy - self.size.y / 2)
     if instant then
       self.scroll.y = self.scroll.to.y
     end
@@ -214,10 +215,9 @@ end
 function DocView:scroll_to_make_visible(line, col)
   local ox, oy = self:get_content_offset()
   local _, min = self:get_line_screen_position(line - 1)
-  local _, y2 = self:get_line_screen_position(line + 2)
-  local max = y2 - self.size.y
-  self.scroll.to.y = math.min(self.scroll.to.y, min - oy)
-  self.scroll.to.y = math.max(self.scroll.to.y, max - oy)
+  local _, max = self:get_line_screen_position(line + 2)
+  self.scroll.to.y = math.max(self.scroll.to.y, min - oy - self.size.y)
+  self.scroll.to.y = math.min(self.scroll.to.y, max - oy)
   local gw = self:get_gutter_width()
   local xoffset = self:get_col_x_offset(line, col)
   local xmargin = 3 * self:get_font():get_width(' ')
