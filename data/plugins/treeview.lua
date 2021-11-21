@@ -42,7 +42,6 @@ function TreeView:new()
   self.target_size = default_treeview_size
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
-  self.color_overrides = {}
 end
 
 
@@ -281,13 +280,9 @@ function TreeView:draw_tooltip()
 end
 
 
-function TreeView:set_color_override(abs_filename, color)
-  self.color_overrides[abs_filename] = color
-end
-
-
-function TreeView:clear_all_color_overrides()
-  self.color_overrides = {}
+function TreeView:color_for_item(abs_filename)
+  -- other plugins can override this to customize the color of each icon
+  return nil
 end
 
 
@@ -315,7 +310,7 @@ function TreeView:draw()
     end
 
     -- allow for color overrides
-    local icon_color = self.color_overrides[item.abs_filename] or color
+    local icon_color = self:color_for_item(item.abs_filename) or color
     
     -- icons
     x = x + item.depth * style.padding.x + style.padding.x
