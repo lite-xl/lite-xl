@@ -11,7 +11,7 @@ syntax.add {
     { pattern = { '"', '"', '\\' },     type = "string"   },
     { pattern = { "'", "'", '\\' },     type = "string"   },
     { pattern = { "`", "`", '\\' },     type = "string"   },
-    { pattern = "0x[%da-fA-F]+",        type = "number"   },
+    { pattern = "0x[%da-fA-F_]+n?",     type = "number"   },
     { pattern = "-?%d+[%d%.eE_n]*",     type = "number"   },
     { pattern = "-?%.?%d+",             type = "number"   },
     { pattern = "[%+%-=/%*%^%%<>!~|&]", type = "operator" },
