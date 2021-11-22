@@ -295,6 +295,12 @@ function TreeView:draw_tooltip()
 end
 
 
+function TreeView:color_for_item(abs_filename)
+  -- other plugins can override this to customize the color of each icon
+  return nil
+end
+
+
 function TreeView:draw()
   self:draw_background(style.background2)
 
@@ -318,6 +324,9 @@ function TreeView:draw()
       color = style.accent
     end
 
+    -- allow for color overrides
+    local icon_color = self:color_for_item(item.abs_filename) or color
+    
     -- icons
     x = x + item.depth * style.padding.x + style.padding.x
     if item.type == "dir" then
@@ -325,11 +334,11 @@ function TreeView:draw()
       local icon2 = item.expanded and "D" or "d"
       common.draw_text(style.icon_font, color, icon1, nil, x, y, 0, h)
       x = x + style.padding.x
-      common.draw_text(style.icon_font, color, icon2, nil, x, y, 0, h)
+      common.draw_text(style.icon_font, icon_color, icon2, nil, x, y, 0, h)
       x = x + icon_width
     else
       x = x + style.padding.x
-      common.draw_text(style.icon_font, color, "f", nil, x, y, 0, h)
+      common.draw_text(style.icon_font, icon_color, "f", nil, x, y, 0, h)
       x = x + icon_width
     end
 
