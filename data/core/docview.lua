@@ -214,10 +214,9 @@ end
 
 function DocView:scroll_to_make_visible(line, col)
   local ox, oy = self:get_content_offset()
-  local _, min = self:get_line_screen_position(line - 1)
-  local _, max = self:get_line_screen_position(line + 2)
-  self.scroll.to.y = math.max(self.scroll.to.y, min - oy - self.size.y)
-  self.scroll.to.y = math.min(self.scroll.to.y, max - oy)
+  local _, ly = self:get_line_screen_position(line, col)
+  local lh = self:get_line_height()
+  self.scroll.to.y = common.clamp(self.scroll.to.y, ly - oy - self.size.y + lh * 2, ly - oy - lh)
   local gw = self:get_gutter_width()
   local xoffset = self:get_col_x_offset(line, col)
   local xmargin = 3 * self:get_font():get_width(' ')
