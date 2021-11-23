@@ -1,5 +1,31 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.0.3
+
+Replace periodic rescan of project folder with a notification based system using the
+[dmon library](https://github.com/septag/dmon). Improves performance especially for
+large project folders since the application no longer needs to rescan.
+The application also reports immediatly any change in the project directory even
+when the application is unfocused.
+
+Improved find-replace reverse and forward search.
+
+Fixed a bug in incremental syntax highlighting affecting documents with multiple-lines
+comments or strings.
+
+The application now always shows the tabs in the documents' view even when a single
+document is opened. Can be changed with the option `config.always_show_tabs`.
+
+Fix problem with numeric keypad function keys not properly working.
+
+Fix problem with pixel not correctly drawn at the window's right edge.
+
+Treat correctly and open network paths on Windows.
+
+Add some improvements for very slow network filesystems.
+
+Fix problem with python syntax highliting, contributed by @dflock.
+
 ### 2.0.2
 
 Fix problem project directory when starting the application from Launcher on macOS.

@@ -1,4 +1,5 @@
 local core = require "core"
+local common = require "core.common"
 local config = require "core.config"
 local tokenizer = require "core.tokenizer"
 local Object = require "core.object"
@@ -40,6 +41,13 @@ end
 
 function Highlighter:reset()
   self.lines = {}
+  self:soft_reset()
+end
+
+function Highlighter:soft_reset()
+  for i=1,#self.lines do
+    self.lines[i] = false
+  end
   self.first_invalid_line = 1
   self.max_wanted_line = 0
 end
@@ -51,16 +59,16 @@ end
 
 function Highlighter:insert_notify(line, n)
   self:invalidate(line)
+  local blanks = { }
   for i = 1, n do
-    table.insert(self.lines, line, nil)
+    blanks[i] = false
   end
+  common.splice(self.lines, line, 0, blanks)
 end
 
 function Highlighter:remove_notify(line, n)
   self:invalidate(line)
-  for i = 1, n do
-    table.remove(self.lines, line)
-  end
+  common.splice(self.lines, line, n)
 end
 
 

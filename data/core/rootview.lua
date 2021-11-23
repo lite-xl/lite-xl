@@ -149,10 +149,17 @@ function Node:remove_view(root, view)
     else
       locked_size = locked_size_y
     end
-    if self.is_primary_node or locked_size then
+    local next_primary
+    if self.is_primary_node then
+      next_primary = core.root_view:select_next_primary_node()
+    end
+    if locked_size or (self.is_primary_node and not next_primary) then
       self.views = {}
       self:add_view(EmptyView())
     else
+      if other == next_primary then
+        next_primary = parent
+      end
       parent:consume(other)
       local p = parent
       while p.type ~= "leaf" do
@@ -160,7 +167,7 @@ function Node:remove_view(root, view)
       end
       p:set_active_view(p.active_view)
       if self.is_primary_node then
-        p.is_primary_node = true
+        next_primary.is_primary_node = true
       end
     end
   end
@@ -411,15 +418,8 @@ end
 -- calculating the sizes is the same for hsplits and vsplits, except the x/y
 -- axis are swapped; this function lets us use the same code for both
 local function calc_split_sizes(self, x, y, x1, x2, y1, y2)
-  local n
   local ds = ((x1 and x1 < 1) or (x2 and x2 < 1)) and 0 or style.divider_size
-  if x1 then
-    n = x1 + ds
-  elseif x2 then
-    n = self.size[x] - x2
-  else
-    n = math.floor(self.size[x] * self.divider)
-  end
+  local n = x1 and x1 + ds or (x2 and self.size[x] - x2 or math.floor(self.size[x] * self.divider))
   self.a.position[x] = self.position[x]
   self.a.position[y] = self.position[y]
   self.a.size[x] = n - ds
@@ -602,7 +602,7 @@ function Node:draw()
       self:draw_tabs()
     end
     local pos, size = self.active_view.position, self.active_view.size
-    core.push_clip_rect(pos.x, pos.y, size.x + pos.x % 1, size.y + pos.y % 1)
+    core.push_clip_rect(pos.x, pos.y, size.x, size.y)
     self.active_view:draw()
     core.pop_clip_rect()
   else
@@ -682,6 +682,10 @@ end
 
 
 function Node:resize(axis, value)
+  -- the application works fine with non-integer values but to have pixel-perfect
+  -- placements of view elements, like the scrollbar, we round the value to be
+  -- an integer.
+  value = math.floor(value)
   if self.type == 'leaf' then
     -- If it is not locked we don't accept the
     -- resize operation here because for proportional panes the resize is
@@ -823,6 +827,24 @@ end
 
 function RootView:get_primary_node()
   return get_primary_node(self.root_node)
+end
+
+
+local function select_next_primary_node(node)
+  if node.is_primary_node then return end
+  if node.type ~= "leaf" then
+    return select_next_primary_node(node.a) or select_next_primary_node(node.b)
+  else
+    local lx, ly = node:get_locked_size()
+    if not lx and not ly then
+      return node
+    end
+  end
+end
+
+
+function RootView:select_next_primary_node()
+  return select_next_primary_node(self.root_node)
 end
 
 

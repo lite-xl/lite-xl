@@ -1,4 +1,3 @@
-
 -- So that in addition to regex.gsub(pattern, string), we can also do
 -- pattern:gsub(string).
 regex.__index = function(table, key) return regex[key]; end
@@ -6,7 +5,8 @@ regex.__index = function(table, key) return regex[key]; end
 regex.match = function(pattern_string, string, offset, options)
   local pattern = type(pattern_string) == "table" and
     pattern_string or regex.compile(pattern_string)
-  return regex.cmatch(pattern, string, offset or 1, options or 0)
+  local s, e = regex.cmatch(pattern, string, offset or 1, options or 0)
+  return s, e and e - 1
 end
 
 -- Will iterate back through any UTF-8 bytes so that we don't replace bits

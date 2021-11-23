@@ -41,7 +41,6 @@ function TreeView:new()
   self.init_size = true
   self.target_size = default_treeview_size
   self.cache = {}
-  self.last = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
 end
 
@@ -54,7 +53,7 @@ function TreeView:set_target_size(axis, value)
 end
 
 
-function TreeView:get_cached(item, dirname)
+function TreeView:get_cached(dir, item, dirname)
   local dir_cache = self.cache[dirname]
   if not dir_cache then
     dir_cache = {}
@@ -80,6 +79,7 @@ function TreeView:get_cached(item, dirname)
     end
     t.name = basename
     t.type = item.type
+    t.dir = dir -- points to top level "dir" item
     dir_cache[cache_name] = t
   end
   return t
@@ -104,18 +104,13 @@ end
 
 
 function TreeView:check_cache()
-  -- invalidate cache's skip values if project_files has changed
   for i = 1, #core.project_directories do
     local dir = core.project_directories[i]
-    local last_files = self.last[dir.name]
-    if not last_files then
-      self.last[dir.name] = dir.files
-    else
-      if dir.files ~= last_files then
-        self:invalidate_cache(dir.name)
-        self.last[dir.name] = dir.files
-      end
+    -- invalidate cache's skip values if directory is declared dirty
+    if dir.is_dirty and self.cache[dir.name] then
+      self:invalidate_cache(dir.name)
     end
+    dir.is_dirty = false
   end
 end
 
@@ -131,14 +126,14 @@ function TreeView:each_item()
 
     for k = 1, #core.project_directories do
       local dir = core.project_directories[k]
-      local dir_cached = self:get_cached(dir.item, dir.name)
+      local dir_cached = self:get_cached(dir, dir.item, dir.name)
       coroutine.yield(dir_cached, ox, y, w, h)
       count_lines = count_lines + 1
       y = y + h
       local i = 1
       while i <= #dir.files and dir_cached.expanded do
         local item = dir.files[i]
-        local cached = self:get_cached(item, dir.name)
+        local cached = self:get_cached(dir, item, dir.name)
 
         coroutine.yield(cached, ox, y, w, h)
         count_lines = count_lines + 1
@@ -206,7 +201,6 @@ local function create_directory_in(item)
       core.error("cannot create directory %q: %s", dirname, err)
     end
     item.expanded = true
-    core.reschedule_project_scan()
   end)
 end
 
@@ -223,26 +217,17 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     if keymap.modkeys["ctrl"] and button == "left" then
       create_directory_in(hovered_item)
     else
-      if core.project_files_limit and not hovered_item.expanded then
-        local filename, abs_filename = hovered_item.filename, hovered_item.abs_filename
-        local index = 0
-        -- The loop below is used to find the first match starting from the end
-        -- in case there are multiple matches.
-        while index and index + #filename < #abs_filename do
-          index = string.find(abs_filename, filename, index + 1, true)
-        end
-        -- we assume here index is not nil because the abs_filename must contain the
-        -- relative filename
-        local dirname = string.sub(abs_filename, 1, index - 2)
-        if core.is_project_folder(dirname) then
-          core.scan_project_folder(dirname, filename)
-          self:invalidate_cache(dirname)
-        end
-      end
       hovered_item.expanded = not hovered_item.expanded
+      if hovered_item.dir.files_limit then
+        core.update_project_subdir(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
+        core.project_subdir_set_show(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
+      end
     end
   else
     core.try(function()
+      if core.last_active_view and core.active_view == self then
+        core.set_active_view(core.last_active_view)
+      end
       local doc_filename = core.normalize_to_project_dir(hovered_item.abs_filename)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
@@ -470,7 +455,6 @@ command.add(function() return view.hovered_item ~= nil end, {
       else
         core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
       end
-      core.reschedule_project_scan()
     end, common.path_suggest)
   end,
 
@@ -485,7 +469,6 @@ command.add(function() return view.hovered_item ~= nil end, {
       file:write("")
       file:close()
       core.root_view:open_doc(core.open_doc(doc_filename))
-      core.reschedule_project_scan()
       core.log("Created %s", doc_filename)
     end, common.path_suggest)
   end,
@@ -498,7 +481,6 @@ command.add(function() return view.hovered_item ~= nil end, {
     core.command_view:enter("Folder Name", function(filename)
       local dir_path = core.project_dir .. PATHSEP .. filename
       common.mkdirp(dir_path)
-      core.reschedule_project_scan()
       core.log("Created %s", dir_path)
     end, common.path_suggest)
   end,
@@ -535,7 +517,6 @@ command.add(function() return view.hovered_item ~= nil end, {
               return
             end
           end
-          core.reschedule_project_scan()
           core.log("Deleted \"%s\"", filename)
         end
       end
