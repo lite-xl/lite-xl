@@ -6,16 +6,18 @@ static int f_font_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);
   unsigned int font_hinting = FONT_HINTING_SLIGHT, font_style = 0;
-  bool subpixel = true;
+  ERenFontAntialiasing font_antialiasing = FONT_ANTIALIASING_SUBPIXEL;
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
     if (lua_isstring(L, -1)) {
       const char *antialiasing = lua_tostring(L, -1);
       if (antialiasing) {
-        if (strcmp(antialiasing, "grayscale") == 0) {
-          subpixel = false;
+        if (strcmp(antialiasing, "none") == 0) {
+          font_antialiasing = FONT_ANTIALIASING_NONE;
+        } else if (strcmp(antialiasing, "grayscale") == 0) {
+          font_antialiasing = FONT_ANTIALIASING_GRAYSCALE;
         } else if (strcmp(antialiasing, "subpixel") == 0) {
-          subpixel = true;
+          font_antialiasing = FONT_ANTIALIASING_SUBPIXEL;
         } else {
           return luaL_error(L, "error in renderer.font.load, unknown antialiasing option: \"%s\"", antialiasing);
         }
@@ -48,7 +50,7 @@ static int f_font_load(lua_State *L) {
     lua_pop(L, 5);
   }
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, subpixel, font_hinting, font_style);
+  *font = ren_font_load(filename, size, font_antialiasing, font_hinting, font_style);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
