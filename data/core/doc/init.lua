@@ -149,6 +149,13 @@ function Doc:has_selection()
   return line1 ~= line2 or col1 ~= col2
 end
 
+function Doc:has_any_selection()
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    if line1 ~= line2 or col1 ~= col2 then return true end
+  end
+  return false
+end
+
 function Doc:sanitize_selection()
   for idx, line1, col1, line2, col2 in self:get_selections() do
     self:set_selections(idx, line1, col1, line2, col2)
