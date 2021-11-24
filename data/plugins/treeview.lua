@@ -42,6 +42,14 @@ function TreeView:new()
   self.target_size = default_treeview_size
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
+
+  local on_dirmonitor_modify = core.on_dirmonitor_modify
+  function core.on_dirmonitor_modify(dir, filepath)
+    if self.cache[dir.name] then
+      self.cache[dir.name][filepath] = nil
+    end
+    on_dirmonitor_modify(dir, filepath)
+  end
 end
 
 
