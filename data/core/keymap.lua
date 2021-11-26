@@ -210,6 +210,7 @@ keymap.add_direct {
   ["ctrl+a"] = "doc:select-all",
   ["ctrl+d"] = { "find-replace:select-add-next", "doc:select-word" },
   ["ctrl+f3"] = "find-replace:select-next",
+  ["ctrl+shift+f3"] = "find-replace:select-previous",
   ["ctrl+l"] = "doc:select-lines",
   ["ctrl+shift+l"] = { "find-replace:select-add-all", "doc:select-word" },
   ["ctrl+/"] = "doc:toggle-line-comments",

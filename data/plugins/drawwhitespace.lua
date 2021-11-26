@@ -7,8 +7,8 @@ local common = require "core.common"
 local draw_line_text = DocView.draw_line_text
 
 function DocView:draw_line_text(idx, x, y)
-  local font = (self:get_font() or style.syntax_fonts["comment"])
-  local color = style.syntax.comment
+  local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
+  local color = style.syntax.whitespace or style.syntax.comment
   local ty = y + self:get_line_text_y_offset()
   local tx
   local text, offset, s, e = self.doc.lines[idx], 1

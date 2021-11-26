@@ -6,16 +6,18 @@ static int f_font_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);
   unsigned int font_hinting = FONT_HINTING_SLIGHT, font_style = 0;
-  bool subpixel = true;
+  ERenFontAntialiasing font_antialiasing = FONT_ANTIALIASING_SUBPIXEL;
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
     if (lua_isstring(L, -1)) {
       const char *antialiasing = lua_tostring(L, -1);
       if (antialiasing) {
-        if (strcmp(antialiasing, "grayscale") == 0) {
-          subpixel = false;
+        if (strcmp(antialiasing, "none") == 0) {
+          font_antialiasing = FONT_ANTIALIASING_NONE;
+        } else if (strcmp(antialiasing, "grayscale") == 0) {
+          font_antialiasing = FONT_ANTIALIASING_GRAYSCALE;
         } else if (strcmp(antialiasing, "subpixel") == 0) {
-          subpixel = true;
+          font_antialiasing = FONT_ANTIALIASING_SUBPIXEL;
         } else {
           return luaL_error(L, "error in renderer.font.load, unknown antialiasing option: \"%s\"", antialiasing);
         }
@@ -48,7 +50,7 @@ static int f_font_load(lua_State *L) {
     lua_pop(L, 5);
   }
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, subpixel, font_hinting, font_style);
+  *font = ren_font_load(filename, size, font_antialiasing, font_hinting, font_style);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
@@ -174,23 +176,30 @@ static int f_end_frame(lua_State *L) {
 }
 
 
+static RenRect rect_to_grid(lua_Number x, lua_Number y, lua_Number w, lua_Number h) {
+  int x1 = (int) (x + 0.5), y1 = (int) (y + 0.5);
+  int x2 = (int) (x + w + 0.5), y2 = (int) (y + h + 0.5);
+  return (RenRect) {x1, y1, x2 - x1, y2 - y1};
+}
+
+
 static int f_set_clip_rect(lua_State *L) {
-  RenRect rect;
-  rect.x = luaL_checknumber(L, 1);
-  rect.y = luaL_checknumber(L, 2);
-  rect.width = luaL_checknumber(L, 3);
-  rect.height = luaL_checknumber(L, 4);
+  lua_Number x = luaL_checknumber(L, 1);
+  lua_Number y = luaL_checknumber(L, 2);
+  lua_Number w = luaL_checknumber(L, 3);
+  lua_Number h = luaL_checknumber(L, 4);
+  RenRect rect = rect_to_grid(x, y, w, h);
   rencache_set_clip_rect(rect);
   return 0;
 }
 
 
 static int f_draw_rect(lua_State *L) {
-  RenRect rect;
-  rect.x = luaL_checknumber(L, 1);
-  rect.y = luaL_checknumber(L, 2);
-  rect.width = luaL_checknumber(L, 3);
-  rect.height = luaL_checknumber(L, 4);
+  lua_Number x = luaL_checknumber(L, 1);
+  lua_Number y = luaL_checknumber(L, 2);
+  lua_Number w = luaL_checknumber(L, 3);
+  lua_Number h = luaL_checknumber(L, 4);
+  RenRect rect = rect_to_grid(x, y, w, h);
   RenColor color = checkcolor(L, 5, 255);
   rencache_draw_rect(rect, color);
   return 0;
