@@ -199,12 +199,12 @@ local function file_search(files, info)
       inf = curr
     end
   end
-  repeat
+  while inf <= sup and not system.path_compare(filename, type, files[inf].filename, files[inf].type) do
     if files[inf].filename == filename then
       return inf, true
     end
     inf = inf + 1
-  until inf > sup or system.path_compare(filename, type, files[inf].filename, files[inf].type)
+  end
   return inf, false
 end
 
