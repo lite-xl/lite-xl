@@ -191,7 +191,6 @@ end
 local function file_search(files, info)
   local filename, type = info.filename, info.type
   local inf, sup = 1, #files
-  if sup <= 0 then return 1, false end
   while sup - inf > 8 do
     local curr = math.floor((inf + sup) / 2)
     if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
@@ -200,12 +199,12 @@ local function file_search(files, info)
       inf = curr
     end
   end
-  repeat
+  while inf <= sup and not system.path_compare(filename, type, files[inf].filename, files[inf].type) do
     if files[inf].filename == filename then
       return inf, true
     end
     inf = inf + 1
-  until inf > sup or system.path_compare(filename, type, files[inf].filename, files[inf].type)
+  end
   return inf, false
 end
 
