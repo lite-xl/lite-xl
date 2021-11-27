@@ -3,6 +3,9 @@ local keymap = require "core.keymap"
 local View = require "core.view"
 local command = require "core.command"
 
+-- This view is show in the background the first time lite xl is opened.
+-- Users also see it whenever they split the viewport and close all tabs
+-- in a single view.
 local EmptyView = View:extend()
 
 local function draw_text(x, y, color)
@@ -39,6 +42,8 @@ function EmptyView:draw()
 end
 
 function EmptyView:on_mouse_pressed(button, x, y, clicks)
+  -- If the user double clicks anywhere in the empty view, create a new document
+  -- in the empty view
   if button == "left" and clicks == 2 then
     command.perform "core:new-doc"
     return true

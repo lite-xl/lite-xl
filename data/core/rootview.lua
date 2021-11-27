@@ -239,8 +239,12 @@ function Node:get_visible_tabs_number()
 end
 
 function Node:in_tab_area(x, y)
+  -- The top Node:tab_height() pixels of each view contain it's tab bar
+  -- This function returns true if the given (x, y) coordinates are in the tab
+  -- bar
   if not self:should_show_tabs() then return false end
 
+  -- Simple rectangular bounds check
   local in_bounds_left = x >= self.position.x
   local in_bounds_right = x < self.size.x + self.position.x
   local in_bounds_top = y >= self.position.y
@@ -250,6 +254,8 @@ function Node:in_tab_area(x, y)
 end
 
 function Node:in_tab_scroll_button(x, y)
+  -- if more than config.max_tabs are open, we show a scroll button at each
+  -- end of the tab bar that the user can clicks to scroll through the tabs.
   if not self:should_show_tabs() then return false end
   if not self:in_tab_area(x, y) then return false end
 
@@ -259,6 +265,8 @@ function Node:in_tab_scroll_button(x, y)
 end
 
 function Node:in_tab(x, y)
+  -- Thin wrapper around get_tab_overlapping_point that returns true
+  -- if (x, y) are inside a tab, else false
   if not self:should_show_tabs() then return false end
   if self:get_tab_overlapping_point(x, y) ~= nil then
     return true
@@ -270,11 +278,9 @@ end
 function Node:in_tab_area_gutter(x, y)
   if not self:should_show_tabs() then return false end
 
-  if self:in_tab_area(x, y) and not self:in_tab(x, y) and not self:in_tab_scroll_button(x, y) then
-    return true
-  end
-
-  return false
+  return self:in_tab_area(x, y) -- Are we anywhere in the tab bar,
+    and not self:in_tab(x, y) -- but not in a tab,
+    and not self:in_tab_scroll_button(x, y) -- and not in a tab scroll button?
 end
 
 function Node:get_tab_overlapping_point(px, py)
@@ -288,14 +294,17 @@ function Node:get_tab_overlapping_point(px, py)
 end
 
 function Node:tab_height()
+  -- the height of the tab bar
   return style.font:get_height() + style.padding.y * 2
 end
 
 function Node:tabs_overflow_start()
+  -- If there are more tabs overflowing to the left
   return self.tab_offset > 1
 end
 
 function Node:tabs_overflow_end()
+  -- If there are more tabs overflowing to the right
   local tabs_number = self:get_visible_tabs_number()
   return self.tab_offset + tabs_number - 1 < #self.views
 end
@@ -913,6 +922,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
     local in_gutter = node:in_tab_area_gutter(x, y)
     if in_gutter and button == "left" and clicks == 2 then
+      -- if the user double clicks inside the tab gutter, make a new document
       command.perform "core:new-doc"
       return true
     end
@@ -1061,16 +1071,19 @@ function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
   if node:in_tab_area(x, y) then
+    -- if the user scrolled while in the tab area, scroll the tabs (if they overflow)
     local can_scroll_left = node:tabs_overflow_start()
     local can_scroll_right = node:tabs_overflow_end()
     local scroll_direction = "left"
-    local scroll_dir = ({...})[1]
+    local scroll_dir = ({...})[1] -- the first argument to the function
+                                  -- Should be the scroll amount, -1, 0, or 1
     if scroll_dir == -1 and can_scroll_left then
-      node:scroll_tabs(1)
+      node:scroll_tabs(1) -- scroll_tabs expects 1 for left
     elseif scroll_dir == 1 and can_scroll_right then
-      node:scroll_tabs(2)
+      node:scroll_tabs(2) -- and 2 for right
     end
   else
+    -- if we're not in the tab area, pass the scroll event to the active view
     return node.active_view:on_mouse_wheel(...)
   end
 end
