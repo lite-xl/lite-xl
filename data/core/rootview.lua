@@ -7,43 +7,8 @@ local Object = require "core.object"
 local View = require "core.view"
 local NagView = require "core.nagview"
 local DocView = require "core.docview"
-
-
-local EmptyView = View:extend()
-
-local function draw_text(x, y, color)
-  local th = style.big_font:get_height()
-  local dh = 2 * th + style.padding.y * 2
-  local x1, y1 = x, y + (dh - th) / 2
-  x = renderer.draw_text(style.big_font, "Lite XL", x1, y1, color)
-  renderer.draw_text(style.font, "version " .. VERSION, x1, y1 + th, color)
-  x = x + style.padding.x
-  renderer.draw_rect(x, y, math.ceil(1 * SCALE), dh, color)
-  local lines = {
-    { fmt = "%s to run a command", cmd = "core:find-command" },
-    { fmt = "%s to open a file from the project", cmd = "core:find-file" },
-    { fmt = "%s to change project folder", cmd = "core:change-project-folder" },
-    { fmt = "%s to open a project folder", cmd = "core:open-project-folder" },
-  }
-  th = style.font:get_height()
-  y = y + (dh - (th + style.padding.y) * #lines) / 2
-  local w = 0
-  for _, line in ipairs(lines) do
-    local text = string.format(line.fmt, keymap.get_binding(line.cmd))
-    w = math.max(w, renderer.draw_text(style.font, text, x + style.padding.x, y, color))
-    y = y + th + style.padding.y
-  end
-  return w, dh
-end
-
-function EmptyView:draw()
-  self:draw_background(style.background)
-  local w, h = draw_text(0, 0, { 0, 0, 0, 0 })
-  local x = self.position.x + math.max(style.padding.x, (self.size.x - w) / 2)
-  local y = self.position.y + (self.size.y - h) / 2
-  draw_text(x, y, style.dim)
-end
-
+local EmptyView = require "core.emptyview"
+local command = require "core.command"
 
 
 local Node = Object:extend()
@@ -273,6 +238,44 @@ function Node:get_visible_tabs_number()
   return math.min(#self.views - self.tab_offset + 1, config.max_tabs)
 end
 
+function Node:in_tab_area(x, y)
+  if not self:should_show_tabs() then return false end
+
+  local in_bounds_left = x >= self.position.x
+  local in_bounds_right = x < self.size.x + self.position.x
+  local in_bounds_top = y >= self.position.y
+  local in_bounds_bottom = y < self.position.y + self:tab_height()
+
+  return in_bounds_left and in_bounds_right and in_bounds_top and in_bounds_bottom
+end
+
+function Node:in_tab_scroll_button(x, y)
+  if not self:should_show_tabs() then return false end
+  if not self:in_tab_area(x, y) then return false end
+
+  local scroll_button_width = get_scroll_button_width()
+  return self.position.x + scroll_button_width > x -- left button
+    or self.position.x + self.size.x - scroll_button_width <= x -- right button
+end
+
+function Node:in_tab(x, y)
+  if not self:should_show_tabs() then return false end
+  if self:get_tab_overlapping_point(x, y) ~= nil then
+    return true
+  else
+    return false
+  end
+end
+
+function Node:in_tab_area_gutter(x, y)
+  if not self:should_show_tabs() then return false end
+
+  if self:in_tab_area(x, y) and not self:in_tab(x, y) and not self:in_tab_scroll_button(x, y) then
+    return true
+  end
+
+  return false
+end
 
 function Node:get_tab_overlapping_point(px, py)
   if not self:should_show_tabs() then return nil end
@@ -284,6 +287,18 @@ function Node:get_tab_overlapping_point(px, py)
   end
 end
 
+function Node:tab_height()
+  return style.font:get_height() + style.padding.y * 2
+end
+
+function Node:tabs_overflow_start()
+  return self.tab_offset > 1
+end
+
+function Node:tabs_overflow_end()
+  local tabs_number = self:get_visible_tabs_number()
+  return self.tab_offset + tabs_number - 1 < #self.views
+end
 
 function Node:should_show_tabs()
   if self.locked then return false end
@@ -348,7 +363,7 @@ end
 
 function Node:get_scroll_button_rect(index)
   local w, pad = get_scroll_button_width()
-  local h = style.font:get_height() + style.padding.y * 2
+  local h = self:tab_height()
   local x = self.position.x + (index == 1 and 0 or self.size.x - w)
   return x, self.position.y, w, h, pad
 end
@@ -360,8 +375,7 @@ function Node:get_tab_rect(idx)
   local x0 = self.position.x + sbw
   local x1 = x0 + common.clamp(self.tab_width * (idx - 1) - self.tab_shift, 0, maxw)
   local x2 = x0 + common.clamp(self.tab_width * idx - self.tab_shift, 0, maxw)
-  local h = style.font:get_height() + style.padding.y * 2
-  return x1, self.position.y, x2 - x1, h
+  return x1, self.position.y, x2 - x1, self:tab_height()
 end
 
 
@@ -473,7 +487,7 @@ end
 function Node:scroll_tabs(dir)
   local view_index = self:get_view_idx(self.active_view)
   if dir == 1 then
-    if self.tab_offset > 1 then
+    if self:tabs_overflow_start() then
       self.tab_offset = self.tab_offset - 1
       local last_index = self.tab_offset + self:get_visible_tabs_number() - 1
       if view_index > last_index then
@@ -482,7 +496,7 @@ function Node:scroll_tabs(dir)
     end
   elseif dir == 2 then
     local tabs_number = self:get_visible_tabs_number()
-    if self.tab_offset + tabs_number - 1 < #self.views then
+    if self:tabs_overflow_end() then
       self.tab_offset = self.tab_offset + 1
       local view_index = self:get_view_idx(self.active_view)
       if view_index < self.tab_offset then
@@ -572,18 +586,17 @@ function Node:draw_tabs()
   renderer.draw_rect(x, y, self.size.x, h, style.background2)
   renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
 
-  if self.tab_offset > 1 then
+  if self:tabs_overflow_start() then
     local button_style = self.hovered_scroll_button == 1 and style.text or style.dim
     common.draw_text(style.icon_font, button_style, "<", nil, x + scroll_padding, y, 0, h)
   end
 
   local tabs_number = self:get_visible_tabs_number()
-  if #self.views > self.tab_offset + tabs_number - 1 then
+  if self:tabs_overflow_end() then
     local xrb, yrb, wrb = self:get_scroll_button_rect(2)
     local button_style = self.hovered_scroll_button == 2 and style.text or style.dim
     common.draw_text(style.icon_font, button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
-
   for i = self.tab_offset, self.tab_offset + tabs_number - 1 do
     local view = self.views[i]
     local x, y, w, h = self:get_tab_rect(i)
@@ -591,7 +604,6 @@ function Node:draw_tabs()
                   i == self.hovered_tab, i == self.hovered_close,
                   x, y, w, h)
   end
-
   core.pop_clip_rect()
 end
 
@@ -899,6 +911,11 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
       return true
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
+    local in_gutter = node:in_tab_area_gutter(x, y)
+    if in_gutter and button == "left" and clicks == 2 then
+      command.perform "core:new-doc"
+      return true
+    end
     core.set_active_view(node.active_view)
     if not self.on_view_mouse_pressed(button, x, y, clicks) then
       return node.active_view:on_mouse_pressed(button, x, y, clicks)
@@ -1043,7 +1060,19 @@ end
 function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
-  return node.active_view:on_mouse_wheel(...)
+  if node:in_tab_area(x, y) then
+    local can_scroll_left = node:tabs_overflow_start()
+    local can_scroll_right = node:tabs_overflow_end()
+    local scroll_direction = "left"
+    local scroll_dir = ({...})[1]
+    if scroll_dir == -1 and can_scroll_left then
+      node:scroll_tabs(1)
+    elseif scroll_dir == 1 and can_scroll_right then
+      node:scroll_tabs(2)
+    end
+  else
+    return node.active_view:on_mouse_wheel(...)
+  end
 end
 
 
