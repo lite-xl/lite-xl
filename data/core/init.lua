@@ -1156,7 +1156,7 @@ end
 
 
 -- no-op but can be overrided by plugins
-function core.on_dirmonitor_modify()
+function core.on_dirmonitor_modify(dir, filepath)
 end
 
 
