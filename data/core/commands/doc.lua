@@ -92,6 +92,21 @@ local function set_cursor(x, y, snap_type)
   core.blink_reset()
 end
 
+local selection_commands = {
+  ["doc:cut"] = function()
+    cut_or_copy(true)
+  end,
+
+  ["doc:copy"] = function()
+    cut_or_copy(false)
+  end,
+
+  ["doc:select-none"] = function()
+    local line, col = doc():get_selection()
+    doc():set_selection(line, col)
+  end
+}
+
 local commands = {
   ["doc:undo"] = function()
     doc():undo()
@@ -99,14 +114,6 @@ local commands = {
 
   ["doc:redo"] = function()
     doc():redo()
-  end,
-
-  ["doc:cut"] = function()
-    cut_or_copy(true)
-  end,
-
-  ["doc:copy"] = function()
-    cut_or_copy(false)
   end,
 
   ["doc:paste"] = function()
@@ -171,11 +178,6 @@ local commands = {
 
   ["doc:select-all"] = function()
     doc():set_selection(1, 1, math.huge, math.huge)
-  end,
-
-  ["doc:select-none"] = function()
-    local line, col = doc():get_selection()
-    doc():set_selection(line, col)
   end,
 
   ["doc:select-lines"] = function()
@@ -481,3 +483,6 @@ commands["doc:move-to-next-char"] = function()
 end
 
 command.add("core.docview", commands)
+command.add(function()
+  return core.active_view:is(DocView) and core.active_view.doc:has_any_selection()
+end ,selection_commands)
