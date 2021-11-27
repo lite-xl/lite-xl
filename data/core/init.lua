@@ -65,17 +65,6 @@ function core.set_project_dir(new_dir, change_project_fn)
 end
 
 
-function core.open_folder_project(dir_path_abs)
-  if core.set_project_dir(dir_path_abs, core.on_quit_project) then
-    core.root_view:close_all_docviews()
-    update_recents_project("add", dir_path_abs)
-    if not core.load_project_module() then
-      command.perform("core:open-log")
-    end
-    core.on_enter_project(dir_path_abs)
-  end
-end
-
 
 local function strip_leading_path(filename)
     return filename:sub(2)
@@ -162,7 +151,7 @@ end
 
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
-  if dir.files_limit and PLATFORM == "Linux" then
+  if PLATFORM == "Linux" then
     local fullpath = dir.name .. PATHSEP .. filename
     local watch_fn = show and system.watch_dir_add or system.watch_dir_rm
     local success = watch_fn(dir.watch_id, fullpath)
@@ -184,7 +173,7 @@ local function show_max_files_warning(dir)
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
     "usage.md at github.com/franko/lite-xl."
-  core.status_view:show_message("!", style.accent, message)
+  core.log(message)
 end
 
 
@@ -320,7 +309,10 @@ local function scan_project_folder(index)
     end
   else
     if not dir.force_rescan then
-      dir.watch_id = system.watch_dir(dir.name, true)
+      -- For now, we'll only watch top-level directories on linux, because
+      -- if we have ignored files, asking for a full recursive diretory search
+      -- immediately hits us into the watch limit.
+      dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
     end
   end
   dir.files = t
@@ -328,6 +320,23 @@ local function scan_project_folder(index)
     add_dir_scan_thread(dir)
   else
     core.dir_rescan_add_job(dir, ".")
+  end
+  if dir.name == core.project_dir then
+    core.project_files = dir.files
+  end
+end
+
+function core.open_folder_project(dir_path_abs)
+  if core.set_project_dir(dir_path_abs, core.on_quit_project) then
+    core.root_view:close_all_docviews()
+    update_recents_project("add", dir_path_abs)
+    if not core.load_project_module() then
+      command.perform("core:open-log")
+    end
+    for i = 1, #core.project_directories do
+      scan_project_folder(i)
+    end
+    core.on_enter_project(dir_path_abs)
   end
 end
 
@@ -345,10 +354,6 @@ function core.add_project_directory(path)
     shown_subdir = {},
   }
   table.insert(core.project_directories, dir)
-  scan_project_folder(#core.project_directories)
-  if path == core.project_dir then
-    core.project_files = dir.files
-  end
   core.redraw = true
 end
 
@@ -691,14 +696,16 @@ function core.init()
   cur_node = cur_node:split("down", core.status_view, {y = true})
 
   command.add_defaults()
-  local got_user_error = not core.load_user_directory()
-  local plugins_success, plugins_refuse_list = core.load_plugins()
-
+  local got_user_error = not core.load_user_directory()  
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
     core.log("Opening project %q from directory %s", pname, pdir)
   end
   local got_project_error = not core.load_project_module()
+  for i = 1, #core.project_directories do
+    scan_project_folder(i)
+  end
+  local plugins_success, plugins_refuse_list = core.load_plugins()
 
   -- We assume we have just a single project directory here. Now that StatusView
   -- is there show max files warning if needed.
