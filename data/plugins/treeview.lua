@@ -406,7 +406,7 @@ function RootView:draw(...)
 end
 
 local function is_project_folder(path)
-  return common.basename(core.project_dir) == path
+  return core.project_dir == path
 end
 
 menu:register(function() return view.hovered_item end, {
@@ -417,7 +417,7 @@ menu:register(function() return view.hovered_item end, {
 menu:register(
   function()
     return view.hovered_item
-      and not is_project_folder(view.hovered_item.filename)
+      and not is_project_folder(view.hovered_item.abs_filename)
   end,
   {
     { text = "Rename", command = "treeview:rename" },
