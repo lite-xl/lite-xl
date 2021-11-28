@@ -113,10 +113,10 @@ int main(int argc, char **argv) {
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
   init_window_icon();
   ren_init(window);
+  dirmonitor_init();
 
   lua_State *L;
 init_lua:
-  dirmonitor_init();
   L = luaL_newstate();
   luaL_openlibs(L);
   api_load_libs(L);
@@ -186,7 +186,6 @@ init_lua:
   if (lua_toboolean(L, -1)) {
     lua_close(L);
     rencache_invalidate();
-    dirmonitor_deinit();
     goto init_lua;
   }
 

@@ -321,9 +321,6 @@ local function scan_project_folder(index)
   else
     core.dir_rescan_add_job(dir, ".")
   end
-  if dir.name == core.project_dir then
-    core.project_files = dir.files
-  end
 end
 
 function core.open_folder_project(dir_path_abs)
@@ -702,10 +699,11 @@ function core.init()
     core.log("Opening project %q from directory %s", pname, pdir)
   end
   local got_project_error = not core.load_project_module()
+  local plugins_success, plugins_refuse_list = core.load_plugins()
+  
   for i = 1, #core.project_directories do
     scan_project_folder(i)
   end
-  local plugins_success, plugins_refuse_list = core.load_plugins()
 
   -- We assume we have just a single project directory here. Now that StatusView
   -- is there show max files warning if needed.

@@ -139,7 +139,7 @@ function StatusView:get_items()
     style.icon_font, "g",
     style.font, style.dim, self.separator2,
     #core.docs, style.text, " / ",
-    #core.project_files, " files"
+    core.project_files_number(), " files"
   }
 end
 
