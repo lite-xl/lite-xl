@@ -220,7 +220,7 @@ static int process_start(lua_State* L) {
     char commandLine[32767] = { 0 }, environmentBlock[32767];
     int offset = 0;
     strcpy(commandLine, cmd[0]);
-    for (size_t i = 1; i < arg_len; ++i) {
+    for (size_t i = 1; i < cmd_len; ++i) {
       size_t len = strlen(cmd[i]);
       if (offset + len + 1 >= sizeof(commandLine))
         break;
