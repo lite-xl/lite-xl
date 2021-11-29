@@ -288,9 +288,27 @@ function TreeView:draw_tooltip()
 end
 
 
-function TreeView:color_for_item(abs_filename)
-  -- other plugins can override this to customize the color of each icon
-  return nil
+function TreeView:get_item_icon(item, active, hovered)
+  local character = "f"
+  if item.type == "dir" then
+    character = item.expanded and "D" or "d"
+  end
+  local font = style.icon_font
+  local color = style.text
+  if active or hovered then
+    color = style.accent
+  end
+  return character, font, color
+end
+
+function TreeView:get_item_text(item, active, hovered)
+  local text = item.name
+  local font = style.font
+  local color = style.text
+  if active or hovered then
+    color = style.accent
+  end
+  return text, font, color
 end
 
 
@@ -304,40 +322,32 @@ function TreeView:draw()
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
   for item, x,y,w,h in self:each_item() do
-    local color = style.text
-
-    -- highlight active_view doc
-    if item.abs_filename == active_filename then
-      color = style.accent
-    end
+    local icon_char, icon_font, icon_color =
+      self:get_item_icon(item, item.abs_filename == active_filename,
+                         item == self.hovered_item)
+    local item_text, item_font, item_color =
+      self:get_item_text(item, item.abs_filename == active_filename,
+                         item == self.hovered_item)
 
     -- hovered item background
     if item == self.hovered_item then
       renderer.draw_rect(x, y, w, h, style.line_highlight)
-      color = style.accent
     end
 
-    -- allow for color overrides
-    local icon_color = self:color_for_item(item.abs_filename) or color
-    
     -- icons
     x = x + item.depth * style.padding.x + style.padding.x
     if item.type == "dir" then
-      local icon1 = item.expanded and "-" or "+"
-      local icon2 = item.expanded and "D" or "d"
-      common.draw_text(style.icon_font, color, icon1, nil, x, y, 0, h)
-      x = x + style.padding.x
-      common.draw_text(style.icon_font, icon_color, icon2, nil, x, y, 0, h)
-      x = x + icon_width
-    else
-      x = x + style.padding.x
-      common.draw_text(style.icon_font, icon_color, "f", nil, x, y, 0, h)
-      x = x + icon_width
+      local expand_icon = item.expanded and "-" or "+"
+      local expand_color = item == self.hovered_item and style.accent or style.text
+      common.draw_text(style.icon_font, expand_color, expand_icon, nil, x, y, 0, h)
     end
+    x = x + style.padding.x
+    common.draw_text(icon_font, icon_color, icon_char, nil, x, y, 0, h)
+    x = x + icon_width
 
     -- text
     x = x + spacing
-    x = common.draw_text(style.font, color, item.name, nil, x, y, 0, h)
+    x = common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
   end
 
   self:draw_scrollbar()
