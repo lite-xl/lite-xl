@@ -100,7 +100,7 @@ local function get_project_file_info(root, file)
   if info then
     info.filename = strip_leading_path(file)
     return (info.size < config.file_size_limit * 1e6 and
-      not common.match_pattern(info.filename, config.ignore_files)
+      not common.match_pattern(common.basename(info.filename), config.ignore_files)
       and info)
   end
 end
@@ -1156,7 +1156,7 @@ end
 
 
 -- no-op but can be overrided by plugins
-function core.on_dirmonitor_modify()
+function core.on_dirmonitor_modify(dir, filepath)
 end
 
 

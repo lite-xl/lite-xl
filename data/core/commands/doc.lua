@@ -16,14 +16,6 @@ local function doc()
 end
 
 
-local function get_indent_string()
-  if config.tab_type == "hard" then
-    return "\t"
-  end
-  return string.rep(" ", config.indent_size)
-end
-
-
 local function doc_multiline_selections(sort)
   local iter, state, idx, line1, col1, line2, col2 = doc():get_selections(sort)
   return function()
@@ -92,6 +84,21 @@ local function set_cursor(x, y, snap_type)
   core.blink_reset()
 end
 
+local selection_commands = {
+  ["doc:cut"] = function()
+    cut_or_copy(true)
+  end,
+
+  ["doc:copy"] = function()
+    cut_or_copy(false)
+  end,
+
+  ["doc:select-none"] = function()
+    local line, col = doc():get_selection()
+    doc():set_selection(line, col)
+  end
+}
+
 local commands = {
   ["doc:undo"] = function()
     doc():undo()
@@ -99,14 +106,6 @@ local commands = {
 
   ["doc:redo"] = function()
     doc():redo()
-  end,
-
-  ["doc:cut"] = function()
-    cut_or_copy(true)
-  end,
-
-  ["doc:copy"] = function()
-    cut_or_copy(false)
   end,
 
   ["doc:paste"] = function()
@@ -157,11 +156,12 @@ local commands = {
   end,
 
   ["doc:backspace"] = function()
+    local _, indent_size = doc():get_indent_info()
     for idx, line1, col1, line2, col2 in doc():get_selections() do
       if line1 == line2 and col1 == col2 then
         local text = doc():get_text(line1, 1, line1, col1)
-        if #text >= config.indent_size and text:find("^ *$") then
-          doc():delete_to_cursor(idx, 0, -config.indent_size)
+        if #text >= indent_size and text:find("^ *$") then
+          doc():delete_to_cursor(idx, 0, -indent_size)
           return
         end
       end
@@ -171,11 +171,6 @@ local commands = {
 
   ["doc:select-all"] = function()
     doc():set_selection(1, 1, math.huge, math.huge)
-  end,
-
-  ["doc:select-none"] = function()
-    local line, col = doc():get_selection()
-    doc():set_selection(line, col)
   end,
 
   ["doc:select-lines"] = function()
@@ -271,7 +266,7 @@ local commands = {
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
     if not comment then return end
-    local indentation = get_indent_string()
+    local indentation = doc():get_indent_string()
     local comment_text = comment .. " "
     for idx, line1, _, line2 in doc_multiline_selections(true) do
       local uncomment = true
@@ -481,3 +476,6 @@ commands["doc:move-to-next-char"] = function()
 end
 
 command.add("core.docview", commands)
+command.add(function()
+  return core.active_view:is(DocView) and core.active_view.doc:has_any_selection()
+end ,selection_commands)
