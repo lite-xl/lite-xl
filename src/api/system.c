@@ -699,7 +699,6 @@ static void* api_require(const char* symbol) {
     if (strcmp(nodes[i].symbol, symbol) == 0)
       return nodes[i].address;
   }
-  fprintf(stderr, "WARNING: %s is not available\n", symbol);
   return NULL;
 }
 

@@ -38,6 +38,11 @@ ptrize() {
   grep '^LUA' | grep -v "$IGNORE_SYM" | sed -e "s/$sym_regex/static\t\2(*\3)\t(\4);/"
 }
 
+# create a stub function that warns user when calling it
+makestub() {
+  grep '^LUA' | grep -v "$IGNORE_SYM" | sed -e "s/$sym_regex/static\t\2\t__lite_xl_fallback_\3\t(\4) { fputs(\"warning: \3 is a stub\", stderr); }/"
+}
+
 import_sym() {
   grep '^LUA' | grep -v "$IGNORE_SYM" | sed -e "s/$sym_regex/\tIMPORT_SYMBOL(\3, \2, \4);/"
 }
@@ -55,6 +60,8 @@ decl() {
   ptrize <<< "$header1"
   # defines
   (grep '^#' | grep -v "$IGNORE_SYM") <<< "$header"
+  # stubs
+  makestub <<< "$header1"
 }
 
 decl_import() {
@@ -93,7 +100,7 @@ generate_header() {
   decl "$LUA_PATH/lauxlib.h"
   echo
 
-  echo "#define IMPORT_SYMBOL(name, ret, ...) name = (ret (*) (__VA_ARGS__)) symbol(#name)"
+  echo "#define IMPORT_SYMBOL(name, ret, ...) name = (name = (ret (*) (__VA_ARGS__)) symbol(#name), name == NULL ? &__lite_xl_fallback_##name : name)"
   echo "static void lite_xl_plugin_init(void *XL) {"
   echo -e "\tvoid* (*symbol)(const char *) = (void* (*) (const char *)) XL;"
 
@@ -134,3 +141,4 @@ main() {
 }
 
 main "$@"
+# create a stub function that warns user when calling it
