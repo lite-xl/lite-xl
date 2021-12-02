@@ -1,3 +1,4 @@
+local core = require "core"
 local command = require "core.command"
 local config = require "core.config"
 local keymap = {}
@@ -113,8 +114,21 @@ function keymap.on_key_pressed(k, ...)
 end
 
 function keymap.on_mouse_wheel(delta, ...)
-  return not (keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
-    or keymap.on_key_pressed("wheel", delta, ...))
+  -- figure out if we're in a tab bar
+  -- if we're in a tab bar, emit tabwheel events,
+  -- if not, just emit wheel events
+  local x = core.root_view.mouse.x
+  local y = core.root_view.mouse.y
+  local node = core.root_view.root_node:get_child_overlapping_point(x, y)
+  local in_tab_area = node:in_tab_area(x, y)
+
+  if in_tab_area then
+    return not (keymap.on_key_pressed("tabwheel" .. (delta > 0 and "up" or "down"), delta, node,...)
+      or keymap.on_key_pressed("tabwheel", delta, node, ...))
+  else
+    return not (keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
+      or keymap.on_key_pressed("wheel", delta, ...))
+  end
 end
 
 function keymap.on_mouse_pressed(button, x, y, clicks)
@@ -173,6 +187,9 @@ keymap.add_direct {
   ["alt+8"] = "root:switch-to-tab-8",
   ["alt+9"] = "root:switch-to-tab-9",
   ["wheel"] = "root:scroll",
+
+  ["tabwheelup"] = "root:pan-tabs-right",
+  ["tabwheeldown"] = "root:pan-tabs-left",
 
   ["ctrl+f"] = "find-replace:find",
   ["ctrl+r"] = "find-replace:replace",

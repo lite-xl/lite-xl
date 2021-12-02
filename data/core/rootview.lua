@@ -493,13 +493,17 @@ function Node:scroll_tabs_to_visible()
 end
 
 
-function Node:scroll_tabs(dir)
+function Node:scroll_tabs(dir, switch_tab_at_edge)
+  -- by default, we switch tabs if the active tab is scrolled off the edge
+  -- optionally, allow tabs to be scrolled off the edge
+  if switch_tab_at_edge == nil then switch_tab_at_edge = true end
+
   local view_index = self:get_view_idx(self.active_view)
   if dir == 1 then
     if self:tabs_overflow_start() then
       self.tab_offset = self.tab_offset - 1
       local last_index = self.tab_offset + self:get_visible_tabs_number() - 1
-      if view_index > last_index then
+      if switch_tab_at_edge and view_index > last_index then
         self:set_active_view(self.views[last_index])
       end
     end
@@ -508,7 +512,7 @@ function Node:scroll_tabs(dir)
     if self:tabs_overflow_end() then
       self.tab_offset = self.tab_offset + 1
       local view_index = self:get_view_idx(self.active_view)
-      if view_index < self.tab_offset then
+      if switch_tab_at_edge and view_index < self.tab_offset then
         self:set_active_view(self.views[self.tab_offset])
       end
     end
@@ -525,7 +529,6 @@ end
 
 function Node:update()
   if self.type == "leaf" then
-    self:scroll_tabs_to_visible()
     for _, view in ipairs(self.views) do
       view:update()
     end
@@ -749,7 +752,7 @@ function Node:get_split_type(mouse_x, mouse_y)
 
   local local_mouse_x = mouse_x - x
   local local_mouse_y = mouse_y - y
-  
+
   if local_mouse_y < 0 then
     return "tab"
   else
@@ -1052,7 +1055,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
   self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
-  
+
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local tab_index = self.overlapping_node and self.overlapping_node:get_tab_overlapping_point(x, y)
   if self.overlapping_node and self.overlapping_node:get_scroll_button_index(x, y) then
@@ -1070,22 +1073,7 @@ end
 function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
-  if node:in_tab_area(x, y) then
-    -- if the user scrolled while in the tab area, scroll the tabs (if they overflow)
-    local can_scroll_left = node:tabs_overflow_start()
-    local can_scroll_right = node:tabs_overflow_end()
-    local scroll_direction = "left"
-    local scroll_dir = ({...})[1] -- the first argument to the function
-                                  -- Should be the scroll amount, -1, 0, or 1
-    if scroll_dir == -1 and can_scroll_left then
-      node:scroll_tabs(1) -- scroll_tabs expects 1 for left
-    elseif scroll_dir == 1 and can_scroll_right then
-      node:scroll_tabs(2) -- and 2 for right
-    end
-  else
-    -- if we're not in the tab area, pass the scroll event to the active view
     return node.active_view:on_mouse_wheel(...)
-  end
 end
 
 
