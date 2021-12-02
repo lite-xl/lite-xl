@@ -10,7 +10,7 @@ local restore_title_view = false
 
 local function suggest_directory(text)
   text = common.home_expand(text)
-  return common.home_encode_list((text == "" or text == common.home_expand(common.dirname(core.project_dir))) 
+  return common.home_encode_list((text == "" or text == common.home_expand(common.dirname(core.project_dir)))
     and core.recent_projects or common.dir_path_suggest(text))
 end
 
@@ -91,6 +91,8 @@ command.add(nil, {
 
   ["core:new-doc"] = function()
     core.root_view:open_doc(core.open_doc())
+    local node = core.root_view:get_active_node()
+    node:scroll_tabs_to_visible()
   end,
 
   ["core:open-file"] = function()
