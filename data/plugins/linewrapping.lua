@@ -9,7 +9,7 @@ local command = require "core.command"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 
-config.plugins.linewrapping = {
+config.plugins.linewrapping = common.merge({
 	-- The type of wrapping to perform. Can be "letter" or "word".
   mode = "letter",
 	-- If nil, uses the DocView's size, otherwise, uses this exact width.
@@ -20,7 +20,7 @@ config.plugins.linewrapping = {
   indent = true,
   -- Whether or not to enable wrapping by default when opening files.
   enable_by_default = false
-}
+}, config.plugins.linewrapping or {})
 
 local LineWrapping = {}
 
@@ -137,6 +137,7 @@ function LineWrapping.remove_lines(docview, line1, line2)
   end
   for i=line1, line2 do
     table.remove(docview.wrapped_line_to_idx, line1)
+    table.remove(docview.wrapped_line_offsets, line1)
   end
 end
 
@@ -147,6 +148,7 @@ function LineWrapping.add_lines(docview, line, line_count)
     table.insert(docview.wrapped_lines, offset, 1)
     table.insert(docview.wrapped_lines, offset, i)
     table.insert(docview.wrapped_line_to_idx, line, ((offset - 1) / 2) + 1)
+    table.insert(docview.wrapped_line_offsets, line, 0)
     offset = offset + 2
   end
   for i = line + line_count, #docview.wrapped_line_to_idx do
@@ -282,7 +284,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
     for i,docview in ipairs(open_files[self]) do
       if docview.wrapped_settings then
         if start_line <= end_line then
-          LineWrapping.remove_lines(start_line, end_line)
+          LineWrapping.remove_lines(docview, start_line, end_line)
         end
         LineWrapping.update_breaks(docview, line1)
       end
@@ -397,7 +399,7 @@ function DocView:draw_line_text(line, x, y)
     local font = style.syntax_fonts[type] or default_font
     local token_offset = 1
     -- Split tokens if we're at the end of the document.
-    while token_offset <= #text do
+    while text ~= nil and token_offset <= #text do
       local next_line, next_line_start_col = get_idx_line_col(self, idx + 1)
       if next_line ~= line then
         next_line_start_col = #self.doc.lines[line] 
