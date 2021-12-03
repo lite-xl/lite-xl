@@ -19,15 +19,15 @@ function Node:new(type)
   self.size = { x = 0, y = 0 }
   self.views = {}
   self.divider = 0.5
-  if self.type == "leaf" then
-    self:add_view(EmptyView())
-  end
   self.hovered = {x = -1, y = -1 }
   self.hovered_close = 0
   self.tab_shift = 0
   self.tab_offset = 1
   self.tab_width = style.tab_width
   self.move_towards = View.move_towards
+  if self.type == "leaf" then
+    self:add_view(EmptyView())
+  end
 end
 
 
@@ -176,6 +176,7 @@ function Node:set_active_view(view)
   assert(self.type == "leaf", "Tried to set active view on non-leaf node")
   self.active_view = view
   core.set_active_view(view)
+  self:scroll_tabs_to_visible()
 end
 
 
@@ -1073,12 +1074,10 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
 
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  if self.overlapping_node and self.overlapping_node:get_scroll_button_index(x, y) then
+  if self.overlapping_node and self.overlapping_node:in_tab_area(x, y) then
     core.request_cursor("arrow")
   elseif div then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
-  elseif self.overlapping_node and self.overlapping_node:in_tab_area(x, y) then
-    core.request_cursor("arrow")
   elseif self.overlapping_node then
     core.request_cursor(self.overlapping_node.active_view.cursor)
   end

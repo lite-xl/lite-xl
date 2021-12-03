@@ -91,8 +91,6 @@ command.add(nil, {
 
   ["core:new-doc"] = function()
     core.root_view:open_doc(core.open_doc())
-    local node = core.root_view:get_active_node()
-    node:scroll_tabs_to_visible()
   end,
 
   ["core:open-file"] = function()
