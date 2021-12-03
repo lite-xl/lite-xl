@@ -100,6 +100,15 @@ function Node:remove_view(root, view)
       self.tab_offset = self.tab_offset - 1
     end
     table.remove(self.views, idx)
+
+    -- if closing this tab left less than the desired number of tabs visible
+    -- scroll in from the left to expose the desired number of tabs
+    if self:get_visible_tabs_number() < config.max_tabs then
+      self.tab_offset = math.max(
+        self.tab_offset - (config.max_tabs - self:get_visible_tabs_number()),
+        1)
+    end
+
     if self.active_view == view then
       self:set_active_view(self.views[idx] or self.views[#self.views])
     end
@@ -260,8 +269,14 @@ function Node:in_tab_scroll_button(x, y)
   if not self:in_tab_area(x, y) then return false end
 
   local scroll_button_width = get_scroll_button_width()
-  return self.position.x + scroll_button_width > x -- left button
-    or self.position.x + self.size.x - scroll_button_width <= x -- right button
+  local in_scroll_button = self.position.x + scroll_button_width > x -- left button
+  -- the right scroll button only counts if we overflow to the right. Left always counts
+  if self:tabs_overflow_end() then
+    in_scroll_button = in_scroll_button
+      or self.position.x + self.size.x - scroll_button_width <= x
+  end
+  return in_scroll_button
+
 end
 
 function Node:in_tab(x, y)
@@ -330,11 +345,12 @@ end
 
 
 function Node:get_scroll_button_index(px, py)
-  if #self.views == 1 then return end
-  for i = 1, 2 do
-    local x, y, w, h = self:get_scroll_button_rect(i)
-    if px >= x and px < x + w and py >= y and py < y + h then
-      return i
+  for i, visible in ipairs { self:tabs_overflow_start(), self:tabs_overflow_end() } do
+    if visible then
+      local x, y, w, h = self:get_scroll_button_rect(i)
+      if px >= x and px < x + w and py >= y and py < y + h then
+        return i
+      end
     end
   end
 end
