@@ -918,11 +918,11 @@ end
 
 function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  if div then
+  local node = self.root_node:get_child_overlapping_point(x, y)
+  if div and (node and not node.active_view:scrollbar_overlaps_point(x, y)) then
     self.dragged_divider = div
     return true
   end
-  local node = self.root_node:get_child_overlapping_point(x, y)
   if node.hovered_scroll_button > 0 then
     node:scroll_tabs(node.hovered_scroll_button)
     return true
@@ -948,9 +948,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
       return true
     end
     if not node:in_tab_area(x, y) then
-      if not self.on_view_mouse_pressed(button, x, y, clicks) then
-        return node.active_view:on_mouse_pressed(button, x, y, clicks)
-      end
+      return self.on_view_mouse_pressed(button, x, y, clicks) or node.active_view:on_mouse_pressed(button, x, y, clicks)
     end
   end
 end
@@ -1078,7 +1076,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if self.overlapping_node and self.overlapping_node:in_tab_area(x, y) then
     core.request_cursor("arrow")
-  elseif div then
+  elseif div and (self.overlapping_node and not self.overlapping_node.active_view:scrollbar_overlaps_point(x, y)) then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
   elseif self.overlapping_node then
     core.request_cursor(self.overlapping_node.active_view.cursor)
@@ -1171,10 +1169,10 @@ function RootView:update_drag_overlay()
     if split_type == "tab" and (over ~= self.dragged_node.node or #over.views > 1) then
       local tab_index, tab_x, tab_y, tab_w, tab_h = over:get_drag_overlay_tab_position(self.mouse.x, self.mouse.y)
       self:set_drag_overlay(self.drag_overlay_tab,
-                           tab_x + (tab_index and 0 or tab_w), tab_y,
-                           style.caret_width, tab_h,
-                           -- avoid showing tab overlay moving between nodes
-                           over ~= self.drag_overlay_tab.last_over)
+        tab_x + (tab_index and 0 or tab_w), tab_y,
+        style.caret_width, tab_h,
+        -- avoid showing tab overlay moving between nodes
+        over ~= self.drag_overlay_tab.last_over)
       self:set_show_overlay(self.drag_overlay, false)
       self.drag_overlay_tab.last_over = over
     else
