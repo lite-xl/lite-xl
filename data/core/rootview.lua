@@ -940,15 +940,17 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
       return true
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
+    core.set_active_view(node.active_view)
     local in_gutter = node:in_tab_area_gutter(x, y)
     if in_gutter and button == "left" and clicks == 2 then
       -- if the user double clicks inside the tab gutter, make a new document
       command.perform "core:new-doc"
       return true
     end
-    core.set_active_view(node.active_view)
-    if not self.on_view_mouse_pressed(button, x, y, clicks) then
-      return node.active_view:on_mouse_pressed(button, x, y, clicks)
+    if not node:in_tab_area(x, y) then
+      if not self.on_view_mouse_pressed(button, x, y, clicks) then
+        return node.active_view:on_mouse_pressed(button, x, y, clicks)
+      end
     end
   end
 end
