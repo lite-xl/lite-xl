@@ -329,16 +329,20 @@ static int f_write(lua_State* L) {
   long length;
   #if _WIN32
     DWORD dwWritten;
-    length = WriteFile(self->child_pipes[STDIN_FD][1], data, data_size, &dwWritten, NULL) ? dwWritten : -1;
+    if (!WriteFile(self->child_pipes[STDIN_FD][1], data, data_size, &dwWritten, NULL)) {
+      signal_process(self, SIGNAL_TERM);
+      return luaL_error(L, "error writing to process: %d", GetLastError());
+    }
+    length = dwWritten;
   #else
     length = write(self->child_pipes[STDIN_FD][1], data, data_size);
     if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
       length = 0;
+    else if (length < 0) {
+      signal_process(self, SIGNAL_TERM);
+      return luaL_error(L, "error writing to process: %s", strerror(errno));
+    }
   #endif
-  if (length < 0) {
-    signal_process(self, SIGNAL_TERM);
-    return luaL_error(L, "error writing to process: %s", strerror(errno));
-  }
   lua_pushnumber(L, length);
   return 1;
 }
@@ -353,6 +357,9 @@ static int f_close_stream(lua_State* L) {
 
 // Generic stuff below here.
 static int process_strerror(lua_State* L) {
+  #if _WIN32
+    return 1;
+  #endif 
   int error_code = luaL_checknumber(L, 1);
   if (error_code < 0)
     lua_pushstring(L, strerror(error_code));
