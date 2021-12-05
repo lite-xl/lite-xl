@@ -406,7 +406,7 @@ function RootView:draw(...)
 end
 
 local function is_project_folder(path)
-  return common.basename(core.project_dir) == path
+  return core.project_dir == path
 end
 
 menu:register(function() return view.hovered_item end, {
@@ -417,7 +417,7 @@ menu:register(function() return view.hovered_item end, {
 menu:register(
   function()
     return view.hovered_item
-      and not is_project_folder(view.hovered_item.filename)
+      and not is_project_folder(view.hovered_item.abs_filename)
   end,
   {
     { text = "Rename", command = "treeview:rename" },
@@ -467,9 +467,8 @@ command.add(function() return view.hovered_item ~= nil end, {
   end,
 
   ["treeview:new-file"] = function()
-    local dir_name = view.hovered_item.filename
-    if not is_project_folder(dir_name) then
-      core.command_view:set_text(dir_name .. "/")
+    if not is_project_folder(view.hovered_item.abs_filename) then
+      core.command_view:set_text(view.hovered_item.filename .. "/")
     end
     core.command_view:enter("Filename", function(filename)
       local doc_filename = core.project_dir .. PATHSEP .. filename
@@ -482,9 +481,8 @@ command.add(function() return view.hovered_item ~= nil end, {
   end,
 
   ["treeview:new-folder"] = function()
-    local dir_name = view.hovered_item.filename
-    if not is_project_folder(dir_name) then
-      core.command_view:set_text(dir_name .. "/")
+    if not is_project_folder(view.hovered_item.abs_filename) then
+      core.command_view:set_text(view.hovered_item.filename .. "/")
     end
     core.command_view:enter("Folder Name", function(filename)
       local dir_path = core.project_dir .. PATHSEP .. filename
