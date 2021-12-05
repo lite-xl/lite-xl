@@ -189,7 +189,7 @@ static int process_start(lua_State* L) {
             sprintf(pipeNameBuffer, "\\\\.\\Pipe\\RemoteExeAnon.%08lx.%08lx", GetCurrentProcessId(), InterlockedIncrement(&PipeSerialNumber));
             self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
               PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 0, NULL);
-            if (!self->child_pipes[i][0])
+            if (self->child_pipes[i][0] == INVALID_HANDLE_VALUE)
               return luaL_error(L, "Error creating read pipe: %d.", GetLastError());
             self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
             if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
@@ -236,7 +236,7 @@ static int process_start(lua_State* L) {
       environmentBlock[offset++] = 0;
     }
     environmentBlock[offset++] = 0;
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, detach ? DETACHED_PROCESS : CREATE_NO_WINDOW, env_len > 0 ? environmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
+    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? environmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
       return luaL_error(L, "Error creating a process: %d.", GetLastError());
     self->pid = (long)self->process_information.dwProcessId;
     if (detach) 
@@ -284,22 +284,25 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
   if (stream != STDOUT_FD && stream != STDERR_FD)
     return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
   #if _WIN32
-    if (self->reading[stream] || !ReadFile(self->child_pipes[stream][0], self->buffer[stream], READ_BUF_SIZE, NULL, &self->overlapped[stream])) {
-      if (self->reading[stream] || GetLastError() == ERROR_IO_PENDING) {
-        self->reading[stream] = true;
+    int writable_stream_idx = stream - 1;
+    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], READ_BUF_SIZE, NULL, &self->overlapped[writable_stream_idx])) {
+      if (self->reading[writable_stream_idx] || GetLastError() == ERROR_IO_PENDING) {
+        self->reading[writable_stream_idx] = true;
         DWORD bytesTransferred = 0;
-        if (GetOverlappedResult(self->child_pipes[stream][0], &self->overlapped[stream], &bytesTransferred, false)) {
-          self->reading[stream] = false;
+        if (GetOverlappedResult(self->child_pipes[stream][0], &self->overlapped[writable_stream_idx], &bytesTransferred, false)) {
+          self->reading[writable_stream_idx] = false;
           length = bytesTransferred;
+          memset(&self->overlapped[writable_stream_idx], 0, sizeof(self->overlapped[writable_stream_idx]));
         }
       } else {
         signal_process(self, SIGNAL_TERM);
         return 0;
       }
     } else {
-      length = self->overlapped[stream].InternalHigh;
+      length = self->overlapped[writable_stream_idx].InternalHigh;
+      memset(&self->overlapped[writable_stream_idx], 0, sizeof(self->overlapped[writable_stream_idx]));
     }
-    lua_pushlstring(L, self->buffer[stream], length);
+    lua_pushlstring(L, self->buffer[writable_stream_idx], length);
   #else
     luaL_Buffer b;
     luaL_buffinit(L, &b);
