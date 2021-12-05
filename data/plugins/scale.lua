@@ -54,6 +54,10 @@ local function set_scale(scale)
     renderer.font.set_size(font, s * font:get_size())
   end
 
+  for _, font in pairs(style.syntax_fonts) do
+    renderer.font.set_size(font, s * font:get_size())
+  end
+
   -- restore scroll positions
   for view, n in pairs(scrolls) do
     view.scroll.y = n * (view:get_scrollable_size() - view.size.y)
@@ -65,17 +69,6 @@ end
 
 local function get_scale()
   return current_scale
-end
-
-local on_mouse_wheel = RootView.on_mouse_wheel
-
-function RootView:on_mouse_wheel(d, ...)
-  if keymap.modkeys["ctrl"] and config.plugins.scale.use_mousewheel then
-    if d < 0 then command.perform "scale:decrease" end
-    if d > 0 then command.perform "scale:increase" end
-  else
-    return on_mouse_wheel(self, d, ...)
-  end
 end
 
 local function res_scale()
@@ -101,6 +94,8 @@ keymap.add {
   ["ctrl+0"] = "scale:reset",
   ["ctrl+-"] = "scale:decrease",
   ["ctrl+="] = "scale:increase",
+  ["ctrl+wheelup"] = "scale:increase",
+  ["ctrl+wheeldown"] = "scale:decrease"
 }
 
 return {

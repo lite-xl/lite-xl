@@ -92,7 +92,7 @@ end
 function ResultsView:on_mouse_pressed(...)
   local caught = ResultsView.super.on_mouse_pressed(self, ...)
   if not caught then
-    self:open_selected_result()
+    return self:open_selected_result()
   end
 end
 
@@ -108,6 +108,7 @@ function ResultsView:open_selected_result()
     dv.doc:set_selection(res.line, res.col)
     dv:scroll_to_line(res.line, false, true)
   end)
+  return true
 end
 
 

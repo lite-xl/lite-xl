@@ -225,51 +225,6 @@ function DocView:scroll_to_make_visible(line, col)
 end
 
 
-local function mouse_selection(doc, clicks, line1, col1, line2, col2)
-  local swap = line2 < line1 or line2 == line1 and col2 <= col1
-  if swap then
-    line1, col1, line2, col2 = line2, col2, line1, col1
-  end
-  if clicks % 4 == 2 then
-    line1, col1 = translate.start_of_word(doc, line1, col1)
-    line2, col2 = translate.end_of_word(doc, line2, col2)
-  elseif clicks % 4 == 3 then
-    if line2 == #doc.lines and doc.lines[#doc.lines] ~= "\n" then
-      doc:insert(math.huge, math.huge, "\n")
-    end
-    line1, col1, line2, col2 = line1, 1, line2 + 1, 1
-  end
-  if swap then
-    return line2, col2, line1, col1
-  end
-  return line1, col1, line2, col2
-end
-
-
-function DocView:on_mouse_pressed(button, x, y, clicks)
-  local caught = DocView.super.on_mouse_pressed(self, button, x, y, clicks)
-  if caught then
-    return
-  end
-  if keymap.modkeys["shift"] then
-    if clicks % 2 == 1 then
-      local line1, col1 = select(3, self.doc:get_selection())
-      local line2, col2 = self:resolve_screen_position(x, y)
-      self.doc:set_selection(line2, col2, line1, col1)
-    end
-  else
-    local line, col = self:resolve_screen_position(x, y)
-    if keymap.modkeys["ctrl"] then
-      self.doc:add_selection(mouse_selection(self.doc, clicks, line, col, line, col))
-    else
-      self.doc:set_selection(mouse_selection(self.doc, clicks, line, col, line, col))
-    end
-    self.mouse_selecting = { line, col, clicks = clicks }
-  end
-  core.blink_reset()
-end
-
-
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
@@ -281,8 +236,7 @@ function DocView:on_mouse_moved(x, y, ...)
 
   if self.mouse_selecting then
     local l1, c1 = self:resolve_screen_position(x, y)
-    local l2, c2 = table.unpack(self.mouse_selecting)
-    local clicks = self.mouse_selecting.clicks
+    local l2, c2, snap_type = table.unpack(self.mouse_selecting)
     if keymap.modkeys["ctrl"] then
       if l1 > l2 then l1, l2 = l2, l1 end
       self.doc.selections = { }
@@ -290,9 +244,30 @@ function DocView:on_mouse_moved(x, y, ...)
         self.doc:set_selections(i - l1 + 1, i, math.min(c1, #self.doc.lines[i]), i, math.min(c2, #self.doc.lines[i]))
       end
     else
-      self.doc:set_selection(mouse_selection(self.doc, clicks, l1, c1, l2, c2))
+      if snap_type then
+        l1, c1, l2, c2 = self:mouse_selection(self.doc, snap_type, l1, c1, l2, c2)
+      end
+      self.doc:set_selection(l1, c1, l2, c2)
     end
   end
+end
+
+
+function DocView:mouse_selection(doc, snap_type, line1, col1, line2, col2)
+  local swap = line2 < line1 or line2 == line1 and col2 <= col1
+  if swap then
+    line1, col1, line2, col2 = line2, col2, line1, col1
+  end
+  if snap_type == "word" then
+    line1, col1 = translate.start_of_word(doc, line1, col1)
+    line2, col2 = translate.end_of_word(doc, line2, col2)
+  elseif snap_type == "lines" then
+    col1, col2 = 1, math.huge
+  end
+  if swap then
+    return line2, col2, line1, col1
+  end
+  return line1, col1, line2, col2
 end
 
 
@@ -354,6 +329,18 @@ function DocView:draw_caret(x, y)
 end
 
 function DocView:draw_line_body(idx, x, y)
+  -- draw highlight if any selection ends on this line
+  local draw_highlight = false
+  for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
+    if line1 == idx then
+      draw_highlight = true
+      break
+    end
+  end
+  if draw_highlight and config.highlight_current_line and core.active_view == self then
+    self:draw_line_highlight(x + self.scroll.x, y)
+  end
+
   -- draw selection if it overlaps this line
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     if idx >= line1 and idx <= line2 then
@@ -368,15 +355,6 @@ function DocView:draw_line_body(idx, x, y)
       end
     end
   end
-  local draw_highlight = nil
-  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
-    -- draw line highlight if caret is on this line
-    if draw_highlight ~= false and config.highlight_current_line
-    and line1 == idx and core.active_view == self then
-      draw_highlight = (line1 == line2 and col1 == col2)
-    end
-  end
-  if draw_highlight then self:draw_line_highlight(x + self.scroll.x, y) end
 
   -- draw line's text
   self:draw_line_text(idx, x, y)
@@ -417,8 +395,8 @@ end
 
 function DocView:draw()
   self:draw_background(style.background)
-
-  self:get_font():set_tab_size(config.indent_size)
+  local _, indent_size = self.doc:get_indent_info()
+  self:get_font():set_tab_size(indent_size)
 
   local minline, maxline = self:get_visible_line_range()
   local lh = self:get_line_height()
@@ -432,7 +410,9 @@ function DocView:draw()
 
   local pos = self.position
   x, y = self:get_line_screen_position(minline)
-  core.push_clip_rect(pos.x + gw, pos.y, self.size.x, self.size.y)
+  -- the clip below ensure we don't write on the gutter region. On the
+  -- right side it is redundant with the Node's clip.
+  core.push_clip_rect(pos.x + gw, pos.y, self.size.x - gw, self.size.y)
   for i = minline, maxline do
     self:draw_line_body(i, x, y)
     y = y + lh

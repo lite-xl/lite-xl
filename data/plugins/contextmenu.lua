@@ -62,15 +62,15 @@ menu:register("core.logview", {
 
 if require("plugins.scale") then
   menu:register("core.docview", {
-    { text = "Font +",     command = "scale:increase" },
-    { text = "Font -",     command = "scale:decrease" },
-    { text = "Font Reset", command = "scale:reset"    },
+    { text = "Cut",         command = "doc:cut" },
+    { text = "Copy",        command = "doc:copy" },
+    { text = "Paste",       command = "doc:paste" },
+    { text = "Font +",      command = "scale:increase" },
+    { text = "Font -",      command = "scale:decrease" },
+    { text = "Font Reset",  command = "scale:reset"    },
     ContextMenu.DIVIDER,
-    { text = "Find",       command = "find-replace:find"    },
-    { text = "Replace",    command = "find-replace:replace" },
-    ContextMenu.DIVIDER,
-    { text = "Find Pattern",    command = "find-replace:find-pattern"    },
-    { text = "Replace Pattern", command = "find-replace:replace-pattern" },
+    { text = "Find",        command = "find-replace:find"    },
+    { text = "Replace",     command = "find-replace:replace" }
   })
 end
 

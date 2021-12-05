@@ -1,8 +1,8 @@
 local common = {}
 
 
-function common.is_utf8_cont(char)
-  local byte = char:byte()
+function common.is_utf8_cont(s, offset)
+  local byte = s:byte(offset or 1)
   return byte >= 0x80 and byte < 0xc0
 end
 
@@ -280,24 +280,61 @@ local function split_on_slash(s, sep_pattern)
 end
 
 
-function common.normalize_path(filename)
+-- The filename argument given to the function is supposed to
+-- come from system.absolute_path and as such should be an
+-- absolute path without . or .. elements.
+-- This function exists because on Windows the drive letter returned
+-- by system.absolute_path is sometimes with a lower case and sometimes
+-- with an upper case to we normalize to upper case.
+function common.normalize_volume(filename)
   if not filename then return end
   if PATHSEP == '\\' then
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    if drive then
+      return drive:upper() .. rem
+    end
+  end
+  return filename
+end
+
+
+function common.normalize_path(filename)
+  if not filename then return end
+  local volume
+  if PATHSEP == '\\' then
     filename = filename:gsub('[/\\]', '\\')
-    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
-    filename = drive and drive:upper() .. rem or filename
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    if drive then
+      volume, filename = drive:upper(), rem
+    else
+      drive, rem = filename:match('^(\\\\[^\\]+\\[^\\]+\\)(.*)')
+      if drive then
+        volume, filename = drive, rem
+      end
+    end
+  else
+    local relpath = filename:match('^/(.+)')
+    if relpath then
+      volume, filename = "/", relpath
+    end
   end
   local parts = split_on_slash(filename, PATHSEP)
   local accu = {}
   for _, part in ipairs(parts) do
-    if part == '..' and #accu > 0 and accu[#accu] ~= ".." then
-      table.remove(accu)
+    if part == '..' then
+      if #accu > 0 and accu[#accu] ~= ".." then
+        table.remove(accu)
+      elseif volume then
+        error("invalid path " .. volume .. filename)
+      else
+        table.insert(accu, part)
+      end
     elseif part ~= '.' then
       table.insert(accu, part)
     end
   end
   local npath = table.concat(accu, PATHSEP)
-  return npath == "" and PATHSEP or npath
+  return (volume or "") .. (npath == "" and PATHSEP or npath)
 end
 
 

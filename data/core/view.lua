@@ -102,13 +102,9 @@ function View:on_text_input(text)
   -- no-op
 end
 
-
 function View:on_mouse_wheel(y)
-  if self.scrollable then
-    self.scroll.to.y = self.scroll.to.y + y * -config.mouse_wheel_scroll
-  end
-end
 
+end
 
 function View:get_content_bounds()
   local x = self.scroll.x
@@ -140,7 +136,7 @@ end
 function View:draw_background(color)
   local x, y = self.position.x, self.position.y
   local w, h = self.size.x, self.size.y
-  renderer.draw_rect(x, y, w + x % 1, h + y % 1, color)
+  renderer.draw_rect(x, y, w, h, color)
 end
 
 

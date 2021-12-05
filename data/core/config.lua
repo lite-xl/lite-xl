@@ -1,6 +1,5 @@
 local config = {}
 
-config.project_scan_rate = 5
 config.fps = 60
 config.max_log_items = 80
 config.message_timeout = 5
@@ -12,8 +11,8 @@ config.symbol_pattern = "[%a_][%w_]*"
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
 config.undo_merge_timeout = 0.3
 config.max_undos = 10000
-config.max_tabs = 10
-config.always_show_tabs = false
+config.max_tabs = 8
+config.always_show_tabs = true
 config.highlight_current_line = true
 config.line_height = 1.2
 config.indent_size = 2
@@ -28,6 +27,7 @@ config.disable_blink = false
 config.draw_whitespace = false
 config.borderless = false
 config.tab_close_button = true
+config.max_clicks = 3
 
 -- Disable plugin loading setting to false the config entry
 -- of the same name.

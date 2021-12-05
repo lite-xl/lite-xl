@@ -1,4 +1,5 @@
 local core = require "core"
+local common = require "core.common"
 local config = require "core.config"
 local tokenizer = require "core.tokenizer"
 local Object = require "core.object"
@@ -24,7 +25,7 @@ function Highlighter:new(doc)
         for i = self.first_invalid_line, max do
           local state = (i > 1) and self.lines[i - 1].state
           local line = self.lines[i]
-          if not (line and line.init_state == state) then
+          if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
             self.lines[i] = self:tokenize_line(i, state)
           end
         end
@@ -40,14 +41,34 @@ end
 
 function Highlighter:reset()
   self.lines = {}
+  self:soft_reset()
+end
+
+function Highlighter:soft_reset()
+  for i=1,#self.lines do
+    self.lines[i] = false
+  end
   self.first_invalid_line = 1
   self.max_wanted_line = 0
 end
 
-
 function Highlighter:invalidate(idx)
   self.first_invalid_line = math.min(self.first_invalid_line, idx)
   self.max_wanted_line = math.min(self.max_wanted_line, #self.doc.lines)
+end
+
+function Highlighter:insert_notify(line, n)
+  self:invalidate(line)
+  local blanks = { }
+  for i = 1, n do
+    blanks[i] = false
+  end
+  common.splice(self.lines, line, 0, blanks)
+end
+
+function Highlighter:remove_notify(line, n)
+  self:invalidate(line)
+  common.splice(self.lines, line, n)
 end
 
 

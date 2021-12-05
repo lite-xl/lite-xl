@@ -149,10 +149,17 @@ function Node:remove_view(root, view)
     else
       locked_size = locked_size_y
     end
-    if self.is_primary_node or locked_size then
+    local next_primary
+    if self.is_primary_node then
+      next_primary = core.root_view:select_next_primary_node()
+    end
+    if locked_size or (self.is_primary_node and not next_primary) then
       self.views = {}
       self:add_view(EmptyView())
     else
+      if other == next_primary then
+        next_primary = parent
+      end
       parent:consume(other)
       local p = parent
       while p.type ~= "leaf" do
@@ -160,7 +167,7 @@ function Node:remove_view(root, view)
       end
       p:set_active_view(p.active_view)
       if self.is_primary_node then
-        p.is_primary_node = true
+        next_primary.is_primary_node = true
       end
     end
   end
@@ -411,15 +418,8 @@ end
 -- calculating the sizes is the same for hsplits and vsplits, except the x/y
 -- axis are swapped; this function lets us use the same code for both
 local function calc_split_sizes(self, x, y, x1, x2, y1, y2)
-  local n
   local ds = ((x1 and x1 < 1) or (x2 and x2 < 1)) and 0 or style.divider_size
-  if x1 then
-    n = x1 + ds
-  elseif x2 then
-    n = self.size[x] - x2
-  else
-    n = math.floor(self.size[x] * self.divider)
-  end
+  local n = x1 and x1 + ds or (x2 and self.size[x] - x2 or math.floor(self.size[x] * self.divider))
   self.a.position[x] = self.position[x]
   self.a.position[y] = self.position[y]
   self.a.size[x] = n - ds
@@ -602,7 +602,7 @@ function Node:draw()
       self:draw_tabs()
     end
     local pos, size = self.active_view.position, self.active_view.size
-    core.push_clip_rect(pos.x, pos.y, size.x + pos.x % 1, size.y + pos.y % 1)
+    core.push_clip_rect(pos.x, pos.y, size.x, size.y)
     self.active_view:draw()
     core.pop_clip_rect()
   else
@@ -682,6 +682,10 @@ end
 
 
 function Node:resize(axis, value)
+  -- the application works fine with non-integer values but to have pixel-perfect
+  -- placements of view elements, like the scrollbar, we round the value to be
+  -- an integer.
+  value = math.floor(value)
   if self.type == 'leaf' then
     -- If it is not locked we don't accept the
     -- resize operation here because for proportional panes the resize is
@@ -826,6 +830,24 @@ function RootView:get_primary_node()
 end
 
 
+local function select_next_primary_node(node)
+  if node.is_primary_node then return end
+  if node.type ~= "leaf" then
+    return select_next_primary_node(node.a) or select_next_primary_node(node.b)
+  else
+    local lx, ly = node:get_locked_size()
+    if not lx and not ly then
+      return node
+    end
+  end
+end
+
+
+function RootView:select_next_primary_node()
+  return select_next_primary_node(self.root_node)
+end
+
+
 function RootView:open_doc(doc)
   local node = self:get_active_node_default()
   for i, view in ipairs(node.views) do
@@ -855,30 +877,30 @@ end
 
 function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  if div then
-    self.dragged_divider = div
-    return
-  end
   local node = self.root_node:get_child_overlapping_point(x, y)
+  if div and (node and not node.active_view:scrollbar_overlaps_point(x, y)) then
+    self.dragged_divider = div
+    return true
+  end
   if node.hovered_scroll_button > 0 then
     node:scroll_tabs(node.hovered_scroll_button)
-    return
+    return true
   end
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     if button == "middle" or node.hovered_close == idx then
       node:close_view(self.root_node, node.views[idx])
+      return true
     else
       if button == "left" then
         self.dragged_node = { node = node, idx = idx, dragging = false, drag_start_x = x, drag_start_y = y}
       end
       node:set_active_view(node.views[idx])
+      return true
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
     core.set_active_view(node.active_view)
-    if not self.on_view_mouse_pressed(button, x, y, clicks) then
-      node.active_view:on_mouse_pressed(button, x, y, clicks)
-    end
+    return self.on_view_mouse_pressed(button, x, y, clicks) or node.active_view:on_mouse_pressed(button, x, y, clicks)
   end
 end
 
@@ -1000,17 +1022,18 @@ function RootView:on_mouse_moved(x, y, dx, dy)
 
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
-  local node = self.root_node:get_child_overlapping_point(x, y)
+  self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
+  
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  local tab_index = node and node:get_tab_overlapping_point(x, y)
-  if node and node:get_scroll_button_index(x, y) then
+  local tab_index = self.overlapping_node and self.overlapping_node:get_tab_overlapping_point(x, y)
+  if self.overlapping_node and self.overlapping_node:get_scroll_button_index(x, y) then
     core.request_cursor("arrow")
-  elseif div then
+  elseif div and (self.overlapping_node and not self.overlapping_node.active_view:scrollbar_overlaps_point(x, y)) then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
   elseif tab_index then
     core.request_cursor("arrow")
-  elseif node then
-    core.request_cursor(node.active_view.cursor)
+  elseif self.overlapping_node then
+    core.request_cursor(self.overlapping_node.active_view.cursor)
   end
 end
 
@@ -1018,7 +1041,7 @@ end
 function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
-  node.active_view:on_mouse_wheel(...)
+  return node.active_view:on_mouse_wheel(...)
 end
 
 
@@ -1100,10 +1123,10 @@ function RootView:update_drag_overlay()
     if split_type == "tab" and (over ~= self.dragged_node.node or #over.views > 1) then
       local tab_index, tab_x, tab_y, tab_w, tab_h = over:get_drag_overlay_tab_position(self.mouse.x, self.mouse.y)
       self:set_drag_overlay(self.drag_overlay_tab,
-                           tab_x + (tab_index and 0 or tab_w), tab_y,
-                           style.caret_width, tab_h,
-                           -- avoid showing tab overlay moving between nodes
-                           over ~= self.drag_overlay_tab.last_over)
+        tab_x + (tab_index and 0 or tab_w), tab_y,
+        style.caret_width, tab_h,
+        -- avoid showing tab overlay moving between nodes
+        over ~= self.drag_overlay_tab.last_over)
       self:set_show_overlay(self.drag_overlay, false)
       self.drag_overlay_tab.last_over = over
     else

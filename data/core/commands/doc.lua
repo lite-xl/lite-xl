@@ -16,14 +16,6 @@ local function doc()
 end
 
 
-local function get_indent_string()
-  if config.tab_type == "hard" then
-    return "\t"
-  end
-  return string.rep(" ", config.indent_size)
-end
-
-
 local function doc_multiline_selections(sort)
   local iter, state, idx, line1, col1, line2, col2 = doc():get_selections(sort)
   return function()
@@ -82,6 +74,31 @@ local function split_cursor(direction)
   core.blink_reset()
 end
 
+local function set_cursor(x, y, snap_type)
+  local line, col = dv():resolve_screen_position(x, y)
+  doc():set_selection(line, col, line, col)
+  if snap_type == "word" or snap_type == "lines" then
+    command.perform("doc:select-" .. snap_type)
+  end
+  dv().mouse_selecting = { line, col, snap_type }
+  core.blink_reset()
+end
+
+local selection_commands = {
+  ["doc:cut"] = function()
+    cut_or_copy(true)
+  end,
+
+  ["doc:copy"] = function()
+    cut_or_copy(false)
+  end,
+
+  ["doc:select-none"] = function()
+    local line, col = doc():get_selection()
+    doc():set_selection(line, col)
+  end
+}
+
 local commands = {
   ["doc:undo"] = function()
     doc():undo()
@@ -89,14 +106,6 @@ local commands = {
 
   ["doc:redo"] = function()
     doc():redo()
-  end,
-
-  ["doc:cut"] = function()
-    cut_or_copy(true)
-  end,
-
-  ["doc:copy"] = function()
-    cut_or_copy(false)
   end,
 
   ["doc:paste"] = function()
@@ -147,11 +156,12 @@ local commands = {
   end,
 
   ["doc:backspace"] = function()
+    local _, indent_size = doc():get_indent_info()
     for idx, line1, col1, line2, col2 in doc():get_selections() do
       if line1 == line2 and col1 == col2 then
         local text = doc():get_text(line1, 1, line1, col1)
-        if #text >= config.indent_size and text:find("^ *$") then
-          doc():delete_to_cursor(idx, 0, -config.indent_size)
+        if #text >= indent_size and text:find("^ *$") then
+          doc():delete_to_cursor(idx, 0, -indent_size)
           return
         end
       end
@@ -161,11 +171,6 @@ local commands = {
 
   ["doc:select-all"] = function()
     doc():set_selection(1, 1, math.huge, math.huge)
-  end,
-
-  ["doc:select-none"] = function()
-    local line, col = doc():get_selection()
-    doc():set_selection(line, col)
   end,
 
   ["doc:select-lines"] = function()
@@ -261,7 +266,7 @@ local commands = {
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
     if not comment then return end
-    local indentation = get_indent_string()
+    local indentation = doc():get_indent_string()
     local comment_text = comment .. " "
     for idx, line1, _, line2 in doc_multiline_selections(true) do
       local uncomment = true
@@ -388,6 +393,30 @@ local commands = {
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
   end,
+    
+  ["doc:select-to-cursor"] = function(x, y, clicks) 
+    local line1, col1 = select(3, doc():get_selection())
+    local line2, col2 = dv():resolve_screen_position(x, y)
+    dv().mouse_selecting = { line1, col1, nil }
+    doc():set_selection(line2, col2, line1, col1)
+  end,
+  
+  ["doc:set-cursor"] = function(x, y)
+    set_cursor(x, y, "set") 
+  end,
+  
+  ["doc:set-cursor-word"] = function(x, y) 
+    set_cursor(x, y, "word") 
+  end,  
+  
+  ["doc:set-cursor-line"] = function(x, y, clicks) 
+    set_cursor(x, y, "lines") 
+  end,
+  
+  ["doc:split-cursor"] = function(x, y, clicks) 
+    local line, col = dv():resolve_screen_position(x, y)
+    doc():add_selection(line, col, line, col)
+  end,
 
   ["doc:create-cursor-previous-line"] = function()
     split_cursor(-1)
@@ -447,3 +476,6 @@ commands["doc:move-to-next-char"] = function()
 end
 
 command.add("core.docview", commands)
+command.add(function()
+  return core.active_view:is(DocView) and core.active_view.doc:has_any_selection()
+end ,selection_commands)

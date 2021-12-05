@@ -22,37 +22,62 @@ local function init_args(doc, line, col, text, opt)
   return doc, line, col, text, opt
 end
 
+-- This function is needed to uniform the behavior of
+-- `regex:cmatch` and `string.find`.
+local function regex_func(text, re, index, _)
+  local s, e = re:cmatch(text, index)
+  return s, e and e - 1
+end
+
+local function rfind(func, text, pattern, index, plain)
+  local s, e = func(text, pattern, 1, plain)
+  local last_s, last_e
+  if index < 0 then index = #text - index + 1 end
+  while e and e <= index do
+    last_s, last_e = s, e
+    s, e = func(text, pattern, s + 1, plain)
+  end
+  return last_s, last_e
+end
+
 
 function search.find(doc, line, col, text, opt)
   doc, line, col, text, opt = init_args(doc, line, col, text, opt)
-
-  local re
+  local plain = not opt.pattern
+  local pattern = text
+  local search_func = string.find
   if opt.regex then
-    re = regex.compile(text, opt.no_case and "i" or "")
+    pattern = regex.compile(text, opt.no_case and "i" or "")
+    search_func = regex_func
   end
-  for line = line, #doc.lines do
+  local start, finish, step = line, #doc.lines, 1
+  if opt.reverse then
+    start, finish, step = line, 1, -1
+  end
+  for line = start, finish, step do
     local line_text = doc.lines[line]
-    if opt.regex then
-      local s, e = re:cmatch(line_text, col)
-      if s then
-        return line, s, line, e
-      end
-      col = 1
-    else
-      if opt.no_case then
-        line_text = line_text:lower()
-      end
-      local s, e = line_text:find(text, col, true)
-      if s then
-        return line, s, line, e + 1
-      end
-      col = 1
+    if opt.no_case and not opt.regex then
+      line_text = line_text:lower()
     end
+    local s, e
+    if opt.reverse then
+      s, e = rfind(search_func, line_text, pattern, col - 1, plain)
+    else
+      s, e = search_func(line_text, pattern, col, plain)
+    end
+    if s then
+      return line, s, line, e + 1
+    end
+    col = opt.reverse and -1 or 1
   end
 
   if opt.wrap then
-    opt = { no_case = opt.no_case, regex = opt.regex }
-    return search.find(doc, 1, 1, text, opt)
+    opt = { no_case = opt.no_case, regex = opt.regex, reverse = opt.reverse }
+    if opt.reverse then
+      return search.find(doc, #doc.lines, #doc.lines[#doc.lines], text, opt)
+    else
+      return search.find(doc, 1, 1, text, opt)
+    end
   end
 end
 
