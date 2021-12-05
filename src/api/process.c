@@ -409,11 +409,7 @@ static int self_signal(lua_State* L, signal_e sig) {
 }
 static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
-<<<<<<< HEAD
-static int f_break(lua_State* L) { return self_signal(L, SIGNAL_BREAK); }
-=======
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
->>>>>>> 06b8607b397cb74da022aa1804363bc7e852a592
 static int f_gc(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 
 static int f_running(lua_State* L) {
