@@ -433,11 +433,7 @@ static const struct luaL_Reg lib[] = {
   {"wait", f_wait},
   {"terminate", f_terminate},
   {"kill", f_kill},
-<<<<<<< HEAD
-  {"break", f_break},
-=======
   {"interrupt", f_interrupt},
->>>>>>> 06b8607b397cb74da022aa1804363bc7e852a592
   {"running", f_running},
   {NULL, NULL}
 };
