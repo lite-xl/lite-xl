@@ -10,14 +10,14 @@ local RootView = require "core.rootview"
 local DocView = require "core.docview"
 local Doc = require "core.doc"
 
-config.plugins.autocomplete = {
+config.plugins.autocomplete = common.merge({
 	-- Amount of characters that need to be written for autocomplete
 	min_len = 3,
 	-- The max amount of visible items
 	max_height = 6,
 	-- The max amount of scrollable items
 	max_suggestions = 100,
-}
+}, config.plugins.autocomplete)
 
 local autocomplete = {}
 

@@ -17,6 +17,14 @@ function common.clamp(n, lo, hi)
 end
 
 
+function common.merge(a, b)
+  local t = {}
+  for k, v in pairs(a) do t[k] = v end
+  if b then for k, v in pairs(b) do t[k] = v end end
+  return t
+end 
+
+
 function common.round(n)
   return n >= 0 and math.floor(n + 0.5) or math.ceil(n - 0.5)
 end
