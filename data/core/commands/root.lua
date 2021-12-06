@@ -3,6 +3,7 @@ local style = require "core.style"
 local DocView = require "core.docview"
 local command = require "core.command"
 local common = require "core.common"
+local config = require "core.config"
 
 
 local t = {
@@ -63,7 +64,7 @@ local t = {
       table.insert(node.views, idx + 1, core.active_view)
     end
   end,
-
+  
   ["root:shrink"] = function()
     local node = core.root_view:get_active_node()
     local parent = node:get_parent_node(core.root_view.root_node)
@@ -76,7 +77,7 @@ local t = {
     local parent = node:get_parent_node(core.root_view.root_node)
     local n = (parent.a == node) and 0.1 or -0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
-  end,
+  end
 }
 
 
@@ -112,7 +113,8 @@ for _, dir in ipairs { "left", "right", "up", "down" } do
       y = node.position.y + (dir == "up"   and -1 or node.size.y + style.divider_size)
     end
     local node = core.root_view.root_node:get_child_overlapping_point(x, y)
-    if not node:get_locked_size() then
+    local sx, sy = node:get_locked_size()
+    if not sx and not sy then
       core.set_active_view(node.active_view)
     end
   end
@@ -120,5 +122,17 @@ end
 
 command.add(function()
   local node = core.root_view:get_active_node()
-  return not node:get_locked_size()
+  local sx, sy = node:get_locked_size()
+  return not sx and not sy
 end, t)
+
+command.add(nil, {
+  ["root:scroll"] = function(delta)
+    local view = (core.root_view.overlapping_node and core.root_view.overlapping_node.active_view) or core.active_view
+    if view and view.scrollable then
+      view.scroll.to.y = view.scroll.to.y + delta * -config.mouse_wheel_scroll
+      return true
+    end
+    return false
+  end
+})

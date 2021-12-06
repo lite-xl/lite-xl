@@ -47,7 +47,7 @@ function Doc:reset_syntax()
   local syn = syntax.get(self.filename or "", header)
   if self.syntax ~= syn then
     self.syntax = syn
-    self.highlighter:reset()
+    self.highlighter:soft_reset()
   end
 end
 
@@ -62,12 +62,15 @@ function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
   self:reset()
   self.lines = {}
+  local i = 1
   for line in fp:lines() do
     if line:byte(-1) == 13 then
       line = line:sub(1, -2)
       self.crlf = true
     end
     table.insert(self.lines, line .. "\n")
+    self.highlighter.lines[i] = false
+    i = i + 1
   end
   if #self.lines == 0 then
     table.insert(self.lines, "\n")
@@ -115,6 +118,14 @@ function Doc:clean()
 end
 
 
+function Doc:get_indent_info()
+  if not self.indent_info then return config.tab_type, config.indent_size, false end
+  return self.indent_info.type or config.tab_type,
+         self.indent_info.size or config.indent_size,
+         self.indent_info.confirmed
+end
+
+
 function Doc:get_change_id()
   return self.undo_stack.idx
 end
@@ -144,6 +155,13 @@ end
 function Doc:has_selection()
   local line1, col1, line2, col2 = self:get_selection(false)
   return line1 ~= line2 or col1 ~= col2
+end
+
+function Doc:has_any_selection()
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    if line1 ~= line2 or col1 ~= col2 then return true end
+  end
+  return false
 end
 
 function Doc:sanitize_selection()
@@ -202,9 +220,9 @@ local function selection_iterator(invariant, idx)
   local target = invariant[3] and (idx*4 - 7) or (idx*4 + 1)
   if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
   if invariant[2] then
-    return idx+(invariant[3] and -1 or 1), sort_positions(unpack(invariant[1], target, target+4))
+    return idx+(invariant[3] and -1 or 1), sort_positions(table.unpack(invariant[1], target, target+4))
   else
-    return idx+(invariant[3] and -1 or 1), unpack(invariant[1], target, target+4)
+    return idx+(invariant[3] and -1 or 1), table.unpack(invariant[1], target, target+4)
   end
 end
 
@@ -305,7 +323,8 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
     local line1, col1, line2, col2 = table.unpack(cmd)
     self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
   elseif cmd.type == "selection" then
-    self.selections = { unpack(cmd) }
+    self.selections = { table.unpack(cmd) }
+    self:sanitize_selection()
   end
 
   modified = modified or (cmd.type ~= "selection")
@@ -348,7 +367,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
-  push_undo(undo_stack, time, "selection", unpack(self.selections))
+  push_undo(undo_stack, time, "selection", table.unpack(self.selections))
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
@@ -360,7 +379,7 @@ end
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- push undo
   local text = self:get_text(line1, col1, line2, col2)
-  push_undo(undo_stack, time, "selection", unpack(self.selections))
+  push_undo(undo_stack, time, "selection", table.unpack(self.selections))
   push_undo(undo_stack, time, "insert", line1, col1, text)
 
   -- get line content before/after removed text
@@ -486,19 +505,21 @@ end
 function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
 
-local function get_indent_string()
-  if config.tab_type == "hard" then
+function Doc:get_indent_string()
+  local indent_type, indent_size = self:get_indent_info()
+  if indent_type == "hard" then
     return "\t"
   end
-  return string.rep(" ", config.indent_size)
+  return string.rep(" ", indent_size)
 end
 
 -- returns the size of the original indent, and the indent
 -- in your config format, rounded either up or down
-local function get_line_indent(line, rnd_up)
+function Doc:get_line_indent(line, rnd_up)
   local _, e = line:find("^[ \t]+")
-  local soft_tab = string.rep(" ", config.indent_size)
-  if config.tab_type == "hard" then
+  local indent_type, indent_size = self:get_indent_info()
+  local soft_tab = string.rep(" ", indent_size)
+  if indent_type == "hard" then
     local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
     return e, indent:gsub(" +", rnd_up and "\t" or "")
   else
@@ -520,14 +541,14 @@ end
 -- * if you are unindenting, the cursor will jump to the start of the line,
 --   and remove the appropriate amount of spaces (or a tab).
 function Doc:indent_text(unindent, line1, col1, line2, col2)
-  local text = get_indent_string()
+  local text = self:get_indent_string()
   local _, se = self.lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
   local has_selection = line1 ~= line2 or col1 ~= col2
   if unindent or has_selection or in_beginning_whitespace then
     local l1d, l2d = #self.lines[line1], #self.lines[line2]
     for line = line1, line2 do
-      local e, rnded = get_line_indent(self.lines[line], unindent)
+      local e, rnded = self:get_line_indent(self.lines[line], unindent)
       self:remove(line, 1, line, (e or 0) + 1)
       self:insert(line, 1,
         unindent and rnded:sub(1, #rnded - #text) or rnded .. text)

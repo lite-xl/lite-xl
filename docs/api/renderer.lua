@@ -19,6 +19,9 @@ renderer.color = {}
 ---@class renderer.fontoptions
 ---@field public antialiasing "'grayscale'" | "'subpixel'"
 ---@field public hinting "'slight'" | "'none'" | '"full"'
+-- @field public bold boolean
+-- @field public italic boolean
+-- @field public underline boolean
 renderer.fontoptions = {}
 
 ---
@@ -59,26 +62,11 @@ function renderer.font:set_tab_size(chars) end
 function renderer.font:get_width(text) end
 
 ---
----Get the width in subpixels of the given text when
----rendered with this font.
----
----@param text string
----
----@return number
-function renderer.font:get_width_subpixel(text) end
-
----
 ---Get the height in pixels that occupies a single character
 ---when rendered with this font.
 ---
 ---@return number
 function renderer.font:get_height() end
-
----
----Gets the font subpixel scale.
----
----@return number
-function renderer.font:subpixel_scale() end
 
 ---
 ---Get the current size of the font.

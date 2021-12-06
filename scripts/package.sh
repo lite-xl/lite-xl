@@ -186,7 +186,7 @@ main() {
 
   rm -rf "${dest_dir}"
 
-  DESTDIR="$(pwd)/${dest_dir}" meson install -C "${build_dir}"
+  DESTDIR="$(pwd)/${dest_dir}" meson install --skip-subprojects -C "${build_dir}"
 
   local data_dir="$(pwd)/${dest_dir}/data"
   local exe_file="$(pwd)/${dest_dir}/lite-xl"

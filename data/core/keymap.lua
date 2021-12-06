@@ -1,4 +1,5 @@
 local command = require "core.command"
+local config = require "core.config"
 local keymap = {}
 
 keymap.modkeys = {}
@@ -30,7 +31,8 @@ function keymap.add_direct(map)
     end
     keymap.map[stroke] = commands
     for _, cmd in ipairs(commands) do
-      keymap.reverse_map[cmd] = stroke
+      keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
+      table.insert(keymap.reverse_map[cmd], stroke)
     end
   end
 end
@@ -52,18 +54,43 @@ function keymap.add(map, overwrite)
       end
     end
     for _, cmd in ipairs(commands) do
-      keymap.reverse_map[cmd] = stroke
+      keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
+      table.insert(keymap.reverse_map[cmd], stroke)
     end
   end
 end
 
 
-function keymap.get_binding(cmd)
-  return keymap.reverse_map[cmd]
+local function remove_only(tbl, k, v)
+  for key, values in pairs(tbl) do
+    if key == k then
+      if v then
+        for i, value in ipairs(values) do
+          if value == v then
+            table.remove(values, i)
+          end
+        end
+      else
+        tbl[key] = nil
+      end
+      break
+    end
+  end
 end
 
 
-function keymap.on_key_pressed(k)
+function keymap.unbind(key, cmd)
+  remove_only(keymap.map, key, cmd)
+  remove_only(keymap.reverse_map, cmd, key)
+end
+
+
+function keymap.get_binding(cmd)
+  return table.unpack(keymap.reverse_map[cmd] or {})
+end
+
+
+function keymap.on_key_pressed(k, ...)
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
@@ -73,18 +100,30 @@ function keymap.on_key_pressed(k)
     end
   else
     local stroke = key_to_stroke(k)
-    local commands = keymap.map[stroke]
+    local commands, performed = keymap.map[stroke]
     if commands then
       for _, cmd in ipairs(commands) do
-        local performed = command.perform(cmd)
+        performed = command.perform(cmd, ...)
         if performed then break end
       end
-      return true
+      return performed
     end
   end
   return false
 end
 
+function keymap.on_mouse_wheel(delta, ...)
+  return not (keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
+    or keymap.on_key_pressed("wheel", delta, ...))
+end
+
+function keymap.on_mouse_pressed(button, x, y, clicks)
+  local click_number = (((clicks - 1) % config.max_clicks) + 1)
+  return not (keymap.on_key_pressed(click_number  .. button:sub(1,1) .. "click", x, y, clicks) or
+    keymap.on_key_pressed(button:sub(1,1) .. "click", x, y, clicks) or
+    keymap.on_key_pressed(click_number .. "click", x, y, clicks) or
+    keymap.on_key_pressed("click", x, y, clicks))
+end
 
 function keymap.on_key_released(k)
   local mk = modkey_map[k]
@@ -133,6 +172,7 @@ keymap.add_direct {
   ["alt+7"] = "root:switch-to-tab-7",
   ["alt+8"] = "root:switch-to-tab-8",
   ["alt+9"] = "root:switch-to-tab-9",
+  ["wheel"] = "root:scroll",
 
   ["ctrl+f"] = "find-replace:find",
   ["ctrl+r"] = "find-replace:replace",
@@ -170,6 +210,7 @@ keymap.add_direct {
   ["ctrl+a"] = "doc:select-all",
   ["ctrl+d"] = { "find-replace:select-add-next", "doc:select-word" },
   ["ctrl+f3"] = "find-replace:select-next",
+  ["ctrl+shift+f3"] = "find-replace:select-previous",
   ["ctrl+l"] = "doc:select-lines",
   ["ctrl+shift+l"] = { "find-replace:select-add-all", "doc:select-word" },
   ["ctrl+/"] = "doc:toggle-line-comments",
@@ -193,6 +234,11 @@ keymap.add_direct {
   ["pageup"] = "doc:move-to-previous-page",
   ["pagedown"] = "doc:move-to-next-page",
 
+  ["shift+1lclick"] = "doc:select-to-cursor",
+  ["ctrl+1lclick"] = "doc:split-cursor",
+  ["1lclick"] = "doc:set-cursor",
+  ["2lclick"] = "doc:set-cursor-word",
+  ["3lclick"] = "doc:set-cursor-line",
   ["shift+left"] = "doc:select-to-previous-char",
   ["shift+right"] = "doc:select-to-next-char",
   ["shift+up"] = "doc:select-to-previous-line",

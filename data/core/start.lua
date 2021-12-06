@@ -2,7 +2,7 @@
 VERSION = "@PROJECT_VERSION@"
 MOD_VERSION = "2"
 
-SCALE = tonumber(os.getenv("LITE_SCALE")) or SCALE
+SCALE = tonumber(os.getenv("LITE_SCALE") or os.getenv("GDK_SCALE") or os.getenv("QT_SCALE_FACTOR")) or SCALE
 PATHSEP = package.config:sub(1, 1)
 
 EXEDIR = EXEFILE:match("^(.+)[/\\][^/\\]+$")
@@ -28,3 +28,6 @@ package.searchers = { package.searchers[1], package.searchers[2], function(modna
   if not path then return nil end
   return system.load_native_plugin, path
 end }
+
+table.pack = table.pack or pack or function(...) return {...} end
+table.unpack = table.unpack or unpack

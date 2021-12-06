@@ -68,8 +68,11 @@ static int f_pcre_match(lua_State *L) {
   int rc = pcre2_match(re, (PCRE2_SPTR)str, len, offset - 1, opts, md, NULL);
   if (rc < 0) {
     pcre2_match_data_free(md);
-    if (rc != PCRE2_ERROR_NOMATCH)
-      luaL_error(L, "regex matching error %d", rc);
+    if (rc != PCRE2_ERROR_NOMATCH) {
+      PCRE2_UCHAR buffer[120];
+      pcre2_get_error_message(rc, buffer, sizeof(buffer));
+      luaL_error(L, "regex matching error %d: %s", rc, buffer);
+    }
     return 0;
   }
   PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(md);

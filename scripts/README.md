@@ -23,6 +23,7 @@ Various scripts and configurations used to configure, build, and package Lite XL
   Preferably not to be used in user systems.
 - **fontello-config.json**:    Used by the icons generator.
 - **generate_header.sh**: Generates a header file for native plugin API
+- **keymap-generator**: Generates a JSON file containing the keymap
 
 [1]: https://github.com/LinusU/node-appdmg
 [2]: https://docs.appimage.org/

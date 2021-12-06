@@ -2,6 +2,7 @@
 local syntax = require "core.syntax"
 
 syntax.add {
+  name = "JavaScript",
   files = { "%.js$", "%.json$", "%.cson$" },
   comment = "//",
   patterns = {
@@ -11,8 +12,8 @@ syntax.add {
     { pattern = { '"', '"', '\\' },     type = "string"   },
     { pattern = { "'", "'", '\\' },     type = "string"   },
     { pattern = { "`", "`", '\\' },     type = "string"   },
-    { pattern = "0x[%da-fA-F]+",        type = "number"   },
-    { pattern = "-?%d+[%d%.eE]*",       type = "number"   },
+    { pattern = "0x[%da-fA-F_]+n?",     type = "number"   },
+    { pattern = "-?%d+[%d%.eE_n]*",     type = "number"   },
     { pattern = "-?%.?%d+",             type = "number"   },
     { pattern = "[%+%-=/%*%^%%<>!~|&]", type = "operator" },
     { pattern = "[%a_][%w_]*%f[(]",     type = "function" },

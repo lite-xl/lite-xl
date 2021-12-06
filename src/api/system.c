@@ -6,11 +6,14 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
+#include "dirmonitor.h"
 #include "rencache.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
+#elif __linux__
+  #include <sys/vfs.h>
 #endif
 
 extern SDL_Window *window;
@@ -18,9 +21,11 @@ extern SDL_Window *window;
 
 static const char* button_name(int button) {
   switch (button) {
-    case 1  : return "left";
-    case 2  : return "middle";
-    case 3  : return "right";
+    case SDL_BUTTON_LEFT   : return "left";
+    case SDL_BUTTON_MIDDLE : return "middle";
+    case SDL_BUTTON_RIGHT  : return "right";
+    case SDL_BUTTON_X1     : return "x";
+    case SDL_BUTTON_X2     : return "y";
     default : return "?";
   }
 }
@@ -235,6 +240,26 @@ top:
       lua_pushstring(L, "mousewheel");
       lua_pushnumber(L, e.wheel.y);
       return 2;
+
+    case SDL_USEREVENT:
+      lua_pushstring(L, "dirchange");
+      lua_pushnumber(L, e.user.code >> 16);
+      switch (e.user.code & 0xffff) {
+        case DMON_ACTION_DELETE:
+          lua_pushstring(L, "delete");
+          break;
+        case DMON_ACTION_CREATE:
+          lua_pushstring(L, "create");
+          break;
+        case DMON_ACTION_MODIFY:
+          lua_pushstring(L, "modify");
+          break;
+        default:
+          return luaL_error(L, "unknown dmon event action: %d", e.user.code & 0xffff);
+      }
+      lua_pushstring(L, e.user.data1);
+      free(e.user.data1);
+      return 4;
 
     default:
       goto top;
@@ -524,6 +549,45 @@ static int f_get_file_info(lua_State *L) {
   return 1;
 }
 
+#if __linux__
+// https://man7.org/linux/man-pages/man2/statfs.2.html
+
+struct f_type_names {
+  uint32_t magic;
+  const char *name;
+};
+
+static struct f_type_names fs_names[] = {
+  { 0xef53,     "ext2/ext3" },
+  { 0x6969,     "nfs"       },
+  { 0x65735546, "fuse"      },
+  { 0x517b,     "smb"       },
+  { 0xfe534d42, "smb2"      },
+  { 0x52654973, "reiserfs"  },
+  { 0x01021994, "tmpfs"     },
+  { 0x858458f6, "ramfs"     },
+  { 0x5346544e, "ntfs"      },
+  { 0x0,        NULL        },
+};
+
+static int f_get_fs_type(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  struct statfs buf;
+  int status = statfs(path, &buf);
+  if (status != 0) {
+    return luaL_error(L, "error calling statfs on %s", path);
+  }
+  for (int i = 0; fs_names[i].magic; i++) {
+    if (fs_names[i].magic == buf.f_type) {
+      lua_pushstring(L, fs_names[i].name);
+      return 1;
+    }
+  }
+  lua_pushstring(L, "unknown");
+  return 1;
+}
+#endif
+
 
 static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
@@ -591,56 +655,32 @@ static int f_exec(lua_State *L) {
   return 0;
 }
 
-
 static int f_fuzzy_match(lua_State *L) {
   size_t strLen, ptnLen;
   const char *str = luaL_checklstring(L, 1, &strLen);
   const char *ptn = luaL_checklstring(L, 2, &ptnLen);
-  bool files = false;
-  if (lua_gettop(L) > 2 && lua_isboolean(L,3))
-    files = lua_toboolean(L, 3);
-
-  int score = 0;
-  int run = 0;
-
-  // Match things *backwards*. This allows for better matching on filenames than the above
+  // If true match things *backwards*. This allows for better matching on filenames than the above
   // function. For example, in the lite project, opening "renderer" has lib/font_render/build.sh
   // as the first result, rather than src/renderer.c. Clearly that's wrong.
-  if (files) {
-    const char* strEnd = str + strLen - 1;
-    const char* ptnEnd = ptn + ptnLen - 1;
-    while (strEnd >= str && ptnEnd >= ptn) {
-      while (*strEnd == ' ') { strEnd--; }
-      while (*ptnEnd == ' ') { ptnEnd--; }
-      if (tolower(*strEnd) == tolower(*ptnEnd)) {
-        score += run * 10 - (*strEnd != *ptnEnd);
-        run++;
-        ptnEnd--;
-      } else {
-        score -= 10;
-        run = 0;
-      }
-      strEnd--;
+  bool files = lua_gettop(L) > 2 && lua_isboolean(L,3) && lua_toboolean(L, 3);
+  int score = 0, run = 0, increment = files ? -1 : 1;
+  const char* strTarget = files ? str + strLen - 1 : str;
+  const char* ptnTarget = files ? ptn + ptnLen - 1 : ptn;
+  while (strTarget >= str && ptnTarget >= ptn && *strTarget && *ptnTarget) {
+    while (strTarget >= str && *strTarget == ' ') { strTarget += increment; }
+    while (ptnTarget >= ptn && *ptnTarget == ' ') { ptnTarget += increment; }
+    if (tolower(*strTarget) == tolower(*ptnTarget)) {
+      score += run * 10 - (*strTarget != *ptnTarget);
+      run++;
+      ptnTarget += increment;
+    } else {
+      score -= 10;
+      run = 0;
     }
-    if (ptnEnd >= ptn) { return 0; }
-  } else {
-    while (*str && *ptn) {
-      while (*str == ' ') { str++; }
-      while (*ptn == ' ') { ptn++; }
-      if (tolower(*str) == tolower(*ptn)) {
-        score += run * 10 - (*str != *ptn);
-        run++;
-        ptn++;
-      } else {
-        score -= 10;
-        run = 0;
-      }
-      str++;
-    }
-    if (*ptn) { return 0; }
+    strTarget += increment;
   }
-
-  lua_pushnumber(L, score - (int)strLen);
+  if (ptnTarget >= ptn && *ptnTarget) { return 0; }
+  lua_pushnumber(L, score - (int)strLen * 10);
   return 1;
 }
 
@@ -738,6 +778,91 @@ static int f_load_native_plugin(lua_State *L) {
   return result;
 }
 
+static int f_watch_dir(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  const int recursive = lua_toboolean(L, 2);
+  uint32_t dmon_flags = (recursive ? DMON_WATCHFLAGS_RECURSIVE : 0);
+  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL);
+  if (watch_id.id == 0) { luaL_error(L, "directory monitoring watch failed"); }
+  lua_pushnumber(L, watch_id.id);
+  return 1;
+}
+
+#if __linux__
+static int f_watch_dir_add(lua_State *L) {
+  dmon_watch_id watch_id;
+  watch_id.id = luaL_checkinteger(L, 1);
+  const char *subdir = luaL_checkstring(L, 2);
+  lua_pushboolean(L, dmon_watch_add(watch_id, subdir));
+  return 1;
+}
+
+static int f_watch_dir_rm(lua_State *L) {
+  dmon_watch_id watch_id;
+  watch_id.id = luaL_checkinteger(L, 1);
+  const char *subdir = luaL_checkstring(L, 2);
+  lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
+  return 1;
+}
+#endif
+
+#ifdef _WIN32
+#define PATHSEP '\\'
+#else
+#define PATHSEP '/'
+#endif
+
+/* Special purpose filepath compare function. Corresponds to the
+   order used in the TreeView view of the project's files. Returns true iff
+   path1 < path2 in the TreeView order. */
+static int f_path_compare(lua_State *L) {
+  const char *path1 = luaL_checkstring(L, 1);
+  const char *type1_s = luaL_checkstring(L, 2);
+  const char *path2 = luaL_checkstring(L, 3);
+  const char *type2_s = luaL_checkstring(L, 4);
+  const int len1 = strlen(path1), len2 = strlen(path2);
+  int type1 = strcmp(type1_s, "dir") != 0;
+  int type2 = strcmp(type2_s, "dir") != 0;
+  /* Find the index of the common part of the path. */
+  int offset = 0, i;
+  for (i = 0; i < len1 && i < len2; i++) {
+    if (path1[i] != path2[i]) break;
+    if (path1[i] == PATHSEP) {
+      offset = i + 1;
+    }
+  }
+  /* If a path separator is present in the name after the common part we consider
+     the entry like a directory. */
+  if (strchr(path1 + offset, PATHSEP)) {
+    type1 = 0;
+  }
+  if (strchr(path2 + offset, PATHSEP)) {
+    type2 = 0;
+  }
+  /* If types are different "dir" types comes before "file" types. */
+  if (type1 != type2) {
+    lua_pushboolean(L, type1 < type2);
+    return 1;
+  }
+  /* If types are the same compare the files' path alphabetically. */
+  int cfr = 0;
+  int len_min = (len1 < len2 ? len1 : len2);
+  for (int j = offset; j <= len_min; j++) {
+    if (path1[j] == path2[j]) continue;
+    if (path1[j] == 0 || path2[j] == 0) {
+      cfr = (path1[j] == 0);
+    } else if (path1[j] == PATHSEP || path2[j] == PATHSEP) {
+      /* For comparison we treat PATHSEP as if it was the string terminator. */
+      cfr = (path1[j] == PATHSEP);
+    } else {
+      cfr = (path1[j] < path2[j]);
+    }
+    break;
+  }
+  lua_pushboolean(L, cfr);
+  return 1;
+}
+
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -766,6 +891,13 @@ static const luaL_Reg lib[] = {
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
   { "load_native_plugin",  f_load_native_plugin  },
+  { "watch_dir",           f_watch_dir           },
+  { "path_compare",        f_path_compare        },
+#if __linux__
+  { "watch_dir_add",       f_watch_dir_add       },
+  { "watch_dir_rm",        f_watch_dir_rm        },
+  { "get_fs_type",         f_get_fs_type         },
+#endif
   { NULL, NULL }
 };
 
