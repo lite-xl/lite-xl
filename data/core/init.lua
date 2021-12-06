@@ -173,7 +173,7 @@ local function show_max_files_warning(dir)
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
     "usage.md at github.com/franko/lite-xl."
-  core.log(message)
+  core.error(message)
 end
 
 
@@ -330,9 +330,7 @@ function core.open_folder_project(dir_path_abs)
     if not core.load_project_module() then
       command.perform("core:open-log")
     end
-    for i = 1, #core.project_directories do
-      scan_project_folder(i)
-    end
+    scan_project_folder(1)
     core.on_enter_project(dir_path_abs)
   end
 end
@@ -351,6 +349,7 @@ function core.add_project_directory(path)
     shown_subdir = {},
   }
   table.insert(core.project_directories, dir)
+  scan_project_folder(#core.project_directories)
   core.redraw = true
 end
 
