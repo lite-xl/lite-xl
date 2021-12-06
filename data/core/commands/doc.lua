@@ -52,12 +52,15 @@ local function cut_or_copy(delete)
     if line1 ~= line2 or col1 ~= col2 then
       text = doc():get_text(line1, col1, line2, col2)
       full_text = full_text == "" and text or (full_text .. "\n" .. text)
+      doc().cursor_clipboard_whole_line[idx] = false
       if delete then
         doc():delete_to_cursor(idx, 0)
       end
-    else
-      text = "\n" .. doc().lines[line1]:gsub("\n", "")
-      full_text = full_text == "" and text or (full_text ..  text)
+    else -- Cut/copy whole line
+      text = doc().lines[line1]
+      full_text = full_text == "" and text or (full_text .. text)
+      doc().cursor_clipboard_whole_line[idx] = true
+      core.lines_in_clipboard = full_text
       if delete then
         if line1 < #doc().lines then
           doc():remove(line1, 1, line1 + 1, 1)
@@ -122,10 +125,17 @@ local commands = {
     -- If the clipboard has changed since our last look, use that instead
     if doc().cursor_clipboard["full"] ~= clipboard then
       doc().cursor_clipboard = {}
+      doc().cursor_clipboard_whole_line = {}
     end
     for idx, line1, col1, line2, col2 in doc():get_selections() do
       local value = doc().cursor_clipboard[idx] or clipboard
-      doc():text_input(value:gsub("\r", ""), idx)
+      if doc().cursor_clipboard_whole_line[idx] == true then
+        doc():insert(line1, 1, value:gsub("\r", ""))
+      elseif (core.lines_in_clipboard == clipboard) and (not doc().cursor_clipboard[idx]) then
+        doc():insert(line1, 1, clipboard:gsub("\r", ""))
+      else
+        doc():text_input(value:gsub("\r", ""), idx)
+      end
     end
   end,
 
