@@ -8,7 +8,7 @@ syntax.add {
   patterns = {
     { pattern = "//.-\n",               type = "comment"  },
     { pattern = { "/%*", "%*/" },       type = "comment"  },
-    { pattern = { '/%g', '/', '\\' },   type = "string"   },
+    { pattern = { '/[^= ]', '/', '\\' },type = "string"   },
     { pattern = { '"', '"', '\\' },     type = "string"   },
     { pattern = { "'", "'", '\\' },     type = "string"   },
     { pattern = { "`", "`", '\\' },     type = "string"   },
