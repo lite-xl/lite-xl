@@ -58,7 +58,7 @@ function core.set_project_dir(new_dir, change_project_fn)
     if change_project_fn then change_project_fn() end
     core.project_dir = common.normalize_volume(new_dir)
     core.project_directories = {}
-    core.add_project_directory(new_dir)
+    core.add_project_directory(new_dir, true)
     return true
   end
   return false
@@ -336,7 +336,7 @@ function core.open_folder_project(dir_path_abs)
 end
 
 
-function core.add_project_directory(path)
+function core.add_project_directory(path, noscan)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
@@ -349,7 +349,9 @@ function core.add_project_directory(path)
     shown_subdir = {},
   }
   table.insert(core.project_directories, dir)
-  scan_project_folder(#core.project_directories)
+  if not noscan then
+    scan_project_folder(#core.project_directories)
+  end
   core.redraw = true
 end
 
