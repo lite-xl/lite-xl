@@ -108,12 +108,13 @@ int main(int argc, char **argv) {
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(0, &dm);
 
+  dirmonitor_init();
+
   window = SDL_CreateWindow(
     "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, dm.w * 0.8, dm.h * 0.8,
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
   init_window_icon();
   ren_init(window);
-  dirmonitor_init();
 
   lua_State *L;
 init_lua:
