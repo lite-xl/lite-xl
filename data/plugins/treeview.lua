@@ -366,15 +366,18 @@ end
 
 function TreeView:draw()
   self:draw_background(style.background2)
+  local _y, _h = self.position.y, self.size.y
 
   local doc = core.active_view.doc
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
   for item, x,y,w,h in self:each_item() do
-    self:draw_item(item,
-      item.abs_filename == active_filename,
-      item == self.hovered_item,
-      x, y, w, h)
+    if y + h >= _y and y < _y + _h then
+      self:draw_item(item,
+        item.abs_filename == active_filename,
+        item == self.hovered_item,
+        x, y, w, h)
+    end
   end
 
   self:draw_scrollbar()
