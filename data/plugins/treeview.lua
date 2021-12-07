@@ -43,6 +43,9 @@ function TreeView:new()
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
 
+  self.item_icon_width = 0
+  self.item_text_spacing = 0
+
   local on_dirmonitor_modify = core.on_dirmonitor_modify
   function core.on_dirmonitor_modify(dir, filepath)
     if self.cache[dir.name] then
@@ -260,6 +263,9 @@ function TreeView:update()
     self.tooltip.alpha = 0
   end
 
+  self.item_icon_width = style.icon_font:get_width("D")
+  self.item_text_spacing = style.icon_font:get_width("f") / 2
+
   TreeView.super.update(self)
 end
 
@@ -312,42 +318,63 @@ function TreeView:get_item_text(item, active, hovered)
 end
 
 
+function TreeView:draw_item_text(item, active, hovered, x, y, w, h)
+  local item_text, item_font, item_color = self:get_item_text(item, active, hovered)
+  common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
+end
+
+
+function TreeView:draw_item_icon(item, active, hovered, x, y, w, h)
+  local icon_char, icon_font, icon_color = self:get_item_icon(item, active, hovered)
+  common.draw_text(icon_font, icon_color, icon_char, nil, x, y, 0, h)
+  return self.item_icon_width + self.item_text_spacing
+end
+
+
+function TreeView:draw_item_body(item, active, hovered, x, y, w, h)
+    x = x + self:draw_item_icon(item, active, hovered, x, y, w, h)
+    self:draw_item_text(item, active, hovered, x, y, w, h)
+end
+
+
+function TreeView:draw_item_chevron(item, active, hovered, x, y, w, h)
+  if item.type == "dir" then
+    local chevron_icon = item.expanded and "-" or "+"
+    local chevron_color = hovered and style.accent or style.text
+    common.draw_text(style.icon_font, chevron_color, chevron_icon, nil, x, y, 0, h)
+  end
+  return style.padding.x
+end
+
+
+function TreeView:draw_item_background(item, active, hovered, x, y, w, h)
+  if hovered then
+    renderer.draw_rect(x, y, w, h, style.line_highlight)
+  end
+end
+
+
+function TreeView:draw_item(item, active, hovered, x, y, w, h)
+  self:draw_item_background(item, active, hovered, x, y, w, h)
+
+  x = x + item.depth * style.padding.x + style.padding.x
+  x = x + self:draw_item_chevron(item, active, hovered, x, y, w, h)
+
+  self:draw_item_body(item, active, hovered, x, y, w, h)
+end
+
+
 function TreeView:draw()
   self:draw_background(style.background2)
-
-  local icon_width = style.icon_font:get_width("D")
-  local spacing = style.icon_font:get_width("f") / 2
 
   local doc = core.active_view.doc
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
   for item, x,y,w,h in self:each_item() do
-    local icon_char, icon_font, icon_color =
-      self:get_item_icon(item, item.abs_filename == active_filename,
-                         item == self.hovered_item)
-    local item_text, item_font, item_color =
-      self:get_item_text(item, item.abs_filename == active_filename,
-                         item == self.hovered_item)
-
-    -- hovered item background
-    if item == self.hovered_item then
-      renderer.draw_rect(x, y, w, h, style.line_highlight)
-    end
-
-    -- icons
-    x = x + item.depth * style.padding.x + style.padding.x
-    if item.type == "dir" then
-      local expand_icon = item.expanded and "-" or "+"
-      local expand_color = item == self.hovered_item and style.accent or style.text
-      common.draw_text(style.icon_font, expand_color, expand_icon, nil, x, y, 0, h)
-    end
-    x = x + style.padding.x
-    common.draw_text(icon_font, icon_color, icon_char, nil, x, y, 0, h)
-    x = x + icon_width
-
-    -- text
-    x = x + spacing
-    x = common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
+    self:draw_item(item,
+      item.abs_filename == active_filename,
+      item == self.hovered_item,
+      x, y, w, h)
   end
 
   self:draw_scrollbar()
