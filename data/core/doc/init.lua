@@ -33,8 +33,6 @@ end
 function Doc:reset()
   self.lines = { "\n" }
   self.selections = { 1, 1, 1, 1 }
-  self.cursor_clipboard = {}
-  self.cursor_clipboard_whole_line = {}
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -199,7 +197,7 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
 end
 
 function Doc:set_selection(line1, col1, line2, col2, swap)
-  self.selections, self.cursor_clipboard = {}, {}
+  self.selections = {}
   self:set_selections(1, line1, col1, line2, col2, swap)
 end
 

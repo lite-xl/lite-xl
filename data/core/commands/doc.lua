@@ -48,19 +48,20 @@ end
 local function cut_or_copy(delete)
   local full_text = ""
   local text = ""
+  core.cursor_clipboard = {}
+  core.cursor_clipboard_whole_line = {}
   for idx, line1, col1, line2, col2 in doc():get_selections() do
     if line1 ~= line2 or col1 ~= col2 then
       text = doc():get_text(line1, col1, line2, col2)
-      full_text = full_text == "" and text or (full_text .. "\n" .. text)
-      doc().cursor_clipboard_whole_line[idx] = false
+      full_text = full_text == "" and text or (full_text .. " " .. text)
+      core.cursor_clipboard_whole_line[idx] = false
       if delete then
         doc():delete_to_cursor(idx, 0)
       end
     else -- Cut/copy whole line
       text = doc().lines[line1]
       full_text = full_text == "" and text or (full_text .. text)
-      doc().cursor_clipboard_whole_line[idx] = true
-      core.lines_in_clipboard = full_text
+      core.cursor_clipboard_whole_line[idx] = true
       if delete then
         if line1 < #doc().lines then
           doc():remove(line1, 1, line1 + 1, 1)
@@ -69,9 +70,9 @@ local function cut_or_copy(delete)
         end
       end
     end
-    doc().cursor_clipboard[idx] = text
+    core.cursor_clipboard[idx] = text
   end
-  doc().cursor_clipboard["full"] = full_text
+  core.cursor_clipboard["full"] = full_text
   system.set_clipboard(full_text)
 end
 
@@ -123,16 +124,24 @@ local commands = {
   ["doc:paste"] = function()
     local clipboard = system.get_clipboard()
     -- If the clipboard has changed since our last look, use that instead
-    if doc().cursor_clipboard["full"] ~= clipboard then
-      doc().cursor_clipboard = {}
-      doc().cursor_clipboard_whole_line = {}
+    if core.cursor_clipboard["full"] ~= clipboard then
+      core.cursor_clipboard = {}
+      core.cursor_clipboard_whole_line = {}
     end
+    local value, whole_line
     for idx, line1, col1, line2, col2 in doc():get_selections() do
-      local value = doc().cursor_clipboard[idx] or clipboard
-      if doc().cursor_clipboard_whole_line[idx] == true then
+      if #core.cursor_clipboard_whole_line == (#doc().selections/4) then
+        value = core.cursor_clipboard[idx]
+        whole_line = core.cursor_clipboard_whole_line[idx] == true
+      else
+        value = clipboard
+        whole_line = clipboard:find("\n") ~= nil
+      end
+      if whole_line then
         doc():insert(line1, 1, value:gsub("\r", ""))
-      elseif (core.lines_in_clipboard == clipboard) and (not doc().cursor_clipboard[idx]) then
-        doc():insert(line1, 1, clipboard:gsub("\r", ""))
+        if col1 == 1 then
+          doc():move_to_cursor(idx, #value)
+        end
       else
         doc():text_input(value:gsub("\r", ""), idx)
       end

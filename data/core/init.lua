@@ -648,6 +648,8 @@ function core.init()
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
+  core.cursor_clipboard = {}
+  core.cursor_clipboard_whole_line = {}
   core.window_mode = "normal"
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
