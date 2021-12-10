@@ -1,3 +1,5 @@
+--local core = require "core"
+
 local config = {}
 
 config.fps = 60
@@ -32,6 +34,15 @@ config.max_clicks = 3
 -- Disable plugin loading setting to false the config entry
 -- of the same name.
 config.plugins = {}
+
+-- Allow you to set plugin configs even if we haven't seen the plugin before.
+setmetatable(config.plugins, {
+  __index = function(t, k)
+    if rawget(t, k) == nil then rawset(t, k, {}) end
+    return rawget(t, k)
+  end
+})
+
 
 config.plugins.trimwhitespace = false
 config.plugins.lineguide = false

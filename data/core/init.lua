@@ -854,6 +854,23 @@ local function check_plugin_version(filename)
   return true, version_match
 end
 
+-- Plugins should use this function to define their settings
+function config.plugins:default_settings(plugin_name, config)
+  if self[plugin_name] == nil then self[plugin_name] = {} end
+  local user_cfg = self[plugin_name]
+  -- Warn about unused options
+  for k, v in pairs(user_cfg) do
+    if config[k] == nil then
+      core.error("Warning: Unknow setting `" .. k .. "` for plugin: " .. plugin_name)
+      command.perform("core:open-log")
+    end
+  end
+  user_cfg["_defaults"] = config
+  user_cfg["_used"] = true
+  for k, v in pairs(config) do
+    if user_cfg[k] == nil then user_cfg[k] = v end
+  end
+end
 
 function core.load_plugins()
   local no_errors = true
@@ -887,6 +904,15 @@ function core.load_plugins()
           no_errors = false
         end
       end
+    end
+  end
+  -- Warn about settings for unknown plugins
+  for name, plugin in pairs(config.plugins) do
+    if type(plugin) == "table" then
+    if plugin["_used"] ~= true then
+      core.error("Warning: Found settings for unknow plugin: " .. name)
+      no_errors = false
+    end
     end
   end
   return no_errors, refused_list

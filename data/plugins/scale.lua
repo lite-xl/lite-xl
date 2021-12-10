@@ -8,10 +8,10 @@ local style = require "core.style"
 local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
 
-config.plugins.scale = {
+config.plugins:default_settings("scale", {
   mode = "code",
   use_mousewheel = true
-}
+})
 
 local scale_steps = 0.05
 
