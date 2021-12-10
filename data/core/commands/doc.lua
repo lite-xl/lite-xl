@@ -135,7 +135,7 @@ local commands = {
         whole_line = core.cursor_clipboard_whole_line[idx] == true
       else
         value = clipboard
-        whole_line = clipboard:find("\n") ~= nil
+        whole_line = false
       end
       if whole_line then
         doc():insert(line1, 1, value:gsub("\r", ""))
