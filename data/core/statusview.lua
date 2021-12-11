@@ -29,6 +29,7 @@ function StatusView:on_mouse_pressed()
   and not core.active_view:is(LogView) then
     command.perform "core:open-log"
   end
+  return true
 end
 
 
