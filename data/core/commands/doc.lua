@@ -123,7 +123,12 @@ local commands = {
   ["doc:type-unicode"] = function()
     core.command_view:enter("Unicode code point", function(text)
       -- It is possible both HEX and DEC, tonumber will converts
-      doc():text_input(common.codepoint_to_utf8(tonumber(text)))
+      local number = tonumber(text)
+      if number ~= nil then
+        doc():text_input(common.codepoint_to_utf8(number))
+      else
+        core.error("Wrong Unicode codepoint")
+      end
     end)
     core.command_view:set_text("0x")
   end,
