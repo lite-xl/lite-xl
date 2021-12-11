@@ -125,6 +125,7 @@ local commands = {
       -- It is possible both HEX and DEC, tonumber will converts
       doc():text_input(common.codepoint_to_utf8(tonumber(text)))
     end)
+    core.command_view:set_text("0x")
   end,
 
   ["doc:newline"] = function()
@@ -400,27 +401,27 @@ local commands = {
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
   end,
-    
-  ["doc:select-to-cursor"] = function(x, y, clicks) 
+
+  ["doc:select-to-cursor"] = function(x, y, clicks)
     local line1, col1 = select(3, doc():get_selection())
     local line2, col2 = dv():resolve_screen_position(x, y)
     dv().mouse_selecting = { line1, col1, nil }
     doc():set_selection(line2, col2, line1, col1)
   end,
-  
+
   ["doc:set-cursor"] = function(x, y)
-    set_cursor(x, y, "set") 
+    set_cursor(x, y, "set")
   end,
-  
-  ["doc:set-cursor-word"] = function(x, y) 
-    set_cursor(x, y, "word") 
-  end,  
-  
-  ["doc:set-cursor-line"] = function(x, y, clicks) 
-    set_cursor(x, y, "lines") 
+
+  ["doc:set-cursor-word"] = function(x, y)
+    set_cursor(x, y, "word")
   end,
-  
-  ["doc:split-cursor"] = function(x, y, clicks) 
+
+  ["doc:set-cursor-line"] = function(x, y, clicks)
+    set_cursor(x, y, "lines")
+  end,
+
+  ["doc:split-cursor"] = function(x, y, clicks)
     local line, col = dv():resolve_screen_position(x, y)
     doc():add_selection(line, col, line, col)
   end,
