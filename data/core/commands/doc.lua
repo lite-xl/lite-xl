@@ -120,6 +120,13 @@ local commands = {
     end
   end,
 
+  ["doc:type-unicode"] = function()
+    core.command_view:enter("Unicode code point", function(text)
+      -- It is possible both HEX and DEC, tonumber will converts
+      doc():text_input(common.codepoint_to_utf8(tonumber(text)))
+    end)
+  end,
+
   ["doc:newline"] = function()
     for idx, line, col in doc():get_selections(false, true) do
       local indent = doc().lines[line]:match("^[\t ]*")

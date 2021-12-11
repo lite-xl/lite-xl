@@ -218,6 +218,7 @@ keymap.add_direct {
   ["ctrl+down"] = "doc:move-lines-down",
   ["ctrl+shift+d"] = "doc:duplicate-lines",
   ["ctrl+shift+k"] = "doc:delete-lines",
+  ["ctrl+shift+u"] = "doc:type-unicode",
 
   ["left"] = { "doc:move-to-previous-char", "dialog:previous-entry" },
   ["right"] = { "doc:move-to-next-char", "dialog:next-entry"},

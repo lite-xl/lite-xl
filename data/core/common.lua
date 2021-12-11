@@ -11,6 +11,24 @@ function common.utf8_chars(text)
   return text:gmatch("[\0-\x7f\xc2-\xf4][\x80-\xbf]*")
 end
 
+-- Source https://stackoverflow.com/a/26071044
+function common.codepoint_to_utf8(decimal)
+  local bytemarkers = { {0x7FF,192}, {0xFFFF,224}, {0x1FFFFF,240} }
+  if decimal<128 then return string.char(decimal) end
+  local charbytes = {}
+  for bytes,vals in ipairs(bytemarkers) do
+    if decimal<=vals[1] then
+      for b=bytes+1,2,-1 do
+        local mod = decimal%64
+        decimal = (decimal-mod)/64
+        charbytes[b] = string.char(128+mod)
+      end
+      charbytes[1] = string.char(vals[2]+decimal)
+      break
+    end
+  end
+  return table.concat(charbytes)
+end
 
 function common.clamp(n, lo, hi)
   return math.max(math.min(n, hi), lo)
@@ -349,7 +367,7 @@ function common.relative_path(ref_dir, dir)
   if drive and ref_drive and drive ~= ref_drive then
     -- Windows, different drives, system.absolute_path fails for C:\..\D:\
     return dir
-  end    
+  end
   local ref_ls = split_on_slash(ref_dir)
   local dir_ls = split_on_slash(dir)
   local i = 1
