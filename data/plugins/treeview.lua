@@ -614,6 +614,7 @@ keymap.add {
   ["down"]        = "treeview:next",
   ["return"]      = "treeview:open",
   ["escape"]      = "treeview:deselect",
+  ["delete"]      = "treeview:delete",
   ["ctrl+return"] = "treeview:new-folder"
 }
 
