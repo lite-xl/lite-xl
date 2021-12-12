@@ -216,11 +216,11 @@ end
 function TreeView:on_mouse_pressed(button, x, y, clicks)
   local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught or button ~= "left" then
-    return
+    return true
   end
   local hovered_item = self.hovered_item
   if not hovered_item then
-    return
+    return false
   elseif hovered_item.type == "dir" then
     if keymap.modkeys["ctrl"] and button == "left" then
       create_directory_in(hovered_item)
@@ -240,6 +240,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
+  return true
 end
 
 
