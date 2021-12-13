@@ -55,7 +55,7 @@ if not get_option('source-only')
     sdl_dep = dependency('sdl2', method: 'config-tool')
     if host_machine.system() == 'windows'
         win_dep = cc.find_library('dwmapi', required : true)
-    elif
+    else
         win_dep = cc.find_library('dwmapi', required : false)
     endif
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, threads_dep, win_dep]
