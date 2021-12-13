@@ -222,8 +222,9 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     return true
   end
 
-  self.selected_item = self.hovered_item
-  if self.selected_item then
+  if self.hovered_item then
+    self.selected_item = self.hovered_item
+
     if keymap.modkeys["ctrl"] then
       create_directory_in(self.selected_item)
     elseif self.selected_item.type == "dir"
@@ -231,6 +232,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
       command.perform "treeview:open"
     end
   end
+
   return true
 end
 
