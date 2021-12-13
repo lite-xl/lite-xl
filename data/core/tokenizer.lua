@@ -237,8 +237,13 @@ function tokenizer.tokenize(incoming_syntax, text, state)
 
     -- consume character if we didn't match
     if not matched then
-      push_token(res, "normal", text:sub(i, i))
-      i = i + 1
+      local n = 0
+      -- reach the next character
+      while text:byte(i + n + 1) and common.is_utf8_cont(text, i + n + 1) do
+        n = n + 1
+      end
+      push_token(res, "normal", text:sub(i, i + n))
+      i = i + n + 1
     end
   end
 
