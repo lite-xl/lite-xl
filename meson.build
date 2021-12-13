@@ -53,7 +53,8 @@ if not get_option('source-only')
     pcre2_dep = dependency('libpcre2-8')
     freetype_dep = dependency('freetype2')
     sdl_dep = dependency('sdl2', method: 'config-tool')
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, threads_dep]
+    win_dep = cc.find_library('dwmapi', required : true)
+    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, threads_dep, win_dep]
 endif
 #===============================================================================
 # Install Configuration
