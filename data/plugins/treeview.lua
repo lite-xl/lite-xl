@@ -9,6 +9,9 @@ local View = require "core.view"
 local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
 
+config.plugins.treeview = {
+  clicks_to_open = 2
+}
 
 local default_treeview_size = 200 * SCALE
 local tooltip_offset = style.font:get_height()
@@ -224,7 +227,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     if keymap.modkeys["ctrl"] then
       create_directory_in(self.selected_item)
     elseif self.selected_item.type == "dir"
-      or (self.selected_item.type == "file" and clicks > 1) then
+      or (self.selected_item.type == "file" and clicks == config.plugins.treeview.clicks_to_open) then
       command.perform "treeview:open"
     end
   end
