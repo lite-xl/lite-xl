@@ -76,7 +76,7 @@ static int font_set_render_options(RenFont* font) {
   if (font->antialiasing == FONT_ANTIALIASING_NONE)
     return FT_RENDER_MODE_MONO;
   if (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL) {
-    unsigned char weights[] = { 0x10, 0x40, 0x70, 0x40, 0x10 } ;
+    unsigned char weights[] = { 0x17, 0x2f, 0x74, 0x2f, 0x17 } ;
     switch (font->hinting) {
       case FONT_HINTING_NONE:   FT_Library_SetLcdFilter(library, FT_LCD_FILTER_NONE); break;
       case FONT_HINTING_SLIGHT:
