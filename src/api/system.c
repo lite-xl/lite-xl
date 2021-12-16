@@ -97,23 +97,25 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
 
 static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
 
-static const char *get_key_name(const SDL_Event *e, char *buf) {
-  SDL_Scancode scancode = e->key.keysym.scancode;
+static void get_key_name(const SDL_Event *e, char* keycode, char *scancode) {
+  SDL_Scancode code = e->key.keysym.scancode;
   /* Is the scancode from the keypad and the number-lock off?
   ** We assume that SDL_SCANCODE_KP_1 up to SDL_SCANCODE_KP_9 and SDL_SCANCODE_KP_0
   ** and SDL_SCANCODE_KP_PERIOD are declared in SDL2 in that order. */
-  if (scancode >= SDL_SCANCODE_KP_1 && scancode <= SDL_SCANCODE_KP_1 + 10 &&
+  if (code >= SDL_SCANCODE_KP_1 && code <= SDL_SCANCODE_KP_1 + 10 &&
     !(e->key.keysym.mod & KMOD_NUM)) {
-    return numpad[scancode - SDL_SCANCODE_KP_1];
+    strcpy(keycode, numpad[code - SDL_SCANCODE_KP_1]);
+    strcpy(scancode, numpad[code - SDL_SCANCODE_KP_1]);
   } else {
-    strcpy(buf, SDL_GetScancodeName(e->key.keysym.scancode));
-    str_tolower(buf);
-    return buf;
+    strcpy(keycode, SDL_GetKeyName(e->key.keysym.sym));
+    str_tolower(keycode);
+    strcpy(scancode, SDL_GetScancodeName(e->key.keysym.scancode));
+    str_tolower(scancode);
   }
 }
 
 static int f_poll_event(lua_State *L) {
-  char buf[16];
+  char keycode[16], scancode[16];
   int mx, my, wx, wy;
   SDL_Event e;
 
@@ -181,8 +183,10 @@ top:
       }
 #endif
       lua_pushstring(L, "keypressed");
-      lua_pushstring(L, get_key_name(&e, buf));
-      return 2;
+      get_key_name(&e, keycode, scancode);
+      lua_pushstring(L, keycode);
+      lua_pushstring(L, scancode);
+      return 3;
 
     case SDL_KEYUP:
 #ifdef __APPLE__
@@ -195,8 +199,10 @@ top:
       }
 #endif
       lua_pushstring(L, "keyreleased");
-      lua_pushstring(L, get_key_name(&e, buf));
-      return 2;
+      get_key_name(&e, keycode, scancode);
+      lua_pushstring(L, keycode);
+      lua_pushstring(L, scancode);
+      return 3;
 
     case SDL_TEXTINPUT:
       lua_pushstring(L, "textinput");

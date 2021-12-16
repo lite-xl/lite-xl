@@ -90,7 +90,8 @@ function keymap.get_binding(cmd)
 end
 
 
-function keymap.on_key_pressed(k, ...)
+function keymap.on_key_pressed(keycode, scancode, ...)
+  local k = config.combination_codes == "scancodes" and scancode or keycode
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
@@ -112,20 +113,29 @@ function keymap.on_key_pressed(k, ...)
   return false
 end
 
-function keymap.on_mouse_wheel(delta, ...)
-  return not (keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
-    or keymap.on_key_pressed("wheel", delta, ...))
+
+local function mouse_press(k, ...)
+  return keymap.on_key_pressed(k, k, ...)
 end
+
+
+function keymap.on_mouse_wheel(delta, ...)
+  return not (mouse_press("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
+    or mouse_press("wheel", delta, ...))
+end
+
 
 function keymap.on_mouse_pressed(button, x, y, clicks)
   local click_number = (((clicks - 1) % config.max_clicks) + 1)
-  return not (keymap.on_key_pressed(click_number  .. button:sub(1,1) .. "click", x, y, clicks) or
-    keymap.on_key_pressed(button:sub(1,1) .. "click", x, y, clicks) or
-    keymap.on_key_pressed(click_number .. "click", x, y, clicks) or
-    keymap.on_key_pressed("click", x, y, clicks))
+  return not (mouse_press(click_number  .. button:sub(1,1) .. "click", x, y, clicks) or
+    mouse_press(button:sub(1,1) .. "click", x, y, clicks) or
+    mouse_press(click_number .. "click", x, y, clicks) or
+    mouse_press("click", x, y, clicks))
 end
 
-function keymap.on_key_released(k)
+
+function keymap.on_key_released(keycode, scancode)
+  local k = config.combination_codes == "scancodes" and scancode or keycode
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = false
