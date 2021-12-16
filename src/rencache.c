@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdalign.h>
 
 #include <lauxlib.h>
