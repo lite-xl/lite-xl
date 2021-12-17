@@ -44,7 +44,7 @@ syntax.add {
     ["case"]     = "keyword",
     ["default"]  = "keyword",
     ["auto"]     = "keyword",
-    ["void"]     = "keyword",
+    ["void"]     = "keyword2",
     ["int"]      = "keyword2",
     ["short"]    = "keyword2",
     ["long"]     = "keyword2",
