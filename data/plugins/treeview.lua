@@ -170,6 +170,15 @@ function TreeView:each_item()
 end
 
 
+function TreeView:set_selection(selection, selection_y)
+  self.selected_item = selection
+  if selection and selection_y then
+    local _, y = self:get_content_offset()
+    self.selected_y = selection and (selection_y - y - (self.size.y / 2))
+  end
+end
+
+
 function TreeView:get_text_bounding_box(item, x, y, w, h)
   local icon_width = style.icon_font:get_width("D")
   local xoffset = item.depth * style.padding.x + style.padding.x + icon_width
@@ -223,7 +232,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
   end
 
   if self.hovered_item then
-    self.selected_item = self.hovered_item
+    self:set_selection(self.hovered_item, y)
 
     if keymap.modkeys["ctrl"] then
       create_directory_in(self.selected_item)
@@ -252,6 +261,10 @@ function TreeView:update()
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)
   else
     self.tooltip.alpha = 0
+  end
+
+  if self.selected_y then
+    self:move_towards(self.scroll.to, "y", self.selected_y)
   end
 
   TreeView.super.update(self)
@@ -439,39 +452,37 @@ command.add(nil, {
 command.add(TreeView, {
   ["treeview:next"] = function()
     local item = view.selected_item
-    if not item then
-      local it = view:each_item()
-      item = it()
-    end
-
+    local item_y
     local stop = false
-    for it in view:each_item() do
+    for it, _, y  in view:each_item() do
       if item == it then
         stop = true
       elseif stop then
         item = it
+        item_y = y
         break
       end
     end
 
-    view.selected_item = item
+    view:set_selection(item, item_y)
   end,
 
   ["treeview:previous"] = function()
-    if not view.selected_item then
-      local it = view:each_item()
-      view.selected_item = it()
-    else
-      local last_item
-      for it in view:each_item() do
-        if it == view.selected_item then
-          if not last_item then last_item = it end
-          break
+    local last_item
+    local last_item_y
+    for it, _, y in view:each_item() do
+      if it == view.selected_item then
+        if not last_item then
+          last_item = it
+          last_item_y = y
         end
-        last_item = it
+        break
       end
-      view.selected_item = last_item
+      last_item = it
+      last_item_y = y
     end
+
+    view:set_selection(last_item, last_item_y)
   end,
 
   ["treeview:open"] = function()
