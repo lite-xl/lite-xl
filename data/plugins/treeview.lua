@@ -264,7 +264,8 @@ function TreeView:update()
   end
 
   if self.selected_y then
-    self:move_towards(self.scroll.to, "y", self.selected_y)
+    self.scroll.to.y = self.selected_y
+    self.selected_y = nil
   end
 
   TreeView.super.update(self)
