@@ -172,7 +172,8 @@ end
 
 function TreeView:set_selection(selection, selection_y)
   self.selected_item = selection
-  if selection and selection_y then
+  if selection and selection_y
+      and (selection_y <= 0 or selection_y >= self.size.y) then
     local _, y = self:get_content_offset()
     self.selected_y = selection and (selection_y - y - (self.size.y / 2))
   end
