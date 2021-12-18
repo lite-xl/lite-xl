@@ -106,7 +106,10 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
     !(e->key.keysym.mod & KMOD_NUM)) {
     return numpad[scancode - SDL_SCANCODE_KP_1];
   } else {
-    strcpy(buf, SDL_GetScancodeName(e->key.keysym.scancode));
+    if (e->key.keysym.sym <= 128)
+      strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
+    else
+      strcpy(buf, SDL_GetScancodeName(scancode));
     str_tolower(buf);
     return buf;
   }
