@@ -68,7 +68,7 @@ style.syntax_fonts = {}
 
 style.log = {
   INFO  = { icon = "i", color = style.text },
-  ERROR = { icon = "!", color = style.accent }
+  ERROR = { icon = "!", color = { common.color "#ff6961" } }
 }
 
 return style
