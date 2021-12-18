@@ -111,7 +111,7 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
        then we transmit it as it is. But we also need to support shortcuts in
        other languages, so for non-Latin characters we pass the scancode that
        matches the letter in the QWERTY layout. */
-    if (e->key.keysym.sym <= 128)
+    if (e->key.keysym.sym < 128)
       strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
     else
       strcpy(buf, SDL_GetScancodeName(scancode));
