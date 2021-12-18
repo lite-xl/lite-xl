@@ -18,7 +18,7 @@ Lite XL has support for high DPI display on Windows and Linux and,
 since 1.16.7 release, it supports **retina displays** on macOS.
 
 Please note that Lite XL is compatible with lite for most plugins and all color themes.
-We provide a separate lite-plugins repository for Lite XL, because in some cases
+We provide a separate lite-xl-plugins repository for Lite XL, because in some cases
 some adaptations may be needed to make them work better with Lite XL.
 The repository with modified plugins is https://github.com/lite-xl/lite-xl-plugins.
 
@@ -153,8 +153,7 @@ See the [licenses] file for details on licenses used by the required dependencie
 [Get plugins]:                https://github.com/lite-xl/lite-xl-plugins
 [Get color themes]:           https://github.com/rxi/lite-colors
 [changelog]:                  https://github.com/lite-xl/lite-xl/blob/master/changelog.md
-[Lite XL plugins repository]: https://github.com/lite-xl/lite-plugins
-[plugins repository]:         https://github.com/rxi/lite-plugins
+[Lite XL plugins repository]: https://github.com/lite-xl/lite-xl-plugins
 [colors repository]:          https://github.com/rxi/lite-colors
 [LICENSE]:                    LICENSE
 [licenses]:                   licenses/licenses.md
