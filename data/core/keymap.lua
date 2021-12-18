@@ -90,8 +90,8 @@ function keymap.get_binding(cmd)
 end
 
 
-function keymap.on_key_pressed(keycode, scancode, ...)
-  local k = config.combination_codes == "scancodes" and scancode or keycode
+function keymap.on_key_pressed(combination_codes, keycode, scancode, ...)
+  local k = combination_codes == "scancodes" and scancode or keycode
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
@@ -110,12 +110,15 @@ function keymap.on_key_pressed(keycode, scancode, ...)
       return performed
     end
   end
+  if config.combination_codes == "guess" and string.byte(keycode) >= 128 then 
+    return keymap.on_key_pressed("scancodes", keycode, scancode, ...) 
+  end
   return false
 end
 
 
 local function mouse_press(k, ...)
-  return keymap.on_key_pressed(k, k, ...)
+  return keymap.on_key_pressed(config.combination_codes, k, k, ...)
 end
 
 

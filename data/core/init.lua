@@ -1180,7 +1180,7 @@ function core.on_event(type, ...)
   if type == "textinput" then
     core.root_view:on_text_input(...)
   elseif type == "keypressed" then
-    did_keymap = keymap.on_key_pressed(...)
+    did_keymap = keymap.on_key_pressed(config.combination_codes, ...)
   elseif type == "keyreleased" then
     keymap.on_key_released(...)
   elseif type == "mousemoved" then

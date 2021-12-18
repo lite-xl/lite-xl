@@ -28,7 +28,7 @@ config.draw_whitespace = false
 config.borderless = false
 config.tab_close_button = true
 config.max_clicks = 3
-config.combination_codes = "keycodes"
+config.combination_codes = "guess"
 
 -- Disable plugin loading setting to false the config entry
 -- of the same name.
