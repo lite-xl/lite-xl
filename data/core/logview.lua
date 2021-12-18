@@ -130,11 +130,8 @@ function LogView:draw()
 
   local th = style.font:get_height()
   local lh = th + style.padding.y -- for one line
-  for _, item, x, y, w in self:each_item() do
-    x = x + style.padding.x
-
-    local time = os.date(nil, item.time)
-    x = common.draw_text(style.font, style.dim, time, "left", x, y, w, lh)
+  for _, item, x, y, w, h in self:each_item() do
+    core.push_clip_rect(x, y, w, h)
     x = x + style.padding.x
 
     x = common.draw_text(
@@ -164,6 +161,8 @@ function LogView:draw()
       end
       _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
     end
+
+    core.pop_clip_rect()
   end
 end
 
