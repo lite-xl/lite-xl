@@ -307,6 +307,9 @@ function TreeView:draw()
   local doc = core.active_view.doc
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
+  local hover_color = { table.unpack(style.line_highlight) }
+  hover_color[4] = 160
+
   for item, x,y,w,h in self:each_item() do
     local color = style.text
 
@@ -316,7 +319,12 @@ function TreeView:draw()
     end
 
     -- hovered item background
-    if item == self.hovered_item or item == self.selected_item then
+    if item == self.hovered_item then
+      renderer.draw_rect(x, y, w, h, hover_color)
+      color = style.accent
+    end
+
+    if item == self.selected_item then
       renderer.draw_rect(x, y, w, h, style.line_highlight)
       color = style.accent
     end
