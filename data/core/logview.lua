@@ -130,6 +130,10 @@ function LogView:draw()
 
   local th = style.font:get_height()
   local lh = th + style.padding.y -- for one line
+  local iw = math.max(
+    style.icon_font:get_width(style.log.ERROR.icon),
+    style.icon_font:get_width(style.log.INFO.icon)
+  )
   for _, item, x, y, w, h in self:each_item() do
     core.push_clip_rect(x, y, w, h)
     x = x + style.padding.x
@@ -138,8 +142,8 @@ function LogView:draw()
       style.icon_font,
       style.log[item.level].color,
       style.log[item.level].icon,
-      "left",
-      x, y, w, lh
+      "center",
+      x, y, iw, lh
     )
     x = x + style.padding.x
 
