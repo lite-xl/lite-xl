@@ -142,6 +142,13 @@ function LogView:draw()
       x, y, w, lh
     )
     x = x + style.padding.x
+
+    -- timestamps are always 15% of the width
+    local tw = w * 15 / 100
+    local time = os.date(nil, item.time)
+    common.draw_text(style.font, style.dim, time, "center", x, y, tw, lh)
+    x = x + tw + style.padding.x
+
     w = w - (x - self:get_content_offset())
 
     if is_expanded(item) then
