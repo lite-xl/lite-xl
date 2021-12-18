@@ -66,4 +66,9 @@ style.syntax["function"] = { common.color "#93DDFA" }
 style.syntax_fonts = {}
 -- style.syntax_fonts["comment"] = renderer.font.load(path_to_font, size_of_font, rendering_options)
 
+style.log = {
+  INFO  = { icon = "i", color = style.text },
+  ERROR = { icon = "!", color = style.accent }
+}
+
 return style

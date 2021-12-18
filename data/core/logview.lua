@@ -36,6 +36,7 @@ local LogView = View:extend()
 
 LogView.context = "session"
 
+
 function LogView:new()
   LogView.super.new(self)
   self.last_item = core.log_items[#core.log_items]
@@ -91,14 +92,6 @@ function LogView:on_mouse_moved(px, py, ...)
 end
 
 
-function LogView:on_mouse_pressed(button, mx, my, clicks)
-  if LogView.super.on_mouse_pressed(self, button, mx, my, clicks) then return end
-  if self.hovered_item then
-    self:expand_item(self.hovered_item)
-  end
-end
-
-
 function LogView:update()
   local item = core.log_items[#core.log_items]
   if self.last_item ~= item then
@@ -144,7 +137,13 @@ function LogView:draw()
     x = common.draw_text(style.font, style.dim, time, "left", x, y, w, lh)
     x = x + style.padding.x
 
-    x = common.draw_text(style.code_font, style.dim, is_expanded(item) and "-" or "+", "left", x, y, w, lh)
+    x = common.draw_text(
+      style.icon_font,
+      style.log[item.level].color,
+      style.log[item.level].icon,
+      "left",
+      x, y, w, lh
+    )
     x = x + style.padding.x
     w = w - (x - self:get_content_offset())
 
