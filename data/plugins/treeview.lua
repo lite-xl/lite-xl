@@ -233,7 +233,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
   end
 
   if self.hovered_item then
-    self:set_selection(self.hovered_item, y)
+    self:set_selection(self.hovered_item)
 
     if keymap.modkeys["ctrl"] then
       create_directory_in(self.selected_item)
