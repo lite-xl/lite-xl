@@ -175,7 +175,7 @@ function TreeView:set_selection(selection, selection_y)
   if selection and selection_y
       and (selection_y <= 0 or selection_y >= self.size.y) then
     local _, y = self:get_content_offset()
-    self.selected_y = selection and (selection_y - y - (self.size.y / 2))
+    self.scroll.to.y = selection and (selection_y - y - self.size.y / 2)
   end
 end
 
@@ -262,11 +262,6 @@ function TreeView:update()
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)
   else
     self.tooltip.alpha = 0
-  end
-
-  if self.selected_y then
-    self.scroll.to.y = self.selected_y
-    self.selected_y = nil
   end
 
   TreeView.super.update(self)
