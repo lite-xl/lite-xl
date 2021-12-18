@@ -20,7 +20,7 @@ since 1.16.7 release, it supports **retina displays** on macOS.
 Please note that Lite XL is compatible with lite for most plugins and all color themes.
 We provide a separate lite-plugins repository for Lite XL, because in some cases
 some adaptations may be needed to make them work better with Lite XL.
-The repository with modified plugins is https://github.com/franko/lite-plugins.
+The repository with modified plugins is https://github.com/lite-xl/lite-xl-plugins.
 
 The changes and differences between Lite XL and rxi/lite are listed in the
 [changelog].
@@ -131,10 +131,7 @@ rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
 ## Contributing
 
 Any additional functionality that can be added through a plugin should be done
-as a plugin, after which a pull request to the [plugins repository] can be made.
-
-If the plugin uses any Lite XL-specific functionality,
-please open a pull request to the [Lite XL plugins repository].
+as a plugin, after which a pull request to the [Lite XL plugins repository] can be made.
 
 Pull requests to improve or modify the editor itself are welcome.
 
@@ -150,13 +147,13 @@ See the [licenses] file for details on licenses used by the required dependencie
 [Discord Badge Image]:        https://img.shields.io/discord/847122429742809208?label=discord&logo=discord
 [screenshot-dark]:            https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png
 [lite]:                       https://github.com/rxi/lite
-[website]:                    https://lite-xl.github.io
-[build]:                      https://lite-xl.github.io/en/documentation/build/
-[Get Lite XL]:                https://github.com/franko/lite-xl/releases/latest
-[Get plugins]:                https://github.com/franko/lite-plugins
+[website]:                    https://lite-xl.com
+[build]:                      https://lite-xl.com/en/documentation/build/
+[Get Lite XL]:                https://github.com/lite-xl/lite-xl/releases/latest
+[Get plugins]:                https://github.com/lite-xl/lite-xl-plugins
 [Get color themes]:           https://github.com/rxi/lite-colors
-[changelog]:                  https://github.com/franko/lite-xl/blob/master/changelog.md
-[Lite XL plugins repository]: https://github.com/franko/lite-plugins
+[changelog]:                  https://github.com/lite-xl/lite-xl/blob/master/changelog.md
+[Lite XL plugins repository]: https://github.com/lite-xl/lite-plugins
 [plugins repository]:         https://github.com/rxi/lite-plugins
 [colors repository]:          https://github.com/rxi/lite-colors
 [LICENSE]:                    LICENSE
