@@ -5,6 +5,7 @@ local config = require "core.config"
 local style = require "core.style"
 local command
 local keymap
+local dirwatch
 local RootView
 local StatusView
 local TitleView
@@ -187,70 +188,8 @@ local function get_project_file_info(root, file, ignore_compiled)
 end
 
 
--- Predicate function to inhibit directory recursion in get_directory_files
--- based on a time limit and the number of files.
-local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
-  local n_limit = entries_count <= config.max_project_files
-  local t_limit = t_elapsed < 20 / config.fps
-  return n_limit and t_limit and core.project_subdir_is_shown(dir, filename)
-end
-
-
--- "root" will by an absolute path without trailing '/'
--- "path" will be a path starting with '/' and without trailing '/'
---    or the empty string.
---    It will identifies a sub-path within "root.
--- The current path location will therefore always be: root .. path.
--- When recursing "root" will always be the same, only "path" will change.
--- Returns a list of file "items". In eash item the "filename" will be the
--- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(dir, root, path, t, ignore_compiled, entries_count, recurse_pred, begin_hook)
-  if begin_hook then begin_hook() end
-  ignore_compiled = ignore_compiled or compile_ignore_files()
-  local t0 = system.get_time()
-  local all = system.list_dir(root .. path) or {}
-  local t_elapsed = system.get_time() - t0
-  local dirs, files = {}, {}
-
-  for _, file in ipairs(all) do
-    local info = get_project_file_info(root, path .. PATHSEP .. file, ignore_compiled)
-    if info then
-      table.insert(info.type == "dir" and dirs or files, info)
-      entries_count = entries_count + 1
-    end
-  end
-
-  local recurse_complete = true
-  table.sort(dirs, compare_file)
-  for _, f in ipairs(dirs) do
-    table.insert(t, f)
-    if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
-      local _, complete, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, ignore_compiled, entries_count, recurse_pred, begin_hook)
-      recurse_complete = recurse_complete and complete
-      entries_count = n
-    else
-      recurse_complete = false
-    end
-  end
-
-  table.sort(files, compare_file)
-  for _, f in ipairs(files) do
-    table.insert(t, f)
-  end
-
-  return t, recurse_complete, entries_count
-end
-
-
 function core.project_subdir_set_show(dir, filename, show)
-  if dir.files_limit and not dir.force_rescan then
-    local fullpath = dir.name .. PATHSEP .. filename
-    if not (show and system.watch_dir_add or system.watch_dir_rm)(dir.watch_id, fullpath) then
-      return false
-    end
-  end
   dir.shown_subdir[filename] = show
-  return true
 end
 
 
@@ -264,8 +203,10 @@ local function show_max_files_warning(dir)
     "Filesystem is too slow: project files will not be indexed." or
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
-    "usage.md at github.com/lite-xl/lite-xl."
-  core.status_view:show_message("!", style.accent, message)
+    "usage.md at https://github.com/lite-xl/lite-xl."
+  if core.status_view then
+    core.status_view:show_message("!", style.accent, message)
+  end
 end
 
 
@@ -367,120 +308,188 @@ local function project_subdir_bounds(dir, filename)
   end
 end
 
-local function rescan_project_subdir(dir, filename_rooted)
-  local new_files = get_directory_files(dir, dir.name, filename_rooted, {}, nil, 0, core.project_subdir_is_shown, coroutine.yield)
-  local index, n = 0, #dir.files
-  if filename_rooted ~= "" then
-    local filename = strip_leading_path(filename_rooted)
-    index, n = project_subdir_bounds(dir, filename)
-  end
 
-  if not files_list_match(dir.files, index, n, new_files) then
-    -- Since we are modifying the list of files we may add new directories and
-    -- when dir.files_limit is false we need to add a watch for each subdirectory.
-    -- We are therefore passing a insert hook function to the purpose of adding
-    -- a watch.
-    -- Note that the hook shold almost never be called, it happens only if
-    -- we missed some directory creation event from the directory monitoring which
-    -- almost never happens. With inotify is at least theoretically possible.
-    local need_subdir_watches = not dir.files_limit and not dir.force_rescan
-    files_list_replace(dir.files, index, n, new_files, need_subdir_watches and {insert = function(fileinfo)
-      if fileinfo.type == "dir" then
-        system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
-      end
-    end})
-    dir.is_dirty = true
-    return true
-  end
+-- Predicate function to inhibit directory recursion in get_directory_files
+-- based on a time limit and the number of files.
+local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
+  local n_limit = entries_count <= config.max_project_files
+  local t_limit = t_elapsed < 20 / config.fps
+  return n_limit and t_limit and core.project_subdir_is_shown(dir, filename)
 end
 
 
-local function add_dir_scan_thread(dir)
-  core.add_thread(function()
-    while true do
-      local has_changes = rescan_project_subdir(dir, "")
-      if has_changes then
-        core.redraw = true -- we run without an event, from a thread
-      end
-      coroutine.yield(5)
+-- "root" will by an absolute path without trailing '/'
+-- "path" will be a path starting with '/' and without trailing '/'
+--    or the empty string.
+--    It will identifies a sub-path within "root.
+-- The current path location will therefore always be: root .. path.
+-- When recursing "root" will always be the same, only "path" will change.
+-- Returns a list of file "items". In eash item the "filename" will be the
+-- complete file path relative to "root" *without* the trailing '/'.
+local function get_directory_files(dir, root, path, t, entries_count, recurse_pred)
+  local t0 = system.get_time()
+  local all = system.list_dir(root .. path) or {}
+  local t_elapsed = system.get_time() - t0
+  local dirs, files = {}, {}
+
+  for _, file in ipairs(all) do
+    local info = get_project_file_info(root, path .. PATHSEP .. file)
+    if info and not common.match_pattern(common.basename(info.filename), config.ignore_files) then
+      table.insert(info.type == "dir" and dirs or files, info)
+      entries_count = entries_count + 1
     end
-  end, dir)
+  end
+
+  local recurse_complete = true
+  table.sort(dirs, compare_file)
+  for _, f in ipairs(dirs) do
+    table.insert(t, f)
+    if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
+      local _, complete, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, entries_count, recurse_pred)
+      recurse_complete = recurse_complete and complete
+      entries_count = n
+    else
+      recurse_complete = false
+    end
+  end
+
+  table.sort(files, compare_file)
+  for _, f in ipairs(files) do
+    table.insert(t, f)
+  end
+
+  return t, recurse_complete, entries_count
 end
 
 
-local function folder_add_subdirs_watch(dir)
-  for _, fileinfo in ipairs(dir.files) do
-    if fileinfo.type == "dir" then
-      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
-    end
-  end
-end
-
-
--- Populate a project folder top directory by scanning the filesystem.
-local function scan_project_folder(index)
-  local dir = core.project_directories[index]
-  local fstype = system.get_fs_type(dir.name)
-  dir.force_rescan = (fstype == "nfs" or fstype == "fuse")
-  if not dir.force_rescan then
-    local watch_err
-    dir.watch_id, watch_err = system.watch_dir(dir.name)
-    if not dir.watch_id then
-      core.log("Watch directory %s: %s", dir.name, watch_err)
-      dir.force_rescan = true
-    end
-  end
-  local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, nil, 0, timed_max_files_pred)
-  -- If dir.files_limit is set to TRUE it means that:
-  -- * we will not read recursively all the project files and we don't index them
-  -- * we read only the files for the subdirectories that are opened/expanded in the
-  --   TreeView
-  -- * we add a subdirectory watch only to the directories that are opened/expanded
-  -- * we set the values in the shown_subdir table
-  --
-  -- If dir.files_limit is set to FALSE it means that:
-  -- * we will read recursively all the project files and we index them
-  -- * all the list of project files is always complete and kept updated when
-  --   changes happen on the disk
-  -- * all the subdirectories at any depth must have a watch using system.watch_dir_add
-  -- * we DO NOT set the values in the shown_subdir table
-  --
-  -- * If force_rescan is set to TRUE no watch are used in any case.
-  if not complete then
-    dir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
-    dir.files_limit = true
-    if core.status_view then -- May be not yet initialized.
-      show_max_files_warning(dir)
-    end
-  end
-  dir.files = t
-  if dir.force_rescan then
-    add_dir_scan_thread(dir)
+-- Should be called on any directory that registers a change.
+-- Uses relative paths at the project root.
+local function refresh_directory(topdir, target, expanded)
+  local index, n, directory
+  if target == "" then
+    index, n = 1, #topdir.files
+    directory = ""
   else
-    if not dir.files_limit then
-      folder_add_subdirs_watch(dir)
+    index, n = project_subdir_bounds(topdir, target)
+    index = index + 1
+    n = index + n - 1
+    directory =  (PATHSEP .. target)
+  end
+  if index then
+    local files
+    local change = false
+    if topdir.files_limit then
+      -- If we have the folders literally open on the side panel.
+      files = expanded and get_directory_files(topdir, topdir.name, directory, {}, 0, core.project_subdir_is_shown) or {}
+      change = true
+    else
+      -- If we're expecting to keep track of everything, go through the list and iteratively deal with directories.
+      files = get_directory_files(topdir, topdir.name, directory, {}, 0, function() return false end)
     end
-    core.dir_rescan_add_job(dir, ".")
+    
+    local new_idx, old_idx = 1, index
+    local new_directories = {}
+    local last_dir = nil
+    while old_idx <= n or new_idx <= #files do 
+      local old_info, new_info = topdir.files[old_idx], files[new_idx]
+      if not new_info or not old_info or not last_dir or old_info.filename:sub(1, #last_dir + 1) ~= last_dir .. "/" then
+        if not new_info or not old_info or not files_info_equal(new_info, old_info) then
+          change = true
+          if not old_info or (new_info and system.path_compare(new_info.filename, new_info.type, old_info.filename, old_info.type)) then
+            table.insert(topdir.files, old_idx, new_info)
+            new_idx = new_idx + 1
+            old_idx = old_idx + 1
+            if new_info.type == "dir" then
+              table.insert(new_directories, new_info)
+            end
+            n = n + 1
+          else
+            table.remove(topdir.files, old_idx)
+            if old_info.type == "dir" then
+              topdir.watch:unwatch(target .. PATHSEP .. old_info.filename)
+            end
+            n = n - 1
+          end
+        else
+          new_idx = new_idx + 1
+          old_idx = old_idx + 1
+        end
+        if old_info and old_info.type == "dir" then
+          last_dir = old_info.filename
+        end
+      else
+        old_idx = old_idx + 1
+      end
+    end
+    for i, v in ipairs(new_directories) do
+      topdir.watch:watch(target)
+      if refresh_directory(topdir, target .. PATHSEP .. v.filename) then
+        change = true
+      end
+    end
+    if change then
+      core.redraw = true
+      topdir.is_dirty = true
+    end    
+    return change
   end
 end
-
 
 function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = common.normalize_volume(path)
-  local dir = {
+  local topdir = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files_limit = false,
     is_dirty = true,
     shown_subdir = {},
+    watch_thread = nil,
+    watch = dirwatch.new()
   }
-  table.insert(core.project_directories, dir)
-  scan_project_folder(#core.project_directories)
+  table.insert(core.project_directories, topdir)  
+  
+  local fstype = PLATFORM == "Linux" and system.get_fs_type(topdir.name) or "unknown"
+  topdir.force_scans = (fstype == "nfs" or fstype == "fuse")
+  local t, complete, entries_count = get_directory_files(topdir, topdir.name, "", {}, 0, timed_max_files_pred)
+  topdir.files = t
+  if not complete then
+    topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
+    topdir.files_limit = true
+    show_max_files_warning(topdir)
+    refresh_directory(topdir, "")
+  else
+    for i,v in ipairs(t) do
+      if v.type == "dir" then topdir.watch:watch(path .. PATHSEP .. v.filename) end
+    end
+  end
+  topdir.watch:watch(topdir.name)
+  -- each top level directory gets a watch thread. if the project is small, or
+  -- if the ablity to use directory watches hasn't been compromised in some way
+  -- either through error, or amount of files, then this should be incredibly 
+  -- quick; essentially one syscall per check. Otherwise, this may take a bit of
+  -- time; the watch will yield in this coroutine after 0.01 second, for 0.1 seconds.
+  topdir.watch_thread = core.add_thread(function()
+    while true do
+      topdir.watch:check(function(target)
+        if target == topdir.name then return refresh_directory(topdir, "") end
+        local dirpath = target:sub(#topdir.name + 2)
+        local abs_dirpath = topdir.name .. PATHSEP .. dirpath
+        if dirpath then
+          -- check if the directory is in the project files list, if not exit.
+          local dir_index, dir_match = file_search(topdir.files, {filename = dirpath, type = "dir"})
+          if not dir_match or not core.project_subdir_is_shown(topdir, topdir.files[dir_index].filename) then return end
+        end
+        return refresh_directory(topdir, dirpath)
+      end, 0.01, 0.01)
+      coroutine.yield(0.05)
+    end
+  end)
+  
   if path == core.project_dir then
-    core.project_files = dir.files
+    core.project_files = topdir.files
   end
   core.redraw = true
   return dir
@@ -569,7 +578,7 @@ local function find_files_rec(root, path)
       info.filename = strip_leading_path(file)
       if info.type == "file" then
         coroutine.yield(root, info)
-      else
+      elseif not common.match_pattern(common.basename(info.filename), config.ignore_files) then
         find_files_rec(root, PATHSEP .. info.filename)
       end
     end
@@ -627,62 +636,6 @@ function core.project_files_number()
     n = n + #core.project_directories[i].files
   end
   return n
-end
-
-
-local function project_dir_by_watch_id(watch_id)
-  for i = 1, #core.project_directories do
-    if core.project_directories[i].watch_id == watch_id then
-      return core.project_directories[i]
-    end
-  end
-end
-
-
-local function project_scan_remove_file(dir, filepath)
-  local fileinfo = { filename = filepath }
-  for _, filetype in ipairs {"dir", "file"} do
-    fileinfo.type = filetype
-    local index, match = file_search(dir.files, fileinfo)
-    if match then
-      if filetype == "dir" then
-        -- If the directory is a symlink it may get deleted and we will
-        -- never get dirmonitor events for the removal the files it contains.
-        -- We proceed to remove all the files that belong to the directory.
-        local _, n_subdir = project_subdir_bounds(dir, filepath)
-        files_list_replace(dir.files, index, n_subdir, {}, {
-          remove= function(fileinfo)
-            if fileinfo.type == "dir" then
-              system.watch_dir_rm(dir.watch_id, dir.name .. PATHSEP .. filepath)
-            end
-          end})
-        if dir.files_limit then
-          dir.shown_subdir[filepath] = nil
-        end
-      end
-      table.remove(dir.files, index)
-      dir.is_dirty = true
-      return
-    end
-  end
-end
-
-
-local function project_scan_add_file(dir, filepath)
-  local ignore = compile_ignore_files()
-  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
-  if fileinfo then
-    -- on Windows and MacOS we can get events from directories we are not following:
-    -- check if each parent directories pass the ignore_files rules.
-    repeat
-      filepath = common.dirname(filepath)
-      local parent_info = filepath and get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
-      if filepath and not parent_info then
-        return -- parent directory does match ignore_files rules: stop there
-      end
-    until not parent_info
-    project_scan_add_entry(dir, fileinfo)
-  end
 end
 
 
@@ -859,6 +812,7 @@ end
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
+  dirwatch = require "core.dirwatch"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
@@ -919,6 +873,8 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
+  
+  local got_user_error, got_project_error = not core.load_user_directory()
 
   local project_dir_abs = system.absolute_path(project_dir)
   -- We prevent set_project_dir below to effectively add and scan the directory becaese tha
@@ -933,7 +889,9 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs) then
+    if not core.set_project_dir(project_dir_abs, function() 
+      got_project_error = not core.load_project_module()
+    end) then
       system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
       os.exit(1)
     end
@@ -960,14 +918,12 @@ function core.init()
   cur_node = cur_node:split("down", core.status_view, {y = true})
 
   command.add_defaults()
-  local got_user_error = not core.load_user_directory()
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
     core.log("Opening project %q from directory %s", pname, pdir)
   end
-  local got_project_error = not core.load_project_module()
 
   -- We add the project directory now because the project's module is loaded.
   core.add_project_directory(project_dir_abs)
@@ -1381,78 +1337,6 @@ function core.has_pending_rescan()
   end
 end
 
-
-function core.dir_rescan_add_job(dir, filepath)
-  local dirpath = filepath:match("^(.+)[/\\].+$")
-  local dirpath_rooted = dirpath and PATHSEP .. dirpath or ""
-  local abs_dirpath = dir.name .. dirpath_rooted
-  if dirpath then
-    -- check if the directory is in the project files list, if not exit
-    local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
-    -- Note that is dir_match is false dir_index greaten than the last valid index.
-    -- We use dir_index to index dir.files below only if dir_match is true.
-    if not dir_match or not core.project_subdir_is_shown(dir, dir.files[dir_index].filename) then return end
-  end
-  local new_time = system.get_time() + 1
-
-  -- evaluate new rescan request versus existing rescan
-  local remove_list = {}
-  for _, rescan in pairs(scheduled_rescan) do
-    if abs_dirpath == rescan.abs_path or common.path_belongs_to(abs_dirpath, rescan.abs_path) then
-      -- abs_dirpath is a subpath of a scan already ongoing: skip
-      rescan.time_limit = new_time
-      return
-    elseif common.path_belongs_to(rescan.abs_path, abs_dirpath) then
-      -- abs_dirpath already cover this rescan: add to the list of rescan to be removed
-      table.insert(remove_list, rescan.abs_path)
-    end
-  end
-  for _, key_path in ipairs(remove_list) do
-    scheduled_rescan[key_path] = nil
-  end
-
-  scheduled_rescan[abs_dirpath] = {dir = dir, path = dirpath_rooted, abs_path = abs_dirpath, time_limit = new_time}
-  core.add_thread(function()
-    while true do
-      local rescan = scheduled_rescan[abs_dirpath]
-      if not rescan then return end
-      if system.get_time() > rescan.time_limit then
-        local has_changes = rescan_project_subdir(rescan.dir, rescan.path)
-        if has_changes then
-          core.redraw = true -- we run without an event, from a thread
-          rescan.time_limit = new_time
-        else
-          scheduled_rescan[rescan.abs_path] = nil
-          return
-        end
-      end
-      coroutine.yield(0.2)
-    end
-  end)
-end
-
-
--- no-op but can be overrided by plugins
-function core.on_dirmonitor_modify(dir, filepath) end
-function core.on_dirmonitor_delete(dir, filepath) end
-
-
-function core.on_dir_change(watch_id, action, filepath)
-  local dir = project_dir_by_watch_id(watch_id)
-  if not dir then return end
-  core.dir_rescan_add_job(dir, filepath)
-  if action == "delete" then
-    project_scan_remove_file(dir, filepath)
-    core.on_dirmonitor_delete(dir, filepath)
-  elseif action == "create" then
-    project_scan_add_file(dir, filepath)
-    core.on_dirmonitor_modify(dir, filepath);
-  elseif action == "modify" then
-    core.on_dirmonitor_modify(dir, filepath);
-  end
-end
-
-
 function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
@@ -1494,8 +1378,6 @@ function core.on_event(type, ...)
     end
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
-  elseif type == "dirchange" then
-    core.on_dir_change(...)
   elseif type == "quit" then
     core.quit()
   end
