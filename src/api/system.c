@@ -6,8 +6,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
-#include "dirmonitor.h"
-#include "rencache.h"
+#include "../dirmonitor.h"
+#include "../rencache.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
