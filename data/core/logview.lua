@@ -44,6 +44,8 @@ function LogView:new()
   self.expanding = {}
   self.scrollable = true
   self.yoffset = 0
+
+  core.status_view:show_message("i", style.text, "ctrl+click to copy entry")
 end
 
 
