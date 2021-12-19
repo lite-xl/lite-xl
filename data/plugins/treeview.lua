@@ -174,8 +174,13 @@ function TreeView:set_selection(selection, selection_y)
   self.selected_item = selection
   if selection and selection_y
       and (selection_y <= 0 or selection_y >= self.size.y) then
+
+    local lh = self:get_item_height()
+    if selection_y >= self.size.y - lh then
+      selection_y = selection_y - self.size.y + lh
+    end
     local _, y = self:get_content_offset()
-    self.scroll.to.y = selection and (selection_y - y - self.size.y / 2)
+    self.scroll.to.y = selection and (selection_y - y)
   end
 end
 
