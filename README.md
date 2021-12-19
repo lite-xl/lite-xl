@@ -151,9 +151,9 @@ See the [licenses] file for details on licenses used by the required dependencie
 [build]:                      https://lite-xl.com/en/documentation/build/
 [Get Lite XL]:                https://github.com/lite-xl/lite-xl/releases/latest
 [Get plugins]:                https://github.com/lite-xl/lite-xl-plugins
-[Get color themes]:           https://github.com/rxi/lite-colors
+[Get color themes]:           https://github.com/lite-xl/lite-xl-colors
 [changelog]:                  https://github.com/lite-xl/lite-xl/blob/master/changelog.md
 [Lite XL plugins repository]: https://github.com/lite-xl/lite-xl-plugins
-[colors repository]:          https://github.com/rxi/lite-colors
+[colors repository]:          https://github.com/lite-xl/lite-xl-colors
 [LICENSE]:                    LICENSE
 [licenses]:                   licenses/licenses.md
