@@ -276,7 +276,7 @@ function TreeView:update()
   -- we don't want events when the thing is scrolling fast
   local dy = math.abs(self.scroll.to.y - self.scroll.y)
   if self.scroll.to.y ~= 0 and dy < self:get_item_height() then
-    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, 0)
+    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, self.scroll.to.y - self.scroll.y)
   end
 
   TreeView.super.update(self)
