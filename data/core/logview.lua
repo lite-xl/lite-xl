@@ -1,5 +1,6 @@
 local core = require "core"
 local common = require "core.common"
+local keymap = require "core.keymap"
 local style = require "core.style"
 local View = require "core.view"
 
@@ -78,17 +79,30 @@ function LogView:each_item()
 end
 
 
-function LogView:on_mouse_moved(px, py, ...)
-  LogView.super.on_mouse_moved(self, px, py, ...)
-  local hovered = false
-  for _, item, x, y, w, h in self:each_item() do
+function LogView:on_mouse_pressed(button, px, py, clicks)
+  if LogView.super.on_mouse_pressed(self, button, px, py, clicks) then
+    return true
+  end
+
+  local index, selected
+  for i, item, x, y, w, h in self:each_item() do
     if px >= x and py >= y and px < x + w and py < y + h then
-      hovered = true
-      self.hovered_item = item
+      index = i
+      selected = item
       break
     end
   end
-  if not hovered then self.hovered_item = nil end
+
+  if selected then
+    if keymap.modkeys["ctrl"] then
+      system.set_clipboard(core.get_log(selected))
+      core.status_view:show_message("i", style.text, "copied entry #"..index.." to clipboard.")
+    else
+      self:expand_item(selected)
+    end
+  end
+
+  return true
 end
 
 

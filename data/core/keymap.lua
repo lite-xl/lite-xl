@@ -235,8 +235,7 @@ keymap.add_direct {
   ["pagedown"] = "doc:move-to-next-page",
 
   ["shift+1lclick"] = "doc:select-to-cursor",
-  ["ctrl+1lclick"] = { "doc:split-cursor", "log:copy-entry" },
-  ["lclick"]  = "log:expand-item",
+  ["ctrl+1lclick"] = "doc:split-cursor",
   ["1lclick"] = "doc:set-cursor",
   ["2lclick"] = "doc:set-cursor-word",
   ["3lclick"] = "doc:set-cursor-line",
