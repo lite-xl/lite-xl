@@ -47,7 +47,7 @@ workdir=".repackage"
 rm -fr "$workdir" && mkdir "$workdir" && pushd "$workdir"
 
 fetch_packages_from_github () {
-  assets=($($wget -q -nv -O- https://api.github.com/repos/franko/lite-xl/releases/latest | grep "browser_download_url" | cut -d '"' -f 4))
+  assets=($($wget -q -nv -O- https://api.github.com/repos/lite-xl/lite-xl/releases/latest | grep "browser_download_url" | cut -d '"' -f 4))
 
   for url in "${assets[@]}"; do
     echo "getting: $url"
