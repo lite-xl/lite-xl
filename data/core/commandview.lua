@@ -288,5 +288,8 @@ function CommandView:draw()
   end
 end
 
+-- Suppress the drawing of the scrollbar
+function CommandView:draw_scrollbar()
+end
 
 return CommandView
