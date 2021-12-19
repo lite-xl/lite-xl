@@ -183,7 +183,7 @@ local function show_max_files_warning(dir)
     "Filesystem is too slow: project files will not be indexed." or
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
-    "usage.md at github.com/franko/lite-xl."
+    "usage.md at github.com/lite-xl/lite-xl."
   core.status_view:show_message("!", style.accent, message)
 end
 
@@ -737,7 +737,7 @@ function core.init()
       "Refused Plugins",
       string.format(
         "Some plugins are not loaded due to version mismatch.\n\n%s.\n\n" ..
-        "Please download a recent version from https://github.com/franko/lite-plugins.",
+        "Please download a recent version from https://github.com/lite-xl/lite-xl-plugins.",
         table.concat(msg, ".\n\n")),
       opt, function(item)
         if item.text == "Exit" then os.exit(1) end
