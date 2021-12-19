@@ -47,7 +47,9 @@ style.nagbar_dim = { common.color "rgba(0, 0, 0, 0.45)" }
 style.drag_overlay = { common.color "rgba(255,255,255,0.1)" }
 style.drag_overlay_tab = { common.color "#93DDFA" }
 style.good = { common.color "#72b886" }
-style.bad = { common.color "#FFA94D" }
+style.warn = { common.color "#FFA94D" }
+style.error = { common.color "#FF3333" }
+style.modified = { common.color "#1c7c9c" }
 
 style.syntax = {}
 style.syntax["normal"] = { common.color "#e1e1e6" }
