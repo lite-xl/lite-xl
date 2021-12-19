@@ -45,6 +45,7 @@ function TreeView:new()
   self.target_size = default_treeview_size
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
+  self.cursor_pos = { x = 0, y = 0 }
 
   local on_dirmonitor_modify = core.on_dirmonitor_modify
   function core.on_dirmonitor_modify(dir, filepath)
@@ -198,6 +199,8 @@ function TreeView:on_mouse_moved(px, py, ...)
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
 
+  self.cursor_pos.x = px
+  self.cursor_pos.y = py
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
@@ -267,6 +270,13 @@ function TreeView:update()
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)
   else
     self.tooltip.alpha = 0
+  end
+
+  -- this will make sure hovered_item is updated
+  -- we don't want events when the thing is scrolling fast
+  local dy = math.abs(self.scroll.to.y - self.scroll.y)
+  if self.scroll.to.y ~= 0 and dy < self:get_item_height() then
+    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, 0)
   end
 
   TreeView.super.update(self)
