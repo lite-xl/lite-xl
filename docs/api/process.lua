@@ -57,23 +57,26 @@ process.WAIT_INFINITE = -1
 ---@type integer
 process.WAIT_DEADLINE = -2
 
----Used for the process.options stdin, stdout and stderr fields.
+---Default behavior for redirecting streams.
+---This flag is deprecated and for backwards compatibility with reproc only.
+---The behavior of this flag may change in future versions of Lite XL.
 ---@type integer
 process.REDIRECT_DEFAULT = 0
 
----Used for the process.options stdin, stdout and stderr fields.
+---Allow Process API to read this stream via process:read functions.
 ---@type integer
 process.REDIRECT_PIPE = 1
 
----Used for the process.options stdin, stdout and stderr fields.
+---Redirect this stream to the parent.
 ---@type integer
 process.REDIRECT_PARENT = 2
 
----Used for the process.options stdin, stdout and stderr fields.
+---Discard this stream (piping it to /dev/null)
 ---@type integer
 process.REDIRECT_DISCARD = 3
 
----Used for the process.options stdin, stdout and stderr fields.
+---Redirect this stream to stdout.
+---This flag can only be used on process.options.stderr.
 ---@type integer
 process.REDIRECT_STDOUT = 4
 
