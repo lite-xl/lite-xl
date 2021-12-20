@@ -6,6 +6,7 @@ local LogView = require "core.logview"
 
 
 local fullscreen = false
+local restore_title_view = false
 
 local function suggest_directory(text)
   text = common.home_expand(text)
@@ -28,9 +29,12 @@ command.add(nil, {
 
   ["core:toggle-fullscreen"] = function()
     fullscreen = not fullscreen
+    if fullscreen then
+      restore_title_view = core.title_view.visible
+    end
     system.set_window_mode(fullscreen and "fullscreen" or "normal")
-    core.show_title_bar(not fullscreen)
-    core.title_view:configure_hit_test(not fullscreen)
+    core.show_title_bar(not fullscreen and restore_title_view)
+    core.title_view:configure_hit_test(not fullscreen and restore_title_view)
   end,
 
   ["core:reload-module"] = function()
@@ -160,7 +164,10 @@ command.add(nil, {
         core.error("Cannot open folder %q", text)
         return
       end
-      core.confirm_close_docs(core.docs, core.open_folder_project, text)
+      core.confirm_close_docs(core.docs, function(dirpath)
+        core.close_current_project()
+        core.open_folder_project(dirpath)
+      end, text)
     end, suggest_directory)
   end,
 

@@ -4,6 +4,7 @@ pcall(require, "plugins.language_c")
 local syntax = require "core.syntax"
 
 syntax.add {
+  name = "C++",
   files = {
     "%.h$", "%.inl$", "%.cpp$", "%.cc$", "%.C$", "%.cxx$",
     "%.c++$", "%.hh$", "%.H$", "%.hxx$", "%.hpp$", "%.h++$"

@@ -47,7 +47,7 @@ function Doc:reset_syntax()
   local syn = syntax.get(self.filename or "", header)
   if self.syntax ~= syn then
     self.syntax = syn
-    self.highlighter:reset()
+    self.highlighter:soft_reset()
   end
 end
 
@@ -62,12 +62,15 @@ function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
   self:reset()
   self.lines = {}
+  local i = 1
   for line in fp:lines() do
     if line:byte(-1) == 13 then
       line = line:sub(1, -2)
       self.crlf = true
     end
     table.insert(self.lines, line .. "\n")
+    self.highlighter.lines[i] = false
+    i = i + 1
   end
   if #self.lines == 0 then
     table.insert(self.lines, "\n")
