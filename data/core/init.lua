@@ -64,6 +64,22 @@ function core.set_project_dir(new_dir, change_project_fn)
   return false
 end
 
+function core.close_current_project()
+  -- When using system.unwatch_dir we need to pass the watch_id provided by dmon.
+  -- In reality when unwatching a directory the dmon library shifts the other watch_id
+  -- values so the actual watch_id changes. To workaround this problem we assume the
+  -- first watch_id is always 1 and the watch_id are continguous and we unwatch the
+  -- first watch_id repeateadly up to the number of watch_ids.
+  local watch_id_max = 0
+  for _, project_dir in ipairs(core.project_directories) do
+    if project_dir.watch_id and project_dir.watch_id > watch_id_max then
+      watch_id_max = project_dir.watch_id
+    end
+  end
+  for i = 1, watch_id_max do
+    system.unwatch_dir(1)
+  end
+end
 
 function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dir_path_abs, core.on_quit_project) then
