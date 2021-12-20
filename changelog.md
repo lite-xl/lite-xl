@@ -1,5 +1,16 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.0.4
+
+Fix some bugs related to newly introduced directory monitoring using the dmon library.
+
+Fix a problem with plain text search using Lua patterns by error.
+
+Fix a problem with visualization of UTF-8 characters that caused garbage characters
+visualization.
+
+Other fixes and improvements contributed by @Guldoman.
+
 ### 2.0.3
 
 Replace periodic rescan of project folder with a notification based system using the
