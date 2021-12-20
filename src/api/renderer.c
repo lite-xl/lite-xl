@@ -1,6 +1,6 @@
 #include "api.h"
-#include "renderer.h"
-#include "rencache.h"
+#include "../renderer.h"
+#include "../rencache.h"
 
 static int f_font_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
