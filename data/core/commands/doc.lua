@@ -47,19 +47,32 @@ end
 
 local function cut_or_copy(delete)
   local full_text = ""
+  local text = ""
+  core.cursor_clipboard = {}
+  core.cursor_clipboard_whole_line = {}
   for idx, line1, col1, line2, col2 in doc():get_selections() do
     if line1 ~= line2 or col1 ~= col2 then
-      local text = doc():get_text(line1, col1, line2, col2)
+      text = doc():get_text(line1, col1, line2, col2)
+      full_text = full_text == "" and text or (full_text .. " " .. text)
+      core.cursor_clipboard_whole_line[idx] = false
       if delete then
         doc():delete_to_cursor(idx, 0)
       end
-      full_text = full_text == "" and text or (full_text .. "\n" .. text)
-      doc().cursor_clipboard[idx] = text
-    else
-      doc().cursor_clipboard[idx] = ""
+    else -- Cut/copy whole line
+      text = doc().lines[line1]
+      full_text = full_text == "" and text or (full_text .. text)
+      core.cursor_clipboard_whole_line[idx] = true
+      if delete then
+        if line1 < #doc().lines then
+          doc():remove(line1, 1, line1 + 1, 1)
+        else
+          doc():remove(line1 - 1, math.huge, line1, math.huge)
+        end
+      end
     end
+    core.cursor_clipboard[idx] = text
   end
-  doc().cursor_clipboard["full"] = full_text
+  core.cursor_clipboard["full"] = full_text
   system.set_clipboard(full_text)
 end
 
@@ -85,6 +98,13 @@ local function set_cursor(x, y, snap_type)
 end
 
 local selection_commands = {
+  ["doc:select-none"] = function()
+    local line, col = doc():get_selection()
+    doc():set_selection(line, col)
+  end
+}
+
+local commands = {
   ["doc:cut"] = function()
     cut_or_copy(true)
   end,
@@ -93,13 +113,6 @@ local selection_commands = {
     cut_or_copy(false)
   end,
 
-  ["doc:select-none"] = function()
-    local line, col = doc():get_selection()
-    doc():set_selection(line, col)
-  end
-}
-
-local commands = {
   ["doc:undo"] = function()
     doc():undo()
   end,
@@ -111,12 +124,27 @@ local commands = {
   ["doc:paste"] = function()
     local clipboard = system.get_clipboard()
     -- If the clipboard has changed since our last look, use that instead
-    if doc().cursor_clipboard["full"] ~= clipboard then
-      doc().cursor_clipboard = {}
+    if core.cursor_clipboard["full"] ~= clipboard then
+      core.cursor_clipboard = {}
+      core.cursor_clipboard_whole_line = {}
     end
+    local value, whole_line
     for idx, line1, col1, line2, col2 in doc():get_selections() do
-      local value = doc().cursor_clipboard[idx] or clipboard
-      doc():text_input(value:gsub("\r", ""), idx)
+      if #core.cursor_clipboard_whole_line == (#doc().selections/4) then
+        value = core.cursor_clipboard[idx]
+        whole_line = core.cursor_clipboard_whole_line[idx] == true
+      else
+        value = clipboard
+        whole_line = clipboard:find("\n") ~= nil
+      end
+      if whole_line then
+        doc():insert(line1, 1, value:gsub("\r", ""))
+        if col1 == 1 then
+          doc():move_to_cursor(idx, #value)
+        end
+      else
+        doc():text_input(value:gsub("\r", ""), idx)
+      end
     end
   end,
 
@@ -393,27 +421,27 @@ local commands = {
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
   end,
-    
-  ["doc:select-to-cursor"] = function(x, y, clicks) 
+
+  ["doc:select-to-cursor"] = function(x, y, clicks)
     local line1, col1 = select(3, doc():get_selection())
     local line2, col2 = dv():resolve_screen_position(x, y)
     dv().mouse_selecting = { line1, col1, nil }
     doc():set_selection(line2, col2, line1, col1)
   end,
-  
+
   ["doc:set-cursor"] = function(x, y)
-    set_cursor(x, y, "set") 
+    set_cursor(x, y, "set")
   end,
-  
-  ["doc:set-cursor-word"] = function(x, y) 
-    set_cursor(x, y, "word") 
-  end,  
-  
-  ["doc:set-cursor-line"] = function(x, y, clicks) 
-    set_cursor(x, y, "lines") 
+
+  ["doc:set-cursor-word"] = function(x, y)
+    set_cursor(x, y, "word")
   end,
-  
-  ["doc:split-cursor"] = function(x, y, clicks) 
+
+  ["doc:set-cursor-line"] = function(x, y, clicks)
+    set_cursor(x, y, "lines")
+  end,
+
+  ["doc:split-cursor"] = function(x, y, clicks)
     local line, col = dv():resolve_screen_position(x, y)
     doc():add_selection(line, col, line, col)
   end,
