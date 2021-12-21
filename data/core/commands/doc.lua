@@ -124,7 +124,8 @@ local commands = {
   ["doc:paste"] = function()
     local clipboard = system.get_clipboard()
     -- If the clipboard has changed since our last look, use that instead
-    if core.cursor_clipboard["full"] ~= clipboard then
+    local external_paste = core.cursor_clipboard["full"] ~= clipboard
+    if external_paste then
       core.cursor_clipboard = {}
       core.cursor_clipboard_whole_line = {}
     end
@@ -135,7 +136,7 @@ local commands = {
         whole_line = core.cursor_clipboard_whole_line[idx] == true
       else
         value = clipboard
-        whole_line = clipboard:find("\n") ~= nil
+        whole_line = not external_paste and clipboard:find("\n") ~= nil
       end
       if whole_line then
         doc():insert(line1, 1, value:gsub("\r", ""))
