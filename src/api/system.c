@@ -6,8 +6,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
-#include "dirmonitor.h"
-#include "rencache.h"
+#include "../dirmonitor.h"
+#include "../rencache.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
@@ -106,7 +106,15 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
     !(e->key.keysym.mod & KMOD_NUM)) {
     return numpad[scancode - SDL_SCANCODE_KP_1];
   } else {
-    strcpy(buf, SDL_GetScancodeName(e->key.keysym.scancode));
+    /* We need to correctly handle non-standard layouts such as dvorak.
+       Therefore, if a Latin letter(code<128) is pressed in the current layout,
+       then we transmit it as it is. But we also need to support shortcuts in
+       other languages, so for non-Latin characters we pass the scancode that
+       matches the letter in the QWERTY layout. */
+    if (e->key.keysym.sym < 128)
+      strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
+    else
+      strcpy(buf, SDL_GetScancodeName(scancode));
     str_tolower(buf);
     return buf;
   }
