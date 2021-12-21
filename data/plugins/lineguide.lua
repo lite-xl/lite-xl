@@ -11,7 +11,7 @@ function DocView:draw_overlay(...)
     local offset = self:get_font():get_width("n") * config.line_limit
     local x = self:get_line_screen_position(1) + offset
     local y = self.position.y
-    local w = style.lineguide_size
+    local w = style.lineguide_size or style.divider_size
     local h = self.size.y
 
     local color = style.guide or style.selection
