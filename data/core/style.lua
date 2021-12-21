@@ -73,7 +73,7 @@ style.syntax_fonts = {}
 -- style.syntax_fonts["comment"] = renderer.font.load(path_to_font, size_of_font, rendering_options)
 
 style.log = {
-  INFO  = { icon = "i", color = style.good },
+  INFO  = { icon = "i", color = style.text },
   ERROR = { icon = "!", color = style.error }
 }
 
