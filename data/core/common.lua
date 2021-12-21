@@ -47,22 +47,22 @@ end
 
 
 function common.color(str)
-  local r, g, b, a = str:match("#(%x%x)(%x%x)(%x%x)")
+  local r, g, b, a = str:match("^#(%x%x)(%x%x)(%x%x)(%x?%x?)$")
   if r then
     r = tonumber(r, 16)
     g = tonumber(g, 16)
     b = tonumber(b, 16)
-    a = 1
+    a = tonumber(a, 16) or 0xff
   elseif str:match("rgba?%s*%([%d%s%.,]+%)") then
     local f = str:gmatch("[%d.]+")
     r = (f() or 0)
     g = (f() or 0)
     b = (f() or 0)
-    a = f() or 1
+    a = (f() or 1) * 0xff
   else
     error(string.format("bad color string '%s'", str))
   end
-  return r, g, b, a * 0xff
+  return r, g, b, a
 end
 
 
@@ -349,7 +349,7 @@ function common.relative_path(ref_dir, dir)
   if drive and ref_drive and drive ~= ref_drive then
     -- Windows, different drives, system.absolute_path fails for C:\..\D:\
     return dir
-  end    
+  end
   local ref_ls = split_on_slash(ref_dir)
   local dir_ls = split_on_slash(dir)
   local i = 1
