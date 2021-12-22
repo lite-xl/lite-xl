@@ -8,6 +8,8 @@
 	<string>lite-xl</string>
 	<key>CFBundleIconFile</key>
 	<string>icon.icns</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.lite-xl</string>
 	<key>CFBundleName</key>
 	<string>Lite XL</string>
 	<key>CFBundlePackageType</key>
