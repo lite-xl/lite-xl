@@ -109,9 +109,14 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
     /* We need to correctly handle non-standard layouts such as dvorak.
        Therefore, if a Latin letter(code<128) is pressed in the current layout,
        then we transmit it as it is. But we also need to support shortcuts in
-       other languages, so for non-Latin characters we pass the scancode that
-       matches the letter in the QWERTY layout. */
-    if (e->key.keysym.sym < 128)
+       other languages, so for non-Latin characters(code>128) we pass the
+       scancode based name that matches the letter in the QWERTY layout.
+
+       In SDL, the codes of all special buttons such as control, shift, arrows
+       and others, are shifted using bit mask 1<<30(SDLK_SCANCODE_MASK) outside
+       the unicode range(>0x10FFFF). User can remap these buttons, so we need
+       to give correct name, not scancode based.*/
+    if ((e->key.keysym.sym < 128) || (e->key.keysym.sym & SDLK_SCANCODE_MASK))
       strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
     else
       strcpy(buf, SDL_GetScancodeName(scancode));
