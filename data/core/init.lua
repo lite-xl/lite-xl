@@ -1158,8 +1158,8 @@ end
 
 
 -- no-op but can be overrided by plugins
-function core.on_dirmonitor_modify() end
-function core.on_dirmonitor_delete() end
+function core.on_dirmonitor_modify(dir, filepath) end
+function core.on_dirmonitor_delete(dir, filepath) end
 
 
 function core.on_dir_change(watch_id, action, filepath)
