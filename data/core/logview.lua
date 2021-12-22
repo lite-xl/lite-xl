@@ -140,7 +140,8 @@ local function draw_text_multiline(font, text, x, y, color)
   return resx, y
 end
 
-
+-- this is just to get a date string that's consistent
+local datestr = os.date()
 function LogView:draw()
   self:draw_background(style.background)
 
@@ -151,7 +152,7 @@ function LogView:draw()
     style.icon_font:get_width(style.log.INFO.icon)
   )
 
-  local tw = style.font:get_width(os.date())
+  local tw = style.font:get_width(datestr)
   for _, item, x, y, w, h in self:each_item() do
     core.push_clip_rect(x, y, w, h)
     x = x + style.padding.x
