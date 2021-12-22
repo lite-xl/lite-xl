@@ -7,6 +7,8 @@ command.add(nil, {
     local doc = core.open_doc("logs.txt")
     core.root_view:open_doc(doc)
     doc:insert(1, 1, core.get_log())
+    doc.new_file = false
+    doc:clean()
   end,
   ["log:copy-to-clipboard"] = function()
     system.set_clipboard(core.get_log())
