@@ -150,6 +150,8 @@ function LogView:draw()
     style.icon_font:get_width(style.log.ERROR.icon),
     style.icon_font:get_width(style.log.INFO.icon)
   )
+
+  local tw = style.font:get_width(os.date())
   for _, item, x, y, w, h in self:each_item() do
     core.push_clip_rect(x, y, w, h)
     x = x + style.padding.x
@@ -164,9 +166,8 @@ function LogView:draw()
     x = x + style.padding.x
 
     -- timestamps are always 15% of the width
-    local tw = w * 15 / 100
     local time = os.date(nil, item.time)
-    common.draw_text(style.font, style.dim, time, "center", x, y, tw, lh)
+    common.draw_text(style.font, style.dim, time, "left", x, y, tw, lh)
     x = x + tw + style.padding.x
 
     w = w - (x - self:get_content_offset())
