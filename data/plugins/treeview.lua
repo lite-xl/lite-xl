@@ -45,14 +45,6 @@ function TreeView:new()
 
   self.item_icon_width = 0
   self.item_text_spacing = 0
-
-  local on_dirmonitor_modify = core.on_dirmonitor_modify
-  function core.on_dirmonitor_modify(dir, filepath)
-    if self.cache[dir.name] then
-      self.cache[dir.name][filepath] = nil
-    end
-    on_dirmonitor_modify(dir, filepath)
-  end
 end
 
 
