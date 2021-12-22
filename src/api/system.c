@@ -113,9 +113,9 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
        scancode based name that matches the letter in the QWERTY layout.
 
        In SDL, the codes of all special buttons such as control, shift, arrows
-       and others, are shifted using bit mask 1<<30(SDLK_SCANCODE_MASK) outside
-       the unicode range(>0x10FFFF). User can remap these buttons, so we need
-       to give correct name, not scancode based.*/
+       and others, are masked with SDLK_SCANCODE_MASK, which moves them outside
+       the unicode range (>0x10FFFF). Users can remap these buttons, so we need
+       to return the correct name, not scancode based. */
     if ((e->key.keysym.sym < 128) || (e->key.keysym.sym & SDLK_SCANCODE_MASK))
       strcpy(buf, SDL_GetKeyName(e->key.keysym.sym));
     else
