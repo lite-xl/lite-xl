@@ -216,6 +216,13 @@ top:
       lua_pushstring(L, e.text.text);
       return 2;
 
+    case SDL_TEXTEDITING:
+      lua_pushstring(L, "textediting");
+      lua_pushstring(L, e.edit.text);
+      lua_pushnumber(L, e.edit.start);
+      lua_pushnumber(L, e.edit.length);
+      return 4;
+
     case SDL_MOUSEBUTTONDOWN:
       if (e.button.button == 1) { SDL_CaptureMouse(1); }
       lua_pushstring(L, "mousepressed");

@@ -281,6 +281,9 @@ function DocView:on_text_input(text)
   self.doc:text_input(text)
 end
 
+function DocView:on_text_editing(text, start, length)
+  self.doc:text_editing(text, start, length)
+end
 
 function DocView:update()
   -- scroll to make caret visible and reset blink timer if it moved
