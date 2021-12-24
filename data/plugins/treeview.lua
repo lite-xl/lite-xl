@@ -10,7 +10,11 @@ local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
 
 
-local default_treeview_size = 200 * SCALE
+config.plugins.treeview = common.merge({
+  size = 200 * SCALE
+}, config.plugins.treeview)
+
+
 local tooltip_offset = style.font:get_height()
 local tooltip_border = 1
 local tooltip_delay = 0.5
@@ -39,7 +43,7 @@ function TreeView:new()
   self.scrollable = true
   self.visible = true
   self.init_size = true
-  self.target_size = default_treeview_size
+  self.target_size = config.plugins.treeview.size
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
 
@@ -405,7 +409,7 @@ if config.plugins.toolbarview ~= false and toolbar_plugin then
   toolbar_view = ToolbarView()
   treeview_node:split("down", toolbar_view, {y = true})
   local min_toolbar_width = toolbar_view:get_min_width()
-  view:set_target_size("x", math.max(default_treeview_size, min_toolbar_width))
+  view:set_target_size("x", math.max(config.plugins.treeview.size, min_toolbar_width))
   command.add(nil, {
     ["toolbar:toggle"] = function()
       toolbar_view:toggle_visible()
