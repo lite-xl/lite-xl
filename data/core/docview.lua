@@ -387,18 +387,30 @@ function DocView:draw_line_gutter(idx, x, y, width)
 end
 
 
+function DocView:draw_ime_decoration(line1, col1, line2, col2)
+  local x, y = self:get_line_screen_position(line1)
+  local x1 = self:get_col_x_offset(line1, col1)
+  local x2 = self:get_col_x_offset(line2, col2)
+  local lh = self:get_line_height()
+  renderer.draw_rect(x + math.min(x1, x2), y + lh, math.abs(x1 - x2), math.max(1, SCALE), style.text)
+end
+
+
 function DocView:draw_overlay()
   if core.active_view == self then
     local minline, maxline = self:get_visible_line_range()
     -- draw caret if it overlaps this line
     local T = config.blink_period
-    for _, line, col in self.doc:get_selections() do
-      if line >= minline and line <= maxline
+    for _, line1, col1, line2, col2 in self.doc:get_selections() do
+      if line1 >= minline and line1 <= maxline
       and system.window_has_focus() then
+        if textediting.editing then
+          self:draw_ime_decoration(line1, col1, line2, col2)
+        end
         if config.disable_blink
         or (core.blink_timer - core.blink_start) % T < T / 2 then
-          local x, y = self:get_line_screen_position(line)
-          self:draw_caret(x + self:get_col_x_offset(line, col), y)
+          local x, y = self:get_line_screen_position(line1)
+          self:draw_caret(x + self:get_col_x_offset(line1, col1), y)
         end
       end
     end
