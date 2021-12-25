@@ -10,6 +10,7 @@ syntax.add {
     "%.c++$", "%.hh$", "%.H$", "%.hxx$", "%.hpp$", "%.h++$"
   },
   comment = "//",
+  multiline_comment = { "/*", "*/" },
   patterns = {
     { pattern = "//.-\n",                   type = "comment" },
     { pattern = { "/%*", "%*/" },           type = "comment" },

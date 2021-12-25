@@ -292,6 +292,54 @@ local commands = {
     end
   end,
 
+  ["doc:toggle-block-comments"] = function()
+    local comment = doc().syntax.multiline_comment
+    if not comment then return end
+
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      local text = doc():get_text(line1, col1, line2, col2)
+
+      -- might need to deal with unicode later...
+      local cs, cse = text:find(comment[1], 1, true)
+      local ce = text:find(comment[2], #text - #comment[2] + 1, true)
+
+      local new_col1, new_col2 = col1, col2
+      -- uncomment
+      if cs and ce then
+        if line1 == line2 then
+          new_col2 = new_col2 - #table.concat(comment)
+        else
+          new_col2 = new_col2 - #comment[2]
+        end
+
+        -- remove 1 whitespace if possible
+        if text:sub(cse + 1, cse + 1) == " " then
+          cse = cse + 1
+          if line1 == line2 then
+            new_col2 = new_col2 - 1
+          end
+        end
+        if text:sub(ce - 1, ce - 1) == " " then
+          ce = ce - 1
+          new_col2 = new_col2 - 1
+        end
+
+        text = text:sub(cse + 1, ce - 1)
+      -- comment
+      else
+        text = comment[1] .. " " .. text .. " " .. comment[2]
+        if line1 == line2 then
+          new_col2 = new_col2 + #table.concat(comment) + 2
+        else
+          new_col2 = new_col2 + #comment[2] + 1
+        end
+      end
+      doc():remove(line1, col1, line2, col2)
+      doc():insert(line1, col1, text)
+      doc():set_selections(idx, line1, new_col1, line2, new_col2)
+    end
+  end,
+
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
     if not comment then return end
