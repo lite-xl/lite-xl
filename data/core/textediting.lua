@@ -41,8 +41,10 @@ function textediting.ingest(text, start, length)
   return table.concat(textediting.buffer), 0, start + length
 end
 
-function textediting.on_text_editing(...)
-  core.root_view:on_text_editing(textediting.ingest(...))
+function textediting.on_text_editing(text, ...)
+  if textediting.editing or #text > 0 then
+    core.root_view:on_text_editing(textediting.ingest(text, ...))
+  end
 end
 
 function textediting.stop()
