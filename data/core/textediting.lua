@@ -57,5 +57,9 @@ function textediting.stop()
   end
 end
 
+function textediting.set_ime_location(x, y, w, h)
+  system.set_text_input_rect(x, y, w, h)
+end
+
 textediting.reset()
 return textediting

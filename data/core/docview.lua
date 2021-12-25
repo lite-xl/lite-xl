@@ -4,6 +4,7 @@ local config = require "core.config"
 local style = require "core.style"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
+local textediting = require "core.textediting"
 local View = require "core.view"
 
 
@@ -283,6 +284,14 @@ end
 
 function DocView:on_text_editing(text, start, length)
   self.doc:text_editing(text, start, length)
+
+  local line1, col1, line2, col2 = self.doc:get_selection(true)
+  local x, y = self:get_line_screen_position(line1)
+  local x1 = self:get_col_x_offset(line1, col1)
+  local x2 = self:get_col_x_offset(line2, col2)
+  local h = self:get_line_height()
+  
+  textediting.set_ime_location(x + x1, y, x2 - x1, h)
 end
 
 function DocView:update()

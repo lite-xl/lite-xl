@@ -419,6 +419,16 @@ static int f_get_window_mode(lua_State *L) {
   return 1;
 }
 
+static int f_set_text_input_rect(lua_State *L) {
+  SDL_Rect rect;
+  rect.x = luaL_checknumber(L, 1);
+  rect.y = luaL_checknumber(L, 2);
+  rect.w = luaL_checknumber(L, 3);
+  rect.h = luaL_checknumber(L, 4);
+  SDL_SetTextInputRect(&rect);
+  return 0;
+}
+
 
 static int f_show_fatal_error(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
@@ -895,6 +905,7 @@ static const luaL_Reg lib[] = {
   { "set_window_hit_test", f_set_window_hit_test },
   { "get_window_size",     f_get_window_size     },
   { "set_window_size",     f_set_window_size     },
+  { "set_text_input_rect", f_set_text_input_rect },
   { "window_has_focus",    f_window_has_focus    },
   { "show_fatal_error",    f_show_fatal_error    },
   { "rmdir",               f_rmdir               },
