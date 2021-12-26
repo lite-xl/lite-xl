@@ -302,6 +302,11 @@ local commands = {
     end
 
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      -- if nothing is selected, toggle the whole line
+      if line1 == line2 and col1 == col2 then
+        col1 = 1
+        col2 = #doc().lines[line1]
+      end
       local text = doc():get_text(line1, col1, line2, col2)
 
       -- might need to deal with unicode later...
