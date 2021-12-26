@@ -293,8 +293,13 @@ local commands = {
   end,
 
   ["doc:toggle-block-comments"] = function()
-    local comment = doc().syntax.multiline_comment
-    if not comment then return end
+    local comment = doc().syntax.block_comment
+    if not comment then
+      if doc().syntax.comment then
+        command.perform "doc:toggle-line-comments"
+      end
+      return
+    end
 
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       local text = doc():get_text(line1, col1, line2, col2)
@@ -342,7 +347,12 @@ local commands = {
 
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
-    if not comment then return end
+    if not comment then
+      if doc().syntax.block_comment then
+        command.perform "doc:toggle-block-comments"
+      end
+      return
+    end
     local indentation = doc():get_indent_string()
     local comment_text = comment .. " "
     for idx, line1, _, line2 in doc_multiline_selections(true) do

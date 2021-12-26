@@ -5,7 +5,7 @@ syntax.add {
   name = "XML",
   files = { "%.xml$" },
   headers = "<%?xml",
-  multiline_comment = { "<!--", "-->" },
+  block_comment = { "<!--", "-->" },
   patterns = {
     { pattern = { "<!%-%-", "%-%->" },     type = "comment"  },
     { pattern = { '%f[^>][^<]', '%f[<]' }, type = "normal"   },

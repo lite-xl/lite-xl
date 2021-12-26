@@ -4,7 +4,7 @@ local syntax = require "core.syntax"
 syntax.add {
   name = "HTML",
   files = { "%.html?$" },
-  multiline_comment = { "<!--", "-->" },
+  block_comment = { "<!--", "-->" },
   patterns = {
     {
       pattern = {
