@@ -1,7 +1,7 @@
 #define MyAppName      "Lite XL"
 #define MyAppVersion   "@PROJECT_VERSION@"
 #define MyAppPublisher "Lite XL Team"
-#define MyAppURL       "https://lite-xl.github.io"
+#define MyAppURL       "https://lite-xl.com"
 #define MyAppExeName   "lite-xl.exe"
 #define BuildDir       "@PROJECT_BUILD_DIR@"
 #define SourceDir      "@PROJECT_SOURCE_DIR@"
