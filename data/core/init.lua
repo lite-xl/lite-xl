@@ -52,13 +52,15 @@ local function update_recents_project(action, dir_path_abs)
 end
 
 
-function core.set_project_dir(new_dir, change_project_fn)
+function core.set_project_dir(new_dir, change_project_fn, defer_add)
   local chdir_ok = pcall(system.chdir, new_dir)
   if chdir_ok then
     if change_project_fn then change_project_fn() end
     core.project_dir = common.normalize_volume(new_dir)
     core.project_directories = {}
-    core.add_project_directory(new_dir)
+    if not defer_add then
+      core.add_project_directory(new_dir)
+    end
     return true
   end
   return false
@@ -679,7 +681,9 @@ function core.init()
   core.blink_timer = core.blink_start
 
   local project_dir_abs = system.absolute_path(project_dir)
-  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
+  -- We prevent set_project_dir below to effectively add and scan the directory becaese tha
+  -- project module and its ignore files is not yet loaded.
+  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs, nil, true)
   if set_project_ok then
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
@@ -689,7 +693,7 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs) then
+    if not core.set_project_dir(project_dir_abs, nil, true) then
       system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
       os.exit(1)
     end
@@ -725,6 +729,9 @@ function core.init()
     core.log("Opening project %q from directory %s", pname, pdir)
   end
   local got_project_error = not core.load_project_module()
+
+  -- We add the project directory now because the project's module is loaded.
+  core.add_project_directory(project_dir_abs)
 
   -- We assume we have just a single project directory here. Now that StatusView
   -- is there show max files warning if needed.
