@@ -704,7 +704,9 @@ function core.init()
     core.previous_replace = session.previous_replace or {}
   end
 
-  local project_dir = core.recent_projects[1] or "."
+  local last_dir = core.recent_projects[1]
+  local last_dir_info = last_dir and system.get_file_info(last_dir)
+  local project_dir = (last_dir_info and last_dir_info.type == "dir") and last_dir or "."
   local project_dir_explicit = false
   local files = {}
   local delayed_error
