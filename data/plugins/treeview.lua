@@ -92,7 +92,7 @@ function TreeView:get_cached(dir, item, dirname)
     end
     t.name = basename
     t.type = item.type
-    t.dir = dir -- points to top level "dir" item
+    t.dir_name = dir.name -- points to top level "dir" item
     dir_cache[cache_name] = t
   end
   return t
@@ -231,9 +231,10 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
       create_directory_in(hovered_item)
     else
       hovered_item.expanded = not hovered_item.expanded
-      if hovered_item.dir.files_limit then
-        core.update_project_subdir(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
-        core.project_subdir_set_show(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
+      local hovered_dir = core.project_dir_by_name(hovered_item.dir_name)
+      if hovered_dir and hovered_dir.files_limit then
+        core.update_project_subdir(hovered_dir, hovered_item.filename, hovered_item.expanded)
+        core.project_subdir_set_show(hovered_dir, hovered_item.filename, hovered_item.expanded)
       end
     end
   else

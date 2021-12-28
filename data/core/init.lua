@@ -371,6 +371,15 @@ function core.add_project_directory(path)
 end
 
 
+function core.project_dir_by_name(name)
+  for i = 1, #core.project_directories do
+    if core.project_directories[i].name == name then
+      return core.project_directories[i]
+    end
+  end
+end
+
+
 function core.update_project_subdir(dir, filename, expanded)
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
