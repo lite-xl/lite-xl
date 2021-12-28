@@ -368,6 +368,36 @@ function core.add_project_directory(path)
     core.project_files = dir.files
   end
   core.redraw = true
+  return dir
+end
+
+
+-- The function below is needed to reload the project directories
+-- when the project's module changes.
+local function rescan_project_directories()
+  local save_project_dirs = {}
+  local n = #core.project_directories
+  for i = 1, n do
+    local dir = core.project_directories[i]
+    save_project_dirs[i] = {name = dir.name, shown_subdir = dir.shown_subdir}
+  end
+  core.close_current_project() -- ensure we unwatch directories
+  core.project_directories = {}
+  for i = 1, n do -- add again the directories in the project
+    local dir = core.add_project_directory(save_project_dirs[i].name)
+    -- The shown_subdir is only used on linux for very large directories.
+    -- replay them on the newly scanned project.
+    for subdir, show in pairs(save_project_dirs[i].shown_subdir) do
+      for j = 1, #dir.files do
+        if dir.files[j].filename == subdir then
+          -- the instructions above match when happens in TreeView:on_mouse_pressed
+          core.update_project_subdir(dir, subdir, show)
+          core.project_subdir_set_show(dir, subdir, show)
+          break
+        end
+      end
+    end
+  end
 end
 
 
@@ -613,15 +643,33 @@ local function whitespace_replacements()
 end
 
 
-local function reload_on_user_module_save()
+local function configure_borderless_window()
+  system.set_window_bordered(not config.borderless)
+  core.title_view:configure_hit_test(config.borderless)
+  core.title_view.visible = config.borderless
+end
+
+
+local function reload_customizations()
+    core.reload_module("core.style")
+    core.reload_module("core.config")
+    core.reload_module("core.keymap")
+    core.load_user_directory()
+    core.load_project_module()
+    rescan_project_directories()
+    configure_borderless_window()
+end
+
+
+local function add_config_files_hooks()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
+  local module_filename = system.absolute_path(".lite_project.lua")
   function Doc:save(filename, abs_filename)
     doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename then
-      core.reload_module("core.style")
-      core.load_user_directory()
+    if self.abs_filename == user_filename or self.abs_filename == module_filename then
+      reload_customizations()
     end
   end
 end
@@ -760,9 +808,7 @@ function core.init()
     command.perform("core:open-log")
   end
 
-  system.set_window_bordered(not config.borderless)
-  core.title_view:configure_hit_test(config.borderless)
-  core.title_view.visible = config.borderless
+  configure_borderless_window()
 
   if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
     local opt = {
@@ -786,7 +832,7 @@ function core.init()
       end)
   end
 
-  reload_on_user_module_save()
+  add_config_files_hooks()
 end
 
 
