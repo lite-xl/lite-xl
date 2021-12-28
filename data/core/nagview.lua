@@ -16,6 +16,7 @@ local NagView = View:extend()
 function NagView:new()
   NagView.super.new(self)
   self.size.y = 0
+  self.show_height = 0
   self.force_focus = false
   self.queue = {}
 end
@@ -50,16 +51,16 @@ function NagView:update()
   NagView.super.update(self)
 
   if core.active_view == self and self.title then
-    self:move_towards(self.size, "y", self:get_target_height())
+    self:move_towards(self, "show_height", self:get_target_height())
     self:move_towards(self, "underline_progress", 1)
   else
-    self:move_towards(self.size, "y", 0)
+    self:move_towards(self, "show_height", 0)
   end
 end
 
-function NagView:draw_overlay()
+function NagView:dim_window_content()
   local ox, oy = self:get_content_offset()
-  oy = oy + self.size.y
+  oy = oy + self.show_height
   local w, h = core.root_view.size.x, core.root_view.size.y - oy
   core.root_view:defer_draw(function()
     renderer.draw_rect(ox, oy, w, h, style.nagbar_dim)
@@ -81,7 +82,7 @@ function NagView:each_option()
     bh = self:get_buttons_height()
     ox,oy = self:get_content_offset()
     ox = ox + self.size.x
-    oy = oy + self.size.y - bh - style.padding.y
+    oy = oy + self.show_height - bh - style.padding.y
 
     for i = #self.options, 1, -1 do
       opt = self.options[i]
@@ -123,19 +124,21 @@ function NagView:on_text_input(text)
 end
 
 
-function NagView:draw()
-  if self.size.y <= 0 or not self.title then return end
+local function draw_nagview_message(self)
+  if self.show_height <= 0 or not self.title then return end
 
-  self:draw_overlay()
-  self:draw_background(style.nagbar)
+  self:dim_window_content()
 
+  -- draw message's background
   local ox, oy = self:get_content_offset()
+  renderer.draw_rect(ox, oy, self.size.x, self.show_height, style.nagbar)
+
   ox = ox + style.padding.x
 
   -- if there are other items, show it
   if #self.queue > 0 then
     local str = string.format("[%d]", #self.queue)
-    ox = common.draw_text(style.font, style.nagbar_text, str, "left", ox, oy, self.size.x, self.size.y)
+    ox = common.draw_text(style.font, style.nagbar_text, str, "left", ox, oy, self.size.x, self.show_height)
     ox = ox + style.padding.x
   end
 
@@ -168,6 +171,10 @@ function NagView:draw()
 
     common.draw_text(opt.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
   end
+end
+
+function NagView:draw()
+  core.root_view:defer_draw(draw_nagview_message, self)
 end
 
 function NagView:get_message_height()
