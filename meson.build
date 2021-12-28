@@ -2,7 +2,7 @@ project('lite-xl',
     ['c'],
     version : '2.0.3',
     license : 'MIT',
-    meson_version : '>= 0.50',
+    meson_version : '>= 0.42',
     default_options : ['c_std=gnu11']
 )
 
@@ -52,7 +52,7 @@ if not get_option('source-only')
     )
     pcre2_dep = dependency('libpcre2-8')
     freetype_dep = dependency('freetype2')
-    sdl_dep = dependency('sdl2', method: 'config-tool')
+    sdl_dep = dependency('sdl2')
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, threads_dep]
 endif
 #===============================================================================
@@ -94,17 +94,16 @@ endif
 
 install_data('licenses/licenses.md', install_dir : lite_docdir)
 
-install_subdir('data' / 'core' , install_dir : lite_datadir, exclude_files : 'start.lua')
+install_subdir('data/core' , install_dir : lite_datadir, exclude_files : 'start.lua')
 foreach data_module : ['fonts', 'plugins', 'colors']
-    install_subdir('data' / data_module , install_dir : lite_datadir)
+    install_subdir(join_paths('data', data_module), install_dir : lite_datadir)
 endforeach
 
 configure_file(
     input : 'data/core/start.lua',
     output : 'start.lua',
     configuration : conf_data,
-    install : true,
-    install_dir : lite_datadir / 'core',
+    install_dir : join_paths(lite_datadir, 'core'),
 )
 
 if not get_option('source-only')
