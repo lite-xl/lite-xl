@@ -2,7 +2,7 @@ project('lite-xl',
     ['c'],
     version : '2.0.3',
     license : 'MIT',
-    meson_version : '>= 0.54',
+    meson_version : '>= 0.50',
     default_options : ['c_std=gnu11']
 )
 
