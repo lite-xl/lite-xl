@@ -537,6 +537,9 @@ local function project_scan_remove_file(dir, filepath)
     local index, match = file_search(dir.files, fileinfo)
     if match then
       table.remove(dir.files, index)
+      if filetype == "dir" and dir.files_limit then
+        dir.shown_subdir[filepath] = nil
+      end
       dir.is_dirty = true
       return
     end
