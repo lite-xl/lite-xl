@@ -20,7 +20,7 @@ show_help() {
   echo "-h --help                 Show this help and exit."
   echo "-p --prefix PREFIX        Install directory prefix. Default: '/'."
   echo "-v --version VERSION      Sets the version on the package name."
-  echo "   --addons               Install 3rd party addons (currently RXI colors)."
+  echo "   --addons               Install 3rd party addons (currently Lite XL colors)."
   echo "   --debug                Debug this script."
   echo "-A --appimage             Create an AppImage (Linux only)."
   echo "-B --binary               Create a normal / portable package or macOS bundle,"
@@ -45,13 +45,13 @@ install_addons() {
 
   # Copy third party color themes
   curl --insecure \
-    -L "https://github.com/rxi/lite-colors/archive/master.zip" \
-    -o "${build_dir}/rxi-lite-colors.zip"
+    -L "https://github.com/lite-xl/lite-xl-colors/archive/master.zip" \
+    -o "${build_dir}/lite-xl-colors.zip"
 
   mkdir -p "${build_dir}/third/data/colors"
-  unzip "${build_dir}/rxi-lite-colors.zip" -d "${build_dir}"
-  mv "${build_dir}/lite-colors-master/colors" "${build_dir}/third/data"
-  rm -rf "${build_dir}/lite-colors-master"
+  unzip "${build_dir}/lite-xl-colors.zip" -d "${build_dir}"
+  mv "${build_dir}/lite-xl-colors-master/colors" "${build_dir}/third/data"
+  rm -rf "${build_dir}/lite-xl-colors-master"
 
   for module_name in colors; do
     cp -r "${build_dir}/third/data/$module_name" "${data_dir}"

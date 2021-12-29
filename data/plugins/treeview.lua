@@ -43,12 +43,20 @@ function TreeView:new()
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
 
-  local on_dirmonitor_modify = core.on_dirmonitor_modify
-  function core.on_dirmonitor_modify(dir, filepath)
-    if self.cache[dir.name] then
-      self.cache[dir.name][filepath] = nil
-    end
-    on_dirmonitor_modify(dir, filepath)
+  self.item_icon_width = 0
+  self.item_text_spacing = 0
+  self:add_core_hooks()
+end
+
+
+function TreeView:add_core_hooks()
+  -- When a file or directory is deleted we delete the corresponding cache entry
+  -- because if the entry is recreated we may use wrong information from cache.
+  local on_delete = core.on_dirmonitor_delete
+  core.on_dirmonitor_delete = function(dir, filepath)
+    local cache = self.cache[dir.name]
+    if cache then cache[filepath] = nil end
+    on_delete(dir, filepath)
   end
 end
 
@@ -216,11 +224,11 @@ end
 function TreeView:on_mouse_pressed(button, x, y, clicks)
   local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught or button ~= "left" then
-    return
+    return true
   end
   local hovered_item = self.hovered_item
   if not hovered_item then
-    return
+    return false
   elseif hovered_item.type == "dir" then
     if keymap.modkeys["ctrl"] and button == "left" then
       create_directory_in(hovered_item)
@@ -240,6 +248,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
+  return true
 end
 
 
@@ -259,6 +268,9 @@ function TreeView:update()
   else
     self.tooltip.alpha = 0
   end
+
+  self.item_icon_width = style.icon_font:get_width("D")
+  self.item_text_spacing = style.icon_font:get_width("f") / 2
 
   TreeView.super.update(self)
 end
@@ -288,56 +300,90 @@ function TreeView:draw_tooltip()
 end
 
 
-function TreeView:color_for_item(abs_filename)
-  -- other plugins can override this to customize the color of each icon
-  return nil
+function TreeView:get_item_icon(item, active, hovered)
+  local character = "f"
+  if item.type == "dir" then
+    character = item.expanded and "D" or "d"
+  end
+  local font = style.icon_font
+  local color = style.text
+  if active or hovered then
+    color = style.accent
+  end
+  return character, font, color
+end
+
+function TreeView:get_item_text(item, active, hovered)
+  local text = item.name
+  local font = style.font
+  local color = style.text
+  if active or hovered then
+    color = style.accent
+  end
+  return text, font, color
+end
+
+
+function TreeView:draw_item_text(item, active, hovered, x, y, w, h)
+  local item_text, item_font, item_color = self:get_item_text(item, active, hovered)
+  common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
+end
+
+
+function TreeView:draw_item_icon(item, active, hovered, x, y, w, h)
+  local icon_char, icon_font, icon_color = self:get_item_icon(item, active, hovered)
+  common.draw_text(icon_font, icon_color, icon_char, nil, x, y, 0, h)
+  return self.item_icon_width + self.item_text_spacing
+end
+
+
+function TreeView:draw_item_body(item, active, hovered, x, y, w, h)
+    x = x + self:draw_item_icon(item, active, hovered, x, y, w, h)
+    self:draw_item_text(item, active, hovered, x, y, w, h)
+end
+
+
+function TreeView:draw_item_chevron(item, active, hovered, x, y, w, h)
+  if item.type == "dir" then
+    local chevron_icon = item.expanded and "-" or "+"
+    local chevron_color = hovered and style.accent or style.text
+    common.draw_text(style.icon_font, chevron_color, chevron_icon, nil, x, y, 0, h)
+  end
+  return style.padding.x
+end
+
+
+function TreeView:draw_item_background(item, active, hovered, x, y, w, h)
+  if hovered then
+    renderer.draw_rect(x, y, w, h, style.line_highlight)
+  end
+end
+
+
+function TreeView:draw_item(item, active, hovered, x, y, w, h)
+  self:draw_item_background(item, active, hovered, x, y, w, h)
+
+  x = x + item.depth * style.padding.x + style.padding.x
+  x = x + self:draw_item_chevron(item, active, hovered, x, y, w, h)
+
+  self:draw_item_body(item, active, hovered, x, y, w, h)
 end
 
 
 function TreeView:draw()
   self:draw_background(style.background2)
-
-  local icon_width = style.icon_font:get_width("D")
-  local spacing = style.icon_font:get_width("f") / 2
+  local _y, _h = self.position.y, self.size.y
 
   local doc = core.active_view.doc
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
   for item, x,y,w,h in self:each_item() do
-    local color = style.text
-
-    -- highlight active_view doc
-    if item.abs_filename == active_filename then
-      color = style.accent
+    if y + h >= _y and y < _y + _h then
+      self:draw_item(item,
+        item.abs_filename == active_filename,
+        item == self.hovered_item,
+        x, y, w, h)
     end
-
-    -- hovered item background
-    if item == self.hovered_item then
-      renderer.draw_rect(x, y, w, h, style.line_highlight)
-      color = style.accent
-    end
-
-    -- allow for color overrides
-    local icon_color = self:color_for_item(item.abs_filename) or color
-    
-    -- icons
-    x = x + item.depth * style.padding.x + style.padding.x
-    if item.type == "dir" then
-      local icon1 = item.expanded and "-" or "+"
-      local icon2 = item.expanded and "D" or "d"
-      common.draw_text(style.icon_font, color, icon1, nil, x, y, 0, h)
-      x = x + style.padding.x
-      common.draw_text(style.icon_font, icon_color, icon2, nil, x, y, 0, h)
-      x = x + icon_width
-    else
-      x = x + style.padding.x
-      common.draw_text(style.icon_font, icon_color, "f", nil, x, y, 0, h)
-      x = x + icon_width
-    end
-
-    -- text
-    x = x + spacing
-    x = common.draw_text(style.font, color, item.name, nil, x, y, 0, h)
   end
 
   self:draw_scrollbar()
@@ -406,7 +452,7 @@ function RootView:draw(...)
 end
 
 local function is_project_folder(path)
-  return common.basename(core.project_dir) == path
+  return core.project_dir == path
 end
 
 menu:register(function() return view.hovered_item end, {
@@ -417,7 +463,7 @@ menu:register(function() return view.hovered_item end, {
 menu:register(
   function()
     return view.hovered_item
-      and not is_project_folder(view.hovered_item.filename)
+      and not is_project_folder(view.hovered_item.abs_filename)
   end,
   {
     { text = "Rename", command = "treeview:rename" },
@@ -467,9 +513,8 @@ command.add(function() return view.hovered_item ~= nil end, {
   end,
 
   ["treeview:new-file"] = function()
-    local dir_name = view.hovered_item.filename
-    if not is_project_folder(dir_name) then
-      core.command_view:set_text(dir_name .. "/")
+    if not is_project_folder(view.hovered_item.abs_filename) then
+      core.command_view:set_text(view.hovered_item.filename .. "/")
     end
     core.command_view:enter("Filename", function(filename)
       local doc_filename = core.project_dir .. PATHSEP .. filename
@@ -482,9 +527,8 @@ command.add(function() return view.hovered_item ~= nil end, {
   end,
 
   ["treeview:new-folder"] = function()
-    local dir_name = view.hovered_item.filename
-    if not is_project_folder(dir_name) then
-      core.command_view:set_text(dir_name .. "/")
+    if not is_project_folder(view.hovered_item.abs_filename) then
+      core.command_view:set_text(view.hovered_item.filename .. "/")
     end
     core.command_view:enter("Folder Name", function(filename)
       local dir_path = core.project_dir .. PATHSEP .. filename

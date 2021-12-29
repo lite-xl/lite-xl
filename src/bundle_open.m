@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#include "lua.h"
+#include <lua.h>
 
 #ifdef MACOS_USE_BUNDLE
 void set_macos_bundle_resources(lua_State *L)

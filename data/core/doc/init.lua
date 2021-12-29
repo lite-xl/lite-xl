@@ -33,7 +33,6 @@ end
 function Doc:reset()
   self.lines = { "\n" }
   self.selections = { 1, 1, 1, 1 }
-  self.cursor_clipboard = {}
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -198,7 +197,7 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
 end
 
 function Doc:set_selection(line1, col1, line2, col2, swap)
-  self.selections, self.cursor_clipboard = {}, {}
+  self.selections = {}
   self:set_selections(1, line1, col1, line2, col2, swap)
 end
 
@@ -208,12 +207,10 @@ function Doc:merge_cursors(idx)
       if self.selections[i] == self.selections[j] and
         self.selections[i+1] == self.selections[j+1] then
           common.splice(self.selections, i, 4)
-          common.splice(self.cursor_clipboard, i, 1)
           break
       end
     end
   end
-  if #self.selections <= 4 then self.cursor_clipboard = {} end
 end
 
 local function selection_iterator(invariant, idx)
@@ -356,7 +353,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   -- splice lines into line array
   common.splice(self.lines, line, 1, lines)
-  
+
   -- keep cursors where they should be
   for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
     if cline1 < line then break end
@@ -388,7 +385,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
 
   -- splice line into line array
   common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
-  
+
   -- move all cursors back if they share a line with the removed text
   for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
     if cline1 < line2 then break end
@@ -458,7 +455,7 @@ end
 function Doc:replace(fn)
   local has_selection, n = false, 0
   for idx, line1, col1, line2, col2 in self:get_selections(true) do
-    if line1 ~= line2 or col1 ~= col2 then 
+    if line1 ~= line2 or col1 ~= col2 then
       n = n + self:replace_cursor(idx, line1, col1, line2, col2, fn)
       has_selection = true
     end

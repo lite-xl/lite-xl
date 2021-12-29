@@ -183,7 +183,7 @@ local function show_max_files_warning(dir)
     "Filesystem is too slow: project files will not be indexed." or
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
-    "usage.md at github.com/franko/lite-xl."
+    "usage.md at github.com/lite-xl/lite-xl."
   core.status_view:show_message("!", style.accent, message)
 end
 
@@ -648,6 +648,8 @@ function core.init()
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.log_items = {}
   core.docs = {}
+  core.cursor_clipboard = {}
+  core.cursor_clipboard_whole_line = {}
   core.window_mode = "normal"
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
@@ -737,7 +739,7 @@ function core.init()
       "Refused Plugins",
       string.format(
         "Some plugins are not loaded due to version mismatch.\n\n%s.\n\n" ..
-        "Please download a recent version from https://github.com/franko/lite-plugins.",
+        "Please download a recent version from https://github.com/lite-xl/lite-xl-plugins.",
         table.concat(msg, ".\n\n")),
       opt, function(item)
         if item.text == "Exit" then os.exit(1) end
@@ -1156,8 +1158,8 @@ end
 
 
 -- no-op but can be overrided by plugins
-function core.on_dirmonitor_modify(dir, filepath)
-end
+function core.on_dirmonitor_modify(dir, filepath) end
+function core.on_dirmonitor_delete(dir, filepath) end
 
 
 function core.on_dir_change(watch_id, action, filepath)
@@ -1166,6 +1168,7 @@ function core.on_dir_change(watch_id, action, filepath)
   core.dir_rescan_add_job(dir, filepath)
   if action == "delete" then
     project_scan_remove_file(dir, filepath)
+    core.on_dirmonitor_delete(dir, filepath)
   elseif action == "create" then
     project_scan_add_file(dir, filepath)
     core.on_dirmonitor_modify(dir, filepath);
