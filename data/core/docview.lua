@@ -331,13 +331,22 @@ end
 function DocView:draw_line_body(idx, x, y)
   -- draw highlight if any selection ends on this line
   local draw_highlight = false
-  for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
-    if line1 == idx then
-      draw_highlight = true
-      break
+  local hcl = config.highlight_current_line
+  if hcl ~= false then
+    for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
+      if line1 == idx then
+        if hcl == "no_selection" then
+          if (line1 ~= line2) or (col1 ~= col2) then
+            draw_highlight = false
+            break
+          end
+        end
+        draw_highlight = true
+        break
+      end
     end
   end
-  if draw_highlight and config.highlight_current_line and core.active_view == self then
+  if draw_highlight and core.active_view == self then
     self:draw_line_highlight(x + self.scroll.x, y)
   end
 
