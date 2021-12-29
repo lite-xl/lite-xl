@@ -180,10 +180,9 @@ end
 
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
-  if dir.files_limit and PLATFORM == "Linux" then
+  if dir.files_limit and not dir.force_rescan then
     local fullpath = dir.name .. PATHSEP .. filename
-    local watch_fn = show and system.watch_dir_add or system.watch_dir_rm
-    local success = watch_fn(dir.watch_id, fullpath)
+    local success = (show and system.watch_dir_add or system.watch_dir_rm)(dir.watch_id, fullpath)
     if not success then
       core.log("Internal warning: error calling system.watch_dir_%s", show and "add" or "rm")
     end
@@ -228,9 +227,14 @@ end
 
 
 local function project_scan_add_entry(dir, fileinfo)
+  assert(not dir.force_rescan, "should be used on when force_rescan is unset")
   local index, match = file_search(dir.files, fileinfo)
   if not match then
     table.insert(dir.files, index, fileinfo)
+    if fileinfo.type == "dir" and not dir.files_limit then
+      -- ASSUMPTION: dir.force_rescan is FALSE
+      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
+    end
     dir.is_dirty = true
   end
 end
@@ -252,7 +256,7 @@ local function files_list_match(a, i1, n, b)
 end
 
 -- arguments like for files_list_match
-local function files_list_replace(as, i1, n, bs)
+local function files_list_replace(as, i1, n, bs, insert_hook)
   local m = #bs
   local i, j = 1, 1
   while i <= m or i <= n do
@@ -262,6 +266,7 @@ local function files_list_replace(as, i1, n, bs)
     then
       table.insert(as, i1 + i, b)
       i, j, n = i + 1, j + 1, n + 1
+      if insert_hook then insert_hook(b) end
     elseif j > m or system.path_compare(a.filename, a.type, b.filename, b.type) then
       table.remove(as, i1 + i)
       n = n - 1
@@ -297,7 +302,19 @@ local function rescan_project_subdir(dir, filename_rooted)
   end
 
   if not files_list_match(dir.files, index, n, new_files) then
-    files_list_replace(dir.files, index, n, new_files)
+    -- Since we are modifying the list of files we may add new directories and
+    -- when dir.files_limit is false we need to add a watch for each subdirectory.
+    -- We are therefore passing a insert hook function to the purpose of adding
+    -- a watch.
+    -- Note that the hook shold almost never be called, it happens only if
+    -- we missed some directory creation event from the directory monitoring which
+    -- almost never happens. With inotify is at least theoretically possible.
+    local need_subdir_watches = not dir.files_limit and not dir.force_rescan
+    files_list_replace(dir.files, index, n, new_files, need_subdir_watches and function(fileinfo)
+      if fileinfo.type == "dir" then
+        system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
+      end
+    end)
     dir.is_dirty = true
     return true
   end
@@ -316,35 +333,54 @@ local function add_dir_scan_thread(dir)
   end)
 end
 
+
+local function folder_add_subdirs_watch(dir)
+  for _, fileinfo in ipairs(dir.files) do
+    if fileinfo.type == "dir" then
+      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
+    end
+  end
+end
+
+
 -- Populate a project folder top directory by scanning the filesystem.
 local function scan_project_folder(index)
   local dir = core.project_directories[index]
-  if PLATFORM == "Linux" then
-    local fstype = system.get_fs_type(dir.name)
-    dir.force_rescan = (fstype == "nfs" or fstype == "fuse")
+  local fstype = system.get_fs_type(dir.name)
+  dir.force_rescan = (fstype == "nfs" or fstype == "fuse")
+  if not dir.force_rescan then
+    dir.watch_id = system.watch_dir(dir.name)
   end
   local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, 0, timed_max_files_pred)
+  -- If dir.files_limit is set to TRUE it means that:
+  -- * we will not read recursively all the project files and we don't index them
+  -- * we read only the files for the subdirectories that are opened/expanded in the
+  --   TreeView
+  -- * we add a subdirectory watch only to the directories that are opened/expanded
+  -- * we set the values in the shown_subdir table
+  --
+  -- If dir.files_limit is set to FALSE it means that:
+  -- * we will read recursively all the project files and we index them
+  -- * all the list of project files is always complete and kept updated when
+  --   changes happen on the disk
+  -- * all the subdirectories at any depth must have a watch using system.watch_dir_add
+  -- * we DO NOT set the values in the shown_subdir table
+  --
+  -- * If force_rescan is set to TRUE no watch are used in any case.
   if not complete then
     dir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
     dir.files_limit = true
-    if not dir.force_rescan then
-      -- Watch non-recursively on Linux only.
-      -- The reason is recursively watching with dmon on linux
-      -- doesn't work on very large directories.
-      dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
-    end
     if core.status_view then -- May be not yet initialized.
       show_max_files_warning(dir)
-    end
-  else
-    if not dir.force_rescan then
-      dir.watch_id = system.watch_dir(dir.name, true)
     end
   end
   dir.files = t
   if dir.force_rescan then
     add_dir_scan_thread(dir)
   else
+    if not dir.files_limit then
+      folder_add_subdirs_watch(dir)
+    end
     core.dir_rescan_add_job(dir, ".")
   end
 end
@@ -385,15 +421,16 @@ local function rescan_project_directories()
   core.project_directories = {}
   for i = 1, n do -- add again the directories in the project
     local dir = core.add_project_directory(save_project_dirs[i].name)
-    -- The shown_subdir is only used on linux for very large directories.
-    -- replay them on the newly scanned project.
-    for subdir, show in pairs(save_project_dirs[i].shown_subdir) do
-      for j = 1, #dir.files do
-        if dir.files[j].filename == subdir then
-          -- the instructions above match when happens in TreeView:on_mouse_pressed
-          core.update_project_subdir(dir, subdir, show)
-          core.project_subdir_set_show(dir, subdir, show)
-          break
+    if dir.files_limit then
+      for subdir, show in pairs(save_project_dirs[i].shown_subdir) do
+        for j = 1, #dir.files do
+          if dir.files[j].filename == subdir then
+            -- The instructions below match when happens in TreeView:on_mouse_pressed.
+            -- We perform the operations only once iff the subdir is in dir.files.
+            core.update_project_subdir(dir, subdir, show)
+            core.project_subdir_set_show(dir, subdir, show)
+            break
+          end
         end
       end
     end
@@ -411,9 +448,15 @@ end
 
 
 function core.update_project_subdir(dir, filename, expanded)
+  assert(dir.files_limit, "function should be called only when directory is in files limit mode")
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
     local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}, 0, core.project_subdir_is_shown) or {}
+    -- ASSUMPTION: core.update_project_subdir is called only when dir.files_limit is true
+    -- NOTE: we may add new directories below but we do not need to call
+    -- system.watch_dir_add because the current function is called only
+    -- in dir.files_limit mode and in this latter case we don't need to
+    -- add watch to new, unfolded, subdirectories.
     files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
     return true
@@ -510,6 +553,9 @@ local function project_scan_remove_file(dir, filepath)
     local index, match = file_search(dir.files, fileinfo)
     if match then
       table.remove(dir.files, index)
+      if dir.files_limit and filetype == "dir" then
+        dir.shown_subdir[filepath] = nil
+      end
       dir.is_dirty = true
       return
     end
