@@ -1158,8 +1158,8 @@ end
 
 
 -- no-op but can be overrided by plugins
-function core.on_dirmonitor_modify(dir, filepath)
-end
+function core.on_dirmonitor_modify(dir, filepath) end
+function core.on_dirmonitor_delete(dir, filepath) end
 
 
 function core.on_dir_change(watch_id, action, filepath)
@@ -1168,6 +1168,7 @@ function core.on_dir_change(watch_id, action, filepath)
   core.dir_rescan_add_job(dir, filepath)
   if action == "delete" then
     project_scan_remove_file(dir, filepath)
+    core.on_dirmonitor_delete(dir, filepath)
   elseif action == "create" then
     project_scan_add_file(dir, filepath)
     core.on_dirmonitor_modify(dir, filepath);
