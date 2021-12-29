@@ -232,8 +232,10 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     else
       hovered_item.expanded = not hovered_item.expanded
       local hovered_dir = core.project_dir_by_name(hovered_item.dir_name)
-      if hovered_dir and hovered_dir.files_limit then
-        core.update_project_subdir(hovered_dir, hovered_item.filename, hovered_item.expanded)
+      if hovered_dir and (hovered_dir.files_limit or not hovered_dir.watch_recursive) then
+        if hovered_dir.files_limit then
+          core.update_project_subdir(hovered_dir, hovered_item.filename, hovered_item.expanded)
+        end
         core.project_subdir_set_show(hovered_dir, hovered_item.filename, hovered_item.expanded)
       end
     end

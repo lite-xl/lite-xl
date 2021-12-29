@@ -389,13 +389,15 @@ local function rescan_project_directories()
     local dir = core.add_project_directory(save_project_dirs[i].name)
     -- The shown_subdir is only used on linux for very large directories.
     -- replay them on the newly scanned project.
-    if dir.files_limit then
+    if dir.files_limit or not dir.watch_recursive then
       for subdir, show in pairs(save_project_dirs[i].shown_subdir) do
         for j = 1, #dir.files do
           if dir.files[j].filename == subdir then
             -- The instructions below match when happens in TreeView:on_mouse_pressed.
             -- We perform the operations only once iff the subdir is in dir.files.
-            core.update_project_subdir(dir, subdir, show)
+            if dir.files_limit then
+              core.update_project_subdir(dir, subdir, show)
+            end
             core.project_subdir_set_show(dir, subdir, show)
             break
           end
@@ -515,7 +517,7 @@ local function project_scan_remove_file(dir, filepath)
     local index, match = file_search(dir.files, fileinfo)
     if match then
       table.remove(dir.files, index)
-      if filetype == "dir" and dir.files_limit then
+      if filetype == "dir" and (dir.files_limit or not dir.watch_recursive) then
         dir.shown_subdir[filepath] = nil
       end
       dir.is_dirty = true
