@@ -104,13 +104,38 @@ function NagView:on_mouse_moved(mx, my, ...)
   end
 end
 
+-- Used to store saved value for RootView.on_view_mouse_pressed
+local on_view_mouse_pressed
+
+
+local function capture_mouse_pressed(nag_view)
+  -- RootView is loaded locally to avoid NagView and RootView being
+  -- mutually recursive
+  local RootView = require "core.rootview"
+  on_view_mouse_pressed = RootView.on_view_mouse_pressed
+  RootView.on_view_mouse_pressed = function(button, x, y, clicks)
+    local handled = NagView.on_mouse_pressed(nag_view, button, x, y, clicks)
+    return handled or on_view_mouse_pressed(button, x, y, clicks)
+  end
+end
+
+
+local function release_mouse_pressed()
+  local RootView = require "core.rootview"
+  if on_view_mouse_pressed then
+    RootView.on_view_mouse_pressed = on_view_mouse_pressed
+    on_view_mouse_pressed = nil
+  end
+end
+
+
 function NagView:on_mouse_pressed(button, mx, my, clicks)
-  if NagView.super.on_mouse_pressed(self, button, mx, my, clicks) then return end
+  if NagView.super.on_mouse_pressed(self, button, mx, my, clicks) then return true end
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
       self:change_hovered(i)
       command.perform "dialog:select"
-      break
+      return true
     end
   end
 end
@@ -202,6 +227,12 @@ function NagView:next()
   self.force_focus = self.message ~= nil
   core.set_active_view(self.message ~= nil and self or
                        core.next_active_view or core.last_active_view)
+  if self.message ~= nil and self then
+    -- We add a hook to manage all the mouse_pressed events.
+    capture_mouse_pressed(self)
+  else
+    release_mouse_pressed()
+  end
 end
 
 function NagView:show(title, message, options, on_select)
