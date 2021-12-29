@@ -92,7 +92,7 @@ static int f_font_copy(lua_State *L) {
   return 1;
 }
 
-static int f_font_group(lua_State* L) { 
+static int f_font_group(lua_State* L) {
   luaL_checktype(L, 1, LUA_TTABLE);
   luaL_setmetatable(L, API_TYPE_FONT);
   return 1;
@@ -106,8 +106,10 @@ static int f_font_set_tab_size(lua_State *L) {
 }
 
 static int f_font_gc(lua_State *L) {
+  if (lua_istable(L, 1)) return 0; // do not run if its FontGroup
   RenFont** self = luaL_checkudata(L, 1, API_TYPE_FONT);
   ren_font_free(*self);
+
   return 0;
 }
 
