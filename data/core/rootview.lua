@@ -34,6 +34,10 @@ function RootView:get_active_node()
   return self.root_node:get_node_for_view(core.active_view)
 end
 
+function RootView:get_hovered_node()
+  return self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
+end
+
 
 local function get_primary_node(node)
   if node.is_primary_node then
@@ -178,7 +182,7 @@ function RootView:on_mouse_released(button, x, y, ...)
   if self.dragged_node then
     if button == "left" then
       if self.dragged_node.dragging then
-        local node = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
+        local node = self:get_hovered_node()
         local dragged_node = self.dragged_node.node
 
         if node and not node.locked
@@ -353,7 +357,7 @@ end
 
 function RootView:update_drag_overlay()
   if not (self.dragged_node and self.dragged_node.dragging) then return end
-  local over = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
+  local over = self:get_hovered_node()
   if over and not over.locked then
     local _, _, _, tab_h = over:get_scroll_button_rect(1)
     local x, y = over.position.x, over.position.y

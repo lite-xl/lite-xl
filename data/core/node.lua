@@ -166,6 +166,15 @@ function Node:add_view(view, idx)
   self:set_active_view(view)
 end
 
+-- return the width including the padding space and separately
+-- the padding space itself
+local function get_scroll_button_width()
+  local w = style.icon_font:get_width(">")
+  local pad = w
+  return w + 2 * pad, pad
+end
+
+
 function Node:in_tab_area(x, y)
   -- The top Node:tab_height() pixels of each view contain it's tab bar
   -- This function returns true if the given (x, y) coordinates are in the tab
@@ -275,15 +284,6 @@ function Node:get_children(t)
   if self.a then self.a:get_children(t) end
   if self.b then self.b:get_children(t) end
   return t
-end
-
-
--- return the width including the padding space and separately
--- the padding space itself
-local function get_scroll_button_width()
-  local w = style.icon_font:get_width(">")
-  local pad = w
-  return w + 2 * pad, pad
 end
 
 
@@ -507,29 +507,32 @@ end
 
 
 function Node:scroll_tabs(dir, switch_tab_at_edge)
-  -- by default, we switch tabs if the active tab is scrolled off the edge
-  -- optionally, allow tabs to be scrolled off the edge
-  if switch_tab_at_edge == nil then switch_tab_at_edge = true end
+  -- if scroll dir is 1 and there's more tabs to the left, scroll
+  if dir == 1 and self:tabs_overflow_start() then
+    self.tab_offset = self.tab_offset - 1
+  end
+  -- if scroll dir is 2 and there's more tabs to the right, scroll
+  if dir == 2 and self:tabs_overflow_end() then
+    self.tab_offset = self.tab_offset + 1
+  end
 
-  local view_index = self:get_view_idx(self.active_view)
-  if dir == 1 then
-    if self:tabs_overflow_start() then
-      self.tab_offset = self.tab_offset - 1
-      local last_index = self.tab_offset + self:get_visible_tabs_number() - 1
-      if switch_tab_at_edge and view_index > last_index then
-        self:set_active_view(self.views[last_index])
-      end
+  -- if 'switch_tab_at_edge' is set to true (or not set at all)
+  -- and the active tab is off the edge,
+  -- set the tab on the far left/right as active
+  if switch_tab_at_edge or switch_tab_at_edge == nil then
+    local first_tab_idx = self.tab_offset
+    local last_tab_idx = self.tab_offset + self:get_visible_tabs_number() - 1
+    local active_tab_idx = self:get_view_idx(self.active_view)
+
+    if active_tab_idx < first_tab_idx then
+      self:set_active_view(self.views[first_tab_idx])
     end
-  elseif dir == 2 then
-    local tabs_number = self:get_visible_tabs_number()
-    if self:tabs_overflow_end() then
-      self.tab_offset = self.tab_offset + 1
-      local view_index = self:get_view_idx(self.active_view)
-      if switch_tab_at_edge and view_index < self.tab_offset then
-        self:set_active_view(self.views[self.tab_offset])
-      end
+
+    if active_tab_idx > last_tab_idx then
+      self:set_active_view(self.views[last_tab_idx])
     end
   end
+  
 end
 
 

@@ -80,12 +80,12 @@ local t = {
   end,
 
   ["root:pan-tabs-right"] = function()
-    local node = core.root_view:get_active_node()
+    local node = core.root_view:get_hovered_node()
     node:scroll_tabs(1, false)
   end,
 
   ["root:pan-tabs-left"] = function()
-    local node = core.root_view:get_active_node()
+    local node = core.root_view:get_hovered_node()
     node:scroll_tabs(2, false)
   end,
 
