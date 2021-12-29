@@ -16,6 +16,7 @@ local tooltip_border = 1
 local tooltip_delay = 0.5
 local tooltip_alpha = 255
 local tooltip_alpha_rate = 1
+local contextmenu_opened = false
 
 
 local function get_depth(filename)
@@ -239,7 +240,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
         core.project_subdir_set_show(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
       end
     end
-  else
+  elseif not contextmenu_opened then
     core.try(function()
       if core.last_active_view and core.active_view == self then
         core.set_active_view(core.last_active_view)
@@ -247,6 +248,8 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
       local doc_filename = core.normalize_to_project_dir(hovered_item.abs_filename)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
+  else
+    contextmenu_opened = false
   end
   return true
 end
@@ -436,6 +439,7 @@ function RootView.on_view_mouse_pressed(button, x, y, clicks)
   if button == "right" then
     view.tooltip.alpha = 0
     view.tooltip.x, view.tooltip.y = nil, nil
+    contextmenu_opened = true
   end
   local handled = menu:on_mouse_pressed(button, x, y, clicks)
   return handled or on_view_mouse_pressed(button, x, y, clicks)
