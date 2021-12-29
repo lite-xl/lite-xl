@@ -178,12 +178,33 @@ local function get_directory_files(dir, root, path, t, entries_count, recurse_pr
 end
 
 
+local function get_dir_count(root, path, entries_count, max_count)
+  local dirs = {}
+  local all = system.list_dir(root .. path) or {}
+  for _, file in ipairs(all) do
+    local filename = path .. PATHSEP .. file
+    local info = system.get_file_info(root .. filename)
+    if info and info.type == "dir" then
+      table.insert(dirs, filename)
+      entries_count = entries_count + 1
+    end
+  end
+  for _, filename in ipairs(dirs) do
+    local complete, n = get_dir_count(root, filename, entries_count, max_count)
+    entries_count = n
+    if entries_count > max_count then
+      return false, entries_count
+    end
+  end
+  return true, entries_count
+end
+
+
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
-  if dir.files_limit and PLATFORM == "Linux" then
+  if not dir.watch_recursive then
     local fullpath = dir.name .. PATHSEP .. filename
-    local watch_fn = show and system.watch_dir_add or system.watch_dir_rm
-    local success = watch_fn(dir.watch_id, fullpath)
+    local success = (show and system.watch_dir_add or system.watch_dir_rm)(dir.watch_id, fullpath)
     if not success then
       core.log("Internal warning: error calling system.watch_dir_%s", show and "add" or "rm")
     end
@@ -324,21 +345,24 @@ local function scan_project_folder(index)
     dir.force_rescan = (fstype == "nfs" or fstype == "fuse")
   end
   local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, 0, timed_max_files_pred)
+  dir.watch_recursive = (PLATFORM ~= "Linux")
   if not complete then
     dir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
     dir.files_limit = true
+    -- Watch non-recursively on Linux only.
+    -- The reason is recursively watching with dmon on linux
+    -- doesn't work on very large directories.
     if not dir.force_rescan then
-      -- Watch non-recursively on Linux only.
-      -- The reason is recursively watching with dmon on linux
-      -- doesn't work on very large directories.
-      dir.watch_id = system.watch_dir(dir.name, PLATFORM ~= "Linux")
+      dir.watch_id = system.watch_dir(dir.name, dir.watch_recursive)
     end
     if core.status_view then -- May be not yet initialized.
       show_max_files_warning(dir)
     end
   else
+    local dirs_limited = get_dir_count(dir.name, "", 0, 4096)
+    dir.watch_recursive = dir.watch_recursive or dirs_limited
     if not dir.force_rescan then
-      dir.watch_id = system.watch_dir(dir.name, true)
+      dir.watch_id = system.watch_dir(dir.name, dir.watch_recursive)
     end
   end
   dir.files = t
