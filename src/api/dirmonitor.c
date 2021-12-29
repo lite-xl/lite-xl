@@ -101,13 +101,13 @@ int add_dirmonitor(struct dirmonitor* monitor, const char* path) {
       if (monitor->running) {
         BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
         if (result == TRUE || GetLastError() != ERROR_NOT_FOUND)
-          GetOverlappedResult( monitor->handle, monitor->overlappded, NULL, TRUE );
+          GetOverlappedResult( monitor->handle, monitor->overlapped, NULL, TRUE );
         monitor->running = false;
       }
       CloseFile(monitor->handle);
     }
     monitor->handle = CreateFileA(path, FILE_LIST_DIRECTORY, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
-    return 1;
+    return monitor->handle ? 1 : -1;
   #elif __linux__
     return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
   #else
