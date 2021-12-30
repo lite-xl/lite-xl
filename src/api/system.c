@@ -584,6 +584,11 @@ static int f_get_fs_type(lua_State *L) {
   lua_pushstring(L, "unknown");
   return 1;
 }
+#else
+static int f_return_unknown(lua_State *L) {
+  lua_pushstring(L, "unknown");
+  return 1;
+}
 #endif
 
 
@@ -715,8 +720,14 @@ static int f_set_window_opacity(lua_State *L) {
 
 static int f_watch_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-  const int recursive = lua_toboolean(L, 2);
-  uint32_t dmon_flags = (recursive ? DMON_WATCHFLAGS_RECURSIVE : 0);
+  /* On linux we watch non-recursively and we add/remove each sub-directory explicitly
+   * using the function system.watch_dir_add/rm. On other systems we watch recursively
+   * and system.watch_dir_add/rm are dummy functions that always returns true. */
+#if __linux__
+  const uint32_t dmon_flags = 0;
+#else
+  const uint32_t dmon_flags = DMON_WATCHFLAGS_RECURSIVE;
+#endif
   dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL);
   if (watch_id.id == 0) { luaL_error(L, "directory monitoring watch failed"); }
   lua_pushnumber(L, watch_id.id);
@@ -744,6 +755,11 @@ static int f_watch_dir_rm(lua_State *L) {
   watch_id.id = luaL_checkinteger(L, 1);
   const char *subdir = luaL_checkstring(L, 2);
   lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
+  return 1;
+}
+#else
+static int f_return_true(lua_State *L) {
+  lua_pushboolean(L, 1);
   return 1;
 }
 #endif
@@ -839,6 +855,10 @@ static const luaL_Reg lib[] = {
   { "watch_dir_add",       f_watch_dir_add       },
   { "watch_dir_rm",        f_watch_dir_rm        },
   { "get_fs_type",         f_get_fs_type         },
+#else
+  { "watch_dir_add",       f_return_true         },
+  { "watch_dir_rm",        f_return_true         },
+  { "get_fs_type",         f_return_unknown      },
 #endif
   { NULL, NULL }
 };
