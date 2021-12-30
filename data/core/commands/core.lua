@@ -141,14 +141,9 @@ command.add(nil, {
   end,
 
   ["core:open-project-module"] = function()
-    local filename = ".lite_project.lua"
-    if system.get_file_info(filename) then
-      core.root_view:open_doc(core.open_doc(filename))
-    else
-      local doc = core.open_doc()
-      core.root_view:open_doc(doc)
-      doc:save(filename)
-    end
+    local doc = core.open_doc(".lite_project.lua")
+    core.root_view:open_doc(doc)
+    doc:save()
   end,
 
   ["core:change-project-folder"] = function()
