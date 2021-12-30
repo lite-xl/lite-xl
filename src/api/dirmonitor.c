@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #ifdef _WIN32
   #include <windows.h>
-  #define PATH_MAX MAX_PATH
 #elif __linux__
   #include <sys/inotify.h>
 #else
@@ -13,6 +12,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <string.h>
+#include <stdbool.h>
 
 /*
 This is *slightly* a clusterfuck. Normally, we'd
@@ -42,14 +42,28 @@ struct dirmonitor* init_dirmonitor() {
   #endif
   return monitor;
 }
+
+#if _WIN32
+static void close_monitor_handle(struct dirmonitor* monitor) {
+	if (monitor->handle) {
+      if (monitor->running) {
+        BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
+		DWORD error = GetLastError();
+        if (result == TRUE || error != ERROR_NOT_FOUND) {
+          DWORD bytes_transferred;
+          GetOverlappedResult( monitor->handle, &monitor->overlapped, &bytes_transferred, TRUE );
+		}
+        monitor->running = false;
+      }
+      CloseHandle(monitor->handle);
+    }
+	monitor->handle = NULL;
+}
+#endif
+
 void deinit_dirmonitor(struct dirmonitor* monitor) {
   #if _WIN32
-    if (monitor->running) {
-      BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
-      if (result == TRUE || GetLastError() != ERROR_NOT_FOUND)
-        GetOverlappedResult( monitor->handle, monitor->overlappded, NULL, TRUE );
-      CloseFile(monitor->handle);
-    }
+    close_monitor_handle(monitor);
   #else
     close(monitor->fd);
   #endif
@@ -60,18 +74,22 @@ int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, con
   #if _WIN32
     if (!monitor->running) {
       if (ReadDirectoryChangesW(monitor->handle, monitor->buffer, sizeof(monitor->buffer), TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, NULL, &monitor->overlapped, NULL) == 0)
-        return -1;
-      monitoring->running = true;
+        return GetLastError();
+      monitor->running = true;
     }
     DWORD bytes_transferred;
-    if (!GetOverlappedResult(monitor->handle, monitor->overlapped, &bytes_transferred, FALSE))
-      return GetLastError() == ERROR_IO_PENDING ? 0 : -1;
-    for (FILE_NOTIFY_INFORMATION* info = monitor->buffer; info < monitor->buffer + sizeof(monitor->buffer); info = (FILE_NOTIFY_INFORMATION*)((char*)info) + monitor->NextEntryOffset) {
-      change_callback(info->FileNameLength info->FileName, data);
+    if (!GetOverlappedResult(monitor->handle, &monitor->overlapped, &bytes_transferred, FALSE)) {
+	  int error = GetLastError();
+      return error == ERROR_IO_PENDING || error == ERROR_IO_INCOMPLETE ? 0 : error;
+    }
+	monitor->running = false;
+    for (FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)monitor->buffer; (char*)info < monitor->buffer + sizeof(monitor->buffer); info = (FILE_NOTIFY_INFORMATION*)((char*)info) + info->NextEntryOffset) {
+      change_callback(info->FileNameLength, (char*)info->FileName, data);
       if (!info->NextEntryOffset)
         break;
     }
     monitor->running = false;
+	return 0;
   #elif __linux__
     char buf[4096] __attribute__ ((aligned(__alignof__(struct inotify_event))));
     while (1) {
@@ -97,17 +115,12 @@ int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, con
 
 int add_dirmonitor(struct dirmonitor* monitor, const char* path) {
   #if _WIN32
-    if (monitor->handle) {
-      if (monitor->running) {
-        BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
-        if (result == TRUE || GetLastError() != ERROR_NOT_FOUND)
-          GetOverlappedResult( monitor->handle, monitor->overlapped, NULL, TRUE );
-        monitor->running = false;
-      }
-      CloseFile(monitor->handle);
-    }
-    monitor->handle = CreateFileA(path, FILE_LIST_DIRECTORY, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
-    return monitor->handle ? 1 : -1;
+	close_monitor_handle(monitor);
+    monitor->handle = CreateFileA(path, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);
+	if (monitor->handle && monitor->handle != INVALID_HANDLE_VALUE)
+		return 1;
+	monitor->handle = NULL;
+    return -1;
   #elif __linux__
     return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
   #else
@@ -121,10 +134,8 @@ int add_dirmonitor(struct dirmonitor* monitor, const char* path) {
 
 void remove_dirmonitor(struct dirmonitor* monitor, int fd) {
   #if _WIN32
-    if (monitor->handles[fd])
-      FindCloseChangeNotification(monitor->handles[fd]);
-    monitor->handles[fd] = NULL;
-  #elsif __linux__
+    close_monitor_handle(monitor);
+  #elif __linux__
     inotify_rm_watch(monitor->fd, fd);
   #else
     close(fd);
@@ -168,7 +179,7 @@ static int f_dirmonitor_unwatch(lua_State *L) {
 }
 
 static int f_dirmonitor_check(lua_State* L) {
-  lua_pushboolean(L, check_dirmonitor(*(struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR), f_check_dir_callback, L) == 0);
+  lua_pushnumber(L, check_dirmonitor(*(struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR), f_check_dir_callback, L));
   return 1;
 }
 static const luaL_Reg dirmonitor_lib[] = {
@@ -177,6 +188,7 @@ static const luaL_Reg dirmonitor_lib[] = {
   { "watch",    f_dirmonitor_watch       },
   { "unwatch",  f_dirmonitor_unwatch     },
   { "check",    f_dirmonitor_check       },
+  {NULL, NULL}
 };
 
 int luaopen_dirmonitor(lua_State* L) {

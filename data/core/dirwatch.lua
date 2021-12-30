@@ -1,8 +1,9 @@
+local common = require "core.common"
 local dirwatch = {}
 
 function dirwatch:__index(idx) 
   local value = rawget(self, idx)
-  if value ~= nil then return value end`
+  if value ~= nil then return value end
   return dirwatch[idx]
 end
 
@@ -33,15 +34,22 @@ function dirwatch:watch(directory, bool)
   if bool == false then return self:unwatch(directory) end
   if not self.watched[directory] and not self.scanned[directory] then
     if PLATFORM == "Windows" then
-      if not self.windows_watch_top or self.windows_watch_top:find(directory) == 1 then
-        self.windows_watch_top = directory
-        self.windows_watch_count = self.windows_watch_count + 1
-        local value = self.monitor:watch(directory)
-        if value and value < 0 then
-          return self:scan(directory)
-        end
-        self.watched[directory] = true
+      if not self.windows_watch_top or directory:find(self.windows_watch_top, 1, true) ~= 1 then
+		-- Get the highest level of directory that is common to this directory, and the original.
+		local target = directory
+		while self.windows_watch_top and self.windows_watch_top:find(target, 1, true) ~= 1 do
+			target = common.dirname(target)
+		end
+		if target ~= self.windows_watch_top then
+			local value = self.monitor:watch(target)
+			if value and value < 0 then
+			  return self:scan(directory)
+			end
+			self.windows_watch_top = target
+			self.windows_watch_count = self.windows_watch_count + 1
+		end
       end
+      self.watched[directory] = true
     else
       local value = self.monitor:watch(directory)
       -- If for whatever reason, we can't watch this directory, revert back to scanning.
@@ -77,7 +85,7 @@ end
 function dirwatch:check(change_callback, scan_time, wait_time)
   self.monitor:check(function(id)
     if PLATFORM == "Windows" then
-      change_callback(id)
+      change_callback(common.dirname(self.windows_watch_top .. PATHSEP .. id))
     elseif self.reverse_watched[id] then
       change_callback(self.reverse_watched[id])
     end

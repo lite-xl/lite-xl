@@ -474,7 +474,7 @@ function core.add_project_directory(path)
   topdir.watch_thread = core.add_thread(function()
     while true do
       topdir.watch:check(function(target)
-        if target == topdir.name then return refresh_directory(topdir, "") end
+        if target == topdir.name then return refresh_directory(topdir, "") end	
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
         if dirpath then
