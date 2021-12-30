@@ -10,7 +10,7 @@ local RootView = require "core.rootview"
 local DocView = require "core.docview"
 local Doc = require "core.doc"
 
-local autocomplete_options = {
+config.plugins.autocomplete = {
 	-- Amount of characters that need to be written for autocomplete
 	min_len = 3,
 	-- The max amount of visible items
@@ -192,7 +192,7 @@ local function update_suggestions()
   -- fuzzy match, remove duplicates and store
   items = common.fuzzy_match(items, partial)
   local j = 1
-  for i = 1, autocomplete_options.max_suggestions do
+  for i = 1, config.plugins.autocomplete.max_suggestions do
     suggestions[i] = items[j]
     while items[j] and items[i].text == items[j].text do
       items[i].info = items[i].info or items[j].info
@@ -235,7 +235,7 @@ local function get_suggestions_rect(av)
     max_width = math.max(max_width, w)
   end
 
-  local ah = autocomplete_options.max_height
+  local ah = config.plugins.autocomplete.max_height
 
   local max_items = #suggestions
   if max_items > ah then
@@ -294,7 +294,7 @@ local function draw_suggestions_box(av)
     return
   end
 
-  local ah = autocomplete_options.max_height
+  local ah = config.plugins.autocomplete.max_height
 
   -- draw background rect
   local rx, ry, rw, rh = get_suggestions_rect(av)
@@ -355,7 +355,7 @@ local function show_autocomplete()
     -- update partial symbol and suggestions
     partial = get_partial_symbol()
 
-    if #partial >= autocomplete_options.min_len or triggered_manually then
+    if #partial >= config.plugins.autocomplete.min_len or triggered_manually then
       update_suggestions()
 
       if not triggered_manually then
@@ -469,7 +469,7 @@ function autocomplete.complete(completions, on_close)
 end
 
 function autocomplete.can_complete()
-  if #partial >= autocomplete_options.min_len then
+  if #partial >= config.plugins.autocomplete.min_len then
     return true
   end
   return false
