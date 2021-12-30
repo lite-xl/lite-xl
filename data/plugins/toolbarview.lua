@@ -84,7 +84,7 @@ end
 
 function ToolbarView:on_mouse_pressed(button, x, y, clicks)
   local caught = ToolbarView.super.on_mouse_pressed(self, button, x, y, clicks)
-  if caught then return false end
+  if caught then return caught end
   core.set_active_view(core.last_active_view)
   if self.hovered_item then
     command.perform(self.hovered_item.command)
