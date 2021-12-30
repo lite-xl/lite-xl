@@ -45,19 +45,19 @@ struct dirmonitor* init_dirmonitor() {
 
 #if _WIN32
 static void close_monitor_handle(struct dirmonitor* monitor) {
-	if (monitor->handle) {
+  if (monitor->handle) {
       if (monitor->running) {
         BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
-		DWORD error = GetLastError();
+        DWORD error = GetLastError();
         if (result == TRUE || error != ERROR_NOT_FOUND) {
           DWORD bytes_transferred;
           GetOverlappedResult( monitor->handle, &monitor->overlapped, &bytes_transferred, TRUE );
-		}
+        }
         monitor->running = false;
       }
       CloseHandle(monitor->handle);
     }
-	monitor->handle = NULL;
+  monitor->handle = NULL;
 }
 #endif
 
@@ -79,17 +79,17 @@ int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, con
     }
     DWORD bytes_transferred;
     if (!GetOverlappedResult(monitor->handle, &monitor->overlapped, &bytes_transferred, FALSE)) {
-	  int error = GetLastError();
+      int error = GetLastError();
       return error == ERROR_IO_PENDING || error == ERROR_IO_INCOMPLETE ? 0 : error;
     }
-	monitor->running = false;
+    monitor->running = false;
     for (FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)monitor->buffer; (char*)info < monitor->buffer + sizeof(monitor->buffer); info = (FILE_NOTIFY_INFORMATION*)((char*)info) + info->NextEntryOffset) {
       change_callback(info->FileNameLength, (char*)info->FileName, data);
       if (!info->NextEntryOffset)
         break;
     }
     monitor->running = false;
-	return 0;
+    return 0;
   #elif __linux__
     char buf[4096] __attribute__ ((aligned(__alignof__(struct inotify_event))));
     while (1) {
@@ -115,11 +115,11 @@ int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, con
 
 int add_dirmonitor(struct dirmonitor* monitor, const char* path) {
   #if _WIN32
-	close_monitor_handle(monitor);
+    close_monitor_handle(monitor);
     monitor->handle = CreateFileA(path, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);
-	if (monitor->handle && monitor->handle != INVALID_HANDLE_VALUE)
-		return 1;
-	monitor->handle = NULL;
+    if (monitor->handle && monitor->handle != INVALID_HANDLE_VALUE)
+      return 1;
+    monitor->handle = NULL;
     return -1;
   #elif __linux__
     return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);

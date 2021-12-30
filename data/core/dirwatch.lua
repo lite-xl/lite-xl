@@ -35,19 +35,19 @@ function dirwatch:watch(directory, bool)
   if not self.watched[directory] and not self.scanned[directory] then
     if PLATFORM == "Windows" then
       if not self.windows_watch_top or directory:find(self.windows_watch_top, 1, true) ~= 1 then
-		-- Get the highest level of directory that is common to this directory, and the original.
-		local target = directory
-		while self.windows_watch_top and self.windows_watch_top:find(target, 1, true) ~= 1 do
-			target = common.dirname(target)
-		end
-		if target ~= self.windows_watch_top then
-			local value = self.monitor:watch(target)
-			if value and value < 0 then
-			  return self:scan(directory)
-			end
-			self.windows_watch_top = target
-			self.windows_watch_count = self.windows_watch_count + 1
-		end
+    -- Get the highest level of directory that is common to this directory, and the original.
+    local target = directory
+    while self.windows_watch_top and self.windows_watch_top:find(target, 1, true) ~= 1 do
+      target = common.dirname(target)
+    end
+    if target ~= self.windows_watch_top then
+      local value = self.monitor:watch(target)
+      if value and value < 0 then
+        return self:scan(directory)
+      end
+      self.windows_watch_top = target
+      self.windows_watch_count = self.windows_watch_count + 1
+    end
       end
       self.watched[directory] = true
     else
