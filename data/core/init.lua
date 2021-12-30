@@ -52,18 +52,14 @@ local function update_recents_project(action, dir_path_abs)
 end
 
 
-function core.set_project_dir(new_dir, change_project_fn, defer_add)
+function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
   if chdir_ok then
     if change_project_fn then change_project_fn() end
     core.project_dir = common.normalize_volume(new_dir)
     core.project_directories = {}
-    if not defer_add then
-      core.add_project_directory(new_dir)
-    end
-    return true
   end
-  return false
+  return chdir_ok
 end
 
 function core.close_current_project()
@@ -83,13 +79,22 @@ function core.close_current_project()
   end
 end
 
+
+local function reload_customizations()
+    core.reload_module("core.style")
+    core.reload_module("core.config")
+    core.reload_module("core.keymap")
+    core.load_user_directory()
+    core.load_project_module()
+end
+
+
 function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dir_path_abs, core.on_quit_project) then
     core.root_view:close_all_docviews()
+    reload_customizations()
     update_recents_project("add", dir_path_abs)
-    if not core.load_project_module() then
-      command.perform("core:open-log")
-    end
+    core.add_project_directory(dir_path_abs)
     core.on_enter_project(dir_path_abs)
   end
 end
@@ -570,10 +575,8 @@ end
 
 local function project_scan_add_file(dir, filepath)
   local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath)
-  if not fileinfo_pass_filter(fileinfo) then return end
-  if fileinfo then
-    project_scan_add_entry(dir, fileinfo)
-  end
+  if not fileinfo or not fileinfo_pass_filter(fileinfo) then return end
+  project_scan_add_entry(dir, fileinfo)
 end
 
 
@@ -697,26 +700,16 @@ local function configure_borderless_window()
 end
 
 
-local function reload_customizations()
-    core.reload_module("core.style")
-    core.reload_module("core.config")
-    core.reload_module("core.keymap")
-    core.load_user_directory()
-    core.load_project_module()
-    rescan_project_directories()
-    configure_borderless_window()
-end
-
-
 local function add_config_files_hooks()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  local module_filename = system.absolute_path(".lite_project.lua")
   function Doc:save(filename, abs_filename)
     doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename or self.abs_filename == module_filename then
+    if self.abs_filename == user_filename or self.abs_filename == core.project_module_filename then
       reload_customizations()
+      rescan_project_directories()
+      configure_borderless_window()
     end
   end
 end
@@ -787,7 +780,7 @@ function core.init()
   local project_dir_abs = system.absolute_path(project_dir)
   -- We prevent set_project_dir below to effectively add and scan the directory becaese tha
   -- project module and its ignore files is not yet loaded.
-  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs, nil, true)
+  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
   if set_project_ok then
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
@@ -797,7 +790,7 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs, nil, true) then
+    if not core.set_project_dir(project_dir_abs) then
       system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
       os.exit(1)
     end
@@ -1028,6 +1021,7 @@ end
 
 function core.load_project_module()
   local filename = ".lite_project.lua"
+  core.project_module_filename = system.absolute_path(filename)
   if system.get_file_info(filename) then
     return core.try(function()
       local fn, err = loadfile(filename)
