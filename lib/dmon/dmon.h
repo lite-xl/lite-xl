@@ -169,6 +169,8 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #    include <time.h>
 #    include <unistd.h>
 #    include <stdlib.h>
+/* Recursive removed for Lite XL when using inotify. */
+#    define LITE_XL_DISABLE_INOTIFY_RECURSIVE
 #elif DMON_OS_MACOS
 #   include <pthread.h>
 #   include <CoreServices/CoreServices.h>
@@ -710,6 +712,10 @@ typedef struct dmon__state {
 static bool _dmon_init;
 static dmon__state _dmon;
 
+/* Implementation of recursive monitoring was removed on Linux for the Lite XL
+ * application. It is never used with recent version of Lite XL starting from 2.0.5
+ * and recursive monitoring with inotify was always problematic and half-broken. */
+#ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
 _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t mask,
                                          bool followlinks, dmon__watch_state* watch)
 {
@@ -764,6 +770,7 @@ _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t m
     }
     closedir(dir);
 }
+#endif
 
 _DMON_PRIVATE const char* dmon__find_subdir(const dmon__watch_state* watch, int wd)
 {
@@ -777,6 +784,7 @@ _DMON_PRIVATE const char* dmon__find_subdir(const dmon__watch_state* watch, int 
     return NULL;
 }
 
+#ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
 _DMON_PRIVATE void dmon__gather_recursive(dmon__watch_state* watch, const char* dirname)
 {
     struct dirent* entry;
@@ -809,6 +817,7 @@ _DMON_PRIVATE void dmon__gather_recursive(dmon__watch_state* watch, const char* 
     }
     closedir(dir);
 }
+#endif
 
 _DMON_PRIVATE void dmon__inotify_process_events(void)
 {
@@ -919,6 +928,7 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
         }
 
         if (ev->mask & IN_CREATE) {
+#           ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
             if (ev->mask & IN_ISDIR) {
                 if (watch->watch_flags & DMON_WATCHFLAGS_RECURSIVE) {
                     char watchdir[DMON_MAX_PATH];
@@ -948,6 +958,7 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
                     ev = &_dmon.events[i]; // gotta refresh the pointer because it may be relocated
                 }
             }
+#           endif
             watch->watch_cb(ev->watch_id, DMON_ACTION_CREATE, watch->rootdir, ev->filepath, NULL, watch->user_data);
         }
         else if (ev->mask & IN_MODIFY) {
@@ -1158,11 +1169,12 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     stb_sb_push(watch->wds, wd);
 
     // recursive mode: enumarate all child directories and add them to watch
+#ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
     if (flags & DMON_WATCHFLAGS_RECURSIVE) {
         dmon__watch_recursive(watch->rootdir, watch->fd, inotify_mask,
                               (flags & DMON_WATCHFLAGS_FOLLOW_SYMLINKS) ? true : false, watch);
     }
-
+#endif
 
     pthread_mutex_unlock(&_dmon.mutex);
     return dmon__make_id(id);
