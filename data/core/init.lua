@@ -81,11 +81,18 @@ end
 
 
 local function reload_customizations()
-    core.reload_module("core.style")
-    core.reload_module("core.config")
-    core.reload_module("core.keymap")
-    core.load_user_directory()
-    core.load_project_module()
+  core.reload_module("core.style")
+  core.reload_module("core.keymap")
+  local plugins_save = {}
+  for k, v in pairs(config.plugins) do
+    plugins_save[k] = v
+  end
+  core.reload_module("core.config")
+  for k, v in pairs(plugins_save) do
+    config.plugins[k] = v
+  end
+  core.load_user_directory()
+  core.load_project_module()
 end
 
 
