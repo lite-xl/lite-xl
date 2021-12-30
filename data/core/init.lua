@@ -111,15 +111,20 @@ local function compare_file(a, b)
 end
 
 
+local function fileinfo_pass_filter(info)
+  local basename = common.basename(info.filename)
+  return (info.size < config.file_size_limit * 1e6 and
+      not common.match_pattern(basename, config.ignore_files))
+end
+
+
 -- compute a file's info entry completed with "filename" to be used
 -- in project scan or falsy if it shouldn't appear in the list.
 local function get_project_file_info(root, file)
   local info = system.get_file_info(root .. file)
   if info then
     info.filename = strip_leading_path(file)
-    return (info.size < config.file_size_limit * 1e6 and
-      not common.match_pattern(info.filename, config.ignore_files)
-      and info)
+    return fileinfo_pass_filter(info) and info
   end
 end
 
@@ -564,12 +569,8 @@ end
 
 
 local function project_scan_add_file(dir, filepath)
-  for fragment in string.gmatch(filepath, "([^/\\]+)") do
-    if common.match_pattern(fragment, config.ignore_files) then
-      return
-    end
-  end
   local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath)
+  if not fileinfo_pass_filter(fileinfo) then return end
   if fileinfo then
     project_scan_add_entry(dir, fileinfo)
   end
