@@ -145,8 +145,8 @@ top:
         ren_resize_window();
         lua_pushstring(L, "resized");
         /* The size below will be in points. */
-        lua_pushnumber(L, e.window.data1);
-        lua_pushnumber(L, e.window.data2);
+        lua_pushinteger(L, e.window.data1);
+        lua_pushinteger(L, e.window.data2);
         return 3;
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
         rencache_invalidate();
@@ -179,8 +179,8 @@ top:
       SDL_GetWindowPosition(window, &wx, &wy);
       lua_pushstring(L, "filedropped");
       lua_pushstring(L, e.drop.file);
-      lua_pushnumber(L, mx - wx);
-      lua_pushnumber(L, my - wy);
+      lua_pushinteger(L, mx - wx);
+      lua_pushinteger(L, my - wy);
       SDL_free(e.drop.file);
       return 4;
 
@@ -220,17 +220,17 @@ top:
       if (e.button.button == 1) { SDL_CaptureMouse(1); }
       lua_pushstring(L, "mousepressed");
       lua_pushstring(L, button_name(e.button.button));
-      lua_pushnumber(L, e.button.x);
-      lua_pushnumber(L, e.button.y);
-      lua_pushnumber(L, e.button.clicks);
+      lua_pushinteger(L, e.button.x);
+      lua_pushinteger(L, e.button.y);
+      lua_pushinteger(L, e.button.clicks);
       return 5;
 
     case SDL_MOUSEBUTTONUP:
       if (e.button.button == 1) { SDL_CaptureMouse(0); }
       lua_pushstring(L, "mousereleased");
       lua_pushstring(L, button_name(e.button.button));
-      lua_pushnumber(L, e.button.x);
-      lua_pushnumber(L, e.button.y);
+      lua_pushinteger(L, e.button.x);
+      lua_pushinteger(L, e.button.y);
       return 4;
 
     case SDL_MOUSEMOTION:
@@ -243,20 +243,20 @@ top:
         e.motion.yrel += event_plus.motion.yrel;
       }
       lua_pushstring(L, "mousemoved");
-      lua_pushnumber(L, e.motion.x);
-      lua_pushnumber(L, e.motion.y);
-      lua_pushnumber(L, e.motion.xrel);
-      lua_pushnumber(L, e.motion.yrel);
+      lua_pushinteger(L, e.motion.x);
+      lua_pushinteger(L, e.motion.y);
+      lua_pushinteger(L, e.motion.xrel);
+      lua_pushinteger(L, e.motion.yrel);
       return 5;
 
     case SDL_MOUSEWHEEL:
       lua_pushstring(L, "mousewheel");
-      lua_pushnumber(L, e.wheel.y);
+      lua_pushinteger(L, e.wheel.y);
       return 2;
 
     case SDL_USEREVENT:
       lua_pushstring(L, "dirchange");
-      lua_pushnumber(L, e.user.code >> 16);
+      lua_pushinteger(L, e.user.code >> 16);
       switch (e.user.code & 0xffff) {
         case DMON_ACTION_DELETE:
           lua_pushstring(L, "delete");
@@ -371,10 +371,10 @@ static int f_get_window_size(lua_State *L) {
   int x, y, w, h;
   SDL_GetWindowSize(window, &w, &h);
   SDL_GetWindowPosition(window, &x, &y);
-  lua_pushnumber(L, w);
-  lua_pushnumber(L, h);
-  lua_pushnumber(L, x);
-  lua_pushnumber(L, y);
+  lua_pushinteger(L, w);
+  lua_pushinteger(L, h);
+  lua_pushinteger(L, x);
+  lua_pushinteger(L, y);
   return 4;
 }
 
@@ -544,10 +544,10 @@ static int f_get_file_info(lua_State *L) {
   }
 
   lua_newtable(L);
-  lua_pushnumber(L, s.st_mtime);
+  lua_pushinteger(L, s.st_mtime);
   lua_setfield(L, -2, "modified");
 
-  lua_pushnumber(L, s.st_size);
+  lua_pushinteger(L, s.st_size);
   lua_setfield(L, -2, "size");
 
   if (S_ISREG(s.st_mode)) {
@@ -639,7 +639,7 @@ static int f_set_clipboard(lua_State *L) {
 
 static int f_get_time(lua_State *L) {
   double n = SDL_GetPerformanceCounter() / (double) SDL_GetPerformanceFrequency();
-  lua_pushnumber(L, n);
+  lua_pushinteger(L, n);
   return 1;
 }
 
@@ -693,7 +693,7 @@ static int f_fuzzy_match(lua_State *L) {
     strTarget += increment;
   }
   if (ptnTarget >= ptn && *ptnTarget) { return 0; }
-  lua_pushnumber(L, score - (int)strLen * 10);
+  lua_pushinteger(L, score - (int)strLen * 10);
   return 1;
 }
 
@@ -718,13 +718,13 @@ static void* api_require(const char* symbol) {
     P(error),  P(gc), P(getallocf),  P(getfield),
     P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
     P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
-    P(insert), P(isnumber), P(isstring), P(isuserdata),
-    P(load), P(newstate), P(newthread), P(newuserdata), P(next),
+    P(isnumber), P(isstring), P(isuserdata),
+    P(load), P(newstate), P(newthread), P(next),
     P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
     P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber),
     P(pushstring), P(pushthread),  P(pushvalue),
     P(pushvfstring), P(rawequal), P(rawget), P(rawgeti),
-    P(rawset), P(rawseti),  P(remove), P(replace), P(resume),
+    P(rawset), P(rawseti), P(resume),
     P(setallocf), P(setfield), P(sethook), P(setlocal),
     P(setmetatable), P(settable), P(settop), P(setupvalue),
     P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
@@ -737,12 +737,12 @@ static void* api_require(const char* symbol) {
     U(newstate), U(setfuncs), U(buffinit), U(addlstring), U(addstring),
     U(addvalue), U(pushresult),
     #if LUA_VERSION_NUM >= 502
-    P(absindex), P(arith), P(callk), P(compare), P(getctx), P(getglobal), P(getuservalue),
-    P(len), P(pcallk), P(pushunsigned), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
-    P(iscfunction), P(setuservalue), P(tounsignedx), P(yieldk),
-    U(checkversion_), U(tolstring),  U(checkunsigned), U(len), U(getsubtable), U(prepbuffsize),
+    P(absindex), P(arith), P(callk), P(compare), P(getglobal),
+    P(len), P(pcallk), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
+    P(iscfunction), P(yieldk),
+    U(checkversion_), U(tolstring), U(len), U(getsubtable), U(prepbuffsize),
     U(pushresultsize), U(buffinitsize), U(checklstring), U(checkoption), U(gsub), U(loadbufferx),
-    U(loadfilex), U(optinteger), U(optlstring), U(optunsigned), U(requiref), U(traceback)
+    U(loadfilex), U(optinteger), U(optlstring), U(requiref), U(traceback)
     #else
     P(objlen)
     #endif
@@ -797,7 +797,7 @@ static int f_watch_dir(lua_State *L) {
   uint32_t dmon_flags = (recursive ? DMON_WATCHFLAGS_RECURSIVE : 0);
   dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL);
   if (watch_id.id == 0) { luaL_error(L, "directory monitoring watch failed"); }
-  lua_pushnumber(L, watch_id.id);
+  lua_pushinteger(L, watch_id.id);
   return 1;
 }
 

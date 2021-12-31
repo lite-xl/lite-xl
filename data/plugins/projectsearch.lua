@@ -176,7 +176,7 @@ function ResultsView:draw()
   local text
   if self.searching then
     if files_number then
-      text = string.format("Searching %d%% (%d of %d files, %d matches) for %q...",
+      text = string.format("Searching %.f%% (%d of %d files, %d matches) for %q...",
         per * 100, self.last_file_idx, files_number,
         #self.results, self.query)
     else

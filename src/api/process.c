@@ -128,12 +128,12 @@ static int process_start(lua_State* L) {
   #if LUA_VERSION_NUM > 501
     lua_len(L, 1);
   #else
-    lua_pushnumber(L, (int)lua_objlen(L, 1));
+    lua_pushinteger(L, (int)lua_objlen(L, 1));
   #endif
   size_t cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
   size_t arg_len = lua_gettop(L);
   for (size_t i = 1; i <= cmd_len; ++i) {
-    lua_pushnumber(L, i);
+    lua_pushinteger(L, i);
     lua_rawget(L, 1);
     cmd[i-1] = luaL_checkstring(L, -1);
   }
@@ -343,7 +343,7 @@ static int f_write(lua_State* L) {
       return luaL_error(L, "error writing to process: %s", strerror(errno));
     }
   #endif
-  lua_pushnumber(L, length);
+  lua_pushinteger(L, length);
   return 1;
 }
 
@@ -375,7 +375,7 @@ static int f_tostring(lua_State* L) {
 
 static int f_pid(lua_State* L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  lua_pushnumber(L, self->pid);
+  lua_pushinteger(L, self->pid);
   return 1;
 }
 
@@ -383,7 +383,7 @@ static int f_returncode(lua_State *L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   if (self->running)
     return 0;
-  lua_pushnumber(L, self->returncode);
+  lua_pushinteger(L, self->returncode);
   return 1;
 }
 
@@ -404,7 +404,7 @@ static int f_wait(lua_State* L) {
   int timeout = luaL_optnumber(L, 2, 0);
   if (poll_process(self, timeout))
     return 0;
-  lua_pushnumber(L, self->returncode);
+  lua_pushinteger(L, self->returncode);
   return 1;
 }
 
