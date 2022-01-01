@@ -1,0 +1,9 @@
+[wrap-file]
+directory = pcre2-10.23
+source_url = https://sourceforge.net/projects/pcre/files/pcre2/10.23/pcre2-10.23.zip
+source_filename = pcre2-10.23.zip
+source_hash = 6301a525a8a7e63a5fac0c2fbfa0374d3eb133e511d886771e097e427707094a
+patch_url = https://wrapdb.mesonbuild.com/v2/pcre2_10.23-1/get_patch
+patch_filename = pcre2-10.23-1-wrap.zip
+patch_hash = ad6b4f042a911d06805fbbeeb9ffed0a988b282561164d0624a3ce02e93d4e24
+

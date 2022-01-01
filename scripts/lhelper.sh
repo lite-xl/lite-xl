@@ -60,9 +60,9 @@ main() {
   # Not using $(lhelper activate lite-xl) to support CI
   source "$(lhelper env-source lite-xl)"
 
-  lhelper install freetype2
-  lhelper install sdl2 2.0.14-wait-event-timeout-1
-  lhelper install pcre2
+  if [[ "$OSTYPE" == "msys" ]]; then
+    lhelper install pcre2
+  fi
 
   # Help MSYS2 to find the SDL2 include and lib directories to avoid errors
   # during build and linking when using lhelper.

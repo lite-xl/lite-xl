@@ -1,0 +1,9 @@
+[wrap-file]
+directory = freetype-2.11.1
+source_url = https://download.savannah.gnu.org/releases/freetype/freetype-2.11.1.tar.gz
+source_filename = freetype-2.11.1.tar.gz
+source_hash = f8db94d307e9c54961b39a1cc799a67d46681480696ed72ecf78d4473770f09b
+
+[provide]
+freetype2 = freetype_dep
+
