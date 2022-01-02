@@ -337,8 +337,7 @@ local commands = {
         col2 = col2 + (line1 == line2 and (#comment[1] + 1) or 0)
         doc():insert(line2, col2, " " .. comment[2])
 
-        col2 = col2 + #comment[2] + 1
-        doc():set_selections(idx, line1, col1, line2, col2)
+        doc():set_selections(idx, line1, col1, line2, col2 + #comment[2] + 1)
       end
     end
   end,
