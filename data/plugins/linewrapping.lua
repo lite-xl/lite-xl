@@ -9,7 +9,7 @@ local command = require "core.command"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 
-config.plugins.linewrapping = common.merge({
+config.plugins.linewrapping = {
 	-- The type of wrapping to perform. Can be "letter" or "word".
   mode = "letter",
 	-- If nil, uses the DocView's size, otherwise, uses this exact width.
@@ -20,7 +20,7 @@ config.plugins.linewrapping = common.merge({
   indent = true,
   -- Whether or not to enable wrapping by default when opening files.
   enable_by_default = false
-}, config.plugins.linewrapping or {})
+}
 
 local LineWrapping = {}
 
@@ -68,8 +68,11 @@ end
 function LineWrapping.reconstruct_breaks(docview, default_font, width, line_offset)
   if width ~= math.huge then
     local doc = docview.doc
+    -- two elements per wrapped line; first maps to original line number, second to column number.
     docview.wrapped_lines = { }
+    -- one element per actual line; maps to the first index of in wrapped_lines for this line
     docview.wrapped_line_to_idx = { }
+    -- one element per actual line; gives the indent width for the acutal line
     docview.wrapped_line_offsets = { }
     docview.wrapped_settings = { ["width"] = width, ["font"] = default_font }
     for i = line_offset or 1, #doc.lines do
@@ -124,13 +127,17 @@ function LineWrapping.update_breaks(docview, line)
   end
 end
 
--- Removes lines from the document, and thus breaks.
+-- Removes lines (inclusively, and ENTIRELY) from the document, and thus their breaks.
+-- Any partial removals of a line shouldn't call this function, and should simply recompute their breaks.
 function LineWrapping.remove_lines(docview, line1, line2)
   local total_lines = line2 - line1 + 1
   local offset = (docview.wrapped_line_to_idx[line1] - 1) * 2 + 1
   for i=line1,line2 do
     table.remove(docview.wrapped_lines, offset)
     table.remove(docview.wrapped_lines, offset)
+  end
+  for i=offset, #docview.wrapped_lines, 2 do
+    docview.wrapped_lines[i] = docview.wrapped_lines[i] - total_lines
   end
   for i = line2 + 1, #docview.wrapped_line_to_idx do
     docview.wrapped_line_to_idx[i] = docview.wrapped_line_to_idx[i] - total_lines
@@ -277,14 +284,12 @@ end
 
 local old_doc_remove = Doc.raw_remove
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
-  local start_line = line1 + 1
-  local end_line = col2 == #self.lines[line2] and line2 or (line2 - 1)
   old_doc_remove(self, line1, col1, line2, col2, undo_stack, time)
   if open_files[self] then
     for i,docview in ipairs(open_files[self]) do
       if docview.wrapped_settings then
-        if start_line <= end_line then
-          LineWrapping.remove_lines(docview, start_line, end_line)
+        if line1 ~= line2 then
+          LineWrapping.remove_lines(docview, line1, line2 - 1)
         end
         LineWrapping.update_breaks(docview, line1)
       end
