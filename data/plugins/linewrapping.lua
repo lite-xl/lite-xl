@@ -102,6 +102,7 @@ end
 
 -- Updates the breaks for the various lines; with no extra new lines added.
 function LineWrapping.update_breaks(docview, line)
+  if line < 1 or line > #docview.doc.lines then return end
   local idx = docview.wrapped_line_to_idx[line]
   local offset = (idx - 1) * 2 + 1
   local breaks, begin_width = LineWrapping.compute_line_breaks(docview.doc, docview.wrapped_settings.font, line, docview.wrapped_settings.width, config.plugins.linewrapping.mode)
