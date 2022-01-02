@@ -305,48 +305,41 @@ local commands = {
       -- if nothing is selected, toggle the whole line
       if line1 == line2 and col1 == col2 then
         col1 = 1
-        col2 = #doc().lines[line1]
+        col2 = #doc().lines[line2]
       end
-      local text = doc():get_text(line1, col1, line2, col2)
 
-      -- might need to deal with unicode later...
-      local cs, cse = text:find(comment[1], 1, true)
-      local ce = text:find(comment[2], #text - #comment[2] + 1, true)
+      -- automatically skip spaces
+      local word_start = doc():get_text(line1, col1, line1, math.huge):find("%S")
+      local word_end = doc():get_text(line2, 1, line2, col2):find("%s*$")
+      col1 = col1 + (word_start and (word_start - 1) or 0)
+      col2 = word_end and word_end or col2
 
-      local new_col1, new_col2 = col1, col2
-      -- uncomment
-      if cs and ce then
-        if line1 == line2 then
-          new_col2 = new_col2 - #table.concat(comment)
-        else
-          new_col2 = new_col2 - #comment[2]
+      local block_start = doc():get_text(line1, col1, line1, col1 + #comment[1])
+      local block_end = doc():get_text(line2, col2 - #comment[2], line2, col2)
+
+      if block_start == comment[1] and block_end == comment[2] then
+        -- remove up to 1 whitespace after the comment
+        local start_len, stop_len = #comment[1], #comment[2]
+        if doc():get_text(line1, col1 + #comment[1], line1, col1 + #comment[1] + 1):find("%s$") then
+          start_len = start_len + 1
+        end
+        if doc():get_text(line2, col2 - #comment[2] - 1, line2, col2):find("^%s") then
+          stop_len = stop_len + 1
         end
 
-        -- remove 1 whitespace if possible
-        if text:sub(cse + 1, cse + 1) == " " then
-          cse = cse + 1
-          if line1 == line2 then
-            new_col2 = new_col2 - 1
-          end
-        end
-        if text:sub(ce - 1, ce - 1) == " " then
-          ce = ce - 1
-          new_col2 = new_col2 - 1
-        end
+        doc():remove(line1, col1, line1, col1 + start_len)
+        col2 = col2 - (line1 == line2 and start_len or 0)
+        doc():remove(line2, col2 - stop_len, line2, col2)
 
-        text = text:sub(cse + 1, ce - 1)
-      -- comment
+        doc():set_selections(1, line1, col1, line2, col2 - stop_len)
       else
-        text = comment[1] .. " " .. text .. " " .. comment[2]
-        if line1 == line2 then
-          new_col2 = new_col2 + #table.concat(comment) + 2
-        else
-          new_col2 = new_col2 + #comment[2] + 1
-        end
+        doc():insert(line1, col1, comment[1] .. " ")
+        col2 = col2 + (line1 == line2 and (#comment[1] + 1) or 0)
+        doc():insert(line2, col2, " " .. comment[2])
+
+        col2 = col2 + #comment[2] + 1
+        doc():set_selections(idx, line1, col1, line2, col2)
       end
-      doc():remove(line1, col1, line2, col2)
-      doc():insert(line1, col1, text)
-      doc():set_selections(idx, line1, new_col1, line2, new_col2)
     end
   end,
 
