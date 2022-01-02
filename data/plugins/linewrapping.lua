@@ -277,6 +277,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
         local lines = #self.lines - old_lines
         if lines > 0 then LineWrapping.add_lines(docview, line, lines) end
         LineWrapping.update_breaks(docview, line)
+        LineWrapping.update_breaks(docview, line+1)
       end
     end
   end
@@ -291,6 +292,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
         if line1 ~= line2 then
           LineWrapping.remove_lines(docview, line1, line2 - 1)
         end
+        LineWrapping.update_breaks(docview, line1 - 1)
         LineWrapping.update_breaks(docview, line1)
       end
     end
