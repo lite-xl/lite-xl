@@ -715,6 +715,46 @@ local style = require "core.style"
 end
 
 
+function core.write_init_project_module(init_filename)
+  local init_file = io.open(init_filename, "w")
+  if not init_file then error("cannot create file: \"" .. init_filename .. "\"") end
+  init_file:write([[
+-- Put project's module settings here.
+-- This module will be loaded when opening a project, after the user module
+-- configuration.
+-- It will be automatically reloaded when saved.
+
+local config = require "core.config"
+
+-- you can add some patterns to ignore files within the project
+-- config.ignore_files = {"^%.", <some-patterns>}
+
+-- Patterns are normally applied to the file's or directory's name, without
+-- its path. See below about how to include the path.
+--
+-- Here some examples:
+--
+-- "^%." match any file of directory whose basename begins with a dot.
+--
+-- When there is an '/' at the end the pattern will only match directories. The final
+-- '/' is removed from the pattern to match the file's or directory's name.
+--
+-- "^%.git$/" match any directory named ".git" anywhere in the project.
+--
+-- If a "/" appears anywhere in the pattern (except at the end) then the pattern
+-- will be applied to the full path of the file or directory. An initial "/" will
+-- be prepended to the file's or directory's path to indicate the project's root.
+--
+-- "^/node_modules$/" match a directory named "node_modules" at the project's root.
+-- "^/build/" match any top level directory whose name _begins_ with "build"
+-- "^/subprojects/.+/" match any directory inside a top-level folder named "subprojects".
+
+-- You may activate some plugins on a pre-project base to override the user's settings.
+-- config.plugins.trimwitespace = true
+]])
+  init_file:close()
+end
+
 
 function core.load_user_directory()
   return core.try(function()
