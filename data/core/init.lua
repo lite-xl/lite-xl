@@ -122,6 +122,7 @@ local function compare_file(a, b)
 end
 
 
+-- inspect config.ignore_files patterns and prepare ready to use entries.
 local function compile_ignore_files()
   local ipatterns = config.ignore_files
   local compiled = {}
@@ -131,8 +132,8 @@ local function compile_ignore_files()
     local match_dir = pattern:match("(.+)/$")
     compiled[i] = {
       use_path = pattern:match("/[^/]"), -- contains a slash but not at the end
-      match_dir = match_dir,
-      pattern = match_dir or pattern
+      match_dir = match_dir, -- to be used as a boolen value
+      pattern = match_dir or pattern -- get the actual pattern
     }
   end
   return compiled
@@ -625,11 +626,13 @@ local function project_scan_add_file(dir, filepath)
   local ignore = compile_ignore_files()
   local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
   if fileinfo then
+    -- on Windows and MacOS we can get events from directories we are not following:
+    -- check if each parent directories pass the ignore_files rules.
     repeat
       filepath = common.dirname(filepath)
       local parent_info = filepath and get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
       if filepath and not parent_info then
-        return
+        return -- parent directory does match ignore_files rules: stop there
       end
     until not parent_info
     project_scan_add_entry(dir, fileinfo)
