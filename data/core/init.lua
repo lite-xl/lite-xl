@@ -122,34 +122,32 @@ local function compare_file(a, b)
 end
 
 
+local function compile_ignore_files()
+  local ipatterns = config.ignore_files
+  local compiled = {}
+  -- config.ignore_files could be a simple string...
+  if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
+  for i, pattern in ipairs(ipatterns) do
+    local match_dir = pattern:match("(.+)/$")
+    compiled[i] = {
+      use_path = pattern:match("/[^/]"), -- contains a slash but not at the end
+      match_dir = match_dir,
+      pattern = match_dir or pattern
+    }
+  end
+  return compiled
+end
 
 
-
-
-local function fileinfo_pass_filter(info)
+local function fileinfo_pass_filter(info, ignore_compiled)
   if info.size >= config.file_size_limit * 1e6 then return false end
   local basename = common.basename(info.filename)
   -- replace '\' with '/' for Windows where PATHSEP = '\'
   local fullname = "/" .. info.filename:gsub("\\", "/")
-  local ipatterns = config.ignore_files
-  -- config.ignore_files could be a simple string...
-  if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
-  for _, pattern in ipairs(ipatterns) do
-    local is_path_like = pattern:match("/[^/]") -- contains a slash but not at the end
-    local dir_pass = true
-    if pattern:match("(.+)/$") then
-      dir_pass = (info.type == "dir")
-      -- the final '/' should not participate to the match.
-      pattern = pattern:match("(.+)/$")
-    end
-    if is_path_like then
-      if fullname:match(pattern) and dir_pass then
-        return false
-      end
-    else
-      if basename:match(pattern) and dir_pass then
-        return false
-      end
+  for _, compiled in ipairs(ignore_compiled) do
+    local pass_dir = (not compiled.match_dir or info.type == "dir")
+    if (compiled.use_path and fullname or basename):match(compiled.pattern) and pass_dir then
+      return false
     end
   end
   return true
@@ -158,13 +156,13 @@ end
 
 -- compute a file's info entry completed with "filename" to be used
 -- in project scan or falsy if it shouldn't appear in the list.
-local function get_project_file_info(root, file)
+local function get_project_file_info(root, file, ignore_compiled)
   local info = system.get_file_info(root .. file)
   -- info can be not nil but info.type may be nil if is neither a file neither
   -- a directory, for example for /dev/* entries on linux.
   if info and info.type then
     info.filename = strip_leading_path(file)
-    return fileinfo_pass_filter(info) and info
+    return fileinfo_pass_filter(info, ignore_compiled) and info
   end
 end
 
@@ -186,15 +184,16 @@ end
 -- When recursing "root" will always be the same, only "path" will change.
 -- Returns a list of file "items". In eash item the "filename" will be the
 -- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(dir, root, path, t, entries_count, recurse_pred, begin_hook)
+local function get_directory_files(dir, root, path, t, ignore_compiled, entries_count, recurse_pred, begin_hook)
   if begin_hook then begin_hook() end
+  ignore_compiled = ignore_compiled or compile_ignore_files()
   local t0 = system.get_time()
   local all = system.list_dir(root .. path) or {}
   local t_elapsed = system.get_time() - t0
   local dirs, files = {}, {}
 
   for _, file in ipairs(all) do
-    local info = get_project_file_info(root, path .. PATHSEP .. file)
+    local info = get_project_file_info(root, path .. PATHSEP .. file, ignore_compiled)
     if info then
       table.insert(info.type == "dir" and dirs or files, info)
       entries_count = entries_count + 1
@@ -206,7 +205,7 @@ local function get_directory_files(dir, root, path, t, entries_count, recurse_pr
   for _, f in ipairs(dirs) do
     table.insert(t, f)
     if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
-      local _, complete, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, entries_count, recurse_pred, begin_hook)
+      local _, complete, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, ignore_compiled, entries_count, recurse_pred, begin_hook)
       recurse_complete = recurse_complete and complete
       entries_count = n
     else
@@ -339,7 +338,7 @@ local function project_subdir_bounds(dir, filename)
 end
 
 local function rescan_project_subdir(dir, filename_rooted)
-  local new_files = get_directory_files(dir, dir.name, filename_rooted, {}, 0, core.project_subdir_is_shown, coroutine.yield)
+  local new_files = get_directory_files(dir, dir.name, filename_rooted, {}, nil, 0, core.project_subdir_is_shown, coroutine.yield)
   local index, n = 0, #dir.files
   if filename_rooted ~= "" then
     local filename = strip_leading_path(filename_rooted)
@@ -396,7 +395,7 @@ local function scan_project_folder(index)
   if not dir.force_rescan then
     dir.watch_id = system.watch_dir(dir.name)
   end
-  local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, 0, timed_max_files_pred)
+  local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, nil, 0, timed_max_files_pred)
   -- If dir.files_limit is set to TRUE it means that:
   -- * we will not read recursively all the project files and we don't index them
   -- * we read only the files for the subdirectories that are opened/expanded in the
@@ -510,7 +509,7 @@ function core.update_project_subdir(dir, filename, expanded)
   assert(dir.files_limit, "function should be called only when directory is in files limit mode")
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
-    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}, 0, core.project_subdir_is_shown) or {}
+    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}, nil, 0, core.project_subdir_is_shown) or {}
     -- ASSUMPTION: core.update_project_subdir is called only when dir.files_limit is true
     -- NOTE: we may add new directories below but we do not need to call
     -- system.watch_dir_add because the current function is called only
@@ -623,11 +622,12 @@ end
 
 
 local function project_scan_add_file(dir, filepath)
-  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath)
+  local ignore = compile_ignore_files()
+  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
   if fileinfo then
     repeat
       filepath = common.dirname(filepath)
-      local parent_info = filepath and get_project_file_info(dir.name, PATHSEP .. filepath)
+      local parent_info = filepath and get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
       if filepath and not parent_info then
         return
       end
