@@ -607,9 +607,16 @@ end
 
 
 local function project_scan_add_file(dir, filepath)
-  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, compile_ignore_files())
+  local ignore = compile_ignore_files()
+  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
   if fileinfo then
-    if not fileinfo_pass_filter(fileinfo) then return end
+    repeat
+      filepath = common.dirname(filepath)
+      local parent_info = filepath and get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
+      if filepath and not parent_info then
+        return
+      end
+    until not parent_info
     project_scan_add_entry(dir, fileinfo)
   end
 end
