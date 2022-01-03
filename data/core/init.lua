@@ -122,10 +122,37 @@ local function compare_file(a, b)
 end
 
 
+
+
+
+
 local function fileinfo_pass_filter(info)
+  if info.size >= config.file_size_limit * 1e6 then return false end
   local basename = common.basename(info.filename)
-  return (info.size < config.file_size_limit * 1e6 and
-      not common.match_pattern(basename, config.ignore_files))
+  -- replace '\' with '/' for Windows where PATHSEP = '\'
+  local fullname = "/" .. info.filename:gsub("\\", "/")
+  local ipatterns = config.ignore_files
+  -- config.ignore_files could be a simple string...
+  if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
+  for _, pattern in ipairs(ipatterns) do
+    local is_path_like = pattern:match("/[^/]") -- contains a slash but not at the end
+    local dir_pass = true
+    if pattern:match("(.+)/$") then
+      dir_pass = (info.type == "dir")
+      -- the final '/' should not participate to the match.
+      pattern = pattern:match("(.+)/$")
+    end
+    if is_path_like then
+      if fullname:match(pattern) and dir_pass then
+        return false
+      end
+    else
+      if basename:match(pattern) and dir_pass then
+        return false
+      end
+    end
+  end
+  return true
 end
 
 
