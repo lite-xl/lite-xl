@@ -82,7 +82,6 @@ end
 
 local function reload_customizations()
   core.reload_module("core.style")
-  core.reload_module("core.keymap")
   local plugins_save = {}
   for k, v in pairs(config.plugins) do
     plugins_save[k] = v
