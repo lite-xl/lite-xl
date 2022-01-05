@@ -8,10 +8,10 @@ local style = require "core.style"
 local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
 
-config.plugins.scale = common.merge({
+config.plugins.scale:default({
   mode = "code",
   use_mousewheel = true
-}, config.plugins.scale)
+})
 
 local scale_steps = 0.05
 

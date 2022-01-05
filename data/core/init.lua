@@ -1,8 +1,8 @@
 require "core.strict"
 require "core.regex"
 local common = require "core.common"
-local config = require "core.config"
 local style = require "core.style"
+local config
 local command
 local keymap
 local RootView
@@ -592,6 +592,7 @@ end
 
 
 function core.init()
+  config = require "core.config"
   command = require "core.command"
   keymap = require "core.keymap"
   RootView = require "core.rootview"

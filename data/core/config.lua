@@ -1,3 +1,5 @@
+local core = require "core"
+local common = require "core.common"
 local config = {}
 
 config.fps = 60
@@ -30,10 +32,42 @@ config.tab_close_button = true
 config.max_clicks = 3
 
 config.plugins = {}
+local function check_defaults(name, defaults, t)
+  for k, _ in pairs(t) do
+    local has_value = nil
+    for e, _ in pairs(defaults) do
+      has_value = has_value or k == "__name" or e == k
+    end
+    if not has_value then
+      core.error("Unknown config value '%s' for plugin '%s'.", k, name)
+    end
+  end
+end
+local plugin_metatable
+plugin_metatable = {
+  __index = function(t,k) 
+    return rawget(plugin_metatable, k) or rawget(t, k)
+  end,
+  __newindex = function(t, k ,v)
+    if t.__default and rawget(t, k) == nil then
+      check_defaults(rawget(t, "__name"), t, { [k] = v })
+    end
+    rawset(t, k, v)
+  end,
+  default = function(t, s) 
+    check_defaults(rawget(t, "__name"), s, t)
+    for k, v in pairs(s) do if rawget(t,k) == nil then t[k] = v end end
+    t.__default = true
+  end
+}
 -- Allow you to set plugin configs even if we haven't seen the plugin before.
 setmetatable(config.plugins, { 
   __index = function(t, k) 
-    if rawget(t, k) == nil then rawset(t, k, {}) end 
+    if rawget(t, k) == nil then 
+      local v = { __name = k } 
+      setmetatable(v, plugin_metatable)
+      rawset(t, k, v)
+    end 
     return rawget(t, k) 
   end 
 })
