@@ -152,8 +152,8 @@ command.add(nil, {
     if dirname then
       core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
     end
-    core.command_view:enter("Change Project Folder", function(text, item)
-      text = system.absolute_path(common.home_expand(item and item.text or text))
+    core.command_view:enter("Change Project Folder", function(text)
+      text = system.absolute_path(common.home_expand(text))
       if text == core.project_dir then return end
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
@@ -172,8 +172,8 @@ command.add(nil, {
     if dirname then
       core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
     end
-    core.command_view:enter("Open Project", function(text, item)
-      text = common.home_expand(item and item.text or text)
+    core.command_view:enter("Open Project", function(text)
+      text = common.home_expand(text)
       local path_stat = system.get_file_info(text)
       if not path_stat or path_stat.type ~= 'dir' then
         core.error("Cannot open folder %q", text)
