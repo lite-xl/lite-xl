@@ -62,7 +62,6 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
         dmon__strcpy(fullpath, sizeof(fullpath), watch->rootdir);
         dmon__strcat(fullpath, sizeof(fullpath), watchdir);
         if (stat(fullpath, &st) != 0 || (st.st_mode & S_IFDIR) == 0) {
-            _DMON_LOG_ERRORF("Watch directory '%s' is not valid", watchdir);
             if (!skip_lock)
                 pthread_mutex_unlock(&_dmon.mutex);
             return false;
@@ -79,7 +78,6 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     // check that the directory is not already added
     for (int i = 0, c = stb_sb_count(watch->subdirs); i < c; i++) {
         if (strcmp(subdir.rootdir, watch->subdirs[i].rootdir) == 0) {
-            _DMON_LOG_ERRORF("Error watching directory '%s', because it is already added.", watchdir);
             if (!skip_lock) 
                 pthread_mutex_unlock(&_dmon.mutex);
             return false;
@@ -92,7 +90,6 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     dmon__strcat(fullpath, sizeof(fullpath), subdir.rootdir);
     int wd = inotify_add_watch(watch->fd, fullpath, inotify_mask);
     if (wd == -1) {
-        _DMON_LOG_ERRORF("Error watching directory '%s'. (inotify_add_watch:err=%d)", watchdir, errno);
         if (!skip_lock)
             pthread_mutex_unlock(&_dmon.mutex);
         return false;
@@ -137,7 +134,6 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
         }
     }
     if (i >= c) {
-        _DMON_LOG_ERRORF("Watch directory '%s' is not valid", watchdir);
         if (!skip_lock)
             pthread_mutex_unlock(&_dmon.mutex);
         return false;
