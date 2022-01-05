@@ -1,3 +1,4 @@
+-- mod-version:2 -- lite-xl 2.0
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -161,5 +162,8 @@ function StatusView:draw()
   end
 end
 
+local view = StatusView()
+local node = core.root_view:get_active_node()
+node:split("down", view, {y = true})
 
-return StatusView
+return view

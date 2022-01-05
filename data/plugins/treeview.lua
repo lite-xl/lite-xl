@@ -595,4 +595,8 @@ keymap.add { ["ctrl+\\"] = "treeview:toggle" }
 view.toolbar = toolbar_view
 view.contextmenu = menu
 
+-- if we don't load statusview before treeview finishes we end up
+-- with a race condition and the layout is wrong
+core.try(require, "plugins.statusview")
+
 return view

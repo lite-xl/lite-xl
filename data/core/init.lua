@@ -6,12 +6,13 @@ local style = require "core.style"
 local command
 local keymap
 local RootView
-local StatusView
 local TitleView
 local CommandView
 local NagView
 local DocView
 local Doc
+
+local status_view
 
 local core = {}
 
@@ -184,7 +185,9 @@ local function show_max_files_warning(dir)
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
     "usage.md at github.com/lite-xl/lite-xl."
-  core.status_view:show_message("!", style.accent, message)
+  if status_view then
+    status_view:show_message("!", style.accent, message)
+  end
 end
 
 
@@ -595,12 +598,17 @@ function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
   RootView = require "core.rootview"
-  StatusView = require "core.statusview"
   TitleView = require "core.titleview"
   CommandView = require "core.commandview"
   NagView = require "core.nagview"
   DocView = require "core.docview"
   Doc = require "core.doc"
+
+  local ok
+  ok, status_view = core.try(require, "plugins.statusview")
+  if not ok then
+    status_view = nil
+  end
 
   if PATHSEP == '\\' then
     USERDIR = common.normalize_volume(USERDIR)
@@ -679,7 +687,6 @@ function core.init()
 
   core.root_view = RootView()
   core.command_view = CommandView()
-  core.status_view = StatusView()
   core.nag_view = NagView()
   core.title_view = TitleView()
 
@@ -690,7 +697,6 @@ function core.init()
   cur_node:split("up", core.nag_view, {y = true})
   cur_node = cur_node.b
   cur_node = cur_node:split("down", core.command_view, {y = true})
-  cur_node = cur_node:split("down", core.status_view, {y = true})
 
   command.add_defaults()
   local got_user_error = not core.load_user_directory()
@@ -1038,8 +1044,8 @@ end
 
 local function log(icon, icon_color, fmt, ...)
   local text = string.format(fmt, ...)
-  if icon then
-    core.status_view:show_message(icon, icon_color, text)
+  if icon and status_view then
+    status_view:show_message(icon, icon_color, text)
   end
 
   local info = debug.getinfo(2, "Sl")

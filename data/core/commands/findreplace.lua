@@ -5,13 +5,17 @@ local search = require "core.doc.search"
 local keymap = require "core.keymap"
 local DocView = require "core.docview"
 local CommandView = require "core.commandview"
-local StatusView = require "core.statusview"
 
 local last_view, last_fn, last_text, last_sel
 
 local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
 local found_expression
+
+local ok, status_view = core.try(require, "plugins.statusview")
+if not ok then
+  status_view = nil
+end
 
 local function doc()
   local is_DocView = core.active_view:is(DocView) and not core.active_view:is(CommandView)
@@ -59,12 +63,12 @@ local function find(label, search_fn)
   found_expression = false
 
   core.command_view:set_text(text, true)
-  core.status_view:show_tooltip(get_find_tooltip())
+  status_view:show_tooltip(get_find_tooltip())
 
   core.command_view:set_hidden_suggestions()
   core.command_view:enter(label, function(text, item)
     insert_unique(core.previous_find, text)
-    core.status_view:remove_tooltip()
+    status_view:remove_tooltip()
     if found_expression then
       last_fn, last_text = search_fn, text
     else
@@ -77,7 +81,7 @@ local function find(label, search_fn)
     last_fn, last_text = search_fn, text
     return core.previous_find
   end, function(explicit)
-    core.status_view:remove_tooltip()
+    status_view:remove_tooltip()
     if explicit then
       last_view.doc:set_selection(table.unpack(last_sel))
       last_view:scroll_to_make_visible(table.unpack(last_sel))
@@ -89,7 +93,7 @@ end
 local function replace(kind, default, fn)
   core.command_view:set_text(default, true)
 
-  core.status_view:show_tooltip(get_find_tooltip())
+  status_view:show_tooltip(get_find_tooltip())
   core.command_view:set_hidden_suggestions()
   core.command_view:enter("Find To Replace " .. kind, function(old)
     insert_unique(core.previous_find, old)
@@ -98,17 +102,17 @@ local function replace(kind, default, fn)
     local s = string.format("Replace %s %q With", kind, old)
     core.command_view:set_hidden_suggestions()
     core.command_view:enter(s, function(new)
-      core.status_view:remove_tooltip()
+      status_view:remove_tooltip()
       insert_unique(core.previous_replace, new)
       local n = doc():replace(function(text)
         return fn(text, old, new)
       end)
       core.log("Replaced %d instance(s) of %s %q with %q", n, kind, old, new)
     end, function() return core.previous_replace end, function()
-      core.status_view:remove_tooltip()
+      status_view:remove_tooltip()
     end)
   end, function() return core.previous_find end, function()
-    core.status_view:remove_tooltip()
+    status_view:remove_tooltip()
   end)
 end
 
@@ -257,13 +261,13 @@ command.add(valid_for_finding, {
 command.add("core.commandview", {
   ["find-replace:toggle-sensitivity"] = function()
     case_sensitive = not case_sensitive
-    core.status_view:show_tooltip(get_find_tooltip())
+    status_view:show_tooltip(get_find_tooltip())
     if last_sel then update_preview(last_sel, last_fn, last_text) end
   end,
 
   ["find-replace:toggle-regex"] = function()
     find_regex = not find_regex
-    core.status_view:show_tooltip(get_find_tooltip())
+    status_view:show_tooltip(get_find_tooltip())
     if last_sel then update_preview(last_sel, last_fn, last_text) end
   end
 })
