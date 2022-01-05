@@ -224,14 +224,14 @@ end
 
 
 function core.project_subdir_set_show(dir, filename, show)
-  dir.shown_subdir[filename] = show
   if dir.files_limit and not dir.force_rescan then
     local fullpath = dir.name .. PATHSEP .. filename
-    local success = (show and system.watch_dir_add or system.watch_dir_rm)(dir.watch_id, fullpath)
-    if not success then
-      core.log("Internal warning: error calling system.watch_dir_%s", show and "add" or "rm")
+    if not (show and system.watch_dir_add or system.watch_dir_rm)(dir.watch_id, fullpath) then
+      return false
     end
   end
+  dir.shown_subdir[filename] = show
+  return true
 end
 
 
