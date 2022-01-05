@@ -133,7 +133,9 @@ end
 -- in project scan or falsy if it shouldn't appear in the list.
 local function get_project_file_info(root, file)
   local info = system.get_file_info(root .. file)
-  if info then
+  -- info can be not nil but info.type may be nil if is neither a file neither
+  -- a directory, for example for /dev/* entries on linux.
+  if info and info.type then
     info.filename = strip_leading_path(file)
     return fileinfo_pass_filter(info) and info
   end
