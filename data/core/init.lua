@@ -440,13 +440,27 @@ local function rescan_project_directories()
   for i = 1, n do -- add again the directories in the project
     local dir = core.add_project_directory(save_project_dirs[i].name)
     if dir.files_limit then
-      for subdir, show in pairs(save_project_dirs[i].shown_subdir) do
+      -- We need to sort the list of shown subdirectories so that higher level
+      -- directories are populated first. We use the function system.path_compare
+      -- because it order the entries in the appropriate order.
+      -- TODO: we may consider storing the table shown_subdir as a sorted table
+      -- since the beginning.
+      local subdir_list = {}
+      for subdir in pairs(save_project_dirs[i].shown_subdir) do
+        table.insert(subdir_list, subdir)
+      end
+      table.sort(subdir_list, function(a, b) return system.path_compare(a, "dir", b, "dir") end)
+      for _, subdir in ipairs(subdir_list) do
+        local show = save_project_dirs[i].shown_subdir[subdir]
         for j = 1, #dir.files do
           if dir.files[j].filename == subdir then
             -- The instructions below match when happens in TreeView:on_mouse_pressed.
             -- We perform the operations only once iff the subdir is in dir.files.
-            core.update_project_subdir(dir, subdir, show)
+            -- In theory set_show below may fail and return false but is it is listed
+            -- there it means it succeeded before so we are optimistically assume it
+            -- will not fail for the sake of simplicity.
             core.project_subdir_set_show(dir, subdir, show)
+            core.update_project_subdir(dir, subdir, show)
             break
           end
         end
