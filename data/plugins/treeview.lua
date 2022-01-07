@@ -402,6 +402,12 @@ function RootView:draw(...)
   menu:draw()
 end
 
+local on_quit_project = core.on_quit_project
+function core.on_quit_project()
+  view.cache = {}
+  on_quit_project()
+end
+
 local function is_project_folder(path)
   return common.basename(core.project_dir) == path
 end
