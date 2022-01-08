@@ -107,7 +107,8 @@ typedef enum dmon_error_enum {
     DMON_ERROR_OPEN_DIR,
     DMON_ERROR_MONITOR_FAIL,
     DMON_ERROR_UNSUPPORTED_SYMLINK,
-    DMON_ERROR_END,
+    DMON_ERROR_SUBDIR_LOCATION,
+    DMON_ERROR_END
 } dmon_error;
 
 #ifdef __cplusplus
@@ -364,6 +365,7 @@ static const char *dmon__errors[] = {
     "Error opening directory",
     "Error enabling monitoring",
     "Error support for symlink disabled",
+    "Error not a subdirectory",
 };
 
 DMON_API_IMPL const char *dmon_error_str(dmon_error err) {

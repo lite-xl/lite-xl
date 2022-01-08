@@ -753,7 +753,14 @@ static int f_watch_dir_add(lua_State *L) {
   dmon_watch_id watch_id;
   watch_id.id = luaL_checkinteger(L, 1);
   const char *subdir = luaL_checkstring(L, 2);
-  lua_pushboolean(L, dmon_watch_add(watch_id, subdir));
+  dmon_error error_code;
+  int success = dmon_watch_add(watch_id, subdir, &error_code)
+  if (!success) {
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, dmon_error_str(error_code));
+    return 2;
+  }
+  lua_pushboolean(L, 1);
   return 1;
 }
 
