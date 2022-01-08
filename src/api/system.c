@@ -639,7 +639,7 @@ static int f_set_clipboard(lua_State *L) {
 
 static int f_get_time(lua_State *L) {
   double n = SDL_GetPerformanceCounter() / (double) SDL_GetPerformanceFrequency();
-  lua_pushinteger(L, n);
+  lua_pushnumber(L, n);
   return 1;
 }
 
