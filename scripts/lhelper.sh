@@ -7,6 +7,9 @@ show_help() {
   echo
   echo "Available options:"
   echo
+  echo "   --install              Install lhelper."
+  echo "   --setup                Setup lite-xl environment."
+  echo
   echo "   --debug                Debug this script."
   echo "-h --help                 Show this help and exit."
   echo "-p --prefix PREFIX        Install directory prefix."
@@ -38,9 +41,9 @@ setup() {
   # Not using $(lhelper activate lite-xl) to support CI
   source "$(lhelper env-source lite-xl)"
 
-  while read -r line; do
+  tr -d '\r' < resources/lhelper-lockfile | while read -r line; do
     lhelper install $line
-  done < resources/lhelper-lockfile
+  done
 
   # Help MSYS2 to find the SDL2 include and lib directories to avoid errors
   # during build and linking when using lhelper.
