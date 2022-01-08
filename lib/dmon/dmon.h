@@ -409,6 +409,7 @@ typedef struct dmon__state {
     volatile LONG modify_watches;
     dmon__win32_event* events;
     bool quit;
+    HANDLE wake_event;
 } dmon__state;
 
 static bool _dmon_init;
@@ -494,7 +495,7 @@ _DMON_PRIVATE void dmon__win32_process_events(void)
 _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
 {
     _DMON_UNUSED(arg);
-    HANDLE wait_handles[DMON_MAX_WATCHES];
+    HANDLE wait_handles[DMON_MAX_WATCHES + 1];
 
     SYSTEMTIME starttm;
     GetSystemTime(&starttm);
@@ -517,9 +518,12 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
             wait_handles[i] = watch->overlapped.hEvent;
         }
 
-        DWORD wait_result = WaitForMultipleObjects(_dmon.num_watches, wait_handles, FALSE, 10);
-        // FIXME: do not check for WAIT_ABANDONED_<n>, check if that can happen.
-        if (wait_result != WAIT_TIMEOUT && wait_result != WAIT_FAILED) {
+        const int n = _dmon.num_watches;
+        wait_handles[n] = _dmon.wake_event;
+        DWORD wait_result = WaitForMultipleObjects(n + 1, wait_handles, FALSE, INFINITE);
+        DMON_ASSERT(wait_result != WAIT_TIMEOUT);
+        // NOTE: maybe we should check for WAIT_ABANDONED_<n> values if that can happen.
+        if (wait_result != WAIT_FAILED && wait_result != WAIT_OBJECT_0 + n) {
             dmon__watch_state* watch = &_dmon.watches[wait_result - WAIT_OBJECT_0];
 
             DWORD bytes;
@@ -586,6 +590,7 @@ DMON_API_IMPL void dmon_init(void)
 
     _dmon.thread_handle =
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)dmon__thread, NULL, 0, NULL);
+    _dmon.wake_event = CreateEvent(NULL, FALSE, FALSE, NULL);
     DMON_ASSERT(_dmon.thread_handle);
     _dmon_init = true;
 }
@@ -673,6 +678,7 @@ DMON_API_IMPL void dmon_unwatch(dmon_watch_id id)
     DMON_ASSERT(id.id > 0);
 
     _InterlockedExchange(&_dmon.modify_watches, 1);
+    SetEvent(_dmon.wake_event);
     EnterCriticalSection(&_dmon.mutex);
 
     int index = id.id - 1;
