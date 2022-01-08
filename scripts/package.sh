@@ -20,6 +20,7 @@ show_help() {
   echo "-h --help                 Show this help and exit."
   echo "-p --prefix PREFIX        Install directory prefix. Default: '/'."
   echo "-v --version VERSION      Sets the version on the package name."
+  echo "-a --arch ARCH            Sets the architecture of the package."
   echo "   --addons               Install 3rd party addons (currently Lite XL colors)."
   echo "   --debug                Debug this script."
   echo "-A --appimage             Create an AppImage (Linux only)."
@@ -121,6 +122,11 @@ main() {
         ;;
       -v|--version)
         if [[ -n $2 ]]; then version="-$2"; fi
+        shift
+        shift
+        ;;
+      -a|--arch)
+        arch="$2"
         shift
         shift
         ;;
