@@ -42,8 +42,9 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir, dmon_e
 
     bool skip_lock = pthread_self() == _dmon.thread_handle;
 
-    if (!skip_lock)
-        pthread_mutex_lock(&_dmon.mutex);
+    if (!skip_lock) {
+        dmon__mutex_wakeup_lock();
+    }
 
     dmon__watch_state* watch = &_dmon.watches[id.id - 1];
 
@@ -115,8 +116,9 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
 
     bool skip_lock = pthread_self() == _dmon.thread_handle;
 
-    if (!skip_lock)
-        pthread_mutex_lock(&_dmon.mutex);
+    if (!skip_lock) {
+        dmon__mutex_wakeup_lock();
+    }
 
     dmon__watch_state* watch = &_dmon.watches[id.id - 1];
 

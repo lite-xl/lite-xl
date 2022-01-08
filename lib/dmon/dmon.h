@@ -727,6 +727,8 @@ typedef struct dmon__state {
     int num_watches;
     pthread_t thread_handle;
     pthread_mutex_t mutex;
+    int wait_flag;
+    int wake_event_pipe[2];
     bool quit;
 } dmon__state;
 
@@ -1012,29 +1014,39 @@ static void* dmon__thread(void* arg)
     static uint8_t buff[_DMON_TEMP_BUFFSIZE];
     struct timespec req = { (time_t)10 / 1000, (long)(10 * 1000000) };
     struct timespec rem = { 0, 0 };
-    struct timeval timeout;
     uint64_t usecs_elapsed = 0;
 
     struct timeval starttm;
     gettimeofday(&starttm, 0);
 
+    int debug_count = 0;
     while (!_dmon.quit) {
         nanosleep(&req, &rem);
-        if (_dmon.num_watches == 0 || pthread_mutex_trylock(&_dmon.mutex) != 0) {
+        if (_dmon.num_watches == 0 || _dmon.wait_flag == 1 || pthread_mutex_trylock(&_dmon.mutex) != 0) {
             continue;
         }
 
         // Create read FD set
         fd_set rfds;
         FD_ZERO(&rfds);
-        for (int i = 0; i < _dmon.num_watches; i++) {
+        const int n = _dmon.num_watches;
+        int nfds = 0;
+        for (int i = 0; i < n; i++) {
             dmon__watch_state* watch = &_dmon.watches[i];
             FD_SET(watch->fd, &rfds);
+            if (watch->fd > nfds)
+                nfds = watch->fd;
         }
+        int wake_fd = _dmon.wake_event_pipe[0];
+        FD_SET(wake_fd, &rfds);
+        if (wake_fd > nfds)
+            nfds = wake_fd;
 
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 100000;
-        if (select(FD_SETSIZE, &rfds, NULL, NULL, &timeout)) {
+        if (select(nfds + 1, &rfds, NULL, NULL, NULL)) {
+            if (FD_ISSET(wake_fd, &rfds)) {
+                char read_char;
+                read(wake_fd, &read_char, 1);
+            }
             for (int i = 0; i < _dmon.num_watches; i++) {
                 dmon__watch_state* watch = &_dmon.watches[i];
                 if (FD_ISSET(watch->fd, &rfds)) {
@@ -1084,6 +1096,16 @@ static void* dmon__thread(void* arg)
     return 0x0;
 }
 
+_DMON_PRIVATE void dmon__mutex_wakeup_lock() {
+    _dmon.wait_flag = 1;
+    if (pthread_mutex_trylock(&_dmon.mutex) != 0) {
+        char send_char = 1;
+        write(_dmon.wake_event_pipe[1], &send_char, 1);
+        pthread_mutex_lock(&_dmon.mutex);
+    }
+    _dmon.wait_flag = 0;
+}
+
 _DMON_PRIVATE void dmon__unwatch(dmon__watch_state* watch)
 {
     close(watch->fd);
@@ -1097,6 +1119,9 @@ DMON_API_IMPL void dmon_init(void)
     DMON_ASSERT(!_dmon_init);
     pthread_mutex_init(&_dmon.mutex, NULL);
 
+    _dmon.wait_flag = 0;
+    int ret_pipe = pipe(_dmon.wake_event_pipe);
+    DMON_ASSERT(ret_pipe == 0);
     int r = pthread_create(&_dmon.thread_handle, NULL, dmon__thread, NULL);
     _DMON_UNUSED(r);
     DMON_ASSERT(r == 0 && "pthread_create failed");
@@ -1107,12 +1132,14 @@ DMON_API_IMPL void dmon_deinit(void)
 {
     DMON_ASSERT(_dmon_init);
     _dmon.quit = true;
+    dmon__mutex_wakeup_lock();
     pthread_join(_dmon.thread_handle, NULL);
 
     for (int i = 0; i < _dmon.num_watches; i++) {
         dmon__unwatch(&_dmon.watches[i]);
     }
 
+    pthread_mutex_unlock(&_dmon.mutex);
     pthread_mutex_destroy(&_dmon.mutex);
     stb_sb_free(_dmon.events);
     _dmon_init = false;
@@ -1127,7 +1154,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
 
-    pthread_mutex_lock(&_dmon.mutex);
+    dmon__mutex_wakeup_lock();
 
     DMON_ASSERT(_dmon.num_watches < DMON_MAX_WATCHES);
 
@@ -1206,7 +1233,7 @@ DMON_API_IMPL void dmon_unwatch(dmon_watch_id id)
 {
     DMON_ASSERT(id.id > 0);
 
-    pthread_mutex_lock(&_dmon.mutex);
+    dmon__mutex_wakeup_lock();
 
     int index = id.id - 1;
     DMON_ASSERT(index < _dmon.num_watches);
