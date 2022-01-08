@@ -47,9 +47,12 @@ if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
     threads_dep = dependency('threads')
-    lua_dep = dependency('lua5.2', fallback: ['lua', 'lua_dep'],
-        default_options: ['shared=false', 'use_readline=false', 'app=false']
-    )
+    lua_dep = dependency('lua5.4', required : false)
+    if not lua_dep.found()
+        lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'],
+            default_options: ['line_editing=false', 'default_library=static']
+        )
+    endif
     pcre2_dep = dependency('libpcre2-8')
     freetype_dep = dependency('freetype2')
     sdl_dep = dependency('sdl2')

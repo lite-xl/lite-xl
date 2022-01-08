@@ -55,7 +55,7 @@ end
 local function find(label, search_fn)
   last_view, last_sel = core.active_view,
     { core.active_view.doc:get_selection() }
-  local text = last_view.doc:get_text(unpack(last_sel))
+  local text = last_view.doc:get_text(table.unpack(last_sel))
   found_expression = false
 
   core.command_view:set_text(text, true)

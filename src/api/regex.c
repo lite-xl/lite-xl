@@ -104,17 +104,17 @@ int luaopen_regex(lua_State *L) {
   lua_setfield(L, -2, "__name");
   lua_pushvalue(L, -1);
   lua_setfield(L, LUA_REGISTRYINDEX, "regex");
-  lua_pushnumber(L, PCRE2_ANCHORED);
+  lua_pushinteger(L, PCRE2_ANCHORED);
   lua_setfield(L, -2, "ANCHORED");
-  lua_pushnumber(L, PCRE2_ANCHORED) ;
+  lua_pushinteger(L, PCRE2_ANCHORED) ;
   lua_setfield(L, -2, "ENDANCHORED");
-  lua_pushnumber(L, PCRE2_NOTBOL);
+  lua_pushinteger(L, PCRE2_NOTBOL);
   lua_setfield(L, -2, "NOTBOL");
-  lua_pushnumber(L, PCRE2_NOTEOL);
+  lua_pushinteger(L, PCRE2_NOTEOL);
   lua_setfield(L, -2, "NOTEOL");
-  lua_pushnumber(L, PCRE2_NOTEMPTY);
+  lua_pushinteger(L, PCRE2_NOTEMPTY);
   lua_setfield(L, -2, "NOTEMPTY");
-  lua_pushnumber(L, PCRE2_NOTEMPTY_ATSTART);
+  lua_pushinteger(L, PCRE2_NOTEMPTY_ATSTART);
   lua_setfield(L, -2, "NOTEMPTY_ATSTART");
   return 1;
 }

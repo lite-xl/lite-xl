@@ -124,7 +124,7 @@ function StatusView:get_items()
       col > config.line_limit and style.accent or style.text, "col: ", col,
       style.text,
       self.separator,
-      string.format("%d%%", line / #dv.doc.lines * 100),
+      string.format("%.f%%", line / #dv.doc.lines * 100),
     }, {
       style.text, indent_label, indent_size,
       style.dim, self.separator2, style.text,
