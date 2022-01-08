@@ -394,7 +394,12 @@ local function scan_project_folder(index)
   local fstype = system.get_fs_type(dir.name)
   dir.force_rescan = (fstype == "nfs" or fstype == "fuse")
   if not dir.force_rescan then
-    dir.watch_id = system.watch_dir(dir.name)
+    local watch_err
+    dir.watch_id, watch_err = system.watch_dir(dir.name)
+    if not dir.watch_id then
+      core.log("Watch directory %s: %s", dir.name, watch_err)
+      dir.force_rescan = true
+    end
   end
   local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, nil, 0, timed_max_files_pred)
   -- If dir.files_limit is set to TRUE it means that:

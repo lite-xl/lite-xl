@@ -52,6 +52,8 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     // else, we assume that watchdir is correct, so save it as it is
     struct stat st;
     dmon__watch_subdir subdir;
+    // FIXME: check if it is a symlink and respect DMON_WATCHFLAGS_FOLLOW_SYMLINKS
+    // to resolve the link.
     if (stat(watchdir, &st) == 0 && (st.st_mode & S_IFDIR)) {
         dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watchdir);
         if (strstr(subdir.rootdir, watch->rootdir) == subdir.rootdir) {
