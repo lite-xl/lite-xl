@@ -44,9 +44,6 @@
 //      DMON_ASSERT:
 //          define this to provide your own assert
 //          default is 'assert'
-//      DMON_LOG_ERROR:
-//          define this to provide your own logging mechanism
-//          default implementation logs to stdout and breaks the program
 //      DMON_LOG_DEBUG
 //          define this to provide your own extra debug logging mechanism
 //          default implementation logs to stdout in DEBUG and does nothing in other builds
@@ -104,9 +101,20 @@ typedef enum dmon_action_t {
     DMON_ACTION_MOVE
 } dmon_action;
 
+typedef enum dmon_error_enum {
+    DMON_SUCCESS = 0,
+    DMON_ERROR_WATCH_DIR,
+    DMON_ERROR_OPEN_DIR,
+    DMON_ERROR_MONITOR_FAIL,
+    DMON_ERROR_UNSUPPORTED_SYMLINK,
+    DMON_ERROR_END,
+} dmon_error;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+DMON_API_DECL const char *dmon_error_str(dmon_error err);
 
 DMON_API_DECL void dmon_init(void);
 DMON_API_DECL void dmon_deinit(void);
@@ -115,7 +123,7 @@ DMON_API_DECL  dmon_watch_id dmon_watch(const char* rootdir,
                          void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                           const char* rootdir, const char* filepath,
                                           const char* oldfilepath, void* user),
-                         uint32_t flags, void* user_data);
+                         uint32_t flags, void* user_data, dmon_error *error_code);
 DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 
 #ifdef __cplusplus
@@ -171,6 +179,7 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #    include <stdlib.h>
 /* Recursive removed for Lite XL when using inotify. */
 #    define LITE_XL_DISABLE_INOTIFY_RECURSIVE
+#    define DMON_LOG_DEBUG(s)
 #elif DMON_OS_MACOS
 #   include <pthread.h>
 #   include <CoreServices/CoreServices.h>
@@ -189,11 +198,6 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #ifndef DMON_ASSERT
 #   include <assert.h>
 #   define DMON_ASSERT(e)   assert(e)
-#endif
-
-#ifndef DMON_LOG_ERROR
-#   include <stdio.h>
-#   define DMON_LOG_ERROR(s)    do { puts(s); DMON_ASSERT(0); } while(0)
 #endif
 
 #ifndef DMON_LOG_DEBUG
@@ -224,10 +228,6 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #endif
 
 #include <string.h>
-
-#ifndef _DMON_LOG_ERRORF
-#   define _DMON_LOG_ERRORF(str, ...) do { char msg[512]; snprintf(msg, sizeof(msg), str, __VA_ARGS__); DMON_LOG_ERROR(msg); } while(0);
-#endif
 
 #ifndef _DMON_LOG_DEBUGF
 #   define _DMON_LOG_DEBUGF(str, ...) do { char msg[512]; snprintf(msg, sizeof(msg), str, __VA_ARGS__); DMON_LOG_DEBUG(msg); } while(0);
@@ -357,6 +357,19 @@ static void * stb__sbgrowf(void *arr, int increment, int itemsize)
 
 // watcher callback (same as dmon.h's decleration)
 typedef void (dmon__watch_cb)(dmon_watch_id, dmon_action, const char*, const char*, const char*, void*);
+
+static const char *dmon__errors[] = {
+    "Success",
+    "Error watching directory",
+    "Error opening directory",
+    "Error enabling monitoring",
+    "Error support for symlink disabled",
+};
+
+DMON_API_IMPL const char *dmon_error_str(dmon_error err) {
+    DMON_ASSERT(err >= 0 && err < DMON_ERROR_END);
+    return dmon__errors[(int) err];
+}
 
 #if DMON_OS_WINDOWS
 // IOCP (windows)
@@ -503,13 +516,13 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
         }
 
         DWORD wait_result = WaitForMultipleObjects(_dmon.num_watches, wait_handles, FALSE, 10);
-        DMON_ASSERT(wait_result != WAIT_FAILED);
-        if (wait_result != WAIT_TIMEOUT) {
+        // FIXME: do not check for WAIT_ABANDONED_<n>, check if that can happen.
+        if (wait_result != WAIT_TIMEOUT && wait_result != WAIT_FAILED) {
             dmon__watch_state* watch = &_dmon.watches[wait_result - WAIT_OBJECT_0];
-            DMON_ASSERT(HasOverlappedIoCompleted(&watch->overlapped));
 
             DWORD bytes;
-            if (GetOverlappedResult(watch->dir_handle, &watch->overlapped, &bytes, FALSE)) {
+            if (HasOverlappedIoCompleted(&watch->overlapped) &&
+                GetOverlappedResult(watch->dir_handle, &watch->overlapped, &bytes, FALSE)) {
                 char filepath[DMON_MAX_PATH];
                 PFILE_NOTIFY_INFORMATION notify;
                 size_t offset = 0;
@@ -598,7 +611,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                        void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                                         const char* dirname, const char* filename,
                                                         const char* oldname, void* user),
-                                       uint32_t flags, void* user_data)
+                                       uint32_t flags, void* user_data, dmon_error *error_code)
 {
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
@@ -632,17 +645,17 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME |
                                FILE_NOTIFY_CHANGE_SIZE;
         watch->overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-        DMON_ASSERT(watch->overlapped.hEvent != INVALID_HANDLE_VALUE);
 
-        if (!dmon__refresh_watch(watch)) {
+        if (watch->overlapped.hEvent == INVALID_HANDLE_VALUE ||
+            !dmon__refresh_watch(watch)) {
             dmon__unwatch(watch);
-            DMON_LOG_ERROR("ReadDirectoryChanges failed");
+            *error_code = DMON_ERROR_WATCH_DIR;
             LeaveCriticalSection(&_dmon.mutex);
             _InterlockedExchange(&_dmon.modify_watches, 0);
             return dmon__make_id(0);
         }
     } else {
-        _DMON_LOG_ERRORF("Could not open: %s", rootdir);
+        *error_code = DMON_ERROR_OPEN_DIR;
         LeaveCriticalSection(&_dmon.mutex);
         _InterlockedExchange(&_dmon.modify_watches, 0);
         return dmon__make_id(0);
@@ -714,7 +727,9 @@ static dmon__state _dmon;
 
 /* Implementation of recursive monitoring was removed on Linux for the Lite XL
  * application. It is never used with recent version of Lite XL starting from 2.0.5
- * and recursive monitoring with inotify was always problematic and half-broken. */
+ * and recursive monitoring with inotify was always problematic and half-broken.
+ * Do not cover the new calling signature with error_code because not used by
+ * Lite XL. */
 #ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
 _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t mask,
                                          bool followlinks, dmon__watch_state* watch)
@@ -1099,7 +1114,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                        void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                                         const char* dirname, const char* filename,
                                                         const char* oldname, void* user),
-                                       uint32_t flags, void* user_data)
+                                       uint32_t flags, void* user_data, dmon_error *error_code)
 {
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
@@ -1118,7 +1133,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     struct stat root_st;
     if (stat(rootdir, &root_st) != 0 || !S_ISDIR(root_st.st_mode) ||
         (root_st.st_mode & S_IRUSR) != S_IRUSR) {
-        _DMON_LOG_ERRORF("Could not open/read directory: %s", rootdir);
+        *error_code = DMON_ERROR_OPEN_DIR;
         pthread_mutex_unlock(&_dmon.mutex);
         return dmon__make_id(0);
     }
@@ -1133,8 +1148,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
 
             dmon__strcpy(watch->rootdir, sizeof(watch->rootdir) - 1, linkpath);
         } else {
-            _DMON_LOG_ERRORF("symlinks are unsupported: %s. use DMON_WATCHFLAGS_FOLLOW_SYMLINKS",
-                             rootdir);
+            *error_code = DMON_ERROR_UNSUPPORTED_SYMLINK;
             pthread_mutex_unlock(&_dmon.mutex);
             return dmon__make_id(0);
         }
@@ -1151,7 +1165,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
 
     watch->fd = inotify_init();
     if (watch->fd < -1) {
-        DMON_LOG_ERROR("could not create inotify instance");
+        *error_code = DMON_ERROR_MONITOR_FAIL;
         pthread_mutex_unlock(&_dmon.mutex);
         return dmon__make_id(0);
     }
@@ -1159,7 +1173,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     uint32_t inotify_mask = IN_MOVED_TO | IN_CREATE | IN_MOVED_FROM | IN_DELETE | IN_MODIFY;
     int wd = inotify_add_watch(watch->fd, watch->rootdir, inotify_mask);
     if (wd < 0) {
-       _DMON_LOG_ERRORF("Error watching directory '%s'. (inotify_add_watch:err=%d)", watch->rootdir, errno);
+        *error_code = DMON_ERROR_WATCH_DIR;
         pthread_mutex_unlock(&_dmon.mutex);
         return dmon__make_id(0);
     }
@@ -1491,7 +1505,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                        void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                                         const char* dirname, const char* filename,
                                                         const char* oldname, void* user),
-                                       uint32_t flags, void* user_data)
+                                       uint32_t flags, void* user_data, dmon_error *error_code)
 {
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
@@ -1511,7 +1525,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     struct stat root_st;
     if (stat(rootdir, &root_st) != 0 || !S_ISDIR(root_st.st_mode) ||
         (root_st.st_mode & S_IRUSR) != S_IRUSR) {
-        _DMON_LOG_ERRORF("Could not open/read directory: %s", rootdir);
+        *error_code = DMON_ERROR_OPEN_DIR;
         pthread_mutex_unlock(&_dmon.mutex);
         __sync_lock_test_and_set(&_dmon.modify_watches, 0);
         return dmon__make_id(0);
@@ -1526,7 +1540,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
 
             dmon__strcpy(watch->rootdir, sizeof(watch->rootdir) - 1, linkpath);
         } else {
-            _DMON_LOG_ERRORF("symlinks are unsupported: %s. use DMON_WATCHFLAGS_FOLLOW_SYMLINKS", rootdir);
+            *error_code = DMON_ERROR_UNSUPPORTED_SYMLINK;
             pthread_mutex_unlock(&_dmon.mutex);
             __sync_lock_test_and_set(&_dmon.modify_watches, 0);
             return dmon__make_id(0);

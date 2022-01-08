@@ -724,12 +724,19 @@ static int f_watch_dir(lua_State *L) {
    * using the function system.watch_dir_add/rm. On other systems we watch recursively
    * and system.watch_dir_add/rm are dummy functions that always returns true. */
 #if __linux__
-  const uint32_t dmon_flags = 0;
+  const uint32_t dmon_flags = DMON_WATCHFLAGS_FOLLOW_SYMLINKS;
+#elif __APPLE__
+  const uint32_t dmon_flags = DMON_WATCHFLAGS_FOLLOW_SYMLINKS | DMON_WATCHFLAGS_RECURSIVE;
 #else
   const uint32_t dmon_flags = DMON_WATCHFLAGS_RECURSIVE;
 #endif
-  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL);
-  if (watch_id.id == 0) { luaL_error(L, "directory monitoring watch failed"); }
+  dmon_error error;
+  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL, &error);
+  if (watch_id.id == 0) {
+    lua_pushnil(L);
+    lua_pushstring(L, dmon_error_str(error));
+    return 2;
+  }
   lua_pushnumber(L, watch_id.id);
   return 1;
 }
