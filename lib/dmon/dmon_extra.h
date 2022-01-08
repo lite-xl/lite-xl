@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-DMON_API_DECL bool dmon_watch_add(dmon_watch_id id, const char* subdir);
+DMON_API_DECL bool dmon_watch_add(dmon_watch_id id, const char* subdir, dmon_error *error_code);
 DMON_API_DECL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir);
 
 #ifdef __cplusplus
@@ -36,7 +36,7 @@ DMON_API_DECL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir);
 
 #ifdef DMON_IMPL
 #if DMON_OS_LINUX
-DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
+DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir, dmon_error *error_code)
 {
     DMON_ASSERT(id.id > 0 && id.id <= DMON_MAX_WATCHES);
 
@@ -64,6 +64,7 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
         dmon__strcpy(fullpath, sizeof(fullpath), watch->rootdir);
         dmon__strcat(fullpath, sizeof(fullpath), watchdir);
         if (stat(fullpath, &st) != 0 || (st.st_mode & S_IFDIR) == 0) {
+            *error_code = DMON_ERROR_UNSUPPORTED_SYMLINK;
             if (!skip_lock)
                 pthread_mutex_unlock(&_dmon.mutex);
             return false;
@@ -80,6 +81,7 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     // check that the directory is not already added
     for (int i = 0, c = stb_sb_count(watch->subdirs); i < c; i++) {
         if (strcmp(subdir.rootdir, watch->subdirs[i].rootdir) == 0) {
+            *error_code = DMON_ERROR_SUBDIR_LOCATION;
             if (!skip_lock) 
                 pthread_mutex_unlock(&_dmon.mutex);
             return false;
@@ -92,6 +94,7 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     dmon__strcat(fullpath, sizeof(fullpath), subdir.rootdir);
     int wd = inotify_add_watch(watch->fd, fullpath, inotify_mask);
     if (wd == -1) {
+        *error_code = DMON_ERROR_WATCH_DIR;
         if (!skip_lock)
             pthread_mutex_unlock(&_dmon.mutex);
         return false;
@@ -136,6 +139,7 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
         }
     }
     if (i >= c) {
+        *error_code = DMON_ERROR_SUBDIR_LOCATION;
         if (!skip_lock)
             pthread_mutex_unlock(&_dmon.mutex);
         return false;
