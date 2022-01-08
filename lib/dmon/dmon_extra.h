@@ -139,7 +139,6 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
         }
     }
     if (i >= c) {
-        *error_code = DMON_ERROR_SUBDIR_LOCATION;
         if (!skip_lock)
             pthread_mutex_unlock(&_dmon.mutex);
         return false;
