@@ -28,16 +28,16 @@ install() {
     # export PATH="${HOME}/.local/bin:${PATH}"
     mkdir -p "${lhelper_prefix}/bin"
     pushd lhelper; bash install "${lhelper_prefix}"; popd
-
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-      CC=clang CXX=clang++ lhelper create lite-xl -n
-    else
-      lhelper create lite-xl -n
-    fi
   fi
 }
 
 setup() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    CC=clang CXX=clang++ lhelper create lite-xl -n
+  else
+    lhelper create lite-xl -n
+  fi
+
   # Not using $(lhelper activate lite-xl) to support CI
   source "$(lhelper env-source lite-xl)"
 
