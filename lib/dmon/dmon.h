@@ -595,11 +595,19 @@ DMON_API_IMPL void dmon_init(void)
     _dmon_init = true;
 }
 
+static void dmon__enter_critical_wakeup() {
+    _InterlockedExchange(&_dmon.modify_watches, 1);
+    if (TryEnterCriticalSection(&_dmon.mutex) == 0) {
+        SetEvent(_dmon.wake_event);
+        EnterCriticalSection(&_dmon.mutex);
+    }
+}
 
 DMON_API_IMPL void dmon_deinit(void)
 {
     DMON_ASSERT(_dmon_init);
     _dmon.quit = true;
+    dmon__enter_critical_wakeup();
     if (_dmon.thread_handle != INVALID_HANDLE_VALUE) {
         WaitForSingleObject(_dmon.thread_handle, INFINITE);
         CloseHandle(_dmon.thread_handle);
@@ -609,6 +617,7 @@ DMON_API_IMPL void dmon_deinit(void)
         dmon__unwatch(&_dmon.watches[i]);
     }
 
+    LeaveCriticalSection(&_dmon.mutex);
     DeleteCriticalSection(&_dmon.mutex);
     stb_sb_free(_dmon.events);
     _dmon_init = false;
@@ -623,8 +632,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
 
-    _InterlockedExchange(&_dmon.modify_watches, 1);
-    EnterCriticalSection(&_dmon.mutex);
+    dmon__enter_critical_wakeup();
 
     DMON_ASSERT(_dmon.num_watches < DMON_MAX_WATCHES);
 
@@ -677,9 +685,7 @@ DMON_API_IMPL void dmon_unwatch(dmon_watch_id id)
 {
     DMON_ASSERT(id.id > 0);
 
-    _InterlockedExchange(&_dmon.modify_watches, 1);
-    SetEvent(_dmon.wake_event);
-    EnterCriticalSection(&_dmon.mutex);
+    dmon__enter_critical_wakeup();
 
     int index = id.id - 1;
     DMON_ASSERT(index < _dmon.num_watches);
