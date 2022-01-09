@@ -520,10 +520,10 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
 
         const int n = _dmon.num_watches;
         wait_handles[n] = _dmon.wake_event;
-        DWORD wait_result = WaitForMultipleObjects(n + 1, wait_handles, FALSE, INFINITE);
-        DMON_ASSERT(wait_result != WAIT_TIMEOUT);
+        const int n_pending = stb_sb_count(_dmon.events);
+        DWORD wait_result = WaitForMultipleObjects(n + 1, wait_handles, FALSE, n_pending > 0 ? 10 : INFINITE);
         // NOTE: maybe we should check for WAIT_ABANDONED_<n> values if that can happen.
-        if (wait_result != WAIT_FAILED && wait_result != WAIT_OBJECT_0 + n) {
+        if (wait_result >= WAIT_OBJECT_0 && wait_result < WAIT_OBJECT_0 + n) {
             dmon__watch_state* watch = &_dmon.watches[wait_result - WAIT_OBJECT_0];
 
             DWORD bytes;
@@ -595,7 +595,7 @@ DMON_API_IMPL void dmon_init(void)
     _dmon_init = true;
 }
 
-static void dmon__enter_critical_wakeup() {
+static void dmon__enter_critical_wakeup(void) {
     _InterlockedExchange(&_dmon.modify_watches, 1);
     if (TryEnterCriticalSection(&_dmon.mutex) == 0) {
         SetEvent(_dmon.wake_event);
@@ -1020,6 +1020,7 @@ static void* dmon__thread(void* arg)
     static uint8_t buff[_DMON_TEMP_BUFFSIZE];
     struct timespec req = { (time_t)10 / 1000, (long)(10 * 1000000) };
     struct timespec rem = { 0, 0 };
+    struct timeval timeout;
     uint64_t usecs_elapsed = 0;
 
     struct timeval starttm;
@@ -1048,7 +1049,10 @@ static void* dmon__thread(void* arg)
         if (wake_fd > nfds)
             nfds = wake_fd;
 
-        if (select(nfds + 1, &rfds, NULL, NULL, NULL)) {
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000;
+        const int n_pending = stb_sb_count(_dmon.events);
+        if (select(nfds + 1, &rfds, NULL, NULL, n_pending > 0 ? &timeout : NULL)) {
             if (FD_ISSET(wake_fd, &rfds)) {
                 char read_char;
                 read(wake_fd, &read_char, 1);
@@ -1102,7 +1106,7 @@ static void* dmon__thread(void* arg)
     return 0x0;
 }
 
-_DMON_PRIVATE void dmon__mutex_wakeup_lock() {
+_DMON_PRIVATE void dmon__mutex_wakeup_lock(void) {
     _dmon.wait_flag = 1;
     if (pthread_mutex_trylock(&_dmon.mutex) != 0) {
         char send_char = 1;
