@@ -15,6 +15,15 @@ local function suggest_directory(text)
     core.recent_projects or common.dir_path_suggest(text))
 end
 
+local function check_directory_path(path)
+    local abs_path = system.absolute_path(path)
+    local info = abs_path and system.get_file_info(abs_path)
+    if not info or info.type ~= 'dir' then
+      return nil
+    end
+    return abs_path
+end
+
 command.add(nil, {
   ["core:quit"] = function()
     core.quit()
@@ -156,17 +165,17 @@ command.add(nil, {
       core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
     end
     core.command_view:enter("Change Project Folder", function(text)
-      text = system.absolute_path(common.home_expand(text))
-      if text == core.project_dir then return end
-      local path_stat = system.get_file_info(text)
-      if not path_stat or path_stat.type ~= 'dir' then
-        core.error("Cannot open folder %q", text)
+      local path = common.home_expand(text)
+      local abs_path = check_directory_path(path)
+      if not abs_path then
+        core.error("Cannot open directory %q", path)
         return
       end
+      if abs_path == core.project_dir then return end
       core.confirm_close_docs(core.docs, function(dirpath)
         core.close_current_project()
         core.open_folder_project(dirpath)
-      end, text)
+      end, abs_path)
     end, suggest_directory)
   end,
 
@@ -176,13 +185,17 @@ command.add(nil, {
       core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
     end
     core.command_view:enter("Open Project", function(text)
-      text = common.home_expand(text)
-      local path_stat = system.get_file_info(text)
-      if not path_stat or path_stat.type ~= 'dir' then
-        core.error("Cannot open folder %q", text)
+      local path = common.home_expand(text)
+      local abs_path = check_directory_path(path)
+      if not abs_path then
+        core.error("Cannot open directory %q", path)
         return
       end
-      system.exec(string.format("%q %q", EXEFILE, text))
+      if abs_path == core.project_dir then
+        core.error("Directory %q is currently opened", abs_path)
+        return
+      end
+      system.exec(string.format("%q %q", EXEFILE, abs_path))
     end, suggest_directory)
   end,
 
