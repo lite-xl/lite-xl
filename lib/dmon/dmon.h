@@ -1026,7 +1026,6 @@ static void* dmon__thread(void* arg)
     struct timeval starttm;
     gettimeofday(&starttm, 0);
 
-    int debug_count = 0;
     while (!_dmon.quit) {
         nanosleep(&req, &rem);
         if (_dmon.num_watches == 0 || _dmon.wait_flag == 1 || pthread_mutex_trylock(&_dmon.mutex) != 0) {
