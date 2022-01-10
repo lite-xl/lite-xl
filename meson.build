@@ -2,7 +2,7 @@ project('lite-xl',
     ['c'],
     version : '2.0.3',
     license : 'MIT',
-    meson_version : '>= 0.54',
+    meson_version : '>= 0.42',
     default_options : ['c_std=gnu11']
 )
 
@@ -47,12 +47,15 @@ if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
     threads_dep = dependency('threads')
-    lua_dep = dependency('lua5.2', fallback: ['lua', 'lua_dep'],
-        default_options: ['shared=false', 'use_readline=false', 'app=false']
-    )
+    lua_dep = dependency('lua5.4', required : false)
+    if not lua_dep.found()
+        lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'],
+            default_options: ['line_editing=false', 'default_library=static']
+        )
+    endif
     pcre2_dep = dependency('libpcre2-8')
     freetype_dep = dependency('freetype2')
-    sdl_dep = dependency('sdl2', method: 'config-tool')
+    sdl_dep = dependency('sdl2')
     if host_machine.system() == 'windows'
         win_dep = cc.find_library('dwmapi', required : true)
     else
@@ -99,17 +102,16 @@ endif
 
 install_data('licenses/licenses.md', install_dir : lite_docdir)
 
-install_subdir('data' / 'core' , install_dir : lite_datadir, exclude_files : 'start.lua')
+install_subdir('data/core' , install_dir : lite_datadir, exclude_files : 'start.lua')
 foreach data_module : ['fonts', 'plugins', 'colors']
-    install_subdir('data' / data_module , install_dir : lite_datadir)
+    install_subdir(join_paths('data', data_module), install_dir : lite_datadir)
 endforeach
 
 configure_file(
     input : 'data/core/start.lua',
     output : 'start.lua',
     configuration : conf_data,
-    install : true,
-    install_dir : lite_datadir / 'core',
+    install_dir : join_paths(lite_datadir, 'core'),
 )
 
 if not get_option('source-only')

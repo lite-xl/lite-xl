@@ -33,3 +33,6 @@
 
 "Category: C Core":
   - src/**/*
+
+"Category: Libraries":
+  - lib/**/*

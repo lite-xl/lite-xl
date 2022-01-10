@@ -2,7 +2,7 @@ build*/
 .build*/
 lhelper/
 submodules/
-subprojects/lua/
+subprojects/lua*/
 subprojects/reproc/
 /appimage*
 .ccls-cache

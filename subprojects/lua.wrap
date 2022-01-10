@@ -1,4 +1,12 @@
-[wrap-git]
-directory = lua
-url = https://github.com/franko/lua
-revision = v5.2.4-7
+[wrap-file]
+directory = lua-5.4.3
+source_url = https://www.lua.org/ftp/lua-5.4.3.tar.gz
+source_filename = lua-5.4.3.tar.gz
+source_hash = f8612276169e3bfcbcfb8f226195bfc6e466fe13042f1076cbde92b7ec96bbfb
+patch_filename = lua_5.4.3-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/lua_5.4.3-1/get_patch
+patch_hash = 66794455e18d373041c8ffa9c23d1629b813c7a716f8905425d347937f5c8dc8
+
+[provide]
+lua-5.4 = lua_dep
+
