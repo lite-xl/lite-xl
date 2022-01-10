@@ -278,20 +278,6 @@ local function file_search(files, info)
 end
 
 
-local function project_scan_add_entry(dir, fileinfo)
-  assert(not dir.force_rescan, "should be used on when force_rescan is unset")
-  local index, match = file_search(dir.files, fileinfo)
-  if not match then
-    table.insert(dir.files, index, fileinfo)
-    if fileinfo.type == "dir" and not dir.files_limit then
-      -- ASSUMPTION: dir.force_rescan is FALSE
-      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
-    end
-    dir.is_dirty = true
-  end
-end
-
-
 local function files_info_equal(a, b)
   return a.filename == b.filename and a.type == b.type
 end
@@ -308,7 +294,7 @@ local function files_list_match(a, i1, n, b)
 end
 
 -- arguments like for files_list_match
-local function files_list_replace(as, i1, n, bs, insert_hook)
+local function files_list_replace(as, i1, n, bs, hook)
   local m = #bs
   local i, j = 1, 1
   while i <= m or i <= n do
@@ -318,8 +304,9 @@ local function files_list_replace(as, i1, n, bs, insert_hook)
     then
       table.insert(as, i1 + i, b)
       i, j, n = i + 1, j + 1, n + 1
-      if insert_hook then insert_hook(b) end
+      if hook and hook.insert then hook.insert(b) end
     elseif j > m or system.path_compare(a.filename, a.type, b.filename, b.type) then
+      if hook and hook.remove then hook.remove(as[i1 + i]) end
       table.remove(as, i1 + i)
       n = n - 1
     else
@@ -327,6 +314,29 @@ local function files_list_replace(as, i1, n, bs, insert_hook)
     end
   end
 end
+
+
+local function project_scan_add_entry(dir, fileinfo)
+  assert(not dir.force_rescan, "should be used only when force_rescan is false")
+  local index, match = file_search(dir.files, fileinfo)
+  if not match then
+    table.insert(dir.files, index, fileinfo)
+    if fileinfo.type == "dir" and not dir.files_limit then
+      -- ASSUMPTION: dir.force_rescan is FALSE
+      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
+      if fileinfo.symlink then
+        local new_files = get_directory_files(dir, dir.name, PATHSEP .. fileinfo.filename, {}, nil, 0, core.project_subdir_is_shown)
+        files_list_replace(dir.files, index, 0, new_files, {insert = function(info)
+          if info.type == "dir" then
+            system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. info.filename)
+          end
+        end})
+      end
+    end
+    dir.is_dirty = true
+  end
+end
+
 
 local function project_subdir_bounds(dir, filename)
   local index, n = 0, #dir.files
@@ -362,11 +372,11 @@ local function rescan_project_subdir(dir, filename_rooted)
     -- we missed some directory creation event from the directory monitoring which
     -- almost never happens. With inotify is at least theoretically possible.
     local need_subdir_watches = not dir.files_limit and not dir.force_rescan
-    files_list_replace(dir.files, index, n, new_files, need_subdir_watches and function(fileinfo)
+    files_list_replace(dir.files, index, n, new_files, need_subdir_watches and {insert = function(fileinfo)
       if fileinfo.type == "dir" then
         system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
       end
-    end)
+    end})
     dir.is_dirty = true
     return true
   end
@@ -624,10 +634,22 @@ local function project_scan_remove_file(dir, filepath)
     fileinfo.type = filetype
     local index, match = file_search(dir.files, fileinfo)
     if match then
-      table.remove(dir.files, index)
-      if dir.files_limit and filetype == "dir" then
-        dir.shown_subdir[filepath] = nil
+      if filetype == "dir" then
+        -- If the directory is a symlink it may get deleted and we will
+        -- never get dirmonitor events for the removal the files it contains.
+        -- We proceed to remove all the files that belong to the directory.
+        local _, n_subdir = project_subdir_bounds(dir, filepath)
+        files_list_replace(dir.files, index, n_subdir, {}, {
+          remove= function(fileinfo)
+            if fileinfo.type == "dir" then
+              system.watch_dir_rm(dir.watch_id, dir.name .. PATHSEP .. filepath)
+            end
+          end})
+        if dir.files_limit then
+          dir.shown_subdir[filepath] = nil
+        end
       end
+      table.remove(dir.files, index)
       dir.is_dirty = true
       return
     end

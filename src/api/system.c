@@ -544,6 +544,14 @@ static int f_get_file_info(lua_State *L) {
   }
   lua_setfield(L, -2, "type");
 
+#if __linux__
+  if (S_ISDIR(s.st_mode)) {
+    if (lstat(path, &s) == 0) {
+      lua_pushboolean(L, S_ISLNK(s.st_mode));
+      lua_setfield(L, -2, "symlink");
+    }
+  }
+#endif
   return 1;
 }
 
