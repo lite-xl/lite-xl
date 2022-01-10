@@ -81,17 +81,24 @@ end
 
 
 local function reload_customizations()
-  core.reload_module("core.style")
+  -- The logic is:
+  -- - the core.style and config modules are reloaded with the purpose of applying
+  --   the new user's and project's module configs
+  -- - inside the core.config the existing fields in config.plugins are preserved
+  --   because they are reserved to plugins configuration and plugins are already
+  --   loaded.
+  -- - plugins are not reloaded or unloaded
   local plugins_save = {}
   for k, v in pairs(config.plugins) do
     plugins_save[k] = v
   end
+  core.reload_module("core.style")
   core.reload_module("core.config")
+  core.load_user_directory()
+  core.load_project_module()
   for k, v in pairs(plugins_save) do
     config.plugins[k] = v
   end
-  core.load_user_directory()
-  core.load_project_module()
 end
 
 
