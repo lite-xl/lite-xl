@@ -104,6 +104,9 @@ int main(int argc, char **argv) {
 #if SDL_VERSION_ATLEAST(2, 0, 5)
   SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 #endif
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+  SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
+#endif
 
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(0, &dm);
