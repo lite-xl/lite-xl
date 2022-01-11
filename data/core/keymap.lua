@@ -1,5 +1,6 @@
 local command = require "core.command"
 local config = require "core.config"
+local textediting = require "core.textediting"
 local keymap = {}
 
 keymap.modkeys = {}
@@ -91,6 +92,10 @@ end
 
 
 function keymap.on_key_pressed(k, ...)
+  -- In Windows during IME composition, input is still sent to us
+  -- so we just ignore it
+  if textediting.editing then return false end
+
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
