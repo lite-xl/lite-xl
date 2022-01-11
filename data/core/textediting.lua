@@ -42,6 +42,10 @@ function textediting.ingest(text, start, length)
 end
 
 function textediting.on_text_editing(text, ...)
+  -- In Windows SDL only sends the first TEXTEDITING "chunk" and drops the rest.
+  -- So we just consider every TEXTEDITING as the first and only one.
+  if PLATFORM == "Windows" then textediting.reset() end
+
   if textediting.editing or #text > 0 then
     core.root_view:on_text_editing(textediting.ingest(text, ...))
   end
