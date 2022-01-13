@@ -136,11 +136,11 @@ local function compile_ignore_files()
   -- config.ignore_files could be a simple string...
   if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
   for i, pattern in ipairs(ipatterns) do
-    local match_dir = pattern:match("(.+)/$")
     compiled[i] = {
-      use_path = pattern:match("/[^/]"), -- contains a slash but not at the end
-      match_dir = match_dir, -- to be used as a boolen value
-      pattern = match_dir or pattern -- get the actual pattern
+      use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
+      -- An '/' or '/$' at the end means we want to match a directory.
+      match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
+      pattern = pattern -- get the actual pattern
     }
   end
   return compiled
@@ -153,9 +153,15 @@ local function fileinfo_pass_filter(info, ignore_compiled)
   -- replace '\' with '/' for Windows where PATHSEP = '\'
   local fullname = "/" .. info.filename:gsub("\\", "/")
   for _, compiled in ipairs(ignore_compiled) do
-    local pass_dir = (not compiled.match_dir or info.type == "dir")
-    if (compiled.use_path and fullname or basename):match(compiled.pattern) and pass_dir then
-      return false
+    local test = compiled.use_path and fullname or basename
+    if compiled.match_dir then
+      if info.type == "dir" and string.match(test .. "/", compiled.pattern) then
+        return false
+      end
+    else
+      if string.match(test, compiled.pattern) then
+        return false
+      end
     end
   end
   return true
@@ -765,23 +771,25 @@ local config = require "core.config"
 -- config.ignore_files = {"^%.", <some-patterns>}
 
 -- Patterns are normally applied to the file's or directory's name, without
--- its path. See below about how to include the path.
+-- its path. See below about how to apply filters on a path.
 --
 -- Here some examples:
 --
 -- "^%." match any file of directory whose basename begins with a dot.
 --
--- When there is an '/' at the end the pattern will only match directories. The final
--- '/' is removed from the pattern to match the file's or directory's name.
+-- When there is an '/' or a '/$' at the end the pattern it will only match
+-- directories. When using such a pattern a final '/' will be added to the name
+-- of any directory entry before checking if it matches.
 --
--- "^%.git$/" match any directory named ".git" anywhere in the project.
+-- "^%.git/" matches any directory named ".git" anywhere in the project.
 --
--- If a "/" appears anywhere in the pattern (except at the end) then the pattern
--- will be applied to the full path of the file or directory. An initial "/" will
--- be prepended to the file's or directory's path to indicate the project's root.
+-- If a "/" appears anywhere in the pattern except if it appears at the end or
+-- is immediately followed by a '$' then the pattern will be applied to the full
+-- path of the file or directory. An initial "/" will be prepended to the file's
+-- or directory's path to indicate the project's root.
 --
--- "^/node_modules$/" match a directory named "node_modules" at the project's root.
--- "^/build/" match any top level directory whose name _begins_ with "build"
+-- "^/node_modules/" will match a directory named "node_modules" at the project's root.
+-- "^/build.*/" match any top level directory whose name begins with "build"
 -- "^/subprojects/.+/" match any directory inside a top-level folder named "subprojects".
 
 -- You may activate some plugins on a pre-project base to override the user's settings.
