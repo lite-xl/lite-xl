@@ -1,0 +1,12 @@
+[wrap-file]
+directory = SDL2-2.0.18
+source_url = https://www.libsdl.org/release/SDL2-2.0.18.tar.gz
+source_filename = SDL2-2.0.18.tar.gz
+source_hash = 94d40cd73dbfa10bb6eadfbc28f355992bb2d6ef6761ad9d4074eff95ee5711c
+patch_filename = sdl2_2.0.18-2_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/sdl2_2.0.18-2/get_patch
+patch_hash = cd77f33395d3d019bb89217b9da41fc640ed8c78cbbbebc5c662155a25e2820e
+
+[provide]
+sdl2 = sdl2_dep
+
