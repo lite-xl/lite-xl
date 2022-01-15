@@ -44,9 +44,6 @@
 //      DMON_ASSERT:
 //          define this to provide your own assert
 //          default is 'assert'
-//      DMON_LOG_ERROR:
-//          define this to provide your own logging mechanism
-//          default implementation logs to stdout and breaks the program
 //      DMON_LOG_DEBUG
 //          define this to provide your own extra debug logging mechanism
 //          default implementation logs to stdout in DEBUG and does nothing in other builds
@@ -104,9 +101,21 @@ typedef enum dmon_action_t {
     DMON_ACTION_MOVE
 } dmon_action;
 
+typedef enum dmon_error_enum {
+    DMON_SUCCESS = 0,
+    DMON_ERROR_WATCH_DIR,
+    DMON_ERROR_OPEN_DIR,
+    DMON_ERROR_MONITOR_FAIL,
+    DMON_ERROR_UNSUPPORTED_SYMLINK,
+    DMON_ERROR_SUBDIR_LOCATION,
+    DMON_ERROR_END
+} dmon_error;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+DMON_API_DECL const char *dmon_error_str(dmon_error err);
 
 DMON_API_DECL void dmon_init(void);
 DMON_API_DECL void dmon_deinit(void);
@@ -115,7 +124,7 @@ DMON_API_DECL  dmon_watch_id dmon_watch(const char* rootdir,
                          void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                           const char* rootdir, const char* filepath,
                                           const char* oldfilepath, void* user),
-                         uint32_t flags, void* user_data);
+                         uint32_t flags, void* user_data, dmon_error *error_code);
 DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 
 #ifdef __cplusplus
@@ -169,6 +178,9 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #    include <time.h>
 #    include <unistd.h>
 #    include <stdlib.h>
+/* Recursive removed for Lite XL when using inotify. */
+#    define LITE_XL_DISABLE_INOTIFY_RECURSIVE
+#    define DMON_LOG_DEBUG(s)
 #elif DMON_OS_MACOS
 #   include <pthread.h>
 #   include <CoreServices/CoreServices.h>
@@ -187,11 +199,6 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #ifndef DMON_ASSERT
 #   include <assert.h>
 #   define DMON_ASSERT(e)   assert(e)
-#endif
-
-#ifndef DMON_LOG_ERROR
-#   include <stdio.h>
-#   define DMON_LOG_ERROR(s)    do { puts(s); DMON_ASSERT(0); } while(0)
 #endif
 
 #ifndef DMON_LOG_DEBUG
@@ -222,10 +229,6 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #endif
 
 #include <string.h>
-
-#ifndef _DMON_LOG_ERRORF
-#   define _DMON_LOG_ERRORF(str, ...) do { char msg[512]; snprintf(msg, sizeof(msg), str, __VA_ARGS__); DMON_LOG_ERROR(msg); } while(0);
-#endif
 
 #ifndef _DMON_LOG_DEBUGF
 #   define _DMON_LOG_DEBUGF(str, ...) do { char msg[512]; snprintf(msg, sizeof(msg), str, __VA_ARGS__); DMON_LOG_DEBUG(msg); } while(0);
@@ -356,6 +359,20 @@ static void * stb__sbgrowf(void *arr, int increment, int itemsize)
 // watcher callback (same as dmon.h's decleration)
 typedef void (dmon__watch_cb)(dmon_watch_id, dmon_action, const char*, const char*, const char*, void*);
 
+static const char *dmon__errors[] = {
+    "Success",
+    "Error watching directory",
+    "Error opening directory",
+    "Error enabling monitoring",
+    "Error support for symlink disabled",
+    "Error not a subdirectory",
+};
+
+DMON_API_IMPL const char *dmon_error_str(dmon_error err) {
+    DMON_ASSERT(err >= 0 && err < DMON_ERROR_END);
+    return dmon__errors[(int) err];
+}
+
 #if DMON_OS_WINDOWS
 // IOCP (windows)
 #ifdef UNICODE
@@ -392,6 +409,7 @@ typedef struct dmon__state {
     volatile LONG modify_watches;
     dmon__win32_event* events;
     bool quit;
+    HANDLE wake_event;
 } dmon__state;
 
 static bool _dmon_init;
@@ -477,7 +495,7 @@ _DMON_PRIVATE void dmon__win32_process_events(void)
 _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
 {
     _DMON_UNUSED(arg);
-    HANDLE wait_handles[DMON_MAX_WATCHES];
+    HANDLE wait_handles[DMON_MAX_WATCHES + 1];
 
     SYSTEMTIME starttm;
     GetSystemTime(&starttm);
@@ -500,14 +518,17 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
             wait_handles[i] = watch->overlapped.hEvent;
         }
 
-        DWORD wait_result = WaitForMultipleObjects(_dmon.num_watches, wait_handles, FALSE, 10);
-        DMON_ASSERT(wait_result != WAIT_FAILED);
-        if (wait_result != WAIT_TIMEOUT) {
+        const int n = _dmon.num_watches;
+        wait_handles[n] = _dmon.wake_event;
+        const int n_pending = stb_sb_count(_dmon.events);
+        DWORD wait_result = WaitForMultipleObjects(n + 1, wait_handles, FALSE, n_pending > 0 ? 10 : INFINITE);
+        // NOTE: maybe we should check for WAIT_ABANDONED_<n> values if that can happen.
+        if (wait_result >= WAIT_OBJECT_0 && wait_result < WAIT_OBJECT_0 + n) {
             dmon__watch_state* watch = &_dmon.watches[wait_result - WAIT_OBJECT_0];
-            DMON_ASSERT(HasOverlappedIoCompleted(&watch->overlapped));
 
             DWORD bytes;
-            if (GetOverlappedResult(watch->dir_handle, &watch->overlapped, &bytes, FALSE)) {
+            if (HasOverlappedIoCompleted(&watch->overlapped) &&
+                GetOverlappedResult(watch->dir_handle, &watch->overlapped, &bytes, FALSE)) {
                 char filepath[DMON_MAX_PATH];
                 PFILE_NOTIFY_INFORMATION notify;
                 size_t offset = 0;
@@ -569,15 +590,24 @@ DMON_API_IMPL void dmon_init(void)
 
     _dmon.thread_handle =
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)dmon__thread, NULL, 0, NULL);
+    _dmon.wake_event = CreateEvent(NULL, FALSE, FALSE, NULL);
     DMON_ASSERT(_dmon.thread_handle);
     _dmon_init = true;
 }
 
+static void dmon__enter_critical_wakeup(void) {
+    _InterlockedExchange(&_dmon.modify_watches, 1);
+    if (TryEnterCriticalSection(&_dmon.mutex) == 0) {
+        SetEvent(_dmon.wake_event);
+        EnterCriticalSection(&_dmon.mutex);
+    }
+}
 
 DMON_API_IMPL void dmon_deinit(void)
 {
     DMON_ASSERT(_dmon_init);
     _dmon.quit = true;
+    dmon__enter_critical_wakeup();
     if (_dmon.thread_handle != INVALID_HANDLE_VALUE) {
         WaitForSingleObject(_dmon.thread_handle, INFINITE);
         CloseHandle(_dmon.thread_handle);
@@ -587,6 +617,7 @@ DMON_API_IMPL void dmon_deinit(void)
         dmon__unwatch(&_dmon.watches[i]);
     }
 
+    LeaveCriticalSection(&_dmon.mutex);
     DeleteCriticalSection(&_dmon.mutex);
     stb_sb_free(_dmon.events);
     _dmon_init = false;
@@ -596,13 +627,12 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                        void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                                         const char* dirname, const char* filename,
                                                         const char* oldname, void* user),
-                                       uint32_t flags, void* user_data)
+                                       uint32_t flags, void* user_data, dmon_error *error_code)
 {
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
 
-    _InterlockedExchange(&_dmon.modify_watches, 1);
-    EnterCriticalSection(&_dmon.mutex);
+    dmon__enter_critical_wakeup();
 
     DMON_ASSERT(_dmon.num_watches < DMON_MAX_WATCHES);
 
@@ -630,17 +660,17 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME |
                                FILE_NOTIFY_CHANGE_SIZE;
         watch->overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-        DMON_ASSERT(watch->overlapped.hEvent != INVALID_HANDLE_VALUE);
 
-        if (!dmon__refresh_watch(watch)) {
+        if (watch->overlapped.hEvent == INVALID_HANDLE_VALUE ||
+            !dmon__refresh_watch(watch)) {
             dmon__unwatch(watch);
-            DMON_LOG_ERROR("ReadDirectoryChanges failed");
+            *error_code = DMON_ERROR_WATCH_DIR;
             LeaveCriticalSection(&_dmon.mutex);
             _InterlockedExchange(&_dmon.modify_watches, 0);
             return dmon__make_id(0);
         }
     } else {
-        _DMON_LOG_ERRORF("Could not open: %s", rootdir);
+        *error_code = DMON_ERROR_OPEN_DIR;
         LeaveCriticalSection(&_dmon.mutex);
         _InterlockedExchange(&_dmon.modify_watches, 0);
         return dmon__make_id(0);
@@ -655,8 +685,7 @@ DMON_API_IMPL void dmon_unwatch(dmon_watch_id id)
 {
     DMON_ASSERT(id.id > 0);
 
-    _InterlockedExchange(&_dmon.modify_watches, 1);
-    EnterCriticalSection(&_dmon.mutex);
+    dmon__enter_critical_wakeup();
 
     int index = id.id - 1;
     DMON_ASSERT(index < _dmon.num_watches);
@@ -704,12 +733,20 @@ typedef struct dmon__state {
     int num_watches;
     pthread_t thread_handle;
     pthread_mutex_t mutex;
+    int wait_flag;
+    int wake_event_pipe[2];
     bool quit;
 } dmon__state;
 
 static bool _dmon_init;
 static dmon__state _dmon;
 
+/* Implementation of recursive monitoring was removed on Linux for the Lite XL
+ * application. It is never used with recent version of Lite XL starting from 2.0.5
+ * and recursive monitoring with inotify was always problematic and half-broken.
+ * Do not cover the new calling signature with error_code because not used by
+ * Lite XL. */
+#ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
 _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t mask,
                                          bool followlinks, dmon__watch_state* watch)
 {
@@ -764,6 +801,7 @@ _DMON_PRIVATE void dmon__watch_recursive(const char* dirname, int fd, uint32_t m
     }
     closedir(dir);
 }
+#endif
 
 _DMON_PRIVATE const char* dmon__find_subdir(const dmon__watch_state* watch, int wd)
 {
@@ -777,6 +815,7 @@ _DMON_PRIVATE const char* dmon__find_subdir(const dmon__watch_state* watch, int 
     return NULL;
 }
 
+#ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
 _DMON_PRIVATE void dmon__gather_recursive(dmon__watch_state* watch, const char* dirname)
 {
     struct dirent* entry;
@@ -809,6 +848,7 @@ _DMON_PRIVATE void dmon__gather_recursive(dmon__watch_state* watch, const char* 
     }
     closedir(dir);
 }
+#endif
 
 _DMON_PRIVATE void dmon__inotify_process_events(void)
 {
@@ -919,6 +959,7 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
         }
 
         if (ev->mask & IN_CREATE) {
+#           ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
             if (ev->mask & IN_ISDIR) {
                 if (watch->watch_flags & DMON_WATCHFLAGS_RECURSIVE) {
                     char watchdir[DMON_MAX_PATH];
@@ -948,6 +989,7 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
                     ev = &_dmon.events[i]; // gotta refresh the pointer because it may be relocated
                 }
             }
+#           endif
             watch->watch_cb(ev->watch_id, DMON_ACTION_CREATE, watch->rootdir, ev->filepath, NULL, watch->user_data);
         }
         else if (ev->mask & IN_MODIFY) {
@@ -986,21 +1028,34 @@ static void* dmon__thread(void* arg)
 
     while (!_dmon.quit) {
         nanosleep(&req, &rem);
-        if (_dmon.num_watches == 0 || pthread_mutex_trylock(&_dmon.mutex) != 0) {
+        if (_dmon.num_watches == 0 || _dmon.wait_flag == 1 || pthread_mutex_trylock(&_dmon.mutex) != 0) {
             continue;
         }
 
         // Create read FD set
         fd_set rfds;
         FD_ZERO(&rfds);
-        for (int i = 0; i < _dmon.num_watches; i++) {
+        const int n = _dmon.num_watches;
+        int nfds = 0;
+        for (int i = 0; i < n; i++) {
             dmon__watch_state* watch = &_dmon.watches[i];
             FD_SET(watch->fd, &rfds);
+            if (watch->fd > nfds)
+                nfds = watch->fd;
         }
+        int wake_fd = _dmon.wake_event_pipe[0];
+        FD_SET(wake_fd, &rfds);
+        if (wake_fd > nfds)
+            nfds = wake_fd;
 
         timeout.tv_sec = 0;
         timeout.tv_usec = 100000;
-        if (select(FD_SETSIZE, &rfds, NULL, NULL, &timeout)) {
+        const int n_pending = stb_sb_count(_dmon.events);
+        if (select(nfds + 1, &rfds, NULL, NULL, n_pending > 0 ? &timeout : NULL)) {
+            if (FD_ISSET(wake_fd, &rfds)) {
+                char read_char;
+                read(wake_fd, &read_char, 1);
+            }
             for (int i = 0; i < _dmon.num_watches; i++) {
                 dmon__watch_state* watch = &_dmon.watches[i];
                 if (FD_ISSET(watch->fd, &rfds)) {
@@ -1050,6 +1105,16 @@ static void* dmon__thread(void* arg)
     return 0x0;
 }
 
+_DMON_PRIVATE void dmon__mutex_wakeup_lock(void) {
+    _dmon.wait_flag = 1;
+    if (pthread_mutex_trylock(&_dmon.mutex) != 0) {
+        char send_char = 1;
+        write(_dmon.wake_event_pipe[1], &send_char, 1);
+        pthread_mutex_lock(&_dmon.mutex);
+    }
+    _dmon.wait_flag = 0;
+}
+
 _DMON_PRIVATE void dmon__unwatch(dmon__watch_state* watch)
 {
     close(watch->fd);
@@ -1063,6 +1128,9 @@ DMON_API_IMPL void dmon_init(void)
     DMON_ASSERT(!_dmon_init);
     pthread_mutex_init(&_dmon.mutex, NULL);
 
+    _dmon.wait_flag = 0;
+    int ret_pipe = pipe(_dmon.wake_event_pipe);
+    DMON_ASSERT(ret_pipe == 0);
     int r = pthread_create(&_dmon.thread_handle, NULL, dmon__thread, NULL);
     _DMON_UNUSED(r);
     DMON_ASSERT(r == 0 && "pthread_create failed");
@@ -1073,12 +1141,14 @@ DMON_API_IMPL void dmon_deinit(void)
 {
     DMON_ASSERT(_dmon_init);
     _dmon.quit = true;
+    dmon__mutex_wakeup_lock();
     pthread_join(_dmon.thread_handle, NULL);
 
     for (int i = 0; i < _dmon.num_watches; i++) {
         dmon__unwatch(&_dmon.watches[i]);
     }
 
+    pthread_mutex_unlock(&_dmon.mutex);
     pthread_mutex_destroy(&_dmon.mutex);
     stb_sb_free(_dmon.events);
     _dmon_init = false;
@@ -1088,12 +1158,12 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                        void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                                         const char* dirname, const char* filename,
                                                         const char* oldname, void* user),
-                                       uint32_t flags, void* user_data)
+                                       uint32_t flags, void* user_data, dmon_error *error_code)
 {
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
 
-    pthread_mutex_lock(&_dmon.mutex);
+    dmon__mutex_wakeup_lock();
 
     DMON_ASSERT(_dmon.num_watches < DMON_MAX_WATCHES);
 
@@ -1107,7 +1177,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     struct stat root_st;
     if (stat(rootdir, &root_st) != 0 || !S_ISDIR(root_st.st_mode) ||
         (root_st.st_mode & S_IRUSR) != S_IRUSR) {
-        _DMON_LOG_ERRORF("Could not open/read directory: %s", rootdir);
+        *error_code = DMON_ERROR_OPEN_DIR;
         pthread_mutex_unlock(&_dmon.mutex);
         return dmon__make_id(0);
     }
@@ -1122,8 +1192,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
 
             dmon__strcpy(watch->rootdir, sizeof(watch->rootdir) - 1, linkpath);
         } else {
-            _DMON_LOG_ERRORF("symlinks are unsupported: %s. use DMON_WATCHFLAGS_FOLLOW_SYMLINKS",
-                             rootdir);
+            *error_code = DMON_ERROR_UNSUPPORTED_SYMLINK;
             pthread_mutex_unlock(&_dmon.mutex);
             return dmon__make_id(0);
         }
@@ -1140,7 +1209,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
 
     watch->fd = inotify_init();
     if (watch->fd < -1) {
-        DMON_LOG_ERROR("could not create inotify instance");
+        *error_code = DMON_ERROR_MONITOR_FAIL;
         pthread_mutex_unlock(&_dmon.mutex);
         return dmon__make_id(0);
     }
@@ -1148,7 +1217,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     uint32_t inotify_mask = IN_MOVED_TO | IN_CREATE | IN_MOVED_FROM | IN_DELETE | IN_MODIFY;
     int wd = inotify_add_watch(watch->fd, watch->rootdir, inotify_mask);
     if (wd < 0) {
-       _DMON_LOG_ERRORF("Error watching directory '%s'. (inotify_add_watch:err=%d)", watch->rootdir, errno);
+        *error_code = DMON_ERROR_WATCH_DIR;
         pthread_mutex_unlock(&_dmon.mutex);
         return dmon__make_id(0);
     }
@@ -1158,11 +1227,12 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     stb_sb_push(watch->wds, wd);
 
     // recursive mode: enumarate all child directories and add them to watch
+#ifndef LITE_XL_DISABLE_INOTIFY_RECURSIVE
     if (flags & DMON_WATCHFLAGS_RECURSIVE) {
         dmon__watch_recursive(watch->rootdir, watch->fd, inotify_mask,
                               (flags & DMON_WATCHFLAGS_FOLLOW_SYMLINKS) ? true : false, watch);
     }
-
+#endif
 
     pthread_mutex_unlock(&_dmon.mutex);
     return dmon__make_id(id);
@@ -1172,7 +1242,7 @@ DMON_API_IMPL void dmon_unwatch(dmon_watch_id id)
 {
     DMON_ASSERT(id.id > 0);
 
-    pthread_mutex_lock(&_dmon.mutex);
+    dmon__mutex_wakeup_lock();
 
     int index = id.id - 1;
     DMON_ASSERT(index < _dmon.num_watches);
@@ -1479,7 +1549,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
                                        void (*watch_cb)(dmon_watch_id watch_id, dmon_action action,
                                                         const char* dirname, const char* filename,
                                                         const char* oldname, void* user),
-                                       uint32_t flags, void* user_data)
+                                       uint32_t flags, void* user_data, dmon_error *error_code)
 {
     DMON_ASSERT(watch_cb);
     DMON_ASSERT(rootdir && rootdir[0]);
@@ -1499,7 +1569,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
     struct stat root_st;
     if (stat(rootdir, &root_st) != 0 || !S_ISDIR(root_st.st_mode) ||
         (root_st.st_mode & S_IRUSR) != S_IRUSR) {
-        _DMON_LOG_ERRORF("Could not open/read directory: %s", rootdir);
+        *error_code = DMON_ERROR_OPEN_DIR;
         pthread_mutex_unlock(&_dmon.mutex);
         __sync_lock_test_and_set(&_dmon.modify_watches, 0);
         return dmon__make_id(0);
@@ -1514,7 +1584,7 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
 
             dmon__strcpy(watch->rootdir, sizeof(watch->rootdir) - 1, linkpath);
         } else {
-            _DMON_LOG_ERRORF("symlinks are unsupported: %s. use DMON_WATCHFLAGS_FOLLOW_SYMLINKS", rootdir);
+            *error_code = DMON_ERROR_UNSUPPORTED_SYMLINK;
             pthread_mutex_unlock(&_dmon.mutex);
             __sync_lock_test_and_set(&_dmon.modify_watches, 0);
             return dmon__make_id(0);
