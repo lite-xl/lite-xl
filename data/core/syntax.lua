@@ -3,7 +3,7 @@ local common = require "core.common"
 local syntax = {}
 syntax.items = {}
 
-local plain_text_syntax = { patterns = {}, symbols = {} }
+local plain_text_syntax = { name = "Plain Text", patterns = {}, symbols = {} }
 
 
 function syntax.add(t)
@@ -22,7 +22,7 @@ end
 
 function syntax.get(filename, header)
   return find(filename, "files")
-      or find(header, "headers")
+      or (header and find(header, "headers"))
       or plain_text_syntax
 end
 

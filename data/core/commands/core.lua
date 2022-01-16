@@ -6,10 +6,12 @@ local LogView = require "core.logview"
 
 
 local fullscreen = false
+local restore_title_view = false
 
 local function suggest_directory(text)
   text = common.home_expand(text)
-  return common.home_encode_list(text == "" and core.recent_projects or common.dir_path_suggest(text))
+  return common.home_encode_list((text == "" or text == common.home_expand(common.dirname(core.project_dir))) 
+    and core.recent_projects or common.dir_path_suggest(text))
 end
 
 command.add(nil, {
@@ -27,9 +29,12 @@ command.add(nil, {
 
   ["core:toggle-fullscreen"] = function()
     fullscreen = not fullscreen
+    if fullscreen then
+      restore_title_view = core.title_view.visible
+    end
     system.set_window_mode(fullscreen and "fullscreen" or "normal")
-    core.show_title_bar(not fullscreen)
-    core.title_view:configure_hit_test(not fullscreen)
+    core.show_title_bar(not fullscreen and restore_title_view)
+    core.title_view:configure_hit_test(not fullscreen and restore_title_view)
   end,
 
   ["core:reload-module"] = function()
@@ -66,8 +71,8 @@ command.add(nil, {
   end,
 
   ["core:find-file"] = function()
-    if core.project_files_limit then
-      return command.perform "core:open-file"
+    if not core.project_files_number() then
+       return command.perform "core:open-file"
     end
     local files = {}
     for dir, item in core.get_project_files() do
@@ -104,11 +109,20 @@ command.add(nil, {
     end, function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text)))
     end, nil, function(text)
-      local path_stat, err = system.get_file_info(common.home_expand(text))
+      local filename = common.home_expand(text)
+      local path_stat, err = system.get_file_info(filename)
       if err then
-        core.error("Cannot open file %q: %q", text, err)
+        if err:find("No such file", 1, true) then
+          -- check if the containing directory exists
+          local dirname = common.dirname(filename)
+          local dir_stat = dirname and system.get_file_info(dirname)
+          if not dirname or (dir_stat and dir_stat.type == 'dir') then
+            return true
+          end
+        end
+        core.error("Cannot open file %s: %s", text, err)
       elseif path_stat.type == 'dir' then
-        core.error("Cannot open %q, is a folder", text)
+        core.error("Cannot open %s, is a folder", text)
       else
         return true
       end
@@ -138,6 +152,10 @@ command.add(nil, {
   end,
 
   ["core:change-project-folder"] = function()
+    local dirname = common.dirname(core.project_dir)
+    if dirname then
+      core.command_view:set_text(common.home_encode(dirname))
+    end
     core.command_view:enter("Change Project Folder", function(text, item)
       text = system.absolute_path(common.home_expand(item and item.text or text))
       if text == core.project_dir then return end
@@ -146,11 +164,15 @@ command.add(nil, {
         core.error("Cannot open folder %q", text)
         return
       end
-      core.confirm_close_all(core.open_folder_project, text)
+      core.confirm_close_docs(core.docs, core.open_folder_project, text)
     end, suggest_directory)
   end,
 
   ["core:open-project-folder"] = function()
+    local dirname = common.dirname(core.project_dir)
+    if dirname then
+      core.command_view:set_text(common.home_encode(dirname))
+    end
     core.command_view:enter("Open Project", function(text, item)
       text = common.home_expand(item and item.text or text)
       local path_stat = system.get_file_info(text)
@@ -174,8 +196,6 @@ command.add(nil, {
         return
       end
       core.add_project_directory(system.absolute_path(text))
-      -- TODO: add the name of directory to prioritize
-      core.reschedule_project_scan()
     end, suggest_directory)
   end,
 

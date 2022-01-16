@@ -1,4 +1,4 @@
-option('innosetup', type : 'boolean', value : false, description: 'Build Windows setup package')
+option('bundle', type : 'boolean', value : false, description: 'Build a macOS bundle')
+option('source-only', type : 'boolean', value : false, description: 'Configure source files only, doesn\'t checks for dependencies')
 option('portable', type : 'boolean', value : false, description: 'Portable install')
 option('renderer', type : 'boolean', value : false, description: 'Use SDL renderer')
-option('version', type : 'string', value : '0.0.0', description: 'Project version')

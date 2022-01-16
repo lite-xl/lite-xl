@@ -1,8 +1,8 @@
 local common = {}
 
 
-function common.is_utf8_cont(char)
-  local byte = char:byte()
+function common.is_utf8_cont(s, offset)
+  local byte = s:byte(offset or 1)
   return byte >= 0x80 and byte < 0xc0
 end
 
@@ -41,23 +41,28 @@ function common.lerp(a, b, t)
 end
 
 
+function common.distance(x1, y1, x2, y2)
+    return math.sqrt(math.pow(x2-x1, 2)+math.pow(y2-y1, 2))
+end
+
+
 function common.color(str)
-  local r, g, b, a = str:match("#(%x%x)(%x%x)(%x%x)")
+  local r, g, b, a = str:match("^#(%x%x)(%x%x)(%x%x)(%x?%x?)$")
   if r then
     r = tonumber(r, 16)
     g = tonumber(g, 16)
     b = tonumber(b, 16)
-    a = 1
+    a = tonumber(a, 16) or 0xff
   elseif str:match("rgba?%s*%([%d%s%.,]+%)") then
     local f = str:gmatch("[%d.]+")
     r = (f() or 0)
     g = (f() or 0)
     b = (f() or 0)
-    a = f() or 1
+    a = (f() or 1) * 0xff
   else
     error(string.format("bad color string '%s'", str))
   end
-  return r, g, b, a * 0xff
+  return r, g, b, a
 end
 
 
@@ -230,6 +235,12 @@ function common.basename(path)
 end
 
 
+-- can return nil if there is no directory part in the path
+function common.dirname(path)
+  return path:match("(.+)[\\/][^\\/]+$")
+end
+
+
 function common.home_encode(text)
   if HOME and string.find(text, HOME, 1, true) == 1 then
     local dir_pos = #HOME + 1
@@ -257,16 +268,6 @@ function common.home_expand(text)
 end
 
 
-function common.normalize_path(filename)
-  if PATHSEP == '\\' then
-    filename = filename:gsub('[/\\]', '\\')
-    local drive, rem = filename:match('^([a-zA-Z])(:.*)')
-    return drive and drive:upper() .. rem or filename
-  end
-  return filename
-end
-
-
 local function split_on_slash(s, sep_pattern)
   local t = {}
   if s:match("^[/\\]") then
@@ -279,8 +280,66 @@ local function split_on_slash(s, sep_pattern)
 end
 
 
+-- The filename argument given to the function is supposed to
+-- come from system.absolute_path and as such should be an
+-- absolute path without . or .. elements.
+-- This function exists because on Windows the drive letter returned
+-- by system.absolute_path is sometimes with a lower case and sometimes
+-- with an upper case to we normalize to upper case.
+function common.normalize_volume(filename)
+  if not filename then return end
+  if PATHSEP == '\\' then
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    if drive then
+      return drive:upper() .. rem
+    end
+  end
+  return filename
+end
+
+
+function common.normalize_path(filename)
+  if not filename then return end
+  local volume
+  if PATHSEP == '\\' then
+    filename = filename:gsub('[/\\]', '\\')
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    if drive then
+      volume, filename = drive:upper(), rem
+    else
+      drive, rem = filename:match('^(\\\\[^\\]+\\[^\\]+\\)(.*)')
+      if drive then
+        volume, filename = drive, rem
+      end
+    end
+  else
+    local relpath = filename:match('^/(.+)')
+    if relpath then
+      volume, filename = "/", relpath
+    end
+  end
+  local parts = split_on_slash(filename, PATHSEP)
+  local accu = {}
+  for _, part in ipairs(parts) do
+    if part == '..' then
+      if #accu > 0 and accu[#accu] ~= ".." then
+        table.remove(accu)
+      elseif volume then
+        error("invalid path " .. volume .. filename)
+      else
+        table.insert(accu, part)
+      end
+    elseif part ~= '.' then
+      table.insert(accu, part)
+    end
+  end
+  local npath = table.concat(accu, PATHSEP)
+  return (volume or "") .. (npath == "" and PATHSEP or npath)
+end
+
+
 function common.path_belongs_to(filename, path)
-  return filename and string.find(filename, path .. PATHSEP, 1, true) == 1
+  return string.find(filename, path .. PATHSEP, 1, true) == 1
 end
 
 
@@ -290,7 +349,7 @@ function common.relative_path(ref_dir, dir)
   if drive and ref_drive and drive ~= ref_drive then
     -- Windows, different drives, system.absolute_path fails for C:\..\D:\
     return dir
-  end    
+  end
   local ref_ls = split_on_slash(ref_dir)
   local dir_ls = split_on_slash(dir)
   local i = 1

@@ -17,10 +17,15 @@ local function split_lines(text)
   return res
 end
 
-function Doc:new(filename)
+
+function Doc:new(filename, abs_filename, new_file)
+  self.new_file = new_file
   self:reset()
   if filename then
-    self:load(filename)
+    self:set_filename(filename, abs_filename)
+    if not new_file then
+      self:load(filename)
+    end
   end
 end
 
@@ -28,7 +33,6 @@ end
 function Doc:reset()
   self.lines = { "\n" }
   self.selections = { 1, 1, 1, 1 }
-  self.cursor_clipboard = {}
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -42,28 +46,30 @@ function Doc:reset_syntax()
   local syn = syntax.get(self.filename or "", header)
   if self.syntax ~= syn then
     self.syntax = syn
-    self.highlighter:reset()
+    self.highlighter:soft_reset()
   end
 end
 
 
-function Doc:set_filename(filename)
+function Doc:set_filename(filename, abs_filename)
   self.filename = filename
-  self.abs_filename = system.absolute_path(filename)
+  self.abs_filename = abs_filename
 end
 
 
 function Doc:load(filename)
   local fp = assert( io.open(filename, "rb") )
   self:reset()
-  self:set_filename(filename)
   self.lines = {}
+  local i = 1
   for line in fp:lines() do
     if line:byte(-1) == 13 then
       line = line:sub(1, -2)
       self.crlf = true
     end
     table.insert(self.lines, line .. "\n")
+    self.highlighter.lines[i] = false
+    i = i + 1
   end
   if #self.lines == 0 then
     table.insert(self.lines, "\n")
@@ -73,17 +79,20 @@ function Doc:load(filename)
 end
 
 
-function Doc:save(filename)
-  filename = filename or assert(self.filename, "no filename set to default to")
+function Doc:save(filename, abs_filename)
+  if not filename then
+    assert(self.filename, "no filename set to default to")
+    filename = self.filename
+    abs_filename = self.abs_filename
+  end
   local fp = assert( io.open(filename, "wb") )
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)
   end
   fp:close()
-  if filename then
-    self:set_filename(filename)
-  end
+  self:set_filename(filename, abs_filename)
+  self.new_file = false
   self:reset_syntax()
   self:clean()
 end
@@ -95,12 +104,24 @@ end
 
 
 function Doc:is_dirty()
-  return self.clean_change_id ~= self:get_change_id()
+  if self.new_file then
+    return #self.lines > 1 or #self.lines[1] > 1
+  else
+    return self.clean_change_id ~= self:get_change_id()
+  end
 end
 
 
 function Doc:clean()
   self.clean_change_id = self:get_change_id()
+end
+
+
+function Doc:get_indent_info()
+  if not self.indent_info then return config.tab_type, config.indent_size, false end
+  return self.indent_info.type or config.tab_type,
+         self.indent_info.size or config.indent_size,
+         self.indent_info.confirmed
 end
 
 
@@ -117,9 +138,29 @@ function Doc:get_selection(sort)
   return line1, col1, line2, col2, sort
 end
 
+function Doc:get_selection_text(limit)
+  limit = limit or math.huge
+  local result = {}
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    if idx > limit then break end
+    if line1 ~= line2 or col1 ~= col2 then
+      local text = self:get_text(line1, col1, line2, col2)
+      if text ~= "" then result[#result + 1] = text end
+    end
+  end
+  return table.concat(result, "\n")
+end
+
 function Doc:has_selection()
   local line1, col1, line2, col2 = self:get_selection(false)
   return line1 ~= line2 or col1 ~= col2
+end
+
+function Doc:has_any_selection()
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    if line1 ~= line2 or col1 ~= col2 then return true end
+  end
+  return false
 end
 
 function Doc:sanitize_selection()
@@ -156,7 +197,7 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
 end
 
 function Doc:set_selection(line1, col1, line2, col2, swap)
-  self.selections, self.cursor_clipboard = {}, {}
+  self.selections = {}
   self:set_selections(1, line1, col1, line2, col2, swap)
 end
 
@@ -176,9 +217,9 @@ local function selection_iterator(invariant, idx)
   local target = invariant[3] and (idx*4 - 7) or (idx*4 + 1)
   if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
   if invariant[2] then
-    return idx+(invariant[3] and -1 or 1), sort_positions(unpack(invariant[1], target, target+4))
+    return idx+(invariant[3] and -1 or 1), sort_positions(table.unpack(invariant[1], target, target+4))
   else
-    return idx+(invariant[3] and -1 or 1), unpack(invariant[1], target, target+4)
+    return idx+(invariant[3] and -1 or 1), table.unpack(invariant[1], target, target+4)
   end
 end
 
@@ -279,7 +320,8 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
     local line1, col1, line2, col2 = table.unpack(cmd)
     self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
   elseif cmd.type == "selection" then
-    self.selections = { unpack(cmd) }
+    self.selections = { table.unpack(cmd) }
+    self:sanitize_selection()
   end
 
   modified = modified or (cmd.type ~= "selection")
@@ -300,6 +342,7 @@ end
 function Doc:raw_insert(line, col, text, undo_stack, time)
   -- split text into lines and merge with line at insertion point
   local lines = split_lines(text)
+  local len = #lines[#lines]
   local before = self.lines[line]:sub(1, col - 1)
   local after = self.lines[line]:sub(col)
   for i = 1, #lines - 1 do
@@ -311,13 +354,21 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   -- splice lines into line array
   common.splice(self.lines, line, 1, lines)
 
+  -- keep cursors where they should be
+  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+    if cline1 < line then break end
+    local line_addition = (line < cline1 or col < ccol1) and #lines - 1 or 0
+    local column_addition = line == cline1 and ccol1 > col and len or 0
+    self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition, ccol2 + column_addition)
+  end
+
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
-  push_undo(undo_stack, time, "selection", unpack(self.selections))
+  push_undo(undo_stack, time, "selection", table.unpack(self.selections))
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:invalidate(line)
+  self.highlighter:insert_notify(line, #lines - 1)
   self:sanitize_selection()
 end
 
@@ -325,7 +376,7 @@ end
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- push undo
   local text = self:get_text(line1, col1, line2, col2)
-  push_undo(undo_stack, time, "selection", unpack(self.selections))
+  push_undo(undo_stack, time, "selection", table.unpack(self.selections))
   push_undo(undo_stack, time, "insert", line1, col1, text)
 
   -- get line content before/after removed text
@@ -335,8 +386,16 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- splice line into line array
   common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
 
+  -- move all cursors back if they share a line with the removed text
+  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+    if cline1 < line2 then break end
+    local line_removal = line2 - line1
+    local column_removal = line2 == cline2 and col2 < ccol1 and (line2 == line1 and col2 - col1 or col2) or 0
+    self:set_selections(idx, cline1 - line_removal, ccol1 - column_removal, cline2 - line_removal, ccol2 - column_removal)
+  end
+
   -- update highlighter and assure selection is in bounds
-  self.highlighter:invalidate(line1)
+  self.highlighter:remove_notify(line1, line2 - line1)
   self:sanitize_selection()
 end
 
@@ -370,7 +429,7 @@ end
 
 
 function Doc:text_input(text, idx)
-  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx or true) do
     if line1 ~= line2 or col1 ~= col2 then
       self:delete_to_cursor(sidx)
     end
@@ -379,12 +438,7 @@ function Doc:text_input(text, idx)
   end
 end
 
-
-function Doc:replace(fn)
-  local line1, col1, line2, col2 = self:get_selection(true)
-  if line1 == line2 and col1 == col2 then
-    line1, col1, line2, col2 = 1, 1, #self.lines, #self.lines[#self.lines]
-  end
+function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
   local old_text = self:get_text(line1, col1, line2, col2)
   local new_text, n = fn(old_text)
   if old_text ~= new_text then
@@ -392,8 +446,23 @@ function Doc:replace(fn)
     self:remove(line1, col1, line2, col2)
     if line1 == line2 and col1 == col2 then
       line2, col2 = self:position_offset(line1, col1, #new_text)
-      self:set_selection(line1, col1, line2, col2)
+      self:set_selections(idx, line1, col1, line2, col2)
     end
+  end
+  return n
+end
+
+function Doc:replace(fn)
+  local has_selection, n = false, 0
+  for idx, line1, col1, line2, col2 in self:get_selections(true) do
+    if line1 ~= line2 or col1 ~= col2 then
+      n = n + self:replace_cursor(idx, line1, col1, line2, col2, fn)
+      has_selection = true
+    end
+  end
+  if not has_selection then
+    self:set_selection(table.unpack(self.selections))
+    n = n + self:replace_cursor(1, 1, 1, #self.lines, #self.lines[#self.lines], fn)
   end
   return n
 end
@@ -433,19 +502,21 @@ end
 function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
 
-local function get_indent_string()
-  if config.tab_type == "hard" then
+function Doc:get_indent_string()
+  local indent_type, indent_size = self:get_indent_info()
+  if indent_type == "hard" then
     return "\t"
   end
-  return string.rep(" ", config.indent_size)
+  return string.rep(" ", indent_size)
 end
 
 -- returns the size of the original indent, and the indent
 -- in your config format, rounded either up or down
-local function get_line_indent(line, rnd_up)
+function Doc:get_line_indent(line, rnd_up)
   local _, e = line:find("^[ \t]+")
-  local soft_tab = string.rep(" ", config.indent_size)
-  if config.tab_type == "hard" then
+  local indent_type, indent_size = self:get_indent_info()
+  local soft_tab = string.rep(" ", indent_size)
+  if indent_type == "hard" then
     local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
     return e, indent:gsub(" +", rnd_up and "\t" or "")
   else
@@ -467,14 +538,14 @@ end
 -- * if you are unindenting, the cursor will jump to the start of the line,
 --   and remove the appropriate amount of spaces (or a tab).
 function Doc:indent_text(unindent, line1, col1, line2, col2)
-  local text = get_indent_string()
+  local text = self:get_indent_string()
   local _, se = self.lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
   local has_selection = line1 ~= line2 or col1 ~= col2
   if unindent or has_selection or in_beginning_whitespace then
     local l1d, l2d = #self.lines[line1], #self.lines[line2]
     for line = line1, line2 do
-      local e, rnded = get_line_indent(self.lines[line], unindent)
+      local e, rnded = self:get_line_indent(self.lines[line], unindent)
       self:remove(line, 1, line, (e or 0) + 1)
       self:insert(line, 1,
         unindent and rnded:sub(1, #rnded - #text) or rnded .. text)

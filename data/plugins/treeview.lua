@@ -1,4 +1,4 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -41,8 +41,23 @@ function TreeView:new()
   self.init_size = true
   self.target_size = default_treeview_size
   self.cache = {}
-  self.last = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
+
+  self.item_icon_width = 0
+  self.item_text_spacing = 0
+  self:add_core_hooks()
+end
+
+
+function TreeView:add_core_hooks()
+  -- When a file or directory is deleted we delete the corresponding cache entry
+  -- because if the entry is recreated we may use wrong information from cache.
+  local on_delete = core.on_dirmonitor_delete
+  core.on_dirmonitor_delete = function(dir, filepath)
+    local cache = self.cache[dir.name]
+    if cache then cache[filepath] = nil end
+    on_delete(dir, filepath)
+  end
 end
 
 
@@ -54,7 +69,7 @@ function TreeView:set_target_size(axis, value)
 end
 
 
-function TreeView:get_cached(item, dirname)
+function TreeView:get_cached(dir, item, dirname)
   local dir_cache = self.cache[dirname]
   if not dir_cache then
     dir_cache = {}
@@ -80,6 +95,7 @@ function TreeView:get_cached(item, dirname)
     end
     t.name = basename
     t.type = item.type
+    t.dir = dir -- points to top level "dir" item
     dir_cache[cache_name] = t
   end
   return t
@@ -104,18 +120,13 @@ end
 
 
 function TreeView:check_cache()
-  -- invalidate cache's skip values if project_files has changed
   for i = 1, #core.project_directories do
     local dir = core.project_directories[i]
-    local last_files = self.last[dir.name]
-    if not last_files then
-      self.last[dir.name] = dir.files
-    else
-      if dir.files ~= last_files then
-        self:invalidate_cache(dir.name)
-        self.last[dir.name] = dir.files
-      end
+    -- invalidate cache's skip values if directory is declared dirty
+    if dir.is_dirty and self.cache[dir.name] then
+      self:invalidate_cache(dir.name)
     end
+    dir.is_dirty = false
   end
 end
 
@@ -131,14 +142,14 @@ function TreeView:each_item()
 
     for k = 1, #core.project_directories do
       local dir = core.project_directories[k]
-      local dir_cached = self:get_cached(dir.item, dir.name)
+      local dir_cached = self:get_cached(dir, dir.item, dir.name)
       coroutine.yield(dir_cached, ox, y, w, h)
       count_lines = count_lines + 1
       y = y + h
       local i = 1
       while i <= #dir.files and dir_cached.expanded do
         local item = dir.files[i]
-        local cached = self:get_cached(item, dir.name)
+        local cached = self:get_cached(dir, item, dir.name)
 
         coroutine.yield(cached, ox, y, w, h)
         count_lines = count_lines + 1
@@ -206,7 +217,6 @@ local function create_directory_in(item)
       core.error("cannot create directory %q: %s", dirname, err)
     end
     item.expanded = true
-    core.reschedule_project_scan()
   end)
 end
 
@@ -214,39 +224,31 @@ end
 function TreeView:on_mouse_pressed(button, x, y, clicks)
   local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught or button ~= "left" then
-    return
+    return true
   end
   local hovered_item = self.hovered_item
   if not hovered_item then
-    return
+    return false
   elseif hovered_item.type == "dir" then
     if keymap.modkeys["ctrl"] and button == "left" then
       create_directory_in(hovered_item)
     else
-      if core.project_files_limit and not hovered_item.expanded then
-        local filename, abs_filename = hovered_item.filename, hovered_item.abs_filename
-        local index = 0
-        -- The loop below is used to find the first match starting from the end
-        -- in case there are multiple matches.
-        while index and index + #filename < #abs_filename do
-          index = string.find(abs_filename, filename, index + 1, true)
-        end
-        -- we assume here index is not nil because the abs_filename must contain the
-        -- relative filename
-        local dirname = string.sub(abs_filename, 1, index - 2)
-        if core.is_project_folder(dirname) then
-          core.scan_project_folder(dirname, filename)
-          self:invalidate_cache(dirname)
-        end
-      end
       hovered_item.expanded = not hovered_item.expanded
+      if hovered_item.dir.files_limit then
+        core.update_project_subdir(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
+        core.project_subdir_set_show(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
+      end
     end
   else
     core.try(function()
-      local doc_filename = common.relative_path(core.project_dir, hovered_item.abs_filename)
+      if core.last_active_view and core.active_view == self then
+        core.set_active_view(core.last_active_view)
+      end
+      local doc_filename = core.normalize_to_project_dir(hovered_item.abs_filename)
       core.root_view:open_doc(core.open_doc(doc_filename))
     end)
   end
+  return true
 end
 
 
@@ -266,6 +268,9 @@ function TreeView:update()
   else
     self.tooltip.alpha = 0
   end
+
+  self.item_icon_width = style.icon_font:get_width("D")
+  self.item_text_spacing = style.icon_font:get_width("f") / 2
 
   TreeView.super.update(self)
 end
@@ -295,47 +300,90 @@ function TreeView:draw_tooltip()
 end
 
 
+function TreeView:get_item_icon(item, active, hovered)
+  local character = "f"
+  if item.type == "dir" then
+    character = item.expanded and "D" or "d"
+  end
+  local font = style.icon_font
+  local color = style.text
+  if active or hovered then
+    color = style.accent
+  end
+  return character, font, color
+end
+
+function TreeView:get_item_text(item, active, hovered)
+  local text = item.name
+  local font = style.font
+  local color = style.text
+  if active or hovered then
+    color = style.accent
+  end
+  return text, font, color
+end
+
+
+function TreeView:draw_item_text(item, active, hovered, x, y, w, h)
+  local item_text, item_font, item_color = self:get_item_text(item, active, hovered)
+  common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
+end
+
+
+function TreeView:draw_item_icon(item, active, hovered, x, y, w, h)
+  local icon_char, icon_font, icon_color = self:get_item_icon(item, active, hovered)
+  common.draw_text(icon_font, icon_color, icon_char, nil, x, y, 0, h)
+  return self.item_icon_width + self.item_text_spacing
+end
+
+
+function TreeView:draw_item_body(item, active, hovered, x, y, w, h)
+    x = x + self:draw_item_icon(item, active, hovered, x, y, w, h)
+    self:draw_item_text(item, active, hovered, x, y, w, h)
+end
+
+
+function TreeView:draw_item_chevron(item, active, hovered, x, y, w, h)
+  if item.type == "dir" then
+    local chevron_icon = item.expanded and "-" or "+"
+    local chevron_color = hovered and style.accent or style.text
+    common.draw_text(style.icon_font, chevron_color, chevron_icon, nil, x, y, 0, h)
+  end
+  return style.padding.x
+end
+
+
+function TreeView:draw_item_background(item, active, hovered, x, y, w, h)
+  if hovered then
+    renderer.draw_rect(x, y, w, h, style.line_highlight)
+  end
+end
+
+
+function TreeView:draw_item(item, active, hovered, x, y, w, h)
+  self:draw_item_background(item, active, hovered, x, y, w, h)
+
+  x = x + item.depth * style.padding.x + style.padding.x
+  x = x + self:draw_item_chevron(item, active, hovered, x, y, w, h)
+
+  self:draw_item_body(item, active, hovered, x, y, w, h)
+end
+
+
 function TreeView:draw()
   self:draw_background(style.background2)
-
-  local icon_width = style.icon_font:get_width("D")
-  local spacing = style.icon_font:get_width("f") / 2
+  local _y, _h = self.position.y, self.size.y
 
   local doc = core.active_view.doc
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
   for item, x,y,w,h in self:each_item() do
-    local color = style.text
-
-    -- highlight active_view doc
-    if item.abs_filename == active_filename then
-      color = style.accent
+    if y + h >= _y and y < _y + _h then
+      self:draw_item(item,
+        item.abs_filename == active_filename,
+        item == self.hovered_item,
+        x, y, w, h)
     end
-
-    -- hovered item background
-    if item == self.hovered_item then
-      renderer.draw_rect(x, y, w, h, style.line_highlight)
-      color = style.accent
-    end
-
-    -- icons
-    x = x + item.depth * style.padding.x + style.padding.x
-    if item.type == "dir" then
-      local icon1 = item.expanded and "-" or "+"
-      local icon2 = item.expanded and "D" or "d"
-      common.draw_text(style.icon_font, color, icon1, nil, x, y, 0, h)
-      x = x + style.padding.x
-      common.draw_text(style.icon_font, color, icon2, nil, x, y, 0, h)
-      x = x + icon_width
-    else
-      x = x + style.padding.x
-      common.draw_text(style.icon_font, color, "f", nil, x, y, 0, h)
-      x = x + icon_width
-    end
-
-    -- text
-    x = x + spacing
-    x = common.draw_text(style.font, color, item.name, nil, x, y, 0, h)
   end
 
   self:draw_scrollbar()
@@ -404,7 +452,7 @@ function RootView:draw(...)
 end
 
 local function is_project_folder(path)
-  return common.basename(core.project_dir) == path
+  return core.project_dir == path
 end
 
 menu:register(function() return view.hovered_item end, {
@@ -415,7 +463,7 @@ menu:register(function() return view.hovered_item end, {
 menu:register(
   function()
     return view.hovered_item
-      and not is_project_folder(view.hovered_item.filename)
+      and not is_project_folder(view.hovered_item.abs_filename)
   end,
   {
     { text = "Rename", command = "treeview:rename" },
@@ -437,22 +485,36 @@ menu:register(
 command.add(nil, {
   ["treeview:toggle"] = function()
     view.visible = not view.visible
-  end,
+  end})
 
+
+command.add(function() return view.hovered_item ~= nil end, {
   ["treeview:rename"] = function()
     local old_filename = view.hovered_item.filename
+    local old_abs_filename = view.hovered_item.abs_filename
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", function(filename)
-      os.rename(old_filename, filename)
-      core.reschedule_project_scan()
-      core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+      filename = core.normalize_to_project_dir(filename)
+      local abs_filename = core.project_absolute_path(filename)
+      local res, err = os.rename(old_abs_filename, abs_filename)
+      if res then -- successfully renamed
+        for _, doc in ipairs(core.docs) do
+          if doc.abs_filename and old_abs_filename == doc.abs_filename then
+            doc:set_filename(filename, abs_filename) -- make doc point to the new filename
+            doc:reset_syntax()
+            break -- only first needed
+          end
+        end
+        core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+      else
+        core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
+      end
     end, common.path_suggest)
   end,
 
   ["treeview:new-file"] = function()
-    local dir_name = view.hovered_item.filename
-    if not is_project_folder(dir_name) then
-      core.command_view:set_text(dir_name .. "/")
+    if not is_project_folder(view.hovered_item.abs_filename) then
+      core.command_view:set_text(view.hovered_item.filename .. "/")
     end
     core.command_view:enter("Filename", function(filename)
       local doc_filename = core.project_dir .. PATHSEP .. filename
@@ -460,20 +522,17 @@ command.add(nil, {
       file:write("")
       file:close()
       core.root_view:open_doc(core.open_doc(doc_filename))
-      core.reschedule_project_scan()
       core.log("Created %s", doc_filename)
     end, common.path_suggest)
   end,
 
   ["treeview:new-folder"] = function()
-    local dir_name = view.hovered_item.filename
-    if not is_project_folder(dir_name) then
-      core.command_view:set_text(dir_name .. "/")
+    if not is_project_folder(view.hovered_item.abs_filename) then
+      core.command_view:set_text(view.hovered_item.filename .. "/")
     end
     core.command_view:enter("Folder Name", function(filename)
       local dir_path = core.project_dir .. PATHSEP .. filename
       common.mkdirp(dir_path)
-      core.reschedule_project_scan()
       core.log("Created %s", dir_path)
     end, common.path_suggest)
   end,
@@ -510,7 +569,6 @@ command.add(nil, {
               return
             end
           end
-          core.reschedule_project_scan()
           core.log("Deleted \"%s\"", filename)
         end
       end
@@ -521,7 +579,7 @@ command.add(nil, {
     local hovered_item = view.hovered_item
 
     if PLATFORM == "Windows" then
-      system.exec("start " .. hovered_item.abs_filename)
+      system.exec(string.format("start \"\" %q", hovered_item.abs_filename))
     elseif string.find(PLATFORM, "Mac") then
       system.exec(string.format("open %q", hovered_item.abs_filename))
     elseif PLATFORM == "Linux" then

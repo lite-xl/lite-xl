@@ -1,7 +1,8 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 local syntax = require "core.syntax"
 
 syntax.add {
+  name = "C",
   files = { "%.c$", "%.h$", "%.inl$" },
   comment = "//",
   patterns = {
@@ -43,7 +44,7 @@ syntax.add {
     ["case"]     = "keyword",
     ["default"]  = "keyword",
     ["auto"]     = "keyword",
-    ["void"]     = "keyword",
+    ["void"]     = "keyword2",
     ["int"]      = "keyword2",
     ["short"]    = "keyword2",
     ["long"]     = "keyword2",
@@ -55,6 +56,17 @@ syntax.add {
     ["true"]     = "literal",
     ["false"]    = "literal",
     ["NULL"]     = "literal",
+    ["#include"] = "keyword",
+    ["#if"] = "keyword",
+    ["#ifdef"] = "keyword",
+    ["#ifndef"] = "keyword",
+    ["#else"] = "keyword",
+    ["#elseif"] = "keyword",
+    ["#endif"] = "keyword",
+    ["#define"] = "keyword",
+    ["#warning"] = "keyword",
+    ["#error"] = "keyword",
+    ["#pragma"] = "keyword",
   },
 }
 

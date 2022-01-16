@@ -1,9 +1,10 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 pcall(require, "plugins.language_c")
 
 local syntax = require "core.syntax"
 
 syntax.add {
+  name = "C++",
   files = {
     "%.h$", "%.inl$", "%.cpp$", "%.cc$", "%.C$", "%.cxx$",
     "%.c++$", "%.hh$", "%.H$", "%.hxx$", "%.hpp$", "%.h++$"
@@ -95,7 +96,7 @@ syntax.add {
     ["default"]  = "keyword",
     ["auto"]     = "keyword",
     ["const"]    = "keyword",
-    ["void"]     = "keyword",
+    ["void"]     = "keyword2",
     ["int"]      = "keyword2",
     ["short"]    = "keyword2",
     ["long"]     = "keyword2",

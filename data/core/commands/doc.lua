@@ -16,14 +16,6 @@ local function doc()
 end
 
 
-local function get_indent_string()
-  if config.tab_type == "hard" then
-    return "\t"
-  end
-  return string.rep(" ", config.indent_size)
-end
-
-
 local function doc_multiline_selections(sort)
   local iter, state, idx, line1, col1, line2, col2 = doc():get_selections(sort)
   return function()
@@ -43,32 +35,51 @@ local function append_line_if_last_line(line)
 end
 
 local function save(filename)
-  doc():save(filename and core.normalize_to_project_dir(filename))
+  local abs_filename
+  if filename then
+    filename = core.normalize_to_project_dir(filename)
+    abs_filename = core.project_absolute_path(filename)
+  end
+  doc():save(filename, abs_filename)
   local saved_filename = doc().filename
   core.log("Saved \"%s\"", saved_filename)
 end
 
 local function cut_or_copy(delete)
   local full_text = ""
+  local text = ""
+  core.cursor_clipboard = {}
+  core.cursor_clipboard_whole_line = {}
   for idx, line1, col1, line2, col2 in doc():get_selections() do
     if line1 ~= line2 or col1 ~= col2 then
-      local text = doc():get_text(line1, col1, line2, col2)
+      text = doc():get_text(line1, col1, line2, col2)
+      full_text = full_text == "" and text or (full_text .. " " .. text)
+      core.cursor_clipboard_whole_line[idx] = false
       if delete then
         doc():delete_to_cursor(idx, 0)
       end
-      full_text = full_text == "" and text or (full_text .. "\n" .. text)
-      doc().cursor_clipboard[idx] = text
-    else
-      doc().cursor_clipboard[idx] = ""
+    else -- Cut/copy whole line
+      text = doc().lines[line1]
+      full_text = full_text == "" and text or (full_text .. text)
+      core.cursor_clipboard_whole_line[idx] = true
+      if delete then
+        if line1 < #doc().lines then
+          doc():remove(line1, 1, line1 + 1, 1)
+        else
+          doc():remove(line1 - 1, math.huge, line1, math.huge)
+        end
+      end
     end
+    core.cursor_clipboard[idx] = text
   end
+  core.cursor_clipboard["full"] = full_text
   system.set_clipboard(full_text)
 end
 
 local function split_cursor(direction)
   local new_cursors = {}
   for _, line1, col1 in doc():get_selections() do
-    if line1 > 1 and line1 < #doc().lines then
+    if line1 + direction >= 1 and line1 + direction <= #doc().lines then
       table.insert(new_cursors, { line1 + direction, col1 })
     end
   end
@@ -76,15 +87,24 @@ local function split_cursor(direction)
   core.blink_reset()
 end
 
+local function set_cursor(x, y, snap_type)
+  local line, col = dv():resolve_screen_position(x, y)
+  doc():set_selection(line, col, line, col)
+  if snap_type == "word" or snap_type == "lines" then
+    command.perform("doc:select-" .. snap_type)
+  end
+  dv().mouse_selecting = { line, col, snap_type }
+  core.blink_reset()
+end
+
+local selection_commands = {
+  ["doc:select-none"] = function()
+    local line, col = doc():get_selection()
+    doc():set_selection(line, col)
+  end
+}
+
 local commands = {
-  ["doc:undo"] = function()
-    doc():undo()
-  end,
-
-  ["doc:redo"] = function()
-    doc():redo()
-  end,
-
   ["doc:cut"] = function()
     cut_or_copy(true)
   end,
@@ -93,10 +113,39 @@ local commands = {
     cut_or_copy(false)
   end,
 
+  ["doc:undo"] = function()
+    doc():undo()
+  end,
+
+  ["doc:redo"] = function()
+    doc():redo()
+  end,
+
   ["doc:paste"] = function()
+    local clipboard = system.get_clipboard()
+    -- If the clipboard has changed since our last look, use that instead
+    local external_paste = core.cursor_clipboard["full"] ~= clipboard
+    if external_paste then
+      core.cursor_clipboard = {}
+      core.cursor_clipboard_whole_line = {}
+    end
+    local value, whole_line
     for idx, line1, col1, line2, col2 in doc():get_selections() do
-      local value = doc().cursor_clipboard[idx] or system.get_clipboard()
-      doc():text_input(value:gsub("\r", ""), idx)
+      if #core.cursor_clipboard_whole_line == (#doc().selections/4) then
+        value = core.cursor_clipboard[idx]
+        whole_line = core.cursor_clipboard_whole_line[idx] == true
+      else
+        value = clipboard
+        whole_line = not external_paste and clipboard:find("\n") ~= nil
+      end
+      if whole_line then
+        doc():insert(line1, 1, value:gsub("\r", ""))
+        if col1 == 1 then
+          doc():move_to_cursor(idx, #value)
+        end
+      else
+        doc():text_input(value:gsub("\r", ""), idx)
+      end
     end
   end,
 
@@ -136,11 +185,12 @@ local commands = {
   end,
 
   ["doc:backspace"] = function()
+    local _, indent_size = doc():get_indent_info()
     for idx, line1, col1, line2, col2 in doc():get_selections() do
       if line1 == line2 and col1 == col2 then
         local text = doc():get_text(line1, 1, line1, col1)
-        if #text >= config.indent_size and text:find("^ *$") then
-          doc():delete_to_cursor(idx, 0, -config.indent_size)
+        if #text >= indent_size and text:find("^ *$") then
+          doc():delete_to_cursor(idx, 0, -indent_size)
           return
         end
       end
@@ -150,21 +200,6 @@ local commands = {
 
   ["doc:select-all"] = function()
     doc():set_selection(1, 1, math.huge, math.huge)
-  end,
-
-  ["doc:select-none"] = function()
-    local line, col = doc():get_selection()
-    doc():set_selection(line, col)
-  end,
-
-
-  ["doc:indent"] = function()
-    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-      local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
-      if l1 then
-        doc():set_selections(idx, l1, c1, l2, c2)
-      end
-    end
   end,
 
   ["doc:select-lines"] = function()
@@ -260,7 +295,7 @@ local commands = {
   ["doc:toggle-line-comments"] = function()
     local comment = doc().syntax.comment
     if not comment then return end
-    local indentation = get_indent_string()
+    local indentation = doc():get_indent_string()
     local comment_text = comment .. " "
     for idx, line1, _, line2 in doc_multiline_selections(true) do
       local uncomment = true
@@ -363,12 +398,14 @@ local commands = {
     end
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", function(filename)
-      doc():save(filename)
+      save(common.home_expand(filename))
       core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
       if filename ~= old_filename then
         os.remove(old_filename)
       end
-    end, common.path_suggest)
+    end, function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+    end)
   end,
 
 
@@ -384,6 +421,30 @@ local commands = {
     end
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
+  end,
+
+  ["doc:select-to-cursor"] = function(x, y, clicks)
+    local line1, col1 = select(3, doc():get_selection())
+    local line2, col2 = dv():resolve_screen_position(x, y)
+    dv().mouse_selecting = { line1, col1, nil }
+    doc():set_selection(line2, col2, line1, col1)
+  end,
+
+  ["doc:set-cursor"] = function(x, y)
+    set_cursor(x, y, "set")
+  end,
+
+  ["doc:set-cursor-word"] = function(x, y)
+    set_cursor(x, y, "word")
+  end,
+
+  ["doc:set-cursor-line"] = function(x, y, clicks)
+    set_cursor(x, y, "lines")
+  end,
+
+  ["doc:split-cursor"] = function(x, y, clicks)
+    local line, col = dv():resolve_screen_position(x, y)
+    doc():add_selection(line, col, line, col)
   end,
 
   ["doc:create-cursor-previous-line"] = function()
@@ -411,6 +472,7 @@ local translations = {
   ["start-of-line"] = translate.start_of_line,
   ["end-of-line"] = translate.end_of_line,
   ["start-of-word"] = translate.start_of_word,
+  ["start-of-indentation"] = translate.start_of_indentation,
   ["end-of-word"] = translate.end_of_word,
   ["previous-line"] = DocView.translate.previous_line,
   ["next-line"] = DocView.translate.next_line,
@@ -443,3 +505,6 @@ commands["doc:move-to-next-char"] = function()
 end
 
 command.add("core.docview", commands)
+command.add(function()
+  return core.active_view:is(DocView) and core.active_view.doc:has_any_selection()
+end ,selection_commands)

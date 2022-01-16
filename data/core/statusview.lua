@@ -6,6 +6,7 @@ local style = require "core.style"
 local DocView = require "core.docview"
 local LogView = require "core.logview"
 local View = require "core.view"
+local Object = require "core.object"
 
 
 local StatusView = View:extend()
@@ -29,6 +30,7 @@ function StatusView:on_mouse_pressed()
   and not core.active_view:is(LogView) then
     command.perform "core:open-log"
   end
+  return true
 end
 
 
@@ -70,7 +72,7 @@ local function draw_items(self, items, x, y, draw_fn)
   local color = style.text
 
   for _, item in ipairs(items) do
-    if type(item) == "userdata" then
+    if Object.is(item, renderer.font) then
       font = item
     elseif type(item) == "table" then
       color = item
@@ -107,9 +109,9 @@ function StatusView:get_items()
     local dv = core.active_view
     local line, col = dv.doc:get_selection()
     local dirty = dv.doc:is_dirty()
-    local indent = dv.doc.indent_info
-    local indent_label = (indent and indent.type == "hard") and "tabs: " or "spaces: "
-    local indent_size = indent and tostring(indent.size) .. (indent.confirmed and "" or "*") or "unknown"
+    local indent_type, indent_size, indent_confirmed = dv.doc:get_indent_info()
+    local indent_label = (indent_type == "hard") and "tabs: " or "spaces: "
+    local indent_size_str = tostring(indent_size) .. (indent_confirmed and "" or "*") or "unknown"
 
     return {
       dirty and style.accent or style.text, style.icon_font, "f",

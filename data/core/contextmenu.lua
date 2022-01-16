@@ -49,7 +49,7 @@ function ContextMenu:register(predicate, items)
   local width, height = 0, 0 --precalculate the size of context menu
   for i, item in ipairs(items) do
     if item ~= DIVIDER then
-      item.info = keymap.reverse_map[item.command]
+      item.info = keymap.get_binding(item.command)
     end
     local lw, lh = get_item_size(item)
     width = math.max(width, lw)
@@ -66,9 +66,13 @@ function ContextMenu:show(x, y)
   for _, items in ipairs(self.itemset) do
     if items.predicate(x, y) then
       items_list.width = math.max(items_list.width, items.items.width)
-      items_list.height = items_list.height + items.items.height
+      items_list.height = items_list.height
       for _, subitems in ipairs(items.items) do
-        table.insert(items_list, subitems)
+        if not subitems.command or command.is_valid(subitems.command) then
+          local lw, lh = get_item_size(subitems)
+          items_list.height = items_list.height + lh
+          table.insert(items_list, subitems)
+        end
       end
     end
   end

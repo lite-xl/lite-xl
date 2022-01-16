@@ -1,4 +1,4 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 local core = require "core"
 local command = require "core.command"
 local keymap = require "core.keymap"
@@ -42,17 +42,35 @@ keymap.add {
   ["menu"] = "context:show"
 }
 
+local function copy_log()
+  local item = core.active_view.hovered_item
+  if item then
+    system.set_clipboard(core.get_log(item))
+  end
+end
+
+local function open_as_doc()
+  local doc = core.open_doc("logs.txt")
+  core.root_view:open_doc(doc)
+  doc:insert(1, 1, core.get_log())
+end
+
+menu:register("core.logview", {
+  { text = "Copy entry", command = copy_log },
+  { text = "Open as file", command = open_as_doc }
+})
+
 if require("plugins.scale") then
   menu:register("core.docview", {
-    { text = "Font +",     command = "scale:increase" },
-    { text = "Font -",     command = "scale:decrease" },
-    { text = "Font Reset", command = "scale:reset"    },
+    { text = "Cut",         command = "doc:cut" },
+    { text = "Copy",        command = "doc:copy" },
+    { text = "Paste",       command = "doc:paste" },
+    { text = "Font +",      command = "scale:increase" },
+    { text = "Font -",      command = "scale:decrease" },
+    { text = "Font Reset",  command = "scale:reset"    },
     ContextMenu.DIVIDER,
-    { text = "Find",       command = "find-replace:find"    },
-    { text = "Replace",    command = "find-replace:replace" },
-    ContextMenu.DIVIDER,
-    { text = "Find Pattern",    command = "find-replace:find-pattern"    },
-    { text = "Replace Pattern", command = "find-replace:replace-pattern" },
+    { text = "Find",        command = "find-replace:find"    },
+    { text = "Replace",     command = "find-replace:replace" }
   })
 end
 

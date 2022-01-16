@@ -193,7 +193,8 @@ function NagView:next()
     self:change_hovered(common.find_index(self.options, "default_yes"))
   end
   self.force_focus = self.message ~= nil
-  core.set_active_view(self.message ~= nil and self or core.last_active_view)
+  core.set_active_view(self.message ~= nil and self or
+                       core.next_active_view or core.last_active_view)
 end
 
 function NagView:show(title, message, options, on_select)

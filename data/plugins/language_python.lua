@@ -1,21 +1,22 @@
--- mod-version:1 -- lite-xl 1.16
+-- mod-version:2 -- lite-xl 2.0
 local syntax = require "core.syntax"
 
 syntax.add {
-  files = { "%.py$", "%.pyw$" },
+  name = "Python",
+  files = { "%.py$", "%.pyw$", "%.rpy$" },
   headers = "^#!.*[ /]python",
   comment = "#",
   patterns = {
-    { pattern = { "#", "\n" },            type = "comment"  },
-    { pattern = { '[ruU]?"', '"', '\\' }, type = "string"   },
-    { pattern = { "[ruU]?'", "'", '\\' }, type = "string"   },
-    { pattern = { '"""', '"""' },         type = "string"   },
-    { pattern = "0x[%da-fA-F]+",          type = "number"   },
-    { pattern = "-?%d+[%d%.eE]*",         type = "number"   },
-    { pattern = "-?%.?%d+",               type = "number"   },
-    { pattern = "[%+%-=/%*%^%%<>!~|&]",   type = "operator" },
-    { pattern = "[%a_][%w_]*%f[(]",       type = "function" },
-    { pattern = "[%a_][%w_]*",            type = "symbol"   },
+    { pattern = { "#", "\n" },                 type = "comment"  },
+    { pattern = { '[ruU]?"""', '"""'; '\\' },  type = "string"   },
+    { pattern = { '[ruU]?"', '"', '\\' },      type = "string"   },
+    { pattern = { "[ruU]?'", "'", '\\' },      type = "string"   },
+    { pattern = "0x[%da-fA-F]+",               type = "number"   },
+    { pattern = "-?%d+[%d%.eE]*",              type = "number"   },
+    { pattern = "-?%.?%d+",                    type = "number"   },
+    { pattern = "[%+%-=/%*%^%%<>!~|&]",        type = "operator" },
+    { pattern = "[%a_][%w_]*%f[(]",            type = "function" },
+    { pattern = "[%a_][%w_]*",                 type = "symbol"   },
   },
   symbols = {
     ["class"]    = "keyword",

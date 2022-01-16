@@ -41,11 +41,14 @@ function command.get_all_valid()
   return res
 end
 
+function command.is_valid(name, ...)
+  return command.map[name] and command.map[name].predicate(...)
+end
 
-local function perform(name)
+local function perform(name, ...)
   local cmd = command.map[name]
-  if cmd and cmd.predicate() then
-    cmd.perform()
+  if cmd and cmd.predicate(...) then
+    cmd.perform(...)
     return true
   end
   return false

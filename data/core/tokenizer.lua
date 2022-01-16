@@ -1,4 +1,5 @@
 local syntax = require "core.syntax"
+local common = require "core.common"
 
 local tokenizer = {}
 
@@ -142,8 +143,13 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       code = p._regex
     end    
     repeat
-      res = p.pattern and { text:find(at_start and "^" .. code or code, res[2]+1) } 
-        or { regex.match(code, text, res[2]+1, at_start and regex.ANCHORED or 0) }
+      local next = res[2] + 1
+      -- go to the start of the next utf-8 character
+      while text:byte(next) and common.is_utf8_cont(text, next) do
+        next = next + 1
+      end
+      res = p.pattern and { text:find(at_start and "^" .. code or code, next) }
+        or { regex.match(code, text, next, at_start and regex.ANCHORED or 0) }
       if res[1] and close and target[3] then
         local count = 0
         for i = res[1] - 1, 1, -1 do
@@ -155,7 +161,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         if count % 2 == 0 then break end
       end
     until not res[1] or not close or not target[3]
-    return unpack(res)
+    return table.unpack(res)
   end
   
   while i <= #text do
@@ -231,8 +237,13 @@ function tokenizer.tokenize(incoming_syntax, text, state)
 
     -- consume character if we didn't match
     if not matched then
-      push_token(res, "normal", text:sub(i, i))
-      i = i + 1
+      local n = 0
+      -- reach the next character
+      while text:byte(i + n + 1) and common.is_utf8_cont(text, i + n + 1) do
+        n = n + 1
+      end
+      push_token(res, "normal", text:sub(i, i + n))
+      i = i + n + 1
     end
   end
 

@@ -10,23 +10,28 @@ copy_directory_from_repo () {
   fi
   local dirname="$1"
   local destdir="$2"
-  git archive master "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
+  git archive "$lite_branch" "$dirname" --format=tar | tar xf - -C "$destdir" "${tar_options[@]}"
 }
 
 lite_copy_third_party_modules () {
     local build="$1"
-    curl --retry 5 --retry-delay 3 --insecure -L "https://github.com/rxi/lite-colors/archive/master.zip" -o "$build/rxi-lite-colors.zip" || exit 1
+    curl --retry 5 --retry-delay 3 --insecure -L "https://github.com/lite-xl/lite-xl-colors/archive/master.zip" -o "$build/lite-xl-colors.zip" || exit 1
     mkdir -p "$build/third/data/colors" "$build/third/data/plugins"
-    unzip -qq "$build/rxi-lite-colors.zip" -d "$build"
-    mv "$build/lite-colors-master/colors" "$build/third/data"
-    rm -fr "$build/lite-colors-master"
-    rm "$build/rxi-lite-colors.zip"
+    unzip -qq "$build/lite-xl-colors.zip" -d "$build"
+    mv "$build/lite-xl-colors-master/colors" "$build/third/data"
+    rm -fr "$build/lite-xl-colors-master"
+    rm "$build/lite-xl-colors.zip"
 }
 
+lite_branch=master
 while [ ! -z ${1+x} ]; do
   case "$1" in
     -dir)
     use_dir="$(realpath $2)"
+    shift 2
+    ;;
+    -branch)
+    lite_branch="$2"
     shift 2
     ;;
     *)
@@ -42,7 +47,7 @@ workdir=".repackage"
 rm -fr "$workdir" && mkdir "$workdir" && pushd "$workdir"
 
 fetch_packages_from_github () {
-  assets=($($wget -q -nv -O- https://api.github.com/repos/franko/lite-xl/releases/latest | grep "browser_download_url" | cut -d '"' -f 4))
+  assets=($($wget -q -nv -O- https://api.github.com/repos/lite-xl/lite-xl/releases/latest | grep "browser_download_url" | cut -d '"' -f 4))
 
   for url in "${assets[@]}"; do
     echo "getting: $url"
@@ -73,6 +78,8 @@ for filename in $(ls -1 *.zip *.tar.*); do
     fi
     rm "$filename"
     find lite-xl -name lite -exec chmod a+x '{}' \;
+    start_file=$(find lite-xl -name start.lua)
+    lite_version=$(cat "$start_file" | awk 'match($0, /^\s*VERSION\s*=\s*"(.+)"/, a) { print(a[1]) }')
     xcoredir="$(find lite-xl -type d -name 'core')"
     coredir="$(dirname $xcoredir)"
     echo "coredir: $coredir"
@@ -81,6 +88,7 @@ for filename in $(ls -1 *.zip *.tar.*); do
         rm -fr "$coredir/$module_name"
         (cd .. && copy_directory_from_repo --strip-components=1 "data/$module_name" "$workdir/$coredir")
     done
+    sed -i "s/@PROJECT_VERSION@/$lite_version/g" "$start_file"
     for module_name in plugins colors; do
         cp -r "third/data/$module_name" "$coredir"
     done

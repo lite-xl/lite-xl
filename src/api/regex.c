@@ -10,7 +10,7 @@
 // something similiar to luaL_checkudata() but for regex only
 static pcre2_code* check_regex(lua_State* L, int arg) {
   luaL_checktype(L, arg, LUA_TTABLE);
-  int hasmt = 0; 
+  int hasmt = 0;
   pcre2_code* re = NULL;
 
   if (lua_getmetatable(L, arg)) {
@@ -52,7 +52,7 @@ static int f_pcre_gc(lua_State* L) {
 }
 
 static int f_pcre_compile(lua_State *L) {
-  size_t len; 
+  size_t len;
   int options = PCRE2_UTF;
   const char* pattern = luaL_checklstring(L, 1, &len);
   const char* optstr = luaL_optstring(L, 2, "");
@@ -62,7 +62,7 @@ static int f_pcre_compile(lua_State *L) {
     options |= PCRE2_MULTILINE;
   if (strstr(optstr,"s"))
     options |= PCRE2_DOTALL;
-  
+
   int error;
   PCRE2_SIZE error_offset;
   pcre2_code* re = pcre2_compile(
@@ -110,7 +110,7 @@ static int f_pcre_nametable(lua_State* L) {
   for (uint32_t i = 0; i < namecount; i++) {
     uint16_t index = (nametable[1] << 0) | (nametable[0] << 8);
     nametable += 2;
-    
+
     lua_createtable(L, 0, 2);
     lua_pushnumber(L, index);
     lua_setfield(L, -2, "index");
@@ -154,6 +154,7 @@ static int f_pcre_match(lua_State *L) {
     we just detect this case and give up. */
     luaL_error(L, "regex matching error: \\K was used in an assertion to "
     " set the match start after its end");
+    pcre2_match_data_free(md);
     return 0;
   }
 
@@ -182,21 +183,20 @@ int luaopen_regex(lua_State *L) {
 
   lua_pushnumber(L, PCRE2_ANCHORED);
   lua_setfield(L, -2, "ANCHORED");
-  
+
   lua_pushnumber(L, PCRE2_ANCHORED) ;
   lua_setfield(L, -2, "ENDANCHORED");
-  
   lua_pushnumber(L, PCRE2_NOTBOL);
   lua_setfield(L, -2, "NOTBOL");
-  
+
   lua_pushnumber(L, PCRE2_NOTEOL);
   lua_setfield(L, -2, "NOTEOL");
-  
+
   lua_pushnumber(L, PCRE2_NOTEMPTY);
   lua_setfield(L, -2, "NOTEMPTY");
-  
+
   lua_pushnumber(L, PCRE2_NOTEMPTY_ATSTART);
   lua_setfield(L, -2, "NOTEMPTY_ATSTART");
-  
+
   return 1;
 }
