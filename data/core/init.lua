@@ -392,7 +392,6 @@ end
 local function add_dir_scan_thread(dir)
   core.add_thread(function()
     while true do
-      print("DEBUG: running rescan on", dir.name)
       local has_changes = rescan_project_subdir(dir, "")
       if has_changes then
         core.redraw = true -- we run without an event, from a thread
