@@ -84,6 +84,8 @@ function Doc:save(filename, abs_filename)
     assert(self.filename, "no filename set to default to")
     filename = self.filename
     abs_filename = self.abs_filename
+  else
+    assert(self.filename or abs_filename, "calling save on unnamed doc without absolute path")
   end
   local fp = assert( io.open(filename, "wb") )
   for _, line in ipairs(self.lines) do

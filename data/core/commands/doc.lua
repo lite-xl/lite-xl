@@ -487,7 +487,7 @@ local commands = {
     end
     for i,docview in ipairs(core.get_views_referencing_doc(doc())) do
       local node = core.root_view.root_node:get_node_for_view(docview)
-      node:close_view(core.root_view, docview)
+      node:close_view(core.root_view.root_node, docview)
     end
     os.remove(filename)
     core.log("Removed \"%s\"", filename)
