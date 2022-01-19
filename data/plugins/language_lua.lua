@@ -6,6 +6,7 @@ syntax.add {
   files = "%.lua$",
   headers = "^#!.*[ /]lua",
   comment = "--",
+  block_comment = { "--[[", "]]" },
   patterns = {
     { pattern = { '"', '"', '\\' },          type = "string" },
     { pattern = { "'", "'", '\\' },          type = "string" },
