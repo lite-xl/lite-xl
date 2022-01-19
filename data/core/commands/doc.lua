@@ -383,11 +383,13 @@ local commands = {
       block = true
     end
 
-    for _, line1, _, line2 in doc_multiline_selections(true) do
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       if block then
+        local nline1, ncol1, nline2, ncol2
         for line = line1, line2 do
-          block_comment(comment, line, 1, line, #doc().lines[line])
+          nline1, ncol1, nline2, ncol2 = block_comment(comment, line, 1, line, #doc().lines[line])
         end
+        doc():set_selections(idx, line1, col1, nline2, ncol2)
       else
         line_comment(comment, line1, line2)
       end
