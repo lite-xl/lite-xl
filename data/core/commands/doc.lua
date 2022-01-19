@@ -97,8 +97,8 @@ local function set_cursor(x, y, snap_type)
   core.blink_reset()
 end
 
-local function line_comment(comment, line1, line2)
-  local comment_text = comment .. " "
+local function line_comment(comment, line1, col1, line2, col2)
+  local comment_text = (type(comment) == 'table' and comment[1] or comment) .. " "
   local uncomment = true
   local start_offset = math.huge
   for line = line1, line2 do
@@ -120,8 +120,17 @@ local function line_comment(comment, line1, line2)
       end
     elseif s then
       doc():insert(line, start_offset, comment_text)
+      if type(comment) == 'table' and #comment > 1 then
+        doc():insert(line, #doc().lines[line], " " .. comment[2])
+        if line == line2 then
+          col2 = col2 + #comment[1] + #comment[2] + 2
+        end
+      elseif line == line2 then
+        col2 = col2 + #comment_text
+      end
     end
   end
+  return line1, col1, line2, col2
 end
 
 local function block_comment(comment, line1, col1, line2, col2)
@@ -375,23 +384,11 @@ local commands = {
   end,
 
   ["doc:toggle-line-comments"] = function()
-    local comment = doc().syntax.comment
-    local block = false
-    if not comment then
-      comment = doc().syntax.block_comment
-      if not comment then return end
-      block = true
-    end
-
-    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-      if block then
-        local nline1, ncol1, nline2, ncol2
-        for line = line1, line2 do
-          nline1, ncol1, nline2, ncol2 = block_comment(comment, line, 1, line, #doc().lines[line])
-        end
-        doc():set_selections(idx, line1, col1, nline2, ncol2)
-      else
-        line_comment(comment, line1, line2)
+    local comment = doc().syntax.comment or doc().syntax.block_comment
+    if comment then
+      for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+        line1, col1, line2, col2 = line_comment(comment, line1, col1, line2, col2)
+        doc():set_selections(idx, line1, col1, line2, col2)
       end
     end
   end,
