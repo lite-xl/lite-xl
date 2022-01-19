@@ -1,5 +1,44 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.0.5
+
+Revamp the project's user module so that modifications are immediately applied.
+
+Add a mechanism to ignore files or directory based on their project's path.
+The new mechanism is backward compatible.*
+
+Essentially there are two mechanisms:
+
+- if a '/' or a '/$' appear at the end of the pattern it will match only directories
+- if a '/' appears anywhere in the pattern except at the end the pattern will be
+  applied to the path
+
+In the first case, when the pattern corresponds to a directory, a '/' will be
+appended to the name of each directory before checking the pattern.
+
+In the second case, when the pattern corresponds to a path, the complete path of
+the file or directory will be used with an initial '/' added to the path.
+
+Fix several problems with the directory monitoring library.
+Now the application should no longer assert when some related system call fails
+and we fallback to rescan when an error happens.
+On linux no longer use the recursive monitoring which was a source of problem.
+
+Directory monitoring is now aware of symlinks and treat them appropriately.
+
+Fix problem when encountering special files type on linux.
+
+Improve directory monitoring so that the related thread actually waits without using
+any CPU time when there are no events.
+
+Improve the suggestion when changing project folder or opening a new one.
+Now the previously used directory are suggested but if the path is changed the
+actual existing directories that match the pattern are suggested.
+In addition always use the text entered in the command view even if a suggested entry
+is highlighted.
+
+The NagView warning window now no longer moves the document content.
+
 ### 2.0.4
 
 Fix some bugs related to newly introduced directory monitoring using the dmon library.
