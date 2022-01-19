@@ -3,9 +3,9 @@ directory = lua-5.4.3
 source_url = https://www.lua.org/ftp/lua-5.4.3.tar.gz
 source_filename = lua-5.4.3.tar.gz
 source_hash = f8612276169e3bfcbcfb8f226195bfc6e466fe13042f1076cbde92b7ec96bbfb
-patch_filename = lua_5.4.3-1_patch.zip
-patch_url = https://wrapdb.mesonbuild.com/v2/lua_5.4.3-1/get_patch
-patch_hash = 66794455e18d373041c8ffa9c23d1629b813c7a716f8905425d347937f5c8dc8
+patch_filename = lua_5.4.3-2_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/lua_5.4.3-2/get_patch
+patch_hash = 3c23ec14a3f000d80fe2e2fdddba63a56e13c758d74195daa4ff0da7bfdb02da
 
 [provide]
 lua-5.4 = lua_dep

@@ -3,7 +3,10 @@ project('lite-xl',
     version : '2.0.3',
     license : 'MIT',
     meson_version : '>= 0.42',
-    default_options : ['c_std=gnu11']
+    default_options : [
+        'c_std=gnu11',
+        'wrap_mode=nofallback'
+    ]
 )
 
 #===============================================================================
@@ -24,7 +27,7 @@ endif
 cc = meson.get_compiler('c')
 
 lite_includes = []
-lite_cargs = []
+lite_cargs = ['-DSDL_MAIN_HANDLED', '-DPCRE2_STATIC']
 # On macos we need to use the SDL renderer to support retina displays
 if get_option('renderer') or host_machine.system() == 'darwin'
     lite_cargs += '-DLITE_USE_SDL_RENDERER'
@@ -47,15 +50,26 @@ if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
     threads_dep = dependency('threads')
+
     lua_dep = dependency('lua5.4', required : false)
     if not lua_dep.found()
         lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'],
-            default_options: ['line_editing=false', 'default_library=static']
+            default_options: ['default_library=static', 'line_editing=false', 'interpreter=false']
         )
     endif
-    pcre2_dep = dependency('libpcre2-8')
-    freetype_dep = dependency('freetype2')
-    sdl_dep = dependency('sdl2')
+
+    pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
+        default_options: ['default_library=static', 'grep=false', 'test=false']
+    )
+
+    freetype_dep = dependency('freetype2', fallback: ['freetype2', 'freetype_dep'],
+        default_options: ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
+    )
+
+    sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
+        default_options: ['default_library=static']
+    )
+
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, threads_dep]
 endif
 #===============================================================================

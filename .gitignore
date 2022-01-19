@@ -2,8 +2,7 @@ build*/
 .build*/
 lhelper/
 submodules/
-subprojects/lua*/
-subprojects/reproc/
+subprojects/*/
 /appimage*
 .ccls-cache
 .lite-debug.log
