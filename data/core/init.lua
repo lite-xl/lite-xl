@@ -1036,15 +1036,21 @@ function core.get_views_referencing_doc(doc)
 end
 
 
-local function log(icon, icon_color, fmt, ...)
+local function log(level, show, fmt, ...)
   local text = string.format(fmt, ...)
-  if icon then
-    core.status_view:show_message(icon, icon_color, text)
+  if show then
+    local s = style.log[level]
+    core.status_view:show_message(s.icon, s.color, text)
   end
 
   local info = debug.getinfo(2, "Sl")
   local at = string.format("%s:%d", info.short_src, info.currentline)
-  local item = { text = text, time = os.time(), at = at }
+  local item = {
+    level = level,
+    text = text,
+    time = os.time(),
+    at = at
+  }
   table.insert(core.log_items, item)
   if #core.log_items > config.max_log_items then
     table.remove(core.log_items, 1)
@@ -1054,17 +1060,17 @@ end
 
 
 function core.log(...)
-  return log("i", style.text, ...)
+  return log("INFO", true, ...)
 end
 
 
 function core.log_quiet(...)
-  return log(nil, nil, ...)
+  return log("INFO", false, ...)
 end
 
 
 function core.error(...)
-  return log("!", style.accent, ...)
+  return log("ERROR", true, ...)
 end
 
 
@@ -1077,7 +1083,7 @@ function core.get_log(i)
     return table.concat(r, "\n")
   end
   local item = type(i) == "number" and core.log_items[i] or i
-  local text = string.format("[%s] %s at %s", os.date(nil, item.time), item.text, item.at)
+  local text = string.format("%s [%s] %s at %s", os.date(nil, item.time), item.level, item.text, item.at)
   if item.info then
     text = string.format("%s\n%s\n", text, item.info)
   end
