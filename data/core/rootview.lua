@@ -346,11 +346,20 @@ function Node:get_child_overlapping_point(x, y)
 end
 
 
+-- returns: total height, text padding, top margin
+local function get_tab_y_sizes()
+  local h = style.font:get_height()
+  local pad = style.padding.y
+  local margin = math.ceil(pad / 2) -- top margin
+  return h + 2 * pad + margin, pad, margin
+end
+
+
 function Node:get_scroll_button_rect(index)
-  local w, pad = get_scroll_button_width()
-  local h = style.font:get_height() + style.padding.y * 2
+  local w, pad_x = get_scroll_button_width()
+  local h = get_tab_y_sizes()
   local x = self.position.x + (index == 1 and 0 or self.size.x - w)
-  return x, self.position.y, w, h, pad
+  return x, self.position.y, w, h, pad_x
 end
 
 
@@ -360,8 +369,8 @@ function Node:get_tab_rect(idx)
   local x0 = self.position.x + sbw
   local x1 = x0 + common.clamp(self.tab_width * (idx - 1) - self.tab_shift, 0, maxw)
   local x2 = x0 + common.clamp(self.tab_width * idx - self.tab_shift, 0, maxw)
-  local h = style.font:get_height() + style.padding.y * 2
-  return x1, self.position.y, x2 - x1, h
+  local h, pad_y, margin_y = get_tab_y_sizes()
+  return x1, self.position.y, x2 - x1, h, margin_y
 end
 
 
@@ -520,22 +529,24 @@ function Node:draw_tab(text, is_active, is_hovered, is_close_hovered, x, y, w, h
   local ds = style.divider_size
   local dots_width = style.font:get_width("…")
   local color = style.dim
-  local padding_y = style.padding.y
+  local _, padding_y, margin_y = get_tab_y_sizes()
   renderer.draw_rect(x + w, y + padding_y, ds, h - padding_y * 2, style.dim)
   if standalone then
-    renderer.draw_rect(x-1, y-1, w+2, h+2, style.background2)
+    renderer.draw_rect(x-1, y + margin_y - 1, w+2, h - margin_y + 2, style.background2)
   end
+  local y_label, h_label = y + margin_y, h - margin_y
   if is_active then
     color = style.text
-    renderer.draw_rect(x, y, w, h, style.background)
-    renderer.draw_rect(x + w, y, ds, h, style.divider)
-    renderer.draw_rect(x - ds, y, ds, h, style.divider)
+    renderer.draw_rect(x, y_label, w, h_label, style.background)
+    renderer.draw_rect(x, y_label, w, ds, style.divider)
+    renderer.draw_rect(x + w, y_label, ds, h_label, style.divider)
+    renderer.draw_rect(x - ds, y_label, ds, h_label, style.divider)
   end
   local cx, cw, cspace = close_button_location(x, w)
   local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
   if show_close_button then
     local close_style = is_close_hovered and style.text or style.dim
-    common.draw_text(style.icon_font, close_style, "C", nil, cx, y, 0, h)
+    common.draw_text(style.icon_font, close_style, "C", nil, cx, y_label, 0, h_label)
   end
   if is_hovered then
     color = style.text
@@ -560,7 +571,7 @@ function Node:draw_tab(text, is_active, is_hovered, is_close_hovered, x, y, w, h
       end
     end
   end
-  common.draw_text(style.font, color, text, align, x, y, w, h)
+  common.draw_text(style.font, color, text, align, x, y_label, w, h_label)
   core.pop_clip_rect()
 end
 
@@ -760,7 +771,7 @@ function Node:get_drag_overlay_tab_position(x, y, dragged_node, dragged_index)
       tab_index = self:get_visible_tabs_number() + (self.tab_offset - 1 or 0)
     end
   end
-  local tab_x, tab_y, tab_w, tab_h = self:get_tab_rect(tab_index)
+  local tab_x, tab_y, tab_w, tab_h, margin_y = self:get_tab_rect(tab_index)
   if x > tab_x + tab_w / 2 and tab_index <= #self.views then
     -- use next tab
     tab_x = tab_x + tab_w
@@ -771,7 +782,7 @@ function Node:get_drag_overlay_tab_position(x, y, dragged_node, dragged_index)
     tab_index = tab_index - 1
     tab_x = tab_x - tab_w
   end
-  return tab_index, tab_x, tab_y, tab_w, tab_h
+  return tab_index, tab_x, tab_y + margin_y, tab_w, tab_h - margin_y
 end
 
 
