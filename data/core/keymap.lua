@@ -215,6 +215,7 @@ keymap.add_direct {
   ["ctrl+l"] = "doc:select-lines",
   ["ctrl+shift+l"] = { "find-replace:select-add-all", "doc:select-word" },
   ["ctrl+/"] = "doc:toggle-line-comments",
+  ["ctrl+shift+/"] = "doc:toggle-block-comments",
   ["ctrl+up"] = "doc:move-lines-up",
   ["ctrl+down"] = "doc:move-lines-down",
   ["ctrl+shift+d"] = "doc:duplicate-lines",

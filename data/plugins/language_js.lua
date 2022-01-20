@@ -5,6 +5,7 @@ syntax.add {
   name = "JavaScript",
   files = { "%.js$", "%.json$", "%.cson$" },
   comment = "//",
+  block_comment = { "/*", "*/" },
   patterns = {
     { pattern = "//.-\n",               type = "comment"  },
     { pattern = { "/%*", "%*/" },       type = "comment"  },

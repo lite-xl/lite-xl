@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
 #include <dirent.h>

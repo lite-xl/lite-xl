@@ -4,6 +4,7 @@ local syntax = require "core.syntax"
 syntax.add {
   name = "CSS",
   files = { "%.css$" },
+  block_comment = { "/*", "*/" },
   patterns = {
     { pattern = "\\.",                type = "normal"   },
     { pattern = "//.-\n",             type = "comment"  },

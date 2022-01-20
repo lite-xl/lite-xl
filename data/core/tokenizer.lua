@@ -1,6 +1,5 @@
 local syntax = require "core.syntax"
 local common = require "core.common"
-local bit32 = require "core.bit"
 
 local tokenizer = {}
 

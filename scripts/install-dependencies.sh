@@ -63,10 +63,10 @@ main() {
   elif [[ "$OSTYPE" == "msys" ]]; then
     if [[ $lhelper == true ]]; then
       pacman --noconfirm -S \
-        ${MINGW_PACKAGE_PREFIX}-{gcc,meson,ninja,ntldd,pkg-config} unzip
+        ${MINGW_PACKAGE_PREFIX}-{gcc,meson,ninja,ntldd,pkg-config,mesa} unzip
     else
       pacman --noconfirm -S \
-        ${MINGW_PACKAGE_PREFIX}-{gcc,meson,ninja,ntldd,pkg-config,freetype,pcre2,SDL2} unzip
+        ${MINGW_PACKAGE_PREFIX}-{gcc,meson,ninja,ntldd,pkg-config,mesa,freetype,pcre2,SDL2} unzip
     fi
   fi
 }

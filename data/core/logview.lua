@@ -1,5 +1,6 @@
 local core = require "core"
 local common = require "core.common"
+local keymap = require "core.keymap"
 local style = require "core.style"
 local View = require "core.view"
 
@@ -36,12 +37,15 @@ local LogView = View:extend()
 
 LogView.context = "session"
 
+
 function LogView:new()
   LogView.super.new(self)
   self.last_item = core.log_items[#core.log_items]
   self.expanding = {}
   self.scrollable = true
   self.yoffset = 0
+
+  core.status_view:show_message("i", style.text, "ctrl+click to copy entry")
 end
 
 
@@ -77,25 +81,30 @@ function LogView:each_item()
 end
 
 
-function LogView:on_mouse_moved(px, py, ...)
-  LogView.super.on_mouse_moved(self, px, py, ...)
-  local hovered = false
-  for _, item, x, y, w, h in self:each_item() do
+function LogView:on_mouse_pressed(button, px, py, clicks)
+  if LogView.super.on_mouse_pressed(self, button, px, py, clicks) then
+    return true
+  end
+
+  local index, selected
+  for i, item, x, y, w, h in self:each_item() do
     if px >= x and py >= y and px < x + w and py < y + h then
-      hovered = true
-      self.hovered_item = item
+      index = i
+      selected = item
       break
     end
   end
-  if not hovered then self.hovered_item = nil end
-end
 
-
-function LogView:on_mouse_pressed(button, mx, my, clicks)
-  if LogView.super.on_mouse_pressed(self, button, mx, my, clicks) then return end
-  if self.hovered_item then
-    self:expand_item(self.hovered_item)
+  if selected then
+    if keymap.modkeys["ctrl"] then
+      system.set_clipboard(core.get_log(selected))
+      core.status_view:show_message("i", style.text, "copied entry #"..index.." to clipboard.")
+    else
+      self:expand_item(selected)
+    end
   end
+
+  return true
 end
 
 
@@ -131,21 +140,37 @@ local function draw_text_multiline(font, text, x, y, color)
   return resx, y
 end
 
-
+-- this is just to get a date string that's consistent
+local datestr = os.date()
 function LogView:draw()
   self:draw_background(style.background)
 
   local th = style.font:get_height()
   local lh = th + style.padding.y -- for one line
-  for _, item, x, y, w in self:each_item() do
+  local iw = math.max(
+    style.icon_font:get_width(style.log.ERROR.icon),
+    style.icon_font:get_width(style.log.INFO.icon)
+  )
+
+  local tw = style.font:get_width(datestr)
+  for _, item, x, y, w, h in self:each_item() do
+    core.push_clip_rect(x, y, w, h)
     x = x + style.padding.x
 
+    x = common.draw_text(
+      style.icon_font,
+      style.log[item.level].color,
+      style.log[item.level].icon,
+      "center",
+      x, y, iw, lh
+    )
+    x = x + style.padding.x
+
+    -- timestamps are always 15% of the width
     local time = os.date(nil, item.time)
-    x = common.draw_text(style.font, style.dim, time, "left", x, y, w, lh)
-    x = x + style.padding.x
+    common.draw_text(style.font, style.dim, time, "left", x, y, tw, lh)
+    x = x + tw + style.padding.x
 
-    x = common.draw_text(style.code_font, style.dim, is_expanded(item) and "-" or "+", "left", x, y, w, lh)
-    x = x + style.padding.x
     w = w - (x - self:get_content_offset())
 
     if is_expanded(item) then
@@ -165,6 +190,8 @@ function LogView:draw()
       end
       _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
     end
+
+    core.pop_clip_rect()
   end
 end
 
