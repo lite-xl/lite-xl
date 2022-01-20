@@ -566,6 +566,7 @@ function Node:draw_tab(text, is_active, is_hovered, is_close_hovered, x, y, w, h
     for i = 1, #text do
       local reduced_text = text:sub(1, #text - i)
       if style.font:get_width(reduced_text) + dots_width <= text_avail_width then
+        x = x - padx / 3 -- we half the left padding to draw the text
         text = reduced_text .. "…"
         break
       end
