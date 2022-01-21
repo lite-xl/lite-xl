@@ -98,37 +98,43 @@ local function set_cursor(x, y, snap_type)
 end
 
 local function line_comment(comment, line1, col1, line2, col2)
-  local comment_text = (type(comment) == 'table' and comment[1] or comment) .. " "
+  local start_comment = (type(comment) == 'table' and comment[1] or comment) .. " "
+  local end_comment = (type(comment) == 'table' and " " .. comment[2])
   local uncomment = true
   local start_offset = math.huge
   for line = line1, line2 do
     local text = doc().lines[line]
     local s = text:find("%S")
-    local cs, ce = text:find(comment_text, s, true)
+    local cs, ce = text:find(start_comment, s, true)
     if s and cs ~= s then
       uncomment = false
-      start_offset = math.min(start_offset, s)
     end
+    start_offset = math.min(start_offset, s)
   end
+  
+  local end_line = col2 == #doc().lines[line2]
   for line = line1, line2 do
     local text = doc().lines[line]
     local s = text:find("%S")
     if uncomment then
-      local cs, ce = text:find(comment_text, s, true)
+      if end_comment and text:sub(#text - #end_comment, #text - 1) == end_comment then
+        doc():remove(line, #text - #end_comment, line, #text)
+      end
+      local cs, ce = text:find(start_comment, s, true)
       if ce then
         doc():remove(line, cs, line, ce + 1)
       end
     elseif s then
-      doc():insert(line, start_offset, comment_text)
-      if type(comment) == 'table' and #comment > 1 then
+      doc():insert(line, start_offset, start_comment)
+      if end_comment then
         doc():insert(line, #doc().lines[line], " " .. comment[2])
-        if line == line2 then
-          col2 = col2 + #comment[1] + #comment[2] + 2
-        end
-      elseif line == line2 then
-        col2 = col2 + #comment_text
       end
     end
+  end
+  col1 = col1 + (col1 > start_offset and #start_comment or 0) * (uncomment and -1 or 1)
+  col2 = col2 + (col2 > start_offset and #start_comment or 0) * (uncomment and -1 or 1)
+  if end_comment and end_line then
+    col2 = col2 + #end_comment * (uncomment and -1 or 1)
   end
   return line1, col1, line2, col2
 end
@@ -377,9 +383,7 @@ local commands = {
         col1 = 1
         col2 = #doc().lines[line2]
       end
-
-      line1, col1, line2, col2 = block_comment(comment, line1, col1, line2, col2)
-      doc():set_selections(idx, line1, col1, line2, col2)
+      doc():set_selections(idx, block_comment(comment, line1, col1, line2, col2))
     end
   end,
 
@@ -387,8 +391,7 @@ local commands = {
     local comment = doc().syntax.comment or doc().syntax.block_comment
     if comment then
       for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-        line1, col1, line2, col2 = line_comment(comment, line1, col1, line2, col2)
-        doc():set_selections(idx, line1, col1, line2, col2)
+        doc():set_selections(idx, line_comment(comment, line1, col1, line2, col2))
       end
     end
   end,
