@@ -403,7 +403,8 @@ typedef struct dmon__state {
     dmon__watch_state watches[DMON_MAX_WATCHES];
     HANDLE thread_handle;
     CRITICAL_SECTION mutex;
-    volatile int modify_watches;
+    int modify_watches;
+    CRITICAL_SECTION modify_watches_mutex;
     dmon__win32_event* events;
     bool quit;
     HANDLE wake_event;
@@ -489,6 +490,13 @@ _DMON_PRIVATE void dmon__win32_process_events(void)
     stb_sb_reset(_dmon.events);
 }
 
+static int dmon__safe_get_modify_watches() {
+    EnterCriticalSection(&_dmon.modify_watches_mutex);
+    const int value = _dmon.modify_watches;
+    LeaveCriticalSection(&_dmon.modify_watches_mutex);
+    return value;
+}
+
 _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
 {
     _DMON_UNUSED(arg);
@@ -499,7 +507,7 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
     uint64_t msecs_elapsed = 0;
 
     while (!_dmon.quit) {
-        if (atomic_load_explicit(&_dmon.modify_watches, memory_order_consume) ||
+        if (dmon__safe_get_modify_watches() ||
             !TryEnterCriticalSection(&_dmon.mutex)) {
             Sleep(10);
             continue;
@@ -585,6 +593,7 @@ DMON_API_IMPL void dmon_init(void)
 {
     DMON_ASSERT(!_dmon_init);
     InitializeCriticalSection(&_dmon.mutex);
+    InitializeCriticalSection(&_dmon.modify_watches_mutex);
 
     _dmon.thread_handle =
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)dmon__thread, NULL, 0, NULL);
@@ -594,15 +603,19 @@ DMON_API_IMPL void dmon_init(void)
 }
 
 static void dmon__enter_critical_wakeup(void) {
-    atomic_store_explicit(&_dmon.modify_watches, 1, memory_order_release);
+    EnterCriticalSection(&_dmon.modify_watches_mutex);
+    _dmon.modify_watches = 1;
     if (TryEnterCriticalSection(&_dmon.mutex) == 0) {
         SetEvent(_dmon.wake_event);
         EnterCriticalSection(&_dmon.mutex);
     }
+    LeaveCriticalSection(&_dmon.modify_watches_mutex);
 }
 
 static void dmon__leave_critical_wakeup(void) {
-    atomic_store_explicit(&_dmon.modify_watches, 0, memory_order_release);
+    EnterCriticalSection(&_dmon.modify_watches_mutex);
+    _dmon.modify_watches = 0;
+    LeaveCriticalSection(&_dmon.modify_watches_mutex);
     LeaveCriticalSection(&_dmon.mutex);
 }
 
@@ -622,6 +635,7 @@ DMON_API_IMPL void dmon_deinit(void)
 
     dmon__leave_critical_wakeup();
     DeleteCriticalSection(&_dmon.mutex);
+    DeleteCriticalSection(&_dmon.modify_watches_mutex);
     stb_sb_free(_dmon.events);
     _dmon_init = false;
 }
@@ -732,7 +746,8 @@ typedef struct dmon__state {
     int num_watches;
     pthread_t thread_handle;
     pthread_mutex_t mutex;
-    volatile int wait_flag;
+    int wait_flag;
+    pthread_mutex_t wait_flag_mutex;
     int wake_event_pipe[2];
     bool quit;
 } dmon__state;
@@ -1012,6 +1027,13 @@ _DMON_PRIVATE void dmon__inotify_process_events(void)
     stb_sb_reset(_dmon.events);
 }
 
+_DMON_PRIVATE int dmon__safe_get_wait_flag() {
+    pthread_mutex_lock(&_dmon.wait_flag_mutex);
+    const int value = _dmon.wait_flag;
+    pthread_mutex_unlock(&_dmon.wait_flag_mutex);
+    return value;
+}
+
 static void* dmon__thread(void* arg)
 {
     _DMON_UNUSED(arg);
@@ -1028,7 +1050,7 @@ static void* dmon__thread(void* arg)
     while (!_dmon.quit) {
         nanosleep(&req, &rem);
         if (_dmon.num_watches == 0 ||
-            atomic_load_explicit(&_dmon.wait_flag, memory_order_consume) ||
+            dmon__safe_get_wait_flag() ||
             pthread_mutex_trylock(&_dmon.mutex) != 0) {
             continue;
         }
@@ -1107,13 +1129,15 @@ static void* dmon__thread(void* arg)
 }
 
 _DMON_PRIVATE void dmon__mutex_wakeup_lock(void) {
-    atomic_load_explicit(&_dmon.wait_flag, 1, memory_order_release);
+    pthread_mutex_lock(&_dmon.wait_flag_mutex);
+    _dmon.wait_flag = 1;
     if (pthread_mutex_trylock(&_dmon.mutex) != 0) {
         char send_char = 1;
         write(_dmon.wake_event_pipe[1], &send_char, 1);
         pthread_mutex_lock(&_dmon.mutex);
     }
-    atomic_load_explicit(&_dmon.wait_flag, 0, memory_order_release);
+    _dmon.wait_flag = 0;
+    pthread_mutex_unlock(&_dmon.wait_flag_mutex);
 }
 
 _DMON_PRIVATE void dmon__unwatch(dmon__watch_state* watch)
