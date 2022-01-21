@@ -1,0 +1,4 @@
+[wrap-git]
+directory = zlog
+url = https://github.com/zma/zlog.git
+revision = fbe36fb7cd46fc4edd6b9c616c6bcbab46da2ac8

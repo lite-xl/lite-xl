@@ -4,6 +4,7 @@
 #include "api/api.h"
 #include "rencache.h"
 #include "renderer.h"
+#include "zlog.h"
 
 #ifdef _WIN32
   #include <windows.h>
@@ -149,6 +150,9 @@ init_lua:
   #endif
 #endif
 
+  zlog_init("zlog.log");
+  zlog_init_flush_thread();
+
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
@@ -192,6 +196,7 @@ init_lua:
   }
 
   lua_close(L);
+  zlog_finish();
   ren_free_window_resources();
   dirmonitor_deinit();
 

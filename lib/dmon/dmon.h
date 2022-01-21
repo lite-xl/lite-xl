@@ -76,6 +76,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "zlog.h"
+
 #ifndef DMON_API_DECL
 #   define DMON_API_DECL
 #endif
@@ -509,6 +511,7 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
     while (!_dmon.quit) {
         if (dmon__safe_get_modify_watches() ||
             !TryEnterCriticalSection(&_dmon.mutex)) {
+            zlogf_time(ZLOG_INFO_LOG_MSG, "Polling dmon thread failed to get lock\n");
             Sleep(10);
             continue;
         }
@@ -527,6 +530,9 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
         const int n = _dmon.num_watches;
         wait_handles[n] = _dmon.wake_event;
         const int n_pending = stb_sb_count(_dmon.events);
+        if (n_pending == 0) {
+            zlogf_time(ZLOG_INFO_LOG_MSG, "Polling dmon thread waiting to INFINITE\n");
+        }
         DWORD wait_result = WaitForMultipleObjects(n + 1, wait_handles, FALSE, n_pending > 0 ? 10 : INFINITE);
         // NOTE: maybe we should check for WAIT_ABANDONED_<n> values if that can happen.
         if (wait_result >= WAIT_OBJECT_0 && wait_result < WAIT_OBJECT_0 + n) {
@@ -570,6 +576,8 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
                     dmon__refresh_watch(watch);
                 }
             }
+        } else if (wait_result == WAIT_OBJECT_0 + n) {
+            zlogf_time(ZLOG_INFO_LOG_MSG, "Polling dmon thread got WAKE-UP signal\n");
         }    // if (WaitForMultipleObjects)
 
         SYSTEMTIME tm;
@@ -607,6 +615,7 @@ static void dmon__enter_critical_wakeup(void) {
     _dmon.modify_watches = 1;
     if (TryEnterCriticalSection(&_dmon.mutex) == 0) {
         SetEvent(_dmon.wake_event);
+        zlogf_time(ZLOG_INFO_LOG_MSG, "Dmon command thread: sending WAKE-UP signal\n");
         EnterCriticalSection(&_dmon.mutex);
     }
     LeaveCriticalSection(&_dmon.modify_watches_mutex);
@@ -1052,6 +1061,9 @@ static void* dmon__thread(void* arg)
         if (_dmon.num_watches == 0 ||
             dmon__safe_get_wait_flag() ||
             pthread_mutex_trylock(&_dmon.mutex) != 0) {
+            if (_dmon.num_watches != 0) {
+                zlogf_time(ZLOG_INFO_LOG_MSG, "Polling dmon thread failed to get lock\n");
+            }
             continue;
         }
 
@@ -1074,10 +1086,16 @@ static void* dmon__thread(void* arg)
         timeout.tv_sec = 0;
         timeout.tv_usec = 100000;
         const int n_pending = stb_sb_count(_dmon.events);
+
+        if (n_pending == 0) {
+            zlogf_time(ZLOG_INFO_LOG_MSG, "Polling dmon thread waiting to INFINITE\n");
+        }
+
         if (select(nfds + 1, &rfds, NULL, NULL, n_pending > 0 ? &timeout : NULL)) {
             if (FD_ISSET(wake_fd, &rfds)) {
                 char read_char;
                 read(wake_fd, &read_char, 1);
+                zlogf_time(ZLOG_INFO_LOG_MSG, "Polling dmon thread got WAKE-UP signal\n");
             }
             for (int i = 0; i < _dmon.num_watches; i++) {
                 dmon__watch_state* watch = &_dmon.watches[i];
@@ -1133,6 +1151,7 @@ _DMON_PRIVATE void dmon__mutex_wakeup_lock(void) {
     _dmon.wait_flag = 1;
     if (pthread_mutex_trylock(&_dmon.mutex) != 0) {
         char send_char = 1;
+        zlogf_time(ZLOG_INFO_LOG_MSG, "Dmon command thread: sending WAKE-UP signal\n");
         write(_dmon.wake_event_pipe[1], &send_char, 1);
         pthread_mutex_lock(&_dmon.mutex);
     }
