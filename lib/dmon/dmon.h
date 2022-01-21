@@ -72,6 +72,7 @@
 //                  to manually add/remove directories manually to the watch handle, in case of large file sets
 //
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -159,10 +160,6 @@ DMON_API_DECL void dmon_unwatch(dmon_watch_id id);
 #        define NOMINMAX
 #    endif
 #    include <windows.h>
-#    include <intrin.h>
-#    ifdef _MSC_VER
-#        pragma intrinsic(_InterlockedExchange)
-#    endif
 #elif DMON_OS_LINUX
 #    ifndef __USE_MISC
 #        define __USE_MISC
@@ -406,7 +403,7 @@ typedef struct dmon__state {
     dmon__watch_state watches[DMON_MAX_WATCHES];
     HANDLE thread_handle;
     CRITICAL_SECTION mutex;
-    volatile LONG modify_watches;
+    volatile int modify_watches;
     dmon__win32_event* events;
     bool quit;
     HANDLE wake_event;
@@ -502,7 +499,8 @@ _DMON_PRIVATE DWORD WINAPI dmon__thread(LPVOID arg)
     uint64_t msecs_elapsed = 0;
 
     while (!_dmon.quit) {
-        if (_dmon.modify_watches || !TryEnterCriticalSection(&_dmon.mutex)) {
+        if (atomic_load_explicit(&_dmon.modify_watches, memory_order_consume) ||
+            !TryEnterCriticalSection(&_dmon.mutex)) {
             Sleep(10);
             continue;
         }
@@ -596,11 +594,16 @@ DMON_API_IMPL void dmon_init(void)
 }
 
 static void dmon__enter_critical_wakeup(void) {
-    _InterlockedExchange(&_dmon.modify_watches, 1);
+    atomic_store_explicit(&_dmon.modify_watches, 1, memory_order_release);
     if (TryEnterCriticalSection(&_dmon.mutex) == 0) {
         SetEvent(_dmon.wake_event);
         EnterCriticalSection(&_dmon.mutex);
     }
+}
+
+static void dmon__leave_critical_wakeup(void) {
+    atomic_store_explicit(&_dmon.modify_watches, 0, memory_order_release);
+    LeaveCriticalSection(&_dmon.mutex);
 }
 
 DMON_API_IMPL void dmon_deinit(void)
@@ -617,7 +620,7 @@ DMON_API_IMPL void dmon_deinit(void)
         dmon__unwatch(&_dmon.watches[i]);
     }
 
-    LeaveCriticalSection(&_dmon.mutex);
+    dmon__leave_critical_wakeup();
     DeleteCriticalSection(&_dmon.mutex);
     stb_sb_free(_dmon.events);
     _dmon_init = false;
@@ -665,19 +668,16 @@ DMON_API_IMPL dmon_watch_id dmon_watch(const char* rootdir,
             !dmon__refresh_watch(watch)) {
             dmon__unwatch(watch);
             *error_code = DMON_ERROR_WATCH_DIR;
-            LeaveCriticalSection(&_dmon.mutex);
-            _InterlockedExchange(&_dmon.modify_watches, 0);
+            dmon__leave_critical_wakeup();
             return dmon__make_id(0);
         }
     } else {
         *error_code = DMON_ERROR_OPEN_DIR;
-        LeaveCriticalSection(&_dmon.mutex);
-        _InterlockedExchange(&_dmon.modify_watches, 0);
+        dmon__leave_critical_wakeup();
         return dmon__make_id(0);
     }
 
-    LeaveCriticalSection(&_dmon.mutex);
-    _InterlockedExchange(&_dmon.modify_watches, 0);
+    dmon__leave_critical_wakeup();
     return dmon__make_id(id);
 }
 
@@ -696,8 +696,7 @@ DMON_API_IMPL void dmon_unwatch(dmon_watch_id id)
     }
     --_dmon.num_watches;
 
-    LeaveCriticalSection(&_dmon.mutex);
-    _InterlockedExchange(&_dmon.modify_watches, 0);
+    dmon__leave_critical_wakeup();
 }
 
 #elif DMON_OS_LINUX
@@ -733,7 +732,7 @@ typedef struct dmon__state {
     int num_watches;
     pthread_t thread_handle;
     pthread_mutex_t mutex;
-    int wait_flag;
+    volatile int wait_flag;
     int wake_event_pipe[2];
     bool quit;
 } dmon__state;
@@ -1028,7 +1027,9 @@ static void* dmon__thread(void* arg)
 
     while (!_dmon.quit) {
         nanosleep(&req, &rem);
-        if (_dmon.num_watches == 0 || _dmon.wait_flag == 1 || pthread_mutex_trylock(&_dmon.mutex) != 0) {
+        if (_dmon.num_watches == 0 ||
+            atomic_load_explicit(&_dmon.wait_flag, memory_order_consume) ||
+            pthread_mutex_trylock(&_dmon.mutex) != 0) {
             continue;
         }
 
@@ -1106,13 +1107,13 @@ static void* dmon__thread(void* arg)
 }
 
 _DMON_PRIVATE void dmon__mutex_wakeup_lock(void) {
-    _dmon.wait_flag = 1;
+    atomic_load_explicit(&_dmon.wait_flag, 1, memory_order_release);
     if (pthread_mutex_trylock(&_dmon.mutex) != 0) {
         char send_char = 1;
         write(_dmon.wake_event_pipe[1], &send_char, 1);
         pthread_mutex_lock(&_dmon.mutex);
     }
-    _dmon.wait_flag = 0;
+    atomic_load_explicit(&_dmon.wait_flag, 0, memory_order_release);
 }
 
 _DMON_PRIVATE void dmon__unwatch(dmon__watch_state* watch)
