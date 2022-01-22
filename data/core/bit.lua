@@ -11,20 +11,26 @@ local function mask(n)
 	return (~((ALLONES << 1) << ((n) - 1)))
 end
 
+local function check_args(field, width)
+	assert(field >= 0, "field cannot be negative")
+	assert(width > 0, "width must be positive")
+	assert(field + width < LUA_NBITS and field + width >= 0,
+	       "trying to access non-existent bits")
+end
+
 function bit.extract(n, field, width)
-	local r = trim(field)
-	local f = width
-	r = (r >> f) & mask(width)
-	return r
+	local w = width or 1
+	check_args(field, w)
+	local m = trim(n)
+	return m >> field & mask(w)
 end
 
 function bit.replace(n, v, field, width)
-	local r = trim(v);
-	local v = trim(field);
-	local f = width
-	local m = mask(width);
-	r = (r & ~(m << f)) | ((v & m) << f);
-	return r
+	local w = width or 1
+	check_args(field, w)
+	local m = trim(n)
+	local x = v & mask(width);
+	return m & ~(mask(w) << field) | (x << field)
 end
 
 return bit

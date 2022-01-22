@@ -5,6 +5,7 @@ syntax.add {
   name = "C",
   files = { "%.c$", "%.h$", "%.inl$" },
   comment = "//",
+  block_comment = { "/*", "*/" },
   patterns = {
     { pattern = "//.-\n",                type = "comment" },
     { pattern = { "/%*", "%*/" },        type = "comment" },

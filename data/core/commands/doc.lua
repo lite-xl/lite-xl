@@ -97,6 +97,82 @@ local function set_cursor(x, y, snap_type)
   core.blink_reset()
 end
 
+local function line_comment(comment, line1, col1, line2, col2)
+  local start_comment = (type(comment) == 'table' and comment[1] or comment) .. " "
+  local end_comment = (type(comment) == 'table' and " " .. comment[2])
+  local uncomment = true
+  local start_offset = math.huge
+  for line = line1, line2 do
+    local text = doc().lines[line]
+    local s = text:find("%S")
+    local cs, ce = text:find(start_comment, s, true)
+    if s and cs ~= s then
+      uncomment = false
+    end
+    start_offset = math.min(start_offset, s)
+  end
+  
+  local end_line = col2 == #doc().lines[line2]
+  for line = line1, line2 do
+    local text = doc().lines[line]
+    local s = text:find("%S")
+    if uncomment then
+      if end_comment and text:sub(#text - #end_comment, #text - 1) == end_comment then
+        doc():remove(line, #text - #end_comment, line, #text)
+      end
+      local cs, ce = text:find(start_comment, s, true)
+      if ce then
+        doc():remove(line, cs, line, ce + 1)
+      end
+    elseif s then
+      doc():insert(line, start_offset, start_comment)
+      if end_comment then
+        doc():insert(line, #doc().lines[line], " " .. comment[2])
+      end
+    end
+  end
+  col1 = col1 + (col1 > start_offset and #start_comment or 0) * (uncomment and -1 or 1)
+  col2 = col2 + (col2 > start_offset and #start_comment or 0) * (uncomment and -1 or 1)
+  if end_comment and end_line then
+    col2 = col2 + #end_comment * (uncomment and -1 or 1)
+  end
+  return line1, col1, line2, col2
+end
+
+local function block_comment(comment, line1, col1, line2, col2)
+  -- automatically skip spaces
+  local word_start = doc():get_text(line1, col1, line1, math.huge):find("%S")
+  local word_end = doc():get_text(line2, 1, line2, col2):find("%s*$")
+  col1 = col1 + (word_start and (word_start - 1) or 0)
+  col2 = word_end and word_end or col2
+
+  local block_start = doc():get_text(line1, col1, line1, col1 + #comment[1])
+  local block_end = doc():get_text(line2, col2 - #comment[2], line2, col2)
+
+  if block_start == comment[1] and block_end == comment[2] then
+    -- remove up to 1 whitespace after the comment
+    local start_len, stop_len = #comment[1], #comment[2]
+    if doc():get_text(line1, col1 + #comment[1], line1, col1 + #comment[1] + 1):find("%s$") then
+      start_len = start_len + 1
+    end
+    if doc():get_text(line2, col2 - #comment[2] - 1, line2, col2):find("^%s") then
+      stop_len = stop_len + 1
+    end
+
+    doc():remove(line1, col1, line1, col1 + start_len)
+    col2 = col2 - (line1 == line2 and start_len or 0)
+    doc():remove(line2, col2 - stop_len, line2, col2)
+
+    return line1, col1, line2, col2 - stop_len
+  else
+    doc():insert(line1, col1, comment[1] .. " ")
+    col2 = col2 + (line1 == line2 and (#comment[1] + 1) or 0)
+    doc():insert(line2, col2, " " .. comment[2])
+
+    return line1, col1, line2, col2 + #comment[2] + 1
+  end
+end
+
 local selection_commands = {
   ["doc:select-none"] = function()
     local line, col = doc():get_selection()
@@ -292,34 +368,30 @@ local commands = {
     end
   end,
 
-  ["doc:toggle-line-comments"] = function()
-    local comment = doc().syntax.comment
-    if not comment then return end
-    local indentation = doc():get_indent_string()
-    local comment_text = comment .. " "
-    for idx, line1, _, line2 in doc_multiline_selections(true) do
-      local uncomment = true
-      local start_offset = math.huge
-      for line = line1, line2 do
-        local text = doc().lines[line]
-        local s = text:find("%S")
-        local cs, ce = text:find(comment_text, s, true)
-        if s and cs ~= s then
-          uncomment = false
-          start_offset = math.min(start_offset, s)
-        end
+  ["doc:toggle-block-comments"] = function()
+    local comment = doc().syntax.block_comment
+    if not comment then
+      if doc().syntax.comment then
+        command.perform "doc:toggle-line-comments"
       end
-      for line = line1, line2 do
-        local text = doc().lines[line]
-        local s = text:find("%S")
-        if uncomment then
-          local cs, ce = text:find(comment_text, s, true)
-          if ce then
-            doc():remove(line, cs, line, ce + 1)
-          end
-        elseif s then
-          doc():insert(line, start_offset, comment_text)
-        end
+      return
+    end
+
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      -- if nothing is selected, toggle the whole line
+      if line1 == line2 and col1 == col2 then
+        col1 = 1
+        col2 = #doc().lines[line2]
+      end
+      doc():set_selections(idx, block_comment(comment, line1, col1, line2, col2))
+    end
+  end,
+
+  ["doc:toggle-line-comments"] = function()
+    local comment = doc().syntax.comment or doc().syntax.block_comment
+    if comment then
+      for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+        doc():set_selections(idx, line_comment(comment, line1, col1, line2, col2))
       end
     end
   end,
