@@ -215,16 +215,18 @@ static int process_start(lua_State* L) {
     siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
-    char commandLine[32767] = { 0 }, environmentBlock[32767];
-    int offset = 0;
+    char commandLine[32767] = { 0 }, environmentBlock[32767], wideEnvironmentBlock[32767*2];
     strcpy(commandLine, cmd[0]);
+    int offset = 0;
     for (size_t i = 1; i < cmd_len; ++i) {
       size_t len = strlen(cmd[i]);
-      if (offset + len + 1 >= sizeof(commandLine))
+      offset += len + 1;
+      if (offset >= sizeof(commandLine))
         break;
       strcat(commandLine, " ");
       strcat(commandLine, cmd[i]);
     }
+    offset = 0;
     for (size_t i = 0; i < env_len; ++i) {
       if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
         break;
@@ -232,7 +234,9 @@ static int process_start(lua_State* L) {
       environmentBlock[offset++] = 0;
     }
     environmentBlock[offset++] = 0;
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? environmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
+    if (env_len > 0)
+      MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
+    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
       return luaL_error(L, "Error creating a process: %d.", GetLastError());
     self->pid = (long)self->process_information.dwProcessId;
     if (detach) 
