@@ -117,7 +117,7 @@ static bool signal_process(process_t* proc, signal_e sig) {
 
 static int process_start(lua_State* L) {
   size_t env_len = 0, key_len, val_len;
-  const char *cmd[256], *env[256] = { NULL }, *cwd = NULL;
+  const char *cmd[256], *env_names[256] = { NULL }, *env_values[256] = { NULL }, *cwd = NULL;
   bool detach = false;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
   luaL_checktype(L, 1, LUA_TTABLE);
@@ -141,9 +141,12 @@ static int process_start(lua_State* L) {
       while (lua_next(L, -2) != 0) {
         const char* key = luaL_checklstring(L, -2, &key_len);
         const char* val = luaL_checklstring(L, -1, &val_len);
-        env[env_len] = malloc(key_len+val_len+2);
-        snprintf((char*)env[env_len++], key_len+val_len+2, "%s=%s", key, val);
+        env_names[env_len] = malloc(key_len+1);
+        strcpy((char*)env_names[env_len], key);
+        env_values[env_len] = malloc(val_len+1);
+        strcpy((char*)env_values[env_len], val);
         lua_pop(L, 1);
+        ++env_len;
       }
     } else
       lua_pop(L, 1);
@@ -158,7 +161,6 @@ static int process_start(lua_State* L) {
         return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
     }
   }
-  env[env_len] = NULL;
   
   process_t* self = lua_newuserdata(L, sizeof(process_t));
   memset(self, 0, sizeof(process_t));
@@ -224,11 +226,9 @@ static int process_start(lua_State* L) {
       strcat(commandLine, cmd[i]);
     }
     for (size_t i = 0; i < env_len; ++i) {
-      size_t len = strlen(env[i]);
-      if (offset + len >= sizeof(environmentBlock))
+      if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
         break;
-      memcpy(&environmentBlock[offset], env[i], len);
-      offset += len;
+      offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env_names[i], env_values[i]);
       environmentBlock[offset++] = 0;
     }
     environmentBlock[offset++] = 0;
@@ -259,15 +259,19 @@ static int process_start(lua_State* L) {
           dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
-      if ((!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
-        execvp((const char*)cmd[0], (char* const*)cmd);  
+      int set;
+      for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
+      if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
+        execvp((const char*)cmd[0], (char* const*)cmd);
       const char* msg = strerror(errno);
       int result = write(STDERR_FD, msg, strlen(msg)+1);
-      exit(result == strlen(msg)+1 ? -1 : -2);
+      _exit(result == strlen(msg)+1 ? -1 : -2);
     }
   #endif
-  for (size_t i = 0; i < env_len; ++i)
-    free((char*)env[i]);
+  for (size_t i = 0; i < env_len; ++i) {
+    free((char*)env_names[i]);
+    free((char*)env_values[i]);
+  }
   for (int stream = 0; stream < 3; ++stream)
     close_fd(&self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
   self->running = true;
