@@ -827,14 +827,6 @@ function core.remove_project_directory(path)
 end
 
 
-local function whitespace_replacements()
-  local r = renderer.replacements.new()
-  r:add(" ", "·")
-  r:add("\t", "»")
-  return r
-end
-
-
 local function configure_borderless_window()
   system.set_window_bordered(not config.borderless)
   core.title_view:configure_hit_test(config.borderless)
