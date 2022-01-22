@@ -39,7 +39,7 @@ syntax.add {
     { pattern = { "```moon", "```" },       type = "string", syntax = ".moon" },
     { pattern = { "```go", "```" },         type = "string", syntax = ".go" },
     { pattern = { "```lobster", "```" },    type = "string", syntax = ".lobster" },
-     { pattern = { "```liquid", "```" },    type = "string", syntax = ".liquid" },
+    { pattern = { "```liquid", "```" },    type = "string", syntax = ".liquid" },
     { pattern = { "```", "```" },           type = "string"   },
     { pattern = { "``", "``", "\\" },       type = "string"   },
     { pattern = { "`", "`", "\\" },         type = "string"   },
