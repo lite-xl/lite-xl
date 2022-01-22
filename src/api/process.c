@@ -59,9 +59,9 @@ typedef enum {
 
 #ifdef _WIN32
   static volatile long PipeSerialNumber;
-  static void close_fd(HANDLE handle) { CloseHandle(handle); }
+  static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = NULL; }
 #else
-  static void close_fd(int fd) { close(fd); }
+  static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
 #endif
 
 static bool poll_process(process_t* proc, int timeout) {
@@ -90,12 +90,8 @@ static bool poll_process(process_t* proc, int timeout) {
     if (timeout)
       SDL_Delay(5);
   } while (timeout == WAIT_INFINITE || SDL_GetTicks() - ticks < timeout);
-  if (!proc->running) {
-    close_fd(proc->child_pipes[STDIN_FD ][1]);
-    close_fd(proc->child_pipes[STDOUT_FD][0]);
-    close_fd(proc->child_pipes[STDERR_FD][0]);
+  if (!proc->running)
     return false;
-  }
   return true;
 }
 
@@ -273,7 +269,7 @@ static int process_start(lua_State* L) {
   for (size_t i = 0; i < env_len; ++i)
     free((char*)env[i]);
   for (int stream = 0; stream < 3; ++stream)
-    close_fd(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
+    close_fd(&self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
   self->running = true;
   return 1;
 }
@@ -350,7 +346,7 @@ static int f_write(lua_State* L) {
 static int f_close_stream(lua_State* L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   int stream = luaL_checknumber(L, 2);
-  close_fd(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
+  close_fd(&self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
   lua_pushboolean(L, 1);
   return 1;
 }
@@ -417,7 +413,14 @@ static int self_signal(lua_State* L, signal_e sig) {
 static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
-static int f_gc(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
+static int f_gc(lua_State* L) { 
+  process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
+  signal_process(self, SIGNAL_TERM);
+  close_fd(&self->child_pipes[STDIN_FD ][1]);
+  close_fd(&self->child_pipes[STDOUT_FD][0]);
+  close_fd(&self->child_pipes[STDERR_FD][0]); 
+  return 0;
+}
 
 static int f_running(lua_State* L) {
   process_t* self = (process_t*)luaL_checkudata(L, 1, API_TYPE_PROCESS);  
