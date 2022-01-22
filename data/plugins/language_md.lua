@@ -55,6 +55,7 @@ syntax.add {
     { pattern = "https?://%S+",             type = "function" },
     { pattern = ">.*",                      type = "string"   },
     { pattern = ".*[>*]",                   type = "normal"   },
+    { pattern = "%[^?[0-9]+%]:?",           type = "function" },
   },
   symbols = { },
 }
