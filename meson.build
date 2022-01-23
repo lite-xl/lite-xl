@@ -47,8 +47,6 @@ if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
     threads_dep = dependency('threads')
-    zlog_proj = subproject('zlog')
-    zlog_dep = zlog_proj.get_variable('zlog_dep')
     lua_dep = dependency('lua5.2', fallback: ['lua', 'lua_dep'],
         default_options: ['shared=false', 'use_readline=false', 'app=false']
     )
@@ -61,7 +59,7 @@ if not get_option('source-only')
         ]
     )
 
-    lite_deps = [zlog_dep, lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl, threads_dep]
+    lite_deps = [lua_dep, sdl_dep, reproc_dep, pcre2_dep, libm, libdl, threads_dep]
 
     if host_machine.system() == 'windows'
         # Note that we need to explicitly add the windows socket DLL because
@@ -124,6 +122,7 @@ configure_file(
 if not get_option('source-only')
     subdir('lib/font_renderer')
     subdir('lib/dmon')
+    subdir('lib/zlog')
     subdir('src')
     subdir('scripts')
 endif
