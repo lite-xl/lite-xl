@@ -51,7 +51,14 @@ if not get_option('source-only')
     libdl = cc.find_library('dl', required : false)
     threads_dep = dependency('threads')
 
-    lua_dep = dependency('lua5.4', required : false)
+
+    lua_fallback = ['lua', 'lua_dep']
+    lua_quick_fallback = []
+    if get_option('wrap_mode') == 'forcefallback'
+        lua_quick_fallback = lua_fallback
+    endif
+
+    lua_dep = dependency('lua5.4', fallback: lua_quick_fallback, required : false)
     if not lua_dep.found()
         lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'],
             default_options: ['default_library=static', 'line_editing=false', 'interpreter=false']
