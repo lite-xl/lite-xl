@@ -839,8 +839,9 @@ local function add_config_files_hooks()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
   function Doc:save(filename, abs_filename)
+    local module_filename = system.absolute_path(".lite_project.lua")
     doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename or self.abs_filename == core.project_module_filename then
+    if self.abs_filename == user_filename or self.abs_filename == module_filename then
       reload_customizations()
       rescan_project_directories()
       configure_borderless_window()
@@ -1158,7 +1159,6 @@ end
 
 function core.load_project_module()
   local filename = ".lite_project.lua"
-  core.project_module_filename = system.absolute_path(filename)
   if system.get_file_info(filename) then
     return core.try(function()
       local fn, err = loadfile(filename)
