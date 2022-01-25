@@ -136,12 +136,15 @@ local function compile_ignore_files()
   -- config.ignore_files could be a simple string...
   if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
   for i, pattern in ipairs(ipatterns) do
-    compiled[i] = {
-      use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
-      -- An '/' or '/$' at the end means we want to match a directory.
-      match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
-      pattern = pattern -- get the actual pattern
-    }
+    -- we ignore malformed pattern that raise an error
+    if pcall(string.match, "a", pattern) then
+      table.insert(compiled, {
+        use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
+        -- An '/' or '/$' at the end means we want to match a directory.
+        match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
+        pattern = pattern -- get the actual pattern
+      })
+    end
   end
   return compiled
 end
