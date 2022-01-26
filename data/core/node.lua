@@ -310,7 +310,7 @@ end
 local function get_tab_y_sizes()
   local h = style.font:get_height()
   local pad = style.padding.y
-  local margin = math.ceil(pad / 2) -- top margin
+  local margin = style.divider_size -- top margin
   return h + 2 * pad + margin, pad, margin
 end
 
