@@ -148,6 +148,12 @@ local function compile_ignore_files()
 end
 
 
+local function safe_match(s, pattern)
+  local ok, match = pcall(string.match, s, pattern)
+  return ok and match
+end
+
+
 local function fileinfo_pass_filter(info, ignore_compiled)
   if info.size >= config.file_size_limit * 1e6 then return false end
   local basename = common.basename(info.filename)
@@ -156,11 +162,11 @@ local function fileinfo_pass_filter(info, ignore_compiled)
   for _, compiled in ipairs(ignore_compiled) do
     local test = compiled.use_path and fullname or basename
     if compiled.match_dir then
-      if info.type == "dir" and string.match(test .. "/", compiled.pattern) then
+      if info.type == "dir" and safe_match(test .. "/", compiled.pattern) then
         return false
       end
     else
-      if string.match(test, compiled.pattern) then
+      if safe_match(test, compiled.pattern) then
         return false
       end
     end
@@ -393,7 +399,6 @@ end
 local function add_dir_scan_thread(dir)
   core.add_thread(function()
     while true do
-      print("DEBUG: running rescan on", dir.name)
       local has_changes = rescan_project_subdir(dir, "")
       if has_changes then
         core.redraw = true -- we run without an event, from a thread
@@ -849,8 +854,9 @@ local function add_config_files_hooks()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
   function Doc:save(filename, abs_filename)
+    local module_filename = system.absolute_path(".lite_project.lua")
     doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename or self.abs_filename == core.project_module_filename then
+    if self.abs_filename == user_filename or self.abs_filename == module_filename then
       reload_customizations()
       rescan_project_directories()
       configure_borderless_window()
@@ -1165,7 +1171,6 @@ end
 
 function core.load_project_module()
   local filename = ".lite_project.lua"
-  core.project_module_filename = system.absolute_path(filename)
   if system.get_file_info(filename) then
     return core.try(function()
       local fn, err = loadfile(filename)
