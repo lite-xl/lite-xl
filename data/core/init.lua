@@ -136,17 +136,20 @@ local function compile_ignore_files()
   -- config.ignore_files could be a simple string...
   if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
   for i, pattern in ipairs(ipatterns) do
-    -- we ignore malformed pattern that raise an error
-    if pcall(string.match, "a", pattern) then
-      table.insert(compiled, {
-        use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
-        -- An '/' or '/$' at the end means we want to match a directory.
-        match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
-        pattern = pattern -- get the actual pattern
-      })
-    end
+    compiled[i] = {
+      use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
+      -- An '/' or '/$' at the end means we want to match a directory.
+      match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
+      pattern = pattern -- get the actual pattern
+    }
   end
   return compiled
+end
+
+
+local function safe_match(s, pattern)
+  local ok, match = pcall(string.match, s, pattern)
+  return ok and match
 end
 
 
@@ -158,11 +161,11 @@ local function fileinfo_pass_filter(info, ignore_compiled)
   for _, compiled in ipairs(ignore_compiled) do
     local test = compiled.use_path and fullname or basename
     if compiled.match_dir then
-      if info.type == "dir" and string.match(test .. "/", compiled.pattern) then
+      if info.type == "dir" and safe_match(test .. "/", compiled.pattern) then
         return false
       end
     else
-      if string.match(test, compiled.pattern) then
+      if safe_match(test, compiled.pattern) then
         return false
       end
     end
