@@ -6,7 +6,7 @@ config.message_timeout = 5
 config.mouse_wheel_scroll = 50 * SCALE
 config.scroll_past_end = true
 config.file_size_limit = 10
-config.ignore_files = { "^%.", "node_modules" }
+config.ignore_files = { "^%." }
 config.symbol_pattern = "[%a_][%w_]*"
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
 config.undo_merge_timeout = 0.3
@@ -32,11 +32,11 @@ config.max_clicks = 3
 
 config.plugins = {}
 -- Allow you to set plugin configs even if we haven't seen the plugin before.
-setmetatable(config.plugins, { 
-  __index = function(t, k) 
-    if rawget(t, k) == nil then rawset(t, k, {}) end 
-    return rawget(t, k) 
-  end 
+setmetatable(config.plugins, {
+  __index = function(t, k)
+    if rawget(t, k) == nil then rawset(t, k, {}) end
+    return rawget(t, k)
+  end
 })
 
 -- Disable these plugins by default.

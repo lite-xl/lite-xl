@@ -1,5 +1,3 @@
-local config = require 'core.config'
-
 local common = {}
 
 
@@ -24,7 +22,7 @@ function common.merge(a, b)
   for k, v in pairs(a) do t[k] = v end
   if b then for k, v in pairs(b) do t[k] = v end end
   return t
-end 
+end
 
 
 function common.round(n)
@@ -447,15 +445,5 @@ function common.rm(path, recursively)
   return true
 end
 
----@param filename string
----@return boolean
-function common.match_ignore_files(filename)
-  for _, pattern in ipairs(config.ignore_files) do
-    if common.match_pattern(filename, pattern) then
-      return true
-    end
-  end
-  return false
-end
 
 return common

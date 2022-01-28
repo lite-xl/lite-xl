@@ -100,7 +100,7 @@ local function get_project_file_info(root, file)
   if info then
     info.filename = strip_leading_path(file)
     return (info.size < config.file_size_limit * 1e6 and
-      not common.match_ignore_files(common.basename(info.filename))
+      not common.match_pattern(common.basename(info.filename), config.ignore_files)
       and info)
   end
 end
@@ -462,7 +462,7 @@ end
 
 local function project_scan_add_file(dir, filepath)
   for fragment in string.gmatch(filepath, "([^/\\]+)") do
-    if common.match_ignore_files(fragment) then
+    if common.match_pattern(fragment, config.ignore_files) then
       return
     end
   end
@@ -956,8 +956,7 @@ end
 function core.add_thread(f, weak_ref, ...)
   local key = weak_ref or #core.threads + 1
   local args = {...}
-  local table_unpack = rawget(_G, 'unpack') or rawget(_G.table, 'unpack')
-  local fn = function() return core.try(f, table_unpack(args)) end
+  local fn = function() return core.try(f, table.unpack(args)) end
   core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
   return key
 end
