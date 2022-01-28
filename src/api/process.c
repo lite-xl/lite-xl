@@ -59,9 +59,9 @@ typedef enum {
 
 #ifdef _WIN32
   static volatile long PipeSerialNumber;
-  static void close_fd(HANDLE handle) { CloseHandle(handle); }
+  static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = NULL; }
 #else
-  static void close_fd(int fd) { close(fd); }
+  static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
 #endif
 
 static bool poll_process(process_t* proc, int timeout) {
@@ -90,12 +90,8 @@ static bool poll_process(process_t* proc, int timeout) {
     if (timeout)
       SDL_Delay(5);
   } while (timeout == WAIT_INFINITE || SDL_GetTicks() - ticks < timeout);
-  if (!proc->running) {
-    close_fd(proc->child_pipes[STDIN_FD ][1]);
-    close_fd(proc->child_pipes[STDOUT_FD][0]);
-    close_fd(proc->child_pipes[STDERR_FD][0]);
+  if (!proc->running)
     return false;
-  }
   return true;
 }
 
@@ -121,7 +117,7 @@ static bool signal_process(process_t* proc, signal_e sig) {
 
 static int process_start(lua_State* L) {
   size_t env_len = 0, key_len, val_len;
-  const char *cmd[256], *env[256] = { NULL }, *cwd = NULL;
+  const char *cmd[256], *env_names[256] = { NULL }, *env_values[256] = { NULL }, *cwd = NULL;
   bool detach = false;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
   luaL_checktype(L, 1, LUA_TTABLE);
@@ -145,9 +141,12 @@ static int process_start(lua_State* L) {
       while (lua_next(L, -2) != 0) {
         const char* key = luaL_checklstring(L, -2, &key_len);
         const char* val = luaL_checklstring(L, -1, &val_len);
-        env[env_len] = malloc(key_len+val_len+2);
-        snprintf((char*)env[env_len++], key_len+val_len+2, "%s=%s", key, val);
+        env_names[env_len] = malloc(key_len+1);
+        strcpy((char*)env_names[env_len], key);
+        env_values[env_len] = malloc(val_len+1);
+        strcpy((char*)env_values[env_len], val);
         lua_pop(L, 1);
+        ++env_len;
       }
     } else
       lua_pop(L, 1);
@@ -162,7 +161,6 @@ static int process_start(lua_State* L) {
         return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
     }
   }
-  env[env_len] = NULL;
   
   process_t* self = lua_newuserdata(L, sizeof(process_t));
   memset(self, 0, sizeof(process_t));
@@ -217,26 +215,28 @@ static int process_start(lua_State* L) {
     siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
-    char commandLine[32767] = { 0 }, environmentBlock[32767];
-    int offset = 0;
+    char commandLine[32767] = { 0 }, environmentBlock[32767], wideEnvironmentBlock[32767*2];
     strcpy(commandLine, cmd[0]);
+    int offset = 0;
     for (size_t i = 1; i < cmd_len; ++i) {
       size_t len = strlen(cmd[i]);
-      if (offset + len + 1 >= sizeof(commandLine))
+      offset += len + 1;
+      if (offset >= sizeof(commandLine))
         break;
       strcat(commandLine, " ");
       strcat(commandLine, cmd[i]);
     }
+    offset = 0;
     for (size_t i = 0; i < env_len; ++i) {
-      size_t len = strlen(env[i]);
-      if (offset + len >= sizeof(environmentBlock))
+      if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
         break;
-      memcpy(&environmentBlock[offset], env[i], len);
-      offset += len;
+      offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env_names[i], env_values[i]);
       environmentBlock[offset++] = 0;
     }
     environmentBlock[offset++] = 0;
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? environmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
+    if (env_len > 0)
+      MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
+    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
       return luaL_error(L, "Error creating a process: %d.", GetLastError());
     self->pid = (long)self->process_information.dwProcessId;
     if (detach) 
@@ -263,17 +263,21 @@ static int process_start(lua_State* L) {
           dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
-      if ((!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
-        execvp((const char*)cmd[0], (char* const*)cmd);  
+      int set;
+      for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
+      if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
+        execvp((const char*)cmd[0], (char* const*)cmd);
       const char* msg = strerror(errno);
       int result = write(STDERR_FD, msg, strlen(msg)+1);
-      exit(result == strlen(msg)+1 ? -1 : -2);
+      _exit(result == strlen(msg)+1 ? -1 : -2);
     }
   #endif
-  for (size_t i = 0; i < env_len; ++i)
-    free((char*)env[i]);
+  for (size_t i = 0; i < env_len; ++i) {
+    free((char*)env_names[i]);
+    free((char*)env_values[i]);
+  }
   for (int stream = 0; stream < 3; ++stream)
-    close_fd(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
+    close_fd(&self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
   self->running = true;
   return 1;
 }
@@ -352,7 +356,7 @@ static int f_write(lua_State* L) {
 static int f_close_stream(lua_State* L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   int stream = luaL_checknumber(L, 2);
-  close_fd(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
+  close_fd(&self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
   lua_pushboolean(L, 1);
   return 1;
 }
@@ -419,7 +423,14 @@ static int self_signal(lua_State* L, signal_e sig) {
 static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
-static int f_gc(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
+static int f_gc(lua_State* L) { 
+  process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
+  signal_process(self, SIGNAL_TERM);
+  close_fd(&self->child_pipes[STDIN_FD ][1]);
+  close_fd(&self->child_pipes[STDOUT_FD][0]);
+  close_fd(&self->child_pipes[STDERR_FD][0]); 
+  return 0;
+}
 
 static int f_running(lua_State* L) {
   process_t* self = (process_t*)luaL_checkudata(L, 1, API_TYPE_PROCESS);  
