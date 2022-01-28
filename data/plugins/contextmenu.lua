@@ -3,6 +3,7 @@ local core = require "core"
 local command = require "core.command"
 local keymap = require "core.keymap"
 local ContextMenu = require "core.contextmenu"
+local DocView = require "core.docview"
 local RootView = require "core.rootview"
 
 local menu = ContextMenu()
@@ -32,7 +33,7 @@ function RootView:draw(...)
   menu:draw()
 end
 
-command.add(nil, {
+command.add(function() return getmetatable(core.active_view) == DocView end, {
   ["context:show"] = function()
     menu:show(core.active_view.position.x, core.active_view.position.y)
   end
@@ -41,6 +42,25 @@ command.add(nil, {
 keymap.add {
   ["menu"] = "context:show"
 }
+
+command.add(function() return menu.show_context_menu == true end, {
+  ["context:focus-previous"] = function()
+    menu:focus_previous()
+  end,
+  ["context:focus-next"] = function()
+    menu:focus_next()
+  end,
+  ["context:hide"] = function()
+    menu:hide()
+  end,
+  ["context:on-selected"] = function()
+    menu:call_selected_item()
+  end,
+})
+keymap.add { ["return"] = "context:on-selected" }
+keymap.add { ["up"] = "context:focus-previous" }
+keymap.add { ["down"] = "context:focus-next" }
+keymap.add { ["escape"] = "context:hide" }
 
 if require("plugins.scale") then
   menu:register("core.docview", {

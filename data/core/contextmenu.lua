@@ -91,6 +91,7 @@ function ContextMenu:show(x, y)
 
     self.position.x, self.position.y = x, y
     self.show_context_menu = true
+    core.request_cursor("arrow")
     return true
   end
   return false
@@ -101,6 +102,7 @@ function ContextMenu:hide()
   self.items = nil
   self.selected = -1
   self.height = 0
+  core.request_cursor(core.active_view.cursor)
 end
 
 function ContextMenu:each_item()
@@ -126,9 +128,6 @@ function ContextMenu:on_mouse_moved(px, py)
       break
     end
   end
-  if self.selected >= 0 then
-    core.request_cursor("arrow")
-  end
   return true
 end
 
@@ -140,8 +139,38 @@ function ContextMenu:on_selected(item)
   end
 end
 
-function ContextMenu:on_mouse_pressed(button, x, y, clicks)
-  local selected = (self.items or {})[self.selected]
+local function change_value(value, change)
+  return value + change
+end
+
+function ContextMenu:focus_previous()
+  self.selected = (self.selected == -1 or self.selected == 1) and #self.items or change_value(self.selected, -1)
+  if self:get_item_selected() == DIVIDER then
+    self.selected = change_value(self.selected, -1)
+  end
+end
+
+function ContextMenu:focus_next()
+  self.selected = (self.selected == -1 or self.selected == #self.items) and 1 or change_value(self.selected, 1)
+  if self:get_item_selected() == DIVIDER then
+    self.selected = change_value(self.selected, 1)
+  end
+end
+
+function ContextMenu:get_item_selected()
+  return (self.items or {})[self.selected]
+end
+
+function ContextMenu:call_selected_item()
+    local selected = self:get_item_selected()
+    self:hide()
+    if selected then
+      self:on_selected(selected)
+    end
+end
+
+function ContextMenu:on_mouse_pressed(button, px, py, clicks)
+  local selected = self:get_item_selected()
   local caught = false
 
   self:hide()
@@ -153,7 +182,7 @@ function ContextMenu:on_mouse_pressed(button, x, y, clicks)
   end
 
   if button == "right" then
-    caught = self:show(x, y)
+    caught = self:show(px, py)
   end
   return caught
 end
