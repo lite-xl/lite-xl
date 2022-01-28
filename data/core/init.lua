@@ -956,8 +956,8 @@ end
 function core.add_thread(f, weak_ref, ...)
   local key = weak_ref or #core.threads + 1
   local args = {...}
-  local unpack = unpack or table.unpack
-  local fn = function() return core.try(f, unpack(args)) end
+  local table_unpack = rawget(_G, 'unpack') or rawget(_G.table, 'unpack')
+  local fn = function() return core.try(f, table_unpack(args)) end
   core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
   return key
 end
