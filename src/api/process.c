@@ -330,8 +330,9 @@ static int f_write(lua_State* L) {
   #if _WIN32
     DWORD dwWritten;
     if (!WriteFile(self->child_pipes[STDIN_FD][1], data, data_size, &dwWritten, NULL)) {
+      int lastError = GetLastError();
       signal_process(self, SIGNAL_TERM);
-      return luaL_error(L, "error writing to process: %d", GetLastError());
+      return luaL_error(L, "error writing to process: %d", lastError);
     }
     length = dwWritten;
   #else
@@ -339,8 +340,9 @@ static int f_write(lua_State* L) {
     if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
       length = 0;
     else if (length < 0) {
+      const char* lastError = strerror(errno);
       signal_process(self, SIGNAL_TERM);
-      return luaL_error(L, "error writing to process: %s", strerror(errno));
+      return luaL_error(L, "error writing to process: %s", lastError);
     }
   #endif
   lua_pushinteger(L, length);
