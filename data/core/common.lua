@@ -1,3 +1,5 @@
+local config = require 'core.config'
+
 local common = {}
 
 
@@ -443,6 +445,17 @@ function common.rm(path, recursively)
   end
 
   return true
+end
+
+---@param filename string
+---@return boolean
+function common.match_ignore_files(filename)
+  for _, pattern in ipairs(config.ignore_files) do
+    if common.match_pattern(filename, pattern) then
+      return true
+    end
+  end
+  return false
 end
 
 return common

@@ -100,7 +100,7 @@ local function get_project_file_info(root, file)
   if info then
     info.filename = strip_leading_path(file)
     return (info.size < config.file_size_limit * 1e6 and
-      not common.match_pattern(common.basename(info.filename), config.ignore_files)
+      not common.match_ignore_files(common.basename(info.filename))
       and info)
   end
 end
@@ -462,7 +462,7 @@ end
 
 local function project_scan_add_file(dir, filepath)
   for fragment in string.gmatch(filepath, "([^/\\]+)") do
-    if common.match_pattern(fragment, config.ignore_files) then
+    if common.match_ignore_files(fragment) then
       return
     end
   end

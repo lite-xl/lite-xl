@@ -6,7 +6,7 @@ config.message_timeout = 5
 config.mouse_wheel_scroll = 50 * SCALE
 config.scroll_past_end = true
 config.file_size_limit = 10
-config.ignore_files = "^%."
+config.ignore_files = { "^%.", "node_modules" }
 config.symbol_pattern = "[%a_][%w_]*"
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
 config.undo_merge_timeout = 0.3
