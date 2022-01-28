@@ -592,7 +592,7 @@ command.add(function() return view.hovered_item ~= nil end, {
       system.exec(string.format("start \"\" %q", hovered_item.abs_filename))
     elseif string.find(PLATFORM, "Mac") then
       system.exec(string.format("open %q", hovered_item.abs_filename))
-    elseif PLATFORM == "Linux" then
+    elseif PLATFORM == "Linux" or string.find(PLATFORM, "BSD") then
       system.exec(string.format("xdg-open %q", hovered_item.abs_filename))
     end
   end,

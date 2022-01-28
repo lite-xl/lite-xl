@@ -7,7 +7,7 @@
 
 #ifdef _WIN32
   #include <windows.h>
-#elif __linux__
+#elif __linux__ || __FreeBSD__
   #include <unistd.h>
   #include <signal.h>
 #elif __APPLE__

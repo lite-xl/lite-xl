@@ -459,7 +459,7 @@ function core.add_project_directory(path)
     topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
     topdir.files_limit = true
     show_max_files_warning(topdir)
-    refresh_directory(topdir, "")
+    refresh_directory(topdir, "", true)
   else
     for i,v in ipairs(t) do
       if v.type == "dir" then topdir.watch:watch(path .. PATHSEP .. v.filename) end
@@ -474,7 +474,7 @@ function core.add_project_directory(path)
   topdir.watch_thread = core.add_thread(function()
     while true do
       topdir.watch:check(function(target)
-        if target == topdir.name then return refresh_directory(topdir, "") end	
+        if target == topdir.name then return refresh_directory(topdir, "", true) end	
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
         if dirpath then
@@ -482,7 +482,7 @@ function core.add_project_directory(path)
           local dir_index, dir_match = file_search(topdir.files, {filename = dirpath, type = "dir"})
           if not dir_match or not core.project_subdir_is_shown(topdir, topdir.files[dir_index].filename) then return end
         end
-        return refresh_directory(topdir, dirpath)
+        return refresh_directory(topdir, dirpath, true)
       end, 0.01, 0.01)
       coroutine.yield(0.05)
     end

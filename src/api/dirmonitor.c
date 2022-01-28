@@ -4,6 +4,7 @@
   #include <windows.h>
 #elif __linux__
   #include <sys/inotify.h>
+  #include <limits.h>
 #else
   #include <sys/event.h>
 #endif
@@ -91,7 +92,7 @@ int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, con
     monitor->running = false;
     return 0;
   #elif __linux__
-    char buf[4096] __attribute__ ((aligned(__alignof__(struct inotify_event))));
+    char buf[PATH_MAX + sizeof(struct inotify_event)];
     while (1) {
       ssize_t len = read(monitor->fd, buf, sizeof(buf));
       if (len == -1 && errno != EAGAIN)
@@ -102,13 +103,15 @@ int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, con
         change_callback(((const struct inotify_event *) ptr)->wd, NULL, data);
     }
   #else
-    struct kevent change, event;
+    struct kevent event;
     while (1) {
       struct timespec tm = {0};
       int nev = kevent(monitor->fd, NULL, 0, &event, 1, &tm);
+      if (nev == -1)
+        return errno;
       if (nev <= 0)
-        return nev;
-      chnage_callback(event->ident, NULL, data);
+        return 0;
+      change_callback(event.ident, NULL, data);
     }
   #endif
 }
@@ -125,8 +128,8 @@ int add_dirmonitor(struct dirmonitor* monitor, const char* path) {
     return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
   #else
     int fd = open(path, O_RDONLY);
-    struct kevent change, event;
-    EV_SET(&change, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB, 0, 0);
+    struct kevent change;
+    EV_SET(&change, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_LINK | NOTE_RENAME, 0, (void*)path);
     kevent(monitor->fd, &change, 1, NULL, 0, NULL);
     return fd;
   #endif
