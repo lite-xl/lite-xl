@@ -95,7 +95,7 @@ static Command* push_command(int type, int size) {
     return NULL;
   }
   command_buf_idx = n;
-  memset(cmd, 0, COMMAND_BARE_SIZE);
+  memset(cmd, 0, size);
   cmd->type = type;
   cmd->size = size;
   return cmd;
