@@ -348,6 +348,13 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
+void ren_blit_rect(RenRect src, RenRect dst) {
+  SDL_Surface *surface = renwin_get_surface(&window_renderer);
+  SDL_Rect sdl_src = { src.x, src.y, src.width, src.height };
+  SDL_Rect sdl_dst = { dst.x, dst.y, dst.width, dst.height };
+  SDL_BlitSurface(surface, &sdl_src, surface, &sdl_dst);
+}
+
 /*************** Window Management ****************/
 void ren_free_window_resources() {
   renwin_free(&window_renderer);

@@ -128,8 +128,29 @@ end
 
 function View:update()
   self:clamp_scroll_position()
+  local x, y = self.scroll.x, self.scroll.y
   self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3)
   self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3)
+  local dx, dy = x - self.scroll.x, y - self.scroll.y
+  if dx or dy then
+    local src = { 0, 0, self.size.x - dx, self.size.y - dy }
+    local dst = { 0, 0, self.size.x - dx, self.size.y - dy }
+    if dx < 0 then
+      src[1] = self.position.x + dx
+      dst[1] = self.position.x
+    else
+      src[1] = self.position.x
+      dst[1] = self.position.x + dx
+    end
+    if dy < 0 then
+      src[2] = self.position.y + dy
+      dst[2] = self.position.y
+    else
+      src[2] = self.position.y
+      dst[2] = self.position.y + dy
+    end
+    renderer.blit_hint(src, dst)
+  end
 end
 
 

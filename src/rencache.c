@@ -66,6 +66,10 @@ static inline bool rects_overlap(RenRect a, RenRect b) {
       && b.y + b.height >= a.y && b.y <= a.y + a.height;
 }
 
+static inline bool rect_encompasses(RenRect a, RenRect b) {
+  return a.x <= b.x && a.y <= b.y && 
+    a.x + a.width >= b.x + b.width && a.y + a.height >= b.y + b.height;
+}
 
 static RenRect intersect_rects(RenRect a, RenRect b) {
   int x1 = max(a.x, b.x);
@@ -154,6 +158,80 @@ float rencache_draw_text(lua_State *L, RenFont **fonts, const char *text, float 
 }
 
 
+static void invalidate_overlapping_cells(RenRect r) {
+  int x1 = r.x / CELL_SIZE;
+  int y1 = r.y / CELL_SIZE;
+  int x2 = (r.x + r.width) / CELL_SIZE;
+  int y2 = (r.y + r.height) / CELL_SIZE;
+
+  for (int y = y1; y <= y2; y++) {
+    for (int x = x1; x <= x2; x++) {
+      int idx = cell_idx(x, y);
+      cells[idx] = 0xff;
+    }
+  }
+}
+
+
+static void update_overlapping_cells(RenRect r, unsigned* buffer, unsigned h) {
+  int x1 = r.x / CELL_SIZE;
+  int y1 = r.y / CELL_SIZE;
+  int x2 = (r.x + r.width) / CELL_SIZE;
+  int y2 = (r.y + r.height) / CELL_SIZE;
+
+  for (int y = y1; y <= y2; y++) {
+    for (int x = x1; x <= x2; x++) {
+      int idx = cell_idx(x, y);
+      hash(&buffer[idx], &h, sizeof(h));
+    }
+  }
+}
+
+
+/* provide a hint about where to move pixels. if accurate
+will make things much faster, if inaccurate, will make things
+much slower, but should be entirely unecessary to actually draw
+things correctly. used primarily for scrolling enhancement.
+
+src should be identical in size to dst. src and dst should also
+be adjacent.
+
+should be called before rencache_begin_frame  */
+int rencache_blit_hint(RenRect src, RenRect dst) {
+  if (src.width != dst.width || src.height != dst.height ||
+    !(src.x + src.width == dst.x || dst.x + dst.width == src.x) ||
+    !(src.y + src.height == dst.y || dst.y + dst.height == src.y)) {
+      return -1;
+  }
+  ren_blit_rect(src, dst);
+  
+  RenRect cr = screen_rect;
+  Command *cmd = NULL;
+  // go through each command, and for any that contains commands that are entirely contained within the hint,
+  // recompute their hash values, as if we just redrew that cell.
+  invalidate_overlapping_cells(merge_rects(src, dst));
+  RenRect grid_aligned_dst = { dst.x - (dst.x % CELL_SIZE), dst.y - (dst.y % CELL_SIZE), 
+    dst.width + (dst.x + dst.width) % CELL_SIZE, dst.height + (dst.y + dst.height) % CELL_SIZE };
+  while (next_command(&cmd)) {
+    if (cmd->type == SET_CLIP) { cr = cmd->rect; }
+    RenRect r = intersect_rects(cmd->rect, cr);
+    if (r.width == 0 || r.height == 0) { continue; }
+    
+    if (!rect_encompasses(src, r)) {
+      cmd->text_x += (dst.x - src.x);
+      cmd->rect.x += (dst.x - src.x);
+      cmd->rect.y += (dst.y - src.y);
+    } else if (!rects_overlap(grid_aligned_dst, r)) {
+      continue;
+    }
+    unsigned h = HASH_INITIAL;
+    hash(&h, cmd, cmd->size);
+    update_overlapping_cells(r, cells_prev, h);
+  }
+  return 0;
+}
+
+
 void rencache_invalidate(void) {
   memset(cells_prev, 0xff, sizeof(cells_buf1));
 }
@@ -167,21 +245,6 @@ void rencache_begin_frame(lua_State *L) {
     screen_rect.width = w;
     screen_rect.height = h;
     rencache_invalidate();
-  }
-}
-
-
-static void update_overlapping_cells(RenRect r, unsigned h) {
-  int x1 = r.x / CELL_SIZE;
-  int y1 = r.y / CELL_SIZE;
-  int x2 = (r.x + r.width) / CELL_SIZE;
-  int y2 = (r.y + r.height) / CELL_SIZE;
-
-  for (int y = y1; y <= y2; y++) {
-    for (int x = x1; x <= x2; x++) {
-      int idx = cell_idx(x, y);
-      hash(&cells[idx], &h, sizeof(h));
-    }
   }
 }
 
@@ -210,7 +273,7 @@ void rencache_end_frame(lua_State *L) {
     if (r.width == 0 || r.height == 0) { continue; }
     unsigned h = HASH_INITIAL;
     hash(&h, cmd, cmd->size);
-    update_overlapping_cells(r, h);
+    update_overlapping_cells(r, cells, h);
   }
 
   /* push rects for all cells changed from last frame, reset cells */
@@ -277,4 +340,3 @@ void rencache_end_frame(lua_State *L) {
   cells_prev = tmp;
   command_buf_idx = 0;
 }
-

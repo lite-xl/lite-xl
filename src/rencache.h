@@ -10,6 +10,7 @@ void  rencache_set_clip_rect(RenRect rect);
 void  rencache_draw_rect(RenRect rect, RenColor color);
 float rencache_draw_text(lua_State *L, RenFont **font, 
   const char *text, float x, int y, RenColor color);
+int   rencache_blit_hint(RenRect src, RenRect dst);
 void  rencache_invalidate(void);
 void  rencache_begin_frame(lua_State *L);
 void  rencache_end_frame(lua_State *L);

@@ -219,6 +219,24 @@ static int f_draw_text(lua_State *L) {
   return 1;
 }
 
+static int f_blit_hint(lua_State* L) {
+  RenRect rects[2];
+  for (int i = 0; i < 2; ++i) {
+    lua_rawgeti(L, i+1, 1);
+    lua_rawgeti(L, i+1, 2);
+    lua_rawgeti(L, i+1, 3);
+    lua_rawgeti(L, i+1, 4);
+    lua_Number x = luaL_checknumber(L, -4);
+    lua_Number y = luaL_checknumber(L, -3);
+    lua_Number w = luaL_checknumber(L, -2);
+    lua_Number h = luaL_checknumber(L, -1);
+    rects[i] = rect_to_grid(x, y, w, h);
+    lua_pop(L, 4);
+  }
+  lua_pushinteger(L, rencache_blit_hint(rects[0], rects[1]));
+  return 1;
+}
+
 static const luaL_Reg lib[] = {
   { "show_debug",         f_show_debug         },
   { "get_size",           f_get_size           },
@@ -227,6 +245,7 @@ static const luaL_Reg lib[] = {
   { "set_clip_rect",      f_set_clip_rect      },
   { "draw_rect",          f_draw_rect          },
   { "draw_text",          f_draw_text          },
+  { "blit_hint",          f_blit_hint          },
   { NULL,                 NULL                 }
 };
 
