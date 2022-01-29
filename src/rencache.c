@@ -167,11 +167,18 @@ static void invalidate_overlapping_cells(RenRect r) {
   for (int y = y1; y <= y2; y++) {
     for (int x = x1; x <= x2; x++) {
       int idx = cell_idx(x, y);
-      cells[idx] = 0xff;
+      cells_prev[idx] = HASH_INITIAL;
     }
   }
 }
 
+static RenRect grid_align_rect(RenRect r) {
+  return (RenRect){ r.x - (r.x % CELL_SIZE), r.y - (r.y % CELL_SIZE), 
+    r.width + (CELL_SIZE - (r.width % CELL_SIZE)), r.height + (CELL_SIZE - (r.height % CELL_SIZE)) };
+}
+
+static const int DUMPING_CELL_X = 6;
+static const int DUMPING_CELL_Y = 5;
 
 static void update_overlapping_cells(RenRect r, unsigned* buffer, unsigned h) {
   int x1 = r.x / CELL_SIZE;
@@ -187,6 +194,44 @@ static void update_overlapping_cells(RenRect r, unsigned* buffer, unsigned h) {
   }
 }
 
+static void dump_hex_command(Command* cmd) {
+  char* start = (char*)cmd;
+  char* end = start + cmd->size;
+  fprintf(stderr, "CMDDUMP: ");
+  while (start++ < end) {
+    fprintf(stderr, "%02x", *start);
+  }
+  fprintf(stderr, "\n");
+}
+
+static void dump_commands(int x, int y, const char* prefix) {
+  RenRect cr = screen_rect;
+  Command* cmd = NULL;
+  unsigned h = HASH_INITIAL;
+  while (next_command(&cmd)) {
+    if (cmd->type == SET_CLIP) { cr = cmd->rect; }
+    RenRect r = intersect_rects(cmd->rect, cr);
+    if (r.width == 0 || r.height == 0) { continue; }
+    if (!rects_overlap(r, (RenRect){ x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE }))
+      continue;
+    unsigned i = HASH_INITIAL;
+    hash(&i, cmd, cmd->size);
+    hash(&h, &i, sizeof(i));
+    switch (cmd->type) {
+      case SET_CLIP:
+        fprintf(stderr, "DUMP %s [SET CLIP][%10u][%10u]: %d %d %d %d\n", prefix, h, i, cmd->rect.x, cmd->rect.y, cmd->rect.width, cmd->rect.height);
+        break;
+      case DRAW_RECT:
+        fprintf(stderr, "DUMP %s [DRAW RECT][%10u][%10u]: %d %d %d %d\n", prefix, h, i, cmd->rect.x, cmd->rect.y, cmd->rect.width, cmd->rect.height);
+        break;
+      case DRAW_TEXT:
+        fprintf(stderr, "DUMP %s [DRAW TEXT][%10u][%10u]: %d %d %d %d %f (%u)\n", prefix, h, i, cmd->rect.x, cmd->rect.y, cmd->rect.width, cmd->rect.height, cmd->text_x, *(unsigned*)((float*)&cmd->text_x));
+        break;
+    }
+  }
+  fprintf(stderr, "DUMP %s [HASH]: %u %u %u\n\n\n\n", prefix, h, cells_prev[cell_idx(x, y)], cells[cell_idx(x, y)]);
+}
+
 
 /* provide a hint about where to move pixels. if accurate
 will make things much faster, if inaccurate, will make things
@@ -199,35 +244,48 @@ be adjacent.
 should be called before rencache_begin_frame  */
 int rencache_blit_hint(RenRect src, RenRect dst) {
   if (src.width != dst.width || src.height != dst.height ||
-    !(src.x + src.width == dst.x || dst.x + dst.width == src.x) ||
-    !(src.y + src.height == dst.y || dst.y + dst.height == src.y)) {
+    !(src.x + src.width >= dst.x || dst.x + dst.width >= src.x) ||
+    !(src.y + src.height >= dst.y || dst.y + dst.height >= src.y)) {
       return -1;
   }
+  RenRect grid_aligned_dst = grid_align_rect(dst);
   ren_blit_rect(src, dst);
+  ren_update_rects(&grid_aligned_dst, 1);
   
   RenRect cr = screen_rect;
+  RenRect tcr = screen_rect;
   Command *cmd = NULL;
   // go through each command, and for any that contains commands that are entirely contained within the hint,
   // recompute their hash values, as if we just redrew that cell.
-  invalidate_overlapping_cells(merge_rects(src, dst));
-  RenRect grid_aligned_dst = { dst.x - (dst.x % CELL_SIZE), dst.y - (dst.y % CELL_SIZE), 
-    dst.width + (dst.x + dst.width) % CELL_SIZE, dst.height + (dst.y + dst.height) % CELL_SIZE };
+  RenRect merged = grid_align_rect(merge_rects(src, dst));
+  invalidate_overlapping_cells(merged);
+  
+  //fprintf(stderr, "CELL PREVA: %u\n", cells_prev[cell_idx(DUMPING_CELL_X, DUMPING_CELL_Y)]);
+  dump_commands(DUMPING_CELL_X, DUMPING_CELL_Y, "PREBLIT");
   while (next_command(&cmd)) {
-    if (cmd->type == SET_CLIP) { cr = cmd->rect; }
+    if (cmd->type == SET_CLIP) { cr = cmd->rect; tcr = cr; }
     RenRect r = intersect_rects(cmd->rect, cr);
     if (r.width == 0 || r.height == 0) { continue; }
-    
-    if (!rect_encompasses(src, r)) {
-      cmd->text_x += (dst.x - src.x);
+    if (rect_encompasses(src, r)) {
+      if (cmd->type == DRAW_TEXT && dst.x - src.x)
+        cmd->text_x += (dst.x - src.x);
       cmd->rect.x += (dst.x - src.x);
       cmd->rect.y += (dst.y - src.y);
+      if (cmd->type == SET_CLIP)
+        tcr = cmd->rect;
+      r = intersect_rects(cmd->rect, tcr);
     } else if (!rects_overlap(grid_aligned_dst, r)) {
       continue;
     }
     unsigned h = HASH_INITIAL;
     hash(&h, cmd, cmd->size);
     update_overlapping_cells(r, cells_prev, h);
+    if (rects_overlap(r, (RenRect){ DUMPING_CELL_X*CELL_SIZE, DUMPING_CELL_Y*CELL_SIZE, CELL_SIZE, CELL_SIZE })) {
+      fprintf(stderr, "WAT: %d %u %f %u (%u)\n", cmd->type, cells_prev[cell_idx(DUMPING_CELL_X, DUMPING_CELL_Y)], cmd->text_x, h, *(unsigned*)((float*)&cmd->text_x));
+    }
   }
+  //fprintf(stderr, "CELL PREVB: %u\n", cells_prev[cell_idx(DUMPING_CELL_X, DUMPING_CELL_Y)]);
+  dump_commands(DUMPING_CELL_X, DUMPING_CELL_Y, "POSTBLIT");
   return 0;
 }
 
@@ -246,6 +304,7 @@ void rencache_begin_frame(lua_State *L) {
     screen_rect.height = h;
     rencache_invalidate();
   }
+  command_buf_idx = 0;
 }
 
 
@@ -332,11 +391,12 @@ void rencache_end_frame(lua_State *L) {
   /* update dirty rects */
   if (rect_count > 0) {
     ren_update_rects(rect_buf, rect_count);
+    //fprintf(stderr, "CELL PREVC: %u\n", cells[cell_idx(DUMPING_CELL_X, DUMPING_CELL_Y)]);
+    dump_commands(DUMPING_CELL_X, DUMPING_CELL_Y, "DIRTY");
   }
 
   /* swap cell buffer and reset */
   unsigned *tmp = cells;
   cells = cells_prev;
   cells_prev = tmp;
-  command_buf_idx = 0;
 }

@@ -128,28 +128,35 @@ end
 
 function View:update()
   self:clamp_scroll_position()
-  local x, y = self.scroll.x, self.scroll.y
   self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3)
   self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3)
-  local dx, dy = x - self.scroll.x, y - self.scroll.y
-  if dx or dy then
-    local src = { 0, 0, self.size.x - dx, self.size.y - dy }
-    local dst = { 0, 0, self.size.x - dx, self.size.y - dy }
-    if dx < 0 then
-      src[1] = self.position.x + dx
-      dst[1] = self.position.x
-    else
-      src[1] = self.position.x
-      dst[1] = self.position.x + dx
+  if self.blit_hint_scroll then 
+    local dx, dy = self.scroll.x - self.blit_hint_scroll.x, self.scroll.y - self.blit_hint_scroll.y
+    if math.abs(dx) >= 1 or math.abs(dy) >= 1 then
+      local src, dst = { }, { }
+      if dx < 0 then
+        src[1] = common.clamp(self.position.x - dx, self.position.x, self.size.x)
+        dst[1] = self.position.x
+      else
+        src[1] = self.position.x
+        dst[1] = common.clamp(self.position.x - dx, self.position.x, self.size.x)
+      end
+      if dy < 0 then
+        src[2] = common.clamp(self.position.y - dy, self.position.y, self.size.y)
+        dst[2] = common.clamp(self.position.y + dy, self.position.y, self.size.y)
+      else
+        src[2] = common.clamp(self.position.y + dy, self.position.y, self.size.y)
+        dst[2] = common.clamp(self.position.y - dy, self.position.y, self.size.y)
+      end
+      src[3] = self.size.x - math.abs(dst[1] - src[1])
+      src[4] = self.size.y - math.abs(dst[2] - dst[2])
+      dst[3] = src[3]
+      dst[4] = src[4]
+      print("HINTA", table.unpack(src))
+      print("HINTB", table.unpack(dst))
+      print("HINTC", dx, dy)
+      renderer.blit_hint(src, dst)
     end
-    if dy < 0 then
-      src[2] = self.position.y + dy
-      dst[2] = self.position.y
-    else
-      src[2] = self.position.y
-      dst[2] = self.position.y + dy
-    end
-    renderer.blit_hint(src, dst)
   end
 end
 
@@ -158,6 +165,7 @@ function View:draw_background(color)
   local x, y = self.position.x, self.position.y
   local w, h = self.size.x, self.size.y
   renderer.draw_rect(x, y, w, h, color)
+  -- renderer.draw_rect(576, 480, 96, 96, { common.color "#ffffff" })
 end
 
 
@@ -170,6 +178,7 @@ end
 
 
 function View:draw()
+  self.blit_hint_scroll = { x = self.scroll.x, y = self.scroll.y }
 end
 
 

@@ -403,6 +403,7 @@ function DocView:draw_overlay()
 end
 
 function DocView:draw()
+  DocView.super.draw(self)
   self:draw_background(style.background)
   local _, indent_size = self.doc:get_indent_info()
   self:get_font():set_tab_size(indent_size)
