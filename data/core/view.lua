@@ -128,10 +128,10 @@ end
 
 function View:update()
   self:clamp_scroll_position()
-  self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3)
-  self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3)
+  self:move_towards(self.scroll, "x", self.scroll.to.x, 0.5)
+  self:move_towards(self.scroll, "y", self.scroll.to.y, 0.5)
   if self.blit_hint_scroll then 
-    local dx, dy = self.scroll.x - self.blit_hint_scroll.x, self.scroll.y - self.blit_hint_scroll.y
+    local dx, dy = math.floor(self.scroll.x - self.blit_hint_scroll.x), math.floor(self.scroll.y - self.blit_hint_scroll.y)
     if math.abs(dx) >= 1 or math.abs(dy) >= 1 then
       local src, dst = { }, { }
       if dx < 0 then
@@ -139,22 +139,19 @@ function View:update()
         dst[1] = self.position.x
       else
         src[1] = self.position.x
-        dst[1] = common.clamp(self.position.x - dx, self.position.x, self.size.x)
+        dst[1] = common.clamp(self.position.x + dx, self.position.x, self.size.x)
       end
       if dy < 0 then
-        src[2] = common.clamp(self.position.y - dy, self.position.y, self.size.y)
-        dst[2] = common.clamp(self.position.y + dy, self.position.y, self.size.y)
+        src[2] = self.position.y
+        dst[2] = common.clamp(self.position.y - dy, self.position.y, self.size.y)
       else
         src[2] = common.clamp(self.position.y + dy, self.position.y, self.size.y)
-        dst[2] = common.clamp(self.position.y - dy, self.position.y, self.size.y)
+        dst[2] = self.position.y
       end
       src[3] = self.size.x - math.abs(dst[1] - src[1])
-      src[4] = self.size.y - math.abs(dst[2] - dst[2])
+      src[4] = self.size.y - math.abs(dst[2] - src[2])
       dst[3] = src[3]
       dst[4] = src[4]
-      print("HINTA", table.unpack(src))
-      print("HINTB", table.unpack(dst))
-      print("HINTC", dx, dy)
       renderer.blit_hint(src, dst)
     end
   end
