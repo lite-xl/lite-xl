@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-DMON_API_DECL bool dmon_watch_add(dmon_watch_id id, const char* subdir);
+DMON_API_DECL bool dmon_watch_add(dmon_watch_id id, const char* subdir, dmon_error *error_code);
 DMON_API_DECL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir);
 
 #ifdef __cplusplus
@@ -36,14 +36,15 @@ DMON_API_DECL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir);
 
 #ifdef DMON_IMPL
 #if DMON_OS_LINUX
-DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
+DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir, dmon_error *error_code)
 {
     DMON_ASSERT(id.id > 0 && id.id <= DMON_MAX_WATCHES);
 
     bool skip_lock = pthread_self() == _dmon.thread_handle;
 
-    if (!skip_lock)
-        pthread_mutex_lock(&_dmon.mutex);
+    if (!skip_lock) {
+        dmon__mutex_wakeup_lock();
+    }
 
     dmon__watch_state* watch = &_dmon.watches[id.id - 1];
 
@@ -52,6 +53,8 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     // else, we assume that watchdir is correct, so save it as it is
     struct stat st;
     dmon__watch_subdir subdir;
+    // FIXME: check if it is a symlink and respect DMON_WATCHFLAGS_FOLLOW_SYMLINKS
+    // to resolve the link.
     if (stat(watchdir, &st) == 0 && (st.st_mode & S_IFDIR)) {
         dmon__strcpy(subdir.rootdir, sizeof(subdir.rootdir), watchdir);
         if (strstr(subdir.rootdir, watch->rootdir) == subdir.rootdir) {
@@ -62,7 +65,7 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
         dmon__strcpy(fullpath, sizeof(fullpath), watch->rootdir);
         dmon__strcat(fullpath, sizeof(fullpath), watchdir);
         if (stat(fullpath, &st) != 0 || (st.st_mode & S_IFDIR) == 0) {
-            _DMON_LOG_ERRORF("Watch directory '%s' is not valid", watchdir);
+            *error_code = DMON_ERROR_UNSUPPORTED_SYMLINK;
             if (!skip_lock)
                 pthread_mutex_unlock(&_dmon.mutex);
             return false;
@@ -79,7 +82,7 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     // check that the directory is not already added
     for (int i = 0, c = stb_sb_count(watch->subdirs); i < c; i++) {
         if (strcmp(subdir.rootdir, watch->subdirs[i].rootdir) == 0) {
-            _DMON_LOG_ERRORF("Error watching directory '%s', because it is already added.", watchdir);
+            *error_code = DMON_ERROR_SUBDIR_LOCATION;
             if (!skip_lock) 
                 pthread_mutex_unlock(&_dmon.mutex);
             return false;
@@ -92,7 +95,7 @@ DMON_API_IMPL bool dmon_watch_add(dmon_watch_id id, const char* watchdir)
     dmon__strcat(fullpath, sizeof(fullpath), subdir.rootdir);
     int wd = inotify_add_watch(watch->fd, fullpath, inotify_mask);
     if (wd == -1) {
-        _DMON_LOG_ERRORF("Error watching directory '%s'. (inotify_add_watch:err=%d)", watchdir, errno);
+        *error_code = DMON_ERROR_WATCH_DIR;
         if (!skip_lock)
             pthread_mutex_unlock(&_dmon.mutex);
         return false;
@@ -113,8 +116,9 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
 
     bool skip_lock = pthread_self() == _dmon.thread_handle;
 
-    if (!skip_lock)
-        pthread_mutex_lock(&_dmon.mutex);
+    if (!skip_lock) {
+        dmon__mutex_wakeup_lock();
+    }
 
     dmon__watch_state* watch = &_dmon.watches[id.id - 1];
 
@@ -137,7 +141,6 @@ DMON_API_IMPL bool dmon_watch_rm(dmon_watch_id id, const char* watchdir)
         }
     }
     if (i >= c) {
-        _DMON_LOG_ERRORF("Watch directory '%s' is not valid", watchdir);
         if (!skip_lock)
             pthread_mutex_unlock(&_dmon.mutex);
         return false;

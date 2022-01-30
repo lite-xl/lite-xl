@@ -45,6 +45,7 @@ function TreeView:new()
 
   self.item_icon_width = 0
   self.item_text_spacing = 0
+
   self:add_core_hooks()
 end
 
@@ -95,7 +96,7 @@ function TreeView:get_cached(dir, item, dirname)
     end
     t.name = basename
     t.type = item.type
-    t.dir = dir -- points to top level "dir" item
+    t.dir_name = dir.name -- points to top level "dir" item
     dir_cache[cache_name] = t
   end
   return t
@@ -233,11 +234,14 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     if keymap.modkeys["ctrl"] and button == "left" then
       create_directory_in(hovered_item)
     else
-      hovered_item.expanded = not hovered_item.expanded
-      if hovered_item.dir.files_limit then
-        core.update_project_subdir(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
-        core.project_subdir_set_show(hovered_item.dir, hovered_item.filename, hovered_item.expanded)
+      local hovered_dir = core.project_dir_by_name(hovered_item.dir_name)
+      if hovered_dir and hovered_dir.files_limit then
+        if not core.project_subdir_set_show(hovered_dir, hovered_item.filename, not hovered_item.expanded) then
+          return
+        end
+        core.update_project_subdir(hovered_dir, hovered_item.filename, not hovered_item.expanded)
       end
+      hovered_item.expanded = not hovered_item.expanded
     end
   else
     core.try(function()
@@ -449,6 +453,12 @@ end
 function RootView:draw(...)
   root_view_draw(self, ...)
   menu:draw()
+end
+
+local on_quit_project = core.on_quit_project
+function core.on_quit_project()
+  view.cache = {}
+  on_quit_project()
 end
 
 local function is_project_folder(path)
