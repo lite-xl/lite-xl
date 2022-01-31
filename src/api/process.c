@@ -105,9 +105,9 @@ static bool signal_process(process_t* proc, signal_e sig) {
     }
   #else
     switch (sig) {
-      case SIGNAL_TERM: terminate = kill(proc->pid, SIGTERM) == 1; break;
-      case SIGNAL_KILL: terminate = kill(proc->pid, SIGKILL) == 1; break;
-      case SIGNAL_INTERRUPT: kill(proc->pid, SIGINT); break;
+      case SIGNAL_TERM: terminate = kill(-proc->pid, SIGTERM) == 1; break;
+      case SIGNAL_KILL: terminate = kill(-proc->pid, SIGKILL) == 1; break;
+      case SIGNAL_INTERRUPT: kill(-proc->pid, SIGINT); break;
     }
   #endif
   if (terminate) 
@@ -255,6 +255,7 @@ static int process_start(lua_State* L) {
       }
       return luaL_error(L, "Error running fork: %s.", strerror(errno));
     } else if (!self->pid) {
+      setpgrp();
       for (int stream = 0; stream < 3; ++stream) {
         if (new_fds[stream] == REDIRECT_DISCARD) { // Close the stream if we don't want it.
           close(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
@@ -429,6 +430,7 @@ static int f_gc(lua_State* L) {
   close_fd(&self->child_pipes[STDIN_FD ][1]);
   close_fd(&self->child_pipes[STDOUT_FD][0]);
   close_fd(&self->child_pipes[STDERR_FD][0]); 
+  poll_process(self, 10);
   return 0;
 }
 
