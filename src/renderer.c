@@ -43,11 +43,11 @@ typedef struct RenFont {
   FT_Face face;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
-  short max_height, baseline, height;
+  unsigned short max_height, baseline, height;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
   unsigned char style;
-  char path[0];
+  char path[1];
 } RenFont;
 
 static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
@@ -145,11 +145,11 @@ static void font_load_glyphset(RenFont* font, int idx) {
       font_set_style(&slot->outline, (64 / bitmaps_cached) * j, font->style);
       if (FT_Render_Glyph(slot, render_option))
         continue; 
-      for (int line = 0; line < slot->bitmap.rows; ++line) {
+      for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
         int target_offset = set->surface->pitch * line + set->metrics[i].x0 * byte_width;
         int source_offset = line * slot->bitmap.pitch;
         if (font->antialiasing == FONT_ANTIALIASING_NONE) {
-          for (int column = 0; column < slot->bitmap.width; ++column) {
+          for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
             int current_source_offset = source_offset + (column / 8);
             int source_pixel = slot->bitmap.buffer[current_source_offset];
             pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) << 7;
@@ -299,7 +299,12 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
         for (int x = glyph_start; x < glyph_end; ++x) {
           unsigned int destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
-          SDL_Color src = { *(font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? source_pixel++ : source_pixel), *(font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? source_pixel++ : source_pixel), *source_pixel++ };
+          SDL_Color src = {
+            *(font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? source_pixel++ : source_pixel),
+            *(font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? source_pixel++ : source_pixel),
+            *source_pixel++,
+            0xff
+          };
           r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;

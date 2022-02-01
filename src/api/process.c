@@ -91,7 +91,7 @@ static bool poll_process(process_t* proc, int timeout) {
     #endif
     if (timeout)
       SDL_Delay(5);
-  } while (timeout == WAIT_INFINITE || SDL_GetTicks() - ticks < timeout);
+  } while (timeout == WAIT_INFINITE || (int)SDL_GetTicks() - ticks < timeout);
 
   return proc->running;
 }
@@ -265,12 +265,12 @@ static int process_start(lua_State* L) {
           dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
-      int set;
+      size_t set;
       for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
       if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
         execvp((const char*)cmd[0], (char* const*)cmd);
       const char* msg = strerror(errno);
-      int result = write(STDERR_FD, msg, strlen(msg)+1);
+      size_t result = write(STDERR_FD, msg, strlen(msg)+1);
       _exit(result == strlen(msg)+1 ? -1 : -2);
     }
   #endif
