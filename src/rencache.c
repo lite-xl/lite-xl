@@ -69,6 +69,11 @@ static inline bool rects_overlap(RenRect a, RenRect b) {
       && b.y + b.height >= a.y && b.y <= a.y + a.height;
 }
 
+static inline bool rects_majority_overlap(RenRect a, RenRect b) {
+  return (b.x + b.width >= a.x && b.x <= a.x + a.width && a.y == b.y && abs((a.height - b.height)*2 / a.height) == 0) ||
+    (b.y + b.height >= a.y && b.y <= a.y + a.height && a.x == b.x && abs((a.width - b.width)*2 / a.width) == 0);
+}
+
 static inline bool rect_encompasses(RenRect a, RenRect b) {
   return a.x <= b.x && a.y <= b.y && 
     a.x + a.width > b.x + b.width && a.y + a.height > b.y + b.height;
@@ -226,7 +231,6 @@ int rencache_blit_hint(RenRect src, RenRect dst) {
   // go through each command, and for any that contains commands that are entirely contained within the hint,
   // recompute their hash values, as if we just redrew that cell.
   invalidate_overlapping_cells(grid_align_rect(merge_rects(src, dst), true));
-  
   while (next_command(&cmd)) {
     if (cmd->type == SET_CLIP) { cr = cmd->rect; tcr = cr; }
     RenRect r = intersect_rects(cmd->rect, cr);
@@ -282,7 +286,7 @@ static void push_rect(RenRect r, int *count) {
   /* try to merge with existing rectangle */
   for (int i = *count - 1; i >= 0; i--) {
     RenRect *rp = &rect_buf[i];
-    if (rects_overlap(*rp, r)) {
+    if (rects_majority_overlap(*rp, r)) {
       *rp = merge_rects(*rp, r);
       return;
     }
@@ -313,12 +317,26 @@ void rencache_end_frame(lua_State *L) {
     for (int x = 0; x < max_x; x++) {
       /* compare previous and current cell for change */
       int idx = cell_idx(x, y);
-      if (cells[idx] != cells_prev[idx]) {
+      if (cells[idx] != cells_prev[idx])
         push_rect((RenRect) { x, y, 1, 1 }, &rect_count);
-      }
       cells_prev[idx] = HASH_INITIAL;
     }
   }
+  /* merge rects across y coordinates */
+  int new_rect_count = 0;
+  for (int i = 0; i < rect_count; ++i) {
+    bool had_rect = false;
+    for (int j = new_rect_count - 1; j >= 0 && !had_rect; --j) {
+      if (rects_majority_overlap(rect_buf[i], rect_buf[j])) {
+        rect_buf[j] = merge_rects(rect_buf[i], rect_buf[j]);
+        had_rect = true;
+      }
+    }
+    if (!had_rect) {
+      rect_buf[new_rect_count++] = rect_buf[i];
+    }
+  }
+  rect_count = new_rect_count;
 
   /* expand rects from cells to pixels */
   for (int i = 0; i < rect_count; i++) {

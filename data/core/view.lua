@@ -16,6 +16,7 @@ function View:new()
   self.position = { x = 0, y = 0 }
   self.size = { x = 0, y = 0 }
   self.scroll = { x = 0, y = 0, to = { x = 0, y = 0 } }
+  self.blit_hint_scroll = { x = 0, y = 0 }
   self.cursor = "arrow"
   self.scrollable = false
 end
@@ -130,30 +131,29 @@ function View:update()
   self:clamp_scroll_position()
   self:move_towards(self.scroll, "x", self.scroll.to.x, 0.5)
   self:move_towards(self.scroll, "y", self.scroll.to.y, 0.5)
-  if self.blit_hint_scroll then 
-    local dx, dy = math.floor(self.scroll.x - self.blit_hint_scroll.x), math.floor(self.scroll.y - self.blit_hint_scroll.y)
-    if math.abs(dx) >= 1 or math.abs(dy) >= 1 then
-      local src, dst = { }, { }
-      if dx < 0 then
-        src[1] = common.clamp(self.position.x - dx, self.position.x, self.size.x)
-        dst[1] = self.position.x
-      else
-        src[1] = self.position.x
-        dst[1] = common.clamp(self.position.x + dx, self.position.x, self.size.x)
-      end
-      if dy < 0 then
-        src[2] = self.position.y
-        dst[2] = common.clamp(self.position.y - dy, self.position.y, self.size.y)
-      else
-        src[2] = common.clamp(self.position.y + dy, self.position.y, self.size.y)
-        dst[2] = self.position.y
-      end
-      src[3] = self.size.x - math.abs(dst[1] - src[1])
-      src[4] = self.size.y - math.abs(dst[2] - src[2])
-      dst[3] = src[3]
-      dst[4] = src[4]
-      renderer.blit_hint(src, dst)
+  local dx, dy = common.round(self.scroll.x) - self.blit_hint_scroll.x, common.round(self.scroll.y) - self.blit_hint_scroll.y
+  if math.abs(dx) >= 1 or math.abs(dy) >= 1 then
+    local src, dst = { }, { }
+    if dx < 0 then
+      src[1] = common.clamp(self.position.x - dx, self.position.x, self.size.x)
+      dst[1] = self.position.x
+    else
+      src[1] = self.position.x
+      dst[1] = common.clamp(self.position.x + dx, self.position.x, self.size.x)
     end
+    if dy < 0 then
+      src[2] = self.position.y
+      dst[2] = common.clamp(self.position.y - dy, self.position.y, self.size.y)
+    else
+      src[2] = common.clamp(self.position.y + dy, self.position.y, self.size.y)
+      dst[2] = self.position.y
+    end
+    src[3] = self.size.x - math.abs(dst[1] - src[1])
+    src[4] = self.size.y - math.abs(dst[2] - src[2])
+    dst[3] = src[3]
+    dst[4] = src[4]
+    renderer.blit_hint(src, dst)
+    self.blit_hint_scroll = { x = common.round(self.scroll.x), y = common.round(self.scroll.y) }
   end
 end
 
@@ -162,7 +162,6 @@ function View:draw_background(color)
   local x, y = self.position.x, self.position.y
   local w, h = self.size.x, self.size.y
   renderer.draw_rect(x, y, w, h, color)
-  -- renderer.draw_rect(576, 480, 96, 96, { common.color "#ffffff" })
 end
 
 
@@ -174,9 +173,7 @@ function View:draw_scrollbar()
 end
 
 
-function View:draw()
-  self.blit_hint_scroll = { x = self.scroll.x, y = self.scroll.y }
-end
+function View:draw() end
 
 
 return View

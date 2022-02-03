@@ -178,7 +178,11 @@ static int f_end_frame(lua_State *L) {
 }
 
 
-static RenRect rect_to_grid(lua_Number x, lua_Number y, lua_Number w, lua_Number h) {
+static RenRect rect_to_grid(lua_State* L, int index) {
+  lua_Number x = luaL_checknumber(L, index);
+  lua_Number y = luaL_checknumber(L, index+1);
+  lua_Number w = luaL_checknumber(L, index+2);
+  lua_Number h = luaL_checknumber(L, index+3);
   int x1 = (int) (x + 0.5), y1 = (int) (y + 0.5);
   int x2 = (int) (x + w + 0.5), y2 = (int) (y + h + 0.5);
   return (RenRect) {x1, y1, x2 - x1, y2 - y1};
@@ -186,24 +190,13 @@ static RenRect rect_to_grid(lua_Number x, lua_Number y, lua_Number w, lua_Number
 
 
 static int f_set_clip_rect(lua_State *L) {
-  lua_Number x = luaL_checknumber(L, 1);
-  lua_Number y = luaL_checknumber(L, 2);
-  lua_Number w = luaL_checknumber(L, 3);
-  lua_Number h = luaL_checknumber(L, 4);
-  RenRect rect = rect_to_grid(x, y, w, h);
-  rencache_set_clip_rect(rect);
+  rencache_set_clip_rect(rect_to_grid(L, 1));
   return 0;
 }
 
 
 static int f_draw_rect(lua_State *L) {
-  lua_Number x = luaL_checknumber(L, 1);
-  lua_Number y = luaL_checknumber(L, 2);
-  lua_Number w = luaL_checknumber(L, 3);
-  lua_Number h = luaL_checknumber(L, 4);
-  RenRect rect = rect_to_grid(x, y, w, h);
-  RenColor color = checkcolor(L, 5, 255);
-  rencache_draw_rect(rect, color);
+  rencache_draw_rect(rect_to_grid(L, 1), checkcolor(L, 5, 255));
   return 0;
 }
 
@@ -222,15 +215,9 @@ static int f_draw_text(lua_State *L) {
 static int f_blit_hint(lua_State* L) {
   RenRect rects[2];
   for (int i = 0; i < 2; ++i) {
-    lua_rawgeti(L, i+1, 1);
-    lua_rawgeti(L, i+1, 2);
-    lua_rawgeti(L, i+1, 3);
-    lua_rawgeti(L, i+1, 4);
-    lua_Number x = luaL_checknumber(L, -4);
-    lua_Number y = luaL_checknumber(L, -3);
-    lua_Number w = luaL_checknumber(L, -2);
-    lua_Number h = luaL_checknumber(L, -1);
-    rects[i] = rect_to_grid(x, y, w, h);
+    for (int j = 1; j <= 4; ++j)
+      lua_rawgeti(L, i+1, j);
+    rects[i] = rect_to_grid(L, -4);
     lua_pop(L, 4);
   }
   lua_pushinteger(L, rencache_blit_hint(rects[0], rects[1]));
