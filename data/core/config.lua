@@ -19,7 +19,6 @@ config.line_height = 1.2
 config.indent_size = 2
 config.tab_type = "soft"
 config.line_limit = 80
-config.max_symbols = 4000
 config.max_project_files = 2000
 config.transitions = true
 config.animation_rate = 1.0
@@ -32,11 +31,11 @@ config.max_clicks = 3
 
 config.plugins = {}
 -- Allow you to set plugin configs even if we haven't seen the plugin before.
-setmetatable(config.plugins, { 
-  __index = function(t, k) 
-    if rawget(t, k) == nil then rawset(t, k, {}) end 
-    return rawget(t, k) 
-  end 
+setmetatable(config.plugins, {
+  __index = function(t, k)
+    if rawget(t, k) == nil then rawset(t, k, {}) end
+    return rawget(t, k)
+  end
 })
 
 -- Disable these plugins by default.
