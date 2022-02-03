@@ -218,5 +218,6 @@ configure_file(
 
 if not get_option('source-only')
     subdir('src')
+    subdir('modules')
     subdir('scripts')
 endif
