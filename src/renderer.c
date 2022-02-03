@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <assert.h>
 #include <math.h>
 #include <ft2build.h>
@@ -331,18 +332,23 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   y2 = y2 > clip.y + clip.height ? clip.y + clip.height : y2;
 
   SDL_Surface *surface = renwin_get_surface(&window_renderer);
-  RenColor *d = (RenColor*) surface->pixels;
+  uint32_t *d = surface->pixels;
   d += x1 + y1 * surface->w;
   int dr = surface->w - (x2 - x1);
-  unsigned int translated = SDL_MapRGB(surface->format, color.r, color.g, color.b);
   if (color.a == 0xff) {
+    uint32_t translated = SDL_MapRGB(surface->format, color.r, color.g, color.b);
     SDL_Rect rect = { x1, y1, x2 - x1, y2 - y1 };
     SDL_FillRect(surface, &rect, translated);
   } else {
-    RenColor translated_color = (RenColor){ translated & 0xFF, (translated >> 8) & 0xFF, (translated >> 16) & 0xFF, color.a };
+    RenColor current_color;
+    RenColor blended_color;
     for (int j = y1; j < y2; j++) {
       for (int i = x1; i < x2; i++, d++)
-        *d = blend_pixel(*d, translated_color);
+      {
+        SDL_GetRGB(*d, surface->format, &current_color.r, &current_color.g, &current_color.b);
+        blended_color = blend_pixel(current_color, color);
+        *d = SDL_MapRGB(surface->format, blended_color.r, blended_color.g, blended_color.b);
+      }
       d += dr;
     }
   }
