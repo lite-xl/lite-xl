@@ -193,6 +193,12 @@ function system.get_clipboard() end
 function system.set_clipboard(text) end
 
 ---
+---Get the process id of lite-xl it self.
+---
+---@return integer
+function system.get_process_id() end
+
+---
 ---Get amount of iterations since the application was launched
 ---also known as SDL_GetPerformanceCounter() / SDL_GetPerformanceFrequency()
 ---
