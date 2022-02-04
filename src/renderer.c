@@ -136,7 +136,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
     if (pen_x == 0)
       continue;
     set->surface = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 24 : 8, 0, 0, 0, 0));
-    unsigned char* pixels = set->surface->pixels;
+    uint8_t* pixels = set->surface->pixels;
     for (int i = 0; i < MAX_GLYPHSET; ++i) {
       int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
@@ -233,7 +233,11 @@ void ren_font_group_set_tab_size(RenFont **fonts, int n) {
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  return font_get_glyphset(fonts[0], '\t', 0)->metrics['\t'].xadvance / fonts[0]->space_advance;
+  int advance = font_get_glyphset(fonts[0], '\t', 0)->metrics['\t'].xadvance;
+  if (fonts[0]->space_advance) {
+    advance /= fonts[0]->space_advance;
+  }
+  return advance;
 }
 
 float ren_font_group_get_size(RenFont **fonts) {
@@ -266,7 +270,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   y *= surface_scale;
   int bytes_per_pixel = surface->format->BytesPerPixel;
   const char* end = text + strlen(text);
-  unsigned char* destination_pixels = surface->pixels;
+  uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
   
   while (text < end) {
@@ -280,7 +284,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
     if (!metric->loaded && codepoint > 0xFF)
       ren_draw_rect((RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
-      unsigned char* source_pixels = set->surface->pixels;
+      uint8_t* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line + y - metric->bitmap_top + font->baseline * surface_scale;
         if (target_y < clip.y)
@@ -294,17 +298,25 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
           start_x += offset;
           glyph_start += offset;
         }
-        unsigned int* destination_pixel = (unsigned int*)&destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel];
-        unsigned char* source_pixel = &source_pixels[line * set->surface->pitch + glyph_start * (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 3 : 1)];
+        uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel]);
+        uint8_t* source_pixel = &source_pixels[line * set->surface->pitch + glyph_start * (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 3 : 1)];
         for (int x = glyph_start; x < glyph_end; ++x) {
-          unsigned int destination_color = *destination_pixel;
+          uint32_t destination_color = *destination_pixel;
           SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
-          SDL_Color src = {
-            *(font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? source_pixel++ : source_pixel),
-            *(font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? source_pixel++ : source_pixel),
-            *source_pixel++,
-            0xff
-          };
+          SDL_Color src;
+
+          if (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL) {
+            src.r = *(source_pixel++);
+            src.g = *(source_pixel++);
+          }
+          else  {
+            src.r = *(source_pixel);
+            src.g = *(source_pixel);
+          }
+
+          src.b = *(source_pixel++);
+          src.a = 0xFF;
+
           r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
