@@ -651,6 +651,16 @@ static int f_set_clipboard(lua_State *L) {
 }
 
 
+static int f_get_process_id(lua_State *L) {
+#ifdef _WIN32
+  lua_pushinteger(L, GetCurrentProcessId());
+#else
+  lua_pushinteger(L, getpid());
+#endif
+  return 1;
+}
+
+
 static int f_get_time(lua_State *L) {
   double n = SDL_GetPerformanceCounter() / (double) SDL_GetPerformanceFrequency();
   lua_pushnumber(L, n);
@@ -944,6 +954,7 @@ static const luaL_Reg lib[] = {
   { "get_file_info",       f_get_file_info       },
   { "get_clipboard",       f_get_clipboard       },
   { "set_clipboard",       f_set_clipboard       },
+  { "get_process_id",      f_get_process_id      },
   { "get_time",            f_get_time            },
   { "sleep",               f_sleep               },
   { "exec",                f_exec                },
