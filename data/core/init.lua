@@ -1218,9 +1218,10 @@ function core.show_title_bar(show)
 end
 
 
-function core.add_thread(f, weak_ref)
+function core.add_thread(f, weak_ref, ...)
   local key = weak_ref or #core.threads + 1
-  local fn = function() return core.try(f) end
+  local args = {...}
+  local fn = function() return core.try(f, table.unpack(args)) end
   core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
   return key
 end

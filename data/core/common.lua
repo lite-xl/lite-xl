@@ -22,7 +22,7 @@ function common.merge(a, b)
   for k, v in pairs(a) do t[k] = v end
   if b then for k, v in pairs(b) do t[k] = v end end
   return t
-end 
+end
 
 
 function common.round(n)
@@ -444,5 +444,6 @@ function common.rm(path, recursively)
 
   return true
 end
+
 
 return common
