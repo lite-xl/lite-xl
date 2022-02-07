@@ -105,18 +105,20 @@ local function line_comment(comment, line1, col1, line2, col2)
   for line = line1, line2 do
     local text = doc().lines[line]
     local s = text:find("%S")
-    local cs, ce = text:find(start_comment, s, true)
-    if s and cs ~= s then
-      uncomment = false
+    if s then
+      local cs, ce = text:find(start_comment, s, true)
+      if cs ~= s then
+        uncomment = false
+      end
+      start_offset = math.min(start_offset, s)
     end
-    start_offset = math.min(start_offset, s)
   end
-  
+
   local end_line = col2 == #doc().lines[line2]
   for line = line1, line2 do
     local text = doc().lines[line]
     local s = text:find("%S")
-    if uncomment then
+    if s and uncomment then
       if end_comment and text:sub(#text - #end_comment, #text - 1) == end_comment then
         doc():remove(line, #text - #end_comment, line, #text)
       end
