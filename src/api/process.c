@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <SDL.h>
 
@@ -67,9 +68,10 @@ typedef enum {
 static bool poll_process(process_t* proc, int timeout) {
   if (!proc->running)
     return false;
-  unsigned int ticks = SDL_GetTicks();
+  uint32_t ticks = SDL_GetTicks();
   if (timeout == WAIT_DEADLINE)
     timeout = proc->deadline;
+
   do {
     #ifdef _WIN32
       DWORD exit_code = -1;
@@ -90,9 +92,8 @@ static bool poll_process(process_t* proc, int timeout) {
     if (timeout)
       SDL_Delay(5);
   } while (timeout == WAIT_INFINITE || SDL_GetTicks() - ticks < timeout);
-  if (!proc->running)
-    return false;
-  return true;
+
+  return proc->running;
 }
 
 static bool signal_process(process_t* proc, signal_e sig) {
@@ -433,8 +434,8 @@ static int f_gc(lua_State* L) {
 }
 
 static int f_running(lua_State* L) {
-  process_t* self = (process_t*)luaL_checkudata(L, 1, API_TYPE_PROCESS);  
-  lua_pushboolean(L, self->running);
+  process_t* self = (process_t*)luaL_checkudata(L, 1, API_TYPE_PROCESS);
+  lua_pushboolean(L, poll_process(self, WAIT_NONE));
   return 1;
 }
 
