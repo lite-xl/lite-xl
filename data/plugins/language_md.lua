@@ -9,6 +9,9 @@ syntax.add {
   patterns = {
     { pattern = "\\.",                      type = "normal"   },
     { pattern = { "<!%-%-", "%-%->" },      type = "comment"  },
+    { pattern = "%f[^<]![%a_][%w_]*",       type = "keyword2" },
+    { pattern = "%f[^<][%a_][%w_]*",        type = "function" },
+    { pattern = "%f[^<]/[%a_][%w_]*",       type = "function" },
     { pattern = { "```c++", "```" },        type = "string", syntax = ".cpp" },
     { pattern = { "```python", "```" },     type = "string", syntax = ".py" },
     { pattern = { "```ruby", "```" },       type = "string", syntax = ".rb" },
