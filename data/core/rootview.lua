@@ -30,7 +30,9 @@ end
 
 
 function RootView:get_active_node()
-  return self.root_node:get_node_for_view(core.active_view)
+  local node = self.root_node:get_node_for_view(core.active_view)
+  if not node then node = self:get_primary_node() end
+  return node
 end
 
 
@@ -46,6 +48,7 @@ end
 
 function RootView:get_active_node_default()
   local node = self.root_node:get_node_for_view(core.active_view)
+  if not node then node = self:get_primary_node() end
   if node.locked then
     local default_view = self:get_primary_node().views[1]
     assert(default_view, "internal error: cannot find original document node.")
@@ -254,7 +257,7 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
   self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
-  
+
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local tab_index = self.overlapping_node and self.overlapping_node:get_tab_overlapping_point(x, y)
   if self.overlapping_node and self.overlapping_node:get_scroll_button_index(x, y) then
