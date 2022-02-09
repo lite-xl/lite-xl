@@ -20,7 +20,6 @@ syntax.add {
     { pattern = { "%s__", "__%s", "\\" },   type = "literal"  },
     { pattern = { "%s_", "_%s", "\\" },     type = "operator" },
     { pattern = "[0-9]+%.?%)?%s",           type = "keyword2" },
-    { pattern = ".*[>*#%-0-9]+",            type = "normal"   },
     { pattern = { "```c++", "```" },        type = "string", syntax = ".cpp" },
     { pattern = { "```python", "```" },     type = "string", syntax = ".py" },
     { pattern = { "```ruby", "```" },       type = "string", syntax = ".rb" },
@@ -58,6 +57,7 @@ syntax.add {
     { pattern = "!?%[.-%]%[?.-%]",          type = "function" },
     { pattern = "%[^?[0-9]+%]:?",           type = "function" },
     { pattern = "https?://%S+",             type = "function" },
+    { pattern = ".*[>*#%-0-9]+",            type = "normal"   },
   },
   symbols = { },
 }
