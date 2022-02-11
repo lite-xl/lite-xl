@@ -31,7 +31,7 @@ STATIC_BUILD=false
 
 for i in "$@"; do
   case $i in
-    -h|--belp)
+    -h|--help)
       show_help
       exit 0
       ;;

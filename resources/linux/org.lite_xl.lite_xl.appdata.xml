@@ -17,11 +17,11 @@
   <screenshots>
     <screenshot type="default">
       <caption>The editor window</caption>
-      <image>https://lite-xl.github.io/assets/img/screenshots/editor.png</image>
+      <image>https://lite-xl.com/assets/img/editor.png</image>
     </screenshot>
   </screenshots>
 
-  <url type="homepage">https://lite-xl.github.io</url>
+  <url type="homepage">https://lite-xl.com</url>
 
   <provides>
     <binary>lite-xl</binary>
