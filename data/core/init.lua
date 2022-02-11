@@ -108,68 +108,6 @@ local function strip_trailing_slash(filename)
   return filename
 end
 
-local function compare_file(a, b)
-  return a.filename < b.filename
-end
-
-
--- inspect config.ignore_files patterns and prepare ready to use entries.
-local function compile_ignore_files()
-  local ipatterns = config.ignore_files
-  local compiled = {}
-  -- config.ignore_files could be a simple string...
-  if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
-  for i, pattern in ipairs(ipatterns) do
-    compiled[i] = {
-      use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
-      -- An '/' or '/$' at the end means we want to match a directory.
-      match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
-      pattern = pattern -- get the actual pattern
-    }
-  end
-  return compiled
-end
-
-
-local function safe_match(s, pattern)
-  local ok, match = pcall(string.match, s, pattern)
-  return ok and match
-end
-
-
-local function fileinfo_pass_filter(info, ignore_compiled)
-  if info.size >= config.file_size_limit * 1e6 then return false end
-  local basename = common.basename(info.filename)
-  -- replace '\' with '/' for Windows where PATHSEP = '\'
-  local fullname = "/" .. info.filename:gsub("\\", "/")
-  for _, compiled in ipairs(ignore_compiled) do
-    local test = compiled.use_path and fullname or basename
-    if compiled.match_dir then
-      if info.type == "dir" and safe_match(test .. "/", compiled.pattern) then
-        return false
-      end
-    else
-      if safe_match(test, compiled.pattern) then
-        return false
-      end
-    end
-  end
-  return true
-end
-
-
--- compute a file's info entry completed with "filename" to be used
--- in project scan or falsy if it shouldn't appear in the list.
-local function get_project_file_info(root, file, ignore_compiled)
-  local info = system.get_file_info(root .. file)
-  -- info can be not nil but info.type may be nil if is neither a file neither
-  -- a directory, for example for /dev/* entries on linux.
-  if info and info.type then
-    info.filename = strip_leading_path(file)
-    return fileinfo_pass_filter(info, ignore_compiled) and info
-  end
-end
-
 
 function core.project_subdir_set_show(dir, filename, show)
   dir.shown_subdir[filename] = show
@@ -252,28 +190,6 @@ local function files_list_replace(as, i1, n, bs, hook)
 end
 
 
-local function project_scan_add_entry(dir, fileinfo)
-  assert(not dir.force_rescan, "should be used only when force_rescan is false")
-  local index, match = file_search(dir.files, fileinfo)
-  if not match then
-    table.insert(dir.files, index, fileinfo)
-    if fileinfo.type == "dir" and not dir.files_limit then
-      -- ASSUMPTION: dir.force_rescan is FALSE
-      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
-      if fileinfo.symlink then
-        local new_files = get_directory_files(dir, dir.name, PATHSEP .. fileinfo.filename, {}, nil, 0, core.project_subdir_is_shown)
-        files_list_replace(dir.files, index, 0, new_files, {insert = function(info)
-          if info.type == "dir" then
-            system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. info.filename)
-          end
-        end})
-      end
-    end
-    dir.is_dirty = true
-  end
-end
-
-
 local function project_subdir_bounds(dir, filename)
   local index, n = 0, #dir.files
   for i, file in ipairs(dir.files) do
@@ -301,50 +217,6 @@ local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
 end
 
 
--- "root" will by an absolute path without trailing '/'
--- "path" will be a path starting with '/' and without trailing '/'
---    or the empty string.
---    It will identifies a sub-path within "root.
--- The current path location will therefore always be: root .. path.
--- When recursing "root" will always be the same, only "path" will change.
--- Returns a list of file "items". In eash item the "filename" will be the
--- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(dir, root, path, t, entries_count, recurse_pred)
-  local t0 = system.get_time()
-  local all = system.list_dir(root .. path) or {}
-  local t_elapsed = system.get_time() - t0
-  local dirs, files = {}, {}
-  local ignore_compiled = compile_ignore_files()
-
-  for _, file in ipairs(all) do
-    local info = get_project_file_info(root, path .. PATHSEP .. file, ignore_compiled)
-    if info then
-      table.insert(info.type == "dir" and dirs or files, info)
-      entries_count = entries_count + 1
-    end
-  end
-
-  local recurse_complete = true
-  table.sort(dirs, compare_file)
-  for _, f in ipairs(dirs) do
-    table.insert(t, f)
-    if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
-      local _, complete, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, entries_count, recurse_pred)
-      recurse_complete = recurse_complete and complete
-      entries_count = n
-    else
-      recurse_complete = false
-    end
-  end
-
-  table.sort(files, compare_file)
-  for _, f in ipairs(files) do
-    table.insert(t, f)
-  end
-
-  return t, recurse_complete, entries_count
-end
-
 
 -- Should be called on any directory that registers a change.
 -- Uses relative paths at the project root.
@@ -364,11 +236,11 @@ local function refresh_directory(topdir, target, expanded)
     local change = false
     if topdir.files_limit then
       -- If we have the folders literally open on the side panel.
-      files = expanded and get_directory_files(topdir, topdir.name, directory, {}, 0, core.project_subdir_is_shown) or {}
+      files = expanded and dirwatch.get_directory_files(topdir, topdir.name, directory, {}, 0, core.project_subdir_is_shown) or {}
       change = true
     else
       -- If we're expecting to keep track of everything, go through the list and iteratively deal with directories.
-      files = get_directory_files(topdir, topdir.name, directory, {}, 0, function() return false end)
+      files = dirwatch.get_directory_files(topdir, topdir.name, directory, {}, 0, function() return false end)
     end
     
     local new_idx, old_idx = 1, index
@@ -437,7 +309,7 @@ function core.add_project_directory(path)
   
   local fstype = PLATFORM == "Linux" and system.get_fs_type(topdir.name) or "unknown"
   topdir.force_scans = (fstype == "nfs" or fstype == "fuse")
-  local t, complete, entries_count = get_directory_files(topdir, topdir.name, "", {}, 0, timed_max_files_pred)
+  local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", {}, 0, timed_max_files_pred)
   topdir.files = t
   if not complete then
     topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
