@@ -284,13 +284,15 @@ end
 
 function DocView:update()
   -- scroll to make caret visible and reset blink timer if it moved
-  local line, col = self.doc:get_selection()
-  if (line ~= self.last_line or col ~= self.last_col) and self.size.x > 0 then
+  local line1, col1, line2, col2 = self.doc:get_selection()
+  if (line1 ~= self.last_line1 or col1 ~= self.last_col1 or
+      line2 ~= self.last_line2 or col2 ~= self.last_col2) and self.size.x > 0 then
     if core.active_view == self then
-      self:scroll_to_make_visible(line, col)
+      self:scroll_to_make_visible(line1, col1)
     end
     core.blink_reset()
-    self.last_line, self.last_col = line, col
+    self.last_line1, self.last_col1 = line1, col1
+    self.last_line2, self.last_col2 = line2, col2
   end
 
   -- update blink timer
