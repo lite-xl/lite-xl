@@ -11,12 +11,16 @@ local DocView = require "core.docview"
 local Doc = require "core.doc"
 
 config.plugins.autocomplete = common.merge({
-	-- Amount of characters that need to be written for autocomplete
-	min_len = 3,
-	-- The max amount of visible items
-	max_height = 6,
-	-- The max amount of scrollable items
-	max_suggestions = 100,
+  -- Amount of characters that need to be written for autocomplete
+  min_len = 3,
+  -- The max amount of visible items
+  max_height = 6,
+  -- The max amount of scrollable items
+  max_suggestions = 100,
+  -- Maximum amount of symbols to cache per document
+  max_symbols = 4000,
+  -- Font size of the description box
+  desc_font_size = 12
 }, config.plugins.autocomplete)
 
 local autocomplete = {}
@@ -33,7 +37,7 @@ local triggered_manually = false
 
 local mt = { __tostring = function(t) return t.text end }
 
-function autocomplete.add(t, triggered_manually)
+function autocomplete.add(t, manually_triggered)
   local items = {}
   for text, info in pairs(t.items) do
     if type(info) == "table" then
@@ -43,9 +47,10 @@ function autocomplete.add(t, triggered_manually)
           {
             text = text,
             info = info.info,
-            desc = info.desc,  -- Description shown on item selected
-            cb = info.cb,      -- A callback called once when item is selected
-            data = info.data   -- Optional data that can be used on cb
+            desc = info.desc,          -- Description shown on item selected
+            onhover = info.onhover,    -- A callback called once when item is hovered
+            onselect = info.onselect,  -- A callback called when item is selected
+            data = info.data           -- Optional data that can be used on cb
           },
           mt
         )
@@ -56,7 +61,7 @@ function autocomplete.add(t, triggered_manually)
     end
   end
 
-  if not triggered_manually then
+  if not manually_triggered then
     autocomplete.map[t.name] =  { files = t.files or ".*", items = items }
   else
     autocomplete.map_manually[t.name] =  { files = t.files or ".*", items = items }
@@ -66,7 +71,7 @@ end
 --
 -- Thread that scans open document symbols and cache them
 --
-local max_symbols = config.max_symbols
+local max_symbols = config.plugins.autocomplete.max_symbols
 
 core.add_thread(function()
   local cache = setmetatable({}, { __mode = "k" })
@@ -85,7 +90,9 @@ core.add_thread(function()
             doc.disable_symbols = true
             core.status_view:show_message("!", style.accent,
               "Too many symbols in document "..doc.filename..
-              ": stopping auto-complete for this document according to config.max_symbols.")
+              ": stopping auto-complete for this document according to "..
+              "config.plugins.autocomplete.max_symbols."
+            )
             collectgarbage('collect')
             return {}
           end
@@ -159,16 +166,6 @@ local function reset_suggestions()
   end
 end
 
-local function in_table(value, table_array)
-  for i, element in pairs(table_array) do
-    if element == value then
-      return true
-    end
-  end
-
-  return false
-end
-
 local function update_suggestions()
   local doc = core.active_view.doc
   local filename = doc and doc.filename or ""
@@ -199,6 +196,7 @@ local function update_suggestions()
       j = j + 1
     end
   end
+  suggestions_idx = 1
 end
 
 local function get_partial_symbol()
@@ -249,6 +247,11 @@ local function get_suggestions_rect(av)
     max_width = 150
   end
 
+  -- if portion not visiable to right, reposition to DocView right margin
+  if (x - av.position.x) + max_width > av.size.x then
+    x = (av.size.x + av.position.x) - max_width - (style.padding.x * 2)
+  end
+
   return
     x - style.padding.x,
     y - style.padding.y,
@@ -256,20 +259,99 @@ local function get_suggestions_rect(av)
     max_items * (th + style.padding.y) + style.padding.y
 end
 
+local function wrap_line(line, max_chars)
+  if #line > max_chars then
+    local lines = {}
+    local line_len = #line
+    local new_line = ""
+    local prev_char = ""
+    local position = 0
+    local indent = line:match("^%s+")
+    for char in line:gmatch(".") do
+      position = position + 1
+      if #new_line < max_chars then
+        new_line = new_line .. char
+        prev_char = char
+        if position >= line_len then
+          table.insert(lines, new_line)
+        end
+      else
+        if
+          not prev_char:match("%s")
+          and
+          not string.sub(line, position+1, 1):match("%s")
+          and
+          position < line_len
+        then
+          new_line = new_line .. "-"
+        end
+        table.insert(lines, new_line)
+        if indent then
+          new_line = indent .. char
+        else
+          new_line = char
+        end
+      end
+    end
+    return lines
+  end
+  return line
+end
+
+local previous_scale = SCALE
+local desc_font = style.code_font:copy(
+  config.plugins.autocomplete.desc_font_size * SCALE
+)
 local function draw_description_box(text, av, sx, sy, sw, sh)
+  if previous_scale ~= SCALE then
+    desc_font = style.code_font:copy(
+      config.plugins.autocomplete.desc_font_size * SCALE
+    )
+    previous_scale = SCALE
+  end
+
+  local font = desc_font
+  local lh = font:get_height()
+  local y = sy + style.padding.y
+  local x = sx + sw + style.padding.x / 4
   local width = 0
+  local char_width = font:get_width(" ")
+  local draw_left = false;
+
+  local max_chars = 0
+  if sx - av.position.x < av.size.x - (sx - av.position.x) - sw then
+    max_chars = (((av.size.x+av.position.x) - x) / char_width) - 5
+  else
+    draw_left = true;
+    max_chars = (
+      (sx - av.position.x - (style.padding.x / 4) - style.scrollbar_size)
+      / char_width
+    ) - 5
+  end
 
   local lines = {}
   for line in string.gmatch(text.."\n", "(.-)\n") do
-    width = math.max(width, style.font:get_width(line))
-    table.insert(lines, line)
+    local wrapper_lines = wrap_line(line, max_chars)
+    if type(wrapper_lines) == "table" then
+      for _, wrapped_line in pairs(wrapper_lines) do
+        width = math.max(width, font:get_width(wrapped_line))
+        table.insert(lines, wrapped_line)
+      end
+    else
+      width = math.max(width, font:get_width(line))
+      table.insert(lines, line)
+    end
   end
 
-  local height = #lines * style.font:get_height()
+  if draw_left then
+    x = sx - (style.padding.x / 4) - width - (style.padding.x * 2)
+  end
+
+  local height = #lines * font:get_height()
 
   -- draw background rect
   renderer.draw_rect(
-    sx + sw + style.padding.x / 4,
+    x,
     sy,
     width + style.padding.x * 2,
     height + style.padding.y * 2,
@@ -277,13 +359,10 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
   )
 
   -- draw text
-  local lh = style.font:get_height()
-  local y = sy + style.padding.y
-  local x = sx + sw + style.padding.x / 4
-
   for _, line in pairs(lines) do
     common.draw_text(
-      style.font, style.text, line, "left", x + style.padding.x, y, width, lh
+      font, style.text, line, "left",
+      x + style.padding.x, y, width, lh
     )
     y = y + lh
   end
@@ -320,10 +399,9 @@ local function draw_suggestions_box(av)
     end
     y = y + lh
     if suggestions_idx == i then
-      if s.cb then
-        s.cb(suggestions_idx, s)
-        s.cb = nil
-        s.data = nil
+      if s.onhover then
+        s.onhover(suggestions_idx, s)
+        s.onhover = nil
       end
       if s.desc and #s.desc > 0 then
         draw_description_box(s.desc, av, rx, ry, rw, rh)
@@ -487,10 +565,17 @@ command.add(predicate, {
   ["autocomplete:complete"] = function()
     local doc = core.active_view.doc
     local line, col = doc:get_selection()
-    local text = suggestions[suggestions_idx].text
-    doc:insert(line, col, text)
-    doc:remove(line, col, line, col - #partial)
-    doc:set_selection(line, col + #text - #partial)
+    local item = suggestions[suggestions_idx]
+    local text = item.text
+    local inserted = false
+    if item.onselect then
+      inserted = item.onselect(suggestions_idx, item)
+    end
+    if not inserted then
+      doc:insert(line, col, text)
+      doc:remove(line, col, line, col - #partial)
+      doc:set_selection(line, col + #text - #partial)
+    end
     reset_suggestions()
   end,
 
