@@ -571,28 +571,26 @@ static struct f_type_names fs_names[] = {
   { 0x0,        NULL        },
 };
 
-static int f_get_fs_type(lua_State *L) {
-  const char *path = luaL_checkstring(L, 1);
-  struct statfs buf;
-  int status = statfs(path, &buf);
-  if (status != 0) {
-    return luaL_error(L, "error calling statfs on %s", path);
-  }
-  for (int i = 0; fs_names[i].magic; i++) {
-    if (fs_names[i].magic == buf.f_type) {
-      lua_pushstring(L, fs_names[i].name);
-      return 1;
-    }
-  }
-  lua_pushstring(L, "unknown");
-  return 1;
-}
-#else
-static int f_return_unknown(lua_State *L) {
-  lua_pushstring(L, "unknown");
-  return 1;
-}
 #endif
+
+static int f_get_fs_type(lua_State *L) {
+  #if __linux__
+    const char *path = luaL_checkstring(L, 1);
+    struct statfs buf;
+    int status = statfs(path, &buf);
+    if (status != 0) {
+      return luaL_error(L, "error calling statfs on %s", path);
+    }
+    for (int i = 0; fs_names[i].magic; i++) {
+      if (fs_names[i].magic == buf.f_type) {
+        lua_pushstring(L, fs_names[i].name);
+        return 1;
+      }
+    }
+  #endif
+  lua_pushstring(L, "unknown");
+  return 1;
+}
 
 
 static int f_mkdir(lua_State *L) {
@@ -884,8 +882,6 @@ static const luaL_Reg lib[] = {
 #if __linux__
   { "get_fs_type",         f_get_fs_type         },
 #else
-  { "watch_dir_add",       f_return_true         },
-  { "watch_dir_rm",        f_return_true         },
   { "get_fs_type",         f_return_unknown      },
 #endif
   { NULL, NULL }
