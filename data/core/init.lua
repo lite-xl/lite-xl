@@ -331,10 +331,11 @@ local function get_directory_files(dir, root, path, t, entries_count, recurse_pr
   local all = system.list_dir(root .. path) or {}
   local t_elapsed = system.get_time() - t0
   local dirs, files = {}, {}
+  local ignore_compiled = compile_ignore_files()
 
   for _, file in ipairs(all) do
-    local info = get_project_file_info(root, path .. PATHSEP .. file)
-    if info and not common.match_pattern(common.basename(info.filename), config.ignore_files) then
+    local info = get_project_file_info(root, path .. PATHSEP .. file, ignore_compiled)
+    if info then
       table.insert(info.type == "dir" and dirs or files, info)
       entries_count = entries_count + 1
     end
@@ -492,7 +493,7 @@ function core.add_project_directory(path)
     core.project_files = topdir.files
   end
   core.redraw = true
-  return dir
+  return topdir
 end
 
 
