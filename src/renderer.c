@@ -134,6 +134,8 @@ static void font_load_glyphset(RenFont* font, int idx) {
     }
     if (pen_x == 0)
       continue;
+    // Some monospace fonts aren't actually marked as monospace. In order to compensate for this, if the lower ascii all has the same integer advance,
+    // force this font to be monospace; i.e. have all "space advance" width spacing. Fixes fonts that FreeType doesn't think are monospace, like RobotoMono.
     if (idx == 0 && saved_advance > 0)
       font->monospace = true;
     set->surface = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 24 : 8, 0, 0, 0, 0));
