@@ -879,11 +879,7 @@ static const luaL_Reg lib[] = {
   { "set_window_opacity",  f_set_window_opacity  },
   { "load_native_plugin",  f_load_native_plugin  },
   { "path_compare",        f_path_compare        },
-#if __linux__
   { "get_fs_type",         f_get_fs_type         },
-#else
-  { "get_fs_type",         f_return_unknown      },
-#endif
   { NULL, NULL }
 };
 
