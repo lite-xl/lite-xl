@@ -29,7 +29,6 @@
 typedef struct thread {
   lua_State *L;
   SDL_Thread *ptr;
-  SDL_atomic_t ref;
   int joined;
 } LuaThread;
 
@@ -86,27 +85,19 @@ static const char* reader(lua_State *L, LoadState *state, size_t *size)
   return state->buffer.data;
 }
 
-static void destroy(LuaThread *t)
-{
-  (void)SDL_AtomicDecRef(&t->ref);
-
-  if (SDL_AtomicGet(&t->ref) == 0) {
-    lua_close(t->L);
-  }
-}
-
 static int callback(LuaThread *t)
 {
   int ret = -1;
 
-  SDL_AtomicIncRef(&t->ref);
-
   if (lua_pcall(t->L, lua_gettop(t->L) - 1, 1, 0) != LUA_OK)
     SDL_LogCritical(SDL_LOG_CATEGORY_SYSTEM, "%s", lua_tostring(t->L, -1));
-  else
-    ret = lua_tointeger(t->L, -1);
 
-  destroy(t);
+  // It seems the lua_State is destroyed before we reach this
+  // point which causes a crash when trying to access it so
+  // can not return the value from the thread it self.
+  // ret = lua_tointeger(t->L, -1);
+  else
+    ret = 1;
 
   return ret;
 }
@@ -290,8 +281,6 @@ static int f_thread_create(lua_State *L)
     goto failure;
   }
 
-  SDL_AtomicIncRef(&self->ref);
-
   return 1;
 
 failure:
@@ -381,8 +370,6 @@ static int mm_thread_gc(lua_State *L)
   if (!self->joined)
     SDL_DetachThread(self->ptr);
 #endif
-
-  destroy(self);
 
   return 0;
 }
