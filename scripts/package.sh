@@ -252,7 +252,10 @@ main() {
     fi
   fi
 
-  if [[ $appimage == true ]]; then source scripts/appimage.sh; fi
+  if [[ $appimage == true ]]; then
+    # FIXME: manage the case when version is not set
+    bash scripts/appimage.sh -n -b "$build_dir" --version $version
+  fi
   if [[ $bundle == true && $dmg == true ]]; then source scripts/appdmg.sh "${package_name}"; fi
   if [[ $innosetup == true ]]; then source scripts/innosetup/innosetup.sh -b "${build_dir}"; fi
 }
