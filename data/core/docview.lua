@@ -380,9 +380,8 @@ function DocView:draw_line_gutter(idx, x, y, width)
       break
     end
   end
-  local yoffset = self:get_line_text_y_offset()
   x = x + style.padding.x
-  common.draw_text(self:get_font(), color, idx, "right", x, y + yoffset, width,  self:get_line_height())
+  common.draw_text(self:get_font(), color, idx, "right", x, y, width,  self:get_line_height())
 end
 
 

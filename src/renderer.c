@@ -43,7 +43,7 @@ typedef struct RenFont {
   FT_Face face;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
-  short max_height;
+  short max_height, baseline, height;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
   unsigned char style;
@@ -185,6 +185,8 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   strcpy(font->path, path);
   font->face = face;
   font->size = size;
+  font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
+  font->baseline = (short)((face->bbox.yMax / (float)face->units_per_EM) * font->size);
   font->antialiasing = antialiasing;
   font->hinting = hinting;
   font->style = style;
@@ -229,7 +231,7 @@ float ren_font_group_get_size(RenFont **fonts) {
   return fonts[0]->size;
 }
 int ren_font_group_get_height(RenFont **fonts) {
-  return fonts[0]->size + 3;
+  return fonts[0]->height;
 }
 
 float ren_font_group_get_width(RenFont **fonts, const char *text) {
@@ -271,7 +273,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       unsigned char* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
-        int target_y = line + y - metric->y0 - metric->bitmap_top + font->size * surface_scale;
+        int target_y = line + y - metric->bitmap_top + font->baseline * surface_scale;
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
