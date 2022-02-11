@@ -278,6 +278,9 @@ local commands = {
 
   ["doc:select-all"] = function()
     doc():set_selection(1, 1, math.huge, math.huge)
+    -- avoid triggering DocView:scroll_to_make_visible
+    dv().last_line = 1
+    dv().last_col = 1
   end,
 
   ["doc:select-lines"] = function()
