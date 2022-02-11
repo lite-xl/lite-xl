@@ -109,10 +109,6 @@ local function strip_trailing_slash(filename)
 end
 
 
-function core.project_subdir_set_show(dir, filename, show)
-  dir.shown_subdir[filename] = show
-end
-
 
 function core.project_subdir_is_shown(dir, filename)
   return not dir.files_limit or dir.shown_subdir[filename]
@@ -384,7 +380,6 @@ local function rescan_project_directories()
             -- In theory set_show below may fail and return false but is it is listed
             -- there it means it succeeded before so we are optimistically assume it
             -- will not fail for the sake of simplicity.
-            core.project_subdir_set_show(dir, subdir, show)
             core.update_project_subdir(dir, subdir, show)
             break
           end
@@ -406,14 +401,10 @@ end
 
 function core.update_project_subdir(dir, filename, expanded)
   assert(dir.files_limit, "function should be called only when directory is in files limit mode")
+  dir.shown_subdir[filename] = expanded
   local index, n, file = project_subdir_bounds(dir, filename)
   if index then
-    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}, nil, 0, core.project_subdir_is_shown) or {}
-    -- ASSUMPTION: core.update_project_subdir is called only when dir.files_limit is true
-    -- NOTE: we may add new directories below but we do not need to call
-    -- system.watch_dir_add because the current function is called only
-    -- in dir.files_limit mode and in this latter case we don't need to
-    -- add watch to new, unfolded, subdirectories.
+    local new_files = expanded and dirwatch.get_directory_files(dir, dir.name, PATHSEP .. filename, {}, 0, core.project_subdir_is_shown) or {}
     files_list_replace(dir.files, index, n, new_files)
     dir.is_dirty = true
     return true
