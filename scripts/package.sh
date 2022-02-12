@@ -91,6 +91,7 @@ main() {
   local dest_dir=lite-xl
   local prefix=/
   local version
+  local version_tag
   local addons=false
   local appimage=false
   local binary=false
@@ -120,7 +121,9 @@ main() {
         shift
         ;;
       -v|--version)
-        if [[ -n $2 ]]; then version="-$2"; fi
+        # if [[ -n $2 ]]; then version="-$2"; fi
+        version="$2"
+        version_tag="-$version"
         shift
         shift
         ;;
@@ -174,7 +177,7 @@ main() {
 
   # The source package doesn't require a previous build,
   # nor the following install step, so run it now.
-  if [[ $source == true ]]; then source_package "lite-xl$version-src"; fi
+  if [[ $source == true ]]; then source_package "lite-xl${version_tag}-src"; fi
 
   # No packages request
   if [[ $appimage == false && $binary == false && $dmg == false && $innosetup == false ]]; then
@@ -190,7 +193,7 @@ main() {
 
   local data_dir="$(pwd)/${dest_dir}/data"
   local exe_file="$(pwd)/${dest_dir}/lite-xl"
-  local package_name=lite-xl$version-$platform-$arch
+  local package_name=lite-xl${version_tag}-${platform}-${arch}
   local bundle=false
   local portable=false
   local stripcmd="strip"
@@ -252,9 +255,10 @@ main() {
     fi
   fi
 
+  local version_option=()
+  if [[ -n $version ]]; then version_option=("--version" "${version}"); fi
   if [[ $appimage == true ]]; then
-    # FIXME: manage the case when version is not set
-    bash scripts/appimage.sh -n -b "$build_dir" --version $version
+    bash scripts/appimage.sh -n -b "$build_dir" ${version_option[@]}
   fi
   if [[ $bundle == true && $dmg == true ]]; then source scripts/appdmg.sh "${package_name}"; fi
   if [[ $innosetup == true ]]; then source scripts/innosetup/innosetup.sh -b "${build_dir}"; fi
