@@ -229,8 +229,21 @@ local function begin_search(text, fn)
 end
 
 
+local function set_command_view_text()
+  local view = core.active_view
+  local doc = (view and view.doc) and view.doc or nil
+  if doc then
+    core.command_view:set_text(
+      doc:get_text(table.unpack({ doc:get_selection() })),
+      true
+    )
+  end
+end
+
+
 command.add(nil, {
   ["project-search:find"] = function()
+    set_command_view_text()
     core.command_view:enter("Find Text In Project", function(text)
       text = text:lower()
       begin_search(text, function(line_text)
@@ -243,12 +256,13 @@ command.add(nil, {
     core.command_view:enter("Find Regex In Project", function(text)
       local re = regex.compile(text, "i")
       begin_search(text, function(line_text)
-        return regex.cmatch(re, line_text) 
+        return regex.cmatch(re, line_text)
       end)
     end)
   end,
 
   ["project-search:fuzzy-find"] = function()
+    set_command_view_text()
     core.command_view:enter("Fuzzy Find Text In Project", function(text)
       begin_search(text, function(line_text)
         return common.fuzzy_match(line_text, text) and 1
@@ -278,22 +292,22 @@ command.add(ResultsView, {
   ["project-search:refresh"] = function()
     core.active_view:refresh()
   end,
-  
+
   ["project-search:move-to-previous-page"] = function()
     local view = core.active_view
     view.scroll.to.y = view.scroll.to.y - view.size.y
   end,
-  
+
   ["project-search:move-to-next-page"] = function()
     local view = core.active_view
     view.scroll.to.y = view.scroll.to.y + view.size.y
   end,
-  
+
   ["project-search:move-to-start-of-doc"] = function()
     local view = core.active_view
     view.scroll.to.y = 0
   end,
-  
+
   ["project-search:move-to-end-of-doc"] = function()
     local view = core.active_view
     view.scroll.to.y = view:get_scrollable_size()
