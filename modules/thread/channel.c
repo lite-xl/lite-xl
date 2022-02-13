@@ -169,7 +169,9 @@ static ChannelValue* channelValueGet(lua_State *L, int index)
         lua_pop(L, 1);
 
         pair->next = NULL;
+        /* set first or next in list to current pair */
         *v->data.table.queue.last = pair;
+        /* set the last in list to the next pair */
         v->data.table.queue.last = &pair->next;
       }
     }
@@ -272,7 +274,9 @@ static int channelPush(Channel* c, ChannelValue* v)
   SDL_LockMutex(c->mutex);
 
   v->next = NULL;
+  /* set pointer of previous next to given value */
   *c->queue.last = v;
+  /* set the last element to new next */
   c->queue.last = &v->next;
 
   SDL_UnlockMutex(c->mutex);
@@ -316,11 +320,12 @@ static void channelClear(Channel* c)
   for (v = c->queue.first; v && (tmp = v->next, 1); v = tmp)
   {
     channelValueFree(v);
-    free(v);
   }
 
-  SDL_UnlockMutex(c->mutex);
+  c->queue.first = NULL;
+  c->queue.last = &c->queue.first;
 
+  SDL_UnlockMutex(c->mutex);
   SDL_CondBroadcast(c->cond);
 }
 
@@ -328,18 +333,32 @@ static void channelPop(Channel* c)
 {
   SDL_LockMutex(c->mutex);
 
-  if ((c->queue.first = c->queue.first->next) == NULL)
-    c->queue.last = &c->queue.first;
+  if (c->queue.first == NULL) {
+    SDL_UnlockMutex(c->mutex);
+    SDL_CondBroadcast(c->cond);
+    return;
+  }
+
+  ChannelValue* first = c->queue.first;
+
+  c->queue.first = c->queue.first->next;
+  c->queue.last = &c->queue.first;
+
+  channelValueFree(first);
 
   SDL_UnlockMutex(c->mutex);
-
   SDL_CondBroadcast(c->cond);
 }
 
 static void channelFree(Channel* c)
 {
   channelClear(c);
-  free(c);
+
+  SDL_DestroyMutex(c->mutex);
+  SDL_DestroyCond(c->cond);
+
+  free(c->name);
+  /* free(c); lua should do this free for us */
 }
 
 /* --------------------------------------------------------
@@ -402,8 +421,9 @@ int f_channel_get(lua_State *L)
     c->next = NULL;
     *g_channels.last = c;
     g_channels.last = &c->next;
-  } else
-    SDL_AtomicIncRef(&c->ref);
+  }
+
+  SDL_AtomicIncRef(&c->ref);
 
   SDL_UnlockMutex(ChannelMutex);
 
@@ -530,6 +550,7 @@ int m_channel_supply(lua_State *L)
 int m_channel_clear(lua_State *L)
 {
   Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+
   channelClear(self);
 
   return 0;
