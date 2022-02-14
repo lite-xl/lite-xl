@@ -26,3 +26,19 @@ C API in the four namespaces that follow:
 
 Finally, all global variables are documented in the file named
 [globals.lua](api/globals.lua).
+
+## Plugins
+
+Additional functionality that is not part of the base core and can not
+be written in lua itself is provided as native plugins that can be optionally
+loaded using `require`.
+
+Anyone can develop and distribute native plugins for lite-xl. The ones
+shipped with lite-xl give developers who write lua plugins additional
+functionality that may not be used on the core it self, but are non the
+less useful for lua plugins. Hence, we make them available by default.
+
+List of additional native plugins also documented using the same process
+as the base core:
+
+* [thread](plugins/thread.lua)
