@@ -226,6 +226,97 @@ static void push_from_state(lua_State* from, lua_State* to, int index)
   }
 }
 
+static void copy_global(const char* global, lua_State* from, lua_State* to)
+{
+  int index = -1;
+  lua_getglobal(from, global);
+
+  switch (lua_type(from, index)) {
+    case LUA_TNUMBER:
+    {
+      lua_pushnumber(to, lua_tonumber(from, index));
+      lua_setglobal(to, global);
+      break;
+    }
+    case LUA_TSTRING:
+    {
+      const char *str;
+      size_t length;
+      str = lua_tolstring(from, index, &length);
+      lua_pushlstring(to, str, length);
+      lua_setglobal(to, global);
+      break;
+    }
+    case LUA_TBOOLEAN:
+    {
+      lua_pushboolean(to, lua_toboolean(from, index));
+      lua_setglobal(to, global);
+      break;
+    }
+    case LUA_TTABLE:
+    {
+      if (index < 0)
+        -- index;
+
+      lua_pushnil(from);
+
+      bool table_created = false;
+
+      while (lua_next(from, index)) {
+        int key_type = lua_type(from, -2);
+
+        if (key_type == LUA_TNIL) {
+          lua_pop(from, 1);
+          break;
+        } else if (!table_created) {
+          lua_createtable(to, 0, 0);
+          table_created = true;
+        }
+
+        push_from_state(from, to, -2);
+        push_from_state(from, to, -1);
+
+        lua_settable(to, -3);
+
+        lua_pop(from, 1);
+      }
+
+      if (table_created)
+        lua_setglobal(to, global);
+
+      break;
+    }
+
+  }
+
+  lua_pop(from, 1);
+}
+
+#ifdef _WIN32
+#define LITE_OS_HOME "USERPROFILE"
+#define LITE_PATHSEP_PATTERN "\\\\"
+#define LITE_NONPATHSEP_PATTERN "[^\\\\]+"
+#else
+#define LITE_OS_HOME "HOME"
+#define LITE_PATHSEP_PATTERN "/"
+#define LITE_NONPATHSEP_PATTERN "[^/]+"
+#endif
+
+static void init_start(lua_State* L)
+{
+  /* partial code taken from lite-xl main.c */
+  const char *lua_code = \
+    "local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
+    "local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
+    "dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n";
+
+  if (luaL_loadstring(L, lua_code)) {
+    return;
+  }
+
+  lua_pcall(L, 0, 0, 0);
+}
+
 /* --------------------------------------------------------
  * Thread functions
  * -------------------------------------------------------- */
@@ -269,11 +360,28 @@ static int f_thread_create(lua_State *L)
     push_from_state(L, self->L, iv);
   }
 
-  // loading lite-xl api before threadDump and arguments causes issues
-  if (lite_xl_api_load_libs != NULL)
+  /* loading lite-xl api before threadDump and arguments causes issues */
+  bool api_loaded = false;
+  if (lite_xl_api_load_libs != NULL) {
     lite_xl_api_load_libs(self->L);
+    api_loaded = true;
+  }
 
   luaL_requiref(self->L, "thread", luaopen_thread, 1);
+
+  /* Copy globals from main state to properly set the packages path */
+  copy_global("ARGS", L, self->L);
+  copy_global("PLATFORM", L, self->L);
+  copy_global("EXEFILE", L, self->L);
+  copy_global("HOME", L, self->L);
+
+#ifdef __APPLE__
+  copy_global("MACOS_RESOURCES", L, self->L);
+#endif
+
+  /* run core.start to initialize package path and cpath */
+  if (api_loaded)
+    init_start(self->L);
 
   self->ptr = SDL_CreateThread((SDL_ThreadFunction)callback, name, self);
   if (self->ptr == NULL) {
