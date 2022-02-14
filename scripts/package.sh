@@ -216,11 +216,11 @@ main() {
       rm -rf "Lite XL.app"; mv "${dest_dir}" "Lite XL.app"
       dest_dir="Lite XL.app"
       exe_file="$(pwd)/${dest_dir}/Contents/MacOS/lite-xl"
+      data_dir="$(pwd)/${dest_dir}/Contents/Resources"
     fi
   fi
 
   if [[ $bundle == false && $portable == false ]]; then
-    echo "Creating a compressed archive..."
     data_dir="$(pwd)/${dest_dir}/$prefix/share/lite-xl"
     exe_file="$(pwd)/${dest_dir}/$prefix/bin/lite-xl"
   fi
@@ -240,6 +240,7 @@ main() {
 
   $stripcmd "${exe_file}"
 
+  echo "Creating a compressed archive ${package_name}"
   if [[ $binary == true ]]; then
     rm -f "${package_name}".tar.gz
     rm -f "${package_name}".zip

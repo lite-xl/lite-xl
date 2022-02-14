@@ -30,7 +30,7 @@ local t = {
     for i, v in ipairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
     core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
   end,
-  
+
   ["root:switch-to-previous-tab"] = function()
     local node = core.root_view:get_active_node()
     local idx = node:get_view_idx(core.active_view)
@@ -64,7 +64,7 @@ local t = {
       table.insert(node.views, idx + 1, core.active_view)
     end
   end,
-  
+
   ["root:shrink"] = function()
     local node = core.root_view:get_active_node()
     local parent = node:get_parent_node(core.root_view.root_node)
