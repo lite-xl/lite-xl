@@ -1,7 +1,7 @@
-lite_modulesdir = join_paths(lite_datadir, 'modules')
+lite_pluginsdir = join_paths(lite_datadir, 'plugins')
 
 #===============================================================================
-# thread module
+# thread plugin
 #===============================================================================
 shared_module(
     'thread',
@@ -13,5 +13,5 @@ shared_module(
     objc_args: lite_cargs,
     link_args: lite_link_args,
     install: true,
-    install_dir: lite_modulesdir
+    install_dir: lite_pluginsdir
 )
