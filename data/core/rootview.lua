@@ -272,6 +272,12 @@ function RootView:on_mouse_moved(x, y, dx, dy)
 end
 
 
+function RootView:on_file_dropped(filename, x, y)
+  local node = self.root_node:get_child_overlapping_point(x, y)
+  return node and node.active_view:on_file_dropped(filename, x, y)
+end
+
+
 function RootView:on_mouse_wheel(...)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)

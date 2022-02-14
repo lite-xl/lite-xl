@@ -98,6 +98,11 @@ function View:on_mouse_moved(x, y, dx, dy)
 end
 
 
+function View:on_file_dropped(filename, x, y)
+  return false
+end
+
+
 function View:on_text_input(text)
   -- no-op
 end
