@@ -43,7 +43,7 @@ typedef struct RenFont {
   FT_Face face;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
-  short max_height;
+  short max_height, baseline, height;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
   unsigned char style;
@@ -114,8 +114,10 @@ static void font_load_glyphset(RenFont* font, int idx) {
     font->sets[j][idx] = set;
     for (int i = 0; i < MAX_GLYPHSET; ++i) {
       int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
-      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY) || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option))
+      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)
+        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
         continue;
+      }
       FT_GlyphSlot slot = font->face->glyph;
       int glyph_width = slot->bitmap.width / byte_width;
       if (font->antialiasing == FONT_ANTIALIASING_NONE)
@@ -123,6 +125,13 @@ static void font_load_glyphset(RenFont* font, int idx) {
       set->metrics[i] = (GlyphMetric){ pen_x, pen_x + glyph_width, 0, slot->bitmap.rows, true, slot->bitmap_left, slot->bitmap_top, (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f};
       pen_x += glyph_width;
       font->max_height = slot->bitmap.rows > font->max_height ? slot->bitmap.rows : font->max_height;
+      // In order to fix issues with monospacing; we need the unhinted xadvance; as FreeType doesn't correctly report the hinted advance for spaces on monospace fonts (like RobotoMono). See #843.
+      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)
+        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
+        continue;
+      }
+      slot = font->face->glyph;
+      set->metrics[i].xadvance = slot->advance.x / 64.0f;
     }
     if (pen_x == 0)
       continue;
@@ -185,10 +194,12 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   strcpy(font->path, path);
   font->face = face;
   font->size = size;
+  font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
+  font->baseline = (short)((face->bbox.yMax / (float)face->units_per_EM) * font->size);
   font->antialiasing = antialiasing;
   font->hinting = hinting;
   font->style = style;
-  font->space_advance = (int)font_get_glyphset(font, ' ', 0)->metrics[' '].xadvance;
+  font->space_advance = font_get_glyphset(font, ' ', 0)->metrics[' '].xadvance;
   font->tab_advance = font->space_advance * 2;
   return font;
   failure:  
@@ -229,7 +240,7 @@ float ren_font_group_get_size(RenFont **fonts) {
   return fonts[0]->size;
 }
 int ren_font_group_get_height(RenFont **fonts) {
-  return fonts[0]->size + 3;
+  return fonts[0]->height;
 }
 
 float ren_font_group_get_width(RenFont **fonts, const char *text) {
@@ -239,8 +250,8 @@ float ren_font_group_get_width(RenFont **fonts, const char *text) {
   while (text < end) {
     unsigned int codepoint;
     text = utf8_to_codepoint(text, &codepoint);
-    font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
-    width += metric->xadvance ? metric->xadvance : fonts[0]->space_advance;
+    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
+    width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
   }
   const int surface_scale = renwin_surface_scale(&window_renderer);
   return width / surface_scale;
@@ -271,7 +282,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       unsigned char* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
-        int target_y = line + y - metric->y0 - metric->bitmap_top + font->size * surface_scale;
+        int target_y = line + y - metric->bitmap_top + font->baseline * surface_scale;
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
