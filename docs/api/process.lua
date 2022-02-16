@@ -124,7 +124,7 @@ process.options = {}
 ---@return process | nil
 ---@return string errmsg
 ---@return process.errortype | integer errcode
-function process:start(command_and_params, options) end
+function process.start(command_and_params, options) end
 
 ---
 ---Translates an error code into a useful text message
