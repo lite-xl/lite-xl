@@ -1602,6 +1602,7 @@ end)
 function core.run()
   local idle_iterations = 0
   while true do
+    if core.crash then error("Crashing as requested") end
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads() or core.has_pending_rescan()
