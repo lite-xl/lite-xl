@@ -179,11 +179,13 @@ init_lua:
     "    fp:write(debug.traceback(nil, 4)..'\\n')\n"
     "    fp:close()\n"
     "  end\n"
-    "  local error_dialog = loaded and system.show_fatal_choice or system.show_fatal_error\n"
-    "  safe_mode = error_dialog('Lite XL internal error',\n"
-    "    'An internal error occurred in a critical part of the application.\\n\\n'..\n"
-    "    'Please verify the file \\\"error.txt\\\" in the directory '..error_dir..\n"
-    "    (loaded and '\\n\\nDo you want to restart in safe mode?' or ''))\n"
+    "  local title = 'Lite XL internal error'\n"
+    "  local msg = 'An internal error occurred in a critical part of the application.\\n\\n'..\n"
+    "              'Please verify the file \\\"error.txt\\\" in the directory '..error_dir..\n"
+    "              (loaded and '\\n\\nDo you want to restart in safe mode?' or '')\n"
+    "  if loaded then safe_mode = system.show_message_box(title, msg, 'error', {'Yes', 'No'}, 1, 2)\n"
+    "  else system.show_fatal_error(title, msg) end\n"
+    "  safe_mode = safe_mode == 1\n"
     "end)\n"
     "return core and (safe_mode or core.restart_request), safe_mode\n";
 

@@ -36,3 +36,7 @@ table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
 
 bit32 = bit32 or require "core.bit"
+
+function system.show_fatal_error(title, message)
+  return system.show_message_box(title, message, "error", {"Ok"}, 1, 1);
+end

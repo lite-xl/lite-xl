@@ -132,16 +132,20 @@ function system.set_window_size(width, height, x, y) end
 function system.window_has_focus() end
 
 ---
----Opens a YES-NO message box to display an error message.
----
+---Opens a blocking message box to display a message.
 ---
 ---@param title string
 ---@param message string
----@return boolean choice True for YES false for NO
-function system.show_fatal_choice(title, message) end
+---@param icon? string Possible values are "error", "warning" and "info"; defaults to "info"
+---@param buttons? table Table of strings; defaults to {"Ok"}
+---@param enter_idx? integer The default button that will be chosen when enter is pressed; defaults to -1
+---@param escape_idx? integer The default button that will be chosen when escape is pressed; defaults to -1
+---
+---@return integer choice The index of the chosen button; -1 if no button was chosen
+function system.show_message_box(title, message, icon, buttons, enter_idx, escape_idx) end
 
 ---
----Opens a message box to display an error message.
+---Opens a blocking message box to display an error message.
 ---
 ---@param title string
 ---@param message string
