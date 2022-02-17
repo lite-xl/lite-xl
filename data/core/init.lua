@@ -944,6 +944,7 @@ function core.init()
   core.visited_files = {}
   core.restart_request = false
   core.quit_request = false
+  core.crash = false
 
   core.root_view = RootView()
   core.command_view = CommandView()
