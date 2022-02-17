@@ -805,6 +805,7 @@ end
 
 
 function core.load_user_directory()
+  if SAFE_MODE then return true end
   return core.try(function()
     local stat_dir = system.get_file_info(USERDIR)
     if not stat_dir then
@@ -1132,7 +1133,7 @@ function core.load_plugins()
     datadir = {dir = DATADIR, plugins = {}},
   }
   local files, ordered = {}, {}
-  for _, root_dir in ipairs {DATADIR, USERDIR} do
+  for _, root_dir in ipairs {DATADIR, not SAFE_MODE and USERDIR or nil} do
     local plugin_dir = root_dir .. "/plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
       if not files[filename] then table.insert(ordered, filename) end
@@ -1164,6 +1165,7 @@ end
 
 
 function core.load_project_module()
+  if SAFE_MODE then return true end
   local filename = ".lite_project.lua"
   if system.get_file_info(filename) then
     return core.try(function()
