@@ -414,6 +414,32 @@ static int f_get_window_mode(lua_State *L) {
 }
 
 
+static int f_show_fatal_choice(lua_State *L) {
+  const char *title = luaL_checkstring(L, 1);
+  const char *msg = luaL_checkstring(L, 2);
+  int choice;
+
+#ifdef _WIN32
+  choice = MessageBox(0, msg, title, MB_YESNO | MB_ICONERROR);
+  lua_pushboolean(L, choice == IDYES);
+#else
+  SDL_MessageBoxButtonData buttons[] = {
+    { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes" },
+    { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No" },
+  };
+  SDL_MessageBoxData data = {
+    .title = title,
+    .message = msg,
+    .numbuttons = 2,
+    .buttons = buttons,
+  };
+  SDL_ShowMessageBox(&data, &choice);
+  lua_pushboolean(L, choice);
+#endif
+  return 1;
+}
+
+
 static int f_show_fatal_error(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
   const char *msg = luaL_checkstring(L, 2);
@@ -946,6 +972,7 @@ static const luaL_Reg lib[] = {
   { "set_window_size",     f_set_window_size     },
   { "window_has_focus",    f_window_has_focus    },
   { "show_fatal_error",    f_show_fatal_error    },
+  { "show_fatal_choice",   f_show_fatal_choice   },
   { "rmdir",               f_rmdir               },
   { "chdir",               f_chdir               },
   { "mkdir",               f_mkdir               },

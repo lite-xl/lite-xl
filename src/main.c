@@ -117,6 +117,7 @@ int main(int argc, char **argv) {
   ren_init(window);
 
   lua_State *L;
+  bool safe_mode = false;
 init_lua:
   L = luaL_newstate();
   luaL_openlibs(L);
@@ -136,6 +137,9 @@ init_lua:
   lua_pushnumber(L, get_scale());
   lua_setglobal(L, "SCALE");
 
+  lua_pushboolean(L, safe_mode);
+  lua_setglobal(L, "SAFE_MODE");
+
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
   lua_pushstring(L, exename);
@@ -150,12 +154,15 @@ init_lua:
 
   const char *init_lite_code = \
     "local core\n"
+    "local safe_mode\n"
+    "local loaded\n"
     "xpcall(function()\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
     "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
     "  local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
     "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
+    "  loaded = true\n"
     "  core.init()\n"
     "  core.run()\n"
     "end, function(err)\n"
@@ -172,19 +179,21 @@ init_lua:
     "    fp:write(debug.traceback(nil, 4)..'\\n')\n"
     "    fp:close()\n"
     "  end\n"
-    "  system.show_fatal_error('Lite XL internal error',\n"
+    "  local error_dialog = loaded and system.show_fatal_choice or system.show_fatal_error\n"
+    "  safe_mode = error_dialog('Lite XL internal error',\n"
     "    'An internal error occurred in a critical part of the application.\\n\\n'..\n"
-    "    'Please verify the file \\\"error.txt\\\" in the directory '..error_dir)\n"
-    "  os.exit(1)\n"
+    "    'Please verify the file \\\"error.txt\\\" in the directory '..error_dir..\n"
+    "    (loaded and '\\n\\nDo you want to restart in safe mode?' or ''))\n"
     "end)\n"
-    "return core and core.restart_request\n";
+    "return core and (safe_mode or core.restart_request), safe_mode\n";
 
   if (luaL_loadstring(L, init_lite_code)) {
     fprintf(stderr, "internal error when starting the application\n");
     exit(1);
   }
-  lua_pcall(L, 0, 1, 0);
-  if (lua_toboolean(L, -1)) {
+  lua_pcall(L, 0, 2, 0);
+  safe_mode = lua_toboolean(L, -1);
+  if (lua_toboolean(L, -2)) {
     lua_close(L);
     rencache_invalidate();
     goto init_lua;

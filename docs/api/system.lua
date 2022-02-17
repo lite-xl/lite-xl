@@ -132,6 +132,15 @@ function system.set_window_size(width, height, x, y) end
 function system.window_has_focus() end
 
 ---
+---Opens a YES-NO message box to display an error message.
+---
+---
+---@param title string
+---@param message string
+---@return boolean choice True for YES false for NO
+function system.show_fatal_choice(title, message) end
+
+---
 ---Opens a message box to display an error message.
 ---
 ---@param title string
