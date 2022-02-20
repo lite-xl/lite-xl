@@ -51,19 +51,20 @@ typedef struct RenFont {
 } RenFont;
 
 static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
+  const unsigned char *up = (unsigned char*)p;
   unsigned res, n;
   switch (*p & 0xf0) {
-    case 0xf0 :  res = *p & 0x07;  n = 3;  break;
-    case 0xe0 :  res = *p & 0x0f;  n = 2;  break;
+    case 0xf0 :  res = *up & 0x07;  n = 3;  break;
+    case 0xe0 :  res = *up & 0x0f;  n = 2;  break;
     case 0xd0 :
-    case 0xc0 :  res = *p & 0x1f;  n = 1;  break;
-    default   :  res = *p;         n = 0;  break;
+    case 0xc0 :  res = *up & 0x1f;  n = 1;  break;
+    default   :  res = *up;         n = 0;  break;
   }
   while (n--) {
-    res = (res << 6) | (*(++p) & 0x3f);
+    res = (res << 6) | (*(++up) & 0x3f);
   }
   *dst = res;
-  return p + 1;
+  return (const char*)up + 1;
 }
 
 static int font_set_load_options(RenFont* font) {
@@ -169,6 +170,9 @@ static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int su
 }
 
 static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFont** fonts, unsigned int codepoint, int bitmap_index) {
+  if (!metric) {
+    return NULL;
+  }
   if (bitmap_index < 0)
     bitmap_index += SUBPIXEL_BITMAPS_CACHED;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
@@ -177,7 +181,7 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
     if ((*metric)->loaded || codepoint < 0xFF)
       return fonts[i];
   }
-  if (!(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
+  if (*metric && !(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
     return font_group_get_glyph(set, metric, fonts, 0x25A1, bitmap_index);
   return fonts[0];
 }
@@ -255,6 +259,8 @@ float ren_font_group_get_width(RenFont **fonts, const char *text) {
     unsigned int codepoint;
     text = utf8_to_codepoint(text, &codepoint);
     RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
+    if (!metric)
+      break;
     width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
   }
   const int surface_scale = renwin_surface_scale(&window_renderer);
@@ -278,6 +284,8 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
     text = utf8_to_codepoint(text, &codepoint);
     GlyphSet* set = NULL; GlyphMetric* metric = NULL; 
     RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
+    if (!metric)
+      break;
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
