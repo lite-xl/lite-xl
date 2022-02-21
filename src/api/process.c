@@ -9,7 +9,7 @@
 #if _WIN32
   // https://stackoverflow.com/questions/60645/overlapped-i-o-on-anonymous-pipe
   // https://docs.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output
-  #include <windows.h>
+  #include <windows.h> 
 #else
   #include <errno.h>
   #include <unistd.h>
@@ -111,7 +111,7 @@ static bool signal_process(process_t* proc, signal_e sig) {
       case SIGNAL_INTERRUPT: kill(-proc->pid, SIGINT); break;
     }
   #endif
-  if (terminate)
+  if (terminate) 
     poll_process(proc, WAIT_NONE);
   return true;
 }
@@ -138,7 +138,7 @@ static int process_start(lua_State* L) {
   if (arg_len > 1) {
     lua_getfield(L, 2, "env");
     if (!lua_isnil(L, -1)) {
-      lua_pushnil(L);
+      lua_pushnil(L); 
       while (lua_next(L, -2) != 0) {
         const char* key = luaL_checklstring(L, -2, &key_len);
         const char* val = luaL_checklstring(L, -1, &val_len);
@@ -162,7 +162,7 @@ static int process_start(lua_State* L) {
         return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
     }
   }
-
+  
   process_t* self = lua_newuserdata(L, sizeof(process_t));
   memset(self, 0, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
@@ -178,9 +178,9 @@ static int process_start(lua_State* L) {
           }
           self->child_pipes[i][i == STDIN_FD ? 1 : 0] = INVALID_HANDLE_VALUE;
         break;
-        case REDIRECT_DISCARD:
-          self->child_pipes[i][0] = INVALID_HANDLE_VALUE;
-          self->child_pipes[i][1] = INVALID_HANDLE_VALUE;
+        case REDIRECT_DISCARD: 
+          self->child_pipes[i][0] = INVALID_HANDLE_VALUE; 
+          self->child_pipes[i][1] = INVALID_HANDLE_VALUE; 
         break;
         default: {
           if (new_fds[i] == i) {
@@ -240,7 +240,7 @@ static int process_start(lua_State* L) {
     if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information))
       return luaL_error(L, "Error creating a process: %d.", GetLastError());
     self->pid = (long)self->process_information.dwProcessId;
-    if (detach)
+    if (detach) 
       CloseHandle(self->process_information.hProcess);
     CloseHandle(self->process_information.hThread);
   #else
@@ -286,13 +286,12 @@ static int process_start(lua_State* L) {
 
 static int g_read(lua_State* L, int stream, unsigned long read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  int read_buffer_size = read_size > 0 ? read_size : READ_BUF_SIZE;
   long length = 0;
   if (stream != STDOUT_FD && stream != STDERR_FD)
     return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
   #if _WIN32
     int writable_stream_idx = stream - 1;
-    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], read_buffer_size, NULL, &self->overlapped[writable_stream_idx])) {
+    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], READ_BUF_SIZE, NULL, &self->overlapped[writable_stream_idx])) {
       if (self->reading[writable_stream_idx] || GetLastError() == ERROR_IO_PENDING) {
         self->reading[writable_stream_idx] = true;
         DWORD bytesTransferred = 0;
@@ -313,8 +312,8 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
   #else
     luaL_Buffer b;
     luaL_buffinit(L, &b);
-    uint8_t* buffer = (uint8_t*)luaL_prepbuffsize(&b, read_buffer_size);
-    length = read(self->child_pipes[stream][0], buffer, read_buffer_size);
+    uint8_t* buffer = (uint8_t*)luaL_prepbuffsize(&b, READ_BUF_SIZE);
+    length = read(self->child_pipes[stream][0], buffer, read_size > READ_BUF_SIZE ? READ_BUF_SIZE : read_size);
     if (length == 0 && !poll_process(self, WAIT_NONE))
       return 0;
     else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
@@ -368,7 +367,7 @@ static int f_close_stream(lua_State* L) {
 static int process_strerror(lua_State* L) {
   #if _WIN32
     return 1;
-  #endif
+  #endif 
   int error_code = luaL_checknumber(L, 1);
   if (error_code < 0)
     lua_pushstring(L, strerror(error_code));
@@ -426,12 +425,12 @@ static int self_signal(lua_State* L, signal_e sig) {
 static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
-static int f_gc(lua_State* L) {
+static int f_gc(lua_State* L) { 
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   signal_process(self, SIGNAL_TERM);
   close_fd(&self->child_pipes[STDIN_FD ][1]);
   close_fd(&self->child_pipes[STDOUT_FD][0]);
-  close_fd(&self->child_pipes[STDERR_FD][0]);
+  close_fd(&self->child_pipes[STDERR_FD][0]); 
   poll_process(self, 10);
   return 0;
 }
@@ -476,7 +475,7 @@ int luaopen_process(lua_State *L) {
   API_CONSTANT_DEFINE(L, -1, "STREAM_STDERR", STDERR_FD);
 
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_DEFAULT", REDIRECT_DEFAULT);
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", STDOUT_FD);
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", STDOUT_FD); 
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDERR", STDERR_FD);
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_PARENT", REDIRECT_PARENT); // Redirects to parent's STDOUT/STDERR
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_DISCARD", REDIRECT_DISCARD); // Closes the filehandle, discarding it.
