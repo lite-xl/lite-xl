@@ -733,7 +733,9 @@ function StatusView:on_mouse_moved(x, y, dx, dy)
   StatusView.super.on_mouse_moved(self, x, y, dx, dy)
 
   if y < self.position.y or system.get_time() <= self.message_timeout then
-    self.hovered_item = {} return
+    self.cursor = "arrow"
+    self.hovered_item = {}
+    return
   end
 
   for _, item in ipairs(self.items) do
@@ -749,10 +751,14 @@ function StatusView:on_mouse_moved(x, y, dx, dy)
         if self.hovered_item ~= item then
           self.hovered_item = item
         end
+        if item.command or item.on_click then
+          self.cursor = "hand"
+        end
         return
       end
     end
   end
+  self.cursor = "arrow"
   self.hovered_item = {}
 end
 
