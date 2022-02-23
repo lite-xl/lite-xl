@@ -28,6 +28,7 @@ local Object = require "core.object"
 ---@field private left_xoffset number
 ---@field private right_xoffset number
 ---@field private dragged_panel '"left"' | '"right"'
+---@field private hovered_panel '"left"' | '"right"'
 ---@field private hide_messages boolean
 local StatusView = View:extend()
 
@@ -159,6 +160,7 @@ function StatusView:new()
   self.left_xoffset = 0
   self.right_xoffset = 0
   self.dragged_panel = ""
+  self.hovered_panel = ""
   self.hide_messages = false
 
   self:register_docview_items()
@@ -705,6 +707,9 @@ function StatusView:update_active_items()
   if lw + rw + (style.padding.x * 2) > self.size.x then
     lw = self.size.x / 2 - (style.padding.x * 2)
     rw = self.size.x / 2 - (style.padding.x * 2)
+  else
+    self.left_xoffset = 0
+    self.right_xoffset = 0
   end
 
   self.left_width, self.right_width = lw, rw
@@ -718,19 +723,70 @@ function StatusView:update_active_items()
 end
 
 
-function StatusView:on_mouse_pressed()
-  core.set_active_view(core.last_active_view)
-  if system.get_time() < self.message_timeout
-  and not core.active_view:is(LogView) then
-    command.perform "core:open-log"
+---Drag the given panel if possible.
+---@param panel '"left"' | '"right"'
+---@param distance number
+function StatusView:drag_panel(panel, dx)
+  if panel == "left" and self.r_left_width > self.left_width then
+    local nonvisible_w = self.r_left_width - self.left_width
+    local new_offset = self.left_xoffset + dx
+    if new_offset >= 0 - nonvisible_w and new_offset <= 0 then
+      self.left_xoffset = new_offset
+    end
+  elseif panel == "right" and self.r_right_width > self.right_width then
+    local nonvisible_w = self.r_right_width - self.right_width
+    local new_offset = self.right_xoffset + dx
+    if new_offset >= 0 - nonvisible_w and new_offset <= 0 then
+      self.right_xoffset = new_offset
+    end
   end
-  self.mouse_pressed = true
+end
+
+
+---Return the currently hovered panel or empty string if none.
+---@param x number
+---@param y number
+---@return string
+function StatusView:get_hovered_panel(x, y)
+  if y >= self.position.y and x <= self.left_width + style.padding.x then
+    return "left"
+  else
+    return "right"
+  end
+  return ""
+end
+
+
+function StatusView:on_mouse_pressed(button, x, y, clicks)
+  core.set_active_view(core.last_active_view)
+  if
+    system.get_time() < self.message_timeout
+    and
+    not core.active_view:is(LogView)
+  then
+    command.perform "core:open-log"
+  else
+    if y >= self.position.y and button == "left" and clicks == 1 then
+      self.position.dx = x
+      if self.r_left_width > self.left_width then
+        self.dragged_panel = self:get_hovered_panel(x, y)
+        self.cursor = "hand"
+      end
+    end
+  end
   return true
 end
 
 
 function StatusView:on_mouse_moved(x, y, dx, dy)
   StatusView.super.on_mouse_moved(self, x, y, dx, dy)
+
+  self.hovered_panel = self:get_hovered_panel(x, y)
+
+  if self.dragged_panel ~= "" then
+    self:drag_panel(self.dragged_panel, dx)
+    return
+  end
 
   if y < self.position.y or system.get_time() <= self.message_timeout then
     self.cursor = "arrow"
@@ -744,7 +800,11 @@ function StatusView:on_mouse_moved(x, y, dx, dy)
       and
       (item.command or item.on_click or item.tooltip ~= "")
     then
-      local item_x = item.x + style.padding.x
+      local item_ox = item.alignment == StatusView.Item.LEFT and
+        self.left_xoffset or self.right_xoffset
+
+      local item_x = item_ox + item.x + style.padding.x
+
       if x > item_x and (item_x + item.w) > x then
         self.pointer.x = x
         self.pointer.y = y
@@ -766,19 +826,32 @@ end
 function StatusView:on_mouse_released(button, x, y)
   StatusView.super.on_mouse_released(self, button, x, y)
 
-  self.mouse_pressed = false
+  if self.dragged_panel ~= "" then
+    self.dragged_panel = ""
+    self.cursor = "arrow"
+    if self.position.dx ~= x then
+      return
+    end
+  end
 
   if y < self.position.y or not self.hovered_item.active then return end
 
   local item = self.hovered_item
-  local item_x = item.x + style.padding.x
+  local item_ox = item.alignment == StatusView.Item.LEFT and
+    self.left_xoffset or self.right_xoffset
+  local item_x = item_ox + item.x + style.padding.x
   if x > item_x and (item_x + item.w) > x then
     if item.command then
       command.perform(item.command)
     elseif item.on_click then
-      self.hovered_item.on_click(button, x, y)
+      item.on_click(button, x, y)
     end
   end
+end
+
+
+function StatusView:on_mouse_wheel(y)
+  self:drag_panel(self.hovered_panel, y * self.left_width / 10)
 end
 
 
@@ -812,19 +885,20 @@ function StatusView:draw()
         self.left_width + style.padding.x, self.size.y
       )
       for _, item in ipairs(self.active_items) do
+        local item_x = self.left_xoffset + item.x + style.padding.x
         if item.alignment == StatusView.Item.LEFT then
           if type(item.background_color) == "table" then
             renderer.draw_rect(
-              item.x + style.padding.x, self.position.y,
+              item_x, self.position.y,
               item.w, self.size.y, item.background_color
             )
           end
           if item.on_draw then
-            core.push_clip_rect(item.x + style.padding.x, self.position.y, item.w, self.size.y)
-            item.on_draw(item.x + style.padding.x, self.position.y, self.size.y)
+            core.push_clip_rect(item_x, self.position.y, item.w, self.size.y)
+            item.on_draw(item_x, self.position.y, self.size.y)
             core.pop_clip_rect()
           else
-            self:draw_items(item.cached_item, false, item.x)
+            self:draw_items(item.cached_item, false, item_x - style.padding.x)
           end
         end
       end
@@ -835,23 +909,22 @@ function StatusView:draw()
         self.size.x - (self.right_width + style.padding.x), self.position.y,
         self.right_width + style.padding.x, self.size.y
       )
-      local rx = 0
       for _, item in ipairs(self.active_items) do
+        local item_x = self.right_xoffset + item.x + style.padding.x
         if item.alignment == StatusView.Item.RIGHT then
           if type(item.background_color) == "table" then
             renderer.draw_rect(
-              item.x + style.padding.x, self.position.y,
+              item_x, self.position.y,
               item.w, self.size.y, item.background_color
             )
           end
           if item.on_draw then
-            core.push_clip_rect(item.x + style.padding.x, self.position.y, item.w, self.size.y)
-            item.on_draw(item.x + style.padding.x, self.position.y, self.size.y)
+            core.push_clip_rect(item_x, self.position.y, item.w, self.size.y)
+            item.on_draw(item_x, self.position.y, self.size.y)
             core.pop_clip_rect()
           else
-            self:draw_items(item.cached_item, false, item.x)
+            self:draw_items(item.cached_item, false, item_x - style.padding.x)
           end
-          rx = rx + item.w
         end
       end
       core.pop_clip_rect()
