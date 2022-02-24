@@ -704,9 +704,20 @@ function StatusView:update_active_items()
 
   self.r_left_width, self.r_right_width = lw, rw
 
-  if lw + rw + (style.padding.x * 2) > self.size.x then
-    lw = self.size.x / 2 - (style.padding.x * 2)
-    rw = self.size.x / 2 - (style.padding.x * 2)
+  -- try to calc best size for left and right
+  if lw + rw + (style.padding.x * 4) > self.size.x then
+    if lw + (style.padding.x * 2) < self.size.x / 2 then
+      rw = self.size.x - lw  - (style.padding.x * 3)
+      if rw > self.r_right_width then
+        lw = lw + (rw - self.r_right_width)
+        rw = self.r_right_width
+      end
+    elseif rw + (style.padding.x * 2) < self.size.x / 2 then
+      lw = self.size.x - rw  - (style.padding.x * 3)
+    else
+      lw = self.size.x / 2 - (style.padding.x + style.padding.x / 2)
+      rw = self.size.x / 2 - (style.padding.x + style.padding.x / 2)
+    end
   else
     self.left_xoffset = 0
     self.right_xoffset = 0
@@ -725,19 +736,27 @@ end
 
 ---Drag the given panel if possible.
 ---@param panel '"left"' | '"right"'
----@param distance number
+---@param dx number
 function StatusView:drag_panel(panel, dx)
   if panel == "left" and self.r_left_width > self.left_width then
     local nonvisible_w = self.r_left_width - self.left_width
     local new_offset = self.left_xoffset + dx
     if new_offset >= 0 - nonvisible_w and new_offset <= 0 then
       self.left_xoffset = new_offset
+    elseif dx < 0 then
+      self.left_xoffset = 0 - nonvisible_w
+    else
+      self.left_xoffset = 0
     end
   elseif panel == "right" and self.r_right_width > self.right_width then
     local nonvisible_w = self.r_right_width - self.right_width
     local new_offset = self.right_xoffset + dx
     if new_offset >= 0 - nonvisible_w and new_offset <= 0 then
       self.right_xoffset = new_offset
+    elseif dx < 0 then
+      self.right_xoffset = 0 - nonvisible_w
+    else
+      self.right_xoffset = 0
     end
   end
 end
