@@ -776,6 +776,41 @@ function StatusView:get_hovered_panel(x, y)
 end
 
 
+---@param item StatusView.Item
+---@return number x
+---@return number w
+function StatusView:get_item_visible_area(item)
+  local item_ox = item.alignment == StatusView.Item.LEFT and
+    self.left_xoffset or self.right_xoffset
+
+  local item_x = item_ox + item.x + style.padding.x
+  local item_w = item.w
+
+  if item.alignment == StatusView.Item.LEFT then
+    if self.left_width - item_x > 0 and self.left_width - item_x < item.w then
+      item_w = (self.left_width + style.padding.x) - item_x
+    elseif self.left_width - item_x < 0 then
+      item_x = 0
+      item_w = 0
+    end
+  else
+    local rx = self.size.x - self.right_width - style.padding.x
+    if item_x < rx then
+      if item_x + item.w > rx then
+        item_x = rx
+        item_w = (item_x + item.w) - rx
+      else
+        item_x = 0
+        item_w = 0
+      end
+    end
+  end
+
+  return item_x, item_w
+end
+
+
+
 function StatusView:on_mouse_pressed(button, x, y, clicks)
   core.set_active_view(core.last_active_view)
   if
@@ -819,12 +854,9 @@ function StatusView:on_mouse_moved(x, y, dx, dy)
       and
       (item.command or item.on_click or item.tooltip ~= "")
     then
-      local item_ox = item.alignment == StatusView.Item.LEFT and
-        self.left_xoffset or self.right_xoffset
+      local item_x, item_w = self:get_item_visible_area(item)
 
-      local item_x = item_ox + item.x + style.padding.x
-
-      if x > item_x and (item_x + item.w) > x then
+      if x > item_x and (item_x + item_w) > x then
         self.pointer.x = x
         self.pointer.y = y
         if self.hovered_item ~= item then
@@ -856,10 +888,9 @@ function StatusView:on_mouse_released(button, x, y)
   if y < self.position.y or not self.hovered_item.active then return end
 
   local item = self.hovered_item
-  local item_ox = item.alignment == StatusView.Item.LEFT and
-    self.left_xoffset or self.right_xoffset
-  local item_x = item_ox + item.x + style.padding.x
-  if x > item_x and (item_x + item.w) > x then
+  local item_x, item_w = self:get_item_visible_area(item)
+
+  if x > item_x and (item_x + item_w) > x then
     if item.command then
       command.perform(item.command)
     elseif item.on_click then
