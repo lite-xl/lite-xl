@@ -211,7 +211,8 @@ function StatusView:register_docview_items()
       local indent_type, indent_size, indent_confirmed = dv.doc:get_indent_info()
       local indent_label = (indent_type == "hard") and "tabs: " or "spaces: "
       return {
-        style.text, indent_label, indent_size
+        style.text, indent_label, indent_size,
+        indent_confirmed and "" or "*"
       }
     end,
     function(button, x, y)
