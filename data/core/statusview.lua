@@ -63,7 +63,6 @@ StatusView.separator2 = "   |   "
 ---@field private active boolean
 ---@field private x number
 ---@field private w number
----@field private deprecated boolean
 ---@field private cached_item StatusView.styledtext
 StatusView.Item = Object:extend()
 
@@ -193,8 +192,7 @@ function StatusView:register_docview_items()
       local dv = core.active_view
       local line, col = dv.doc:get_selection()
       return {
-        line,
-        ":",
+        style.text, line, ":",
         col > config.line_limit and style.accent or style.text, col,
         style.text,
         self.separator,
@@ -234,8 +232,8 @@ function StatusView:register_docview_items()
       return {
         style.text,
         style.icon_font, "g",
-        style.font, style.dim, self.separator2, style.text,
-        #dv.doc.lines, " lines",
+        style.font, style.dim, self.separator2,
+        style.text, #dv.doc.lines, " lines",
       }
     end
   ).separator = self.separator2
@@ -247,7 +245,7 @@ function StatusView:register_docview_items()
     function()
       local dv = core.active_view
       return {
-        dv.doc.crlf and "CRLF" or "LF"
+        style.text, dv.doc.crlf and "CRLF" or "LF"
       }
     end,
     "doc:toggle-line-ending"
@@ -267,7 +265,7 @@ function StatusView:register_command_items()
       return {
         style.icon_font, "g",
         style.font, style.dim, self.separator2,
-        #core.docs, style.text, " / ",
+        style.text, #core.docs, style.text, " / ",
         #core.project_files, " files"
       }
     end
@@ -311,7 +309,7 @@ function StatusView:add_item(predicate, name, alignment, getitem, command, pos, 
 end
 
 
----Get an item associated object or nil if not found.
+---Get an item object associated to a name or nil if not found.
 ---@param name string
 ---@return StatusView.Item | nil
 function StatusView:get_item(name)
@@ -450,7 +448,8 @@ end
 ---Draws a table of styled text on the status bar starting on the left or right.
 ---@param items StatusView.styledtext
 ---@param right_align boolean
----@param yoffset number
+---@param xoffset? number
+---@param yoffset? number
 function StatusView:draw_items(items, right_align, xoffset, yoffset)
   local x, y = self:get_content_offset()
   x = x + (xoffset or 0)
@@ -567,29 +566,30 @@ local function merge_deprecated_items(destination, items, alignment)
 end
 
 
+---Append a space item into the given items list.
 ---@param self StatusView
----@param styled_text StatusView.styledtext
+---@param destination StatusView.Item[]
 ---@param separator string
-local function add_spacing(self, styled_text, separator)
-  if
-    Object.is(styled_text[1], renderer.font)
-    or
-    (
-      styled_text[2] ~= self.separator
-      or
-      styled_text[2] ~= self.separator2
-    )
-  then
-    if separator == self.separator2 then
-      table.insert(styled_text, 1, style.dim)
-    else
-      table.insert(styled_text, 1, style.text)
-    end
-    table.insert(styled_text, 2, separator)
-  end
+---@param alignment StatusView.Item.alignment
+---@return StatusView.Item
+local function add_spacing(self, destination, separator, alignment, x)
+  ---@type StatusView.Item
+  local space = StatusView.Item(nil, "space", alignment)
+  space.cached_item = separator == self.separator and {
+    style.text, separator
+  } or {
+    style.dim, separator
+  }
+  space.x = x
+  space.w = draw_items(self, space.cached_item, 0, 0, text_width)
+
+  table.insert(destination, space)
+
+  return space
 end
 
 
+---Remove starting and ending separators.
 ---@param self StatusView
 ---@param styled_text StatusView.styledtext
 local function remove_spacing(self, styled_text)
@@ -625,11 +625,9 @@ local function remove_spacing(self, styled_text)
 end
 
 
----Get the styled text that will be displayed on the left side or
----right side of the status bar checking their predicates and performing
----positioning calculations for proper functioning of tooltips and clicks.
----@return StatusView.styledtext left
----@return StatusView.styledtext right
+---Set the active items that will be displayed on the left or right side
+---of the status bar checking their predicates and performing positioning
+---calculations for proper functioning of tooltips and clicks.
 function StatusView:update_active_items()
   local left, right = {}, {}
 
@@ -667,7 +665,11 @@ function StatusView:update_active_items()
         item.active = true
         if item.alignment == StatusView.Item.LEFT then
           if not lfirst then
-            add_spacing(self, styled_text, item.separator, true)
+            local space = add_spacing(
+              self, self.active_items, item.separator, item.alignment, lx
+            )
+            lw = lw + space.w
+            lx = lx + space.w
           else
             lfirst = false
           end
@@ -680,7 +682,11 @@ function StatusView:update_active_items()
           lx = lx + item.w
         else
           if not rfirst then
-            add_spacing(self, styled_text, item.separator, true)
+            local space = add_spacing(
+              self, self.active_items, item.separator, item.alignment, rx
+            )
+            rw = rw + space.w
+            rx = rx + space.w
           else
             rfirst = false
           end
