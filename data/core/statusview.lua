@@ -725,6 +725,17 @@ function StatusView:update_active_items()
       lw = self.size.x / 2 - (style.padding.x + style.padding.x / 2)
       rw = self.size.x / 2 - (style.padding.x + style.padding.x / 2)
     end
+    -- reposition left and right offsets when window is resized
+    if rw >= self.r_right_width then
+      self.right_xoffset = 0
+    elseif rw > self.right_xoffset + self.r_right_width then
+      self.right_xoffset = rw - self.r_right_width
+    end
+    if lw >= self.r_left_width then
+      self.left_xoffset = 0
+    elseif lw > self.left_xoffset + self.r_left_width then
+      self.left_xoffset = lw - self.r_left_width
+    end
   else
     self.left_xoffset = 0
     self.right_xoffset = 0
