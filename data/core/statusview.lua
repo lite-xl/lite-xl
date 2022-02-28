@@ -47,7 +47,7 @@ StatusView.separator2 = "   |   "
 ---@alias StatusView.Item.predicate fun():boolean
 ---@alias StatusView.Item.onclick fun(button: string, x: number, y: number)
 ---@alias StatusView.Item.getitem fun():StatusView.styledtext,StatusView.styledtext
----@alias StatusView.Item.ondraw fun(x, y, h, calc_only: boolean):number
+---@alias StatusView.Item.ondraw fun(x, y, h, hovered: boolean, calc_only: boolean):number
 
 ---@class StatusView.Item : Object
 ---@field name string
@@ -58,6 +58,7 @@ StatusView.separator2 = "   |   "
 ---@field on_click StatusView.Item.onclick | nil @Function called when item is clicked and no command is set.
 ---@field on_draw StatusView.Item.ondraw | nil @Custom drawing that when passed calc true should return the needed width for drawing and when false should draw.
 ---@field background_color renderer.color | nil
+---@field background_color_hover renderer.color | nil
 ---@field visible boolean
 ---@field separator StatusView.Item.separator
 ---@field private active boolean
@@ -93,6 +94,7 @@ function StatusView.Item:new(predicate, name, alignment, command, tooltip)
   self.on_click = type(command) == "function" and command or nil
   self.on_draw = nil
   self.background_color = nil
+  self.background_color_hover = nil
   self.visible = true
   self.active = false
   self.x = 0
@@ -664,6 +666,7 @@ function StatusView:update_active_items()
 
       if #styled_text > 0 or item.on_draw then
         item.active = true
+        local hovered = self.hovered_item == item
         if item.alignment == StatusView.Item.LEFT then
           if not lfirst then
             local space = add_spacing(
@@ -675,7 +678,7 @@ function StatusView:update_active_items()
             lfirst = false
           end
           item.w = item.on_draw and
-            item.on_draw(lx, self.position.y, self.size.y, true)
+            item.on_draw(lx, self.position.y, self.size.y, hovered, true)
             or
             draw_items(self, styled_text, 0, 0, text_width)
           item.x = lx
@@ -692,7 +695,7 @@ function StatusView:update_active_items()
             rfirst = false
           end
           item.w = item.on_draw and
-            item.on_draw(rx, self.position.y, self.size.y, true)
+            item.on_draw(rx, self.position.y, self.size.y, hovered, true)
             or
             draw_items(self, styled_text, 0, 0, text_width)
           item.x = rx
@@ -938,6 +941,21 @@ function StatusView:update()
 end
 
 
+---Retrieve the hover status and proper background color if any.
+---@param self StatusView
+---@param item StatusView.Item
+---@return boolean is_hovered
+---@return renderer.color | nil color
+local function get_item_bg_color(self, item)
+  local hovered = self.hovered_item == item
+
+  local item_bg = hovered
+    and item.background_color_hover or item.background_color
+
+  return hovered, item_bg
+end
+
+
 function StatusView:draw()
   self:draw_background(style.background2)
 
@@ -954,16 +972,17 @@ function StatusView:draw()
       )
       for _, item in ipairs(self.active_items) do
         local item_x = self.left_xoffset + item.x + style.padding.x
+        local hovered, item_bg = get_item_bg_color(self, item)
         if item.alignment == StatusView.Item.LEFT then
-          if type(item.background_color) == "table" then
+          if type(item_bg) == "table" then
             renderer.draw_rect(
               item_x, self.position.y,
-              item.w, self.size.y, item.background_color
+              item.w, self.size.y, item_bg
             )
           end
           if item.on_draw then
             core.push_clip_rect(item_x, self.position.y, item.w, self.size.y)
-            item.on_draw(item_x, self.position.y, self.size.y)
+            item.on_draw(item_x, self.position.y, self.size.y, hovered)
             core.pop_clip_rect()
           else
             self:draw_items(item.cached_item, false, item_x - style.padding.x)
@@ -979,16 +998,17 @@ function StatusView:draw()
       )
       for _, item in ipairs(self.active_items) do
         local item_x = self.right_xoffset + item.x + style.padding.x
+        local hovered, item_bg = get_item_bg_color(self, item)
         if item.alignment == StatusView.Item.RIGHT then
-          if type(item.background_color) == "table" then
+          if type(item_bg) == "table" then
             renderer.draw_rect(
               item_x, self.position.y,
-              item.w, self.size.y, item.background_color
+              item.w, self.size.y, item_bg
             )
           end
           if item.on_draw then
             core.push_clip_rect(item_x, self.position.y, item.w, self.size.y)
-            item.on_draw(item_x, self.position.y, self.size.y)
+            item.on_draw(item_x, self.position.y, self.size.y, hovered)
             core.pop_clip_rect()
           else
             self:draw_items(item.cached_item, false, item_x - style.padding.x)
