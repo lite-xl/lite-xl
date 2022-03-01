@@ -27,7 +27,7 @@ function Process:read(stream, size)
   size = size or 2048
   local readed = 0
   local data = {}
-  while readed < size and self:running() do
+  while readed < size do
     local d = self.proc:read(stream, size - readed)
     if #d == 0 then break end
     table.insert(data, d)
