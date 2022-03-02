@@ -8,8 +8,18 @@ local function draw_text(x, y, color)
   local th = style.big_font:get_height()
   local dh = 2 * th + style.padding.y * 2
   local x1, y1 = x, y + (dh - th) / 2
-  x = renderer.draw_text(style.big_font, "Lite XL", x1, y1, color)
-  renderer.draw_text(style.font, "version " .. VERSION, x1, y1 + th, color)
+  local xv = x1
+  local title = "Lite XL"
+  local version = "version " .. VERSION
+  local title_width = style.big_font:get_width(title)
+  local version_width = style.font:get_width(version)
+  if version_width > title_width then
+    version = VERSION
+    version_width = style.font:get_width(version)
+    xv = x1 - (version_width - title_width)
+  end
+  x = renderer.draw_text(style.big_font, title, x1, y1, color)
+  renderer.draw_text(style.font, version, xv, y1 + th, color)
   x = x + style.padding.x
   renderer.draw_rect(x, y, math.ceil(1 * SCALE), dh, color)
   local lines = {
