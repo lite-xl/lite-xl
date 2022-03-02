@@ -29,7 +29,7 @@ function Process:read(stream, size)
   local data = {}
   while readed < size do
     local d = self.proc:read(stream, size - readed)
-    if #d == 0 then break end
+    if d == nil or #d == 0 then break end
     table.insert(data, d)
     readed = readed + #d
   end
