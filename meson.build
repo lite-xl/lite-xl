@@ -18,11 +18,8 @@ if get_option('buildtype') != 'release'
     git_command = find_program('git', required : false)
 
     if git_command.found()
-        git_branch = run_command(
-            [git_command, 'branch', '--show-current']
-        ).stdout().strip()
         git_commit = run_command(
-            [git_command, 'rev-parse', git_branch]
+            [git_command, 'rev-parse', 'HEAD']
         ).stdout().strip()
 
         if git_commit != ''
