@@ -25,7 +25,8 @@ function View:move_towards(t, k, dest, rate)
     return self:move_towards(self, t, k, dest, rate)
   end
   local val = t[k]
-  if not config.transitions or math.abs(val - dest) < 0.5 then
+  local diff = math.abs(val - dest)
+  if not config.transitions or diff < 0.5 then
     t[k] = dest
   else
     rate = rate or 0.5
@@ -35,7 +36,7 @@ function View:move_towards(t, k, dest, rate)
     end
     t[k] = common.lerp(val, dest, rate)
   end
-  if val ~= dest then
+  if diff > 1e-8 then
     core.redraw = true
   end
 end
