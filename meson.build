@@ -10,12 +10,31 @@ project('lite-xl',
 )
 
 #===============================================================================
+# Project version including git commit if possible
+#===============================================================================
+version = meson.project_version()
+
+if get_option('buildtype') != 'release'
+    git_command = find_program('git', required : false)
+
+    if git_command.found()
+        git_commit = run_command(
+            [git_command, 'rev-parse', 'HEAD']
+        ).stdout().strip()
+
+        if git_commit != ''
+            version += ' (git-' + git_commit.substring(0, 8) + ')'
+        endif
+    endif
+endif
+
+#===============================================================================
 # Configuration
 #===============================================================================
 conf_data = configuration_data()
 conf_data.set('PROJECT_BUILD_DIR', meson.current_build_dir())
 conf_data.set('PROJECT_SOURCE_DIR', meson.current_source_dir())
-conf_data.set('PROJECT_VERSION', meson.project_version())
+conf_data.set('PROJECT_VERSION', version)
 
 #===============================================================================
 # Compiler Settings
