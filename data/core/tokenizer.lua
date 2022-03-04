@@ -136,20 +136,42 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
   
   local function find_text(text, p, offset, at_start, close)
-    local target, res = p.pattern or p.regex, { 1, offset - 1 }, p.regex
-    local code = type(target) == "table" and target[close and 2 or 1] or target
+    local target, res = p.pattern or p.regex, { 1, offset - 1 }
+    local p_idx = close and 2 or 1
+    local code = type(target) == "table" and target[p_idx] or target
+
+    if p.whole_line == nil then p.whole_line = { } end
+    if p.whole_line[p_idx] == nil then
+      -- Match patterns that start with '^'
+      p.whole_line[p_idx] = code:match("^%^") and true or false
+      if p.whole_line[p_idx] then
+        -- Remove '^' from the beginning of the pattern
+        if type(target) == "table" then
+          target[p_idx] = code:sub(2)
+        else
+          p.pattern = p.pattern and code:sub(2)
+          p.regex = p.regex and code:sub(2)
+        end
+      end
+    end
+
     if p.regex and type(p.regex) ~= "table" then
       p._regex = p._regex or regex.compile(p.regex)
       code = p._regex
-    end    
+    end
+
     repeat
       local next = res[2] + 1
+      -- If the pattern contained '^', allow matching only the whole line
+      if p.whole_line[p_idx] and next > 1 then
+        return
+      end
       -- go to the start of the next utf-8 character
       while text:byte(next) and common.is_utf8_cont(text, next) do
         next = next + 1
       end
-      res = p.pattern and { text:find(at_start and "^" .. code or code, next) }
-        or { regex.match(code, text, next, at_start and regex.ANCHORED or 0) }
+      res = p.pattern and { text:find((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
+        or { regex.match(code, text, next, (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
       if res[1] and close and target[3] then
         local count = 0
         for i = res[1] - 1, 1, -1 do
