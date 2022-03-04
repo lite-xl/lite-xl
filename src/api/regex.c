@@ -60,12 +60,14 @@ static int f_pcre_match(lua_State *L) {
   const char* str = luaL_checklstring(L, 2, &len);
   if (lua_gettop(L) > 2)
     offset = luaL_checknumber(L, 3);
+  offset -= 1;
+  len -= offset;
   if (lua_gettop(L) > 3)
     opts = luaL_checknumber(L, 4);
   lua_rawgeti(L, 1, 1);
   pcre2_code* re = (pcre2_code*)lua_touserdata(L, -1);
   pcre2_match_data* md = pcre2_match_data_create_from_pattern(re, NULL);
-  int rc = pcre2_match(re, (PCRE2_SPTR)str, len, offset - 1, opts, md, NULL);
+  int rc = pcre2_match(re, (PCRE2_SPTR)&str[offset], len, 0, opts, md, NULL);
   if (rc < 0) {
     pcre2_match_data_free(md);
     if (rc != PCRE2_ERROR_NOMATCH) {
@@ -86,7 +88,7 @@ static int f_pcre_match(lua_State *L) {
     return 0;
   }
   for (int i = 0; i < rc*2; i++)
-    lua_pushnumber(L, ovector[i]+1);
+    lua_pushnumber(L, ovector[i]+offset+1);
   pcre2_match_data_free(md);
   return rc*2;
 }
