@@ -3,7 +3,6 @@ local syntax = require "core.syntax"
 local style = require "core.style"
 local core = require "core"
 
-local initial_scale = SCALE
 local initial_color = style.syntax["keyword2"]
 
 -- Add 3 type of font styles for use on markdown files
@@ -203,20 +202,9 @@ syntax.add {
   symbols = { },
 }
 
--- Adjust markdown fonts on scale changes.
--- Note: this should be performed by lite-xl it self to all style.syntax_fonts
+-- Adjust the color on theme changes
 core.add_thread(function()
   while true do
-    if initial_scale ~= SCALE then
-      for _, attr in pairs({"bold", "italic", "bold_italic"}) do
-        style.syntax_fonts["markdown_"..attr] =
-          style.syntax_fonts["markdown_"..attr]:copy(
-            style.code_font:get_size()
-        )
-      end
-      initial_scale = SCALE
-    end
-    -- we also adjust the color on theme changes
     if initial_color ~= style.syntax["keyword2"] then
       for _, attr in pairs({"bold", "italic", "bold_italic"}) do
         style.syntax["markdown_"..attr] = style.syntax["keyword2"]
