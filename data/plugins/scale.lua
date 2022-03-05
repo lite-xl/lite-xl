@@ -50,12 +50,8 @@ local function set_scale(scale)
     style.code_font = renderer.font.copy(style.code_font, s * style.code_font:get_size())
   end
 
-  for _, font in pairs(style.syntax_fonts) do
-    renderer.font.set_size(font, s * font:get_size())
-  end
-
-  for _, font in pairs(style.syntax_fonts) do
-    renderer.font.set_size(font, s * font:get_size())
+  for name, font in pairs(style.syntax_fonts) do
+    style.syntax_fonts[name] = renderer.font.copy(font, s * font:get_size())
   end
 
   -- restore scroll positions
