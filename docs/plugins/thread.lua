@@ -33,19 +33,29 @@ function thread.create(name, callback, ...) end
 ---
 ---@return thread.Channel|nil
 ---@return string errorMessage
-function thread.getChannel(name) end
+function thread.get_channel(name) end
+
+---
+---Get the number of CPU cores available.
+---
+---Returns the total number of logical CPU cores. On CPUs that include
+---technologies such as hyperthreading, the number of logical cores may be
+---more than the number of physical cores.
+---
+---@return number
+function thread.get_cpu_count() end
 
 ---
 ---Get the id of a thread.
 ---
 ---@return integer
-function thread.Thread:getId() end
+function thread.Thread:get_id() end
 
 ---
 ---Get the name assigned to a thread.
 ---
 ---@return string
-function thread.Thread:getName() end
+function thread.Thread:get_name() end
 
 ---
 ---Wait for a thread to finish and get the return code.

@@ -397,17 +397,32 @@ failure:
   return 2;
 }
 
+/*
+ * thread.get_cpu_count()
+ *
+ * Get the number of CPU cores available.
+ *
+ * Returns:
+ *  The total number of logical CPU cores
+ */
+static int f_thread_get_cpu_count(lua_State *L)
+{
+  lua_pushinteger(L, SDL_GetCPUCount());
+
+  return 1;
+}
+
 /* --------------------------------------------------------
  * Thread object methods
  * -------------------------------------------------------- */
 
 /*
- * Thread:getId()
+ * Thread:get_id()
  *
  * Returns:
  *  The thread id
  */
-static int m_thread_getId(lua_State *L)
+static int m_thread_get_id(lua_State *L)
 {
   LuaThread* self = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
 
@@ -417,12 +432,12 @@ static int m_thread_getId(lua_State *L)
 }
 
 /*
- * Thread:getName()
+ * Thread:get_name()
  *
  * Returns:
  *  The thread name
  */
-static int m_thread_getName(lua_State *L)
+static int m_thread_get_name(lua_State *L)
 {
   LuaThread* self = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
 
@@ -500,13 +515,14 @@ static int mm_thread_tostring(lua_State *L)
 
 static const struct luaL_Reg thread_lib[] = {
   {"create", f_thread_create},
-  {"getChannel", f_channel_get},
+  {"get_channel", f_channel_get},
+  {"get_cpu_count", f_thread_get_cpu_count},
   {NULL, NULL}
 };
 
 static const struct luaL_Reg thread_object[] = {
-  {"getId", m_thread_getId},
-  {"getName", m_thread_getName},
+  {"get_id", m_thread_get_id},
+  {"get_name", m_thread_get_name},
   {"wait", m_thread_wait},
   {"__eq", mm_thread_eq},
   {"__gc", mm_thread_gc},
