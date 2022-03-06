@@ -723,10 +723,11 @@ function core.init()
   local got_user_error, got_project_error = not core.load_user_directory()
 
   local project_dir_abs = system.absolute_path(project_dir)
-  -- We prevent set_project_dir below to effectively add and scan the directory becaese tha
+  -- We prevent set_project_dir below to effectively add and scan the directory because the
   -- project module and its ignore files is not yet loaded.
   local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
   if set_project_ok then
+    got_project_error = not core.load_project_module()
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
     end
