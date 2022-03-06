@@ -2,7 +2,7 @@ project('lite-xl',
     ['c'],
     version : '2.0.5',
     license : 'MIT',
-    meson_version : '>= 0.42',
+    meson_version : '>= 0.47',
     default_options : [
         'c_std=gnu11',
         'wrap_mode=nofallback'
@@ -19,7 +19,8 @@ if get_option('buildtype') != 'release'
 
     if git_command.found()
         git_commit = run_command(
-            [git_command, 'rev-parse', 'HEAD']
+            [git_command, 'rev-parse', 'HEAD'],
+            check : false
         ).stdout().strip()
 
         if git_commit != ''
