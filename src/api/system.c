@@ -7,7 +7,6 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
-#include "../dirmonitor.h"
 #include "../rencache.h"
 #ifdef _WIN32
   #include <direct.h>
@@ -254,26 +253,6 @@ top:
       lua_pushstring(L, "mousewheel");
       lua_pushinteger(L, e.wheel.y);
       return 2;
-
-    case SDL_USEREVENT:
-      lua_pushstring(L, "dirchange");
-      lua_pushinteger(L, e.user.code >> 16);
-      switch (e.user.code & 0xffff) {
-        case DMON_ACTION_DELETE:
-          lua_pushstring(L, "delete");
-          break;
-        case DMON_ACTION_CREATE:
-          lua_pushstring(L, "create");
-          break;
-        case DMON_ACTION_MODIFY:
-          lua_pushstring(L, "modify");
-          break;
-        default:
-          return luaL_error(L, "unknown dmon event action: %d", e.user.code & 0xffff);
-      }
-      lua_pushstring(L, e.user.data1);
-      free(e.user.data1);
-      return 4;
 
     default:
       goto top;
@@ -592,28 +571,26 @@ static struct f_type_names fs_names[] = {
   { 0x0,        NULL        },
 };
 
-static int f_get_fs_type(lua_State *L) {
-  const char *path = luaL_checkstring(L, 1);
-  struct statfs buf;
-  int status = statfs(path, &buf);
-  if (status != 0) {
-    return luaL_error(L, "error calling statfs on %s", path);
-  }
-  for (int i = 0; fs_names[i].magic; i++) {
-    if (fs_names[i].magic == buf.f_type) {
-      lua_pushstring(L, fs_names[i].name);
-      return 1;
-    }
-  }
-  lua_pushstring(L, "unknown");
-  return 1;
-}
-#else
-static int f_return_unknown(lua_State *L) {
-  lua_pushstring(L, "unknown");
-  return 1;
-}
 #endif
+
+static int f_get_fs_type(lua_State *L) {
+  #if __linux__
+    const char *path = luaL_checkstring(L, 1);
+    struct statfs buf;
+    int status = statfs(path, &buf);
+    if (status != 0) {
+      return luaL_error(L, "error calling statfs on %s", path);
+    }
+    for (int i = 0; fs_names[i].magic; i++) {
+      if (fs_names[i].magic == buf.f_type) {
+        lua_pushstring(L, fs_names[i].name);
+        return 1;
+      }
+    }
+  #endif
+  lua_pushstring(L, "unknown");
+  return 1;
+}
 
 
 static int f_mkdir(lua_State *L) {
@@ -815,66 +792,6 @@ static int f_load_native_plugin(lua_State *L) {
   return result;
 }
 
-static int f_watch_dir(lua_State *L) {
-  const char *path = luaL_checkstring(L, 1);
-  /* On linux we watch non-recursively and we add/remove each sub-directory explicitly
-   * using the function system.watch_dir_add/rm. On other systems we watch recursively
-   * and system.watch_dir_add/rm are dummy functions that always returns true. */
-#if __linux__
-  const uint32_t dmon_flags = DMON_WATCHFLAGS_FOLLOW_SYMLINKS;
-#elif __APPLE__
-  const uint32_t dmon_flags = DMON_WATCHFLAGS_FOLLOW_SYMLINKS | DMON_WATCHFLAGS_RECURSIVE;
-#else
-  const uint32_t dmon_flags = DMON_WATCHFLAGS_RECURSIVE;
-#endif
-  dmon_error error;
-  dmon_watch_id watch_id = dmon_watch(path, dirmonitor_watch_callback, dmon_flags, NULL, &error);
-  if (watch_id.id == 0) {
-    lua_pushnil(L);
-    lua_pushstring(L, dmon_error_str(error));
-    return 2;
-  }
-  lua_pushinteger(L, watch_id.id);
-  return 1;
-}
-
-static int f_unwatch_dir(lua_State *L) {
-  dmon_watch_id watch_id;
-  watch_id.id = luaL_checkinteger(L, 1);
-  dmon_unwatch(watch_id);
-  return 0;
-}
-
-#if __linux__
-static int f_watch_dir_add(lua_State *L) {
-  dmon_watch_id watch_id;
-  watch_id.id = luaL_checkinteger(L, 1);
-  const char *subdir = luaL_checkstring(L, 2);
-  dmon_error error_code;
-  int success = dmon_watch_add(watch_id, subdir, &error_code);
-  if (!success) {
-    lua_pushboolean(L, 0);
-    lua_pushstring(L, dmon_error_str(error_code));
-    return 2;
-  }
-  lua_pushboolean(L, 1);
-  return 1;
-}
-
-static int f_watch_dir_rm(lua_State *L) {
-  dmon_watch_id watch_id;
-  watch_id.id = luaL_checkinteger(L, 1);
-  const char *subdir = luaL_checkstring(L, 2);
-  lua_pushboolean(L, dmon_watch_rm(watch_id, subdir));
-  return 1;
-}
-#else
-static int f_return_true(lua_State *L) {
-  lua_pushboolean(L, 1);
-  return 1;
-}
-#endif
-
 #ifdef _WIN32
 #define PATHSEP '\\'
 #else
@@ -961,18 +878,8 @@ static const luaL_Reg lib[] = {
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
   { "load_native_plugin",  f_load_native_plugin  },
-  { "watch_dir",           f_watch_dir           },
-  { "unwatch_dir",         f_unwatch_dir         },
   { "path_compare",        f_path_compare        },
-#if __linux__
-  { "watch_dir_add",       f_watch_dir_add       },
-  { "watch_dir_rm",        f_watch_dir_rm        },
   { "get_fs_type",         f_get_fs_type         },
-#else
-  { "watch_dir_add",       f_return_true         },
-  { "watch_dir_rm",        f_return_true         },
-  { "get_fs_type",         f_return_unknown      },
-#endif
   { NULL, NULL }
 };
 

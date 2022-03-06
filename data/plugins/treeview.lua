@@ -236,9 +236,6 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     else
       local hovered_dir = core.project_dir_by_name(hovered_item.dir_name)
       if hovered_dir and hovered_dir.files_limit then
-        if not core.project_subdir_set_show(hovered_dir, hovered_item.filename, not hovered_item.expanded) then
-          return
-        end
         core.update_project_subdir(hovered_dir, hovered_item.filename, not hovered_item.expanded)
       end
       hovered_item.expanded = not hovered_item.expanded
@@ -592,7 +589,7 @@ command.add(function() return view.hovered_item ~= nil end, {
       system.exec(string.format("start \"\" %q", hovered_item.abs_filename))
     elseif string.find(PLATFORM, "Mac") then
       system.exec(string.format("open %q", hovered_item.abs_filename))
-    elseif PLATFORM == "Linux" then
+    elseif PLATFORM == "Linux" or string.find(PLATFORM, "BSD") then
       system.exec(string.format("xdg-open %q", hovered_item.abs_filename))
     end
   end,
