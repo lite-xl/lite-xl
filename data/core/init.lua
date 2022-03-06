@@ -238,11 +238,11 @@ local function refresh_directory(topdir, target, expanded)
       -- If we're expecting to keep track of everything, go through the list and iteratively deal with directories.
       files = dirwatch.get_directory_files(topdir, topdir.name, directory, {}, 0, function() return false end)
     end
-    
+
     local new_idx, old_idx = 1, index
     local new_directories = {}
     local last_dir = nil
-    while old_idx <= n or new_idx <= #files do 
+    while old_idx <= n or new_idx <= #files do
       local old_info, new_info = topdir.files[old_idx], files[new_idx]
       if not new_info or not old_info or not last_dir or old_info.filename:sub(1, #last_dir + 1) ~= last_dir .. "/" then
         if not new_info or not old_info or not files_info_equal(new_info, old_info) then
@@ -282,7 +282,7 @@ local function refresh_directory(topdir, target, expanded)
     if change then
       core.redraw = true
       topdir.is_dirty = true
-    end    
+    end
     return change
   end
 end
@@ -301,8 +301,8 @@ function core.add_project_directory(path)
     watch_thread = nil,
     watch = dirwatch.new()
   }
-  table.insert(core.project_directories, topdir)  
-  
+  table.insert(core.project_directories, topdir)
+
   local fstype = PLATFORM == "Linux" and system.get_fs_type(topdir.name) or "unknown"
   topdir.force_scans = (fstype == "nfs" or fstype == "fuse")
   local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", {}, 0, timed_max_files_pred)
@@ -320,13 +320,13 @@ function core.add_project_directory(path)
   topdir.watch:watch(topdir.name)
   -- each top level directory gets a watch thread. if the project is small, or
   -- if the ablity to use directory watches hasn't been compromised in some way
-  -- either through error, or amount of files, then this should be incredibly 
+  -- either through error, or amount of files, then this should be incredibly
   -- quick; essentially one syscall per check. Otherwise, this may take a bit of
   -- time; the watch will yield in this coroutine after 0.01 second, for 0.1 seconds.
   topdir.watch_thread = core.add_thread(function()
     while true do
       topdir.watch:check(function(target)
-        if target == topdir.name then return refresh_directory(topdir, "", true) end	
+        if target == topdir.name then return refresh_directory(topdir, "", true) end
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
         if dirpath then
@@ -339,7 +339,7 @@ function core.add_project_directory(path)
       coroutine.yield(0.05)
     end
   end)
-  
+
   if path == core.project_dir then
     core.project_files = topdir.files
   end
@@ -719,7 +719,18 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
-  
+  core.redraw = true
+  core.visited_files = {}
+  core.restart_request = false
+  core.quit_request = false
+
+  -- We load core views before plugins who may need them.
+  core.root_view = RootView()
+  core.command_view = CommandView()
+  core.status_view = StatusView()
+  core.nag_view = NagView()
+  core.title_view = TitleView()
+
   local got_user_error, got_project_error = not core.load_user_directory()
 
   local project_dir_abs = system.absolute_path(project_dir)
@@ -736,24 +747,13 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs, function() 
+    if not core.set_project_dir(project_dir_abs, function()
       got_project_error = not core.load_project_module()
     end) then
       system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
       os.exit(1)
     end
   end
-
-  core.redraw = true
-  core.visited_files = {}
-  core.restart_request = false
-  core.quit_request = false
-
-  core.root_view = RootView()
-  core.command_view = CommandView()
-  core.status_view = StatusView()
-  core.nag_view = NagView()
-  core.title_view = TitleView()
 
   local cur_node = core.root_view.root_node
   cur_node.is_primary_node = true
