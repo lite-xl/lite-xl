@@ -29,8 +29,13 @@
 typedef struct thread {
   lua_State *L;
   SDL_Thread *ptr;
+  SDL_atomic_t ref;
   int joined;
 } LuaThread;
+
+typedef struct thread_container {
+  LuaThread *thread;
+} ThreadContainer;
 
 typedef struct loadstate {
   struct {
@@ -85,19 +90,28 @@ static const char* reader(lua_State *L, LoadState *state, size_t *size)
   return state->buffer.data;
 }
 
+static void destroy(LuaThread *t)
+{
+  (void)SDL_AtomicDecRef(&t->ref);
+
+  if (SDL_AtomicGet(&t->ref) == 0) {
+    lua_close(t->L);
+    free(t);
+  }
+}
+
 static int callback(LuaThread *t)
 {
   int ret = -1;
 
+  SDL_AtomicIncRef(&t->ref);
+
   if (lua_pcall(t->L, lua_gettop(t->L) - 1, 1, 0) != LUA_OK)
     SDL_LogCritical(SDL_LOG_CATEGORY_SYSTEM, "%s", lua_tostring(t->L, -1));
-
-  // It seems the lua_State is destroyed before we reach this
-  // point which causes a crash when trying to access it so
-  // can not return the value from the thread it self.
-  // ret = lua_tointeger(t->L, -1);
   else
-    ret = 1;
+    ret = lua_tointeger(t->L, -1);
+
+  destroy(t);
 
   return ret;
 }
@@ -133,7 +147,7 @@ static int loadfunction(lua_State *owner, lua_State *thread, int index)
    * If it fails, it pushes the error into the new state, move it to our
    * state.
    */
-  if (lua_load(thread, (lua_Reader)reader, &state, "thread", NULL) != LUA_OK) {
+  if (lua_load(thread, (lua_Reader)reader, &state, "self", NULL) != LUA_OK) {
     lua_pushnil(owner);
     lua_pushstring(owner, lua_tostring(thread, -1));
     ret = 2;
@@ -340,15 +354,17 @@ static int f_thread_create(lua_State *L)
 {
   const char *name = luaL_checkstring(L, 1);
   int ret, iv;
+  LuaThread *thread;
 
-  LuaThread* self = lua_newuserdata(L, sizeof(LuaThread));
-  memset(self, 0, sizeof(LuaThread));
-  luaL_setmetatable(L, API_TYPE_THREAD);
+  if ((thread = calloc(1, sizeof (LuaThread))) == NULL){
+    luaL_error(L, "could not allocate a new thread");
+    return 2;
+  }
 
-  self->L = luaL_newstate();
-  luaL_openlibs(self->L);
+  thread->L = luaL_newstate();
+  luaL_openlibs(thread->L);
 
-  ret = threadDump(L, self->L, 2);
+  ret = threadDump(L, thread->L, 2);
 
   /* If return number is 2, it is nil and the error */
   if (ret == 2)
@@ -357,42 +373,51 @@ static int f_thread_create(lua_State *L)
   /* Iterate over the optional arguments to pass to the callback */
   int optargc = lua_gettop(L);
   for (iv = 3; iv <= optargc; ++iv) {
-    push_from_state(L, self->L, iv);
+    push_from_state(L, thread->L, iv);
   }
 
   /* loading lite-xl api before threadDump and arguments causes issues */
   bool api_loaded = false;
   if (lite_xl_api_load_libs != NULL) {
-    lite_xl_api_load_libs(self->L);
+    lite_xl_api_load_libs(thread->L);
     api_loaded = true;
   }
 
-  luaL_requiref(self->L, "thread", luaopen_thread, 1);
+  luaL_requiref(thread->L, "thread", luaopen_thread, 1);
 
   /* Copy globals from main state to properly set the packages path */
-  copy_global("ARGS", L, self->L);
-  copy_global("PLATFORM", L, self->L);
-  copy_global("EXEFILE", L, self->L);
-  copy_global("HOME", L, self->L);
+  copy_global("ARGS", L, thread->L);
+  copy_global("PLATFORM", L, thread->L);
+  copy_global("EXEFILE", L, thread->L);
+  copy_global("HOME", L, thread->L);
 
 #ifdef __APPLE__
-  copy_global("MACOS_RESOURCES", L, self->L);
+  copy_global("MACOS_RESOURCES", L, thread->L);
 #endif
 
   /* run core.start to initialize package path and cpath */
   if (api_loaded)
-    init_start(self->L);
+    init_start(thread->L);
 
-  self->ptr = SDL_CreateThread((SDL_ThreadFunction)callback, name, self);
-  if (self->ptr == NULL) {
+  /* ref count should be increased before registering the thread to
+   * prevent double free on _gc since the callback can execute really fast */
+  SDL_AtomicIncRef(&thread->ref);
+
+  thread->ptr = SDL_CreateThread((SDL_ThreadFunction)callback, name, thread);
+  if (thread->ptr == NULL) {
     luaL_error(L, SDL_GetError());
     goto failure;
   }
 
+  ThreadContainer* self = lua_newuserdata(L, sizeof(ThreadContainer));
+  luaL_setmetatable(L, API_TYPE_THREAD);
+  self->thread = thread;
+
   return 1;
 
 failure:
-  lua_close(self->L);
+  lua_close(thread->L);
+  free(thread);
 
   return 2;
 }
@@ -408,7 +433,6 @@ failure:
 static int f_thread_get_cpu_count(lua_State *L)
 {
   lua_pushinteger(L, SDL_GetCPUCount());
-
   return 1;
 }
 
@@ -424,7 +448,9 @@ static int f_thread_get_cpu_count(lua_State *L)
  */
 static int m_thread_get_id(lua_State *L)
 {
-  LuaThread* self = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
+  LuaThread* self = ((ThreadContainer*)luaL_checkudata(
+    L, 1, API_TYPE_THREAD
+  ))->thread;
 
   lua_pushinteger(L, SDL_GetThreadID(self->ptr));
 
@@ -439,7 +465,9 @@ static int m_thread_get_id(lua_State *L)
  */
 static int m_thread_get_name(lua_State *L)
 {
-  LuaThread* self = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
+  LuaThread* self = ((ThreadContainer*)luaL_checkudata(
+    L, 1, API_TYPE_THREAD
+  ))->thread;
 
   lua_pushstring(L, SDL_GetThreadName(self->ptr));
 
@@ -454,7 +482,9 @@ static int m_thread_get_name(lua_State *L)
  */
 static int m_thread_wait(lua_State *L)
 {
-  LuaThread* self = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
+  LuaThread* self = ((ThreadContainer*)luaL_checkudata(
+    L, 1, API_TYPE_THREAD
+  ))->thread;
   int status;
 
   SDL_WaitThread(self->ptr, &status);
@@ -474,8 +504,13 @@ static int m_thread_wait(lua_State *L)
  */
 static int mm_thread_eq(lua_State *L)
 {
-  LuaThread* t1 = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
-  LuaThread* t2 = (LuaThread*)luaL_checkudata(L, 2, API_TYPE_THREAD);
+  LuaThread* t1 = ((ThreadContainer*)luaL_checkudata(
+    L, 1, API_TYPE_THREAD
+  ))->thread;
+
+  LuaThread* t2 = ((ThreadContainer*)luaL_checkudata(
+    L, 2, API_TYPE_THREAD
+  ))->thread;
 
   lua_pushboolean(L, t1 == t2);
 
@@ -487,12 +522,18 @@ static int mm_thread_eq(lua_State *L)
  */
 static int mm_thread_gc(lua_State *L)
 {
-  LuaThread* self = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
+  LuaThread* self = ((ThreadContainer*)luaL_checkudata(
+    L, 1, API_TYPE_THREAD
+  ))->thread;
 
 #if SDL_VERSION_ATLEAST(2, 0, 2)
   if (!self->joined)
     SDL_DetachThread(self->ptr);
 #endif
+
+  /* this can take place before or after the thread callback ends
+   * which is why ref counting is needed */
+  destroy(self);
 
   return 0;
 }
@@ -502,7 +543,9 @@ static int mm_thread_gc(lua_State *L)
  */
 static int mm_thread_tostring(lua_State *L)
 {
-  LuaThread* self = (LuaThread*)luaL_checkudata(L, 1, API_TYPE_THREAD);
+  LuaThread* self = ((ThreadContainer*)luaL_checkudata(
+    L, 1, API_TYPE_THREAD
+  ))->thread;
 
   lua_pushfstring(L, "thread %d", SDL_GetThreadID(self->ptr));
 
