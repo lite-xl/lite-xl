@@ -724,13 +724,27 @@ function core.init()
   core.restart_request = false
   core.quit_request = false
 
-  -- We load core views before plugins who may need them.
+  -- We load core views before plugins that may need them.
   core.root_view = RootView()
   core.command_view = CommandView()
   core.status_view = StatusView()
   core.nag_view = NagView()
   core.title_view = TitleView()
 
+  -- Some plugins (eg: console) require the nodes to be initialized to defaults
+  local cur_node = core.root_view.root_node
+  cur_node.is_primary_node = true
+  cur_node:split("up", core.title_view, {y = true})
+  cur_node = cur_node.b
+  cur_node:split("up", core.nag_view, {y = true})
+  cur_node = cur_node.b
+  cur_node = cur_node:split("down", core.command_view, {y = true})
+  cur_node = cur_node:split("down", core.status_view, {y = true})
+
+  -- Load defaiult commands first so plugins can override them
+  command.add_defaults()
+
+  -- Load user module, plugins and project module
   local got_user_error, got_project_error = not core.load_user_directory()
 
   local project_dir_abs = system.absolute_path(project_dir)
@@ -755,16 +769,7 @@ function core.init()
     end
   end
 
-  local cur_node = core.root_view.root_node
-  cur_node.is_primary_node = true
-  cur_node:split("up", core.title_view, {y = true})
-  cur_node = cur_node.b
-  cur_node:split("up", core.nag_view, {y = true})
-  cur_node = cur_node.b
-  cur_node = cur_node:split("down", core.command_view, {y = true})
-  cur_node = cur_node:split("down", core.status_view, {y = true})
-
-  command.add_defaults()
+  -- Load core plugins after user ones to let the user override them
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
