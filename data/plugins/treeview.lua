@@ -186,6 +186,7 @@ end
 
 
 function TreeView:on_mouse_moved(px, py, ...)
+  if not self.visible then return end
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
 
@@ -223,6 +224,7 @@ end
 
 
 function TreeView:on_mouse_pressed(button, x, y, clicks)
+  if not self.visible then return end
   local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught or button ~= "left" then
     return true
@@ -262,6 +264,8 @@ function TreeView:update()
   else
     self:move_towards(self.size, "x", dest)
   end
+
+  if not self.visible then return end
 
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
@@ -372,6 +376,7 @@ end
 
 
 function TreeView:draw()
+  if not self.visible then return end
   self:draw_background(style.background2)
   local _y, _h = self.position.y, self.size.y
 
