@@ -109,7 +109,6 @@ local function strip_trailing_slash(filename)
 end
 
 
-
 function core.project_subdir_is_shown(dir, filename)
   return not dir.files_limit or dir.shown_subdir[filename]
 end
@@ -125,6 +124,7 @@ local function show_max_files_warning(dir)
     core.status_view:show_message("!", style.accent, message)
   end
 end
+
 
 -- bisects the sorted file list to get to things in ln(n)
 local function file_bisect(files, is_superior, start_idx, end_idx)
@@ -143,6 +143,7 @@ local function file_bisect(files, is_superior, start_idx, end_idx)
   return inf
 end
 
+
 local function file_search(files, info)
   local idx = file_bisect(files, function(file)
     return system.path_compare(info.filename, info.type, file.filename, file.type) 
@@ -156,17 +157,6 @@ end
 
 local function files_info_equal(a, b)
   return (a == nil and b == nil) or (a and b and a.filename == b.filename and a.type == b.type)
-end
-
--- for "a" inclusive from i1 + 1 and i1 + n
-local function files_list_match(a, i1, n, b)
-  if n ~= #b then return false end
-  for i = 1, n do
-    if not files_info_equal(a[i1 + i], b[i]) then
-      return false
-    end
-  end
-  return true
 end
 
 
