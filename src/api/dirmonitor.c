@@ -159,7 +159,7 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   #else
     lua_pushnumber(L, watch_id);
   #endif
-  lua_pcall(L, 1, 1, 0);
+  lua_call(L, 1, 1);
   int result = lua_toboolean(L, -1);
   lua_pop(L, 1);
   return !result;
