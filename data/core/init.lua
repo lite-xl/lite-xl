@@ -209,19 +209,17 @@ local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
 end
 
 
-
--- Should be called on any directory that registers a change.
--- Uses relative paths at the project root.
-local function refresh_directory(topdir, target, expanded)
-  local directory_start_idx, directory_end_idx, directory = 1, #topdir.files, ""
+-- Should be called on any directory that registers a change, or on a directory we open if we're over the file limit.
+-- Uses relative paths at the project root (i.e. target = "", target = "/first-level-directory", target = "/first-level-directory/second-level-directory")
+local function refresh_directory(topdir, target)
+  local directory_start_idx, directory_end_idx = 1, #topdir.files
   if target ~= "" then
     directory_start_idx, directory_end_idx = project_subdir_bounds(topdir, target)
     directory_start_idx = directory_start_idx + 1
     directory_end_idx = directory_start_idx + directory_end_idx - 1
-    directory = (PATHSEP .. target)
   end
-  -- Only update the directory if we're exapnded, or under the file limit.
-  local files = (not topdir.files_limit or expanded) and (dirwatch.get_directory_files(topdir, topdir.name, directory, {}, 0, core.project_subdir_is_shown) or {})
+  
+  local files = dirwatch.get_directory_files(topdir, topdir.name, target, {}, 0, function() return false end)
   local change = false
   
   local new_idx, old_idx = 1, directory_start_idx
@@ -244,7 +242,7 @@ local function refresh_directory(topdir, target, expanded)
         directory_end_idx = directory_end_idx + 1
       -- Otherwise, check to see if this file is in the directory we're looking at. If it is, skip it.
       elseif last_dir and common.path_belongs_to(old_info.filename, last_dir) then
-        old_idx, new_idx = old_idx + 1, new_idx + 1
+        old_idx = old_idx + 1
       -- If it's not, remove the entry from the list as being out of order.
       else 
         table.remove(topdir.files, old_idx)
@@ -260,7 +258,9 @@ local function refresh_directory(topdir, target, expanded)
   end
   for i, v in ipairs(new_directories) do 
     topdir.watch:watch(topdir.name .. PATHSEP .. v.filename)
-    refresh_directory(topdir, v.filename)
+    if not topdir.files_limit or core.project_subdir_is_shown(topdir, v.filename) then
+      refresh_directory(topdir, v.filename)
+    end
   end
   if change then
     core.redraw = true
@@ -294,7 +294,7 @@ function core.add_project_directory(path)
     topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
     topdir.files_limit = true
     show_max_files_warning(topdir)
-    refresh_directory(topdir, "", true)
+    refresh_directory(topdir, "")
   else
     for i,v in ipairs(t) do
       if v.type == "dir" then topdir.watch:watch(path .. PATHSEP .. v.filename) end
@@ -309,7 +309,7 @@ function core.add_project_directory(path)
   topdir.watch_thread = core.add_thread(function()
     while true do
       topdir.watch:check(function(target)        
-        if target == topdir.name then return refresh_directory(topdir, "", true) end	
+        if target == topdir.name then return refresh_directory(topdir, "") end	
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
         if dirpath then
@@ -317,7 +317,7 @@ function core.add_project_directory(path)
           local dir_index, dir_match = file_search(topdir.files, {filename = dirpath, type = "dir"})
           if not dir_match or not core.project_subdir_is_shown(topdir, topdir.files[dir_index].filename) then return end
         end
-        return refresh_directory(topdir, dirpath, true)
+        return refresh_directory(topdir, dirpath)
       end, 0.01, 0.01)
       coroutine.yield(0.05)
     end
