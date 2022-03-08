@@ -169,28 +169,6 @@ local function files_list_match(a, i1, n, b)
   return true
 end
 
--- arguments like for files_list_match
-local function files_list_replace(as, i1, n, bs, hook)
-  local m = #bs
-  local i, j = 1, 1
-  while i <= m or i <= n do
-    local a, b = as[i1 + i], bs[j]
-    if i > n or (j <= m and not files_info_equal(a, b) and
-      not system.path_compare(a.filename, a.type, b.filename, b.type))
-    then
-      table.insert(as, i1 + i, b)
-      i, j, n = i + 1, j + 1, n + 1
-      if hook and hook.insert then hook.insert(b) end
-    elseif j > m or system.path_compare(a.filename, a.type, b.filename, b.type) then
-      if hook and hook.remove then hook.remove(as[i1 + i]) end
-      table.remove(as, i1 + i)
-      n = n - 1
-    else
-      i, j = i + 1, j + 1
-    end
-  end
-end
-
 
 local function project_subdir_bounds(dir, filename, start_index)
   local found = true
@@ -387,13 +365,7 @@ end
 function core.update_project_subdir(dir, filename, expanded)
   assert(dir.files_limit, "function should be called only when directory is in files limit mode")
   dir.shown_subdir[filename] = expanded
-  local index, n, file = project_subdir_bounds(dir, filename)
-  if index then
-    local new_files = expanded and dirwatch.get_directory_files(dir, dir.name, PATHSEP .. filename, {}, 0, core.project_subdir_is_shown) or {}
-    files_list_replace(dir.files, index, n, new_files)
-    dir.is_dirty = true
-    return true
-  end
+  return refresh_directory(dir, filename)
 end
 
 
