@@ -216,16 +216,16 @@ end
 
 
 -- Should be called on any directory that registers a change, or on a directory we open if we're over the file limit.
--- Uses relative paths at the project root (i.e. target = "", target = "/first-level-directory", target = "/first-level-directory/second-level-directory")
+-- Uses relative paths at the project root (i.e. target = "", target = "first-level-directory", target = "first-level-directory/second-level-directory")
 local function refresh_directory(topdir, target)
   local directory_start_idx, directory_end_idx = 1, #topdir.files
   if target ~= "" then
     directory_start_idx, directory_end_idx = project_subdir_bounds(topdir, target)
-    directory_start_idx = directory_start_idx + 1
     directory_end_idx = directory_start_idx + directory_end_idx - 1
+    directory_start_idx = directory_start_idx + 1
   end
   
-  local files = dirwatch.get_directory_files(topdir, topdir.name, target, {}, 0, function() return false end)
+  local files = dirwatch.get_directory_files(topdir, topdir.name, (target ~= "" and PATHSEP .. target or target), {}, 0, function() return false end)
   local change = false
   
   local new_idx, old_idx = 1, directory_start_idx
@@ -254,7 +254,7 @@ local function refresh_directory(topdir, target)
       end
     else
       -- If this file is a directory, determine in ln(n) the size of the directory, and skip every file in it.
-      local size = new_info.type == "dir" and select(2, project_subdir_bounds(topdir, new_info.filename, old_idx)) or 1
+      local size = old_info and old_info.type == "dir" and select(2, project_subdir_bounds(topdir, old_info.filename, old_idx)) or 1
       old_idx, new_idx = old_idx + size, new_idx + 1
     end
   end
