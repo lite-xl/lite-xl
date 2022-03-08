@@ -65,6 +65,10 @@ typedef struct channel {
   struct channel* next;
 } Channel;
 
+typedef struct channel_container {
+  Channel* channel;
+} ChannelContainer;
+
 typedef struct channel_list {
   Channel* first;
   Channel** last;
@@ -425,10 +429,11 @@ int f_channel_get(lua_State *L)
 
   SDL_AtomicIncRef(&c->ref);
 
-  SDL_UnlockMutex(ChannelMutex);
-
-  lua_pushlightuserdata(L, c);
+  ChannelContainer* self = lua_newuserdata(L, sizeof(ChannelContainer));
   luaL_setmetatable(L, API_TYPE_CHANNEL);
+  self->channel = c;
+
+  SDL_UnlockMutex(ChannelMutex);
 
   return 1;
 
@@ -460,7 +465,9 @@ fail:
  */
 int m_channel_first(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
   const ChannelValue* v;
 
   if ((v = channelFirst(self)) == NULL)
@@ -479,7 +486,9 @@ int m_channel_first(lua_State *L)
  */
 int m_channel_last(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
   const ChannelValue* v;
 
   if ((v = channelLast(self)) == NULL)
@@ -502,7 +511,9 @@ int m_channel_last(lua_State *L)
  */
 int m_channel_push(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
   ChannelValue* v = channelValueGet(L, 2);
 
   if (v == NULL){
@@ -529,7 +540,9 @@ int m_channel_push(lua_State *L)
  */
 int m_channel_supply(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
   ChannelValue* v = channelValueGet(L, 2);
 
   if (v == NULL) {
@@ -549,7 +562,9 @@ int m_channel_supply(lua_State *L)
  */
 int m_channel_clear(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
 
   channelClear(self);
 
@@ -561,7 +576,9 @@ int m_channel_clear(lua_State *L)
  */
 int m_channel_pop(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
   channelPop(self);
 
   return 0;
@@ -575,7 +592,9 @@ int m_channel_pop(lua_State *L)
  */
 int m_channel_wait(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
   const ChannelValue* v;
 
   if ((v = channelWait(self)) == NULL)
@@ -597,7 +616,9 @@ int m_channel_wait(lua_State *L)
  */
 int mm_channel_gc(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
 
   (void)SDL_AtomicDecRef(&self->ref);
   if (SDL_AtomicGet(&self->ref) == 0)
@@ -611,7 +632,9 @@ int mm_channel_gc(lua_State *L)
  */
 int mm_channel_tostring(lua_State *L)
 {
-  Channel* self = (Channel*)luaL_checkudata(L, 1, API_TYPE_CHANNEL);
+  Channel* self = ((ChannelContainer*)luaL_checkudata(
+    L, 1, API_TYPE_CHANNEL
+  ))->channel;
 
   lua_pushfstring(L, "channel %s", self->name);
 
