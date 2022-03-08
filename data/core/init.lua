@@ -274,7 +274,7 @@ local function refresh_directory(topdir, target, expanded)
       end
     end
     for i, v in ipairs(new_directories) do
-      topdir.watch:watch(target)
+      topdir.watch:watch(topdir.name .. PATHSEP .. (target ~= "" and (target .. PATHSEP) or "") .. v.filename)
       if refresh_directory(topdir, target .. PATHSEP .. v.filename) then
         change = true
       end
