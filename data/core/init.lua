@@ -126,25 +126,31 @@ local function show_max_files_warning(dir)
   end
 end
 
-
-local function file_search(files, info)
-  local filename, type = info.filename, info.type
-  local inf, sup = 1, #files
+-- bisects the sorted file list to get to things in ln(n)
+local function file_bisect(files, is_superior, start_idx, end_idx)
+  local inf, sup = start_idx or 1, end_idx or #files
   while sup - inf > 8 do
     local curr = math.floor((inf + sup) / 2)
-    if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
+    if is_superior(files[curr]) then
       sup = curr - 1
     else
       inf = curr
     end
   end
-  while inf <= sup and not system.path_compare(filename, type, files[inf].filename, files[inf].type) do
-    if files[inf].filename == filename then
-      return inf, true
-    end
+  while inf <= sup and not is_superior(files[inf]) do
     inf = inf + 1
   end
-  return inf, false
+  return inf
+end
+
+local function file_search(files, info)
+  local idx = file_bisect(files, function(file)
+    return system.path_compare(info.filename, info.type, file.filename, file.type) 
+  end)
+  if idx > 1 and files[idx-1].filename == info.filename then
+    return idx - 1, true
+  end
+  return idx, false
 end
 
 
@@ -186,16 +192,16 @@ local function files_list_replace(as, i1, n, bs, hook)
 end
 
 
-local function project_subdir_bounds(dir, filename)
-  for start_index, file in ipairs(dir.files) do
-    if file.filename == filename then
-      for end_index = start_index + 1, #dir.files do
-        if not common.path_belongs_to(dir.files[end_index].filename, filename) then
-           return start_index, end_index - start_index - 1, file
-        end
-      end
-      return start_index, #dir.files - start_index + 1, file
-    end
+local function project_subdir_bounds(dir, filename, start_index)
+  local found = true
+  if not start_index then
+    start_index, found = file_search(dir.files, { type = "dir", filename = filename })
+  end
+  if found then
+    local end_index = file_bisect(dir.files, function(file)
+      return not common.path_belongs_to(file.filename, filename)
+    end, start_index + 1)
+    return start_index, end_index - start_index, dir.files[start_index]
   end
 end
 
@@ -224,7 +230,6 @@ local function refresh_directory(topdir, target)
   
   local new_idx, old_idx = 1, directory_start_idx
   local new_directories = {}
-  local last_dir = nil
   -- Run through each sorted list and compare them. If we find a new entry, insert it and flag as new. If we're missing an entry
   -- remove it and delete the entry from the list.
   while old_idx <= directory_end_idx or new_idx <= #files do 
@@ -237,14 +242,10 @@ local function refresh_directory(topdir, target)
         old_idx, new_idx = old_idx + 1, new_idx + 1
         if new_info.type == "dir" then
           table.insert(new_directories, new_info)
-          last_dir = new_info.filename
         end
         directory_end_idx = directory_end_idx + 1
-      -- Otherwise, check to see if this file is in the directory we're looking at. If it is, skip it.
-      elseif last_dir and common.path_belongs_to(old_info.filename, last_dir) then
-        old_idx = old_idx + 1
-      -- If it's not, remove the entry from the list as being out of order.
-      else 
+      else
+      -- If it's not there, remove the entry from the list as being out of order. 
         table.remove(topdir.files, old_idx)
         if old_info.type == "dir" then
           topdir.watch:unwatch(topdir.name .. PATHSEP .. old_info.filename)
@@ -252,8 +253,9 @@ local function refresh_directory(topdir, target)
         directory_end_idx = directory_end_idx - 1
       end
     else
-      old_idx, new_idx = old_idx + 1, new_idx + 1
-      last_dir = new_info and new_info.type == "dir" and new_info.filename
+      -- If this file is a directory, determine in ln(n) the size of the directory, and skip every file in it.
+      local size = new_info.type == "dir" and select(2, project_subdir_bounds(topdir, new_info.filename, old_idx)) or 1
+      old_idx, new_idx = old_idx + size, new_idx + 1
     end
   end
   for i, v in ipairs(new_directories) do 
