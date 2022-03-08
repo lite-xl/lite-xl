@@ -130,7 +130,7 @@ int add_dirmonitor(struct dirmonitor* monitor, const char* path) {
     monitor->handle = NULL;
     return -1;
   #elif __linux__
-    return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MOVED_FROM);
+    return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
   #else
     int fd = open(path, O_RDONLY);
     struct kevent change;

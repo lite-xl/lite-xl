@@ -174,27 +174,25 @@ local function project_subdir_bounds(dir, filename, start_index)
 end
 
 
--- Predicate function to inhibit directory recursion in get_directory_files
--- based on a time limit and the number of files.
-local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
-  local n_limit = entries_count <= config.max_project_files
-  local t_limit = t_elapsed < 20 / config.fps
-  return n_limit and t_limit and core.project_subdir_is_shown(dir, filename)
-end
-
-
 -- Should be called on any directory that registers a change, or on a directory we open if we're over the file limit.
 -- Uses relative paths at the project root (i.e. target = "", target = "first-level-directory", target = "first-level-directory/second-level-directory")
 local function refresh_directory(topdir, target)
   local directory_start_idx, directory_end_idx = 1, #topdir.files
-  if target ~= "" then
+  if target and target ~= "" then
     directory_start_idx, directory_end_idx = project_subdir_bounds(topdir, target)
     directory_end_idx = directory_start_idx + directory_end_idx - 1
     directory_start_idx = directory_start_idx + 1
   end
   
-  local files = dirwatch.get_directory_files(topdir, topdir.name, (target ~= "" and PATHSEP .. target or target), {}, 0, function() return false end)
+  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), {}, 0, function() return false end)
   local change = false
+  
+  -- If this file doesn't exist, we should be calling this on our parent directory, assume we'll do that.
+  -- Unwatch just in case.
+  if files == nil then 
+    topdir.watch:unwatch(topdir.name .. PATHSEP .. (target or ""))
+    return true 
+  end
   
   local new_idx, old_idx = 1, directory_start_idx
   local new_directories = {}
@@ -240,6 +238,15 @@ local function refresh_directory(topdir, target)
 end
 
 
+-- Predicate function to inhibit directory recursion in get_directory_files
+-- based on a time limit and the number of files.
+local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
+  local n_limit = entries_count <= config.max_project_files
+  local t_limit = t_elapsed < 20 / config.fps
+  return n_limit and t_limit and core.project_subdir_is_shown(dir, filename)
+end
+
+
 function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
@@ -264,7 +271,7 @@ function core.add_project_directory(path)
     topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
     topdir.files_limit = true
     show_max_files_warning(topdir)
-    refresh_directory(topdir, "")
+    refresh_directory(topdir)
   else
     for i,v in ipairs(t) do
       if v.type == "dir" then topdir.watch:watch(path .. PATHSEP .. v.filename) end
@@ -278,8 +285,8 @@ function core.add_project_directory(path)
   -- time; the watch will yield in this coroutine after 0.01 second, for 0.1 seconds.
   topdir.watch_thread = core.add_thread(function()
     while true do
-      topdir.watch:check(function(target)        
-        if target == topdir.name then return refresh_directory(topdir, "") end	
+      topdir.watch:check(function(target)
+        if target == topdir.name then return refresh_directory(topdir) end	
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
         if dirpath then
