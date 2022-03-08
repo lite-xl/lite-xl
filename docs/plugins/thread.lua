@@ -3,7 +3,7 @@
 ---
 ---Provides threading for lite-xl.
 ---@class thread
-local thread = {}
+thread = {}
 
 ---
 ---A thread object.
