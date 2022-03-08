@@ -343,12 +343,16 @@ static void channelPop(Channel* c)
     return;
   }
 
-  ChannelValue* first = c->queue.first;
+  ChannelValue* previous_first = c->queue.first;
 
-  c->queue.first = c->queue.first->next;
-  c->queue.last = &c->queue.first;
+  c->queue.first = previous_first->next;
 
-  channelValueFree(first);
+  if (!c->queue.first)
+    c->queue.last = &c->queue.first;
+  else if(!c->queue.first->next)
+    c->queue.last = &c->queue.first->next;
+
+  channelValueFree(previous_first);
 
   SDL_UnlockMutex(c->mutex);
   SDL_CondBroadcast(c->cond);
