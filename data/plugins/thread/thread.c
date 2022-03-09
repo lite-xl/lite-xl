@@ -19,7 +19,6 @@
 
 #include "channel.h"
 
-#include <SDL.h>
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
@@ -611,6 +610,10 @@ int luaopen_thread(lua_State *L) {
 int luaopen_lite_xl_thread(lua_State *L, void* (*api_require)(char *)) {
   lite_xl_api_require = api_require;
   lite_xl_api_load_libs = api_require("api_load_libs");
+
+  if (!ChannelsListMutex) {
+    ChannelsListMutex = SDL_CreateMutex();
+  }
 
   return luaopen_thread(L);
 }

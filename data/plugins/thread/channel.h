@@ -1,6 +1,10 @@
+#include <SDL.h>
+
 #include "api/api.h"
 
 #define API_TYPE_CHANNEL "Channel"
+
+extern SDL_mutex* ChannelsListMutex;
 
 // channel table functions
 int f_channel_get(lua_State*);

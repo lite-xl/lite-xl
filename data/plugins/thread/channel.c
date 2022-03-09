@@ -18,7 +18,6 @@
 
 #include "channel.h"
 
-#include <SDL.h>
 #include <errno.h>
 #include <string.h>
 
@@ -77,8 +76,8 @@ typedef struct channel_list {
 /* Global list of registered channels */
 static ChannelList g_channels = { NULL, &(g_channels).first };
 
-/* Mutex initialized at SDL loading */
-SDL_mutex* ChannelMutex = NULL;
+/* Mutex initialized when plugin is loaded */
+SDL_mutex* ChannelsListMutex = NULL;
 
 /* --------------------------------------------------------
  * Channel private functions
@@ -368,7 +367,7 @@ static void removeChannelFromList(Channel* c)
 {
   Channel* first = g_channels.first;
 
-  SDL_LockMutex(ChannelMutex);
+  SDL_LockMutex(ChannelsListMutex);
 
   if (c == first && first->next == NULL) {
     g_channels.first = NULL;
@@ -392,7 +391,7 @@ static void removeChannelFromList(Channel* c)
     }
   }
 
-  SDL_UnlockMutex(ChannelMutex);
+  SDL_UnlockMutex(ChannelsListMutex);
 }
 
 static void channelFree(Channel* c)
@@ -429,7 +428,7 @@ int f_channel_get(lua_State *L)
   Channel *c;
   int found = 0;
 
-  SDL_LockMutex(ChannelMutex);
+  SDL_LockMutex(ChannelsListMutex);
 
   for (c = g_channels.first; c; c = c->next) {
     if (strcmp(c->name, name) == 0) {
@@ -474,7 +473,7 @@ int f_channel_get(lua_State *L)
   luaL_setmetatable(L, API_TYPE_CHANNEL);
   self->channel = c;
 
-  SDL_UnlockMutex(ChannelMutex);
+  SDL_UnlockMutex(ChannelsListMutex);
 
   return 1;
 
@@ -487,7 +486,7 @@ fail:
   free(c->name);
   free(c);
 
-  SDL_UnlockMutex(ChannelMutex);
+  SDL_UnlockMutex(ChannelsListMutex);
 
   luaL_error(L, error_message);
 
