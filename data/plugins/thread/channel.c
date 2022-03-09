@@ -74,6 +74,12 @@ typedef struct channel_list {
   Channel** last;
 } ChannelList;
 
+/* Global list of registered channels */
+static ChannelList g_channels = { NULL, &(g_channels).first };
+
+/* Mutex initialized at SDL loading */
+SDL_mutex* ChannelMutex = NULL;
+
 /* --------------------------------------------------------
  * Channel private functions
  * -------------------------------------------------------- */
@@ -358,25 +364,53 @@ static void channelPop(Channel* c)
   SDL_CondBroadcast(c->cond);
 }
 
+static void removeChannelFromList(Channel* c)
+{
+  Channel* first = g_channels.first;
+
+  SDL_LockMutex(ChannelMutex);
+
+  if (c == first && first->next == NULL) {
+    g_channels.first = NULL;
+    g_channels.last = &g_channels.first;
+  }
+  else if (c == first) {
+    g_channels.first = c->next;
+  } else {
+    Channel* prev = first;
+    for (Channel* ch = first->next; ch; ch = ch->next) {
+      if (strcmp(ch->name, c->name) == 0) {
+        break;
+      }
+      prev = ch;
+    }
+    if (c->next == NULL) {
+      prev->next = NULL;
+      g_channels.last = &prev->next;
+    } else {
+      prev->next = c->next;
+    }
+  }
+
+  SDL_UnlockMutex(ChannelMutex);
+}
+
 static void channelFree(Channel* c)
 {
+  removeChannelFromList(c);
+
   channelClear(c);
 
   SDL_DestroyMutex(c->mutex);
   SDL_DestroyCond(c->cond);
 
   free(c->name);
-  /* free(c); lua should do this free for us */
+  free(c);
 }
 
 /* --------------------------------------------------------
  * Channel functions
  * -------------------------------------------------------- */
-
-static ChannelList g_channels = { NULL, &(g_channels).first };
-
-/* Mutex initialized at SDL loading */
-SDL_mutex* ChannelMutex = NULL;
 
 /*
  * channel.get(name)
