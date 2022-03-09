@@ -93,14 +93,19 @@ int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, con
     return 0;
   #elif __linux__
     char buf[PATH_MAX + sizeof(struct inotify_event)];
+    ssize_t offset = 0;
     while (1) {
-      ssize_t len = read(monitor->fd, buf, sizeof(buf));
+      ssize_t len = read(monitor->fd, &buf[offset], sizeof(buf) - offset);
       if (len == -1 && errno != EAGAIN)
         return errno;
       if (len <= 0)
         return 0;
-      for (char *ptr = buf; ptr < buf + len; ptr += sizeof(struct inotify_event) + ((struct inotify_event*)ptr)->len)
-        change_callback(((const struct inotify_event *) ptr)->wd, NULL, data);
+      while (len > sizeof(struct inotify_event) && len >= ((struct inotify_event*)buf)->len + sizeof(struct inotify_event)) {
+        change_callback(((const struct inotify_event *)buf)->wd, NULL, data);
+        len -= sizeof(struct inotify_event) + ((struct inotify_event*)buf)->len;
+        memmove(buf, &buf[sizeof(struct inotify_event) + ((struct inotify_event*)buf)->len], len);
+        offset = len;
+      }
     }
   #else
     struct kevent event;
@@ -146,6 +151,7 @@ void remove_dirmonitor(struct dirmonitor* monitor, int fd) {
 }
 
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
+  lua_pushvalue(L, -1);
   #if _WIN32
     char buffer[PATH_MAX*4];
     int count = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)path, watch_id, buffer, PATH_MAX*4 - 1, NULL, NULL);
@@ -153,7 +159,7 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   #else
     lua_pushnumber(L, watch_id);
   #endif
-  lua_pcall(L, 1, 1, 0);
+  lua_call(L, 1, 1);
   int result = lua_toboolean(L, -1);
   lua_pop(L, 1);
   return !result;

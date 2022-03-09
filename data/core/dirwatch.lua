@@ -30,7 +30,7 @@ end
 -- Should be called on every directory in a subdirectory.
 -- In windows, this is a no-op for anything underneath a top-level directory,
 -- but code should be called anyway, so we can ensure that we have a proper
--- experience across all platforms.
+-- experience across all platforms. Should be an absolute path.
 function dirwatch:watch(directory, bool)
   if bool == false then return self:unwatch(directory) end
   if not self.watched[directory] and not self.scanned[directory] then
@@ -64,16 +64,17 @@ function dirwatch:watch(directory, bool)
   end
 end
 
+-- this should be an absolute path
 function dirwatch:unwatch(directory)
   if self.watched[directory] then
     if PLATFORM ~= "Windows" then
-      self.monitor.unwatch(directory)
-      self.reverse_watched[self.watched[directory]] = nil
+      self.monitor:unwatch(self.watched[directory])
+      self.reverse_watched[directory] = nil
     else
       self.windows_watch_count = self.windows_watch_count - 1
       if self.windows_watch_count == 0 then
         self.windows_watch_top = nil
-        self.monitor.unwatch(directory)
+        self.monitor:unwatch(directory)
       end
     end
     self.watched[directory] = nil
@@ -107,10 +108,6 @@ function dirwatch:check(change_callback, scan_time, wait_time)
   end
 end
 
-
-local function strip_leading_path(filename)
-    return filename:sub(2)
-end
 
 -- inspect config.ignore_files patterns and prepare ready to use entries.
 local function compile_ignore_files()
@@ -162,33 +159,36 @@ end
 -- compute a file's info entry completed with "filename" to be used
 -- in project scan or falsy if it shouldn't appear in the list.
 local function get_project_file_info(root, file, ignore_compiled)
-  local info = system.get_file_info(root .. file)
+  local info = system.get_file_info(root .. PATHSEP .. file)
   -- info can be not nil but info.type may be nil if is neither a file neither
   -- a directory, for example for /dev/* entries on linux.
   if info and info.type then
-    info.filename = strip_leading_path(file)
+    info.filename = file
     return fileinfo_pass_filter(info, ignore_compiled) and info
   end
 end
 
 
 -- "root" will by an absolute path without trailing '/'
--- "path" will be a path starting with '/' and without trailing '/'
+-- "path" will be a path starting without '/' and without trailing '/'
 --    or the empty string.
 --    It will identifies a sub-path within "root.
 -- The current path location will therefore always be: root .. path.
 -- When recursing "root" will always be the same, only "path" will change.
--- Returns a list of file "items". In eash item the "filename" will be the
--- complete file path relative to "root" *without* the trailing '/'.
+-- Returns a list of file "items". In each item the "filename" will be the
+-- complete file path relative to "root" *without* the trailing '/', and without the starting '/'.
 function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse_pred)
   local t0 = system.get_time()
-  local all = system.list_dir(root .. path) or {}
   local t_elapsed = system.get_time() - t0
   local dirs, files = {}, {}
   local ignore_compiled = compile_ignore_files()
 
-  for _, file in ipairs(all) do
-    local info = get_project_file_info(root, path .. PATHSEP .. file, ignore_compiled)
+
+  local all = system.list_dir(root .. PATHSEP .. path)
+  if not all then return nil end
+
+  for _, file in ipairs(all or {}) do
+    local info = get_project_file_info(root, (path ~= "" and (path .. PATHSEP) or "") .. file, ignore_compiled)
     if info then
       table.insert(info.type == "dir" and dirs or files, info)
       entries_count = entries_count + 1
@@ -200,7 +200,7 @@ function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse
   for _, f in ipairs(dirs) do
     table.insert(t, f)
     if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
-      local _, complete, n = dirwatch.get_directory_files(dir, root, PATHSEP .. f.filename, t, entries_count, recurse_pred)
+      local _, complete, n = dirwatch.get_directory_files(dir, root, f.filename, t, entries_count, recurse_pred)
       recurse_complete = recurse_complete and complete
       entries_count = n
     else

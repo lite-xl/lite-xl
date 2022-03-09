@@ -109,7 +109,6 @@ local function strip_trailing_slash(filename)
 end
 
 
-
 function core.project_subdir_is_shown(dir, filename)
   return not dir.files_limit or dir.shown_subdir[filename]
 end
@@ -127,80 +126,115 @@ local function show_max_files_warning(dir)
 end
 
 
-local function file_search(files, info)
-  local filename, type = info.filename, info.type
-  local inf, sup = 1, #files
+-- bisects the sorted file list to get to things in ln(n)
+local function file_bisect(files, is_superior, start_idx, end_idx)
+  local inf, sup = start_idx or 1, end_idx or #files
   while sup - inf > 8 do
     local curr = math.floor((inf + sup) / 2)
-    if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
+    if is_superior(files[curr]) then
       sup = curr - 1
     else
       inf = curr
     end
   end
-  while inf <= sup and not system.path_compare(filename, type, files[inf].filename, files[inf].type) do
-    if files[inf].filename == filename then
-      return inf, true
-    end
+  while inf <= sup and not is_superior(files[inf]) do
     inf = inf + 1
   end
-  return inf, false
+  return inf
+end
+
+
+local function file_search(files, info)
+  local idx = file_bisect(files, function(file)
+    return system.path_compare(info.filename, info.type, file.filename, file.type) 
+  end)
+  if idx > 1 and files[idx-1].filename == info.filename then
+    return idx - 1, true
+  end
+  return idx, false
 end
 
 
 local function files_info_equal(a, b)
-  return a.filename == b.filename and a.type == b.type
+  return (a == nil and b == nil) or (a and b and a.filename == b.filename and a.type == b.type)
 end
 
--- for "a" inclusive from i1 + 1 and i1 + n
-local function files_list_match(a, i1, n, b)
-  if n ~= #b then return false end
-  for i = 1, n do
-    if not files_info_equal(a[i1 + i], b[i]) then
-      return false
-    end
+
+local function project_subdir_bounds(dir, filename, start_index)
+  local found = true
+  if not start_index then
+    start_index, found = file_search(dir.files, { type = "dir", filename = filename })
   end
-  return true
-end
-
--- arguments like for files_list_match
-local function files_list_replace(as, i1, n, bs, hook)
-  local m = #bs
-  local i, j = 1, 1
-  while i <= m or i <= n do
-    local a, b = as[i1 + i], bs[j]
-    if i > n or (j <= m and not files_info_equal(a, b) and
-      not system.path_compare(a.filename, a.type, b.filename, b.type))
-    then
-      table.insert(as, i1 + i, b)
-      i, j, n = i + 1, j + 1, n + 1
-      if hook and hook.insert then hook.insert(b) end
-    elseif j > m or system.path_compare(a.filename, a.type, b.filename, b.type) then
-      if hook and hook.remove then hook.remove(as[i1 + i]) end
-      table.remove(as, i1 + i)
-      n = n - 1
-    else
-      i, j = i + 1, j + 1
-    end
+  if found then
+    local end_index = file_bisect(dir.files, function(file)
+      return not common.path_belongs_to(file.filename, filename)
+    end, start_index + 1)
+    return start_index, end_index - start_index, dir.files[start_index]
   end
 end
 
 
-local function project_subdir_bounds(dir, filename)
-  local index, n = 0, #dir.files
-  for i, file in ipairs(dir.files) do
-    local file = dir.files[i]
-    if file.filename == filename then
-      index, n = i, #dir.files - i
-      for j = 1, #dir.files - i do
-        if not common.path_belongs_to(dir.files[i + j].filename, filename) then
-          n = j - 1
-          break
+-- Should be called on any directory that registers a change, or on a directory we open if we're over the file limit.
+-- Uses relative paths at the project root (i.e. target = "", target = "first-level-directory", target = "first-level-directory/second-level-directory")
+local function refresh_directory(topdir, target)
+  local directory_start_idx, directory_end_idx = 1, #topdir.files
+  if target and target ~= "" then
+    directory_start_idx, directory_end_idx = project_subdir_bounds(topdir, target)
+    directory_end_idx = directory_start_idx + directory_end_idx - 1
+    directory_start_idx = directory_start_idx + 1
+  end
+  
+  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), {}, 0, function() return false end)
+  local change = false
+  
+  -- If this file doesn't exist, we should be calling this on our parent directory, assume we'll do that.
+  -- Unwatch just in case.
+  if files == nil then 
+    topdir.watch:unwatch(topdir.name .. PATHSEP .. (target or ""))
+    return true 
+  end
+  
+  local new_idx, old_idx = 1, directory_start_idx
+  local new_directories = {}
+  -- Run through each sorted list and compare them. If we find a new entry, insert it and flag as new. If we're missing an entry
+  -- remove it and delete the entry from the list.
+  while old_idx <= directory_end_idx or new_idx <= #files do 
+    local old_info, new_info = topdir.files[old_idx], files[new_idx]
+    if not files_info_equal(new_info, old_info) then
+      change = true
+      -- If we're a new file, and we exist *before* the other file in the list, then add to the list.
+      if not old_info or (new_info and system.path_compare(new_info.filename, new_info.type, old_info.filename, old_info.type)) then
+        table.insert(topdir.files, old_idx, new_info)
+        old_idx, new_idx = old_idx + 1, new_idx + 1
+        if new_info.type == "dir" then
+          table.insert(new_directories, new_info)
         end
+        directory_end_idx = directory_end_idx + 1
+      else
+      -- If it's not there, remove the entry from the list as being out of order. 
+        table.remove(topdir.files, old_idx)
+        if old_info.type == "dir" then
+          topdir.watch:unwatch(topdir.name .. PATHSEP .. old_info.filename)
+        end
+        directory_end_idx = directory_end_idx - 1
       end
-      return index, n, file
+    else
+      -- If this file is a directory, determine in ln(n) the size of the directory, and skip every file in it.
+      local size = old_info and old_info.type == "dir" and select(2, project_subdir_bounds(topdir, old_info.filename, old_idx)) or 1
+      old_idx, new_idx = old_idx + size, new_idx + 1
     end
   end
+  for i, v in ipairs(new_directories) do 
+    topdir.watch:watch(topdir.name .. PATHSEP .. v.filename)
+    if not topdir.files_limit or core.project_subdir_is_shown(topdir, v.filename) then
+      refresh_directory(topdir, v.filename)
+    end
+  end
+  if change then
+    core.redraw = true
+    topdir.is_dirty = true
+  end
+  return change
 end
 
 
@@ -212,80 +246,6 @@ local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
   return n_limit and t_limit and core.project_subdir_is_shown(dir, filename)
 end
 
-
-
--- Should be called on any directory that registers a change.
--- Uses relative paths at the project root.
-local function refresh_directory(topdir, target, expanded)
-  local index, n, directory
-  if target == "" then
-    index, n = 1, #topdir.files
-    directory = ""
-  else
-    index, n = project_subdir_bounds(topdir, target)
-    index = index + 1
-    n = index + n - 1
-    directory =  (PATHSEP .. target)
-  end
-  if index then
-    local files
-    local change = false
-    if topdir.files_limit then
-      -- If we have the folders literally open on the side panel.
-      files = expanded and dirwatch.get_directory_files(topdir, topdir.name, directory, {}, 0, core.project_subdir_is_shown) or {}
-      change = true
-    else
-      -- If we're expecting to keep track of everything, go through the list and iteratively deal with directories.
-      files = dirwatch.get_directory_files(topdir, topdir.name, directory, {}, 0, function() return false end)
-    end
-
-    local new_idx, old_idx = 1, index
-    local new_directories = {}
-    local last_dir = nil
-    while old_idx <= n or new_idx <= #files do
-      local old_info, new_info = topdir.files[old_idx], files[new_idx]
-      if not new_info or not old_info or not last_dir or old_info.filename:sub(1, #last_dir + 1) ~= last_dir .. "/" then
-        if not new_info or not old_info or not files_info_equal(new_info, old_info) then
-          change = true
-          if not old_info or (new_info and system.path_compare(new_info.filename, new_info.type, old_info.filename, old_info.type)) then
-            table.insert(topdir.files, old_idx, new_info)
-            new_idx = new_idx + 1
-            old_idx = old_idx + 1
-            if new_info.type == "dir" then
-              table.insert(new_directories, new_info)
-            end
-            n = n + 1
-          else
-            table.remove(topdir.files, old_idx)
-            if old_info.type == "dir" then
-              topdir.watch:unwatch(target .. PATHSEP .. old_info.filename)
-            end
-            n = n - 1
-          end
-        else
-          new_idx = new_idx + 1
-          old_idx = old_idx + 1
-        end
-        if old_info and old_info.type == "dir" then
-          last_dir = old_info.filename
-        end
-      else
-        old_idx = old_idx + 1
-      end
-    end
-    for i, v in ipairs(new_directories) do
-      topdir.watch:watch(target)
-      if refresh_directory(topdir, target .. PATHSEP .. v.filename) then
-        change = true
-      end
-    end
-    if change then
-      core.redraw = true
-      topdir.is_dirty = true
-    end
-    return change
-  end
-end
 
 function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
@@ -311,7 +271,7 @@ function core.add_project_directory(path)
     topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
     topdir.files_limit = true
     show_max_files_warning(topdir)
-    refresh_directory(topdir, "", true)
+    refresh_directory(topdir)
   else
     for i,v in ipairs(t) do
       if v.type == "dir" then topdir.watch:watch(path .. PATHSEP .. v.filename) end
@@ -326,7 +286,7 @@ function core.add_project_directory(path)
   topdir.watch_thread = core.add_thread(function()
     while true do
       topdir.watch:check(function(target)
-        if target == topdir.name then return refresh_directory(topdir, "", true) end
+        if target == topdir.name then return refresh_directory(topdir) end	
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
         if dirpath then
@@ -334,7 +294,7 @@ function core.add_project_directory(path)
           local dir_index, dir_match = file_search(topdir.files, {filename = dirpath, type = "dir"})
           if not dir_match or not core.project_subdir_is_shown(topdir, topdir.files[dir_index].filename) then return end
         end
-        return refresh_directory(topdir, dirpath, true)
+        return refresh_directory(topdir, dirpath)
       end, 0.01, 0.01)
       coroutine.yield(0.05)
     end
@@ -402,13 +362,7 @@ end
 function core.update_project_subdir(dir, filename, expanded)
   assert(dir.files_limit, "function should be called only when directory is in files limit mode")
   dir.shown_subdir[filename] = expanded
-  local index, n, file = project_subdir_bounds(dir, filename)
-  if index then
-    local new_files = expanded and dirwatch.get_directory_files(dir, dir.name, PATHSEP .. filename, {}, 0, core.project_subdir_is_shown) or {}
-    files_list_replace(dir.files, index, n, new_files)
-    dir.is_dirty = true
-    return true
-  end
+  return refresh_directory(dir, filename)
 end
 
 
