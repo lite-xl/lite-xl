@@ -5,6 +5,7 @@ local config = require "core.config"
 local style = require "core.style"
 local command
 local keymap
+local dirwatch
 local RootView
 local StatusView
 local TitleView
@@ -62,23 +63,6 @@ function core.set_project_dir(new_dir, change_project_fn)
   return chdir_ok
 end
 
-function core.close_current_project()
-  -- When using system.unwatch_dir we need to pass the watch_id provided by dmon.
-  -- In reality when unwatching a directory the dmon library shifts the other watch_id
-  -- values so the actual watch_id changes. To workaround this problem we assume the
-  -- first watch_id is always 1 and the watch_id are continguous and we unwatch the
-  -- first watch_id repeateadly up to the number of watch_ids.
-  local watch_id_max = 0
-  for _, project_dir in ipairs(core.project_directories) do
-    if project_dir.watch_id and project_dir.watch_id > watch_id_max then
-      watch_id_max = project_dir.watch_id
-    end
-  end
-  for i = 1, watch_id_max do
-    system.unwatch_dir(1)
-  end
-end
-
 
 local function reload_customizations()
   -- The logic is:
@@ -124,66 +108,133 @@ local function strip_trailing_slash(filename)
   return filename
 end
 
-local function compare_file(a, b)
-  return a.filename < b.filename
+
+function core.project_subdir_is_shown(dir, filename)
+  return not dir.files_limit or dir.shown_subdir[filename]
 end
 
 
--- inspect config.ignore_files patterns and prepare ready to use entries.
-local function compile_ignore_files()
-  local ipatterns = config.ignore_files
-  local compiled = {}
-  -- config.ignore_files could be a simple string...
-  if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
-  for i, pattern in ipairs(ipatterns) do
-    compiled[i] = {
-      use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
-      -- An '/' or '/$' at the end means we want to match a directory.
-      match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
-      pattern = pattern -- get the actual pattern
-    }
+local function show_max_files_warning(dir)
+  local message = dir.slow_filesystem and
+    "Filesystem is too slow: project files will not be indexed." or
+    "Too many files in project directory: stopped reading at "..
+    config.max_project_files.." files. For more information see "..
+    "usage.md at https://github.com/lite-xl/lite-xl."
+  if core.status_view then
+    core.status_view:show_message("!", style.accent, message)
   end
-  return compiled
 end
 
 
-local function safe_match(s, pattern)
-  local ok, match = pcall(string.match, s, pattern)
-  return ok and match
-end
-
-
-local function fileinfo_pass_filter(info, ignore_compiled)
-  if info.size >= config.file_size_limit * 1e6 then return false end
-  local basename = common.basename(info.filename)
-  -- replace '\' with '/' for Windows where PATHSEP = '\'
-  local fullname = "/" .. info.filename:gsub("\\", "/")
-  for _, compiled in ipairs(ignore_compiled) do
-    local test = compiled.use_path and fullname or basename
-    if compiled.match_dir then
-      if info.type == "dir" and safe_match(test .. "/", compiled.pattern) then
-        return false
-      end
+-- bisects the sorted file list to get to things in ln(n)
+local function file_bisect(files, is_superior, start_idx, end_idx)
+  local inf, sup = start_idx or 1, end_idx or #files
+  while sup - inf > 8 do
+    local curr = math.floor((inf + sup) / 2)
+    if is_superior(files[curr]) then
+      sup = curr - 1
     else
-      if safe_match(test, compiled.pattern) then
-        return false
-      end
+      inf = curr
     end
   end
-  return true
+  while inf <= sup and not is_superior(files[inf]) do
+    inf = inf + 1
+  end
+  return inf
 end
 
 
--- compute a file's info entry completed with "filename" to be used
--- in project scan or falsy if it shouldn't appear in the list.
-local function get_project_file_info(root, file, ignore_compiled)
-  local info = system.get_file_info(root .. file)
-  -- info can be not nil but info.type may be nil if is neither a file neither
-  -- a directory, for example for /dev/* entries on linux.
-  if info and info.type then
-    info.filename = strip_leading_path(file)
-    return fileinfo_pass_filter(info, ignore_compiled) and info
+local function file_search(files, info)
+  local idx = file_bisect(files, function(file)
+    return system.path_compare(info.filename, info.type, file.filename, file.type) 
+  end)
+  if idx > 1 and files[idx-1].filename == info.filename then
+    return idx - 1, true
   end
+  return idx, false
+end
+
+
+local function files_info_equal(a, b)
+  return (a == nil and b == nil) or (a and b and a.filename == b.filename and a.type == b.type)
+end
+
+
+local function project_subdir_bounds(dir, filename, start_index)
+  local found = true
+  if not start_index then
+    start_index, found = file_search(dir.files, { type = "dir", filename = filename })
+  end
+  if found then
+    local end_index = file_bisect(dir.files, function(file)
+      return not common.path_belongs_to(file.filename, filename)
+    end, start_index + 1)
+    return start_index, end_index - start_index, dir.files[start_index]
+  end
+end
+
+
+-- Should be called on any directory that registers a change, or on a directory we open if we're over the file limit.
+-- Uses relative paths at the project root (i.e. target = "", target = "first-level-directory", target = "first-level-directory/second-level-directory")
+local function refresh_directory(topdir, target)
+  local directory_start_idx, directory_end_idx = 1, #topdir.files
+  if target and target ~= "" then
+    directory_start_idx, directory_end_idx = project_subdir_bounds(topdir, target)
+    directory_end_idx = directory_start_idx + directory_end_idx - 1
+    directory_start_idx = directory_start_idx + 1
+  end
+  
+  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), {}, 0, function() return false end)
+  local change = false
+  
+  -- If this file doesn't exist, we should be calling this on our parent directory, assume we'll do that.
+  -- Unwatch just in case.
+  if files == nil then 
+    topdir.watch:unwatch(topdir.name .. PATHSEP .. (target or ""))
+    return true 
+  end
+  
+  local new_idx, old_idx = 1, directory_start_idx
+  local new_directories = {}
+  -- Run through each sorted list and compare them. If we find a new entry, insert it and flag as new. If we're missing an entry
+  -- remove it and delete the entry from the list.
+  while old_idx <= directory_end_idx or new_idx <= #files do 
+    local old_info, new_info = topdir.files[old_idx], files[new_idx]
+    if not files_info_equal(new_info, old_info) then
+      change = true
+      -- If we're a new file, and we exist *before* the other file in the list, then add to the list.
+      if not old_info or (new_info and system.path_compare(new_info.filename, new_info.type, old_info.filename, old_info.type)) then
+        table.insert(topdir.files, old_idx, new_info)
+        old_idx, new_idx = old_idx + 1, new_idx + 1
+        if new_info.type == "dir" then
+          table.insert(new_directories, new_info)
+        end
+        directory_end_idx = directory_end_idx + 1
+      else
+      -- If it's not there, remove the entry from the list as being out of order. 
+        table.remove(topdir.files, old_idx)
+        if old_info.type == "dir" then
+          topdir.watch:unwatch(topdir.name .. PATHSEP .. old_info.filename)
+        end
+        directory_end_idx = directory_end_idx - 1
+      end
+    else
+      -- If this file is a directory, determine in ln(n) the size of the directory, and skip every file in it.
+      local size = old_info and old_info.type == "dir" and select(2, project_subdir_bounds(topdir, old_info.filename, old_idx)) or 1
+      old_idx, new_idx = old_idx + size, new_idx + 1
+    end
+  end
+  for i, v in ipairs(new_directories) do 
+    topdir.watch:watch(topdir.name .. PATHSEP .. v.filename)
+    if not topdir.files_limit or core.project_subdir_is_shown(topdir, v.filename) then
+      refresh_directory(topdir, v.filename)
+    end
+  end
+  if change then
+    core.redraw = true
+    topdir.is_dirty = true
+  end
+  return change
 end
 
 
@@ -196,294 +247,64 @@ local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
 end
 
 
--- "root" will by an absolute path without trailing '/'
--- "path" will be a path starting with '/' and without trailing '/'
---    or the empty string.
---    It will identifies a sub-path within "root.
--- The current path location will therefore always be: root .. path.
--- When recursing "root" will always be the same, only "path" will change.
--- Returns a list of file "items". In eash item the "filename" will be the
--- complete file path relative to "root" *without* the trailing '/'.
-local function get_directory_files(dir, root, path, t, ignore_compiled, entries_count, recurse_pred, begin_hook)
-  if begin_hook then begin_hook() end
-  ignore_compiled = ignore_compiled or compile_ignore_files()
-  local t0 = system.get_time()
-  local all = system.list_dir(root .. path) or {}
-  local t_elapsed = system.get_time() - t0
-  local dirs, files = {}, {}
-
-  for _, file in ipairs(all) do
-    local info = get_project_file_info(root, path .. PATHSEP .. file, ignore_compiled)
-    if info then
-      table.insert(info.type == "dir" and dirs or files, info)
-      entries_count = entries_count + 1
-    end
-  end
-
-  local recurse_complete = true
-  table.sort(dirs, compare_file)
-  for _, f in ipairs(dirs) do
-    table.insert(t, f)
-    if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
-      local _, complete, n = get_directory_files(dir, root, PATHSEP .. f.filename, t, ignore_compiled, entries_count, recurse_pred, begin_hook)
-      recurse_complete = recurse_complete and complete
-      entries_count = n
-    else
-      recurse_complete = false
-    end
-  end
-
-  table.sort(files, compare_file)
-  for _, f in ipairs(files) do
-    table.insert(t, f)
-  end
-
-  return t, recurse_complete, entries_count
-end
-
-
-function core.project_subdir_set_show(dir, filename, show)
-  if dir.files_limit and not dir.force_rescan then
-    local fullpath = dir.name .. PATHSEP .. filename
-    if not (show and system.watch_dir_add or system.watch_dir_rm)(dir.watch_id, fullpath) then
-      return false
-    end
-  end
-  dir.shown_subdir[filename] = show
-  return true
-end
-
-
-function core.project_subdir_is_shown(dir, filename)
-  return not dir.files_limit or dir.shown_subdir[filename]
-end
-
-
-local function show_max_files_warning(dir)
-  local message = dir.slow_filesystem and
-    "Filesystem is too slow: project files will not be indexed." or
-    "Too many files in project directory: stopped reading at "..
-    config.max_project_files.." files. For more information see "..
-    "usage.md at github.com/lite-xl/lite-xl."
-  core.status_view:show_message("!", style.accent, message)
-end
-
-
-local function file_search(files, info)
-  local filename, type = info.filename, info.type
-  local inf, sup = 1, #files
-  while sup - inf > 8 do
-    local curr = math.floor((inf + sup) / 2)
-    if system.path_compare(filename, type, files[curr].filename, files[curr].type) then
-      sup = curr - 1
-    else
-      inf = curr
-    end
-  end
-  while inf <= sup and not system.path_compare(filename, type, files[inf].filename, files[inf].type) do
-    if files[inf].filename == filename then
-      return inf, true
-    end
-    inf = inf + 1
-  end
-  return inf, false
-end
-
-
-local function files_info_equal(a, b)
-  return a.filename == b.filename and a.type == b.type
-end
-
--- for "a" inclusive from i1 + 1 and i1 + n
-local function files_list_match(a, i1, n, b)
-  if n ~= #b then return false end
-  for i = 1, n do
-    if not files_info_equal(a[i1 + i], b[i]) then
-      return false
-    end
-  end
-  return true
-end
-
--- arguments like for files_list_match
-local function files_list_replace(as, i1, n, bs, hook)
-  local m = #bs
-  local i, j = 1, 1
-  while i <= m or i <= n do
-    local a, b = as[i1 + i], bs[j]
-    if i > n or (j <= m and not files_info_equal(a, b) and
-      not system.path_compare(a.filename, a.type, b.filename, b.type))
-    then
-      table.insert(as, i1 + i, b)
-      i, j, n = i + 1, j + 1, n + 1
-      if hook and hook.insert then hook.insert(b) end
-    elseif j > m or system.path_compare(a.filename, a.type, b.filename, b.type) then
-      if hook and hook.remove then hook.remove(as[i1 + i]) end
-      table.remove(as, i1 + i)
-      n = n - 1
-    else
-      i, j = i + 1, j + 1
-    end
-  end
-end
-
-
-local function project_scan_add_entry(dir, fileinfo)
-  assert(not dir.force_rescan, "should be used only when force_rescan is false")
-  local index, match = file_search(dir.files, fileinfo)
-  if not match then
-    table.insert(dir.files, index, fileinfo)
-    if fileinfo.type == "dir" and not dir.files_limit then
-      -- ASSUMPTION: dir.force_rescan is FALSE
-      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
-      if fileinfo.symlink then
-        local new_files = get_directory_files(dir, dir.name, PATHSEP .. fileinfo.filename, {}, nil, 0, core.project_subdir_is_shown)
-        files_list_replace(dir.files, index, 0, new_files, {insert = function(info)
-          if info.type == "dir" then
-            system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. info.filename)
-          end
-        end})
-      end
-    end
-    dir.is_dirty = true
-  end
-end
-
-
-local function project_subdir_bounds(dir, filename)
-  local index, n = 0, #dir.files
-  for i, file in ipairs(dir.files) do
-    local file = dir.files[i]
-    if file.filename == filename then
-      index, n = i, #dir.files - i
-      for j = 1, #dir.files - i do
-        if not common.path_belongs_to(dir.files[i + j].filename, filename) then
-          n = j - 1
-          break
-        end
-      end
-      return index, n, file
-    end
-  end
-end
-
-local function rescan_project_subdir(dir, filename_rooted)
-  local new_files = get_directory_files(dir, dir.name, filename_rooted, {}, nil, 0, core.project_subdir_is_shown, coroutine.yield)
-  local index, n = 0, #dir.files
-  if filename_rooted ~= "" then
-    local filename = strip_leading_path(filename_rooted)
-    index, n = project_subdir_bounds(dir, filename)
-  end
-
-  if not files_list_match(dir.files, index, n, new_files) then
-    -- Since we are modifying the list of files we may add new directories and
-    -- when dir.files_limit is false we need to add a watch for each subdirectory.
-    -- We are therefore passing a insert hook function to the purpose of adding
-    -- a watch.
-    -- Note that the hook shold almost never be called, it happens only if
-    -- we missed some directory creation event from the directory monitoring which
-    -- almost never happens. With inotify is at least theoretically possible.
-    local need_subdir_watches = not dir.files_limit and not dir.force_rescan
-    files_list_replace(dir.files, index, n, new_files, need_subdir_watches and {insert = function(fileinfo)
-      if fileinfo.type == "dir" then
-        system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
-      end
-    end})
-    dir.is_dirty = true
-    return true
-  end
-end
-
-
-local function add_dir_scan_thread(dir)
-  core.add_thread(function()
-    while true do
-      local has_changes = rescan_project_subdir(dir, "")
-      if has_changes then
-        core.redraw = true -- we run without an event, from a thread
-      end
-      coroutine.yield(5)
-    end
-  end, dir)
-end
-
-
-local function folder_add_subdirs_watch(dir)
-  for _, fileinfo in ipairs(dir.files) do
-    if fileinfo.type == "dir" then
-      system.watch_dir_add(dir.watch_id, dir.name .. PATHSEP .. fileinfo.filename)
-    end
-  end
-end
-
-
--- Populate a project folder top directory by scanning the filesystem.
-local function scan_project_folder(index)
-  local dir = core.project_directories[index]
-  local fstype = system.get_fs_type(dir.name)
-  dir.force_rescan = (fstype == "nfs" or fstype == "fuse")
-  if not dir.force_rescan then
-    local watch_err
-    dir.watch_id, watch_err = system.watch_dir(dir.name)
-    if not dir.watch_id then
-      core.log("Watch directory %s: %s", dir.name, watch_err)
-      dir.force_rescan = true
-    end
-  end
-  local t, complete, entries_count = get_directory_files(dir, dir.name, "", {}, nil, 0, timed_max_files_pred)
-  -- If dir.files_limit is set to TRUE it means that:
-  -- * we will not read recursively all the project files and we don't index them
-  -- * we read only the files for the subdirectories that are opened/expanded in the
-  --   TreeView
-  -- * we add a subdirectory watch only to the directories that are opened/expanded
-  -- * we set the values in the shown_subdir table
-  --
-  -- If dir.files_limit is set to FALSE it means that:
-  -- * we will read recursively all the project files and we index them
-  -- * all the list of project files is always complete and kept updated when
-  --   changes happen on the disk
-  -- * all the subdirectories at any depth must have a watch using system.watch_dir_add
-  -- * we DO NOT set the values in the shown_subdir table
-  --
-  -- * If force_rescan is set to TRUE no watch are used in any case.
-  if not complete then
-    dir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
-    dir.files_limit = true
-    if core.status_view then -- May be not yet initialized.
-      show_max_files_warning(dir)
-    end
-  end
-  dir.files = t
-  if dir.force_rescan then
-    add_dir_scan_thread(dir)
-  else
-    if not dir.files_limit then
-      folder_add_subdirs_watch(dir)
-    end
-    core.dir_rescan_add_job(dir, ".")
-  end
-end
-
-
 function core.add_project_directory(path)
   -- top directories has a file-like "item" but the item.filename
   -- will be simply the name of the directory, without its path.
   -- The field item.topdir will identify it as a top level directory.
   path = common.normalize_volume(path)
-  local dir = {
+  local topdir = {
     name = path,
     item = {filename = common.basename(path), type = "dir", topdir = true},
     files_limit = false,
     is_dirty = true,
     shown_subdir = {},
+    watch_thread = nil,
+    watch = dirwatch.new()
   }
-  table.insert(core.project_directories, dir)
-  scan_project_folder(#core.project_directories)
+  table.insert(core.project_directories, topdir)
+
+  local fstype = PLATFORM == "Linux" and system.get_fs_type(topdir.name) or "unknown"
+  topdir.force_scans = (fstype == "nfs" or fstype == "fuse")
+  local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", {}, 0, timed_max_files_pred)
+  topdir.files = t
+  if not complete then
+    topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
+    topdir.files_limit = true
+    show_max_files_warning(topdir)
+    refresh_directory(topdir)
+  else
+    for i,v in ipairs(t) do
+      if v.type == "dir" then topdir.watch:watch(path .. PATHSEP .. v.filename) end
+    end
+  end
+  topdir.watch:watch(topdir.name)
+  -- each top level directory gets a watch thread. if the project is small, or
+  -- if the ablity to use directory watches hasn't been compromised in some way
+  -- either through error, or amount of files, then this should be incredibly
+  -- quick; essentially one syscall per check. Otherwise, this may take a bit of
+  -- time; the watch will yield in this coroutine after 0.01 second, for 0.1 seconds.
+  topdir.watch_thread = core.add_thread(function()
+    while true do
+      topdir.watch:check(function(target)
+        if target == topdir.name then return refresh_directory(topdir) end	
+        local dirpath = target:sub(#topdir.name + 2)
+        local abs_dirpath = topdir.name .. PATHSEP .. dirpath
+        if dirpath then
+          -- check if the directory is in the project files list, if not exit.
+          local dir_index, dir_match = file_search(topdir.files, {filename = dirpath, type = "dir"})
+          if not dir_match or not core.project_subdir_is_shown(topdir, topdir.files[dir_index].filename) then return end
+        end
+        return refresh_directory(topdir, dirpath)
+      end, 0.01, 0.01)
+      coroutine.yield(0.05)
+    end
+  end)
+
   if path == core.project_dir then
-    core.project_files = dir.files
+    core.project_files = topdir.files
   end
   core.redraw = true
-  return dir
+  return topdir
 end
 
 
@@ -496,7 +317,6 @@ local function rescan_project_directories()
     local dir = core.project_directories[i]
     save_project_dirs[i] = {name = dir.name, shown_subdir = dir.shown_subdir}
   end
-  core.close_current_project() -- ensure we unwatch directories
   core.project_directories = {}
   for i = 1, n do -- add again the directories in the project
     local dir = core.add_project_directory(save_project_dirs[i].name)
@@ -520,7 +340,6 @@ local function rescan_project_directories()
             -- In theory set_show below may fail and return false but is it is listed
             -- there it means it succeeded before so we are optimistically assume it
             -- will not fail for the sake of simplicity.
-            core.project_subdir_set_show(dir, subdir, show)
             core.update_project_subdir(dir, subdir, show)
             break
           end
@@ -542,18 +361,8 @@ end
 
 function core.update_project_subdir(dir, filename, expanded)
   assert(dir.files_limit, "function should be called only when directory is in files limit mode")
-  local index, n, file = project_subdir_bounds(dir, filename)
-  if index then
-    local new_files = expanded and get_directory_files(dir, dir.name, PATHSEP .. filename, {}, nil, 0, core.project_subdir_is_shown) or {}
-    -- ASSUMPTION: core.update_project_subdir is called only when dir.files_limit is true
-    -- NOTE: we may add new directories below but we do not need to call
-    -- system.watch_dir_add because the current function is called only
-    -- in dir.files_limit mode and in this latter case we don't need to
-    -- add watch to new, unfolded, subdirectories.
-    files_list_replace(dir.files, index, n, new_files)
-    dir.is_dirty = true
-    return true
-  end
+  dir.shown_subdir[filename] = expanded
+  return refresh_directory(dir, filename)
 end
 
 
@@ -569,7 +378,7 @@ local function find_files_rec(root, path)
       info.filename = strip_leading_path(file)
       if info.type == "file" then
         coroutine.yield(root, info)
-      else
+      elseif not common.match_pattern(common.basename(info.filename), config.ignore_files) then
         find_files_rec(root, PATHSEP .. info.filename)
       end
     end
@@ -627,62 +436,6 @@ function core.project_files_number()
     n = n + #core.project_directories[i].files
   end
   return n
-end
-
-
-local function project_dir_by_watch_id(watch_id)
-  for i = 1, #core.project_directories do
-    if core.project_directories[i].watch_id == watch_id then
-      return core.project_directories[i]
-    end
-  end
-end
-
-
-local function project_scan_remove_file(dir, filepath)
-  local fileinfo = { filename = filepath }
-  for _, filetype in ipairs {"dir", "file"} do
-    fileinfo.type = filetype
-    local index, match = file_search(dir.files, fileinfo)
-    if match then
-      if filetype == "dir" then
-        -- If the directory is a symlink it may get deleted and we will
-        -- never get dirmonitor events for the removal the files it contains.
-        -- We proceed to remove all the files that belong to the directory.
-        local _, n_subdir = project_subdir_bounds(dir, filepath)
-        files_list_replace(dir.files, index, n_subdir, {}, {
-          remove= function(fileinfo)
-            if fileinfo.type == "dir" then
-              system.watch_dir_rm(dir.watch_id, dir.name .. PATHSEP .. filepath)
-            end
-          end})
-        if dir.files_limit then
-          dir.shown_subdir[filepath] = nil
-        end
-      end
-      table.remove(dir.files, index)
-      dir.is_dirty = true
-      return
-    end
-  end
-end
-
-
-local function project_scan_add_file(dir, filepath)
-  local ignore = compile_ignore_files()
-  local fileinfo = get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
-  if fileinfo then
-    -- on Windows and MacOS we can get events from directories we are not following:
-    -- check if each parent directories pass the ignore_files rules.
-    repeat
-      filepath = common.dirname(filepath)
-      local parent_info = filepath and get_project_file_info(dir.name, PATHSEP .. filepath, ignore)
-      if filepath and not parent_info then
-        return -- parent directory does match ignore_files rules: stop there
-      end
-    until not parent_info
-    project_scan_add_entry(dir, fileinfo)
-  end
 end
 
 
@@ -859,6 +612,7 @@ end
 function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
+  dirwatch = require "core.dirwatch"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
@@ -919,37 +673,19 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
-
-  local project_dir_abs = system.absolute_path(project_dir)
-  -- We prevent set_project_dir below to effectively add and scan the directory becaese tha
-  -- project module and its ignore files is not yet loaded.
-  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
-  if set_project_ok then
-    if project_dir_explicit then
-      update_recents_project("add", project_dir_abs)
-    end
-  else
-    if not project_dir_explicit then
-      update_recents_project("remove", project_dir)
-    end
-    project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs) then
-      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
-      os.exit(1)
-    end
-  end
-
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
   core.quit_request = false
 
+  -- We load core views before plugins that may need them.
   core.root_view = RootView()
   core.command_view = CommandView()
   core.status_view = StatusView()
   core.nag_view = NagView()
   core.title_view = TitleView()
 
+  -- Some plugins (eg: console) require the nodes to be initialized to defaults
   local cur_node = core.root_view.root_node
   cur_node.is_primary_node = true
   cur_node:split("up", core.title_view, {y = true})
@@ -959,15 +695,41 @@ function core.init()
   cur_node = cur_node:split("down", core.command_view, {y = true})
   cur_node = cur_node:split("down", core.status_view, {y = true})
 
+  -- Load defaiult commands first so plugins can override them
   command.add_defaults()
-  local got_user_error = not core.load_user_directory()
+
+  -- Load user module, plugins and project module
+  local got_user_error, got_project_error = not core.load_user_directory()
+
+  local project_dir_abs = system.absolute_path(project_dir)
+  -- We prevent set_project_dir below to effectively add and scan the directory because the
+  -- project module and its ignore files is not yet loaded.
+  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
+  if set_project_ok then
+    got_project_error = not core.load_project_module()
+    if project_dir_explicit then
+      update_recents_project("add", project_dir_abs)
+    end
+  else
+    if not project_dir_explicit then
+      update_recents_project("remove", project_dir)
+    end
+    project_dir_abs = system.absolute_path(".")
+    if not core.set_project_dir(project_dir_abs, function()
+      got_project_error = not core.load_project_module()
+    end) then
+      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
+      os.exit(1)
+    end
+  end
+
+  -- Load core plugins after user ones to let the user override them
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
     core.log("Opening project %q from directory %s", pname, pdir)
   end
-  local got_project_error = not core.load_project_module()
 
   -- We add the project directory now because the project's module is loaded.
   core.add_project_directory(project_dir_abs)
@@ -1381,78 +1143,6 @@ function core.has_pending_rescan()
   end
 end
 
-
-function core.dir_rescan_add_job(dir, filepath)
-  local dirpath = filepath:match("^(.+)[/\\].+$")
-  local dirpath_rooted = dirpath and PATHSEP .. dirpath or ""
-  local abs_dirpath = dir.name .. dirpath_rooted
-  if dirpath then
-    -- check if the directory is in the project files list, if not exit
-    local dir_index, dir_match = file_search(dir.files, {filename = dirpath, type = "dir"})
-    -- Note that is dir_match is false dir_index greaten than the last valid index.
-    -- We use dir_index to index dir.files below only if dir_match is true.
-    if not dir_match or not core.project_subdir_is_shown(dir, dir.files[dir_index].filename) then return end
-  end
-  local new_time = system.get_time() + 1
-
-  -- evaluate new rescan request versus existing rescan
-  local remove_list = {}
-  for _, rescan in pairs(scheduled_rescan) do
-    if abs_dirpath == rescan.abs_path or common.path_belongs_to(abs_dirpath, rescan.abs_path) then
-      -- abs_dirpath is a subpath of a scan already ongoing: skip
-      rescan.time_limit = new_time
-      return
-    elseif common.path_belongs_to(rescan.abs_path, abs_dirpath) then
-      -- abs_dirpath already cover this rescan: add to the list of rescan to be removed
-      table.insert(remove_list, rescan.abs_path)
-    end
-  end
-  for _, key_path in ipairs(remove_list) do
-    scheduled_rescan[key_path] = nil
-  end
-
-  scheduled_rescan[abs_dirpath] = {dir = dir, path = dirpath_rooted, abs_path = abs_dirpath, time_limit = new_time}
-  core.add_thread(function()
-    while true do
-      local rescan = scheduled_rescan[abs_dirpath]
-      if not rescan then return end
-      if system.get_time() > rescan.time_limit then
-        local has_changes = rescan_project_subdir(rescan.dir, rescan.path)
-        if has_changes then
-          core.redraw = true -- we run without an event, from a thread
-          rescan.time_limit = new_time
-        else
-          scheduled_rescan[rescan.abs_path] = nil
-          return
-        end
-      end
-      coroutine.yield(0.2)
-    end
-  end)
-end
-
-
--- no-op but can be overrided by plugins
-function core.on_dirmonitor_modify(dir, filepath) end
-function core.on_dirmonitor_delete(dir, filepath) end
-
-
-function core.on_dir_change(watch_id, action, filepath)
-  local dir = project_dir_by_watch_id(watch_id)
-  if not dir then return end
-  core.dir_rescan_add_job(dir, filepath)
-  if action == "delete" then
-    project_scan_remove_file(dir, filepath)
-    core.on_dirmonitor_delete(dir, filepath)
-  elseif action == "create" then
-    project_scan_add_file(dir, filepath)
-    core.on_dirmonitor_modify(dir, filepath);
-  elseif action == "modify" then
-    core.on_dirmonitor_modify(dir, filepath);
-  end
-end
-
-
 function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
@@ -1494,8 +1184,6 @@ function core.on_event(type, ...)
     end
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
-  elseif type == "dirchange" then
-    core.on_dir_change(...)
   elseif type == "quit" then
     core.quit()
   end

@@ -186,6 +186,7 @@ end
 
 
 function TreeView:on_mouse_moved(px, py, ...)
+  if not self.visible then return end
   TreeView.super.on_mouse_moved(self, px, py, ...)
   if self.dragging_scrollbar then return end
 
@@ -223,6 +224,7 @@ end
 
 
 function TreeView:on_mouse_pressed(button, x, y, clicks)
+  if not self.visible then return end
   local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught or button ~= "left" then
     return true
@@ -236,9 +238,6 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
     else
       local hovered_dir = core.project_dir_by_name(hovered_item.dir_name)
       if hovered_dir and hovered_dir.files_limit then
-        if not core.project_subdir_set_show(hovered_dir, hovered_item.filename, not hovered_item.expanded) then
-          return
-        end
         core.update_project_subdir(hovered_dir, hovered_item.filename, not hovered_item.expanded)
       end
       hovered_item.expanded = not hovered_item.expanded
@@ -265,6 +264,8 @@ function TreeView:update()
   else
     self:move_towards(self.size, "x", dest)
   end
+
+  if not self.visible then return end
 
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
@@ -375,6 +376,7 @@ end
 
 
 function TreeView:draw()
+  if not self.visible then return end
   self:draw_background(style.background2)
   local _y, _h = self.position.y, self.size.y
 
@@ -592,7 +594,7 @@ command.add(function() return view.hovered_item ~= nil end, {
       system.exec(string.format("start \"\" %q", hovered_item.abs_filename))
     elseif string.find(PLATFORM, "Mac") then
       system.exec(string.format("open %q", hovered_item.abs_filename))
-    elseif PLATFORM == "Linux" then
+    elseif PLATFORM == "Linux" or string.find(PLATFORM, "BSD") then
       system.exec(string.format("xdg-open %q", hovered_item.abs_filename))
     end
   end,

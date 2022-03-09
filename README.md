@@ -154,6 +154,7 @@ See the [licenses] file for details on licenses used by the required dependencie
 [Get color themes]:           https://github.com/lite-xl/lite-xl-colors
 [changelog]:                  https://github.com/lite-xl/lite-xl/blob/master/changelog.md
 [Lite XL plugins repository]: https://github.com/lite-xl/lite-xl-plugins
+[plugins repository]:         https://github.com/rxi/lite-plugins
 [colors repository]:          https://github.com/lite-xl/lite-xl-colors
 [LICENSE]:                    LICENSE
 [licenses]:                   licenses/licenses.md

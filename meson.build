@@ -2,7 +2,7 @@ project('lite-xl',
     ['c'],
     version : '2.0.5',
     license : 'MIT',
-    meson_version : '>= 0.42',
+    meson_version : '>= 0.47',
     default_options : [
         'c_std=gnu11',
         'wrap_mode=nofallback'
@@ -10,12 +10,32 @@ project('lite-xl',
 )
 
 #===============================================================================
+# Project version including git commit if possible
+#===============================================================================
+version = meson.project_version()
+
+if get_option('buildtype') != 'release'
+    git_command = find_program('git', required : false)
+
+    if git_command.found()
+        git_commit = run_command(
+            [git_command, 'rev-parse', 'HEAD'],
+            check : false
+        ).stdout().strip()
+
+        if git_commit != ''
+            version += ' (git-' + git_commit.substring(0, 8) + ')'
+        endif
+    endif
+endif
+
+#===============================================================================
 # Configuration
 #===============================================================================
 conf_data = configuration_data()
 conf_data.set('PROJECT_BUILD_DIR', meson.current_build_dir())
 conf_data.set('PROJECT_SOURCE_DIR', meson.current_source_dir())
-conf_data.set('PROJECT_VERSION', meson.project_version())
+conf_data.set('PROJECT_VERSION', version)
 
 #===============================================================================
 # Compiler Settings
@@ -49,9 +69,6 @@ endif
 if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
-    threads_dep = dependency('threads')
-
-
     lua_fallback = ['lua', 'lua_dep']
     lua_quick_fallback = []
     if get_option('wrap_mode') == 'forcefallback'
@@ -83,7 +100,7 @@ if not get_option('source-only')
         win_dep = cc.find_library('dwmapi', required : false)
     endif
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, threads_dep, win_dep]
+    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, win_dep]
 endif
 #===============================================================================
 # Install Configuration
@@ -137,7 +154,6 @@ configure_file(
 )
 
 if not get_option('source-only')
-    subdir('lib/dmon')
     subdir('src')
     subdir('scripts')
 endif

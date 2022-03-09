@@ -289,7 +289,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
           break;
         if (start_x + (glyph_end - glyph_start) >= clip_end_x)
           glyph_end = glyph_start + (clip_end_x - start_x);
-        else if (start_x < clip.x) {
+        if (start_x < clip.x) {
           int offset = clip.x - start_x;
           start_x += offset;
           glyph_start += offset;

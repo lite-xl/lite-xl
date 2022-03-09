@@ -173,7 +173,6 @@ command.add(nil, {
       end
       if abs_path == core.project_dir then return end
       core.confirm_close_docs(core.docs, function(dirpath)
-        core.close_current_project()
         core.open_folder_project(dirpath)
       end, abs_path)
     end, suggest_directory)
