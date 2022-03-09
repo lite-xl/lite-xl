@@ -11,7 +11,7 @@
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
-  #include <fileapi.h>
+  #include "win32_util.h"
 #elif __linux__
   #include <sys/vfs.h>
 #endif
@@ -473,7 +473,42 @@ static int f_chdir(lua_State *L) {
 
 static int f_list_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+#ifdef _WIN32
+  // use lua to concat a "\\*"
+  lua_pushvalue(L, 1); lua_pushliteral(L, "\\*"); lua_concat(L, 2);
+  path = lua_tostring(L, -1);
+  LPWSTR wpath = utftowcs(path);
+  if (!wpath)
+    return l_win32error(L, GetLastError());
 
+  WIN32_FIND_DATAW fd;
+  HANDLE dir = FindFirstFileExW(wpath, FindExInfoStandard, &fd, FindExSearchLimitToDirectories, NULL, 0);
+  if (dir == INVALID_HANDLE_VALUE)
+    return (free(wpath), l_win32error(L, GetLastError()));
+
+  lua_newtable(L);
+  char p[MAX_PATH];
+  int i = 1, r = 0;
+  do {
+    r = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, p, MAX_PATH, NULL, NULL);
+    if (r == 0) break;
+
+    if (wcscmp(fd.cFileName, L".") != 0 && wcscmp(fd.cFileName, L"..") != 0) {
+      lua_pushstring(L, p);
+      lua_rawseti(L, -2, i++);
+    }
+
+    r = FindNextFileW(dir, &fd);
+  } while (r);
+
+  DWORD e = GetLastError();
+  if (e != ERROR_NO_MORE_FILES) {
+    free(wpath);
+    FindClose(dir);
+    return l_win32error(L, e);
+  }
+  FindClose(dir);
+#else
   DIR *dir = opendir(path);
   if (!dir) {
     lua_pushnil(L);
@@ -493,12 +528,12 @@ static int f_list_dir(lua_State *L) {
   }
 
   closedir(dir);
+#endif
   return 1;
 }
 
 
 #ifdef _WIN32
-  #include <windows.h>
   #define realpath(x, y) _fullpath(y, x, MAX_PATH)
 #endif
 
@@ -514,7 +549,25 @@ static int f_absolute_path(lua_State *L) {
 
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+#ifdef _WIN32
+  LPWSTR wpath = utftowcs(path);
+  if (!wpath) return l_win32error(L, GetLastError());
 
+  WIN32_FIND_DATAW  fd;
+  HANDLE file = FindFirstFileW(wpath, &fd);
+  if (file == INVALID_HANDLE_VALUE)
+    return (free(wpath), l_win32error(L, GetLastError()));
+
+  lua_newtable(L);
+  lua_pushinteger(L, filetime_to_unix(fd.ftLastWriteTime));
+  lua_setfield(L, -2, "modified");
+
+  lua_pushinteger(L, (fd.nFileSizeHigh * (MAXDWORD + 1)) + fd.nFileSizeLow);
+  lua_setfield(L, -2, "size");
+
+  lua_pushstring(L, fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? "dir" : "file");
+  lua_setfield(L, -2, "type");
+#else
   struct stat s;
   int err = stat(path, &s);
   if (err < 0) {
@@ -546,6 +599,7 @@ static int f_get_file_info(lua_State *L) {
       lua_setfield(L, -2, "symlink");
     }
   }
+#endif
 #endif
   return 1;
 }
