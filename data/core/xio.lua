@@ -47,11 +47,15 @@ end
 local io_open = io.open
 io.open = xio.open
 
+local io_popen = io.popen
+io.popen = xio.popen
+
 local os_rename = os.rename
 os.rename = xio.rename
 
 local os_remove = os.remove
 os.remove = xio.remove
+
 
 return function()
   -- un-polyfill
@@ -59,6 +63,7 @@ return function()
   io.input = io_input
   io.output = io_output
   io.lines = io_lines
+  io.popen = io_popen
   os.rename = os_rename
   os.remove = os_remove
 end

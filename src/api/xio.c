@@ -8,6 +8,13 @@
 #define XIO_OUTPUT (XIO_PREFIX "output")
 
 
+static int io_pclose(lua_State *L) {
+  luaL_Stream *p = luaL_checkudata(L, 1, LUA_FILEHANDLE);
+  errno = 0;
+  return luaL_execresult(L, pclose(p->f));
+}
+
+
 static int io_fclose(lua_State *L) {
   luaL_Stream *p = luaL_checkudata(L, 1, LUA_FILEHANDLE);
   int res = fclose(p->f);
@@ -91,11 +98,31 @@ static int f_rename(lua_State *L) {
 }
 
 
+static int f_popen(lua_State *L) {
+  const char *filename = luaL_checkstring(L, 1);
+  const char *mode = luaL_optstring(L, 2, "r");
+  LPWSTR wfilename = utftowcs(filename);
+  LPWSTR wmode = utftowcs(mode);
+  if (!wfilename || !wmode)
+    return errno = EINVAL, luaL_fileresult(L, 0, filename);
+
+  luaL_Stream *p = lua_newuserdata(L, sizeof(luaL_Stream));
+  luaL_setmetatable(L, LUA_FILEHANDLE);
+  // TODO: check mode
+  p->f = _wpopen(wfilename, wmode);
+  p->closef = &io_pclose;
+
+  free(wfilename); free(wmode);
+  return (p->f == NULL) ? luaL_fileresult(L, 0, filename) : 1;
+}
+
+
 const luaL_Reg lib[] = {
   { "open", f_open },
   { "replace_handle", f_replace_handle },
   { "remove", f_remove },
   { "rename", f_rename },
+  { "popen", f_popen },
   { NULL, NULL }
 };
 
