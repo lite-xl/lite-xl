@@ -424,7 +424,8 @@ static void channelFree(Channel* c)
  */
 int f_channel_get(lua_State *L)
 {
-  const char *name = luaL_checkstring(L, 1);
+  size_t name_len = 0;
+  const char *name = luaL_checklstring(L, 1, &name_len);
   Channel *c;
   int found = 0;
 
@@ -444,7 +445,7 @@ int f_channel_get(lua_State *L)
       error_message = strerror(errno);
       goto fail;
     }
-    if ((c->name = strdup(name)) == NULL) {
+    if ((c->name = malloc(name_len+1)) == NULL) {
       error_message = strerror(errno);
       goto fail;
     }
@@ -456,6 +457,8 @@ int f_channel_get(lua_State *L)
       error_message = SDL_GetError();
       goto fail;
     }
+
+    strcpy(c->name, name);
 
     c->queue.first = NULL;
     c->queue.last = &c->queue.first;
