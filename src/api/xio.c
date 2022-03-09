@@ -117,12 +117,29 @@ static int f_popen(lua_State *L) {
 }
 
 
+static int f_execute(lua_State *L) {
+  const char *cmd = luaL_optstring(L, 1, NULL);
+  LPWSTR wcmd = utftowcs(cmd);
+  int stat;
+  errno = 0;
+  stat = _wsystem(wcmd);
+  free(wcmd);
+  if (cmd != NULL)
+    return luaL_execresult(L, stat);
+  else {
+    lua_pushboolean(L, stat);
+    return 1;
+  }
+}
+
+
 const luaL_Reg lib[] = {
   { "open", f_open },
   { "replace_handle", f_replace_handle },
   { "remove", f_remove },
   { "rename", f_rename },
   { "popen", f_popen },
+  { "execute", f_execute },
   { NULL, NULL }
 };
 

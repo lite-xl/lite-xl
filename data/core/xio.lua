@@ -56,6 +56,8 @@ os.rename = xio.rename
 local os_remove = os.remove
 os.remove = xio.remove
 
+local os_execute = os.execute
+os.execute = xio.execute
 
 return function()
   -- un-polyfill
@@ -66,4 +68,5 @@ return function()
   io.popen = io_popen
   os.rename = os_rename
   os.remove = os_remove
+  os.execute = os_execute
 end
