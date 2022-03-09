@@ -65,24 +65,8 @@ end
 
 
 local function reload_customizations()
-  -- The logic is:
-  -- - the core.style and config modules are reloaded with the purpose of applying
-  --   the new user's and project's module configs
-  -- - inside the core.config the existing fields in config.plugins are preserved
-  --   because they are reserved to plugins configuration and plugins are already
-  --   loaded.
-  -- - plugins are not reloaded or unloaded
-  local plugins_save = {}
-  for k, v in pairs(config.plugins) do
-    plugins_save[k] = v
-  end
-  core.reload_module("core.style")
-  core.reload_module("core.config")
   core.load_user_directory()
   core.load_project_module()
-  for k, v in pairs(plugins_save) do
-    config.plugins[k] = v
-  end
 end
 
 
@@ -146,7 +130,7 @@ end
 
 local function file_search(files, info)
   local idx = file_bisect(files, function(file)
-    return system.path_compare(info.filename, info.type, file.filename, file.type) 
+    return system.path_compare(info.filename, info.type, file.filename, file.type)
   end)
   if idx > 1 and files[idx-1].filename == info.filename then
     return idx - 1, true
@@ -183,22 +167,22 @@ local function refresh_directory(topdir, target)
     directory_end_idx = directory_start_idx + directory_end_idx - 1
     directory_start_idx = directory_start_idx + 1
   end
-  
+
   local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), {}, 0, function() return false end)
   local change = false
-  
+
   -- If this file doesn't exist, we should be calling this on our parent directory, assume we'll do that.
   -- Unwatch just in case.
-  if files == nil then 
+  if files == nil then
     topdir.watch:unwatch(topdir.name .. PATHSEP .. (target or ""))
-    return true 
+    return true
   end
-  
+
   local new_idx, old_idx = 1, directory_start_idx
   local new_directories = {}
   -- Run through each sorted list and compare them. If we find a new entry, insert it and flag as new. If we're missing an entry
   -- remove it and delete the entry from the list.
-  while old_idx <= directory_end_idx or new_idx <= #files do 
+  while old_idx <= directory_end_idx or new_idx <= #files do
     local old_info, new_info = topdir.files[old_idx], files[new_idx]
     if not files_info_equal(new_info, old_info) then
       change = true
@@ -211,7 +195,7 @@ local function refresh_directory(topdir, target)
         end
         directory_end_idx = directory_end_idx + 1
       else
-      -- If it's not there, remove the entry from the list as being out of order. 
+      -- If it's not there, remove the entry from the list as being out of order.
         table.remove(topdir.files, old_idx)
         if old_info.type == "dir" then
           topdir.watch:unwatch(topdir.name .. PATHSEP .. old_info.filename)
@@ -224,7 +208,7 @@ local function refresh_directory(topdir, target)
       old_idx, new_idx = old_idx + size, new_idx + 1
     end
   end
-  for i, v in ipairs(new_directories) do 
+  for i, v in ipairs(new_directories) do
     topdir.watch:watch(topdir.name .. PATHSEP .. v.filename)
     if not topdir.files_limit or core.project_subdir_is_shown(topdir, v.filename) then
       refresh_directory(topdir, v.filename)
@@ -286,7 +270,7 @@ function core.add_project_directory(path)
   topdir.watch_thread = core.add_thread(function()
     while true do
       topdir.watch:check(function(target)
-        if target == topdir.name then return refresh_directory(topdir) end	
+        if target == topdir.name then return refresh_directory(topdir) end
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
         if dirpath then
