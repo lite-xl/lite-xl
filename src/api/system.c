@@ -709,17 +709,37 @@ static int f_sleep(lua_State *L) {
 static int f_exec(lua_State *L) {
   size_t len;
   const char *cmd = luaL_checklstring(L, 1, &len);
-  char *buf = malloc(len + 32);
-  if (!buf) { luaL_error(L, "buffer allocation failed"); }
-#if _WIN32
-  sprintf(buf, "cmd /c \"%s\"", cmd);
-  WinExec(buf, SW_HIDE);
+#ifdef _WIN32
+  LPWSTR wc = utftowcs(cmd);
+  wchar_t *wbuf = malloc((len + 32) * sizeof(wchar_t));
+  if (!wbuf)
+    return luaL_error(L, "buffer allocation failed");
+  wsprintfW(wbuf, L"cmd /c \"%s\"", wc);
+
+  // the most complicated thing ever
+  PROCESS_INFORMATION pi;
+  STARTUPINFOW si;
+  si.cb = sizeof(si);
+  si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+  si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+  si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+  si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+  si.wShowWindow = SW_HIDE;
+
+  CreateProcessW(NULL, wbuf, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+
+  free(wc); free(wbuf);
 #else
+  char *buf = malloc(len + 32);
+  if (!buf)
+    return luaL_error(L, "buffer allocation failed");
   sprintf(buf, "%s &", cmd);
   int res = system(buf);
   (void) res;
-#endif
   free(buf);
+#endif
   return 0;
 }
 
