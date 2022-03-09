@@ -1,6 +1,8 @@
 #include "api.h"
 #include "win32_util.h"
 
+#ifdef _WIN32
+
 #define XIO_PREFIX "__XIO__"
 #define XIO_INPUT (XIO_PREFIX "input")
 #define XIO_OUTPUT (XIO_PREFIX "output")
@@ -97,7 +99,13 @@ const luaL_Reg lib[] = {
   { NULL, NULL }
 };
 
+#endif
+
 int luaopen_xio(lua_State *L) {
+#ifdef _WIN32
   luaL_newlib(L, lib);
+#else
+  lua_newtable(L);
+#endif
   return 1;
 }
