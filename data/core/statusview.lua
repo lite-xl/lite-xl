@@ -163,6 +163,7 @@ function StatusView:new()
   self.dragged_panel = ""
   self.hovered_panel = ""
   self.hide_messages = false
+  self.visible = true
 
   self:register_docview_items()
   self:register_command_items()
@@ -340,6 +341,24 @@ function StatusView:get_items_list(alignment)
 end
 
 
+---Hide the status bar
+function StatusView:hide()
+  self.visible = false
+end
+
+
+---Show the status bar
+function StatusView:show()
+  self.visible = true
+end
+
+
+---Toggle the visibility of the status bar
+function StatusView:toggle()
+  self.visible = not self.visible
+end
+
+
 ---Hides the given items from the status view or all if no names given.
 ---@param names table<integer, string> | string | nil
 function StatusView:hide_items(names)
@@ -383,7 +402,7 @@ end
 ---@param icon_color renderer.color
 ---@param text string
 function StatusView:show_message(icon, icon_color, text)
-  if self.hide_messages then return end
+  if not self.visible or self.hide_messages then return end
   self.message = {
     icon_color, style.icon_font, icon,
     style.dim, style.font, StatusView.separator2, style.text, text
@@ -833,6 +852,7 @@ end
 
 
 function StatusView:on_mouse_pressed(button, x, y, clicks)
+  if not self.visible then return end
   core.set_active_view(core.last_active_view)
   if
     system.get_time() < self.message_timeout
@@ -843,7 +863,11 @@ function StatusView:on_mouse_pressed(button, x, y, clicks)
   else
     if y >= self.position.y and button == "left" and clicks == 1 then
       self.position.dx = x
-      if self.r_left_width > self.left_width then
+      if
+        self.r_left_width > self.left_width
+        or
+        self.r_right_width > self.right_width
+      then
         self.dragged_panel = self:get_hovered_panel(x, y)
         self.cursor = "hand"
       end
@@ -854,6 +878,7 @@ end
 
 
 function StatusView:on_mouse_moved(x, y, dx, dy)
+  if not self.visible then return end
   StatusView.super.on_mouse_moved(self, x, y, dx, dy)
 
   self.hovered_panel = self:get_hovered_panel(x, y)
@@ -896,6 +921,7 @@ end
 
 
 function StatusView:on_mouse_released(button, x, y)
+  if not self.visible then return end
   StatusView.super.on_mouse_released(self, button, x, y)
 
   if self.dragged_panel ~= "" then
@@ -922,12 +948,26 @@ end
 
 
 function StatusView:on_mouse_wheel(y)
+  if not self.visible then return end
   self:drag_panel(self.hovered_panel, y * self.left_width / 10)
 end
 
 
 function StatusView:update()
-  self.size.y = style.font:get_height() + style.padding.y * 2
+  if not self.visible and self.size.y <= 0 then
+    return
+  elseif not self.visible and self.size.y > 0 then
+    self:move_towards(self.size, "y", 0)
+    return
+  end
+
+  local height = style.font:get_height() + style.padding.y * 2;
+
+  if self.size.y + 1 < height then
+    self:move_towards(self.size, "y", height)
+  else
+    self.size.y = height
+  end
 
   if system.get_time() < self.message_timeout then
     self.scroll.to.y = self.size.y
@@ -957,6 +997,8 @@ end
 
 
 function StatusView:draw()
+  if not self.visible and self.size.y <= 0 then return end
+
   self:draw_background(style.background2)
 
   if self.message and system.get_time() <= self.message_timeout then
