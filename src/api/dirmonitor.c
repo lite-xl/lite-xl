@@ -1,13 +1,5 @@
 #include "api.h"
 #include <stdlib.h>
-#ifdef _WIN32
-  #include <windows.h>
-#elif __linux__
-  #include <sys/inotify.h>
-  #include <limits.h>
-#else
-  #include <sys/event.h>
-#endif
 #include <unistd.h>
 #include <errno.h>
 #include <dirent.h>
@@ -24,136 +16,34 @@ So, for windows, we are recursive.
 */
 struct dirmonitor {
   int fd;
-  #if _WIN32
-    HANDLE handle;
-    char buffer[8192];
-    OVERLAPPED overlapped;
-    bool running;
-  #endif
 };
 
 struct dirmonitor* init_dirmonitor() {
   struct dirmonitor* monitor = calloc(sizeof(struct dirmonitor), 1);
-  #ifndef _WIN32
-    #if __linux__
-      monitor->fd = inotify_init1(IN_NONBLOCK);
-    #else
-      monitor->fd = kqueue();
-    #endif
-  #endif
+  monitor->fd = 0;
   return monitor;
 }
 
-#if _WIN32
-static void close_monitor_handle(struct dirmonitor* monitor) {
-  if (monitor->handle) {
-      if (monitor->running) {
-        BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
-        DWORD error = GetLastError();
-        if (result == TRUE || error != ERROR_NOT_FOUND) {
-          DWORD bytes_transferred;
-          GetOverlappedResult( monitor->handle, &monitor->overlapped, &bytes_transferred, TRUE );
-        }
-        monitor->running = false;
-      }
-      CloseHandle(monitor->handle);
-    }
-  monitor->handle = NULL;
-}
-#endif
 
 void deinit_dirmonitor(struct dirmonitor* monitor) {
-  #if _WIN32
-    close_monitor_handle(monitor);
-  #else
-    close(monitor->fd);
-  #endif
   free(monitor);
 }
 
 int check_dirmonitor(struct dirmonitor* monitor, int (*change_callback)(int, const char*, void*), void* data) {
-  #if _WIN32
-    if (!monitor->running) {
-      if (ReadDirectoryChangesW(monitor->handle, monitor->buffer, sizeof(monitor->buffer), TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, NULL, &monitor->overlapped, NULL) == 0)
-        return GetLastError();
-      monitor->running = true;
-    }
-    DWORD bytes_transferred;
-    if (!GetOverlappedResult(monitor->handle, &monitor->overlapped, &bytes_transferred, FALSE)) {
-      int error = GetLastError();
-      return error == ERROR_IO_PENDING || error == ERROR_IO_INCOMPLETE ? 0 : error;
-    }
-    monitor->running = false;
-    for (FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)monitor->buffer; (char*)info < monitor->buffer + sizeof(monitor->buffer); info = (FILE_NOTIFY_INFORMATION*)((char*)info) + info->NextEntryOffset) {
-      change_callback(info->FileNameLength, (char*)info->FileName, data);
-      if (!info->NextEntryOffset)
-        break;
-    }
-    monitor->running = false;
-    return 0;
-  #elif __linux__
-    char buf[PATH_MAX + sizeof(struct inotify_event)];
-    while (1) {
-      ssize_t len = read(monitor->fd, buf, sizeof(buf));
-      if (len == -1 && errno != EAGAIN)
-        return errno;
-      if (len <= 0)
-        return 0;
-      for (char *ptr = buf; ptr < buf + len; ptr += sizeof(struct inotify_event) + ((struct inotify_event*)ptr)->len)
-        change_callback(((const struct inotify_event *) ptr)->wd, NULL, data);
-    }
-  #else
-    struct kevent event;
-    while (1) {
-      struct timespec tm = {0};
-      int nev = kevent(monitor->fd, NULL, 0, &event, 1, &tm);
-      if (nev == -1)
-        return errno;
-      if (nev <= 0)
-        return 0;
-      change_callback(event.ident, NULL, data);
-    }
-  #endif
+  return 0;	
 }
 
 int add_dirmonitor(struct dirmonitor* monitor, const char* path) {
-  #if _WIN32
-    close_monitor_handle(monitor);
-    monitor->handle = CreateFileA(path, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);
-    if (monitor->handle && monitor->handle != INVALID_HANDLE_VALUE)
-      return 1;
-    monitor->handle = NULL;
-    return -1;
-  #elif __linux__
-    return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
-  #else
-    int fd = open(path, O_RDONLY);
-    struct kevent change;
-    EV_SET(&change, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_LINK | NOTE_RENAME, 0, (void*)path);
-    kevent(monitor->fd, &change, 1, NULL, 0, NULL);
-    return fd;
-  #endif
+  return 0;
 }
 
 void remove_dirmonitor(struct dirmonitor* monitor, int fd) {
-  #if _WIN32
-    close_monitor_handle(monitor);
-  #elif __linux__
-    inotify_rm_watch(monitor->fd, fd);
-  #else
-    close(fd);
-  #endif
 }
 
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
-  #if _WIN32
-    char buffer[PATH_MAX*4];
-    int count = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)path, watch_id, buffer, PATH_MAX*4 - 1, NULL, NULL);
-    lua_pushlstring(L, buffer, count);
-  #else
-    lua_pushnumber(L, watch_id);
-  #endif
-  lua_pcall(L, 1, 1, 0);
+  lua_pushvalue(L, -1);
+  lua_pushnumber(L, watch_id);
+  lua_call(L, 1, 1);
   int result = lua_toboolean(L, -1);
   lua_pop(L, 1);
   return !result;
