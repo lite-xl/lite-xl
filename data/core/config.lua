@@ -29,6 +29,9 @@ config.borderless = false
 config.tab_close_button = true
 config.max_clicks = 3
 
+-- set as true to be able to test non supported plugins
+config.skip_plugins_version = false
+
 config.plugins = {}
 -- Allow you to set plugin configs even if we haven't seen the plugin before.
 setmetatable(config.plugins, {
