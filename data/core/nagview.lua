@@ -19,6 +19,9 @@ function NagView:new()
   self.show_height = 0
   self.force_focus = false
   self.queue = {}
+  self.scrollable = true
+  self.target_height = 0
+  self.on_mouse_pressed_root = nil
 end
 
 function NagView:get_title()
@@ -47,15 +50,15 @@ function NagView:get_target_height()
   return self.target_height + 2 * style.padding.y
 end
 
-function NagView:update()
-  NagView.super.update(self)
-
-  if core.active_view == self and self.title then
-    self:move_towards(self, "show_height", self:get_target_height())
-    self:move_towards(self, "underline_progress", 1)
+function NagView:get_scrollable_size()
+  local w, h = system.get_window_size()
+  if self.visible and self:get_target_height() > h then
+    self.size.y = h
+    return self:get_target_height()
   else
-    self:move_towards(self, "show_height", 0)
+    self.size.y = 0
   end
+  return 0
 end
 
 function NagView:dim_window_content()
@@ -95,6 +98,8 @@ function NagView:each_option()
 end
 
 function NagView:on_mouse_moved(mx, my, ...)
+  if not self.visible then return end
+  core.set_active_view(self)
   NagView.super.on_mouse_moved(self, mx, my, ...)
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
@@ -104,43 +109,55 @@ function NagView:on_mouse_moved(mx, my, ...)
   end
 end
 
--- Used to store saved value for RootView.on_view_mouse_pressed
-local on_view_mouse_pressed
-
-
-local function capture_mouse_pressed(nag_view)
+local function register_mouse_pressed(self)
+  if self.on_mouse_pressed_root then return end
   -- RootView is loaded locally to avoid NagView and RootView being
   -- mutually recursive
   local RootView = require "core.rootview"
-  on_view_mouse_pressed = RootView.on_view_mouse_pressed
-  RootView.on_view_mouse_pressed = function(button, x, y, clicks)
-    local handled = NagView.on_mouse_pressed(nag_view, button, x, y, clicks)
-    return handled or on_view_mouse_pressed(button, x, y, clicks)
+  self.on_mouse_pressed_root = RootView.on_mouse_pressed
+  local this = self
+  function RootView:on_mouse_pressed(button, x, y, clicks)
+    if
+      not this:on_mouse_pressed(button, x, y, clicks)
+    then
+      return this.on_mouse_pressed_root(self, button, x, y, clicks)
+    else
+      return true
+    end
   end
+  self.new_on_mouse_pressed_root = RootView.on_mouse_pressed
 end
 
-
-local function release_mouse_pressed()
+local function unregister_mouse_pressed(self)
   local RootView = require "core.rootview"
-  if on_view_mouse_pressed then
-    RootView.on_view_mouse_pressed = on_view_mouse_pressed
-    on_view_mouse_pressed = nil
+  if
+    self.on_mouse_pressed_root
+    and
+    -- just in case prevent overwriting what something else may
+    -- have overwrote after us, but after testing with various
+    -- plugins this doesn't seems to happen, but just in case
+    self.new_on_mouse_pressed_root == RootView.on_mouse_pressed
+  then
+    RootView.on_mouse_pressed = self.on_mouse_pressed_root
+    self.on_mouse_pressed_root = nil
+    self.new_on_mouse_pressed_root = nil
   end
 end
-
 
 function NagView:on_mouse_pressed(button, mx, my, clicks)
+  if not self.visible then return false end
   if NagView.super.on_mouse_pressed(self, button, mx, my, clicks) then return true end
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
       self:change_hovered(i)
       command.perform "dialog:select"
-      return true
     end
   end
+  return true
 end
 
 function NagView:on_text_input(text)
+  if not self.visible then return end
   if text:lower() == "y" then
     command.perform "dialog:select-yes"
   elseif text:lower() == "n" then
@@ -148,10 +165,25 @@ function NagView:on_text_input(text)
   end
 end
 
+function NagView:update()
+  if not self.visible and self.show_height <= 0 then return end
+  NagView.super.update(self)
+
+  if self.visible and core.active_view == self and self.title then
+    self:move_towards(self, "show_height", self:get_target_height())
+    self:move_towards(self, "underline_progress", 1)
+  else
+    self:move_towards(self, "show_height", 0)
+    if self.show_height <= 0 then
+      self.title = nil
+      self.message = nil
+      self.options = nil
+      self.on_selected = nil
+    end
+  end
+end
 
 local function draw_nagview_message(self)
-  if self.show_height <= 0 or not self.title then return end
-
   self:dim_window_content()
 
   -- draw message's background
@@ -159,6 +191,8 @@ local function draw_nagview_message(self)
   renderer.draw_rect(ox, oy, self.size.x, self.show_height, style.nagbar)
 
   ox = ox + style.padding.x
+
+  core.push_clip_rect(ox, oy, self.size.x, self.show_height)
 
   -- if there are other items, show it
   if #self.queue > 0 then
@@ -196,9 +230,16 @@ local function draw_nagview_message(self)
 
     common.draw_text(opt.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
   end
+
+  self:draw_scrollbar()
+
+  core.pop_clip_rect()
 end
 
 function NagView:draw()
+  if (not self.visible and self.show_height <= 0) or not self.title then
+    return
+  end
   core.root_view:defer_draw(draw_nagview_message, self)
 end
 
@@ -210,28 +251,30 @@ function NagView:get_message_height()
   return h
 end
 
-
 function NagView:next()
   local opts = table.remove(self.queue, 1) or {}
-  self.title = opts.title
-  self.message = opts.message and opts.message .. "\n"
-  self.options = opts.options
-  self.on_selected = opts.on_selected
-  if self.message and self.options then
+  if opts.title and opts.message and opts.options then
+    self.visible = true
+    self.title = opts.title
+    self.message = opts.message and opts.message .. "\n"
+    self.options = opts.options
+    self.on_selected = opts.on_selected
+
     local message_height = self:get_message_height()
     -- self.target_height is the nagview height needed to display the message and
     -- the buttons, excluding the top and bottom padding space.
     self.target_height = math.max(message_height, self:get_buttons_height())
     self:change_hovered(common.find_index(self.options, "default_yes"))
-  end
-  self.force_focus = self.message ~= nil
-  core.set_active_view(self.message ~= nil and self or
-                       core.next_active_view or core.last_active_view)
-  if self.message ~= nil and self then
+
+    self.force_focus = true
+    core.set_active_view(self)
     -- We add a hook to manage all the mouse_pressed events.
-    capture_mouse_pressed(self)
+    register_mouse_pressed(self)
   else
-    release_mouse_pressed()
+    self.force_focus = false
+    core.set_active_view(core.next_active_view or core.last_active_view)
+    self.visible = false
+    unregister_mouse_pressed(self)
   end
 end
 
@@ -242,7 +285,7 @@ function NagView:show(title, message, options, on_select)
   opts.options = assert(options, "No options")
   opts.on_selected = on_select or noop
   table.insert(self.queue, opts)
-  if #self.queue > 0 and not self.title then self:next() end
+  self:next()
 end
 
 return NagView
