@@ -3,7 +3,7 @@ local syntax = require "core.syntax"
 
 syntax.add {
   name = "C",
-  files = { "%.c$", "%.h$", "%.inl$" },
+  files = { "%.c$" },
   comment = "//",
   block_comment = { "/*", "*/" },
   patterns = {
@@ -17,10 +17,21 @@ syntax.add {
     { pattern = "[%+%-=/%*%^%%<>!~|&]",  type = "operator" },
     { pattern = "struct%s()[%a_][%w_]*", type = {"keyword", "keyword2"} },
     { pattern = "union%s()[%a_][%w_]*",  type = {"keyword", "keyword2"} },
+    {
+      pattern = "^%s*#define%s+()[%a_][%a%d_]*",
+      type = { "keyword", "symbol" }
+    },
+    -- Uppercase constants of at least 2 chars in len
+    {
+        pattern = "_?%u[%u_][%u%d_]*%f[%s%+%*%-%.%(%)%?%^%%=/<>~|&;:,!]",
+        type = "number"
+    },
+     -- Magic constants
+    { pattern = "__[%u%l]+__",           type = "number"   },
     { pattern = "[%a_][%w_]*%f[(]",      type = "function" },
-    { pattern = "[%a_][%w_]*",           type = "symbol" },
     { pattern = "#include%s()<.->",      type = {"keyword", "string"} },
     { pattern = "#[%a_][%w_]*",          type = "keyword" },
+    { pattern = "[%a_][%w_]*",           type = "symbol" },
   },
   symbols = {
     ["if"]       = "keyword",
@@ -45,6 +56,8 @@ syntax.add {
     ["case"]     = "keyword",
     ["default"]  = "keyword",
     ["auto"]     = "keyword",
+    ["struct"]   = "keyword",
+    ["union"]    = "keyword",
     ["void"]     = "keyword2",
     ["int"]      = "keyword2",
     ["short"]    = "keyword2",
@@ -61,6 +74,7 @@ syntax.add {
     ["#if"] = "keyword",
     ["#ifdef"] = "keyword",
     ["#ifndef"] = "keyword",
+    ["#elif"]    = "keyword",
     ["#else"] = "keyword",
     ["#elseif"] = "keyword",
     ["#endif"] = "keyword",
