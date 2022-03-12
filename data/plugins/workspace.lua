@@ -75,55 +75,22 @@ end
 
 
 local function save_view(view)
-  local mt = getmetatable(view)
-  if mt == DocView then
-    return {
-      type = "doc",
-      active = (core.active_view == view),
-      filename = view.doc.filename,
-      selection = { view.doc:get_selection() },
-      scroll = { x = view.scroll.to.x, y = view.scroll.to.y },
-      text = not view.doc.filename and view.doc:get_text(1, 1, math.huge, math.huge)
-    }
-  end
-  if mt == LogView then return end
-  for name, mod in pairs(package.loaded) do
-    if mod == mt then
-      return {
-        type = "view",
-        active = (core.active_view == view),
-        module = name
-      }
-    end
-  end
+  if view.context ~= "session" then return end -- only save `session` View classes
+  if not view.registered_name then return end -- View didn't register
+  if not view.get_content then return end
+  local content = view:get_content()
+  content.type = view.registered_name
+  return content
 end
 
 
 local function load_view(t)
-  if t.type == "doc" then
-    local dv
-    if not t.filename then
-      -- document not associated to a file
-      dv = DocView(core.open_doc())
-      if t.text then dv.doc:insert(1, 1, t.text) end
-    else
-      -- we have a filename, try to read the file
-      local ok, doc = pcall(core.open_doc, t.filename)
-      if ok then
-        dv = DocView(doc)
-      end
-    end
-    -- doc view "dv" can be nil here if the filename associated to the document
-    -- cannot be read.
-    if dv and dv.doc then
-      dv.doc:set_selection(table.unpack(t.selection))
-      dv.last_line, dv.last_col = dv.doc:get_selection()
-      dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
-      dv.scroll.y, dv.scroll.to.y = t.scroll.y, t.scroll.y
-    end
-    return dv
+  local class = core.get_registered_view(t.type)
+  if class then
+    t.type = nil
+    return class.from_content and class.from_content(t)
   end
-  return require(t.module)()
+  core.error("Could not restore view %q", t.type)
 end
 
 

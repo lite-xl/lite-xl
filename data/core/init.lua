@@ -36,6 +36,17 @@ local function save_session()
 end
 
 
+local registered_views = { }
+function core.register_view(name, class)
+  registered_views[name] = class
+  class.registered_name = name
+end
+
+function core.get_registered_view(name)
+  return registered_views[name]
+end
+
+
 local function update_recents_project(action, dir_path_abs)
   local dirname = common.normalize_volume(dir_path_abs)
   if not dirname then return end
