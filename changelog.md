@@ -1,5 +1,10 @@
 This files document the changes done in Lite XL for each release.
 
+### next release
+
+Improve the NagView to scroll long messages and fix problem with mouse click on
+buttons didn't work. Contributed by @jgmdev.
+
 ### 2.0.5
 
 Revamp the project's user module so that modifications are immediately applied.
