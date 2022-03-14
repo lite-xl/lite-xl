@@ -5,6 +5,11 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
+#ifdef LUA_JIT
+/* compatibility layer: https://github.com/keplerproject/lua-compat-5.3 */
+#include "compat/compat-5.3.h"
+#endif
+
 #define API_TYPE_FONT "Font"
 #define API_TYPE_PROCESS "Process"
 #define API_TYPE_DIRMONITOR "Dirmonitor"

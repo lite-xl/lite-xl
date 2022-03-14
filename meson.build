@@ -9,11 +9,26 @@ project('lite-xl',
     ]
 )
 
+version = meson.project_version()
+
+#===============================================================================
+# If jit enabled search for luajit first to properly set project version
+#===============================================================================
+lua_jit_found = false
+if get_option('jit')
+    luajit_dep = dependency('luajit', required : false,
+        default_options: ['default_library=static', 'app=false']
+    )
+
+    if luajit_dep.found()
+        lua_jit_found = true
+        version += '-jit'
+    endif
+endif
+
 #===============================================================================
 # Project version including git commit if possible
 #===============================================================================
-version = meson.project_version()
-
 if get_option('buildtype') != 'release'
     git_command = find_program('git', required : false)
 
@@ -66,6 +81,10 @@ lite_cargs += '-DLITE_ARCH_TUPLE="@0@"'.format(arch_tuple)
 lite_link_args = []
 if host_machine.system() == 'darwin'
     lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
+    # the linker aguments below are needed by luajit on macOS
+    if lua_jit_found
+        lite_link_args += ['-pagezero_size', '10000', '-image_base', '100000000']
+    endif
 endif
 #===============================================================================
 # Dependencies
@@ -76,31 +95,36 @@ if not get_option('source-only')
 
     default_fallback_options = ['warning_level=0', 'werror=false']
 
-    # Lua has no official .pc file
-    # so distros come up with their own names
-    lua_names = [
-        'lua5.4', # Debian
-        'lua-5.4', # FreeBSD
-        'lua',    # Fedora
-    ]
+    if not lua_jit_found
+        # Lua has no official .pc file
+        # so distros come up with their own names
+        lua_names = [
+            'lua5.4', # Debian
+            'lua-5.4', # FreeBSD
+            'lua',    # Fedora
+        ]
 
-    foreach lua : lua_names
-        last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
-        lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : false,
-            version: '>= 5.4',
-            default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
-        )
-        if lua_dep.found()
-            break
-        endif
+        foreach lua : lua_names
+            last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
+            lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : false,
+                version: '>= 5.4',
+                default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
+            )
+            if lua_dep.found()
+                break
+            endif
 
-        if last_lua
-            # If we could not find lua on the system and fallbacks are disabled
-            # try the compiler as a last ditch effort, since Lua has no official
-            # pkg-config support.
-            lua_dep = cc.find_library('lua', required : true)
-        endif
-    endforeach
+            if last_lua
+                # If we could not find lua on the system and fallbacks are disabled
+                # try the compiler as a last ditch effort, since Lua has no official
+                # pkg-config support.
+                lua_dep = cc.find_library('lua', required : true)
+            endif
+        endforeach
+    else
+        lua_dep = luajit_dep
+        lite_cargs += '-DLUA_JIT'
+    endif
 
     pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
         default_options: default_fallback_options + ['default_library=static', 'grep=false', 'test=false']
@@ -205,7 +229,12 @@ install_data('licenses/licenses.md', install_dir : lite_docdir)
 
 install_subdir('docs/api' , install_dir : lite_datadir, strip_directory: true)
 install_subdir('data/core' , install_dir : lite_datadir, exclude_files : 'start.lua')
-foreach data_module : ['fonts', 'plugins', 'colors']
+
+data_dirs = ['fonts', 'plugins', 'colors']
+if lua_jit_found
+    data_dirs += ['compat']
+endif
+foreach data_module : data_dirs
     install_subdir(join_paths('data', data_module), install_dir : lite_datadir)
 endforeach
 

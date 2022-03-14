@@ -45,6 +45,15 @@ lite_sources += [
     'api/dirmonitor/' + dirmonitor_backend + '.c',
 ]
 
+# luajit compatibility files
+if lua_jit_found
+    lite_sources += [
+        'compat/lbitlib.c',
+        'compat/lstrlib.c',
+        'compat/ltablib.c',
+        'compat/lutf8lib.c'
+    ]
+endif
 
 lite_rc = []
 if host_machine.system() == 'windows'

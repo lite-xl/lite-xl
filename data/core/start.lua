@@ -25,6 +25,11 @@ package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
 
+-- load compatibility changes when running in luajit
+if LUAJIT then
+  require "compat"
+end
+
 local suffix = PLATFORM == "Mac OS X" and 'lib' or (PLATFORM == "Windows" and 'dll' or 'so')
 package.cpath =
   USERDIR .. '/?.' .. ARCH .. "." .. suffix .. ";" ..

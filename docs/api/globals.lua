@@ -24,3 +24,7 @@ EXEFILE = "/path/to/lite"
 ---Path to the users home directory.
 ---@type string
 HOME = "/path/to/user/dir"
+
+---This is set to true if lite-xl was compiled with luajit.
+---@type boolean
+LUAJIT = false
