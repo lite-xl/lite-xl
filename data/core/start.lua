@@ -45,7 +45,11 @@ package.native_plugins = {}
 package.searchers = { package.searchers[1], package.searchers[2], function(modname)
   local path, err = package.searchpath(modname, package.cpath)
   if not path then return err end
-  return system.load_native_plugin, path
+  if not LUAJIT then
+    return system.load_native_plugin, path
+  else
+    return function() return system.load_native_plugin(modname, path) end
+  end
 end }
 
 table.pack = table.pack or pack or function(...) return {...} end
