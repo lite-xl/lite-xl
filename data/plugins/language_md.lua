@@ -3,7 +3,6 @@ local syntax = require "core.syntax"
 local style = require "core.style"
 local core = require "core"
 
-local initial_scale = SCALE
 local initial_color = style.syntax["keyword2"]
 
 -- Add 3 type of font styles for use on markdown files
@@ -121,46 +120,45 @@ syntax.add {
     { pattern = { "```liquid", "```" },     type = "string", syntax = ".liquid" },
     { pattern = { "```", "```" },           type = "string" },
     { pattern = { "``", "``" },             type = "string" },
-    { pattern = { "`", "`" },               type = "string" },
+    { pattern = { "%f[\\`]%`[%S]", "`" },   type = "string" },
     -- strike
     { pattern = { "~~", "~~" },             type = "keyword2" },
     -- highlight
     { pattern = { "==", "==" },             type = "literal" },
     -- lines
-    { regex = "^\\-{2,}\\-$",               type = "comment" },
-    { regex = "^\\*{2,}\\*$",               type = "comment" },
-    { regex = "^\\_{2,}_$",                 type = "comment" },
+    { pattern = "^%-%-%-+\n",               type = "comment" },
+    { pattern = "^%*%*%*+\n",               type = "comment" },
+    { pattern = "^___+\n",                  type = "comment" },
     -- bullets
-    { regex = "^\\s*\\*\\s",                type = "number" },
-    { regex = "^\\s*-\\s",                  type = "number" },
-    { regex = "^\\s*\\+\\s",                type = "number" },
+    { pattern = "^%s*%*%s",                 type = "number" },
+    { pattern = "^%s*%-%s",                 type = "number" },
+    { pattern = "^%s*%+%s",                 type = "number" },
     -- numbered bullet
-    { regex = "^\\s*[0-9]+\\.\\s",          type = "number" },
+    { pattern = "^%s*[0-9]+%.%s",           type = "number" },
     -- blockquote
-    { regex = "^\\s*>{1,}\\s",              type = "string" },
+    { pattern = "^%s*>+%s",                 type = "string" },
     -- bold and italic
-    { pattern = { "%*%*%*", "%*%*%*" },     type = "markdown_bold_italic" },
-    { pattern = { "%*%*", "%*%*" },         type = "markdown_bold" },
+    { pattern = { "%*%*%*%S", "%*%*%*" },   type = "markdown_bold_italic" },
+    { pattern = { "%*%*%S", "%*%*" },       type = "markdown_bold" },
     -- handle edge case where asterisk can be at end of line and not close
-    { pattern = { "%*[%S]", "%*" },         type = "markdown_italic" },
-    -- alternative bold italic formats
     {
-      regex = "^_{3}[\\s[:punct:]A-Za-z0-9]+_{3}\\s" ,
-      type = "markdown_bold_italic"
-    },
-    {
-      regex = "^_{2}[\\s[:punct:]A-Za-z0-9]+_{2}\\s" ,
-      type = "markdown_bold"
-    },
-    {
-      regex = "^_{1}[\\s[:punct:]A-Za-z0-9]+_{1}\\s" ,
+      pattern = { "%f[\\%*]%*[%S]", "%*%f[^%*]" },
       type = "markdown_italic"
     },
+    -- alternative bold italic formats
+    { pattern = "^___[%s%p%w]+___%s" ,      type = "markdown_bold_italic" },
+    { pattern = "^__[%s%p%w]+__%s" ,        type = "markdown_bold" },
+    { pattern = "^_[%s%p%w]+_%s" ,          type = "markdown_italic" },
     { pattern = { "%s___", "___%f[%s]" },   type = "markdown_bold_italic" },
     { pattern = { "%s__", "__%f[%s]" },     type = "markdown_bold" },
     { pattern = { "%s_[%S]", "_%f[%s]" },   type = "markdown_italic" },
+    -- heading with custom id
+    {
+      pattern = "^#+%s[%w%s%p]+(){()#[%w%-]+()}",
+      type = { "keyword", "function", "string", "function" }
+    },
     -- headings
-    { regex = "^#{1,6}.+",                  type = "keyword" },
+    { pattern = "^#+%s.+\n",                type = "keyword" },
     -- superscript and subscript
     {
       pattern = "%^()%d+()%^",
@@ -171,13 +169,17 @@ syntax.add {
       type = { "function", "number", "function" }
     },
     -- definitions
-    { regex = "^:\\s.+",                    type = "function" },
+    { pattern = "^:%s.+",                   type = "function" },
     -- emoji
     { pattern = ":[a-zA-Z0-9_%-]+:",        type = "literal" },
-    -- images and links
+    -- images and link
     {
-      pattern = "!?%[()["..in_squares_match.."]+()%]()%(()["..in_parenthesis_match.."]+()%)",
-      type = { "function", "string", "function", "function", "number", "function" }
+      pattern = "!?%[!?%[()["..in_squares_match.."]+()%]%(()["..in_parenthesis_match.."]+()%)%]%(()["..in_parenthesis_match.."]+()%)",
+      type = { "function", "string", "function", "number", "function", "number", "function" }
+    },
+    {
+      pattern = "!?%[!?%[?()["..in_squares_match.."]+()%]?%]%(()["..in_parenthesis_match.."]+()%)",
+      type = { "function", "string", "function", "number", "function" }
     },
     -- reference links
     {
@@ -185,11 +187,15 @@ syntax.add {
       type = { "function", "string", "function", "function", "number", "function" }
     },
     {
-      pattern = "%[%^?()["..in_squares_match.."]+()%]: ",
+      pattern = "^%s*%[%^()["..in_squares_match.."]+()%]: ",
       type = { "function", "number", "function" }
     },
     {
-      pattern = "%[%^?()["..in_squares_match.."]+()%]",
+      pattern = "^%s*%[%^?()["..in_squares_match.."]+()%]:%s+.+\n",
+      type = { "function", "number", "function" }
+    },
+    {
+      pattern = "!?%[%^?()["..in_squares_match.."]+()%]",
       type = { "function", "number", "function" }
     },
     -- url's and email
@@ -203,20 +209,9 @@ syntax.add {
   symbols = { },
 }
 
--- Adjust markdown fonts on scale changes.
--- Note: this should be performed by lite-xl it self to all style.syntax_fonts
+-- Adjust the color on theme changes
 core.add_thread(function()
   while true do
-    if initial_scale ~= SCALE then
-      for _, attr in pairs({"bold", "italic", "bold_italic"}) do
-        style.syntax_fonts["markdown_"..attr] =
-          style.syntax_fonts["markdown_"..attr]:copy(
-            style.code_font:get_size()
-        )
-      end
-      initial_scale = SCALE
-    end
-    -- we also adjust the color on theme changes
     if initial_color ~= style.syntax["keyword2"] then
       for _, attr in pairs({"bold", "italic", "bold_italic"}) do
         style.syntax["markdown_"..attr] = style.syntax["keyword2"]
