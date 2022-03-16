@@ -891,12 +891,11 @@ function core.load_plugins()
     local plugin_dir, basename = files[filename], filename:match("(.-)%.lua$") or filename
     local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
     if is_lua_file then
-      if not version_match then
+      if not config.skip_plugins_version and not version_match then
         core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
         local list = refused_list[plugin_dir:find(USERDIR, 1, true) == 1 and 'userdir' or 'datadir'].plugins
         table.insert(list, filename)
-      end
-      if version_match and config.plugins[basename] ~= false then
+      elseif config.plugins[basename] ~= false then
         local ok = core.try(require, "plugins." .. basename)
         if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
         if not ok then

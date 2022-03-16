@@ -1,6 +1,4 @@
 -- mod-version:2 -- lite-xl 2.0
-pcall(require, "plugins.language_c")
-
 local syntax = require "core.syntax"
 
 syntax.add {
@@ -12,27 +10,52 @@ syntax.add {
   comment = "//",
   block_comment = { "/*", "*/" },
   patterns = {
-    { pattern = "//.-\n",                   type = "comment" },
-    { pattern = { "/%*", "%*/" },           type = "comment" },
-    { pattern = { '"', '"', '\\' },         type = "string"  },
-    { pattern = { "'", "'", '\\' },         type = "string"  },
-    { pattern = "0x%x+",                    type = "number"  },
-    { pattern = "%d+[%d%.eE]*f?",           type = "number"  },
-    { pattern = "%.?%d+f?",                 type = "number"  },
-    { pattern = "[%+%-=/%*%^%%<>!~|&]",     type = "operator" },
+    { pattern = "//.-\n",                   type = "comment"  },
+    { pattern = { "/%*", "%*/" },           type = "comment"  },
+    { pattern = { '"', '"', '\\' },         type = "string"   },
+    { pattern = { "'", "'", '\\' },         type = "string"   },
+    { pattern = "0x%x+",                    type = "number"   },
+    { pattern = "%d+[%d%.eE]*f?",           type = "number"   },
+    { pattern = "%.?%d+f?",                 type = "number"   },
+    {
+      pattern = "^%s*#define%s+()[%a_][%a%d_]*",
+      type = { "keyword", "symbol" }
+    },
+    {
+      pattern = "#include%s+()<.->",
+      type = { "keyword", "string" }
+    },
+    { pattern = "[%+%-=/%*%^%%<>!~|:&]",     type = "operator" },
     { pattern = "struct%s()[%a_][%w_]*",    type = {"keyword", "keyword2"} },
     { pattern = "class%s()[%a_][%w_]*",     type = {"keyword", "keyword2"} },
     { pattern = "union%s()[%a_][%w_]*",     type = {"keyword", "keyword2"} },
     { pattern = "namespace%s()[%a_][%w_]*", type = {"keyword", "keyword2"} },
-    { pattern = "[%a_][%w_]*::",            type = "symbol" },
-    { pattern = "::",                       type = "symbol" },
-    { pattern = "[%a_][%w_]*",              type = "symbol" },
-    { pattern = "#include%s()<.->",         type = {"keyword", "string"} },
-    { pattern = "#[%a_][%w_]*",             type = "keyword" },
+    { pattern = "[%a_][%w_]*%f[(]",         type = "function" },
+    -- Match scope operator element access
+    { pattern = "[%a_][%w_]*[%s]*%f[:]",    type = "literal"  },
+    -- Uppercase constants of at least 2 chars in len
+    {
+        pattern = "_?%u[%u_][%u%d_]*%f[%s%+%*%-%.%(%)%?%^%%=/<>~|&;:,!]",
+        type = "number"
+    },
+    -- Magic constants
+    { pattern = "__[%u%l]+__",              type = "number"   },
+    -- Somehow makes macros properly work
+    { pattern = "#[%a_][%w_]*",             type = "normal"   },
+    -- Everything else to make the tokenizer work properly
+    { pattern = "[%a_][%w_]*",              type = "symbol"   },
   },
   symbols = {
     ["alignof"]  = "keyword",
     ["alignas"]  = "keyword",
+    ["and"]      = "keyword",
+    ["and_eq"]   = "keyword",
+    ["not"]      = "keyword",
+    ["not_eq"]   = "keyword",
+    ["or"]       = "keyword",
+    ["or_eq"]    = "keyword",
+    ["xor"]      = "keyword",
+    ["xor_eq"]   = "keyword",
     ["private"]  = "keyword",
     ["protected"] = "keyword",
     ["public"]   = "keyword",
@@ -40,9 +63,12 @@ syntax.add {
     ["nullptr"]  = "keyword",
     ["operator"] = "keyword",
     ["asm"]      = "keyword",
+    ["bitand"]   = "keyword",
+    ["bitor"]    = "keyword",
     ["catch"]    = "keyword",
     ["throw"]    = "keyword",
     ["try"]      = "keyword",
+    ["class"]    = "keyword",
     ["compl"]    = "keyword",
     ["explicit"] = "keyword",
     ["export"]   = "keyword",
@@ -52,8 +78,8 @@ syntax.add {
     ["constinit"] = "keyword",
     ["const_cast"] = "keyword",
     ["dynamic_cast"] = "keyword",
-    ["reinterpret_cast"] = "keyword",
-    ["static_cast"] = "keyword",
+    ["reinterpret_cast"]   = "keyword",
+    ["static_cast"]   = "keyword",
     ["static_assert"] = "keyword",
     ["template"]  = "keyword",
     ["this"]      = "keyword",
@@ -64,7 +90,6 @@ syntax.add {
     ["co_yield"]  = "keyword",
     ["decltype"] = "keyword",
     ["delete"]   = "keyword",
-    ["export"]   = "keyword",
     ["friend"]   = "keyword",
     ["typeid"]   = "keyword",
     ["typename"] = "keyword",
@@ -72,6 +97,7 @@ syntax.add {
     ["override"] = "keyword",
     ["virtual"]  = "keyword",
     ["using"]    = "keyword",
+    ["namespace"] = "keyword",
     ["new"]      = "keyword",
     ["noexcept"] = "keyword",
     ["if"]       = "keyword",
@@ -85,6 +111,8 @@ syntax.add {
     ["continue"] = "keyword",
     ["return"]   = "keyword",
     ["goto"]     = "keyword",
+    ["struct"]   = "keyword",
+    ["union"]    = "keyword",
     ["typedef"]  = "keyword",
     ["enum"]     = "keyword",
     ["extern"]   = "keyword",
@@ -96,7 +124,6 @@ syntax.add {
     ["case"]     = "keyword",
     ["default"]  = "keyword",
     ["auto"]     = "keyword",
-    ["const"]    = "keyword",
     ["void"]     = "keyword2",
     ["int"]      = "keyword2",
     ["short"]    = "keyword2",
@@ -106,12 +133,18 @@ syntax.add {
     ["char"]     = "keyword2",
     ["unsigned"] = "keyword2",
     ["bool"]     = "keyword2",
-    ["true"]     = "keyword2",
-    ["false"]    = "keyword2",
+    ["true"]     = "literal",
+    ["false"]    = "literal",
+    ["NULL"]     = "literal",
+    ["wchar_t"]  = "keyword2",
+    ["char8_t"]  = "keyword2",
+    ["char16_t"] = "keyword2",
+    ["char32_t"] = "keyword2",
     ["#include"] = "keyword",
     ["#if"]      = "keyword",
     ["#ifdef"]   = "keyword",
     ["#ifndef"]  = "keyword",
+    ["#elif"]    = "keyword",
     ["#else"]    = "keyword",
     ["#elseif"]  = "keyword",
     ["#endif"]   = "keyword",
@@ -119,6 +152,5 @@ syntax.add {
     ["#warning"] = "keyword",
     ["#error"]   = "keyword",
     ["#pragma"]  = "keyword",
-   },
+  },
 }
-
