@@ -4,12 +4,16 @@ local config = require "core.config"
 local tokenizer = require "core.tokenizer"
 local Object = require "core.object"
 
+local considered_slow = 0.05
+local max_line_len_when_slow = 100
 
 local Highlighter = Object:extend()
 
 
 function Highlighter:new(doc)
   self.doc = doc
+  -- mode activated on slow machines where tokenization is taking too long
+  self.lazy_mode = false
   self:reset()
 
   -- init incremental syntax highlighting
@@ -26,7 +30,13 @@ function Highlighter:new(doc)
           local state = (i > 1) and self.lines[i - 1].state
           local line = self.lines[i]
           if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
+            local start_time = system.get_time();
             self.lines[i] = self:tokenize_line(i, state)
+            local total_time = system.get_time() - start_time
+            if total_time >= considered_slow then
+              core.redraw = true
+              coroutine.yield(0)
+            end
           end
         end
 
@@ -84,9 +94,28 @@ end
 function Highlighter:get_line(idx)
   local line = self.lines[idx]
   if not line or line.text ~= self.doc.lines[idx] then
-    local prev = self.lines[idx - 1]
-    line = self:tokenize_line(idx, prev and prev.state)
-    self.lines[idx] = line
+    if not self.lazy_mode or (self.doc.lines[idx]:len() <= max_line_len_when_slow) then
+      local prev = self.lines[idx - 1]
+      local start_time = system.get_time();
+      line = self:tokenize_line(idx, prev and prev.state)
+      local total_time = system.get_time() - start_time
+      if total_time >= considered_slow then
+        self.lazy_mode = true
+        core.log(
+          "%s: slow tokenization detected, lazy mode activated",
+          self.doc:get_name():match("[^/%\\]*$")
+        )
+      end
+      self.lines[idx] = line
+    else
+      line = {
+        tokens = {
+          "normal",
+          self.doc.lines[idx]
+        }
+      }
+      self:invalidate(idx)
+    end
   end
   self.max_wanted_line = math.max(self.max_wanted_line, idx)
   return line
