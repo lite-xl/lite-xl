@@ -116,10 +116,10 @@ local function get_comment_patterns(syntax)
         end
         if type(pattern.regex) == "table" then
           table.insert(comments, {
-            "r", startp, pattern.regex[2]
+            "r", regex.compile(startp), regex.compile(pattern.regex[2])
           })
         elseif not_is_string then
-          table.insert(comments, {"r", startp})
+          table.insert(comments, {"r", regex.compile(startp)})
         end
       end
     elseif pattern.syntax then
