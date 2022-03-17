@@ -522,10 +522,9 @@ local commands = {
   ["doc:split-cursor"] = function(x, y, clicks)
     local line, col = dv():resolve_screen_position(x, y)
     local removal_target = nil
-      for idx, line1, col1 in doc():get_selections(true) do
-        if line1 == line and col1 == col and #doc().selections > 4 then
-          removal_target = idx
-        end
+    for idx, line1, col1 in doc():get_selections(true) do
+      if line1 == line and col1 == col and #doc().selections > 4 then
+        removal_target = idx
       end
     end
     if removal_target then
