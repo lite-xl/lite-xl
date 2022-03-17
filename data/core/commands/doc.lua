@@ -175,14 +175,12 @@ local function block_comment(comment, line1, col1, line2, col2)
   end
 end
 
-local selection_commands = {
+local commands = {
   ["doc:select-none"] = function()
     local line, col = doc():get_selection()
     doc():set_selection(line, col)
-  end
-}
-
-local commands = {
+  end,
+  
   ["doc:cut"] = function()
     cut_or_copy(true)
   end,
@@ -523,7 +521,19 @@ local commands = {
 
   ["doc:split-cursor"] = function(x, y, clicks)
     local line, col = dv():resolve_screen_position(x, y)
-    doc():add_selection(line, col, line, col)
+    local removal_target = nil
+      for idx, line1, col1 in doc():get_selections(true) do
+        if line1 == line and col1 == col and #doc().selections > 4 then
+          removal_target = idx
+        end
+      end
+    end
+    if removal_target then
+      doc():remove_selection(removal_target)
+    else
+      doc():add_selection(line, col, line, col)
+    end
+    dv().mouse_selecting = { line, col, "set" }
   end,
 
   ["doc:create-cursor-previous-line"] = function()
@@ -584,6 +594,3 @@ commands["doc:move-to-next-char"] = function()
 end
 
 command.add("core.docview", commands)
-command.add(function()
-  return core.active_view:is(DocView) and core.active_view.doc:has_any_selection()
-end ,selection_commands)

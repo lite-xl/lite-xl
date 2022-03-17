@@ -198,6 +198,12 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
   self:set_selections(target, line1, col1, line2, col2, swap, 0)
 end
 
+
+function Doc:remove_selection(idx)
+  common.splice(self.selections, (idx - 1) * 4 + 1, 4)
+end
+
+
 function Doc:set_selection(line1, col1, line2, col2, swap)
   self.selections = {}
   self:set_selections(1, line1, col1, line2, col2, swap)
