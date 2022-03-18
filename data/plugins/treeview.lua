@@ -11,13 +11,10 @@ local RootView = require "core.rootview"
 
 config.plugins.treeview = common.merge({
   -- Amount of clicks to open a file
-  clicks_to_open = 2
-}, config.plugins.treeview)
-
-config.plugins.treeview = common.merge({
+  clicks_to_open = 2,
+  -- Default treeview width
   size = 200 * SCALE
 }, config.plugins.treeview)
-
 
 local tooltip_offset = style.font:get_height()
 local tooltip_border = 1
