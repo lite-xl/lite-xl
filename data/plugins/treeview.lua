@@ -422,7 +422,7 @@ function TreeView:draw()
   end
 
   self:draw_scrollbar()
-  if self.hovered_item and self.tooltip.alpha > 0 and self.draw_tooltip.x then
+  if self.hovered_item and self.tooltip.x and self.tooltip.alpha > 0 then
     core.root_view:defer_draw(self.draw_tooltip, self)
   end
 end
