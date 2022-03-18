@@ -390,8 +390,8 @@ function RootView:draw_grabbed_tab()
   local _,_, w, h = dn.node:get_tab_rect(dn.idx)
   local x = self.mouse.x - w / 2
   local y = self.mouse.y - h / 2
-  local text = dn.node.views[dn.idx] and dn.node.views[dn.idx]:get_name() or ""
-  self.root_node:draw_tab(text, true, true, false, x, y, w, h, true)
+  local view = dn.node.views[dn.idx]
+  self.root_node:draw_tab(view, true, true, false, x, y, w, h, true)
 end
 
 
