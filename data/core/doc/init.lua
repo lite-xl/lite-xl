@@ -54,6 +54,7 @@ end
 function Doc:set_filename(filename, abs_filename)
   self.filename = filename
   self.abs_filename = abs_filename
+  self:reset_syntax()
 end
 
 
@@ -95,7 +96,6 @@ function Doc:save(filename, abs_filename)
   fp:close()
   self:set_filename(filename, abs_filename)
   self.new_file = false
-  self:reset_syntax()
   self:clean()
 end
 
@@ -197,6 +197,12 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
   end
   self:set_selections(target, line1, col1, line2, col2, swap, 0)
 end
+
+
+function Doc:remove_selection(idx)
+  common.splice(self.selections, (idx - 1) * 4 + 1, 4)
+end
+
 
 function Doc:set_selection(line1, col1, line2, col2, swap)
   self.selections = {}
