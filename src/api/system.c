@@ -719,6 +719,7 @@ static int f_exec(lua_State *L) {
   // the most complicated thing ever
   PROCESS_INFORMATION pi;
   STARTUPINFOW si;
+  memset(&si, 0, sizeof(si));
   si.cb = sizeof(si);
   si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
   si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
