@@ -224,7 +224,6 @@ function DocView:scroll_to_make_visible(line, col)
   end
 end
 
-
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
