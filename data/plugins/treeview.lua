@@ -427,6 +427,16 @@ function TreeView:draw()
   end
 end
 
+function TreeView:get_parent(item)
+  local parent_path = common.dirname(item.abs_filename)
+  if not parent_path then return end
+  for it, _, y in self:each_item() do
+    if it.abs_filename == parent_path then
+      return it, y
+    end
+  end
+end
+
 function TreeView:toggle_expand(toggle)
   local item = self.selected_item
 
@@ -619,7 +629,16 @@ command.add(TreeView, {
   end,
 
   ["treeview:collapse"] = function()
-    view:toggle_expand(false)
+    if view.selected_item then
+      if view.selected_item.type == "dir" and view.selected_item.expanded then
+        view:toggle_expand(false)
+      else
+        local parent_item, y = view:get_parent(view.selected_item)
+        if parent_item then
+          view:set_selection(parent_item, y)
+        end
+      end
+    end
   end,
 
   ["treeview:expand"] = function()
