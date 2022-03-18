@@ -9,9 +9,10 @@ local View = require "core.view"
 local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
 
-config.plugins.treeview = {
+config.plugins.treeview = common.merge({
+  -- Amount of clicks to open a file
   clicks_to_open = 2
-}
+}, config.plugins.treeview)
 
 local default_treeview_size = 200 * SCALE
 local tooltip_offset = style.font:get_height()
@@ -425,6 +426,24 @@ function TreeView:draw()
   end
 end
 
+function TreeView:toggle_expand(toggle)
+  local item = self.selected_item
+
+  if not item then return end
+
+  if item.type == "dir" then
+    if type(toggle) == "boolean" then
+      item.expanded = toggle
+    else
+      item.expanded = not item.expanded
+    end
+    local hovered_dir = core.project_dir_by_name(item.dir_name)
+    if hovered_dir and hovered_dir.files_limit then
+      core.update_project_subdir(hovered_dir, item.filename, item.expanded)
+    end
+  end
+end
+
 
 -- init
 local view = TreeView()
@@ -524,6 +543,21 @@ menu:register(
 command.add(nil, {
   ["treeview:toggle"] = function()
     view.visible = not view.visible
+  end,
+
+  ["treeview:toggle-focus"] = function()
+    if not core.active_view:is(TreeView) then
+      core.set_active_view(view)
+      if not view.selected_item then
+        for it, _, y in view:each_item() do
+          view:set_selection(it, y)
+          break
+        end
+      end
+
+    else
+      core.set_active_view(core.last_active_view)
+    end
   end
 })
 
@@ -565,24 +599,9 @@ command.add(TreeView, {
 
   ["treeview:open"] = function()
     local item = view.selected_item
-
     if not item then return end
     if item.type == "dir" then
-      item.expanded = not item.expanded
-
-      if view.selected_item
-        and view.selected_item.abs_filename ~= item.abs_filename
-        and view.selected_item.abs_filename:find(item.abs_filename, 1, true) == 1
-        and not item.expanded
-      then
-        -- deselect the item if it is hidden when its parent is collapsed
-        view.selected_item = nil
-      end
-
-      local hovered_dir = core.project_dir_by_name(item.dir_name)
-      if hovered_dir and hovered_dir.files_limit then
-        core.update_project_subdir(hovered_dir, item.filename, not item.expanded)
-      end
+      view:toggle_expand()
     else
       core.try(function()
         if core.last_active_view and core.active_view == view then
@@ -596,7 +615,15 @@ command.add(TreeView, {
 
   ["treeview:deselect"] = function()
     view.selected_item = nil
-  end
+  end,
+
+  ["treeview:collapse"] = function()
+    view:toggle_expand(false)
+  end,
+
+  ["treeview:expand"] = function()
+    view:toggle_expand(true)
+  end,
 })
 
 
@@ -707,6 +734,8 @@ keymap.add {
   ["ctrl+\\"]     = "treeview:toggle",
   ["up"]          = "treeview:previous",
   ["down"]        = "treeview:next",
+  ["left"]        = "treeview:collapse",
+  ["right"]       = "treeview:expand",
   ["return"]      = "treeview:open",
   ["escape"]      = "treeview:deselect",
   ["delete"]      = "treeview:delete",
