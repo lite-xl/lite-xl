@@ -581,7 +581,9 @@ command.add(nil, {
       end
 
     else
-      core.set_active_view(previous_view)
+      local last_active = not core.last_active_view:is(CommandView)
+        and core.last_active_view or core.root_view:get_primary_node().views[1]
+      core.set_active_view(previous_view or last_active)
     end
   end
 })
