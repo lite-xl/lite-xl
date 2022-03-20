@@ -570,7 +570,7 @@ command.add(nil, {
         previous_view = core.active_view
       end
       if not previous_view then
-        previous_view = core.root_view:get_primary_node().views[1]
+        previous_view = core.root_view:get_primary_node().active_view
       end
       core.set_active_view(view)
       if not view.selected_item then
@@ -581,9 +581,9 @@ command.add(nil, {
       end
 
     else
-      local last_active = not core.last_active_view:is(CommandView)
-        and core.last_active_view or core.root_view:get_primary_node().views[1]
-      core.set_active_view(previous_view or last_active)
+      core.set_active_view(
+        previous_view or core.root_view:get_primary_node().active_view
+      )
     end
   end
 })
