@@ -210,10 +210,13 @@ end
 function TreeView:on_mouse_moved(px, py, ...)
   if not self.visible then return end
   TreeView.super.on_mouse_moved(self, px, py, ...)
-  if self.dragging_scrollbar then return end
-
   self.cursor_pos.x = px
   self.cursor_pos.y = py
+  if self.dragging_scrollbar then
+    self.hovered_item = nil
+    return
+  end
+
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
@@ -300,7 +303,7 @@ function TreeView:update()
   -- we don't want events when the thing is scrolling fast
   local dy = math.abs(self.scroll.to.y - self.scroll.y)
   if self.scroll.to.y ~= 0 and dy < self:get_item_height() then
-    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, self.scroll.to.y - self.scroll.y)
+    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, 0)
   end
 
   TreeView.super.update(self)
