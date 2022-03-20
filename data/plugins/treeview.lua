@@ -660,7 +660,22 @@ command.add(TreeView, {
   ["treeview:expand"] = function()
     view:toggle_expand(true)
   end,
+})
 
+
+local function treeitem() return view.hovered_item or view.selected_item end
+
+
+command.add(
+  function()
+    return treeitem() ~= nil
+      and (
+        core.active_view == view or core.active_view == menu
+        or (view.toolbar and core.active_view == view.toolbar)
+        -- sometimes the context menu is shown on top of statusbar
+        or core.active_view == core.status_view
+      )
+  end, {
   ["treeview:delete"] = function()
     local filename = treeitem().abs_filename
     local relfilename = treeitem().filename
@@ -697,11 +712,8 @@ command.add(TreeView, {
         end
       end
     )
-  end,
+  end
 })
-
-
-local function treeitem() return view.hovered_item or view.selected_item end
 
 
 command.add(function() return treeitem() ~= nil end, {
