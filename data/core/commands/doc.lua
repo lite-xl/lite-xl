@@ -578,18 +578,20 @@ commands["doc:move-to-previous-char"] = function()
   for idx, line1, col1, line2, col2 in doc():get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
       doc():set_selections(idx, line1, col1)
+    else
+      doc():move_to_cursor(idx, translate.previous_char)
     end
   end
-  doc():move_to(translate.previous_char)
 end
 
 commands["doc:move-to-next-char"] = function()
   for idx, line1, col1, line2, col2 in doc():get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
       doc():set_selections(idx, line2, col2)
+    else
+      doc():move_to_cursor(idx, translate.next_char)
     end
   end
-  doc():move_to(translate.next_char)
 end
 
 command.add("core.docview", commands)
