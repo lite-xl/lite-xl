@@ -8,6 +8,7 @@ local style = require "core.style"
 local View = require "core.view"
 local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
+local CommandView = require "core.commandview"
 
 config.plugins.treeview = common.merge({
   -- Amount of clicks to open a file
@@ -550,6 +551,8 @@ menu:register(
   }
 )
 
+local previous_view = nil
+
 -- Register the TreeView commands and keymap
 command.add(nil, {
   ["treeview:toggle"] = function()
@@ -558,6 +561,14 @@ command.add(nil, {
 
   ["treeview:toggle-focus"] = function()
     if not core.active_view:is(TreeView) then
+      if core.active_view:is(CommandView) then
+        previous_view = core.last_active_view
+      else
+        previous_view = core.active_view
+      end
+      if not previous_view then
+        previous_view = core.root_view:get_primary_node().views[1]
+      end
       core.set_active_view(view)
       if not view.selected_item then
         for it, _, y in view:each_item() do
@@ -567,7 +578,7 @@ command.add(nil, {
       end
 
     else
-      core.set_active_view(core.last_active_view)
+      core.set_active_view(previous_view)
     end
   end
 })
