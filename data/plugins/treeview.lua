@@ -644,6 +644,44 @@ command.add(TreeView, {
   ["treeview:expand"] = function()
     view:toggle_expand(true)
   end,
+
+  ["treeview:delete"] = function()
+    local filename = treeitem().abs_filename
+    local relfilename = treeitem().filename
+    local file_info = system.get_file_info(filename)
+    local file_type = file_info.type == "dir" and "Directory" or "File"
+    -- Ask before deleting
+    local opt = {
+      { font = style.font, text = "Yes", default_yes = true },
+      { font = style.font, text = "No" , default_no = true }
+    }
+    core.nag_view:show(
+      string.format("Delete %s", file_type),
+      string.format(
+        "Are you sure you want to delete the %s?\n%s: %s",
+        file_type:lower(), file_type, relfilename
+      ),
+      opt,
+      function(item)
+        if item.text == "Yes" then
+          if file_info.type == "dir" then
+            local deleted, error, path = common.rm(filename, true)
+            if not deleted then
+              core.error("Error: %s - \"%s\" ", error, path)
+              return
+            end
+          else
+            local removed, error = os.remove(filename)
+            if not removed then
+              core.error("Error: %s - \"%s\"", error, filename)
+              return
+            end
+          end
+          core.log("Deleted \"%s\"", filename)
+        end
+      end
+    )
+  end,
 })
 
 
@@ -697,44 +735,6 @@ command.add(function() return treeitem() ~= nil end, {
       common.mkdirp(dir_path)
       core.log("Created %s", dir_path)
     end, common.path_suggest)
-  end,
-
-  ["treeview:delete"] = function()
-    local filename = treeitem().abs_filename
-    local relfilename = treeitem().filename
-    local file_info = system.get_file_info(filename)
-    local file_type = file_info.type == "dir" and "Directory" or "File"
-    -- Ask before deleting
-    local opt = {
-      { font = style.font, text = "Yes", default_yes = true },
-      { font = style.font, text = "No" , default_no = true }
-    }
-    core.nag_view:show(
-      string.format("Delete %s", file_type),
-      string.format(
-        "Are you sure you want to delete the %s?\n%s: %s",
-        file_type:lower(), file_type, relfilename
-      ),
-      opt,
-      function(item)
-        if item.text == "Yes" then
-          if file_info.type == "dir" then
-            local deleted, error, path = common.rm(filename, true)
-            if not deleted then
-              core.error("Error: %s - \"%s\" ", error, path)
-              return
-            end
-          else
-            local removed, error = os.remove(filename)
-            if not removed then
-              core.error("Error: %s - \"%s\"", error, filename)
-              return
-            end
-          end
-          core.log("Deleted \"%s\"", filename)
-        end
-      end
-    )
   end,
 
   ["treeview:open-in-system"] = function()
