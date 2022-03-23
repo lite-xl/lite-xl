@@ -76,9 +76,9 @@ end
 
 
 local function get_comment_patterns(syntax)
-  if comments_cache[syntax.name] then
-    if #comments_cache[syntax.name] > 0 then
-      return comments_cache[syntax.name]
+  if comments_cache[syntax] then
+    if #comments_cache[syntax] > 0 then
+      return comments_cache[syntax]
     else
       return nil
     end
@@ -123,7 +123,8 @@ local function get_comment_patterns(syntax)
         end
       end
     elseif pattern.syntax then
-      local subsyntax = core_syntax.get("file"..pattern.syntax, "")
+      local subsyntax = type(pattern.syntax) == 'table' and pattern.syntax
+        or core_syntax.get("file"..pattern.syntax, "")
       local sub_comments = get_comment_patterns(subsyntax)
       if sub_comments then
         for s=1, #sub_comments do
@@ -149,7 +150,7 @@ local function get_comment_patterns(syntax)
       table.insert(comments, {"p", "^%s*" .. block_comment[1], block_comment[2]})
     end
   end
-  comments_cache[syntax.name] = comments
+  comments_cache[syntax] = comments
   if #comments > 0 then
     return comments
   end
