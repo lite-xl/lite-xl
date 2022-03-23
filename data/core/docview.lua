@@ -410,6 +410,10 @@ function DocView:draw()
   local minline, maxline = self:get_visible_line_range()
   local lh = self:get_line_height()
 
+  if self.size.y > 0 then
+    self.doc.highlighter:set_visible_lines(minline, maxline)
+  end
+
   local x, y = self:get_line_screen_position(minline)
   local gw, gpad = self:get_gutter_width()
   for i = minline, maxline do

@@ -183,7 +183,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, yield)
         -- and if it is not itself escaped.
         if count % 2 == 0 then break end
       end
-      if yield and find_cycle % 10 == 0 then
+      if yield and find_cycle % 400 == 0 then
         coroutine.yield()
       end
       find_cycle = find_cycle + 1
