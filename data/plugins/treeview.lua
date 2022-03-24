@@ -111,7 +111,7 @@ end
 
 
 function TreeView:get_name()
-  return "Project"
+  return nil
 end
 
 
@@ -264,7 +264,7 @@ function TreeView:on_mouse_pressed(button, x, y, clicks)
       create_directory_in(self.selected_item)
     elseif self.selected_item.type == "dir"
       or (self.selected_item.type == "file"
-        and clicks == config.plugins.treeview.clicks_to_open
+        and clicks >= config.plugins.treeview.clicks_to_open
       )
     then
       command.perform "treeview:open"
