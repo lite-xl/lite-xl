@@ -12,7 +12,7 @@ local CommandView = require "core.commandview"
 
 config.plugins.treeview = common.merge({
   -- Amount of clicks to open a file
-  clicks_to_open = 2,
+  clicks_to_open = 1,
   -- Default treeview width
   size = 200 * SCALE
 }, config.plugins.treeview)
