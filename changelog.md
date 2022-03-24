@@ -1,5 +1,73 @@
 This files document the changes done in Lite XL for each release.
 
+### 2.1
+
+Upgraded Lua to 5.4, which should improve performance, and provide useful extra functionality.
+It should also be more available out of the box with most modern linux/unix-based package
+managers.
+
+Removed `dmon`, and implemented independent backends for dirmonitoring. Also more cleanly
+split out dirmonitoring into its own class in lua, from core.init. We should now support
+FreeBSD; and any other system that uses `kqueue` as their dirmonitoring library. We also
+have a dummy-backend, which reverts transparnetly to scanning if there is some issue with 
+applying OS-level watches (such as system limits).
+
+Removed `libagg` and the font renderer; compacted all font rendering into a single renderer.c
+file which uses `libfreetype` directly. Now allows for ad-hoc bolding, italics, and underlining
+of fonts.
+
+Removed `reproc` and replaced this with a simple POSIX/Windows implementation in `process.c`.
+This allows for greater tweakability (i.e. we can now `break` for debugging purposes),
+performance (startup time of subprocesses is noticeably shorter), and simplicity 
+(we no longer have to link reproc, or winsock, on windows).
+
+Split out `Node` and `EmptyView` into their own lua files, for plugin extensibility reasons.
+
+Revamped StatusView API, so that plugins can more easily coexist with each other.
+
+Removed `cp_replace`, and replaced this with a core plugin, `drawwhitespace.lua`.
+
+Made distinction between line and block comments, and added all appropriate functionality
+to the commenting/uncommenting lines.
+
+Added in line paste mode, if you copy without a selection.
+
+May improvements to treeview, including keyboard navigation of treeview, and ability to 
+specify single vs. double-click behavior.
+
+Added in soft line wrapping as core plugin, under `linewrapping.lua`, with an
+F10 to activate.
+
+Bumped plugin mod-version number, as the rendering interface for docviews has changed.
+
+Added in meson wraps for freetype, pcre2, and SDL2 which target public, rather than 
+lite-xl maintained repos.
+
+Added in the ability to set up font fallback groups in the font renderer, if a token
+doesn't have a corresponding glyph.
+
+Added in a native plugin interface that allows for C-level interfacing with a 
+statically-linked lite-xl. The implementation of this may change in future.
+
+Improved fuzzy_matching to probably give you something closer to what you're
+looking for.
+
+Improved handling of alternate keyboard layouts.
+
+Improved ability for plugins to be loaded at a given time, by making the convention
+of defining a config for the plugin use `common.merge` to merge existing hashes
+together, rather than overwriting.
+
+Added in the ability to specify mouseclicks in the keymap, allowing for easy binds of
+`ctrl+lclick`, and the like.
+
+Changed interface for keyhandling; now, all components should return true if they've
+handled the event.
+
+Added in a default keymap for `core:restart`, `ctrl+shift+r`.
+
+Many, many, many more changes that are too numerous to list.
+
 ### 2.0.5
 
 Revamp the project's user module so that modifications are immediately applied.
