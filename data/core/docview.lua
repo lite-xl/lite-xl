@@ -341,7 +341,7 @@ function DocView:draw_line_body(line, x, y)
   local hcl = config.highlight_current_line
   if hcl ~= false then
     for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
-      if line1 == idx then
+      if line1 == line then
         if hcl == "no_selection" then
           if (line1 ~= line2) or (col1 ~= col2) then
             draw_highlight = false
@@ -387,7 +387,7 @@ function DocView:draw_line_gutter(line, x, y, width)
   end
   x = x + style.padding.x
   local lh = self:get_line_height()
-  common.draw_text(self:get_font(), color, line, "right", x, y + yoffset, width, lh)
+  common.draw_text(self:get_font(), color, line, "right", x, y, width, lh)
   return lh
 end
 
