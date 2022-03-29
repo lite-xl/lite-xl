@@ -15,33 +15,80 @@ syntax.add {
     { pattern = { '"', '"', '\\' },         type = "string"   },
     { pattern = { "'", "'", '\\' },         type = "string"   },
     { pattern = "0x%x+",                    type = "number"   },
-    { pattern = "%d+[%d%.eE]*f?",           type = "number"   },
+    { pattern = "%d+[%d%.'eE]*f?",          type = "number"   },
     { pattern = "%.?%d+f?",                 type = "number"   },
-    {
-      pattern = "^%s*#define%s+()[%a_][%a%d_]*",
-      type = { "keyword", "symbol" }
-    },
-    {
-      pattern = "#include%s+()<.->",
-      type = { "keyword", "string" }
-    },
-    { pattern = "[%+%-=/%*%^%%<>!~|:&]",     type = "operator" },
+    { pattern = "[%+%-=/%*%^%%<>!~|:&]",    type = "operator" },
+    { pattern = "##",                       type = "operator" },
     { pattern = "struct%s()[%a_][%w_]*",    type = {"keyword", "keyword2"} },
     { pattern = "class%s()[%a_][%w_]*",     type = {"keyword", "keyword2"} },
     { pattern = "union%s()[%a_][%w_]*",     type = {"keyword", "keyword2"} },
     { pattern = "namespace%s()[%a_][%w_]*", type = {"keyword", "keyword2"} },
-    { pattern = "[%a_][%w_]*%f[(]",         type = "function" },
+    -- static declarations
+    { pattern = "static()%s+()inline",
+      type = { "keyword", "normal", "keyword" }
+    },
+    { pattern = "static()%s+()const",
+      type = { "keyword", "normal", "keyword" }
+    },
+    { pattern = "static()%s+()[%a_][%w_]*",
+      type = { "keyword", "normal", "literal" }
+    },
+    -- match method type declarations
+    { pattern = "[%a_][%w_]*()%s*()%**()%s*()[%a_][%w_]*()%s*()::",
+      type = {
+        "literal", "normal", "operator", "normal",
+        "literal", "normal", "operator"
+      }
+    },
+    -- match function type declarations
+    { pattern = "[%a_][%w_]*()%*+()%s+()[%a_][%w_]*%f[%(]",
+      type = { "literal", "operator", "normal", "function" }
+    },
+    { pattern = "[%a_][%w_]*()%s+()%*+()[%a_][%w_]*%f[%(]",
+      type = { "literal", "normal", "operator", "function" }
+    },
+    { pattern = "[%a_][%w_]*()%s+()[%a_][%w_]*%f[%(]",
+      type = { "literal", "normal", "function" }
+    },
+    -- match variable type declarations
+    { pattern = "[%a_][%w_]*()%*+()%s+()[%a_][%w_]*",
+      type = { "literal", "operator", "normal", "normal" }
+    },
+    { pattern = "[%a_][%w_]*()%s+()%*+()[%a_][%w_]*",
+      type = { "literal", "normal", "operator", "normal" }
+    },
+    { pattern = "[%a_][%w_]*()%s+()[%a_][%w_]*()%s*()[;,%[%)]",
+      type = { "literal", "normal", "normal", "normal", "normal" }
+    },
+    { pattern = "[%a_][%w_]*()%s+()[%a_][%w_]*()%s*()=",
+      type = { "literal", "normal", "normal", "normal", "operator" }
+    },
+    { pattern = "[%a_][%w_]*()&()%s+()[%a_][%w_]*",
+      type = { "literal", "operator", "normal", "normal" }
+    },
+    { pattern = "[%a_][%w_]*()%s+()&()[%a_][%w_]*",
+      type = { "literal", "normal", "operator", "normal" }
+    },
     -- Match scope operator element access
-    { pattern = "[%a_][%w_]*[%s]*%f[:]",    type = "literal"  },
+    { pattern = "[%a_][%w_]*()%s*()::",
+      type = { "literal", "normal", "operator" }
+    },
     -- Uppercase constants of at least 2 chars in len
-    {
-        pattern = "_?%u[%u_][%u%d_]*%f[%s%+%*%-%.%(%)%?%^%%=/<>~|&;:,!]",
-        type = "number"
+    { pattern = "_?%u[%u_][%u%d_]*%f[%s%+%*%-%.%)%]}%?%^%%=/<>~|&;:,!]",
+      type = "number"
     },
     -- Magic constants
     { pattern = "__[%u%l]+__",              type = "number"   },
-    -- Somehow makes macros properly work
-    { pattern = "#[%a_][%w_]*",             type = "normal"   },
+    -- all other functions
+    { pattern = "[%a_][%w_]*%f[(]",         type = "function" },
+    -- Macros
+    { pattern = "^%s*#%s*define%s+()[%a_][%a%d_]*",
+      type = { "keyword", "symbol" }
+    },
+    { pattern = "#%s*include%s+()<.->",
+      type = { "keyword", "string" }
+    },
+    { pattern = "%f[#]#%s*[%a_][%w_]*",     type = "keyword"   },
     -- Everything else to make the tokenizer work properly
     { pattern = "[%a_][%w_]*",              type = "symbol"   },
   },
