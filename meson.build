@@ -78,6 +78,7 @@ if not get_option('source-only')
     lua_dep = dependency('lua5.4', fallback: lua_quick_fallback, required : false)
     if not lua_dep.found()
         lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'],
+            version: '>= 5.4',
             default_options: ['default_library=static', 'line_editing=false', 'interpreter=false']
         )
     endif
