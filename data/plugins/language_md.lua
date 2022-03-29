@@ -134,7 +134,7 @@ syntax.add {
     { pattern = "^%s*%-%s",                 type = "number" },
     { pattern = "^%s*%+%s",                 type = "number" },
     -- numbered bullet
-    { pattern = "^%s*[0-9]+%.%s",           type = "number" },
+    { pattern = "^%s*[0-9]+[%.%)]%s",       type = "number" },
     -- blockquote
     { pattern = "^%s*>+%s",                 type = "string" },
     -- bold and italic
