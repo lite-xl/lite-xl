@@ -809,17 +809,19 @@ local temp_uid = math.floor(system.get_time() * 1000) % 0xffffffff
 local temp_file_prefix = string.format(".lite_temp_%08x", tonumber(temp_uid))
 local temp_file_counter = 0
 
-local function delete_temp_files()
-  for _, filename in ipairs(system.list_dir(EXEDIR)) do
+function core.delete_temp_files(dir)
+  dir = type(dir) == "string" and common.normalize_path(dir) or USERDIR
+  for _, filename in ipairs(system.list_dir(dir)) do
     if filename:find(temp_file_prefix, 1, true) == 1 then
-      os.remove(EXEDIR .. PATHSEP .. filename)
+      os.remove(dir .. PATHSEP .. filename)
     end
   end
 end
 
-function core.temp_filename(ext)
+function core.temp_filename(ext, dir)
+  dir = type(dir) == "string" and common.normalize_path(dir) or USERDIR
   temp_file_counter = temp_file_counter + 1
-  return USERDIR .. PATHSEP .. temp_file_prefix
+  return dir .. PATHSEP .. temp_file_prefix
       .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
@@ -834,7 +836,7 @@ end
 
 local function quit_with_function(quit_fn, force)
   if force then
-    delete_temp_files()
+    core.delete_temp_files()
     core.on_quit_project()
     save_session()
     quit_fn()
