@@ -59,7 +59,6 @@ syntax.add {
     -- optimization
     { pattern = "%s+",                      type = "normal" },
 
-
   ---- HTML rules imported and adapted from language_html
   ---- to not conflict with markdown rules
     -- Inline JS and CSS
