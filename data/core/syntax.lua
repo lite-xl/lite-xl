@@ -7,47 +7,22 @@ local plain_text_syntax = { name = "Plain Text", patterns = {}, symbols = {} }
 
 
 function syntax.add(t)
-  -- the rule %s+ gives us a performance gain for the tokenizer in lines with
-  -- long amounts of consecutive spaces, to not affect other patterns we
-  -- insert it after any rule that starts with spaces to prevent conflicts
+  if type(t.space_handling) ~= "boolean" then t.space_handling = true end
+
   if t.patterns then
-    local temp_patterns = {}
-    ::pattern_remove_loop::
-    for pos, pattern in ipairs(t.patterns) do
-      local pattern_str = ""
-      local ptype = pattern.pattern
-        and "pattern" or (pattern.regex and "regex" or nil)
-      if ptype then
-        if type(pattern[ptype]) == "table" then
-          pattern_str = pattern[ptype][1]
-        else
-          pattern_str = pattern[ptype]
-        end
-        if (ptype == "pattern" and(
-            pattern_str:find("^%^?%%s")
-            or
-            pattern_str:find("^%^?%s")
-          ))
-          or
-          (ptype == "regex" and (
-            pattern_str:find("^%^?\\s")
-            or
-            pattern_str:find("^%^?%s")
-          ))
-        then
-          table.insert(temp_patterns, table.remove(t.patterns, pos))
-          -- since we are removing from iterated table we need to start
-          -- from the beginning again to prevent any issues
-          goto pattern_remove_loop
-        end
-      end
+    -- the rule %s+ gives us a performance gain for the tokenizer in lines with
+    -- long amounts of consecutive spaces, can be disabled by plugins where it
+    -- causes conflicts by declaring the table property: space_handling = false
+    if t.space_handling then
+      table.insert(t.patterns, { pattern = "%s+", type = "normal" })
     end
-    for pos, pattern in ipairs(temp_patterns) do
-      table.insert(t.patterns, pos, pattern)
-    end
-    local pos = 1
-    if #temp_patterns > 0 then pos = #temp_patterns+1 end
-    table.insert(t.patterns, pos, { pattern = "%s+", type = "normal" })
+
+    -- this rule gives us additional performance gain by matching every word
+    -- that was not matched by the syntax patterns as a single token, preventing
+    -- the tokenizer from iterating over each character individually which is a
+    -- lot slower since iteration occurs in lua instead of C and adding to that
+    -- it will also try to match every pattern to a single char (same as spaces)
+    table.insert(t.patterns, { pattern = "%w+%f[%s]", type = "normal" })
   end
 
   table.insert(syntax.items, t)
