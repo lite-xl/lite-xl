@@ -31,7 +31,35 @@ syntax.add {
   name = "Markdown",
   files = { "%.md$", "%.markdown$" },
   block_comment = { "<!--", "-->" },
+  space_handling = false, -- turn off this feature to handle it our selfs
   patterns = {
+  ---- Place patterns that require spaces at start to optimize matching speed
+  ---- and apply the %s+ optimization immediately afterwards
+    -- bullets
+    { pattern = "^%s*%*%s",                 type = "number" },
+    { pattern = "^%s*%-%s",                 type = "number" },
+    { pattern = "^%s*%+%s",                 type = "number" },
+    -- numbered bullet
+    { pattern = "^%s*[0-9]+[%.%)]%s",       type = "number" },
+    -- blockquote
+    { pattern = "^%s*>+%s",                 type = "string" },
+    -- alternative bold italic formats
+    { pattern = { "%s___", "___%f[%s]" },   type = "markdown_bold_italic" },
+    { pattern = { "%s__", "__%f[%s]" },     type = "markdown_bold" },
+    { pattern = { "%s_[%S]", "_%f[%s]" },   type = "markdown_italic" },
+    -- reference links
+    {
+      pattern = "^%s*%[%^()["..in_squares_match.."]+()%]: ",
+      type = { "function", "number", "function" }
+    },
+    {
+      pattern = "^%s*%[%^?()["..in_squares_match.."]+()%]:%s+.+\n",
+      type = { "function", "number", "function" }
+    },
+    -- optimization
+    { pattern = "%s+",                      type = "normal" },
+
+
   ---- HTML rules imported and adapted from language_html
   ---- to not conflict with markdown rules
     -- Inline JS and CSS
@@ -129,14 +157,6 @@ syntax.add {
     { pattern = "^%-%-%-+\n",               type = "comment" },
     { pattern = "^%*%*%*+\n",               type = "comment" },
     { pattern = "^___+\n",                  type = "comment" },
-    -- bullets
-    { pattern = "^%s*%*%s",                 type = "number" },
-    { pattern = "^%s*%-%s",                 type = "number" },
-    { pattern = "^%s*%+%s",                 type = "number" },
-    -- numbered bullet
-    { pattern = "^%s*[0-9]+[%.%)]%s",       type = "number" },
-    -- blockquote
-    { pattern = "^%s*>+%s",                 type = "string" },
     -- bold and italic
     { pattern = { "%*%*%*%S", "%*%*%*" },   type = "markdown_bold_italic" },
     { pattern = { "%*%*%S", "%*%*" },       type = "markdown_bold" },
@@ -149,9 +169,6 @@ syntax.add {
     { pattern = "^___[%s%p%w]+___%s" ,      type = "markdown_bold_italic" },
     { pattern = "^__[%s%p%w]+__%s" ,        type = "markdown_bold" },
     { pattern = "^_[%s%p%w]+_%s" ,          type = "markdown_italic" },
-    { pattern = { "%s___", "___%f[%s]" },   type = "markdown_bold_italic" },
-    { pattern = { "%s__", "__%f[%s]" },     type = "markdown_bold" },
-    { pattern = { "%s_[%S]", "_%f[%s]" },   type = "markdown_italic" },
     -- heading with custom id
     {
       pattern = "^#+%s[%w%s%p]+(){()#[%w%-]+()}",
@@ -187,14 +204,6 @@ syntax.add {
       type = { "function", "string", "function", "function", "number", "function" }
     },
     {
-      pattern = "^%s*%[%^()["..in_squares_match.."]+()%]: ",
-      type = { "function", "number", "function" }
-    },
-    {
-      pattern = "^%s*%[%^?()["..in_squares_match.."]+()%]:%s+.+\n",
-      type = { "function", "number", "function" }
-    },
-    {
       pattern = "!?%[%^?()["..in_squares_match.."]+()%]",
       type = { "function", "number", "function" }
     },
@@ -204,7 +213,9 @@ syntax.add {
       type = "function"
     },
     { pattern = "<https?://%S+>",           type = "function" },
-    { pattern = "https?://%S+",             type = "function" }
+    { pattern = "https?://%S+",             type = "function" },
+    -- optimize consecutive dashes used in tables
+    { pattern = "%-+",                      type = "normal" },
   },
   symbols = { },
 }
