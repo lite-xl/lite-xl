@@ -1,0 +1,26 @@
+image: ubuntu/18.04
+packages:
+  [python3, python3-pip, pkg-config, ninja-build, libx11-dev, libxext-dev, zip, unzip, gcc, g++]
+sources:
+  - https://git.sr.ht/~franko/lite-xl
+shell: true
+tasks:
+  - enable-local: |
+      echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.buildenv"
+  - prepare-setup: |
+      pip3 install --user meson
+  - lhelper-install: |
+      git clone https://github.com/franko/lhelper
+      cd lhelper
+      bash install "$HOME/.local"
+  - lhelper-create-env: |
+      lhelper create lite-xl -n
+      source "$(lhelper env-source lite-xl)"
+      lhelper install sdl2
+      lhelper install freetype2
+      lhelper install pcre2
+  - build: |
+      cd lite-xl
+      git checkout master-2.0
+      source "$(lhelper env-source lite-xl)"
+      bash build-packages.sh
