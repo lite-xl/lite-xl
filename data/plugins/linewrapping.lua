@@ -9,7 +9,7 @@ local command = require "core.command"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 
-config.plugins.linewrapping = {
+config.plugins.linewrapping = common.merge({
 	-- The type of wrapping to perform. Can be "letter" or "word".
   mode = "letter",
 	-- If nil, uses the DocView's size, otherwise, uses this exact width.
@@ -20,14 +20,14 @@ config.plugins.linewrapping = {
   indent = true,
   -- Whether or not to enable wrapping by default when opening files.
   enable_by_default = true
-}
+}, config.plugins.linewrapping)
 
 local LineWrapping = {}
 
 -- Computes the breaks for a given line, width and mode. Returns a list of columns
 -- at which the line should be broken.
 function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
-  local xoffset, last_i, i, last_space, last_width, begin_width = 0, 1, 1, 1, 0, 0
+  local xoffset, last_i, i, last_space, last_width, begin_width = 0, 1, 1, nil, 0, 0
   local splits = { 1 }
   for idx, type, text in doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
@@ -41,13 +41,14 @@ function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
         w = font:get_width(char)
         xoffset = xoffset + w
         if xoffset > width then
-          if mode == "word" then
+          if mode == "word" and last_space then 
             table.insert(splits, last_space + 1)
-            xoffset = xoffset - last_width + w + begin_width
-          else
+            xoffset = w + begin_width + (xoffset - last_width)
+          else 
             table.insert(splits, i)
             xoffset = w + begin_width
           end
+          last_space = nil
         elseif char == ' ' then
           last_space = i
           last_width = xoffset
