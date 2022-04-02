@@ -3,7 +3,7 @@
 
 struct dirmonitor {
   HANDLE handle;
-  char buffer[8192];
+  char buffer[64512];
   OVERLAPPED overlapped;
   bool running;
 };
@@ -52,8 +52,8 @@ int check_dirmonitor_win32(struct dirmonitor* monitor, int (*change_callback)(in
 
   monitor->running = false;
 
-  for (FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)monitor->buffer; (char*)info < monitor->buffer + sizeof(monitor->buffer); info = (FILE_NOTIFY_INFORMATION*)((char*)info) + info->NextEntryOffset) {
-    change_callback(info->FileNameLength, (char*)info->FileName, data);
+  for (FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)monitor->buffer; (char*)info < monitor->buffer + sizeof(monitor->buffer); info = (FILE_NOTIFY_INFORMATION*)(((char*)info) + info->NextEntryOffset)) {
+    change_callback(info->FileNameLength / sizeof(WCHAR), (char*)info->FileName, data);
     if (!info->NextEntryOffset)
       break;
   }

@@ -70,7 +70,7 @@ static int f_dirmonitor_watch(lua_State *L) {
 }
 
 static int f_dirmonitor_unwatch(lua_State *L) {
-  remove_dirmonitor(*(struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR), luaL_checknumber(L, 2));
+  remove_dirmonitor(*(struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR), lua_tonumber(L, 2));
   return 0;
 }
 
