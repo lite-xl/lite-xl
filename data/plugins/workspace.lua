@@ -117,7 +117,7 @@ local function load_view(t)
     -- cannot be read.
     if dv and dv.doc then
       dv.doc:set_selection(table.unpack(t.selection))
-      dv.last_line, dv.last_col = dv.doc:get_selection()
+      dv.last_line1, dv.last_col1, dv.last_line2, dv.last_col2 = dv.doc:get_selection()
       dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
       dv.scroll.y, dv.scroll.to.y = t.scroll.y, t.scroll.y
     end
