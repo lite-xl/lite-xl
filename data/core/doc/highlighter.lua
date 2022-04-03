@@ -13,7 +13,7 @@ function Highlighter:new(doc)
   self:reset()
 
   -- init incremental syntax highlighting
-  core.add_thread(function()
+  core.add_foreground_thread(function()
     while true do
       if self.first_invalid_line > self.max_wanted_line then
         self.max_wanted_line = 0

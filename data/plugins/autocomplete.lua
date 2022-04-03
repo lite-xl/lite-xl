@@ -73,7 +73,7 @@ end
 --
 local max_symbols = config.plugins.autocomplete.max_symbols
 
-core.add_thread(function()
+core.add_foreground_thread(function()
   local cache = setmetatable({}, { __mode = "k" })
 
   local function get_symbols(doc)

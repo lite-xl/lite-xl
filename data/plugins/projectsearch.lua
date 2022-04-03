@@ -53,7 +53,7 @@ function ResultsView:begin_search(text, fn)
   self.searching = true
   self.selected_idx = 0
 
-  core.add_thread(function()
+  core.add_foreground_thread(function()
     local i = 1
     for dir_name, file in core.get_project_files() do
       if file.type == "file" then

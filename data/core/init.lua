@@ -267,7 +267,7 @@ function core.add_project_directory(path)
   -- either through error, or amount of files, then this should be incredibly
   -- quick; essentially one syscall per check. Otherwise, this may take a bit of
   -- time; the watch will yield in this coroutine after 0.01 second, for 0.1 seconds.
-  topdir.watch_thread = core.add_thread(function()
+  topdir.watch_thread = core.add_background_thread(function()
     while true do
       topdir.watch:check(function(target)
         if target == topdir.name then return refresh_directory(topdir) end
@@ -280,7 +280,7 @@ function core.add_project_directory(path)
         end
         return refresh_directory(topdir, dirpath)
       end, 0.01, 0.01)
-      coroutine.yield(0.05)
+      coroutine.yield(system.window_has_focus() and 0.1 or 0.5)
     end
   end)
 
@@ -670,7 +670,8 @@ function core.init()
   core.cursor_clipboard = {}
   core.cursor_clipboard_whole_line = {}
   core.window_mode = "normal"
-  core.threads = setmetatable({}, { __mode = "k" })
+  core.foreground_threads = setmetatable({}, { __mode = "k" })
+  core.background_threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
   core.redraw = true
@@ -979,14 +980,16 @@ function core.show_title_bar(show)
   core.title_view.visible = show
 end
 
-
-function core.add_thread(f, weak_ref, ...)
-  local key = weak_ref or #core.threads + 1
+local function add_thread(target, f, weak_ref, ...)
+  local key = weak_ref or #target + 1
   local args = {...}
-  local fn = function() return core.try(f, table.unpack(args)) end
-  core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
+  local fn = function() return core.try(f, table.unpack(args)) end 
+  target[key] = { cr = coroutine.create(fn), wake = 0 }
   return key
 end
+
+function core.add_foreground_thread(f, weak_ref, ...) return add_thread(core.foreground_threads, f, weak_ref, ...) end
+function core.add_background_thread(f, weak_ref, ...) return add_thread(core.background_threads, f, weak_ref, ...) end
 
 
 function core.push_clip_rect(x, y, w, h)
@@ -1232,38 +1235,44 @@ function core.step()
   return true
 end
 
-
-local run_threads = coroutine.wrap(function()
+local function run_threads(threads)
   while true do
     local max_time = 1 / config.fps - 0.004
-    local need_more_work = false
+    local min_wait = math.huge
 
-    for k, thread in pairs(core.threads) do
+    for k, thread in pairs(threads) do
       -- run thread
-      if thread.wake < system.get_time() then
+      local now = system.get_time()
+      if thread.wake < now then
         local _, wait = assert(coroutine.resume(thread.cr))
         if coroutine.status(thread.cr) == "dead" then
           if type(k) == "number" then
-            table.remove(core.threads, k)
+            table.remove(threads, k)
           else
-            core.threads[k] = nil
+            threads[k] = nil
           end
         elseif wait then
+          min_wait = math.min(min_wait, wait)
           thread.wake = system.get_time() + wait
         else
-          need_more_work = true
+          min_wait = 0
         end
+      else
+        min_wait = math.min(min_wait, thread.wake - now)
       end
 
       -- stop running threads if we're about to hit the end of frame
       if system.get_time() - core.frame_start > max_time then
-        coroutine.yield(true)
+        coroutine.yield(min_wait)
       end
     end
 
-    if not need_more_work then coroutine.yield(false) end
+    if min_wait > 0 then coroutine.yield(min_wait) end
   end
-end)
+end
+
+local run_foreground_threads = coroutine.wrap(function() run_threads(core.foreground_threads) end)
+local run_background_threads = coroutine.wrap(function() run_threads(core.background_threads) end)
 
 
 function core.run()
@@ -1271,27 +1280,28 @@ function core.run()
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
-    local need_more_work = run_threads() or core.has_pending_rescan()
+    local min_foreground_wait = run_foreground_threads()
+    local min_background_wait = run_background_threads()
     if core.restart_request or core.quit_request then break end
-    if not did_redraw and not need_more_work then
+    if not did_redraw and min_foreground_wait > 0 then
       idle_iterations = idle_iterations + 1
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
       -- and set "redraw" flag.
       if idle_iterations > 1 then
-        if system.window_has_focus() then
+        if system.window_has_focus() or min_background_wait < math.huge then
           -- keep running even with no events to make the cursor blinks
           local t = system.get_time() - core.blink_start
           local h = config.blink_period / 2
           local dt = math.ceil(t / h) * h - t
-          system.wait_event(dt + 1 / config.fps)
+          system.wait_event(math.min(dt + 1 / config.fps, min_background_wait))
         else
-          system.wait_event()
+          system.wait_event(min_background_wait)
         end
       end
     else
       idle_iterations = 0
       local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.max(0, 1 / config.fps - elapsed))
+      system.sleep(math.min(math.max(0, 1 / config.fps - elapsed), min_background_wait))
     end
   end
 end

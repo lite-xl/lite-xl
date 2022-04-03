@@ -220,7 +220,7 @@ syntax.add {
 }
 
 -- Adjust the color on theme changes
-core.add_thread(function()
+core.add_foreground_thread(function()
   while true do
     if initial_color ~= style.syntax["keyword2"] then
       for _, attr in pairs({"bold", "italic", "bold_italic"}) do
