@@ -1284,11 +1284,11 @@ function core.run()
     core.frame_start = system.get_time()
     local did_redraw = false
     local min_foreground_wait = math.huge
-    if should_step then
+    local min_background_wait = run_background_threads()
+    if should_step or core.redraw then
       did_redraw = core.step()
       min_foreground_wait = run_foreground_threads()
     end
-    local min_background_wait = run_background_threads()
     if core.restart_request or core.quit_request then break end
     if not did_redraw and min_foreground_wait > 0 then
       idle_iterations = idle_iterations + 1
