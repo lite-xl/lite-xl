@@ -988,7 +988,9 @@ local function add_thread(target, f, weak_ref, ...)
   return key
 end
 
+-- a foreground thread is a thread that wakes only on events happening, if it ever yields, and only if the window is in focus
 function core.add_foreground_thread(f, weak_ref, ...) return add_thread(core.foreground_threads, f, weak_ref, ...) end
+-- a background thread is a thread that wakes on an actual timer
 function core.add_background_thread(f, weak_ref, ...) return add_thread(core.background_threads, f, weak_ref, ...) end
 
 
@@ -1277,12 +1279,15 @@ local run_background_threads = coroutine.wrap(function() run_threads(core.backgr
 
 function core.run()
   local idle_iterations = 0
+  local should_step = true
   while true do
     core.frame_start = system.get_time()
-    local did_redraw = core.step()
-    local has_focus = system.window_has_focus()
+    local did_redraw = false
     local min_foreground_wait = math.huge
-    if has_focus then min_foreground_wait = run_foreground_threads() end
+    if should_step then
+      did_redraw = core.step()
+      min_foreground_wait = run_foreground_threads()
+    end
     local min_background_wait = run_background_threads()
     if core.restart_request or core.quit_request then break end
     if not did_redraw and min_foreground_wait > 0 then
@@ -1290,20 +1295,23 @@ function core.run()
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
       -- and set "redraw" flag.
       if idle_iterations > 1 then
-        if has_focus or min_background_wait < math.huge then
+        if system.window_has_focus() then
           -- keep running even with no events to make the cursor blinks
           local t = system.get_time() - core.blink_start
           local h = config.blink_period / 2
           local dt = math.ceil(t / h) * h - t
-          system.wait_event(math.min(dt + 1 / config.fps, min_background_wait))
+          local time_to_blink = dt + 1 / config.fps
+          should_step = system.wait_event(math.min(time_to_blink, min_background_wait)) 
+            or system.get_time() >= core.blink_start + dt
         else
-          system.wait_event(min_background_wait)
+          should_step = system.wait_event(min_background_wait)
         end
       end
     else
       idle_iterations = 0
       local elapsed = system.get_time() - core.frame_start
       system.sleep(math.min(math.max(0, 1 / config.fps - elapsed), min_background_wait))
+      should_step = true
     end
   end
 end
