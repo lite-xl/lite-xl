@@ -280,7 +280,7 @@ function core.add_project_directory(path)
         end
         return refresh_directory(topdir, dirpath)
       end, 0.01, 0.01)
-      coroutine.yield(system.window_has_focus() and 0.1 or 0.5)
+      coroutine.yield(0.1)
     end
   end)
 
@@ -1280,7 +1280,9 @@ function core.run()
   while true do
     core.frame_start = system.get_time()
     local did_redraw = core.step()
-    local min_foreground_wait = run_foreground_threads()
+    local has_focus = system.window_has_focus()
+    local min_foreground_wait = math.huge
+    if has_focus then min_foreground_wait = run_foreground_threads() end
     local min_background_wait = run_background_threads()
     if core.restart_request or core.quit_request then break end
     if not did_redraw and min_foreground_wait > 0 then
@@ -1288,7 +1290,7 @@ function core.run()
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
       -- and set "redraw" flag.
       if idle_iterations > 1 then
-        if system.window_has_focus() or min_background_wait < math.huge then
+        if has_focus or min_background_wait < math.huge then
           -- keep running even with no events to make the cursor blinks
           local t = system.get_time() - core.blink_start
           local h = config.blink_period / 2
