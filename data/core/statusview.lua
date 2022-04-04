@@ -277,6 +277,38 @@ function StatusView:register_command_items()
 end
 
 
+---Set a position to the best match according to total available items.
+---@param self StatusView
+---@param position integer
+---@param alignment StatusView.Item.alignment
+---@return integer position
+local function normalize_position(self, position, alignment)
+  local offset = 0
+  local items_count = 0
+  local left = self:get_items_list(1)
+  local right = self:get_items_list(2)
+  if alignment == 2 then
+    items_count = #right
+    offset = #left
+  else
+    items_count = #left
+  end
+  if position == 0 then
+    position = offset +  1
+  elseif position < 0 then
+    position = offset + items_count + (position + 2)
+  else
+    position = offset + position
+  end
+  if position < 1 then
+    position = offset + 1
+  elseif position > #left + #right then
+    position = offset + items_count + 1
+  end
+  return position
+end
+
+
 ---Adds an item to be rendered in the status bar.
 ---@param predicate string | table | StatusView.Item.predicate :
 ---A condition to evaluate if the item should be displayed. If a string
@@ -304,11 +336,7 @@ function StatusView:add_item(predicate, name, alignment, getitem, command, pos, 
   local item = StatusView.Item(predicate, name, alignment, command, tooltip)
   item.get_item = getitem
   pos = type(pos) == "nil" and -1 or tonumber(pos)
-  if pos == -1 then
-    table.insert(self.items, item)
-  else
-    table.insert(self.items, math.abs(pos), item)
-  end
+  table.insert(self.items, normalize_position(self, pos, alignment), item)
   return item
 end
 
@@ -338,6 +366,63 @@ function StatusView:get_items_list(alignment)
     return items
   end
   return self.items
+end
+
+
+---Move an item to a different position.
+---@param name string
+---@param position integer Can be negative value to position in reverse order
+---@param alignment? StatusView.Item.alignment
+---@return boolean moved
+function StatusView:move_item(name, position, alignment)
+  assert(name, "no name provided")
+  assert(position, "no position provided")
+  local item = nil
+  for pos, it in ipairs(self.items) do
+    if it.name == name then
+      item = table.remove(self.items, pos)
+      break
+    end
+  end
+  if item then
+    if alignment then
+      item.alignment = alignment
+    end
+    position = normalize_position(self, position, item.alignment)
+    table.insert(self.items, position, item)
+    return true
+  end
+  return false
+end
+
+
+---Remove an item from the status view.
+---@param name string
+---@return StatusView.Item removed_item
+function StatusView:remove_item(name)
+  local item = nil
+  for pos, it in ipairs(self.items) do
+    if it.name == name then
+      item = table.remove(self.items, pos)
+      break
+    end
+  end
+  return item
+end
+
+
+---Order the items by name
+---@param names table<integer, string>
+function StatusView:order_items(names)
+  local removed_items = {}
+  for _, name in ipairs(names) do
+    local item = self:remove_item(name)
+    if item then table.insert(removed_items, item) end
+  end
+
+  for i, item in ipairs(removed_items) do
+    table.insert(self.items, i, item)
+  end
 end
 
 
