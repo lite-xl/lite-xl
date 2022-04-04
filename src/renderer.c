@@ -195,7 +195,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->face = face;
   font->size = size;
   font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
-  font->baseline = (short)((face->bbox.yMax / (float)face->units_per_EM) * font->size);
+  font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
   font->antialiasing = antialiasing;
   font->hinting = hinting;
   font->style = style;
