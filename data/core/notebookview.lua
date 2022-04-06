@@ -5,14 +5,16 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 local View = require "core.view"
-local InputTextView = require "core.inputtextview"
+local Doc = require "core.doc"
+local DocView = require "core.docview"
 
 
 local NotebookView = View:extend()
 
 function NotebookView:new()
   NotebookView.super.new(self)
-  self.parts = { InputTextView() }
+  self.parts = { DocView(Doc()) }
+  self.active_view = self.parts[1]
   self.current = 1
 end
 
@@ -23,10 +25,18 @@ end
 
 
 function NotebookView:update()
-  -- if core.active_view == self then
-  --   core.set_active_view(self.parts[self.current])
-  -- end
+  if core.active_view == self then
+    core.set_active_view(self.active_view)
+  end
+  for _, view in ipairs(self.parts) do
+    view:update()
+  end
   NotebookView.super.update(self)
+end
+
+
+function NotebookView:get_part_height(view)
+  return view:get_line_height() * (#view.doc.lines) + style.padding.y * 2
 end
 
 
@@ -37,7 +47,7 @@ function NotebookView:get_part_drawing_rect(idx)
   local inner_h, inner_v = 5, 5
   local w = self.size.x - 2 * margin_h
   for i, view in ipairs(self.parts) do
-    local h = view:get_scrollable_size() + 2 * inner_v
+    local h = self:get_part_height(view) + 2 * inner_v
     if i == idx then return x, y, w, h end
     y = y + h + margin_v
   end
@@ -51,7 +61,7 @@ function NotebookView:get_scrollable_size()
   local inner_h, inner_v = 5, 5
   local w = self.size.x - 2 * margin_h
   for i, view in ipairs(self.parts) do
-    local h = view:get_scrollable_size() + 2 * inner_v
+    local h = self:get_part_height(view) + 2 * inner_v
     y = y + h + margin_v
   end
   return y
@@ -64,7 +74,10 @@ function NotebookView:on_mouse_pressed(button, x, y, clicks)
   for i, view in ipairs(self.parts) do
     local x_part, y_part, w, h = self:get_part_drawing_rect(i)
     if x >= x_part and x <= x_part + w and y >= y_part and y <= y_part + h then
-      core.set_active_view(view)
+      if view ~= core.active_view then
+        core.set_active_view(view)
+      end
+      view:on_mouse_pressed(button, x, y, clicks)
       return true
     end
   end
@@ -88,7 +101,7 @@ function NotebookView:draw()
   local inner_h, inner_v = 5, 5
   local w = self.size.x - 2 * margin_h
   for _, view in ipairs(self.parts) do
-    local h = view:get_scrollable_size() + 2 * inner_v
+    local h = self:get_part_height(view) + 2 * inner_v
     renderer.draw_rect(margin_h, y, w, h, style.line_highlight)
     view.size.x, view.size.y = w, h
     view.position.x, view.position.y = x + inner_h, y + inner_v
