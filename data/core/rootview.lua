@@ -7,6 +7,7 @@ local Object = require "core.object"
 local View = require "core.view"
 local NagView = require "core.nagview"
 local DocView = require "core.docview"
+local NotebookView = require "core.notebook"
 
 
 local EmptyView = View:extend()
@@ -871,6 +872,15 @@ function RootView:open_doc(doc)
   node:add_view(view)
   self.root_node:update_layout()
   view:scroll_to_line(view.doc:get_selection(), true, true)
+  return view
+end
+
+
+function RootView:new_notebook()
+  local node = self:get_active_node_default()
+  local view = NotebookView()
+  node:add_view(view)
+  self.root_node:update_layout()
   return view
 end
 

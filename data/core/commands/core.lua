@@ -230,4 +230,8 @@ command.add(nil, {
       return common.home_encode_list(common.dir_list_suggest(text, dir_list))
     end)
   end,
+
+  ["core:new-notebook"] = function()
+    core.root_view:new_notebook()
+  end,
 })

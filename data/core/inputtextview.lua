@@ -5,6 +5,7 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 local View = require "core.view"
+local Doc = require "core.doc"
 
 
 local InputTextView = View:extend()
@@ -49,11 +50,11 @@ InputTextView.translate = {
 }
 
 
-function InputTextView:new(doc)
+function InputTextView:new()
   InputTextView.super.new(self)
   self.cursor = "ibeam"
   self.scrollable = true
-  self.doc = assert(doc)
+  self.doc = Doc()
   self.last_x_offset = {}
 end
 

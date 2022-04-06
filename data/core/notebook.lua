@@ -5,54 +5,98 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 local View = require "core.view"
+local InputTextView = require "core.inputtextview"
 
 
 local NotebookView = View:extend()
 
 function NotebookView:new()
   NotebookView.super.new(self)
-  self.parts = { InputTextView:new() }
-  self.active_index = 1
+  self.parts = { InputTextView() }
+  self.current = 1
 end
 
 
--- FIXME: to be adapted to NotebookView, copier from DocView
-function NotebookView:draw_overlay()
-  if core.active_view == self then
-    local minline, maxline = self:get_visible_line_range()
-    -- draw caret if it overlaps this line
-    local T = config.blink_period
-    for _, line, col in self.doc:get_selections() do
-      if line >= minline and line <= maxline
-      and system.window_has_focus() then
-        if config.disable_blink
-        or (core.blink_timer - core.blink_start) % T < T / 2 then
-          local x, y = self:get_line_screen_position(line)
-          self:draw_caret(x + self:get_col_x_offset(line, col), y)
-        end
-      end
+function NotebookView:get_name()
+  return "-- Notebook"
+end
+
+
+function NotebookView:update()
+  -- if core.active_view == self then
+  --   core.set_active_view(self.parts[self.current])
+  -- end
+  NotebookView.super.update(self)
+end
+
+
+function NotebookView:get_part_drawing_rect(idx)
+  local x, y = self:get_content_offset()
+  local margin_h, margin_v = 50, 50
+  x, y = x + margin_h, y + margin_v
+  local inner_h, inner_v = 5, 5
+  local w = self.size.x - 2 * margin_h
+  for i, view in ipairs(self.parts) do
+    local h = view:get_scrollable_size() + 2 * inner_v
+    if i == idx then return x, y, w, h end
+    y = y + h + margin_v
+  end
+end
+
+
+function NotebookView:get_scrollable_size()
+  local x, y = 0, 0
+  local margin_h, margin_v = 50, 50
+  x, y = x + margin_h, y + margin_v
+  local inner_h, inner_v = 5, 5
+  local w = self.size.x - 2 * margin_h
+  for i, view in ipairs(self.parts) do
+    local h = view:get_scrollable_size() + 2 * inner_v
+    y = y + h + margin_v
+  end
+  return y
+end
+
+
+function NotebookView:on_mouse_pressed(button, x, y, clicks)
+  local caught = NotebookView.super.on_mouse_pressed(self, button, x, y, clicks)
+  if caught then return end
+  for i, view in ipairs(self.parts) do
+    local x_part, y_part, w, h = self:get_part_drawing_rect(i)
+    if x >= x_part and x <= x_part + w and y >= y_part and y <= y_part + h then
+      core.set_active_view(view)
+      return true
     end
   end
 end
 
 
+function View:on_text_input(text)
+  if core.active_view == self.parts[self.current] then
+    view:on_text_input(text)
+  end
+end
+
+
 function NotebookView:draw()
-  -- local x, y = self:get_content_offset()
+  local x, y = self:get_content_offset()
 
   self:draw_background(style.background)
 
   local margin_h, margin_v = 50, 50
-  local y = margin_v
+  x, y = x + margin_h, y + margin_v
   local inner_h, inner_v = 5, 5
   local w = self.size.x - 2 * margin_h
   for _, view in ipairs(self.parts) do
     local h = view:get_scrollable_size() + 2 * inner_v
     renderer.draw_rect(margin_h, y, w, h, style.line_highlight)
     view.size.x, view.size.y = w, h
-    view.position.x, view.position.y = margin_h + inner_h, y + margin_v + inner_v
+    view.position.x, view.position.y = x + inner_h, y + inner_v
     view:draw()
+    y = y + h + margin_v
   end
-  self:draw_overlay()
+  -- self:draw_overlay()
   self:draw_scrollbar()
 end
 
+return NotebookView
