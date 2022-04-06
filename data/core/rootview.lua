@@ -7,7 +7,7 @@ local Object = require "core.object"
 local View = require "core.view"
 local NagView = require "core.nagview"
 local DocView = require "core.docview"
-local NotebookView = require "core.notebook"
+local NotebookView = require "core.notebookview"
 
 
 local EmptyView = View:extend()
