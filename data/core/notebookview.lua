@@ -14,6 +14,7 @@ local NotebookView = View:extend()
 function NotebookView:new()
   NotebookView.super.new(self)
   local doc = Doc()
+  doc:set_syntax(".lua")
   local view = DocView(doc)
   view.scroll_tight = true
   self.parts = { view }

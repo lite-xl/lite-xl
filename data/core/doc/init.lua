@@ -52,6 +52,12 @@ function Doc:reset_syntax()
 end
 
 
+function Doc:set_syntax(filename)
+  self.syntax = syntax.get(filename)
+  self.highlighter:soft_reset()
+end
+
+
 function Doc:set_filename(filename, abs_filename)
   self.filename = filename
   self.abs_filename = abs_filename
