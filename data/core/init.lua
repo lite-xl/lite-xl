@@ -1026,23 +1026,6 @@ function core.init()
   end
 
   add_config_files_hooks()
-
-  print("RUNNING GSL SHELL")
-  local proc, err = process.start(core.gsl_shell.cmd, { })
-  if proc then
-    core.add_thread(function()
-      while true do
-        local text = proc:read_stdout()
-        if text ~= nil then
-          io.stdout:write(text)
-        else
-          break
-        end
-        coroutine.yield(0.1)
-      end
-    end)
-    print("COROUTINE ADDED")
-  end
 end
 
 

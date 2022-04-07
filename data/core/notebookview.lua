@@ -1,4 +1,5 @@
 local core = require "core"
+local command = require "core.command"
 local common = require "core.common"
 local config = require "core.config"
 local style = require "core.style"
@@ -13,13 +14,68 @@ local NotebookView = View:extend()
 
 function NotebookView:new()
   NotebookView.super.new(self)
+  self.parts = {}
+  self:new_input()
+  self.active_view = self.input_view
+
+  -- output view
+  local view = DocView(Doc())
+  view.scroll_tight = true
+  view.master_view = self
+  table.insert(self.parts, view)
+  self.output_view = view
+
+  local proc, err = process.start(core.gsl_shell.cmd, { stderr = process.REDIRECT_PIPE })
+  if proc then
+    self.process = proc
+    local function polling_function(proc, proc_read)
+      return function()
+        while true do
+          local text = proc_read(proc)
+          if text ~= nil then
+            if text ~= "" then
+              -- core.set_active_view(self.output_view)
+              local output_doc = self.output_view.doc
+              output_doc:move_to(translate.end_of_doc, self.output_view)
+              local line, col = output_doc:get_selection()
+              output_doc:insert(line, col, text)
+              output_doc:move_to(translate.end_of_doc, self.output_view)
+              coroutine.yield()
+            else
+              coroutine.yield(0.1)
+            end
+          else
+            break
+          end
+        end
+      end
+    end
+    core.add_thread(polling_function(self.process, self.process.read_stdout))
+    core.add_thread(polling_function(self.process, self.process.read_stderr))
+  end
+end
+
+
+function NotebookView:new_input()
   local doc = Doc()
   doc:set_syntax(".lua")
   local view = DocView(doc)
+  view.notebook = self
+  view.master_view = self
   view.scroll_tight = true
-  self.parts = { view }
-  self.active_view = self.parts[1]
-  self.current = 1
+  table.insert(self.parts, view)
+  self.input_view = view
+end
+
+
+function NotebookView:submit()
+  if not self.process then return end
+  local doc = self.input_view.doc
+  for _, line in ipairs(doc.lines) do
+    self.process:write(line)
+  end
+  self:new_input()
+  self.active_view = self.input_view
 end
 
 
@@ -115,5 +171,18 @@ function NotebookView:draw()
   -- self:draw_overlay()
   self:draw_scrollbar()
 end
+
+
+command.add(nil, {
+  ["notebook:submit"] = function()
+    local view = core.active_view
+    if view:is(DocView) and view.notebook then
+      view.notebook:submit()
+    end
+  end,
+})
+
+keymap.add { ["shift+enter"] = "notebook:submit" }
+
 
 return NotebookView

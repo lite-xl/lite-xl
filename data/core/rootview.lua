@@ -811,7 +811,12 @@ end
 
 
 function RootView:get_active_node()
-  return self.root_node:get_node_for_view(core.active_view)
+  local view = core.active_view
+  local node = self.root_node:get_node_for_view(view)
+  if not node and view.master_view then
+    return self.root_node:get_node_for_view(view.master_view)
+  end
+  return node
 end
 
 
