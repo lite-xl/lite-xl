@@ -13,7 +13,10 @@ local NotebookView = View:extend()
 
 function NotebookView:new()
   NotebookView.super.new(self)
-  self.parts = { DocView(Doc()) }
+  local doc = Doc()
+  local view = DocView(doc)
+  view.scroll_tight = true
+  self.parts = { view }
   self.active_view = self.parts[1]
   self.current = 1
 end

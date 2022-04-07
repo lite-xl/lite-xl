@@ -56,6 +56,7 @@ function DocView:new(doc)
   self.doc = assert(doc)
   self.font = "code_font"
   self.last_x_offset = {}
+  self.scroll_tight = false
 end
 
 
@@ -98,7 +99,7 @@ end
 
 
 function DocView:get_scrollable_size()
-  if not config.scroll_past_end then
+  if not config.scroll_past_end or self.scroll_tight then
     return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2
   end
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
