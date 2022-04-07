@@ -881,6 +881,10 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
+  core.gsl_shell = {
+    cmd = { system.absolute_path(EXEDIR .. '/gsl-shell.exe') }
+  }
+
   do
     local session = load_session()
     if session.window_mode == "normal" then
@@ -1022,6 +1026,23 @@ function core.init()
   end
 
   add_config_files_hooks()
+
+  print("RUNNING GSL SHELL")
+  local proc, err = process.start(core.gsl_shell.cmd, { })
+  if proc then
+    core.add_thread(function()
+      while true do
+        local text = proc:read_stdout()
+        if text ~= nil then
+          io.stdout:write(text)
+        else
+          break
+        end
+        coroutine.yield(0.1)
+      end
+    end)
+    print("COROUTINE ADDED")
+  end
 end
 
 
