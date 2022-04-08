@@ -10,6 +10,27 @@ local Doc = require "core.doc"
 local DocView = require "core.docview"
 
 
+local InlineDocView = DocView:extend()
+
+function InlineDocView:new()
+  InlineDocView.super.new(self, Doc())
+end
+
+
+function InlineDocView:scroll_to_make_visible()
+  -- no-op function to disable this functionality
+end
+
+
+function InlineDocView:get_gutter_width()
+  return 0
+end
+
+
+function InlineDocView:draw_line_gutter(idx, x, y)
+end
+
+
 local NotebookView = View:extend()
 
 function NotebookView:new()
@@ -56,7 +77,7 @@ end
 
 
 function NotebookView:new_output()
-  local view = DocView(Doc())
+  local view = InlineDocView()
   view.scroll_tight = true
   view.master_view = self
   table.insert(self.parts, view)
@@ -65,9 +86,8 @@ end
 
 
 function NotebookView:new_input()
-  local doc = Doc()
-  doc:set_syntax(".lua")
-  local view = DocView(doc)
+  local view = InlineDocView()
+  view.doc:set_syntax(".lua")
   view.notebook = self
   view.master_view = self
   view.scroll_tight = true
