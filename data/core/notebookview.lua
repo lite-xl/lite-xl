@@ -15,44 +15,52 @@ local NotebookView = View:extend()
 function NotebookView:new()
   NotebookView.super.new(self)
   self.parts = {}
+  self:new_output()
   self:new_input()
-  self.active_view = self.input_view
+  self:set_active_view(self.input_view)
+  self:start_process()
+end
 
-  -- output view
+
+function NotebookView:start_process()
+  local proc, err = process.start(core.gsl_shell.cmd, { stderr = process.REDIRECT_PIPE })
+  if not proc then
+    -- FIXME: treat error code and warn the user
+    return
+  end
+  self.process = proc
+  local function polling_function(proc, proc_read)
+    return function()
+      while true do
+        local text = proc_read(proc)
+        if text ~= nil then
+          if text ~= "" then
+            local output_doc = self.output_view.doc
+            output_doc:move_to(translate.end_of_doc, self.output_view)
+            local line, col = output_doc:get_selection()
+            output_doc:insert(line, col, text)
+            output_doc:move_to(translate.end_of_doc, self.output_view)
+            coroutine.yield()
+          else
+            coroutine.yield(0.1)
+          end
+        else
+          break
+        end
+      end
+    end
+  end
+  core.add_thread(polling_function(self.process, self.process.read_stderr))
+  core.add_thread(polling_function(self.process, self.process.read_stdout))
+end
+
+
+function NotebookView:new_output()
   local view = DocView(Doc())
   view.scroll_tight = true
   view.master_view = self
   table.insert(self.parts, view)
   self.output_view = view
-
-  local proc, err = process.start(core.gsl_shell.cmd, { stderr = process.REDIRECT_PIPE })
-  if proc then
-    self.process = proc
-    local function polling_function(proc, proc_read)
-      return function()
-        while true do
-          local text = proc_read(proc)
-          if text ~= nil then
-            if text ~= "" then
-              -- core.set_active_view(self.output_view)
-              local output_doc = self.output_view.doc
-              output_doc:move_to(translate.end_of_doc, self.output_view)
-              local line, col = output_doc:get_selection()
-              output_doc:insert(line, col, text)
-              output_doc:move_to(translate.end_of_doc, self.output_view)
-              coroutine.yield()
-            else
-              coroutine.yield(0.1)
-            end
-          else
-            break
-          end
-        end
-      end
-    end
-    core.add_thread(polling_function(self.process, self.process.read_stdout))
-    core.add_thread(polling_function(self.process, self.process.read_stderr))
-  end
 end
 
 
@@ -68,14 +76,23 @@ function NotebookView:new_input()
 end
 
 
+function NotebookView:set_active_view(view)
+  if core.active_view == self.active_view then
+    core.set_active_view(view)
+  end
+  self.active_view = view
+end
+
+
 function NotebookView:submit()
   if not self.process then return end
+  self:new_output()
   local doc = self.input_view.doc
   for _, line in ipairs(doc.lines) do
     self.process:write(line)
   end
   self:new_input()
-  self.active_view = self.input_view
+  self:set_active_view(self.input_view)
 end
 
 
@@ -134,9 +151,7 @@ function NotebookView:on_mouse_pressed(button, x, y, clicks)
   for i, view in ipairs(self.parts) do
     local x_part, y_part, w, h = self:get_part_drawing_rect(i)
     if x >= x_part and x <= x_part + w and y >= y_part and y <= y_part + h then
-      if view ~= core.active_view then
-        core.set_active_view(view)
-      end
+      self:set_active_view(view)
       view:on_mouse_pressed(button, x, y, clicks)
       return true
     end
@@ -144,10 +159,8 @@ function NotebookView:on_mouse_pressed(button, x, y, clicks)
 end
 
 
-function View:on_text_input(text)
-  if core.active_view == self.parts[self.current] then
-    view:on_text_input(text)
-  end
+function NotebookView:on_text_input(text)
+  self.input_view:on_text_input(text)
 end
 
 
@@ -182,7 +195,7 @@ command.add(nil, {
   end,
 })
 
-keymap.add { ["shift+enter"] = "notebook:submit" }
+keymap.add { ["shift+return"] = "notebook:submit" }
 
 
 return NotebookView
