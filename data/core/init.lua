@@ -881,9 +881,12 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
-  core.gsl_shell = {
-    cmd = { system.absolute_path(EXEDIR .. '/gsl-shell.exe') }
-  }
+  do
+    local cmd = PLATFORM == "Linux" and "gsl-shell" or "gsl-shell.exe"
+    core.gsl_shell = {
+      cmd = { system.absolute_path(EXEDIR .. '/' .. cmd), "-i", "-e", "_PROMPT=''; _PROMPT2=''" }
+    }
+  end
 
   do
     local session = load_session()

@@ -31,8 +31,8 @@ while [[ "$#" -gt 0 ]]; do
     exit 1
     ;;
     *)
-    if [ -z ${gsl_shell_zip+x} ]; then
-      gsl_shell_zip="$(realpath "$1")"
+    if [ -z ${gsl_shell_package+x} ]; then
+      gsl_shell_package="$(realpath "$1")"
     else
       pargs+=("$1")
     fi
@@ -88,10 +88,17 @@ copy_lite_build () {
 
 copy_gsl_shell () {
   pushd "$rundir"
-  unzip "$gsl_shell_zip"
-  mv gsl-shell/*.exe bin
-  mv gsl-shell/lua share/gsl-shell
-  rm -fr gsl-shellù
+  if [ -z ${run_windows+x} ]; then
+    tar xf "$gsl_shell_package"
+    mv gsl-shell/bin/* bin
+    mv gsl-shell/share/gsl-shell share
+    rm -fr gsl-shell
+  else
+    unzip "$gsl_shell_package"
+    mv gsl-shell/*.exe bin
+    mv gsl-shell/lua share/gsl-shell
+    rm -fr gsl-shell
+  fi
   popd
 }
 
