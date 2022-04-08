@@ -109,8 +109,9 @@ function NotebookView:submit()
   self:new_output()
   local doc = self.input_view.doc
   for _, line in ipairs(doc.lines) do
-    self.process:write(line)
+    self.process:write(line:gsub("\n$", " "))
   end
+  self.process:write("\n")
   self:new_input()
   self:set_active_view(self.input_view)
 end
