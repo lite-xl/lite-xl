@@ -10,6 +10,11 @@ local DocView = require "core.docview"
 local NotebookView = require "core.notebookview"
 
 
+local function get_node_root_view(view)
+  return view.master_view or view
+end
+
+
 local EmptyView = View:extend()
 
 local function draw_text(x, y, color)
@@ -109,7 +114,7 @@ local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
 function Node:split(dir, view, locked, resizable)
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local node_type = assert(type_map[dir], "Invalid direction")
-  local last_active = core.active_view
+  local last_active = get_node_root_view(core.active_view)
   local child = Node()
   child:consume(self)
   self:consume(Node(node_type))
@@ -214,6 +219,7 @@ end
 
 
 function Node:get_node_for_view(view)
+  view = get_node_root_view(view)
   for _, v in ipairs(self.views) do
     if v == view then return self end
   end
@@ -811,12 +817,7 @@ end
 
 
 function RootView:get_active_node()
-  local view = core.active_view
-  local node = self.root_node:get_node_for_view(view)
-  if not node and view.master_view then
-    return self.root_node:get_node_for_view(view.master_view)
-  end
-  return node
+  return self.root_node:get_node_for_view(core.active_view)
 end
 
 
