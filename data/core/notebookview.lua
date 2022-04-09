@@ -50,20 +50,33 @@ function NotebookView:start_process()
     return
   end
   self.process = proc
+  -- The following variable is used to hold pending newlines in output.
+  -- It is stored in "self" because it can be reset by submit() method when
+  -- a new output cell is started and the pending newlines are discarded.
+  self.pending_newlines = ""
   local function polling_function(proc, proc_read)
     return function()
       while true do
         local text = proc_read(proc)
         if text ~= nil then
-          if text ~= "" then
+          local newlines = text:match("(\n*)$")
+          -- get the text without the pending newlines, if any
+          local text_strip = text:sub(1, -#newlines - 1)
+          if text_strip ~= "" then
             local output_doc = self.output_view.doc
             output_doc:move_to(translate.end_of_doc, self.output_view)
             local line, col = output_doc:get_selection()
-            output_doc:insert(line, col, text)
+            output_doc:insert(line, col, self.pending_newlines .. text_strip)
             output_doc:move_to(translate.end_of_doc, self.output_view)
+            self.pending_newlines = newlines
             coroutine.yield()
           else
-            coroutine.yield(0.1)
+            self.pending_newlines = self.pending_newlines .. newlines
+            if #newlines > 0 then
+              coroutine.yield()
+            else
+              coroutine.yield(0.1)
+            end
           end
         else
           break
@@ -81,6 +94,7 @@ function NotebookView:new_output()
   view.scroll_tight = true
   view.master_view = self
   table.insert(self.parts, view)
+  self.pending_newlines = ""
   self.output_view = view
 end
 
