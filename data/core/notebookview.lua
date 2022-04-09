@@ -43,7 +43,7 @@ function NotebookView:new()
   self.parts = {}
   self:new_output()
   self:new_input()
-  self:set_active_view(self.input_view)
+  self.active_view = self.input_view
   self:start_process()
 end
 
@@ -56,8 +56,8 @@ function NotebookView:start_process()
   end
   self.process = proc
   -- The following variable is used to hold pending newlines in output.
-  -- It is stored in "self" because it can be reset by submit() method when
-  -- a new output cell is started and the pending newlines are discarded.
+  -- It is stored in "self" because it can be cleared by the submit() method
+  -- when a new output cell is started and the pending newlines are discarded.
   self.pending_newlines = ""
   local function polling_function(proc, proc_read)
     return function()
@@ -115,14 +115,6 @@ function NotebookView:new_input()
 end
 
 
-function NotebookView:set_active_view(view)
-  if core.active_view == self.active_view then
-    core.set_active_view(view)
-  end
-  self.active_view = view
-end
-
-
 function NotebookView:submit()
   if not self.process then return end
   self:new_output()
@@ -132,7 +124,7 @@ function NotebookView:submit()
   end
   self.process:write("\n")
   self:new_input()
-  self:set_active_view(self.input_view)
+  self.active_view = self.input_view
 end
 
 
@@ -142,8 +134,14 @@ end
 
 
 function NotebookView:update()
-  if core.active_view == self then
-    core.set_active_view(self.active_view)
+  -- core.active_view can be set to this same NotebookView or one of its input/output
+  -- InlineDocView. By looking the "master_view" field we are sure we get the
+  -- "NotebookView" in the case the active view is set to one of its InlineDocView.
+  local node_level_active_view = core.active_view.master_view or core.active_view
+  if node_level_active_view == self then
+    if core.active_view ~= self.active_view then
+      core.set_active_view(self.active_view)
+    end
   end
   for _, view in ipairs(self.parts) do
     view:update()
@@ -184,17 +182,29 @@ function NotebookView:get_scrollable_size()
 end
 
 
-function NotebookView:on_mouse_pressed(button, x, y, clicks)
-  local caught = NotebookView.super.on_mouse_pressed(self, button, x, y, clicks)
+function NotebookView:on_mouse_dispatch(handler_name, button, x, y, ...)
+  local caught = NotebookView.super[handler_name](self, button, x, y, ...)
   if caught then return end
   for i, view in ipairs(self.parts) do
     local x_part, y_part, w, h = self:get_part_drawing_rect(i)
     if x >= x_part and x <= x_part + w and y >= y_part and y <= y_part + h then
-      self:set_active_view(view)
-      view:on_mouse_pressed(button, x, y, clicks)
+      if handler_name == "on_mouse_pressed" then
+        self.active_view = view
+      end
+      view[handler_name](view, button, x, y, ...)
       return true
     end
   end
+end
+
+
+function NotebookView:on_mouse_pressed(button, x, y, clicks)
+  return self:on_mouse_dispatch("on_mouse_pressed", button, x, y, clicks)
+end
+
+
+function NotebookView:on_mouse_released(button, x, y, ...)
+  return self:on_mouse_dispatch("on_mouse_released", button, x, y, ...)
 end
 
 
