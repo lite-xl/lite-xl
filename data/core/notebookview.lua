@@ -31,6 +31,11 @@ function InlineDocView:draw_line_gutter(idx, x, y)
 end
 
 
+local notebook_margin  = { x = 20, y = 20 }
+local notebook_padding = { x = 5,  y = 5 }
+local notebook_border  = 1
+
+
 local NotebookView = View:extend()
 
 function NotebookView:new()
@@ -152,31 +157,30 @@ function NotebookView:get_part_height(view)
 end
 
 
-function NotebookView:get_part_drawing_rect(idx)
-  local x, y = self:get_content_offset()
-  local margin_h, margin_v = 50, 50
-  x, y = x + margin_h, y + margin_v
-  local inner_h, inner_v = 5, 5
-  local w = self.size.x - 2 * margin_h
+function NotebookView:get_inline_positions(x_offset, y_offset)
+  local x, y = notebook_margin.x + (x_offset or 0), notebook_margin.y + (y_offset or 0)
+  local w = self.size.x - 2 * notebook_margin.x
+  local pos = {}
   for i, view in ipairs(self.parts) do
-    local h = self:get_part_height(view) + 2 * inner_v
-    if i == idx then return x, y, w, h end
-    y = y + h + margin_v
+    local h = self:get_part_height(view) + 2 * notebook_padding.y
+    pos[i] = {x, y, w, h, notebook_padding.x, notebook_padding.y}
+    y = y + h + notebook_margin.y
   end
+  return pos
+end
+
+
+function NotebookView:get_part_drawing_rect(idx)
+  local x_offs, y_offs = self:get_content_offset()
+  local pos = self:get_inline_positions(x_offs, y_offs)
+  return unpack(pos[idx])
 end
 
 
 function NotebookView:get_scrollable_size()
-  local x, y = 0, 0
-  local margin_h, margin_v = 50, 50
-  x, y = x + margin_h, y + margin_v
-  local inner_h, inner_v = 5, 5
-  local w = self.size.x - 2 * margin_h
-  for i, view in ipairs(self.parts) do
-    local h = self:get_part_height(view) + 2 * inner_v
-    y = y + h + margin_v
-  end
-  return y
+  local pos = self:get_inline_positions()
+  local x, y, w, h = unpack(pos[#pos])
+  return y + h
 end
 
 
@@ -200,23 +204,20 @@ end
 
 
 function NotebookView:draw()
-  local x, y = self:get_content_offset()
-
   self:draw_background(style.background)
 
-  local margin_h, margin_v = 50, 50
-  x, y = x + margin_h, y + margin_v
-  local inner_h, inner_v = 5, 5
-  local w = self.size.x - 2 * margin_h
-  for _, view in ipairs(self.parts) do
-    local h = self:get_part_height(view) + 2 * inner_v
-    renderer.draw_rect(margin_h, y, w, h, style.line_highlight)
-    view.size.x, view.size.y = w, h
-    view.position.x, view.position.y = x + inner_h, y + inner_v
+  local pos = self:get_inline_positions(self:get_content_offset())
+  for i, coord in ipairs(pos) do
+    local view = self.parts[i]
+    local x, y, w, h, pad_x, pad_y = unpack(coord)
+    local b = notebook_border
+    renderer.draw_rect(x, y, w, h, style.line_number)
+    renderer.draw_rect(x + b, y + b, w - 2 * b, h - 2 * b, style.background)
+    view.size.x, view.size.y = w - 2 * pad_x, h - 2 * pad_y
+    view.position.x, view.position.y = x + pad_x, y + pad_y
     view:draw()
-    y = y + h + margin_v
   end
-  -- self:draw_overlay()
+
   self:draw_scrollbar()
 end
 
