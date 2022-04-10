@@ -59,6 +59,7 @@ function NotebookView:start_process()
   -- It is stored in "self" because it can be cleared by the submit() method
   -- when a new output cell is started and the pending newlines are discarded.
   self.pending_newlines = ""
+  self.pending_output = false
   local function polling_function(proc, proc_read)
     return function()
       while true do
@@ -74,6 +75,7 @@ function NotebookView:start_process()
             output_doc:insert(line, col, self.pending_newlines .. text_strip)
             output_doc:move_to(translate.end_of_doc, self.output_view)
             self.pending_newlines = newlines
+            self.pending_output = true
             coroutine.yield()
           else
             self.pending_newlines = self.pending_newlines .. newlines
@@ -118,6 +120,7 @@ end
 function NotebookView:submit()
   if not self.process then return end
   self:new_output()
+  self:scroll_to_inline_view(self.output_view)
   local doc = self.input_view.doc
   for _, line in ipairs(doc.lines) do
     self.process:write(line:gsub("\n$", " "))
@@ -125,6 +128,19 @@ function NotebookView:submit()
   self.process:write("\n")
   self:new_input()
   self.active_view = self.input_view
+end
+
+
+function NotebookView:scroll_to_inline_view(view)
+  local pos = self:get_inline_positions()
+  for i, coord in ipairs(pos) do
+    local view_test = self.parts[i]
+    if view_test == view then
+      local x, y, w, h = unpack(coord)
+      self.scroll.to.y = y + h
+      return
+    end
+  end
 end
 
 
@@ -142,6 +158,10 @@ function NotebookView:update()
     if core.active_view ~= self.active_view then
       core.set_active_view(self.active_view)
     end
+  end
+  if self.pending_output then
+    self:scroll_to_inline_view(self.output_view)
+    self.pending_output = false
   end
   for _, view in ipairs(self.parts) do
     view:update()
