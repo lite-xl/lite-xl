@@ -139,6 +139,7 @@ core.add_thread(function()
       for _, doc in ipairs(core.docs) do
         if not cache_is_valid(doc) then
           valid = false
+          break
         end
       end
     end
