@@ -182,29 +182,46 @@ function NotebookView:get_scrollable_size()
 end
 
 
-function NotebookView:on_mouse_dispatch(handler_name, button, x, y, ...)
-  local caught = NotebookView.super[handler_name](self, button, x, y, ...)
-  if caught then return end
+function NotebookView:get_overlapping_view(x, y)
   for i, view in ipairs(self.parts) do
     local x_part, y_part, w, h = self:get_part_drawing_rect(i)
     if x >= x_part and x <= x_part + w and y >= y_part and y <= y_part + h then
-      if handler_name == "on_mouse_pressed" then
-        self.active_view = view
-      end
-      view[handler_name](view, button, x, y, ...)
-      return true
+      return view
     end
   end
 end
 
 
 function NotebookView:on_mouse_pressed(button, x, y, clicks)
-  return self:on_mouse_dispatch("on_mouse_pressed", button, x, y, clicks)
+  local caught = NotebookView.super.on_mouse_pressed(self, button, x, y, clicks)
+  if caught then return end
+  local view = self:get_overlapping_view(x, y)
+  if view then
+    self.active_view = view
+    view:on_mouse_pressed(button, x, y, clicks)
+    return true
+  end
 end
 
 
-function NotebookView:on_mouse_released(button, x, y, ...)
-  return self:on_mouse_dispatch("on_mouse_released", button, x, y, ...)
+function NotebookView:on_mouse_moved(x, y, ...)
+  NotebookView.super.on_mouse_moved(self, x, y, ...)
+  local view = self:get_overlapping_view(x, y)
+  if view then
+    view:on_mouse_moved(x, y, ...)
+  end
+end
+
+
+function NotebookView:on_mouse_released(button, x, y)
+  local caught = NotebookView.super.on_mouse_released(self, button, x, y)
+  if caught then return end
+  local view = self:get_overlapping_view(x, y)
+  if view then
+    self.active_view = view
+    view:on_mouse_released(button, x, y)
+    return true
+  end
 end
 
 
