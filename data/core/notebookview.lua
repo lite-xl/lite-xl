@@ -69,6 +69,12 @@ function NotebookView:start_process()
           -- get the text without the pending newlines, if any
           local text_strip = text:sub(1, -#newlines - 1)
           if text_strip ~= "" then
+            if self.submit_pending then
+              self:new_output()
+              self:new_input()
+              self.active_view = self.input_view
+              self.submit_pending = false
+            end
             local output_doc = self.output_view.doc
             output_doc:move_to(translate.end_of_doc, self.output_view)
             local line, col = output_doc:get_selection()
@@ -119,15 +125,13 @@ end
 
 function NotebookView:submit()
   if not self.process then return end
-  self:new_output()
-  self:scroll_to_inline_view(self.output_view)
+  self.submit_pending = true
   local doc = self.input_view.doc
   for _, line in ipairs(doc.lines) do
     self.process:write(line:gsub("\n$", " "))
   end
   self.process:write("\n")
-  self:new_input()
-  self.active_view = self.input_view
+  self.active_view = self
 end
 
 
