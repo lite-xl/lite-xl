@@ -10,6 +10,12 @@ local DocView = require "core.docview"
 local NotebookView = require "core.notebookview"
 
 
+-- We have the concept ot node-level active view. If the active_view
+-- is hold by a view that is part of a parent view and only this latter
+-- is attached to node we need to return not the active view itself but
+-- its parent, the one that is directly attached to a node.
+-- The optional field "master_view" let a view point to its node-level
+-- parent view.
 local function get_node_root_view(view)
   return view.master_view or view
 end
@@ -114,6 +120,8 @@ local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
 function Node:split(dir, view, locked, resizable)
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local node_type = assert(type_map[dir], "Invalid direction")
+  -- using get_node_root_view we get the node-level view related to
+  -- core.active_view.
   local last_active = get_node_root_view(core.active_view)
   local child = Node()
   child:consume(self)
@@ -219,6 +227,10 @@ end
 
 
 function Node:get_node_for_view(view)
+  -- Here the view given as an argument may be embedded in a perent view and
+  -- not directly attached to a node.
+  -- We use the function get_node_root_view to ensure we get the view that
+  -- is directly attached to a node.
   view = get_node_root_view(view)
   for _, v in ipairs(self.views) do
     if v == view then return self end
