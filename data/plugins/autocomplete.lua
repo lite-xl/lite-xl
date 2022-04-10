@@ -81,7 +81,7 @@ core.add_thread(function()
     local i = 1
     local s = {}
     local symbols_count = 0
-    while i < #doc.lines do
+    while i <= #doc.lines do
       for sym in doc.lines[i]:gmatch(config.symbol_pattern) do
         if not s[sym] then
           symbols_count = symbols_count + 1
