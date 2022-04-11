@@ -7,6 +7,7 @@ lite_sources = [
     'renderer.c',
     'renwindow.c',
     'rencache.c',
+    'util.c',
     'main.c',
 ]
 
