@@ -1,19 +1,25 @@
-#include "api.h"
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+
 #ifdef _WIN32
   #include <windows.h>
-#elif __linux__
-  #include <sys/inotify.h>
-  #include <limits.h>
 #else
-  #include <sys/event.h>
+  #include <unistd.h>
+  #include <dirent.h>
+
+  #ifdef __linux__
+    #include <sys/inotify.h>
+    #include <limits.h>
+  #else
+    #include <sys/event.h>
+  #endif
 #endif
-#include <unistd.h>
-#include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <string.h>
-#include <stdbool.h>
+
+#include "api.h"
+
 
 #ifndef DIRMONITOR_BACKEND
 #error No dirmonitor backend defined
@@ -28,7 +34,9 @@
 #define add_dirmonitor GLUE(add_dirmonitor_, DIRMONITOR_BACKEND)
 #define remove_dirmonitor GLUE(remove_dirmonitor_, DIRMONITOR_BACKEND)
 
-struct dirmonitor {}; // dirmonitor struct is defined in each backend
+// C is rather ambiguous on allowing an empty struct
+// GCC allows this, but MSVC doesn't; so we need to have something
+struct dirmonitor { int: 0; }; // dirmonitor struct is defined in each backend
 
 // define functions so we know their signature
 struct dirmonitor* init_dirmonitor();
@@ -40,8 +48,8 @@ void remove_dirmonitor(struct dirmonitor*, int);
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   lua_pushvalue(L, -1);
   #ifdef DIRMONITOR_WIN32
-    char buffer[PATH_MAX*4];
-    int count = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)path, watch_id, buffer, PATH_MAX*4 - 1, NULL, NULL);
+    char buffer[MAX_PATH*4];
+    int count = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)path, watch_id, buffer, MAX_PATH*4 - 1, NULL, NULL);
     lua_pushlstring(L, buffer, count);
   #else
     lua_pushnumber(L, watch_id);

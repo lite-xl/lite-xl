@@ -2,7 +2,17 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <stdalign.h>
+
+#ifdef _MSC_VER
+  #ifndef alignof
+    #define alignof _Alignof
+  #endif
+  /* max_align_t is a compiler defined type, but
+  ** MSVC doesn't provide it, so we'll have to improvise */
+  typedef long double max_align_t;
+#else
+  #include <stdalign.h>
+#endif
 
 #include <lauxlib.h>
 #include "rencache.h"
@@ -41,9 +51,11 @@ static int command_buf_idx;
 static RenRect screen_rect;
 static bool show_debug;
 
+/* TODO: refactor this with different name */
+#ifndef _MSC_VER
 static inline int min(int a, int b) { return a < b ? a : b; }
 static inline int max(int a, int b) { return a > b ? a : b; }
-
+#endif
 
 /* 32bit fnv-1a hash */
 #define HASH_INITIAL 2166136261

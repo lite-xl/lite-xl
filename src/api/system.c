@@ -2,19 +2,39 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <dirent.h>
-#include <unistd.h>
 #include <errno.h>
+
+// TODO: completely replace stat on Windows
+// because this implementation is hella sketchy
+#define _CRT_INTERNAL_NONSTDC_NAMES 1
 #include <sys/stat.h>
-#include "api.h"
-#include "../rencache.h"
+
 #ifdef _WIN32
-  #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
-#elif __linux__
-  #include <sys/vfs.h>
+  #include <direct.h>
+
+  // Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
+  // We have to define _CRT_INTERNAL_NONSTDC_NAMES 1 before #including sys/stat.h
+  // in order for Microsoft's stat.h to define names like S_IFMT, S_IFREG, and S_IFDIR,
+  // rather than just defining  _S_IFMT, _S_IFREG, and _S_IFDIR as it normally does.
+  #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+    #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+  #endif
+  #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
+    #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+  #endif
+#else
+  #include <dirent.h>
+  #include <unistd.h>
+  #ifdef __linux__
+    #include <sys/vfs.h>
+  #endif
 #endif
+
+#include "api.h"
+#include "util.h"
+#include "../rencache.h"
 
 extern SDL_Window *window;
 
@@ -473,7 +493,59 @@ static int f_chdir(lua_State *L) {
 
 static int f_list_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+#ifdef _WIN32
+  DWORD r;
+  wchar_t *wpath = NULL;
+  HANDLE find_handle = INVALID_HANDLE_VALUE;
+  WIN32_FIND_DATAW fd;
+  char file_path[MAX_PATH];
 
+  // for Windows, the path should be appended with a \*.
+  // we do that with lua for convenience
+  lua_settop(L, 1);
+  path = lua_pushliteral(L, "\\*"), lua_concat(L, 2), lua_tostring(L, -1);
+  if (util_utftows(&wpath, path) < 0) {
+    lua_pushnil(L);
+    lua_pushstring(L, "cannot convert path to UTF-16");
+    return 2;
+  }
+
+  find_handle = FindFirstFileExW(wpath, FindExInfoStandard, &fd, FindExSearchNameMatch, NULL, 0);
+  if (find_handle == INVALID_HANDLE_VALUE) {
+    char *err = util_strerror(GetLastError());
+    lua_pushnil(L);
+    lua_pushstring(L, err);
+    util_errorfree(err);
+    return 2;
+  }
+
+  lua_newtable(L);
+  int i = 1;
+  do {
+    if (wcscmp(fd.cFileName, L".") == 0) { continue; }
+    if (wcscmp(fd.cFileName, L".") == 0) { continue; }
+
+    r = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, file_path, MAX_PATH, NULL, NULL);
+    if (r == 0) break;
+
+    lua_pushlstring(L, file_path, r - 1);
+    lua_rawseti(L, -2, i++);
+
+  } while (FindNextFileW(find_handle, &fd));
+
+  if (GetLastError() != ERROR_NO_MORE_FILES) {
+    FindClose(find_handle);
+
+    char *err = util_strerror(GetLastError());
+    lua_pushnil(L);
+    lua_pushstring(L, err);
+    util_errorfree(err);
+    return 2;
+  }
+
+  FindClose(find_handle);
+  return 1;
+#else
   DIR *dir = opendir(path);
   if (!dir) {
     lua_pushnil(L);
@@ -493,12 +565,12 @@ static int f_list_dir(lua_State *L) {
   }
 
   closedir(dir);
+#endif
   return 1;
 }
 
 
 #ifdef _WIN32
-  #include <windows.h>
   #define realpath(x, y) _fullpath(y, x, MAX_PATH)
 #endif
 
@@ -539,7 +611,7 @@ static int f_get_file_info(lua_State *L) {
   }
   lua_setfield(L, -2, "type");
 
-#if __linux__
+#ifdef __linux__
   if (S_ISDIR(s.st_mode)) {
     if (lstat(path, &s) == 0) {
       lua_pushboolean(L, S_ISLNK(s.st_mode));
@@ -550,7 +622,7 @@ static int f_get_file_info(lua_State *L) {
   return 1;
 }
 
-#if __linux__
+#ifdef __linux__
 // https://man7.org/linux/man-pages/man2/statfs.2.html
 
 struct f_type_names {
@@ -574,7 +646,7 @@ static struct f_type_names fs_names[] = {
 #endif
 
 static int f_get_fs_type(lua_State *L) {
-  #if __linux__
+  #ifdef __linux__
     const char *path = luaL_checkstring(L, 1);
     struct statfs buf;
     int status = statfs(path, &buf);
