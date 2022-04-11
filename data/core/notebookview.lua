@@ -41,9 +41,8 @@ local NotebookView = View:extend()
 function NotebookView:new()
   NotebookView.super.new(self)
   self.parts = {}
-  self:new_output()
-  self:new_input()
-  self.active_view = self.input_view
+  self.waiting_output = { stdout = true, stderr = true }
+  self.active_view = self
   self:start_process()
 end
 
@@ -60,26 +59,29 @@ function NotebookView:start_process()
   -- when a new output cell is started and the pending newlines are discarded.
   self.pending_newlines = ""
   self.pending_output = false
-  local function polling_function(proc, proc_read)
+  local function polling_function(process, channel)
     return function()
       while true do
-        local text = proc_read(proc)
+        local text = process["read_" .. channel](process)
         if text ~= nil then
           local newlines = text:match("(\n*)$")
           -- get the text without the pending newlines, if any
           local text_strip = text:sub(1, -#newlines - 1)
           if text_strip ~= "" then
-            if self.submit_pending then
-              self:new_output()
-              self:new_input()
-              self.active_view = self.input_view
-              self.submit_pending = false
+            if self.waiting_output[channel] then
+              self:new_output(channel)
+              if self.waiting_output.stdout and self.waiting_output.stderr then
+                self:new_input()
+                self.active_view = self.input_view
+              end
+              self.waiting_output[channel] = false
             end
-            local output_doc = self.output_view.doc
-            output_doc:move_to(translate.end_of_doc, self.output_view)
+            local output_view = (channel == "stdout" and self.output_view or self.error_view)
+            local output_doc = output_view.doc
+            output_doc:move_to(translate.end_of_doc, output_view)
             local line, col = output_doc:get_selection()
             output_doc:insert(line, col, self.pending_newlines .. text_strip)
-            output_doc:move_to(translate.end_of_doc, self.output_view)
+            output_doc:move_to(translate.end_of_doc, output_view)
             self.pending_newlines = newlines
             self.pending_output = true
             coroutine.yield()
@@ -97,24 +99,30 @@ function NotebookView:start_process()
       end
     end
   end
-  core.add_thread(polling_function(self.process, self.process.read_stderr))
-  core.add_thread(polling_function(self.process, self.process.read_stdout))
+  core.add_thread(polling_function(self.process, "stderr"))
+  core.add_thread(polling_function(self.process, "stdout"))
 end
 
 
-function NotebookView:new_output()
+function NotebookView:new_output(channel)
   local view = InlineDocView()
   view.scroll_tight = true
   view.master_view = self
+  view.channel = (channel or "stdout")
   table.insert(self.parts, view)
   self.pending_newlines = ""
-  self.output_view = view
+  if channel == "stderr" then
+    self.error_view = view
+  else
+    self.output_view = view
+  end
 end
 
 
 function NotebookView:new_input()
   local view = InlineDocView()
   view.doc:set_syntax(".lua")
+  view.channel = "stdin"
   view.notebook = self
   view.master_view = self
   view.scroll_tight = true
@@ -125,7 +133,8 @@ end
 
 function NotebookView:submit()
   if not self.process then return end
-  self.submit_pending = true
+  self.waiting_output.stdout = true
+  self.waiting_output.stderr = true
   local doc = self.input_view.doc
   for _, line in ipairs(doc.lines) do
     self.process:write(line:gsub("\n$", " "))
@@ -201,8 +210,12 @@ end
 
 function NotebookView:get_scrollable_size()
   local pos = self:get_inline_positions()
-  local x, y, w, h = unpack(pos[#pos])
-  return y + h
+  if #pos > 0 then
+    local x, y, w, h = unpack(pos[#pos])
+    return y + h
+  else
+    return 0
+  end
 end
 
 
