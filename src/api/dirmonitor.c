@@ -19,7 +19,6 @@ struct dirmonitor {
   struct dirmonitor_internal* internal;
 };
 
-
 struct dirmonitor_internal* init_dirmonitor();
 void deinit_dirmonitor(struct dirmonitor_internal*);
 int get_changes_dirmonitor(struct dirmonitor_internal*, char*, int);
