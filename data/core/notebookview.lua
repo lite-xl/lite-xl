@@ -40,8 +40,9 @@ local NotebookView = View:extend()
 
 function NotebookView:new()
   NotebookView.super.new(self)
-  self.parts = {}
-  self.waiting_output = { stdout = true, stderr = true }
+  self.parts = { }
+  self.input_view = { } -- Dummy view.
+  self.output_view = { }
   self.active_view = self
   self:start_process()
 end
@@ -57,36 +58,39 @@ function NotebookView:start_process()
   -- The following variable is used to hold pending newlines in output.
   -- It is stored in "self" because it can be cleared by the submit() method
   -- when a new output cell is started and the pending newlines are discarded.
-  self.pending_newlines = ""
-  self.pending_output = false
+  self.pending_newlines = { stdout = "", stderr = "" }
+  self.pending_output = { stdout = false, stderr = false }
   local function polling_function(process, channel)
     return function()
+      local read_function = process["read_" .. channel]
       while true do
-        local text = process["read_" .. channel](process)
+        local text = read_function(process)
         if text ~= nil then
-          local newlines = text:match("(\n*)$")
+          text = text:gsub("\r\n", "\n")
+          local newlines = text:match("%f[\n](\n+)$") or ""
           -- get the text without the pending newlines, if any
           local text_strip = text:sub(1, -#newlines - 1)
           if text_strip ~= "" then
-            if self.waiting_output[channel] then
-              self:new_output(channel)
-              if self.waiting_output.stdout and self.waiting_output.stderr then
-                self:new_input()
-                self.active_view = self.input_view
-              end
-              self.waiting_output[channel] = false
+            local output_view = {
+              stdout = self.input_view.stdout,
+              stderr = self.input_view.stderr,
+            }
+            if not output_view[channel] then
+              self:new_output(self.input_view, channel)
+              self.active_view = self:new_input(self.input_view)
+              self.input_view[channel] = self.output_view[channel]
             end
-            local output_view = (channel == "stdout" and self.output_view or self.error_view)
-            local output_doc = output_view.doc
-            output_doc:move_to(translate.end_of_doc, output_view)
+            local view = self.output_view[channel]
+            local output_doc = view.doc
+            output_doc:move_to(translate.end_of_doc, view)
             local line, col = output_doc:get_selection()
-            output_doc:insert(line, col, self.pending_newlines .. text_strip)
-            output_doc:move_to(translate.end_of_doc, output_view)
-            self.pending_newlines = newlines
-            self.pending_output = true
+            output_doc:insert(line, col, self.pending_newlines[channel] .. text_strip)
+            output_doc:move_to(translate.end_of_doc, view)
+            self.pending_newlines[channel] = newlines
+            self.pending_output[channel] = true
             coroutine.yield()
           else
-            self.pending_newlines = self.pending_newlines .. newlines
+            self.pending_newlines[channel] = self.pending_newlines[channel] .. newlines
             if #newlines > 0 then
               coroutine.yield()
             else
@@ -104,22 +108,34 @@ function NotebookView:start_process()
 end
 
 
-function NotebookView:new_output(channel)
-  local view = InlineDocView()
-  view.scroll_tight = true
-  view.master_view = self
-  view.channel = (channel or "stdout")
-  table.insert(self.parts, view)
-  self.pending_newlines = ""
-  if channel == "stderr" then
-    self.error_view = view
-  else
-    self.output_view = view
+function NotebookView:find_insert_index(view)
+  for i = 1, #self.parts do
+    if self.parts[i] == view then return i + 1 end
   end
+  return #self.parts + 1
 end
 
 
-function NotebookView:new_input()
+function NotebookView:new_output(input_view, channel)
+  local insert_index = self:find_insert_index(input_view)
+  local view = InlineDocView()
+  view.scroll_tight = true
+  view.master_view = self
+  view.channel = channel
+  table.insert(self.parts, insert_index, view)
+  self.pending_newlines.stdout = ""
+  self.pending_newlines.stderr = ""
+  self.output_view[channel] = view
+end
+
+
+function NotebookView:new_input(input_view)
+  local insert_index = self:find_insert_index(input_view)
+  for i = insert_index, #self.parts do
+    if self.parts[i].channel == "stdin" then
+      return self.parts[i]
+    end
+  end
   local view = InlineDocView()
   view.doc:set_syntax(".lua")
   view.channel = "stdin"
@@ -127,14 +143,30 @@ function NotebookView:new_input()
   view.master_view = self
   view.scroll_tight = true
   table.insert(self.parts, view)
-  self.input_view = view
+  return view
+end
+
+
+function NotebookView:remove_output_view(input_view)
+  local i = 1
+  while i <= #self.parts do
+    if self.parts[i] == input_view.stdout or self.parts[i] == input_view.stderr then
+      table.remove(self.parts, i)
+    else
+      i = i + 1
+    end
+  end
+  input_view.stdout = nil
+  input_view.stderr = nil
 end
 
 
 function NotebookView:submit()
-  if not self.process then return end
-  self.waiting_output.stdout = true
-  self.waiting_output.stderr = true
+  if not self.process or not self.active_view.channel == "stdin" then
+    return
+  end
+  self.input_view = self.active_view
+  self:remove_output_view(self.input_view)
   local doc = self.input_view.doc
   for _, line in ipairs(doc.lines) do
     self.process:write(line:gsub("\n$", " "))
@@ -172,9 +204,11 @@ function NotebookView:update()
       core.set_active_view(self.active_view)
     end
   end
-  if self.pending_output then
-    self:scroll_to_inline_view(self.output_view)
-    self.pending_output = false
+  for _, channel in ipairs {"stdout", "stderr"} do
+    if self.pending_output[channel] then
+      self:scroll_to_inline_view(self.output_view[channel])
+      self.pending_output[channel] = false
+    end
   end
   for _, view in ipairs(self.parts) do
     view:update()
@@ -263,7 +297,9 @@ end
 
 
 function NotebookView:on_text_input(text)
-  self.input_view:on_text_input(text)
+  if self.active_view:is(InlineDocView) then
+    self.active_view:on_text_input(text)
+  end
 end
 
 
