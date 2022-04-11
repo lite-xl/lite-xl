@@ -31,9 +31,9 @@ function InlineDocView:draw_line_gutter(idx, x, y)
 end
 
 
-local notebook_margin  = { x = 20, y = 20 }
-local notebook_padding = { x = 5,  y = 5 }
-local notebook_border  = 1
+local notebook_margin  = { x = 15 * SCALE, y = 10 * SCALE }
+local notebook_padding = { x = 10 * SCALE,  y = 0 * SCALE }
+local notebook_border  = 1 * SCALE
 
 
 local NotebookView = View:extend()
@@ -267,16 +267,20 @@ function NotebookView:on_text_input(text)
 end
 
 
+local outline_color_by_channel = {
+  stdout = style.line_number,
+  stderr = style.nagbar,
+  stdin  = style.caret,
+}
+
 function NotebookView:draw()
   self:draw_background(style.background)
-
   local pos = self:get_inline_positions(self:get_content_offset())
   for i, coord in ipairs(pos) do
     local view = self.parts[i]
     local x, y, w, h, pad_x, pad_y = unpack(coord)
-    local b = notebook_border
-    renderer.draw_rect(x, y, w, h, style.line_number)
-    renderer.draw_rect(x + b, y + b, w - 2 * b, h - 2 * b, style.background)
+    local outline_color = outline_color_by_channel[view.channel]
+    renderer.draw_rect(x, y, notebook_border, h, outline_color)
     view.size.x, view.size.y = w - 2 * pad_x, h - 2 * pad_y
     view.position.x, view.position.y = x + pad_x, y + pad_y
     view:draw()
