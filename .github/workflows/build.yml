@@ -148,7 +148,7 @@ jobs:
         path: ${{ env.INSTALL_NAME }}.tar.gz
 
   build_windows_msys2:
-    name: Windows
+    name: Windows (MINGW)
     runs-on: windows-2019
     strategy:
       matrix:
@@ -206,6 +206,27 @@ jobs:
       with:
         name: Error Logs
         path: ${{ env.INSTALL_NAME }}.tar.gz
+
+  build_windows_msvc:
+    name: Windows (MSVC)
+    runs-on: windows-2019
+    strategy:
+      matrix:
+        arch: [amd64, amd64_x86]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.x'
+      - run: pip install meson ninja
+      - name: Configure
+        run: meson setup --buildtype=release --wrap-mode=forcefallback build
+      - name: Build
+        run: ninja -C build
+
 
   deploy:
     name: Deployment
