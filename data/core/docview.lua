@@ -270,8 +270,8 @@ function DocView:mouse_selection(doc, snap_type, line1, col1, line2, col2)
 end
 
 
-function DocView:on_mouse_released(button)
-  DocView.super.on_mouse_released(self, button)
+function DocView:on_mouse_released(...)
+  DocView.super.on_mouse_released(self, ...)
   self.mouse_selecting = nil
 end
 
