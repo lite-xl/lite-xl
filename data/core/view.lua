@@ -101,12 +101,12 @@ end
 
 function View:scrollbar_overlaps_point(x, y)
   local sx, sy, sw, sh = self:get_scrollbar_rect()
-  return x >= sx - style.scrollbar_size * 3 and x < sx + sw and y >= sy and y < sy + sh
+  return x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh
 end
 
 function View:scrollbar_track_overlaps_point(x, y)
   local sx, sy, sw, sh = self:get_scrollbar_track_rect()
-  return x >= sx - style.scrollbar_size * 3 and x < sx + sw and y >= sy and y < sy + sh
+  return x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh
 end
 
 
