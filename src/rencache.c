@@ -51,11 +51,8 @@ static int command_buf_idx;
 static RenRect screen_rect;
 static bool show_debug;
 
-/* TODO: refactor this with different name */
-#ifndef _MSC_VER
 static inline int min(int a, int b) { return a < b ? a : b; }
 static inline int max(int a, int b) { return a > b ? a : b; }
-#endif
 
 /* 32bit fnv-1a hash */
 #define HASH_INITIAL 2166136261
