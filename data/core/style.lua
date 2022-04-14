@@ -4,6 +4,7 @@ local style = {}
 style.padding = { x = common.round(14 * SCALE), y = common.round(7 * SCALE) }
 style.divider_size = common.round(1 * SCALE)
 style.scrollbar_size = common.round(4 * SCALE)
+style.expanded_scrollbar_size = common.round(12 * SCALE)
 style.caret_width = common.round(2 * SCALE)
 style.tab_width = common.round(170 * SCALE)
 
@@ -43,6 +44,7 @@ style.line_number2 = { common.color "#83838f" } -- With cursor
 style.line_highlight = { common.color "#343438" }
 style.scrollbar = { common.color "#414146" }
 style.scrollbar2 = { common.color "#4b4b52" } -- Hovered
+style.scrollbar_track = { common.color "#252529" }
 style.nagbar = { common.color "#FF0000" }
 style.nagbar_text = { common.color "#FFFFFF" }
 style.nagbar_dim = { common.color "rgba(0, 0, 0, 0.45)" }
