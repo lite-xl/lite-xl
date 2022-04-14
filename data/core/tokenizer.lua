@@ -183,6 +183,22 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         if count % 2 == 0 then break end
       end
     until not res[1] or not close or not target[3]
+
+    -- Check if we need to match `one_of`
+    if p.one_of then
+      -- Mismatching number of "parts" and number of matches
+      if #p.one_of ~= #res - 1 then return end
+
+      for n, part in ipairs(p.one_of) do
+        local s, e = res[n + 1], res[n + 2]
+        if n == 1 then
+          s = res[1]
+        end
+        e = e and (e - 1) or res[2]
+        if not part[text:sub(s, e)] then return end
+      end
+    end
+
     return table.unpack(res)
   end
   

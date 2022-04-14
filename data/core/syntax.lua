@@ -5,11 +5,37 @@ syntax.items = {}
 
 local plain_text_syntax = { name = "Plain Text", patterns = {}, symbols = {} }
 
+-- Return true on any access
+local catch_all = {}
+function catch_all.__index()
+  return true
+end
 
 function syntax.add(t)
   if type(t.space_handling) ~= "boolean" then t.space_handling = true end
 
   if t.patterns then
+    -- Transform `one_of` tables from arrays to hash maps
+    -- This allows searching directly without having to scan the entire array
+    for _,p in pairs(t.patterns) do
+      if p.one_of then
+        local compiled_parts = { }
+        for _,part in pairs(p.one_of) do
+          local compiled_values = { }
+          if #part == 0 then
+            -- Match with anything
+            setmetatable(compiled_values, catch_all)
+          else
+            for _,value in pairs(part) do
+              compiled_values[value] = true
+            end
+          end
+          table.insert(compiled_parts, compiled_values)
+        end
+        p.one_of = compiled_parts
+      end
+    end
+  
     -- the rule %s+ gives us a performance gain for the tokenizer in lines with
     -- long amounts of consecutive spaces, can be disabled by plugins where it
     -- causes conflicts by declaring the table property: space_handling = false
