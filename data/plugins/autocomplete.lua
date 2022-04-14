@@ -81,6 +81,28 @@ core.add_thread(function()
       for sym in pairs(doc.syntax.symbols) do
         symbols[sym] = true
       end
+
+      for _,p in pairs(doc.syntax.patterns) do
+        if p.one_of then
+          local result = { "" }
+          for i=1,#p.one_of do
+            local partial_result = { }
+            local was_empty = true
+            for value in pairs(p.one_of[i]) do
+              was_empty = false
+              for _,r in pairs(result) do
+                table.insert(partial_result, r..value)
+              end
+            end
+            if not was_empty then
+              result = partial_result
+            end
+          end
+          for _,r in pairs(result) do
+            symbols[r] = true
+          end
+        end
+      end
     end
   end
 
