@@ -38,18 +38,24 @@
   #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
     #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
   #endif
+
+  typedef DWORD system_error_t;
 #else
   #include <dirent.h>
   #include <unistd.h>
   #ifdef __linux__
     #include <sys/vfs.h>
   #endif
+<<<<<<< HEAD
 >>>>>>> 962d210 (refactor code to be compiled by MSVC)
 #endif
+=======
+
+  typedef int system_error_t;
+>>>>>>> d07f254 (remove utf16 support)
 #endif
 
 #include "api.h"
-#include "util.h"
 #include "../rencache.h"
 
 extern SDL_Window *window;
@@ -161,6 +167,7 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
   }
 }
 
+<<<<<<< HEAD
 #ifdef _WIN32
 static char *win32_error(DWORD rc) {
   LPSTR message;
@@ -185,6 +192,28 @@ static void push_win32_error(lua_State *L, DWORD rc) {
   LocalFree(message);
 }
 #endif
+=======
+static void l_pusherrorstr(lua_State *L, system_error_t e) {
+#ifdef _WIN32
+  LPSTR msg = NULL;
+  FormatMessageA(
+    FORMAT_MESSAGE_ALLOCATE_BUFFER
+    | FORMAT_MESSAGE_FROM_SYSTEM
+    | FORMAT_MESSAGE_IGNORE_INSERTS,
+    NULL,
+    e,
+    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+    (LPSTR) &msg,
+    0,
+    NULL
+  );
+  lua_pushstring(L, msg ? msg : "unknown error");
+  LocalFree(msg);
+#else
+  lua_pushstring(L, strerror(e));
+#endif
+}
+>>>>>>> d07f254 (remove utf16 support)
 
 static int f_poll_event(lua_State *L) {
   char buf[16];
@@ -539,6 +568,7 @@ static int f_rmdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
 #ifdef _WIN32
+<<<<<<< HEAD
   LPWSTR wpath = utfconv_utf8towc(path);
   int deleted = RemoveDirectoryW(wpath);
   free(wpath);
@@ -549,6 +579,12 @@ static int f_rmdir(lua_State *L) {
     push_win32_error(L, GetLastError());
     return 2;
   }
+=======
+  int deleted = RemoveDirectoryA(path);
+  lua_pushboolean(L, deleted);
+  if (!deleted)
+    l_pusherrorstr(L, GetLastError());
+>>>>>>> d07f254 (remove utf16 support)
 #else
   int deleted = remove(path);
   if(deleted < 0) {
@@ -583,11 +619,8 @@ static int f_chdir(lua_State *L) {
 static int f_list_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 #ifdef _WIN32
-  DWORD r;
-  wchar_t *wpath = NULL;
   HANDLE find_handle = INVALID_HANDLE_VALUE;
-  WIN32_FIND_DATAW fd;
-  char file_path[MAX_PATH];
+  WIN32_FIND_DATAA fd;
 
 <<<<<<< HEAD
 #ifdef _WIN32
@@ -638,45 +671,41 @@ static int f_list_dir(lua_State *L) {
 =======
   // for Windows, the path should be appended with a \*.
   // we do that with lua for convenience
-  lua_settop(L, 1);
-  path = lua_pushliteral(L, "\\*"), lua_concat(L, 2), lua_tostring(L, -1);
-  if (util_utftows(&wpath, path) < 0) {
-    lua_pushnil(L);
-    lua_pushstring(L, "cannot convert path to UTF-16");
-    return 2;
-  }
+  lua_pushvalue(L, 1);
+  if (path[strlen(path)-1] == '\\' || path[strlen(path)-1] == '/')
+    lua_pushstring(L, "*");
+  else
+    lua_pushstring(L, "\\*");
 
-  find_handle = FindFirstFileExW(wpath, FindExInfoStandard, &fd, FindExSearchNameMatch, NULL, 0);
+  path = (lua_concat(L, 2), lua_tostring(L, -1));
+
+  find_handle = FindFirstFileExA(path, FindExInfoStandard, &fd, FindExSearchNameMatch, NULL, 0);
   if (find_handle == INVALID_HANDLE_VALUE) {
-    char *err = util_strerror(GetLastError());
     lua_pushnil(L);
-    lua_pushstring(L, err);
-    util_errorfree(err);
+    l_pusherrorstr(L, GetLastError());
     return 2;
   }
 
   lua_newtable(L);
   int i = 1;
   do {
-    if (wcscmp(fd.cFileName, L".") == 0) { continue; }
-    if (wcscmp(fd.cFileName, L".") == 0) { continue; }
+    if (strcmp(fd.cFileName, ".") == 0) { continue; }
+    if (strcmp(fd.cFileName, ".") == 0) { continue; }
 
-    r = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, file_path, MAX_PATH, NULL, NULL);
-    if (r == 0) break;
-
-    lua_pushlstring(L, file_path, r - 1);
+    lua_pushstring(L, fd.cFileName);
     lua_rawseti(L, -2, i++);
-
-  } while (FindNextFileW(find_handle, &fd));
+  } while (FindNextFileA(find_handle, &fd));
 
   if (GetLastError() != ERROR_NO_MORE_FILES) {
     FindClose(find_handle);
-
-    char *err = util_strerror(GetLastError());
     lua_pushnil(L);
+<<<<<<< HEAD
     lua_pushstring(L, err);
     util_errorfree(err);
 >>>>>>> 962d210 (refactor code to be compiled by MSVC)
+=======
+    l_pusherrorstr(L, GetLastError());
+>>>>>>> d07f254 (remove utf16 support)
     return 2;
   }
 
