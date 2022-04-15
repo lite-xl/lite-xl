@@ -1,3 +1,4 @@
+#include <SDL.h>
 #include <stdbool.h>
 #include <windows.h>
 
@@ -8,25 +9,31 @@ struct dirmonitor {
   bool running;
 };
 
+static unsigned int DIR_EVENT_TYPE = 0;
 struct dirmonitor* init_dirmonitor_win32() {
-  struct dirmonitor* monitor = calloc(sizeof(struct dirmonitor), 1);
+  if (DIR_EVENT_TYPE == 0)
+    DIR_EVENT_TYPE = SDL_RegisterEvents(1);
+  return calloc(sizeof(struct dirmonitor), 1);
+}
 
-  return monitor;
+static void dirmonitor_notify(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped) {
+  SDL_Event event = { .type = DIR_EVENT_TYPE };
+  SDL_PushEvent(&event);
 }
 
 static void close_monitor_handle(struct dirmonitor* monitor) {
   if (monitor->handle) {
-      if (monitor->running) {
-        BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
-        DWORD error = GetLastError();
-        if (result == TRUE || error != ERROR_NOT_FOUND) {
-          DWORD bytes_transferred;
-          GetOverlappedResult( monitor->handle, &monitor->overlapped, &bytes_transferred, TRUE );
-        }
-        monitor->running = false;
+    if (monitor->running) {
+      BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
+      DWORD error = GetLastError();
+      if (result == TRUE || error != ERROR_NOT_FOUND) {
+        DWORD bytes_transferred;
+        GetOverlappedResult( monitor->handle, &monitor->overlapped, &bytes_transferred, TRUE );
       }
-      CloseHandle(monitor->handle);
+      monitor->running = false;
     }
+    CloseHandle(monitor->handle);
+  }
   monitor->handle = NULL;
 }
 
@@ -37,7 +44,7 @@ void deinit_dirmonitor_win32(struct dirmonitor* monitor) {
 
 int check_dirmonitor_win32(struct dirmonitor* monitor, int (*change_callback)(int, const char*, void*), void* data) {
   if (!monitor->running) {
-    if (ReadDirectoryChangesW(monitor->handle, monitor->buffer, sizeof(monitor->buffer), TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, NULL, &monitor->overlapped, NULL) == 0) {
+    if (ReadDirectoryChangesW(monitor->handle, monitor->buffer, sizeof(monitor->buffer), TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, NULL, &monitor->overlapped, dirmonitor_notify) == 0) {
       return GetLastError();
     }
     monitor->running = true;
