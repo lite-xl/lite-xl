@@ -69,30 +69,38 @@ endif
 if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
-    lua_fallback = ['lua', 'lua_dep']
-    lua_quick_fallback = []
-    if get_option('wrap_mode') == 'forcefallback'
-        lua_quick_fallback = lua_fallback
-    endif
 
-    lua_dep = dependency('lua5.4', fallback: lua_quick_fallback, required : false)
-    if not lua_dep.found()
-        lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'],
+    default_fallback_options = ['warning_level=0', 'werror=false']
+
+    # Lua has no official .pc file
+    # so distros come up with their own names
+    lua_names = [
+        'lua5.4', # Debian
+        'lua-5.4', # FreeBSD
+        'lua',    # Fedora
+    ]
+
+    foreach lua : lua_names
+        last_lua = (lua == lua_names[-1])
+        lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : last_lua,
             version: '>= 5.4',
-            default_options: ['default_library=static', 'line_editing=false', 'interpreter=false']
+            default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
         )
-    endif
+        if lua_dep.found()
+            break
+        endif
+    endforeach
 
     pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
-        default_options: ['default_library=static', 'grep=false', 'test=false']
+        default_options: default_fallback_options + ['default_library=static', 'grep=false', 'test=false']
     )
 
     freetype_dep = dependency('freetype2', fallback: ['freetype2', 'freetype_dep'],
-        default_options: ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
+        default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
     )
 
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
-        default_options: ['default_library=static']
+        default_options: default_fallback_options + ['default_library=static']
     )
 
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]

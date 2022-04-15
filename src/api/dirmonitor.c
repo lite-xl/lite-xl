@@ -1,12 +1,7 @@
 #include "api.h"
 #include <stdlib.h>
-#ifdef _WIN32
+#ifdef DIRMONITOR_WIN32
   #include <windows.h>
-#elif __linux__
-  #include <sys/inotify.h>
-  #include <limits.h>
-#else
-  #include <sys/event.h>
 #endif
 #include <unistd.h>
 #include <errno.h>
