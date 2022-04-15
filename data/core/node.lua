@@ -51,6 +51,15 @@ function Node:on_mouse_released(...)
 end
 
 
+function Node:on_mouse_left()
+  if self.type == "leaf" then
+    self.active_view:on_mouse_left()
+  else
+    self:propagate("on_mouse_left")
+  end
+end
+
+
 function Node:consume(node)
   for k, _ in pairs(self) do self[k] = nil end
   for k, v in pairs(node) do self[k] = v   end
