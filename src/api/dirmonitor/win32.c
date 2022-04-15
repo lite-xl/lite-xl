@@ -13,7 +13,7 @@ struct dirmonitor {
   char buffer[64512];
   OVERLAPPED overlapped;
   SDL_Thread* thread;
-  SDL_Mutex* mutex;
+  SDL_mutex* mutex;
   volatile enum EState state;
 };
 
