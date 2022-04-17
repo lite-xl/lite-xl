@@ -20,7 +20,7 @@ show_help(){
   echo "-n --nobuild              Skips the build step, use existing files."
   echo "-s --static               Specify if building using static libraries"
   echo "                          by using lhelper tool."
-  echo "-v --version VERSION      Specify a version, non whitespace separated string."
+  echo "-v --version version      Specify a version, non whitespace separated string."
   echo
 }
 
@@ -31,7 +31,7 @@ STATIC_BUILD=false
 
 for i in "$@"; do
   case $i in
-    -h|--belp)
+    -h|--help)
       show_help
       exit 0
       ;;
@@ -49,7 +49,7 @@ for i in "$@"; do
       shift
       ;;
     -v|--version)
-      VERSION="$2"
+      version="$2"
       shift
       shift
       ;;
@@ -117,6 +117,7 @@ generate_appimage() {
 
   DESTDIR="$(realpath LiteXL.AppDir)" meson install --skip-subprojects -C ${BUILD_DIR}
   mv AppRun LiteXL.AppDir/
+  strip LiteXL.AppDir/AppRun
   # These could be symlinks but it seems they doesn't work with AppimageLauncher
   cp resources/icons/lite-xl.svg LiteXL.AppDir/
   cp resources/linux/org.lite_xl.lite_xl.desktop LiteXL.AppDir/
@@ -144,16 +145,16 @@ generate_appimage() {
         fi
       done
       echo "  Ignoring: $libname"
-    done < <(ldd build/src/lite-xl | awk '{print $1 " " $3}')
+    done < <(ldd ${BUILD_DIR}/src/lite-xl | awk '{print $1 " " $3}')
   fi
 
   echo "Generating AppImage..."
-  local version=""
-  if [ -n "$VERSION" ]; then
-    version="-$VERSION"
+  local version_tag=""
+  if [ -n "$version" ]; then
+    version_tag="-$version"
   fi
 
-  ./appimagetool LiteXL.AppDir LiteXL${version}-${ARCH}.AppImage
+  ./appimagetool LiteXL.AppDir LiteXL${version_tag}-${ARCH}.AppImage
 }
 
 setup_appimagetool

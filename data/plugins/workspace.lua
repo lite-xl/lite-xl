@@ -107,10 +107,14 @@ local function load_view(t)
       dv = DocView(core.open_doc())
       if t.text then dv.doc:insert(1, 1, t.text) end
     else
-      -- we have a filename, try to read the file
-      local ok, doc = pcall(core.open_doc, t.filename)
-      if ok then
-        dv = DocView(doc)
+      -- we have a filename, try to read the file.
+      -- proceed to create a view only if the file exists.
+      local info = system.get_file_info(t.filename)
+      if info and info.type == "file" then
+        local ok, doc = pcall(core.open_doc, t.filename)
+        if ok then
+          dv = DocView(doc)
+        end
       end
     end
     -- doc view "dv" can be nil here if the filename associated to the document

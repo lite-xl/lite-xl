@@ -1,5 +1,15 @@
 This files document the changes done in Lite XL for each release.
 
+### next release
+
+Improve the NagView to scroll long messages and fix problem with mouse click on
+buttons didn't work. Contributed by @jgmdev.
+
+When loading a project's workspace no longer open views for files which no longer
+exists.
+More often file were deleted by user or removed because changing commit and there
+was no interest opening an empty document for a file that no longer exists.
+
 ### 2.0.5
 
 Revamp the project's user module so that modifications are immediately applied.
