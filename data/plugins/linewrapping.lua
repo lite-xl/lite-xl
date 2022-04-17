@@ -9,29 +9,42 @@ local command = require "core.command"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 
+
 config.plugins.linewrapping = common.merge({
 	-- The type of wrapping to perform. Can be "letter" or "word".
   mode = "letter",
-	-- If nil, uses the DocView's size, otherwise, uses this exact width.
+	-- If nil, uses the DocView's size, otherwise, uses this exact width. Can be a function.
   width_override = nil,
 	-- Whether or not to draw a guide
   guide = true,
   -- Whether or not we should indent ourselves like the first line of a wrapped block.
   indent = true,
   -- Whether or not to enable wrapping by default when opening files.
-  enable_by_default = true
+  enable_by_default = false,
+  -- Requires tokenization
+  require_tokenization = false
 }, config.plugins.linewrapping)
 
 local LineWrapping = {}
+
+-- Optimzation function. The tokenizer is relatively slow (at present), and
+-- so if we don't need to run it, should be run sparingly.
+local function spew_tokens(doc, line) if line < math.huge then return math.huge, "normal", doc.lines[line] end end
+local function get_tokens(doc, line)
+  if config.plugins.linewrapping.require_tokenization then
+    return doc.highlighter:each_token(line)
+  end
+  return spew_tokens, doc, line
+end
 
 -- Computes the breaks for a given line, width and mode. Returns a list of columns
 -- at which the line should be broken.
 function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
   local xoffset, last_i, i, last_space, last_width, begin_width = 0, 1, 1, nil, 0, 0
   local splits = { 1 }
-  for idx, type, text in doc.highlighter:each_token(line) do
+  for idx, type, text in get_tokens(doc, line) do
     local font = style.syntax_fonts[type] or default_font
-    if idx == 1 and config.plugins.linewrapping.indent then
+    if idx == 1 or idx == math.huge and config.plugins.linewrapping.indent then
       local _, indent_end = text:find("^%s+")
       if indent_end then begin_width = font:get_width(text:sub(1, indent_end)) end
     end
@@ -164,7 +177,8 @@ end
 
 function LineWrapping.update_docview_breaks(docview)
   local x,y,w,h = docview:get_scrollbar_rect()
-  local width = config.plugins.linewrapping.width_override or (docview.size.x - docview:get_gutter_width() - w)
+  local width = (type(config.plugins.linewrapping.width_override) == "function" and config.plugins.linewrapping.width_override(docview)) 
+    or config.plugins.linewrapping.width_override or (docview.size.x - docview:get_gutter_width() - w)
   if (not docview.wrapped_settings or docview.wrapped_settings.width == nil or width ~= docview.wrapped_settings.width) then
     docview.scroll.to.x = 0
     LineWrapping.reconstruct_breaks(docview, docview:get_font(), width)
@@ -235,7 +249,7 @@ local function get_line_col_from_index_and_x(docview, idx, x)
   local xoffset, last_i, i = (col ~= 1 and docview.wrapped_line_offsets[line] or 0), col, 1
   if x < xoffset then return line, col end
   local default_font = docview:get_font()
-  for _, type, text in docview.doc.highlighter:each_token(line) do
+  for _, type, text in doc.highlighter:each_token(line) do
     local font, w = style.syntax_fonts[type] or default_font, 0
     for char in common.utf8_chars(text) do
       if i >= col then
