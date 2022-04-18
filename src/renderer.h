@@ -5,6 +5,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __GNUC__
+#define UNUSED __attribute__((__unused__))
+#else
+#define UNUSED
+#endif
+
 #define FONT_FALLBACK_MAX 4
 typedef struct RenFont RenFont;
 typedef enum { FONT_HINTING_NONE, FONT_HINTING_SLIGHT, FONT_HINTING_FULL } ERenFontHinting;

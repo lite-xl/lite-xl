@@ -47,7 +47,7 @@ struct HitTestInfo {
 };
 typedef struct HitTestInfo HitTestInfo;
 
-static HitTestInfo window_hit_info[1] = {{0, 0}};
+static HitTestInfo window_hit_info[1] = {{0, 0, 0}};
 
 #define RESIZE_FROM_TOP 0
 #define RESIZE_FROM_RIGHT 0
@@ -734,13 +734,15 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
+typedef void (*fptr)(void);
+
 typedef struct lua_function_node {
   const char *symbol;
-  void *address;
+  fptr address;
 } lua_function_node;
 
-#define P(FUNC) { "lua_" #FUNC, (void*)(lua_##FUNC) }
-#define U(FUNC) { "luaL_" #FUNC, (void*)(luaL_##FUNC) }
+#define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
+#define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
 static void* api_require(const char* symbol) {
   static lua_function_node nodes[] = {
     P(atpanic), P(checkstack),
@@ -778,9 +780,9 @@ static void* api_require(const char* symbol) {
     #endif
 
   };
-  for (int i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
+  for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
     if (strcmp(nodes[i].symbol, symbol) == 0)
-      return nodes[i].address;
+      return *(void**)(&nodes[i].address);
   }
   return NULL;
 }
@@ -804,10 +806,12 @@ static int f_load_native_plugin(lua_State *L) {
   const char *basename = strrchr(name, '.');
   basename = !basename ? name : basename + 1;
   snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_lite_xl_%s", basename);
-  int (*ext_entrypoint) (lua_State *L, void*) = SDL_LoadFunction(library, entrypoint_name);
+  int (*ext_entrypoint) (lua_State *L, void* (*)(const char*));
+  *(void**)(&ext_entrypoint) = SDL_LoadFunction(library, entrypoint_name);
   if (!ext_entrypoint) {
     snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_%s", basename);
-    int (*entrypoint)(lua_State *L) = SDL_LoadFunction(library, entrypoint_name);
+    int (*entrypoint)(lua_State *L);
+    *(void**)(&entrypoint) = SDL_LoadFunction(library, entrypoint_name);
     if (!entrypoint)
       return luaL_error(L, "Unable to load %s: Can't find %s(lua_State *L, void *XL)", name, entrypoint_name);
     result = entrypoint(L);
