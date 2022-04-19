@@ -44,26 +44,6 @@ void luaL_requiref (lua_State *L, const char *modname, lua_CFunction openf, int 
   lua_replace(L, -2);
 }
 
-void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
-  luaL_checkstack(L, nup+1, "too many upvalues");
-  for (; l->name != NULL; l++) {  /* fill the table with given functions */
-    int i;
-    lua_pushstring(L, l->name);
-    for (i = 0; i < nup; i++)  /* copy upvalues to the top */
-      lua_pushvalue(L, -(nup + 1));
-    lua_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
-    lua_settable(L, -(nup + 3)); /* table must be below the upvalues, the name and the closure */
-  }
-  lua_pop(L, nup);  /* remove upvalues */
-}
-
-
-void luaL_setmetatable (lua_State *L, const char *tname) {
-  luaL_checkstack(L, 1, "not enough stack slots");
-  luaL_getmetatable(L, tname);
-  lua_setmetatable(L, -2);
-}
-
 void luaL_buffinit (lua_State *L, luaL_Buffer_52 *B) {
   /* make it crash if used via pointer to a 5.1-style luaL_Buffer */
   B->b.p = NULL;
