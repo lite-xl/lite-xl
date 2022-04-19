@@ -18,6 +18,9 @@
 static RenWindow window_renderer = {0};
 static FT_Library library;
 
+// draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
+static SDL_Surface *draw_rect_surface;
+
 static void* check_alloc(void *ptr) {
   if (!ptr) {
     fprintf(stderr, "Fatal error: memory allocation failed\n");
@@ -370,31 +373,21 @@ void ren_draw_rect(RenRect rect, RenColor color) {
   y2 = y2 > clip.y + clip.height ? clip.y + clip.height : y2;
 
   SDL_Surface *surface = renwin_get_surface(&window_renderer);
-  uint32_t *d = surface->pixels;
-  d += x1 + y1 * surface->w;
-  int dr = surface->w - (x2 - x1);
+  SDL_Rect dest_rect = { x1, y1, x2 - x1, y2 - y1 };
   if (color.a == 0xff) {
     uint32_t translated = SDL_MapRGB(surface->format, color.r, color.g, color.b);
-    SDL_Rect rect = { x1, y1, x2 - x1, y2 - y1 };
-    SDL_FillRect(surface, &rect, translated);
+    SDL_FillRect(surface, &dest_rect, translated);
   } else {
-    RenColor current_color;
-    RenColor blended_color;
-    for (int j = y1; j < y2; j++) {
-      for (int i = x1; i < x2; i++, d++)
-      {
-        SDL_GetRGB(*d, surface->format, &current_color.r, &current_color.g, &current_color.b);
-        blended_color = blend_pixel(current_color, color);
-        *d = SDL_MapRGB(surface->format, blended_color.r, blended_color.g, blended_color.b);
-      }
-      d += dr;
-    }
+    uint32_t *pixel = (uint32_t *)draw_rect_surface->pixels;
+    *pixel = SDL_MapRGBA(draw_rect_surface->format, color.r, color.g, color.b, color.a);
+    SDL_BlitScaled(draw_rect_surface, NULL, surface, &dest_rect);
   }
 }
 
 /*************** Window Management ****************/
 void ren_free_window_resources() {
   renwin_free(&window_renderer);
+  SDL_FreeSurface(draw_rect_surface);
 }
 
 void ren_init(SDL_Window *win) {
@@ -407,6 +400,8 @@ void ren_init(SDL_Window *win) {
   window_renderer.window = win;
   renwin_init_surface(&window_renderer);
   renwin_clip_to_surface(&window_renderer);
+  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
+                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
 }
 
 
