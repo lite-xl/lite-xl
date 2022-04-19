@@ -546,6 +546,7 @@ end
 
 
 function core.load_user_directory()
+  if SAFE_MODE then return true end
   return core.try(function()
     local stat_dir = system.get_file_info(USERDIR)
     if not stat_dir then
@@ -681,6 +682,7 @@ function core.init()
   core.visited_files = {}
   core.restart_request = false
   core.quit_request = false
+  core.crash = false
 
   -- We load core views before plugins that may need them.
   core.root_view = RootView()
@@ -896,7 +898,7 @@ function core.load_plugins()
     datadir = {dir = DATADIR, plugins = {}},
   }
   local files, ordered = {}, {}
-  for _, root_dir in ipairs {DATADIR, USERDIR} do
+  for _, root_dir in ipairs {DATADIR, not SAFE_MODE and USERDIR or nil} do
     local plugin_dir = root_dir .. "/plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
       if not files[filename] then table.insert(ordered, filename) end
@@ -927,6 +929,7 @@ end
 
 
 function core.load_project_module()
+  if SAFE_MODE then return true end
   local filename = ".lite_project.lua"
   if system.get_file_info(filename) then
     return core.try(function()
@@ -1273,6 +1276,7 @@ end)
 function core.run()
   local idle_iterations = 0
   while true do
+    if core.crash then error("Crashing as requested") end
     core.frame_start = system.get_time()
     local did_redraw = core.step()
     local need_more_work = run_threads() or core.has_pending_rescan()

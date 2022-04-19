@@ -393,27 +393,84 @@ static int f_get_window_mode(lua_State *L) {
 }
 
 
-static int f_show_fatal_error(lua_State *L) {
+static int f_show_message_box(lua_State *L) {
+  int nargs = lua_gettop(L);
+  if (nargs < 2)
+  {
+    return luaL_error(L, "the minimum number of arguments for is 2");
+  }
   const char *title = luaL_checkstring(L, 1);
   const char *msg = luaL_checkstring(L, 2);
+  int default_enter = -1;
+  int default_escape = -1;
+  int n_buttons = 1;
+  int choice = -2;
 
-#ifdef _WIN32
-  MessageBox(0, msg, title, MB_OK | MB_ICONERROR);
+  SDL_MessageBoxFlags icon = SDL_MESSAGEBOX_INFORMATION;
+  SDL_MessageBoxButtonData default_button = { 0, 1, "Ok" };
+  SDL_MessageBoxButtonData *buttons = &default_button;
 
+  const char *icon_name = luaL_optstring(L, 3, "info");
+  if (strcmp(icon_name, "info") == 0) {
+    icon = SDL_MESSAGEBOX_INFORMATION;
+  } else if (strcmp(icon_name, "warning") == 0) {
+    icon = SDL_MESSAGEBOX_WARNING;
+  } else if (strcmp(icon_name, "error") == 0) {
+    icon = SDL_MESSAGEBOX_ERROR;
+  } else {
+    return luaL_error(L, "unknown icon type");
+  }
+
+  default_enter = luaL_optinteger(L, 5, default_enter);
+  default_escape = luaL_optinteger(L, 6, default_escape);
+
+  if (default_enter == 1)
+    default_button.flags = SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT;
+  if (default_escape == 1)
+    default_button.flags |= SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+
+  if (!lua_isnoneornil(L, 4))
+  {
+    if (!lua_istable(L, 4))
+    {
+      return luaL_error(L, "button list is not a table");
+    }
+    n_buttons = luaL_len(L, 4);
+    buttons = alloca(n_buttons * sizeof(SDL_MessageBoxButtonData));
+    for (int i = 1; i <= n_buttons; i++)
+    {
+    // In Windows, buttons are added in reverse order
+#if _WIN32
+      SDL_MessageBoxButtonData *button = &buttons[n_buttons - i];
 #else
-  SDL_MessageBoxButtonData buttons[] = {
-    { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Ok" },
-  };
+      SDL_MessageBoxButtonData *button = &buttons[i - 1];
+#endif
+      lua_geti(L, 4, i);
+      button->text = luaL_checkstring(L, -1);
+      button->buttonid = i;
+      button->flags = 0;
+      if (i == default_enter)
+        button->flags = SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT;
+      if (i == default_escape)
+        button->flags |= SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+      lua_pop(L, 1);
+    }
+  }
+
   SDL_MessageBoxData data = {
     .title = title,
     .message = msg,
-    .numbuttons = 1,
+    .numbuttons = n_buttons,
     .buttons = buttons,
+    .flags = icon,
   };
-  int buttonid;
-  SDL_ShowMessageBox(&data, &buttonid);
-#endif
-  return 0;
+
+  if (SDL_ShowMessageBox(&data, &choice) != 0)
+  {
+    return luaL_error(L, "unable to show message box");
+  }
+  lua_pushinteger(L, choice);
+  return 1;
 }
 
 
@@ -866,7 +923,7 @@ static const luaL_Reg lib[] = {
   { "get_window_size",     f_get_window_size     },
   { "set_window_size",     f_set_window_size     },
   { "window_has_focus",    f_window_has_focus    },
-  { "show_fatal_error",    f_show_fatal_error    },
+  { "show_message_box",    f_show_message_box    },
   { "rmdir",               f_rmdir               },
   { "chdir",               f_chdir               },
   { "mkdir",               f_mkdir               },

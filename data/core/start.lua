@@ -2,6 +2,8 @@
 VERSION = "@PROJECT_VERSION@"
 MOD_VERSION = "2"
 
+SAFE_MODE = os.getenv("LITE_SAFE_MODE") or SAFE_MODE
+
 SCALE = tonumber(os.getenv("LITE_SCALE") or os.getenv("GDK_SCALE") or os.getenv("QT_SCALE_FACTOR")) or SCALE
 PATHSEP = package.config:sub(1, 1)
 
@@ -34,3 +36,7 @@ table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
 
 bit32 = bit32 or require "core.bit"
+
+function system.show_fatal_error(title, message)
+  return system.show_message_box(title, message, "error", {"Ok"}, 1, 1);
+end

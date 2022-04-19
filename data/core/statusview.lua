@@ -567,6 +567,17 @@ function StatusView:draw_items(items, right_align, xoffset, yoffset)
     draw_items(self, items, x, y, common.draw_text)
   else
     x = x + style.padding.x
+    if SAFE_MODE then
+      local new_items = { table.unpack(items) }
+      table.insert(new_items, 1, style.text)
+      table.insert(new_items, 1, self.separator2)
+      table.insert(new_items, 1, style.dim)
+      table.insert(new_items, 1, "Safe mode")
+      table.insert(new_items, 1, style.font)
+      table.insert(new_items, 1, style.warn)
+      draw_items(self, new_items, x, y, common.draw_text)
+      return
+    end
     draw_items(self, items, x, y, common.draw_text)
   end
 end
