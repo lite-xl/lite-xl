@@ -9,6 +9,7 @@ syntax.add {
   patterns = {
     { pattern = { "#", "\n" },                 type = "comment"  },
     { pattern = { '[ruU]?"""', '"""'; '\\' },  type = "string"   },
+    { pattern = { "[ruU]?'''", "'''", '\\' },  type = "string"   },
     { pattern = { '[ruU]?"', '"', '\\' },      type = "string"   },
     { pattern = { "[ruU]?'", "'", '\\' },      type = "string"   },
     { pattern = "0x[%da-fA-F]+",               type = "number"   },

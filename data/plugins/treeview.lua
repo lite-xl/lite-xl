@@ -8,6 +8,7 @@ local style = require "core.style"
 local View = require "core.view"
 local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
+local CommandView = require "core.commandview"
 
 config.plugins.treeview = common.merge({
   -- Amount of clicks to open a file
@@ -209,10 +210,13 @@ end
 function TreeView:on_mouse_moved(px, py, ...)
   if not self.visible then return end
   TreeView.super.on_mouse_moved(self, px, py, ...)
-  if self.dragging_scrollbar then return end
-
   self.cursor_pos.x = px
   self.cursor_pos.y = py
+  if self.dragging_scrollbar then
+    self.hovered_item = nil
+    return
+  end
+
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
     if px > x and py > y and px <= x + w and py <= y + h then
@@ -299,7 +303,7 @@ function TreeView:update()
   -- we don't want events when the thing is scrolling fast
   local dy = math.abs(self.scroll.to.y - self.scroll.y)
   if self.scroll.to.y ~= 0 and dy < self:get_item_height() then
-    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, self.scroll.to.y - self.scroll.y)
+    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, 0)
   end
 
   TreeView.super.update(self)
@@ -550,6 +554,8 @@ menu:register(
   }
 )
 
+local previous_view = nil
+
 -- Register the TreeView commands and keymap
 command.add(nil, {
   ["treeview:toggle"] = function()
@@ -558,6 +564,14 @@ command.add(nil, {
 
   ["treeview:toggle-focus"] = function()
     if not core.active_view:is(TreeView) then
+      if core.active_view:is(CommandView) then
+        previous_view = core.last_active_view
+      else
+        previous_view = core.active_view
+      end
+      if not previous_view then
+        previous_view = core.root_view:get_primary_node().active_view
+      end
       core.set_active_view(view)
       if not view.selected_item then
         for it, _, y in view:each_item() do
@@ -567,7 +581,9 @@ command.add(nil, {
       end
 
     else
-      core.set_active_view(core.last_active_view)
+      core.set_active_view(
+        previous_view or core.root_view:get_primary_node().active_view
+      )
     end
   end
 })
@@ -650,6 +666,56 @@ command.add(TreeView, {
 local function treeitem() return view.hovered_item or view.selected_item end
 
 
+command.add(
+  function()
+    return treeitem() ~= nil
+      and (
+        core.active_view == view or core.active_view == menu
+        or (view.toolbar and core.active_view == view.toolbar)
+        -- sometimes the context menu is shown on top of statusbar
+        or core.active_view == core.status_view
+      )
+  end, {
+  ["treeview:delete"] = function()
+    local filename = treeitem().abs_filename
+    local relfilename = treeitem().filename
+    local file_info = system.get_file_info(filename)
+    local file_type = file_info.type == "dir" and "Directory" or "File"
+    -- Ask before deleting
+    local opt = {
+      { font = style.font, text = "Yes", default_yes = true },
+      { font = style.font, text = "No" , default_no = true }
+    }
+    core.nag_view:show(
+      string.format("Delete %s", file_type),
+      string.format(
+        "Are you sure you want to delete the %s?\n%s: %s",
+        file_type:lower(), file_type, relfilename
+      ),
+      opt,
+      function(item)
+        if item.text == "Yes" then
+          if file_info.type == "dir" then
+            local deleted, error, path = common.rm(filename, true)
+            if not deleted then
+              core.error("Error: %s - \"%s\" ", error, path)
+              return
+            end
+          else
+            local removed, error = os.remove(filename)
+            if not removed then
+              core.error("Error: %s - \"%s\"", error, filename)
+              return
+            end
+          end
+          core.log("Deleted \"%s\"", filename)
+        end
+      end
+    )
+  end
+})
+
+
 command.add(function() return treeitem() ~= nil end, {
   ["treeview:rename"] = function()
     local old_filename = treeitem().filename
@@ -697,44 +763,6 @@ command.add(function() return treeitem() ~= nil end, {
       common.mkdirp(dir_path)
       core.log("Created %s", dir_path)
     end, common.path_suggest)
-  end,
-
-  ["treeview:delete"] = function()
-    local filename = treeitem().abs_filename
-    local relfilename = treeitem().filename
-    local file_info = system.get_file_info(filename)
-    local file_type = file_info.type == "dir" and "Directory" or "File"
-    -- Ask before deleting
-    local opt = {
-      { font = style.font, text = "Yes", default_yes = true },
-      { font = style.font, text = "No" , default_no = true }
-    }
-    core.nag_view:show(
-      string.format("Delete %s", file_type),
-      string.format(
-        "Are you sure you want to delete the %s?\n%s: %s",
-        file_type:lower(), file_type, relfilename
-      ),
-      opt,
-      function(item)
-        if item.text == "Yes" then
-          if file_info.type == "dir" then
-            local deleted, error, path = common.rm(filename, true)
-            if not deleted then
-              core.error("Error: %s - \"%s\" ", error, path)
-              return
-            end
-          else
-            local removed, error = os.remove(filename)
-            if not removed then
-              core.error("Error: %s - \"%s\"", error, filename)
-              return
-            end
-          end
-          core.log("Deleted \"%s\"", filename)
-        end
-      end
-    )
   end,
 
   ["treeview:open-in-system"] = function()
