@@ -1,83 +1,115 @@
 #include "api.h"
+#include <SDL.h>
 #include <stdlib.h>
-#ifdef _WIN32
-  #include <windows.h>
-#elif __linux__
-  #include <sys/inotify.h>
-  #include <limits.h>
-#else
-  #include <sys/event.h>
-#endif
 #include <unistd.h>
 #include <errno.h>
-#include <dirent.h>
-#include <fcntl.h>
 #include <string.h>
 #include <stdbool.h>
 
-#ifndef DIRMONITOR_BACKEND
-#error No dirmonitor backend defined
-#endif
+static unsigned int DIR_EVENT_TYPE = 0;
 
-#define GLUE_HELPER(x, y) x##y
-#define GLUE(x, y) GLUE_HELPER(x, y)
+struct dirmonitor {
+  SDL_Thread* thread;
+  SDL_mutex* mutex;
+  char buffer[64512];
+  volatile int length;
+  struct dirmonitor_internal* internal;
+};
 
-#define init_dirmonitor GLUE(init_dirmonitor_, DIRMONITOR_BACKEND)
-#define deinit_dirmonitor GLUE(deinit_dirmonitor_, DIRMONITOR_BACKEND)
-#define check_dirmonitor GLUE(check_dirmonitor_, DIRMONITOR_BACKEND)
-#define add_dirmonitor GLUE(add_dirmonitor_, DIRMONITOR_BACKEND)
-#define remove_dirmonitor GLUE(remove_dirmonitor_, DIRMONITOR_BACKEND)
 
-struct dirmonitor {}; // dirmonitor struct is defined in each backend
+struct dirmonitor_internal* init_dirmonitor();
+void deinit_dirmonitor(struct dirmonitor_internal*);
+int get_changes_dirmonitor(struct dirmonitor_internal*, char*, int);
+int translate_changes_dirmonitor(struct dirmonitor_internal*, char*, int, int (*)(int, const char*, void*), void*);
+int add_dirmonitor(struct dirmonitor_internal*, const char*);
+void remove_dirmonitor(struct dirmonitor_internal*, int);
 
-// define functions so we know their signature
-struct dirmonitor* init_dirmonitor();
-void deinit_dirmonitor(struct dirmonitor*);
-int check_dirmonitor(struct dirmonitor*, int (*)(int, const char*, void*), void*);
-int add_dirmonitor(struct dirmonitor*, const char*);
-void remove_dirmonitor(struct dirmonitor*, int);
 
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   lua_pushvalue(L, -1);
-  #ifdef DIRMONITOR_WIN32
-    char buffer[PATH_MAX*4];
-    int count = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)path, watch_id, buffer, PATH_MAX*4 - 1, NULL, NULL);
-    lua_pushlstring(L, buffer, count);
-  #else
+  if (path)
+    lua_pushlstring(L, path, watch_id);
+  else
     lua_pushnumber(L, watch_id);
-  #endif
   lua_call(L, 1, 1);
   int result = lua_toboolean(L, -1);
   lua_pop(L, 1);
   return !result;
 }
 
+
+static int dirmonitor_check_thread(void* data) {
+  struct dirmonitor* monitor = data;
+  while (monitor->length >= 0) {
+    if (monitor->length == 0) {
+      int result = get_changes_dirmonitor(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
+      SDL_LockMutex(monitor->mutex);
+      if (monitor->length == 0)
+        monitor->length = result;
+      SDL_UnlockMutex(monitor->mutex);
+    }
+    SDL_Delay(1);
+    SDL_Event event = { .type = DIR_EVENT_TYPE };
+    SDL_PushEvent(&event);
+  }
+  return 0;
+}
+
+
 static int f_dirmonitor_new(lua_State* L) {
-  struct dirmonitor** monitor = lua_newuserdata(L, sizeof(struct dirmonitor**));
-  *monitor = init_dirmonitor();
+  if (DIR_EVENT_TYPE == 0)
+    DIR_EVENT_TYPE = SDL_RegisterEvents(1);
+  struct dirmonitor* monitor = lua_newuserdata(L, sizeof(struct dirmonitor));
   luaL_setmetatable(L, API_TYPE_DIRMONITOR);
+  memset(monitor, 0, sizeof(struct dirmonitor));
+  monitor->internal = init_dirmonitor();
+  if (monitor->internal)
+    monitor->thread = SDL_CreateThread(dirmonitor_check_thread, "dirmonitor_check_thread", monitor);
   return 1;
 }
+
 
 static int f_dirmonitor_gc(lua_State* L) {
-  deinit_dirmonitor(*((struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR)));
+  struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  SDL_LockMutex(monitor->mutex);
+  monitor->length = -1;
+  deinit_dirmonitor(monitor->internal);
+  SDL_UnlockMutex(monitor->mutex);
+  SDL_WaitThread(monitor->thread, NULL);
+  free(monitor->internal);
+  SDL_DestroyMutex(monitor->mutex);
   return 0;
 }
+
 
 static int f_dirmonitor_watch(lua_State *L) {
-  lua_pushnumber(L, add_dirmonitor(*(struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR), luaL_checkstring(L, 2)));
+  lua_pushnumber(L, add_dirmonitor(((struct dirmonitor*)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR))->internal, luaL_checkstring(L, 2)));
   return 1;
 }
 
+
 static int f_dirmonitor_unwatch(lua_State *L) {
-  remove_dirmonitor(*(struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR), lua_tonumber(L, 2));
+  remove_dirmonitor(((struct dirmonitor*)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR))->internal, lua_tonumber(L, 2));
   return 0;
 }
 
+
 static int f_dirmonitor_check(lua_State* L) {
-  lua_pushnumber(L, check_dirmonitor(*(struct dirmonitor**)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR), f_check_dir_callback, L));
+  struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  SDL_LockMutex(monitor->mutex);
+  if (monitor->length < 0) 
+    lua_pushnil(L);
+  else if (monitor->length > 0) {
+    if (translate_changes_dirmonitor(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
+      monitor->length = 0;
+    lua_pushboolean(L, 1);
+  } else
+    lua_pushboolean(L, 0);
+  SDL_UnlockMutex(monitor->mutex);
   return 1;
 }
+
+
 static const luaL_Reg dirmonitor_lib[] = {
   { "new",      f_dirmonitor_new         },
   { "__gc",     f_dirmonitor_gc          },
@@ -86,6 +118,7 @@ static const luaL_Reg dirmonitor_lib[] = {
   { "check",    f_dirmonitor_check       },
   {NULL, NULL}
 };
+
 
 int luaopen_dirmonitor(lua_State* L) {
   luaL_newmetatable(L, API_TYPE_DIRMONITOR);
