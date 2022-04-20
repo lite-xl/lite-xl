@@ -3,14 +3,13 @@
 
 struct dirmonitor_internal {
   HANDLE handle;
-  OVERLAPPED overlapped;
 };
 
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
-  ReadDirectoryChangesW(monitor->handle, buffer, buffer_size, TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, NULL, &monitor->overlapped, NULL) != 0) {
   DWORD bytes_transferred;
-  GetOverlappedResult(monitor->handle, &monitor->overlapped, &bytes_transferred, TRUE);
+  if (ReadDirectoryChangesW(monitor->handle, buffer, buffer_size, TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, &bytes_transferred, NULL, NULL) == 0)
+    return -1;
   return bytes_transferred;
 }
 
@@ -21,15 +20,7 @@ struct dirmonitor* init_dirmonitor() {
 
 
 static void close_monitor_handle(struct dirmonitor_internal* monitor) {
-  if (monitor->handle) {
-    BOOL result = CancelIoEx(monitor->handle, &monitor->overlapped);
-    DWORD error = GetLastError();
-    if (result == TRUE || error != ERROR_NOT_FOUND) {
-      DWORD bytes_transferred;
-      GetOverlappedResult( monitor->handle, &monitor->overlapped, &bytes_transferred, TRUE );
-    }
-    CloseHandle(monitor->handle);
-  }
+  CloseHandle(monitor->handle);
 }
 
 

@@ -25,7 +25,7 @@ void deinit_dirmonitor(struct dirmonitor* monitor) {
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
   int nev = kevent(monitor->fd, NULL, 0, (kevent*)buffer, buffer_size / sizeof(kevent), NULL);
   if (nev == -1)
-    return errno;
+    return -1;
   if (nev <= 0)
     return 0;
   return nev * sizeof(kevent);
