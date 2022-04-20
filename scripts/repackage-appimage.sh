@@ -1,12 +1,14 @@
 #!/bin/env bash
 set -e
 
+source scripts/common.sh
+
 wget="wget --retry-connrefused --waitretry=1 --read-timeout=20 --no-check-certificate" 
 
 workdir=".repackage"
 rm -fr "$workdir" && mkdir "$workdir" && pushd "$workdir"
 
-ARCH="x86_64"
+ARCH="$(get_arch)"
 
 create_appimage() {
   rm -fr LiteXL.AppDir

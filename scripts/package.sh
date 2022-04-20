@@ -85,7 +85,7 @@ source_package() {
 }
 
 main() {
-  local arch="$(uname -m)"
+  local arch="$(get_arch)"
   local platform="$(get_platform_name)"
   local build_dir="$(get_default_build_dir)"
   local dest_dir=lite-xl

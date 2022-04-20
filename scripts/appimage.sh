@@ -24,7 +24,7 @@ show_help(){
   echo
 }
 
-ARCH="$(uname -m)"
+ARCH="$(get_arch)"
 BUILD_DIR="$(get_default_build_dir)"
 RUN_BUILD=true
 STATIC_BUILD=false
