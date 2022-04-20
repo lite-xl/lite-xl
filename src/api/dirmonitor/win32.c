@@ -7,9 +7,10 @@ struct dirmonitor_internal {
 
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
-  if (monitor->handle && monitor->handle != INVALID_HANDLE_VALUE) {
+  HANDLE handle = monitor->handle;
+  if (handle && handle != INVALID_HANDLE_VALUE) {
     DWORD bytes_transferred;
-    if (ReadDirectoryChangesW(monitor->handle, buffer, buffer_size, TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, &bytes_transferred, NULL, NULL) == 0)
+    if (ReadDirectoryChangesW(handle, buffer, buffer_size, TRUE,  FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME, &bytes_transferred, NULL, NULL) == 0)
       return 0;
     return bytes_transferred;
   }
