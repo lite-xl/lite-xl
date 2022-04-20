@@ -69,7 +69,6 @@ endif
 if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
-    librt = cc.find_library('rt', required : false)
     lua_fallback = ['lua', 'lua_dep']
     lua_quick_fallback = []
     if get_option('wrap_mode') == 'forcefallback'
@@ -96,7 +95,7 @@ if not get_option('source-only')
         default_options: ['default_library=static']
     )
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, librt]
+    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration

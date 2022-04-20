@@ -1,5 +1,3 @@
-#include <SDL.h>
-#include <stdbool.h>
 #include <windows.h>
 
 
