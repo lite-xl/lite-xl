@@ -99,8 +99,38 @@ if not get_option('source-only')
         default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
     )
 
+
+    sdl_options = ['default_library=static']
+
+    # we explicitly need these
+    sdl_options += 'use_loadso=enabled'
+    sdl_options += 'prefer_dlopen=true'
+    sdl_options += 'use_video=enabled'
+    sdl_options += 'use_atomic=enabled'
+    sdl_options += 'use_threads=enabled'
+    # investigate if this is truly needed
+    # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
+    sdl_options += 'use_events=enabled'
+
+    # we leave this up to what the host system has
+    sdl_options += 'use_video_x11=auto'
+    sdl_options += 'use_video_wayland=auto'
+
+    # we don't need these
+    sdl_options += 'use_timers=disabled'
+    sdl_options += 'use_sensor=disabled'
+    sdl_options += 'use_haptic=disabled'
+    sdl_options += 'use_audio=disabled'
+    sdl_options += 'use_cpuinfo=disabled'
+    sdl_options += 'use_joystick=disabled'
+    sdl_options += 'use_video_opengl=disabled'
+    sdl_options += 'use_video_openglesv2=disabled'
+    sdl_options += 'use_video_vulkan=disabled'
+    sdl_options += 'use_video_offscreen=disabled'
+    sdl_options += 'use_power=disabled'
+
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
-        default_options: default_fallback_options + ['default_library=static']
+        default_options: default_fallback_options + sdl_options
     )
 
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
