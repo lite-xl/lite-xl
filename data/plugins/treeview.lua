@@ -284,14 +284,14 @@ function TreeView:update()
     self.size.x = dest
     self.init_size = false
   else
-    self:move_towards(self.size, "x", dest)
+    self:move_towards(self.size, "x", dest, nil, "treeview")
   end
 
   if not self.visible then return end
 
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
-    self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)
+    self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate, "treeview")
   else
     self.tooltip.alpha = 0
   end

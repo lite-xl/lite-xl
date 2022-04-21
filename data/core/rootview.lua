@@ -297,12 +297,12 @@ end
 
 
 function RootView:interpolate_drag_overlay(overlay)
-  self:move_towards(overlay, "x", overlay.to.x)
-  self:move_towards(overlay, "y", overlay.to.y)
-  self:move_towards(overlay, "w", overlay.to.w)
-  self:move_towards(overlay, "h", overlay.to.h)
+  self:move_towards(overlay, "x", overlay.to.x, nil, "tab_drag")
+  self:move_towards(overlay, "y", overlay.to.y, nil, "tab_drag")
+  self:move_towards(overlay, "w", overlay.to.w, nil, "tab_drag")
+  self:move_towards(overlay, "h", overlay.to.h, nil, "tab_drag")
 
-  self:move_towards(overlay, "opacity", overlay.visible and 100 or 0)
+  self:move_towards(overlay, "opacity", overlay.visible and 100 or 0, nil, "tab_drag")
   overlay.color[4] = overlay.base_color[4] * overlay.opacity / 100
 end
 

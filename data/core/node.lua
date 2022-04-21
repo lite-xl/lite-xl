@@ -468,8 +468,8 @@ function Node:update()
     end
     self:tab_hovered_update(self.hovered.x, self.hovered.y)
     local tab_width = self:target_tab_width()
-    self:move_towards("tab_shift", tab_width * (self.tab_offset - 1))
-    self:move_towards("tab_width", tab_width)
+    self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
+    self:move_towards("tab_width", tab_width, nil, "tabs")
   else
     self.a:update()
     self.b:update()
