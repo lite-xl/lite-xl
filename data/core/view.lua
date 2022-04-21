@@ -134,6 +134,9 @@ function View:on_mouse_moved(x, y, dx, dy)
   if self.dragging_scrollbar then
     local delta = self:get_scrollable_size() / self.size.y * dy
     self.scroll.to.y = self.scroll.to.y + delta
+    if not config.animate_drag_scroll then
+      self.scroll.y = self.scroll.to.y
+    end
   end
   self.hovered_scrollbar = self:scrollbar_overlaps_point(x, y)
   self.hovered_scrollbar_track = self.hovered_scrollbar or self:scrollbar_track_overlaps_point(x, y)
