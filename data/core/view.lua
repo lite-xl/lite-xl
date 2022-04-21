@@ -27,13 +27,13 @@ function View:new()
   self.scrollbar_alpha = { value = 0, to = 0 }
 end
 
-function View:move_towards(t, k, dest, rate)
+function View:move_towards(t, k, dest, rate, name)
   if type(t) ~= "table" then
-    return self:move_towards(self, t, k, dest, rate)
+    return self:move_towards(self, t, k, dest, rate, name)
   end
   local val = t[k]
   local diff = math.abs(val - dest)
-  if not config.transitions or diff < 0.5 then
+  if not config.transitions or diff < 0.5 or config.disabled_transitions[name] then
     t[k] = dest
   else
     rate = rate or 0.5
