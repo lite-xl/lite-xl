@@ -11,6 +11,12 @@
   /* max_align_t is a compiler defined type, but
   ** MSVC doesn't provide it, so we'll have to improvise */
   typedef long double max_align_t;
+
+  // MSVCRT/UCRT tries to redeclare min and max which will cause problems
+  #ifdef _CRT_DECLARE_NONSTDC_NAMES
+    #undef _CRT_DECLARE_NONSTDC_NAMES
+  #endif
+  #undef _CRT_INTERNAL_NONSTDC_NAMES
 #else
   #include <stdalign.h>
 #endif
