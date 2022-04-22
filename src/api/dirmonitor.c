@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-#ifdef _WIN32
+#ifdef DIRMONITOR_WIN32
   #include <windows.h>
 #else
   #include <unistd.h>

@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdbool.h>
 
 #ifdef _MSC_VER
@@ -38,7 +39,7 @@ typedef struct {
   RenColor color;
   RenFont *fonts[FONT_FALLBACK_MAX];
   float text_x;
-  char text[0];
+  char text[];
 } Command;
 
 static unsigned cells_buf1[CELLS_X * CELLS_Y];
@@ -143,7 +144,7 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-float rencache_draw_text(lua_State *L, RenFont **fonts, const char *text, float x, int y, RenColor color)
+float rencache_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor color)
 {
   float width = ren_font_group_get_width(fonts, text);
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
@@ -168,7 +169,7 @@ void rencache_invalidate(void) {
 }
 
 
-void rencache_begin_frame(lua_State *L) {
+void rencache_begin_frame() {
   /* reset all cells if the screen width/height has changed */
   int w, h;
   ren_get_size(&w, &h);
@@ -209,7 +210,7 @@ static void push_rect(RenRect r, int *count) {
 }
 
 
-void rencache_end_frame(lua_State *L) {
+void rencache_end_frame() {
   /* update cells from commands */
   Command *cmd = NULL;
   RenRect cr = screen_rect;

@@ -469,6 +469,10 @@ local style = require "core.style"
 -- style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 14 * SCALE)
 -- style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 14 * SCALE)
 --
+-- DATADIR is the location of the installed Lite XL Lua code, default color
+-- schemes and fonts.
+-- USERDIR is the location of the Lite XL configuration directory.
+--
 -- font names used by lite:
 -- style.font          : user interface
 -- style.big_font      : big text in welcome screen

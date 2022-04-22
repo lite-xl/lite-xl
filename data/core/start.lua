@@ -34,3 +34,12 @@ table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
 
 bit32 = bit32 or require "core.bit"
+
+-- Because AppImages change the working directory before running the executable,
+-- we need to change it back to the original one.
+-- https://github.com/AppImage/AppImageKit/issues/172
+-- https://github.com/AppImage/AppImageKit/pull/191
+local appimage_owd = os.getenv("OWD")
+if os.getenv("APPIMAGE") and appimage_owd then
+  system.chdir(appimage_owd)
+end
