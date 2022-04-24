@@ -85,7 +85,9 @@ end
 
 -- designed to be run inside a coroutine.
 function dirwatch:check(change_callback, scan_time, wait_time)
+  local had_change = false
   self.monitor:check(function(id)
+    had_change = true
     if PLATFORM == "Windows" then
       change_callback(common.dirname(self.windows_watch_top .. PATHSEP .. id))
     elseif self.reverse_watched[id] then
@@ -98,6 +100,7 @@ function dirwatch:check(change_callback, scan_time, wait_time)
       local new_modified = system.get_file_info(directory).modified
       if old_modified < new_modified then
         change_callback(directory)
+        had_change = true
         self.scanned[directory] = new_modified
       end
     end
@@ -106,6 +109,7 @@ function dirwatch:check(change_callback, scan_time, wait_time)
       start_time = system.get_time()
     end
   end
+  return had_change
 end
 
 
