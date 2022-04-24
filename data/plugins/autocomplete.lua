@@ -76,12 +76,21 @@ local max_symbols = config.plugins.autocomplete.max_symbols
 core.add_thread(function()
   local cache = setmetatable({}, { __mode = "k" })
 
+  local function get_syntax_symbols(symbols, doc)
+    if doc.syntax then
+      for sym in pairs(doc.syntax.symbols) do
+        symbols[sym] = true
+      end
+    end
+  end
+
   local function get_symbols(doc)
-    if doc.disable_symbols then return {} end
-    local i = 1
     local s = {}
+    get_syntax_symbols(s, doc)
+    if doc.disable_symbols then return s end
+    local i = 1
     local symbols_count = 0
-    while i < #doc.lines do
+    while i <= #doc.lines do
       for sym in doc.lines[i]:gmatch(config.symbol_pattern) do
         if not s[sym] then
           symbols_count = symbols_count + 1
@@ -139,6 +148,7 @@ core.add_thread(function()
       for _, doc in ipairs(core.docs) do
         if not cache_is_valid(doc) then
           valid = false
+          break
         end
       end
     end

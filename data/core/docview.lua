@@ -232,7 +232,7 @@ end
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
-  if self:scrollbar_overlaps_point(x, y) or self.dragging_scrollbar then
+  if self.hovered_scrollbar_track or self.dragging_scrollbar then
     self.cursor = "arrow"
   else
     self.cursor = "ibeam"
@@ -275,8 +275,8 @@ function DocView:mouse_selection(doc, snap_type, line1, col1, line2, col2)
 end
 
 
-function DocView:on_mouse_released(button)
-  DocView.super.on_mouse_released(self, button)
+function DocView:on_mouse_released(...)
+  DocView.super.on_mouse_released(self, ...)
   self.mouse_selecting = nil
 end
 

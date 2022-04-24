@@ -69,30 +69,68 @@ endif
 if not get_option('source-only')
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
-    lua_fallback = ['lua', 'lua_dep']
-    lua_quick_fallback = []
-    if get_option('wrap_mode') == 'forcefallback'
-        lua_quick_fallback = lua_fallback
-    endif
 
-    lua_dep = dependency('lua5.4', fallback: lua_quick_fallback, required : false)
-    if not lua_dep.found()
-        lua_dep = dependency('lua', fallback: ['lua', 'lua_dep'],
+    default_fallback_options = ['warning_level=0', 'werror=false']
+
+    # Lua has no official .pc file
+    # so distros come up with their own names
+    lua_names = [
+        'lua5.4', # Debian
+        'lua-5.4', # FreeBSD
+        'lua',    # Fedora
+    ]
+
+    foreach lua : lua_names
+        last_lua = (lua == lua_names[-1])
+        lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : last_lua,
             version: '>= 5.4',
-            default_options: ['default_library=static', 'line_editing=false', 'interpreter=false']
+            default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
         )
-    endif
+        if lua_dep.found()
+            break
+        endif
+    endforeach
 
     pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
-        default_options: ['default_library=static', 'grep=false', 'test=false']
+        default_options: default_fallback_options + ['default_library=static', 'grep=false', 'test=false']
     )
 
     freetype_dep = dependency('freetype2', fallback: ['freetype2', 'freetype_dep'],
-        default_options: ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
+        default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
     )
 
+
+    sdl_options = ['default_library=static']
+
+    # we explicitly need these
+    sdl_options += 'use_loadso=enabled'
+    sdl_options += 'prefer_dlopen=true'
+    sdl_options += 'use_video=enabled'
+    sdl_options += 'use_atomic=enabled'
+    sdl_options += 'use_threads=enabled'
+    # investigate if this is truly needed
+    # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
+    sdl_options += 'use_events=enabled'
+
+    # we leave this up to what the host system has
+    sdl_options += 'use_video_x11=auto'
+    sdl_options += 'use_video_wayland=auto'
+
+    # we don't need these
+    sdl_options += 'use_timers=disabled'
+    sdl_options += 'use_sensor=disabled'
+    sdl_options += 'use_haptic=disabled'
+    sdl_options += 'use_audio=disabled'
+    sdl_options += 'use_cpuinfo=disabled'
+    sdl_options += 'use_joystick=disabled'
+    sdl_options += 'use_video_opengl=disabled'
+    sdl_options += 'use_video_openglesv2=disabled'
+    sdl_options += 'use_video_vulkan=disabled'
+    sdl_options += 'use_video_offscreen=disabled'
+    sdl_options += 'use_power=disabled'
+
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
-        default_options: ['default_library=static']
+        default_options: default_fallback_options + sdl_options
     )
 
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]

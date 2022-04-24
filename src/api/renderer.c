@@ -1,3 +1,4 @@
+#include <string.h>
 #include "api.h"
 #include "../renderer.h"
 #include "../rencache.h"
@@ -166,14 +167,14 @@ static int f_get_size(lua_State *L) {
 }
 
 
-static int f_begin_frame(lua_State *L) {
-  rencache_begin_frame(L);
+static int f_begin_frame(UNUSED lua_State *L) {
+  rencache_begin_frame();
   return 0;
 }
 
 
-static int f_end_frame(lua_State *L) {
-  rencache_end_frame(L);
+static int f_end_frame(UNUSED lua_State *L) {
+  rencache_end_frame();
   return 0;
 }
 
@@ -214,7 +215,7 @@ static int f_draw_text(lua_State *L) {
   float x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(L, fonts, text, x, y, color);
+  x = rencache_draw_text(fonts, text, x, y, color);
   lua_pushnumber(L, x);
   return 1;
 }
