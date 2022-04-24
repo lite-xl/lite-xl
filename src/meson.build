@@ -42,8 +42,6 @@ lite_sources += [
     'api/dirmonitor.c',
     'api/dirmonitor/' + dirmonitor_backend + '.c',
 ]
-lite_cargs += '-DDIRMONITOR_BACKEND=' + dirmonitor_backend
-lite_cargs += '-DDIRMONITOR_' + dirmonitor_backend.to_upper()
 
 
 lite_rc = []

@@ -269,7 +269,7 @@ function core.add_project_directory(path)
   -- time; the watch will yield in this coroutine after 0.01 second, for 0.1 seconds.
   topdir.watch_thread = core.add_thread(function()
     while true do
-      topdir.watch:check(function(target)
+      local changed = topdir.watch:check(function(target)
         if target == topdir.name then return refresh_directory(topdir) end
         local dirpath = target:sub(#topdir.name + 2)
         local abs_dirpath = topdir.name .. PATHSEP .. dirpath
@@ -280,7 +280,7 @@ function core.add_project_directory(path)
         end
         return refresh_directory(topdir, dirpath)
       end, 0.01, 0.01)
-      coroutine.yield(0.05)
+      coroutine.yield(changed and 0.05 or 0)
     end
   end)
 
@@ -1120,14 +1120,6 @@ function core.try(fn, ...)
   return false, err
 end
 
-local scheduled_rescan = {}
-
-function core.has_pending_rescan()
-  for _ in pairs(scheduled_rescan) do
-    return true
-  end
-end
-
 function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
@@ -1274,8 +1266,8 @@ function core.run()
   local idle_iterations = 0
   while true do
     core.frame_start = system.get_time()
+    local need_more_work = run_threads()
     local did_redraw = core.step()
-    local need_more_work = run_threads() or core.has_pending_rescan()
     if core.restart_request or core.quit_request then break end
     if not did_redraw and not need_more_work then
       idle_iterations = idle_iterations + 1
