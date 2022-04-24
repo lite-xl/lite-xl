@@ -1,7 +1,6 @@
 #include <sys/inotify.h>
 #include <sys/select.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <unistd.h>
 
 
