@@ -1,4 +1,5 @@
 #include <sys/inotify.h>
+#include <sys/select.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
@@ -6,22 +7,32 @@
 
 struct dirmonitor_internal {
   int fd;
+  // a pipe is used to wake the thread in case of exit
+  int sig[2];
 };
 
 
 struct dirmonitor_internal* init_dirmonitor() {
   struct dirmonitor_internal* monitor = calloc(sizeof(struct dirmonitor_internal), 1);
   monitor->fd = inotify_init();
+  pipe(monitor->sig);
   return monitor;
 }
 
 
 void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
+  close(monitor->sig[0]);
+  close(monitor->sig[1]);
   close(monitor->fd);
 }
 
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
+  fd_set set;
+  FD_ZERO(&set);
+  FD_SET(monitor->fd, &set);
+  FD_SET(monitor->sig[0], &set);
+  select(FD_SETSIZE, &set, NULL, NULL, NULL);
   return read(monitor->fd, buffer, length);
 }
 
