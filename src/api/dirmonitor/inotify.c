@@ -2,6 +2,7 @@
 #include <sys/select.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 
 struct dirmonitor_internal {
@@ -15,6 +16,8 @@ struct dirmonitor_internal* init_dirmonitor() {
   struct dirmonitor_internal* monitor = calloc(sizeof(struct dirmonitor_internal), 1);
   monitor->fd = inotify_init();
   pipe(monitor->sig);
+  fcntl(monitor->sig[0], F_SETFD, FD_CLOEXEC);
+  fcntl(monitor->sig[1], F_SETFD, FD_CLOEXEC);
   return monitor;
 }
 
