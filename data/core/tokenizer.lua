@@ -6,7 +6,7 @@ local tokenizer = {}
 local function push_token(t, type, text)
   local prev_type = t[#t-1]
   local prev_text = t[#t]
-  if prev_type and (prev_type == type or utf8.find(prev_text, "^%s*$")) then
+  if prev_type and (prev_type == type or prev_text:ufind("^%s*$")) then
     t[#t-1] = type
     t[#t] = prev_text .. text
   else
@@ -38,12 +38,12 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
       local fin = find_results[i + 1] - 1
       local type = pattern.type[i - 2]
         -- ↑ (i - 2) to convert from [3; n] to [1; n]
-      local text = utf8.sub(full_text, start, fin)
+      local text = full_text:usub(start, fin)
       push_token(t, syn.symbols[text] or type, text)
     end
   else
     local start, fin = find_results[1], find_results[2]
-    local text = utf8.sub(full_text, start, fin)
+    local text = full_text:usub(start, fin)
     push_token(t, syn.symbols[text] or pattern.type, text)
   end
 end
@@ -92,6 +92,9 @@ local function retrieve_syntax_state(incoming_syntax, state)
   return current_syntax, subsyntax_info, current_pattern_idx, current_level
 end
 
+---@param incoming_syntax table
+---@param text string
+---@param state integer
 function tokenizer.tokenize(incoming_syntax, text, state)
   local res = {}
   local i = 1
@@ -143,14 +146,14 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     if p.whole_line == nil then p.whole_line = { } end
     if p.whole_line[p_idx] == nil then
       -- Match patterns that start with '^'
-      p.whole_line[p_idx] = utf8.match(code, "^%^") and true or false
+      p.whole_line[p_idx] = code:umatch("^%^") and true or false
       if p.whole_line[p_idx] then
         -- Remove '^' from the beginning of the pattern
         if type(target) == "table" then
-          target[p_idx] = utf8.sub(code, 2)
+          target[p_idx] = code:usub(2)
         else
-          p.pattern = p.pattern and utf8.sub(code, 2)
-          p.regex = p.regex and utf8.sub(code, 2)
+          p.pattern = p.pattern and code:usub(2)
+          p.regex = p.regex and code:usub(2)
         end
       end
     end
@@ -170,7 +173,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       while text:byte(next) and common.is_utf8_cont(text, next) do
         next = next + 1
       end
-      res = p.pattern and { utf8.find(text, (at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
+      res = p.pattern and { text:ufind((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
         or { regex.match(code, text, next, (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
       if res[1] and close and target[3] then
         local count = 0
@@ -203,7 +206,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         -- treat the bit after as a token to be normally parsed
         -- (as it's the syntax delimiter).
         if ss and (s == nil or ss < s) then
-          push_token(res, p.type, utf8.sub(text, i, ss - 1))
+          push_token(res, p.type, text:usub(i, ss - 1))
           i = ss
           cont = false
         end
@@ -212,11 +215,11 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       -- continue on as normal.
       if cont then
         if s then
-          push_token(res, p.type, utf8.sub(text, i, e))
+          push_token(res, p.type, text:usub(i, e))
           set_subsyntax_pattern_idx(0)
           i = e + 1
         else
-          push_token(res, p.type, utf8.sub(text, i))
+          push_token(res, p.type, text:usub(i))
           break
         end
       end
@@ -227,7 +230,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     if subsyntax_info then
       local s, e = find_text(text, subsyntax_info, i, true, true)
       if s then
-        push_token(res, subsyntax_info.type, utf8.sub(text, i, e))
+        push_token(res, subsyntax_info.type, text:usub(i, e))
         -- On finding unescaped delimiter, pop it.
         pop_subsyntax()
         i = e + 1
@@ -264,7 +267,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       while text:byte(i + n + 1) and common.is_utf8_cont(text, i + n + 1) do
         n = n + 1
       end
-      push_token(res, "normal", utf8.sub(text, i, i + n))
+      push_token(res, "normal", text:usub(i, i + n))
       i = i + n + 1
     end
   end
