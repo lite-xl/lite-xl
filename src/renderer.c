@@ -240,7 +240,7 @@ void ren_font_group_set_tab_size(RenFont **fonts, int n) {
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  int advance = font_get_glyphset(fonts[0], '\t', 0)->metrics['\t'].xadvance;
+  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics['\t'].xadvance;
   if (fonts[0]->space_advance) {
     advance /= fonts[0]->space_advance;
   }
