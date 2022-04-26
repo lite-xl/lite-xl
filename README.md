@@ -127,6 +127,13 @@ rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
           $HOME/.local/share/lite-xl
 ```
 
+## Installing Plugins
+*   Keep the corresponding lua plugin files in these locations:
+    *   Linux `~/.config/lite-xl/plugins/`
+    *   MacOS `~/.config/lite-xl/plugins/`
+    *   Windows `C:\\Users\\(username)\\.config\\lite-xl\\plugins\\`
+    *   For more details visit [lite-xl-plugins](https://github.com/lite-xl/lite-xl-plugins) 
+
 
 ## Contributing
 
