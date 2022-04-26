@@ -1170,12 +1170,13 @@ end
 
 local function get_title_filename(view)
   local doc_filename = view.get_filename and view:get_filename() or view:get_name()
-  return (doc_filename ~= "---") and doc_filename or ""
+  if doc_filename ~= "---" then return doc_filename end
+  return ""
 end
 
 
 function core.compose_window_title(title)
-  return title == "" and "Lite XL" or title .. " - Lite XL"
+  return (title == "" or title == nil) and "Lite XL" or title .. " - Lite XL"
 end
 
 
@@ -1214,7 +1215,7 @@ function core.step()
 
   -- update window title
   local current_title = get_title_filename(core.active_view)
-  if current_title ~= core.window_title then
+  if current_title ~= nil and current_title ~= core.window_title then
     system.set_window_title(core.compose_window_title(current_title))
     core.window_title = current_title
   end
