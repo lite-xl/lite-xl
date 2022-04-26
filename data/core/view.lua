@@ -135,6 +135,7 @@ function View:on_mouse_moved(x, y, dx, dy)
     local delta = self:get_scrollable_size() / self.size.y * dy
     self.scroll.to.y = self.scroll.to.y + delta
     if not config.animate_drag_scroll then
+      self:clamp_scroll_position()
       self.scroll.y = self.scroll.to.y
     end
   end
