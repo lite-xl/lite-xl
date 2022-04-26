@@ -21,6 +21,16 @@ config.tab_type = "soft"
 config.line_limit = 80
 config.max_project_files = 2000
 config.transitions = true
+config.disabled_transitions = {
+  scroll = false,
+  commandview = false,
+  contextmenu = false,
+  logview = false,
+  nagbar = false,
+  tabs = false,
+  tab_drag = false,
+  statusbar = false,
+}
 config.animation_rate = 1.0
 config.blink_period = 0.8
 config.disable_blink = false

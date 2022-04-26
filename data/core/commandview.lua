@@ -202,31 +202,31 @@ function CommandView:update()
   end
 
   -- update gutter text color brightness
-  self:move_towards("gutter_text_brightness", 0, 0.1)
+  self:move_towards("gutter_text_brightness", 0, 0.1, "commandview")
 
   -- update gutter width
   local dest = self:get_font():get_width(self.label) + style.padding.x
   if self.size.y <= 0 then
     self.gutter_width = dest
   else
-    self:move_towards("gutter_width", dest)
+    self:move_towards("gutter_width", dest, nil, "commandview")
   end
 
   -- update suggestions box height
   local lh = self:get_suggestion_line_height()
   local dest = self.show_suggestions and math.min(#self.suggestions, max_suggestions) * lh or 0
-  self:move_towards("suggestions_height", dest)
+  self:move_towards("suggestions_height", dest, nil, "commandview")
 
   -- update suggestion cursor offset
   local dest = math.min(self.suggestion_idx, max_suggestions) * self:get_suggestion_line_height()
-  self:move_towards("selection_offset", dest)
+  self:move_towards("selection_offset", dest, nil, "commandview")
 
   -- update size based on whether this is the active_view
   local dest = 0
   if self == core.active_view then
     dest = style.font:get_height() + style.padding.y * 2
   end
-  self:move_towards(self.size, "y", dest)
+  self:move_towards(self.size, "y", dest, nil, "commandview")
 end
 
 

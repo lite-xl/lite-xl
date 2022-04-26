@@ -170,10 +170,10 @@ function NagView:update()
   NagView.super.update(self)
 
   if self.visible and core.active_view == self and self.title then
-    self:move_towards(self, "show_height", self:get_target_height())
-    self:move_towards(self, "underline_progress", 1)
+    self:move_towards(self, "show_height", self:get_target_height(), nil, "nagbar")
+    self:move_towards(self, "underline_progress", 1, nil, "nagbar")
   else
-    self:move_towards(self, "show_height", 0)
+    self:move_towards(self, "show_height", 0, nil, "nagbar")
     if self.show_height <= 0 then
       self.title = nil
       self.message = nil

@@ -27,13 +27,13 @@ function View:new()
   self.scrollbar_alpha = { value = 0, to = 0 }
 end
 
-function View:move_towards(t, k, dest, rate)
+function View:move_towards(t, k, dest, rate, name)
   if type(t) ~= "table" then
-    return self:move_towards(self, t, k, dest, rate)
+    return self:move_towards(self, t, k, dest, rate, name)
   end
   local val = t[k]
   local diff = math.abs(val - dest)
-  if not config.transitions or diff < 0.5 then
+  if not config.transitions or diff < 0.5 or config.disabled_transitions[name] then
     t[k] = dest
   else
     rate = rate or 0.5
@@ -176,28 +176,28 @@ end
 function View:update_scrollbar()
     local x, y, w, h = self:get_scrollbar_rect()
     self.scrollbar.w.to.thumb = w
-    self:move_towards(self.scrollbar.w, "thumb", self.scrollbar.w.to.thumb, 0.3)
+    self:move_towards(self.scrollbar.w, "thumb", self.scrollbar.w.to.thumb, 0.3, "scroll")
     self.scrollbar.x.thumb = x + w - self.scrollbar.w.thumb
     self.scrollbar.y.thumb = y
     self.scrollbar.h.thumb = h
 
     local x, y, w, h = self:get_scrollbar_track_rect()
     self.scrollbar.w.to.track = w
-    self:move_towards(self.scrollbar.w, "track", self.scrollbar.w.to.track, 0.3)
+    self:move_towards(self.scrollbar.w, "track", self.scrollbar.w.to.track, 0.3, "scroll")
     self.scrollbar.x.track = x + w - self.scrollbar.w.track
     self.scrollbar.y.track = y
     self.scrollbar.h.track = h
 
     -- we use 100 for a smoother transition
     self.scrollbar_alpha.to = (self.hovered_scrollbar_track or self.dragging_scrollbar) and 100 or 0
-    self:move_towards(self.scrollbar_alpha, "value", self.scrollbar_alpha.to, 0.3)
+    self:move_towards(self.scrollbar_alpha, "value", self.scrollbar_alpha.to, 0.3, "scroll")
 end
 
 
 function View:update()
   self:clamp_scroll_position()
-  self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3)
-  self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3)
+  self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3, "scroll")
+  self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3, "scroll")
 
   self:update_scrollbar()
 end

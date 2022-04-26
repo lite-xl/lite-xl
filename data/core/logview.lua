@@ -118,13 +118,13 @@ function LogView:update()
 
   local expanding = self.expanding[1]
   if expanding then
-    self:move_towards(expanding, "current", expanding.target)
+    self:move_towards(expanding, "current", expanding.target, nil, "logview")
     if expanding.current == expanding.target then
       table.remove(self.expanding, 1)
     end
   end
 
-  self:move_towards("yoffset", 0)
+  self:move_towards("yoffset", 0, nil, "logview")
 
   LogView.super.update(self)
 end
