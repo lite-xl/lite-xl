@@ -171,19 +171,21 @@ function ContextMenu:call_selected_item()
 end
 
 function ContextMenu:on_mouse_pressed(button, px, py, clicks)
-  local selected = self:get_item_selected()
   local caught = false
 
-  self:hide()
-  if button == "left" then
-    if selected then
-      self:on_selected(selected)
-      caught = true
+  if self.show_context_menu then
+    if button == "left" then
+      local selected = self:get_item_selected()
+      if selected then
+        self:on_selected(selected)
+      end
     end
-  end
-
-  if button == "right" then
-    caught = self:show(px, py)
+    self:hide()
+    caught = true
+  else
+    if button == "right" then
+      caught = self:show(px, py)
+    end
   end
   return caught
 end
