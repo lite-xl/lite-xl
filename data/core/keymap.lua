@@ -1,3 +1,4 @@
+local core = require "core"
 local command = require "core.command"
 local config = require "core.config"
 local keymap = {}
@@ -42,7 +43,7 @@ function keymap.add(map, overwrite)
     if macos then
       stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
     end
-    if type(commands) == "string" then
+    if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
     if overwrite then
@@ -103,7 +104,16 @@ function keymap.on_key_pressed(k, ...)
     local commands, performed = keymap.map[stroke]
     if commands then
       for _, cmd in ipairs(commands) do
-        performed = command.perform(cmd, ...)
+        if type(cmd) == "function" then
+          local ok, res = core.try(cmd, ...)
+          if ok then
+            performed = not (res == false)
+          else
+            performed = true
+          end
+        else
+          performed = command.perform(cmd, ...)
+        end
         if performed then break end
       end
       return performed

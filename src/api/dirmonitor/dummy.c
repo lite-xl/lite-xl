@@ -1,22 +1,8 @@
 #include <stdlib.h>
 
-struct dirmonitor {
-};
-
-struct dirmonitor* init_dirmonitor_dummy() {
-  return NULL;
-}
-
-void deinit_dirmonitor_dummy(struct dirmonitor* monitor) {
-}
-
-int check_dirmonitor_dummy(struct dirmonitor* monitor, int (*change_callback)(int, const char*, void*), void* data) {
-  return -1;
-}
-
-int add_dirmonitor_dummy(struct dirmonitor* monitor, const char* path) {
-  return -1;
-}
-
-void remove_dirmonitor_dummy(struct dirmonitor* monitor, int fd) {
-}
+struct dirmonitor_internal* init_dirmonitor() { return NULL; }
+void deinit_dirmonitor(struct dirmonitor_internal*) { }
+int get_changes_dirmonitor(struct dirmonitor_internal*, char*, size_t) { return -1; }
+int translate_changes_dirmonitor(struct dirmonitor_internal*, char*, int, int (*)(int, const char*, void*), void*) { return -1; }
+int add_dirmonitor(struct dirmonitor_internal*, const char*) { return -1; }
+void remove_dirmonitor(struct dirmonitor_internal*, int) { }

@@ -5,40 +5,41 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-struct dirmonitor {
+struct dirmonitor_internal {
   int fd;
 };
 
-struct dirmonitor* init_dirmonitor_kqueue() {
-  struct dirmonitor* monitor = calloc(sizeof(struct dirmonitor), 1);
+
+struct dirmonitor_internal* init_dirmonitor() {
+  struct dirmonitor_internal* monitor = calloc(sizeof(struct dirmonitor_internal), 1);
   monitor->fd = kqueue();
   return monitor;
 }
 
-void deinit_dirmonitor_kqueue(struct dirmonitor* monitor) {
+
+void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
   close(monitor->fd);
-  free(monitor);
 }
 
-int check_dirmonitor_kqueue(struct dirmonitor* monitor, int (*change_callback)(int, const char*, void*), void* data) {
-  struct kevent event;
-  while (1) {
-    struct timespec tm = {0};
-    int nev = kevent(monitor->fd, NULL, 0, &event, 1, &tm);
 
-    if (nev == -1) {
-      return errno;
-    }
-
-    if (nev <= 0) {
-      return 0;
-    }
-
-    change_callback(event.ident, NULL, data);
-  }
+int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
+  int nev = kevent(monitor->fd, NULL, 0, (struct kevent*)buffer, buffer_size / sizeof(kevent), NULL);
+  if (nev == -1)
+    return -1;
+  if (nev <= 0)
+    return 0;
+  return nev * sizeof(struct kevent);
 }
 
-int add_dirmonitor_kqueue(struct dirmonitor* monitor, const char* path) {
+
+int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size, int (*change_callback)(int, const char*, void*), void* data) {
+  for (struct kevent* info = (struct kevent*)buffer; (char*)info < buffer + buffer_size; info = (struct kevent*)(((char*)info) + sizeof(kevent)))
+    change_callback(info->ident, NULL, data);
+  return 0;
+}
+
+
+int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   int fd = open(path, O_RDONLY);
   struct kevent change;
 
@@ -48,6 +49,7 @@ int add_dirmonitor_kqueue(struct dirmonitor* monitor, const char* path) {
   return fd;
 }
 
-void remove_dirmonitor_kqueue(struct dirmonitor* monitor, int fd) {
+
+void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   close(fd);
 }
