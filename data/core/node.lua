@@ -169,8 +169,12 @@ end
 
 function Node:set_active_view(view)
   assert(self.type == "leaf", "Tried to set active view on non-leaf node")
+  local last_active_view = self.active_view
   self.active_view = view
   core.set_active_view(view)
+  if last_active_view and last_active_view ~= view then
+    last_active_view:on_mouse_left()
+  end
 end
 
 
