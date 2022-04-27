@@ -815,7 +815,7 @@ local temp_file_counter = 0
 
 function core.delete_temp_files(dir)
   dir = type(dir) == "string" and common.normalize_path(dir) or USERDIR
-  for _, filename in ipairs(system.list_dir(dir)) do
+  for _, filename in ipairs(system.list_dir(dir) or {}) do
     if filename:find(temp_file_prefix, 1, true) == 1 then
       os.remove(dir .. PATHSEP .. filename)
     end
