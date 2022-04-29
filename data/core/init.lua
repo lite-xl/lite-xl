@@ -914,8 +914,9 @@ function core.load_plugins()
         local list = refused_list[plugin_dir:find(USERDIR, 1, true) == 1 and 'userdir' or 'datadir'].plugins
         table.insert(list, filename)
       elseif config.plugins[basename] ~= false then
+        local start = system.get_time()
         local ok = core.try(require, "plugins." .. basename)
-        if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
+        if ok then core.log_quiet("Loaded plugin %q from %s in %.1fms", basename, plugin_dir, (system.get_time() - start)*1000) end
         if not ok then
           no_errors = false
         end
