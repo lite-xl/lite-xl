@@ -144,6 +144,12 @@ function View:on_mouse_moved(x, y, dx, dy)
 end
 
 
+function View:on_mouse_left()
+  self.hovered_scrollbar = false
+  self.hovered_scrollbar_track = false
+end
+
+
 function View:on_file_dropped(filename, x, y)
   return false
 end

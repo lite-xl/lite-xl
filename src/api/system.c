@@ -161,6 +161,9 @@ top:
       } else if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
         lua_pushstring(L, "restored");
         return 1;
+      } else if (e.window.event == SDL_WINDOWEVENT_LEAVE) {
+        lua_pushstring(L, "mouseleft");
+        return 1;
       }
       if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
         lua_pushstring(L, "focuslost");
