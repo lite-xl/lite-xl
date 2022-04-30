@@ -904,7 +904,9 @@ function core.load_plugins()
     end
   end
   table.sort(ordered)
+  
 
+  local load_start = system.get_time()
   for _, filename in ipairs(ordered) do
     local plugin_dir, basename = files[filename], filename:match("(.-)%.lua$") or filename
     local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
@@ -923,6 +925,7 @@ function core.load_plugins()
       end
     end
   end
+  core.log_quiet("Loaded all plugins in %.1fms", (system.get_time() - load_start)*1000)
   return no_errors, refused_list
 end
 
