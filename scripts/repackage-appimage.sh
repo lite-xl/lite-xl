@@ -9,6 +9,16 @@ workdir=".repackage"
 rm -fr "$workdir" && mkdir "$workdir" && pushd "$workdir"
 
 ARCH="$(get_arch)"
+case $ARCH in
+arm64)
+  APPIMAGE_ARCH=aarch64;;
+x86-64)
+  APPIMAGE_ARCH=x86_64;;
+x86)
+  APPIMAGE_ARCH=i686;;
+*)
+  APPIMAGE_ARCH=$ARCH;;
+esac
 
 create_appimage() {
   rm -fr LiteXL.AppDir
@@ -37,7 +47,7 @@ repackage_from_github () {
   assets=($($wget -q -nv -O- https://api.github.com/repos/franko/lite-xl/releases/latest | grep "browser_download_url" | cut -d '"' -f 4))
 
   for url in "${assets[@]}"; do
-    if [[ $url == *"linux-x86_64"* ]]; then
+    if [[ $url == *"linux-$ARCH"* ]]; then
       echo "getting: $url"
       $wget -q "$url" || exit 1
       create_appimage "${url##*/}"
@@ -48,8 +58,8 @@ repackage_from_github () {
 setup_appimagetool() {
   if ! which appimagetool > /dev/null ; then
     if [ ! -e appimagetool ]; then
-      if ! wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage" ; then
-        echo "Could not download the appimagetool for the arch '${ARCH}'."
+      if ! wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGE_ARCH}.AppImage" ; then
+        echo "Could not download the appimagetool for the arch '${APPIMAGE_ARCH}'."
         exit 1
       else
         chmod 0755 appimagetool
@@ -60,8 +70,8 @@ setup_appimagetool() {
 
 download_appimage_apprun() {
   if [ ! -e AppRun ]; then
-    if ! wget -O AppRun "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-${ARCH}" ; then
-      echo "Could not download AppRun for the arch '${ARCH}'."
+    if ! wget -O AppRun "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-${APPIMAGE_ARCH}" ; then
+      echo "Could not download AppRun for the arch '${APPIMAGE_ARCH}'."
       exit 1
     else
       chmod 0755 AppRun
