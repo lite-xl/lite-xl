@@ -904,7 +904,9 @@ function core.load_plugins()
     end
   end
   table.sort(ordered)
+  
 
+  local load_start = system.get_time()
   for _, filename in ipairs(ordered) do
     local plugin_dir, basename = files[filename], filename:match("(.-)%.lua$") or filename
     local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
@@ -914,14 +916,16 @@ function core.load_plugins()
         local list = refused_list[plugin_dir:find(USERDIR, 1, true) == 1 and 'userdir' or 'datadir'].plugins
         table.insert(list, filename)
       elseif config.plugins[basename] ~= false then
+        local start = system.get_time()
         local ok = core.try(require, "plugins." .. basename)
-        if ok then core.log_quiet("Loaded plugin %q from %s", basename, plugin_dir) end
+        if ok then core.log_quiet("Loaded plugin %q from %s in %.1fms", basename, plugin_dir, (system.get_time() - start)*1000) end
         if not ok then
           no_errors = false
         end
       end
     end
   end
+  core.log_quiet("Loaded all plugins in %.1fms", (system.get_time() - load_start)*1000)
   return no_errors, refused_list
 end
 
