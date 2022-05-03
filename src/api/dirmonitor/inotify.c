@@ -23,9 +23,9 @@ struct dirmonitor_internal* init_dirmonitor() {
 
 
 void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
+  close(monitor->fd);
   close(monitor->sig[0]);
   close(monitor->sig[1]);
-  close(monitor->fd);
 }
 
 
