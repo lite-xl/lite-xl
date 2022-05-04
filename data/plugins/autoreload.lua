@@ -6,6 +6,10 @@ local Doc = require "core.doc"
 local common = require "core.common"
 local dirwatch = require "core.dirwatch"
 
+config.plugins.autoreload = common.merge({
+  always_show_nagview = false
+}, config.plugins.autoreload)
+
 local times = setmetatable({}, { __mode = "k" })
 
 local function update_time(doc)
@@ -35,7 +39,7 @@ end
 local function check_if_modified(doc)
   local info = system.get_file_info(doc.filename or "")
   if info and times[doc] ~= info.modified then
-    if not doc:is_dirty() then
+    if not doc:is_dirty() and not config.plugins.autoreload.always_show_nagview then
       reload_doc(doc)
     else
       doc.deferred_reload = true
