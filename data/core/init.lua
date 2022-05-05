@@ -294,7 +294,7 @@ end
 
 -- The function below is needed to reload the project directories
 -- when the project's module changes.
-local function rescan_project_directories()
+function core.rescan_project_directories()
   local save_project_dirs = {}
   local n = #core.project_directories
   for i = 1, n do
@@ -574,7 +574,7 @@ function core.remove_project_directory(path)
 end
 
 
-local function configure_borderless_window()
+function core.configure_borderless_window()
   system.set_window_bordered(not config.borderless)
   core.title_view:configure_hit_test(config.borderless)
   core.title_view.visible = config.borderless
@@ -590,8 +590,8 @@ local function add_config_files_hooks()
     doc_save(self, filename, abs_filename)
     if self.abs_filename == user_filename or self.abs_filename == module_filename then
       reload_customizations()
-      rescan_project_directories()
-      configure_borderless_window()
+      core.rescan_project_directories()
+      core.configure_borderless_window()
     end
   end
 end
@@ -752,7 +752,7 @@ function core.init()
     command.perform("core:open-log")
   end
 
-  configure_borderless_window()
+  core.configure_borderless_window()
 
   if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
     local opt = {
@@ -904,7 +904,7 @@ function core.load_plugins()
     end
   end
   table.sort(ordered)
-  
+
 
   local load_start = system.get_time()
   for _, filename in ipairs(ordered) do
