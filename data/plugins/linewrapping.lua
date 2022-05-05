@@ -380,7 +380,7 @@ function DocView:get_line_screen_position(line, col)
   local x, y = self:get_content_offset()
   local lh = self:get_line_height()
   local gw = self:get_gutter_width()
-  return x + gw + (col and self:get_col_x_offset(line, col) or 0), y + (idx-1) * lh + style.padding.y
+  return x + gw + style.padding.x + (col and self:get_col_x_offset(line, col) or 0), y + (idx-1) * lh + style.padding.y
 end
 
 local old_resolve_screen_position = DocView.resolve_screen_position
