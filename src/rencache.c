@@ -2,7 +2,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#ifndef _WIN32 
 #include <stdalign.h>
+#endif
 #include <string.h>
 
 #include <lauxlib.h>
@@ -87,7 +89,12 @@ static RenRect merge_rects(RenRect a, RenRect b) {
 
 
 static Command* push_command(int type, int size) {
+  #ifdef _WIN32
+  size_t alignment = sizeof(size_t) - 1;
+  #else
   size_t alignment = alignof(max_align_t) - 1;
+  #endif
+  
   size = (size + alignment) & ~alignment;
   Command *cmd = (Command*) (command_buf + command_buf_idx);
   int n = command_buf_idx + size;

@@ -1,5 +1,7 @@
 #include <windows.h>
-
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 
 struct dirmonitor_internal {
   HANDLE handle;

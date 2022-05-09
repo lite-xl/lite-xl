@@ -1,0 +1,12 @@
+[submodule "3rd/pcre2"]
+	path = 3rd/pcre2
+	url = git@github.com:car520120/pcre2.git
+[submodule "3rd/sdl2"]
+	path = 3rd/sdl2
+	url = git@github.com:car520120/SDL.git
+[submodule "3rd/freetype2"]
+	path = 3rd/freetype2
+	url = git@github.com:car520120/freetype.git
+[submodule "3rd/lua"]
+	path = 3rd/lua
+	url = git@github.com:car520120/lua.git

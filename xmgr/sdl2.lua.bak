@@ -1,0 +1,144 @@
+
+local lib_path = path.join(os.projectdir(),"3rd","sdl2")
+local lib_inc = path.join(lib_path,"include")
+local lib_src = path.join(lib_path,"src")
+
+local cfg_in = path.join(lib_inc,"SDL_config.h.cmake")
+local cfg_dir = path.join("build","config","sdl2")
+local cfg_fn = path.join(cfg_dir,"SDL_config.h")
+
+local function unpack_files(src_dir,ss,ex_name)
+    local  result = {}
+    if not ss then
+        return result
+    end
+
+    local pattern = "%s*(.-)[\n*]"
+
+    if nil == ex_name then
+        string.gsub(ss,pattern,function(s) 
+            result[#result + 1] = path.join(src_dir,s) 
+        end)
+    else
+        string.gsub(ss,pattern,function(s) 
+            result[#result + 1] = path.join(src_dir,s,ex_name) 
+        end)
+    end
+
+    return table.unpack(result) 
+end
+
+
+option("with_sdl2_env")
+    before_check(function(option)
+        if os.isfile(cfg_fn) then
+            return
+        end
+
+        if not os.isdir(cfg_dir) then
+            os.mkdir(cfg_dir)
+        end
+
+        import("config_c2x", {alias = "cfg"})
+
+        cfg.c2x(cfg_in,cfg_fn)
+    end)
+option_end()
+
+if is_plat("windows") then
+option("with_stdio_h")
+    on_check(function(op)
+        
+    end)
+end
+
+
+local chk_func = [[
+    malloc calloc realloc free qsort abs memset memcpy memmove memcmp
+    wcslen _wcsdup wcsdup wcsstr wcscmp wcsncmp _wcsicmp _wcsnicmp
+    strlen _strrev _strupr _strlwr strchr strrchr strstr itoa _ltoa
+    _ultoa strtol strtoul strtoll strtod atoi atof strcmp strncmp
+    _stricmp _strnicmp sscanf
+    acos acosf asin asinf atan atanf atan2 atan2f ceil ceilf
+    copysign copysignf cos cosf exp expf fabs fabsf floor floorf fmod fmodf
+    log logf log10 log10f lround lroundf pow powf round roundf scalbn scalbnf
+    sin sinf sqrt sqrtf tan tanf trunc truncf
+]]
+
+local sub_systems = [[
+    atomic
+    audio
+    video
+    render
+    events
+    joystick
+    haptic
+    hidapi
+    power
+    threads
+    timers
+    file
+    loadso
+    cpuinfo
+    filesystem
+    dlopen
+    sensor
+    locale
+]]
+
+local src_fn =[[
+   src/*.c
+   src/atomic/*.c
+   src/audio/*.c
+   src/cpuinfo/*.c
+   src/dynapi/*.c
+   src/events/*.c
+   src/file/*.c
+   src/haptic/*.c
+   src/hidapi/*.c
+   src/libm/*.c
+   src/locale/*.c
+   src/misc/*.c
+   src/power/*.c
+   src/render/*.c
+   src/render/*/*.c
+   src/sensor/*.c
+   src/stdlib/*.c
+   src/thread/*.c
+   src/timer/*.c
+   src/video/*.c
+   src/video/yuv2rgb/*.c
+]]
+
+local sdl_config = {
+    SDL_ASSERTIONS = 0 , -- auto = 1 disabled = 1 release = 2 enabled = 3 paranoid = 4
+
+}
+
+target("sdl2")
+    set_kind("shared")
+    set_group("lib3rd")
+    add_filegroups("src",{rootdir=lib_src})
+    add_filegroups("include",{rootdir=lib_inc})
+    add_headerfiles(path.join(lib_inc,"**.h"))
+
+    add_files(unpack_files(lib_path,src_fn))
+    if not is_plat("windows") then
+        
+    end
+
+    set_configdir(cfg_dir)
+    add_configfiles(cfg_fn,{ filename = "SDL_config.h" })
+    set_configvar("SDL_ASSERTIONS",sdl_config["SDL_ASSERTIONS"])
+
+    on_load(function(target)
+        if is_plat("windows") then
+            target:add("defines","WINDOWS","SDL_BUILDING_WINRT=1")
+            target:add("defines","WINDOWS","SDL_BUILDING_WINRT=1")
+            target:Add("cxflags","/MP","-ZW")
+        elseif is_plat("unix") then
+            
+        end
+    end)
+
+
