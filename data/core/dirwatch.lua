@@ -97,8 +97,9 @@ function dirwatch:check(change_callback, scan_time, wait_time)
   local start_time = system.get_time()
   for directory, old_modified in pairs(self.scanned) do
     if old_modified then
-      local new_modified = system.get_file_info(directory).modified
-      if old_modified < new_modified then
+      local info = system.get_file_info(directory)
+      local new_modified = info and info.modified
+      if old_modified ~= new_modified then
         change_callback(directory)
         had_change = true
         self.scanned[directory] = new_modified
