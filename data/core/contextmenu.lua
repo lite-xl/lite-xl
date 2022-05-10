@@ -5,6 +5,7 @@ local config = require "core.config"
 local keymap = require "core.keymap"
 local style = require "core.style"
 local Object = require "core.object"
+local View = require "core.view"
 
 local border_width = 1
 local divider_width = 1
@@ -170,47 +171,30 @@ function ContextMenu:call_selected_item()
 end
 
 function ContextMenu:on_mouse_pressed(button, px, py, clicks)
-  local selected = self:get_item_selected()
   local caught = false
 
-  self:hide()
-  if button == "left" then
-    if selected then
-      self:on_selected(selected)
-      caught = true
+  if self.show_context_menu then
+    if button == "left" then
+      local selected = self:get_item_selected()
+      if selected then
+        self:on_selected(selected)
+      end
     end
-  end
-
-  if button == "right" then
-    caught = self:show(px, py)
+    self:hide()
+    caught = true
+  else
+    if button == "right" then
+      caught = self:show(px, py)
+    end
   end
   return caught
 end
 
--- copied from core.docview
-function ContextMenu:move_towards(t, k, dest, rate)
-  if type(t) ~= "table" then
-    return self:move_towards(self, t, k, dest, rate)
-  end
-  local val = t[k]
-  if not config.transitions or math.abs(val - dest) < 0.5 then
-    t[k] = dest
-  else
-    rate = rate or 0.5
-    if config.fps ~= 60 or config.animation_rate ~= 1 then
-      local dt = 60 / config.fps
-      rate = 1 - common.clamp(1 - rate, 1e-8, 1 - 1e-8)^(config.animation_rate * dt)
-    end
-    t[k] = common.lerp(val, dest, rate)
-  end
-  if val ~= dest then
-    core.redraw = true
-  end
-end
+ContextMenu.move_towards = View.move_towards
 
 function ContextMenu:update()
   if self.show_context_menu then
-    self:move_towards("height", self.items.height)
+    self:move_towards("height", self.items.height, nil, "contextmenu")
   end
 end
 

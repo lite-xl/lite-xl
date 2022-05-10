@@ -36,6 +36,7 @@ function CommandView:new()
   self.suggestions_height = 0
   self.show_suggestions = true
   self.last_change_id = 0
+  self.last_text = ""
   self.gutter_width = 0
   self.gutter_text_brightness = 0
   self.selection_offset = 0
@@ -80,6 +81,7 @@ end
 
 
 function CommandView:set_text(text, select)
+  self.last_text = text
   self.doc:remove(1, 1, math.huge, math.huge)
   self.doc:text_input(text)
   if select then
@@ -161,6 +163,7 @@ function CommandView:exit(submitted, inexplicit)
   if not submitted then cancel(not inexplicit) end
   self.show_suggestions = true
   self.save_suggestion = nil
+  self.last_text = ""
 end
 
 
@@ -198,35 +201,45 @@ function CommandView:update()
   -- update suggestions if text has changed
   if self.last_change_id ~= self.doc:get_change_id() then
     self:update_suggestions()
+    if self.suggestions[self.suggestion_idx] then
+      local current_text = self:get_text()
+      local suggested_text = self.suggestions[self.suggestion_idx].text or ""
+      if #self.last_text < #current_text and
+         string.find(suggested_text, current_text, 1, true) == 1 then
+        self:set_text(suggested_text)
+        self.doc:set_selection(1, #current_text + 1, 1, math.huge)
+      end
+      self.last_text = current_text
+    end
     self.last_change_id = self.doc:get_change_id()
   end
 
   -- update gutter text color brightness
-  self:move_towards("gutter_text_brightness", 0, 0.1)
+  self:move_towards("gutter_text_brightness", 0, 0.1, "commandview")
 
   -- update gutter width
   local dest = self:get_font():get_width(self.label) + style.padding.x
   if self.size.y <= 0 then
     self.gutter_width = dest
   else
-    self:move_towards("gutter_width", dest)
+    self:move_towards("gutter_width", dest, nil, "commandview")
   end
 
   -- update suggestions box height
   local lh = self:get_suggestion_line_height()
   local dest = self.show_suggestions and math.min(#self.suggestions, max_suggestions) * lh or 0
-  self:move_towards("suggestions_height", dest)
+  self:move_towards("suggestions_height", dest, nil, "commandview")
 
   -- update suggestion cursor offset
   local dest = math.min(self.suggestion_idx, max_suggestions) * self:get_suggestion_line_height()
-  self:move_towards("selection_offset", dest)
+  self:move_towards("selection_offset", dest, nil, "commandview")
 
   -- update size based on whether this is the active_view
   local dest = 0
   if self == core.active_view then
     dest = style.font:get_height() + style.padding.y * 2
   end
-  self:move_towards(self.size, "y", dest)
+  self:move_towards(self.size, "y", dest, nil, "commandview")
 end
 
 

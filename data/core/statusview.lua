@@ -1042,14 +1042,14 @@ function StatusView:update()
   if not self.visible and self.size.y <= 0 then
     return
   elseif not self.visible and self.size.y > 0 then
-    self:move_towards(self.size, "y", 0)
+    self:move_towards(self.size, "y", 0, nil, "statusbar")
     return
   end
 
   local height = style.font:get_height() + style.padding.y * 2;
 
   if self.size.y + 1 < height then
-    self:move_towards(self.size, "y", height)
+    self:move_towards(self.size, "y", height, nil, "statusbar")
   else
     self.size.y = height
   end
