@@ -1,19 +1,23 @@
 ---@meta
 
+---Additional utf8 support not provided by lua.
+---@class utf8extra
+utf8extra = {}
+
 ---UTF-8 equivalent of string.byte
 ---@param s  string
 ---@param i? integer
 ---@param j? integer
 ---@return integer
 ---@return ...
-function utf8.byte(s, i, j) end
+function utf8extra.byte(s, i, j) end
 
 ---UTF-8 equivalent of string.char
 ---@param byte integer
 ---@param ... integer
 ---@return string
 ---@return ...
-function utf8.char(byte, ...) end
+function utf8extra.char(byte, ...) end
 
 ---UTF-8 equivalent of string.find
 ---@param s       string
@@ -23,14 +27,14 @@ function utf8.char(byte, ...) end
 ---@return integer start
 ---@return integer end
 ---@return ... captured
-function utf8.find(s, pattern, init, plain) end
+function utf8extra.find(s, pattern, init, plain) end
 
 ---UTF-8 equivalent of string.gmatch
 ---@param s       string
 ---@param pattern string
 ---@param init?   integer
 ---@return fun():string, ...
-function utf8.gmatch(s, pattern, init) end
+function utf8extra.gmatch(s, pattern, init) end
 
 ---UTF-8 equivalent of string.gsub
 ---@param s       string
@@ -39,41 +43,41 @@ function utf8.gmatch(s, pattern, init) end
 ---@param n       integer
 ---@return string
 ---@return integer count
-function utf8.gsub(s, pattern, repl, n) end
+function utf8extra.gsub(s, pattern, repl, n) end
 
 ---UTF-8 equivalent of string.len
 ---@param s string
 ---@return integer
-function utf8.len(s) end
+function utf8extra.len(s) end
 
 ---UTF-8 equivalent of string.lower
 ---@param s string
 ---@return string
-function utf8.lower(s) end
+function utf8extra.lower(s) end
 
 ---UTF-8 equivalent of string.match
 ---@param s       string
 ---@param pattern string
 ---@param init?   integer
 ---@return string | number captured
-function utf8.match(s, pattern, init) end
+function utf8extra.match(s, pattern, init) end
 
 ---UTF-8 equivalent of string.reverse
 ---@param s string
 ---@return string
-function utf8.reverse(s) end
+function utf8extra.reverse(s) end
 
 ---UTF-8 equivalent of string.sub
 ---@param s  string
 ---@param i  integer
 ---@param j? integer
 ---@return string
-function utf8.sub(s, i, j) end
+function utf8extra.sub(s, i, j) end
 
 ---UTF-8 equivalent of string.upper
 ---@param s string
 ---@return string
-function utf8.upper(s) end
+function utf8extra.upper(s) end
 
 ---Escape a str to UTF-8 format string. It support several escape format:
 ---* %ddd - which ddd is a decimal number at any length: change Unicode code point to UTF-8 format.
@@ -91,7 +95,7 @@ function utf8.upper(s) end
 ---```
 ---@param s  string
 ---@return string utf8_string
-function utf8.escape(s) end
+function utf8extra.escape(s) end
 
 ---Convert UTF-8 position to byte offset. if only index is given, return byte
 ---offset of this UTF-8 char index. if both charpos and index is given, a new
@@ -103,7 +107,7 @@ function utf8.escape(s) end
 ---@param index? integer
 ---@return integer charpos
 ---@return integer codepoint
-function utf8.charpos(s, charpos, index) end
+function utf8extra.charpos(s, charpos, index) end
 
 ---Iterate though the UTF-8 string s. If only s is given, it can used as a iterator:
 ---```lua
@@ -120,7 +124,7 @@ function utf8.charpos(s, charpos, index) end
 ---@param index? integer
 ---@return integer charpos
 ---@return integer codepoint
-function utf8.next(s, charpos, index) end
+function utf8extra.next(s, charpos, index) end
 
 ---Insert a substring to s. If idx is given, insert substring before char at
 ---this index, otherwise substring will concat to s. idx can be negative.
@@ -128,7 +132,7 @@ function utf8.next(s, charpos, index) end
 ---@param idx? integer
 ---@param substring string
 ---return string new_string
-function utf8.insert(s, idx, substring) end
+function utf8extra.insert(s, idx, substring) end
 
 ---Delete a substring in s. If neither start nor stop is given, delete the last
 ---UTF-8 char in s, otherwise delete char from start to end of s. if stop is
@@ -138,7 +142,7 @@ function utf8.insert(s, idx, substring) end
 ---@param start? integer
 ---@param stop? integer
 ---return string new_string
-function utf8.remove(s, start, stop) end
+function utf8extra.remove(s, start, stop) end
 
 ---Calculate the width of UTF-8 string s. if ambi_is_double is given, the
 ---ambiguous width character's width is 2, otherwise it's 1. fullwidth/doublewidth
@@ -150,7 +154,7 @@ function utf8.remove(s, start, stop) end
 ---@param ambi_is_double? boolean
 ---@param default_width? integer
 ---@return integer width
-function utf8.width(s, ambi_is_double, default_width) end
+function utf8extra.width(s, ambi_is_double, default_width) end
 
 ---Return the character index at given location in string s. this is a reverse
 ---operation of utf8.width(). this function returns a index of location, and a
@@ -164,24 +168,24 @@ function utf8.width(s, ambi_is_double, default_width) end
 ---@return integer idx
 ---@return integer offset
 ---@return integer width
-function utf8.widthindex(s, location, ambi_is_double, default_width) end
+function utf8extra.widthindex(s, location, ambi_is_double, default_width) end
 
 ---Convert UTF-8 string s to title-case, used to compare by ignore case. if s
 ---is a number, it's treat as a code point and return a convert code point
 ---(number). utf8.lower/utf8.pper has the same extension.
 ---@param s string
 ---return string new_string
-function utf8.title(s) end
+function utf8extra.title(s) end
 
 ---Convert UTF-8 string s to folded case, used to compare by ignore case. if s
 ---is a number, it's treat as a code point and return a convert code point
 ---(number). utf8.lower/utf8.pper has the same extension.
 ---@param s string
 ---return string new_string
-function utf8.fold(s) end
+function utf8extra.fold(s) end
 
 ---Compare a and b without case, -1 means a < b, 0 means a == b and 1 means a > b.
 ---@param a string
 ---@param b string
 ---@return integer result
-function utf8.ncasecmp(a, b) end
+function utf8extra.ncasecmp(a, b) end

@@ -1264,7 +1264,7 @@ static const char UTF8PATT[] = "[\0-\x7F\xC2-\xF4][\x80-\xBF]*";
 static const char UTF8PATT[] = "[%z\1-\x7F\xC2-\xF4][\x80-\xBF]*";
 #endif
 
-int luaopen_utf8 (lua_State *L) {
+int luaopen_utf8extra (lua_State *L) {
   luaL_Reg libs[] = {
 #define ENTRY(name) { #name, Lutf8_##name }
     ENTRY(offset),
