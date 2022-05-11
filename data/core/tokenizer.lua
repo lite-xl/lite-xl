@@ -169,12 +169,12 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       if p.whole_line[p_idx] and next > 1 then
         return
       end
-      -- go to the start of the next utf-8 character
-      while text:byte(next) and common.is_utf8_cont(text, next) do
-        next = next + 1
-      end
       res = p.pattern and { text:ufind((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
-        or { regex.match(code, text, next, (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
+        or { regex.match(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
+      if p.regex and #res > 0 then -- set correct utf8 len for regex result
+        res[2] = res[1] + string.ulen(text:sub(res[1], res[2])) - 1
+        res[1] = next
+      end
       if res[1] and close and target[3] then
         local count = 0
         for i = res[1] - 1, 1, -1 do
@@ -189,7 +189,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     return table.unpack(res)
   end
 
-  while i <= #text do
+  local text_len = text:ulen()
+  while i <= text_len do
     -- continue trying to match the end pattern of a pair if we have a state set
     if current_pattern_idx > 0 then
       local p = current_syntax.patterns[current_pattern_idx]
@@ -262,13 +263,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
 
     -- consume character if we didn't match
     if not matched then
-      local n = 0
-      -- reach the next character
-      while text:byte(i + n + 1) and common.is_utf8_cont(text, i + n + 1) do
-        n = n + 1
-      end
-      push_token(res, "normal", text:usub(i, i + n))
-      i = i + n + 1
+      push_token(res, "normal", text:usub(i, i))
+      i = i + 1
     end
   end
 
