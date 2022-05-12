@@ -5,8 +5,12 @@ int luaopen_renderer(lua_State *L);
 int luaopen_regex(lua_State *L);
 int luaopen_process(lua_State *L);
 int luaopen_dirmonitor(lua_State* L);
+<<<<<<< HEAD
 int luaopen_utf8(lua_State* L);
 int luaopen_utf8extra(lua_State *L);
+=======
+int luaopen_utf8extra(lua_State* L);
+>>>>>>> lite-xl/master
 
 static const luaL_Reg libs[] = {
   { "system",     luaopen_system     },
@@ -14,7 +18,11 @@ static const luaL_Reg libs[] = {
   { "regex",      luaopen_regex      },
   { "process",    luaopen_process    },
   { "dirmonitor", luaopen_dirmonitor },
+<<<<<<< HEAD
   { "utf8extra",    luaopen_utf8extra    },
+=======
+  { "utf8extra",  luaopen_utf8extra  },
+>>>>>>> lite-xl/master
   { NULL, NULL }
 };
 
