@@ -180,7 +180,7 @@ local commands = {
     local line, col = doc():get_selection()
     doc():set_selection(line, col)
   end,
-  
+
   ["doc:cut"] = function()
     cut_or_copy(true)
   end,
@@ -402,11 +402,11 @@ local commands = {
   end,
 
   ["doc:upper-case"] = function()
-    doc():replace(string.upper)
+    doc():replace(string.uupper)
   end,
 
   ["doc:lower-case"] = function()
-    doc():replace(string.lower)
+    doc():replace(string.ulower)
   end,
 
   ["doc:go-to-line"] = function()
