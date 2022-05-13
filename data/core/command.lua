@@ -6,15 +6,33 @@ command.map = {}
 local always_true = function() return true end
 
 
-function command.add(predicate, map)
+---Used iternally by command.add, statusview, and contextmenu to generate a
+---function with a condition to evaluate returning the boolean result of this
+---evaluation.
+---
+---If a string predicate is given it is treated as a require import that should
+---return a valid object which is checked against the current active view, the
+---sames applies if a table is given. A function that returns a boolean can be
+---used instead to perform a custom evaluation, setting to nil means always
+---evaluates to true.
+---
+---@param predicate string | table | function
+---@return function
+function command.generate_predicate(predicate)
   predicate = predicate or always_true
   if type(predicate) == "string" then
     predicate = require(predicate)
   end
   if type(predicate) == "table" then
     local class = predicate
-    predicate = function() return core.active_view:is(class) end
+    predicate = function() return core.active_view:extends(class) end
   end
+  return predicate
+end
+
+
+function command.add(predicate, map)
+  predicate = command.generate_predicate(predicate)
   for name, fn in pairs(map) do
     assert(not command.map[name], "command already exists: " .. name)
     command.map[name] = { predicate = predicate, perform = fn }
