@@ -2,6 +2,8 @@
 -- inject utf8 functions to strings
 --------------------------------------------------------------------------------
 
+local utf8 = require "utf8extra"
+
 string.ubyte = utf8.byte
 string.uchar = utf8.char
 string.ufind = utf8.find
