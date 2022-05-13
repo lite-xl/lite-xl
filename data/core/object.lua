@@ -21,6 +21,14 @@ end
 
 
 function Object:is(T)
+  if getmetatable(self) == T then
+    return true
+  end
+  return false
+end
+
+
+function Object:extends(T)
   local mt = getmetatable(self)
   while mt do
     if mt == T then
