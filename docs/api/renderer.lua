@@ -6,7 +6,9 @@
 renderer = {}
 
 ---
----Represents a color used by the rendering functions.
+---Array of bytes that represents a color used by the rendering functions.
+---Note: indexes for rgba are numerical 1 = r, 2 = g, 3 = b, 4 = a but for
+---documentation purposes the letters r, g, b, a were used.
 ---@class renderer.color
 ---@field public r number Red
 ---@field public g number Green
@@ -17,7 +19,7 @@ renderer.color = {}
 ---
 ---Represent options that affect a font's rendering.
 ---@class renderer.fontoptions
----@field public antialiasing "'grayscale'" | "'subpixel'"
+---@field public antialiasing "'none'" | "'grayscale'" | "'subpixel'"
 ---@field public hinting "'slight'" | "'none'" | '"full"'
 -- @field public bold boolean
 -- @field public italic boolean
@@ -37,6 +39,16 @@ renderer.font = {}
 ---
 ---@return renderer.font
 function renderer.font.load(path, size, options) end
+
+---
+---Combines an array of fonts into a single one for broader charset support,
+---the order of the list determines the fonts precedence when retrieving
+---a symbol from it.
+---
+---@param fonts renderer.font[]
+---
+---@return renderer.font
+function renderer.font.group(fonts) end
 
 ---
 ---Clones a font object into a new one.
@@ -81,25 +93,6 @@ function renderer.font:get_size() end
 function renderer.font:set_size(size) end
 
 ---
----Assistive functionality to replace characters in a
----rendered text with other characters.
----@class renderer.replacements
-renderer.replacements = {}
-
----
----Create a new character replacements object.
----
----@return renderer.replacements
-function renderer.replacements.new() end
-
----
----Add to internal map a character to character replacement.
----
----@param original_char string Should be a single character like '\t'
----@param replacement_char string Should be a single character like '»'
-function renderer.replacements:add(original_char, replacement_char) end
-
----
 ---Toggles drawing debugging rectangles on the currently rendered sections
 ---of the window to help troubleshoot the renderer.
 ---
@@ -141,29 +134,13 @@ function renderer.set_clip_rect(x, y, width, height) end
 function renderer.draw_rect(x, y, width, height, color) end
 
 ---
----Draw text.
+---Draw text and return the x coordinate where the text finished drawing.
 ---
 ---@param font renderer.font
 ---@param text string
 ---@param x number
 ---@param y number
 ---@param color renderer.color
----@param replace renderer.replacements
----@param color_replace renderer.color
 ---
----@return number x_subpixel
-function renderer.draw_text(font, text, x, y, color, replace, color_replace) end
-
----
----Draw text at subpixel level.
----
----@param font renderer.font
----@param text string
----@param x number
----@param y number
----@param color renderer.color
----@param replace renderer.replacements
----@param color_replace renderer.color
----
----@return number x_subpixel
-function renderer.draw_text_subpixel(font, text, x, y, color, replace, color_replace) end
+---@return number x
+function renderer.draw_text(font, text, x, y, color) end
