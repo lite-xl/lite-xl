@@ -3,7 +3,6 @@ local core = require "core"
 local command = require "core.command"
 local keymap = require "core.keymap"
 local ContextMenu = require "core.contextmenu"
-local DocView = require "core.docview"
 local RootView = require "core.rootview"
 
 local menu = ContextMenu()
@@ -33,7 +32,7 @@ function RootView:draw(...)
   menu:draw()
 end
 
-command.add(function() return getmetatable(core.active_view) == DocView end, {
+command.add("core.docview!", {
   ["context:show"] = function()
     menu:show(core.active_view.position.x, core.active_view.position.y)
   end
