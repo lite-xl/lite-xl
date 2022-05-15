@@ -21,10 +21,7 @@ end
 
 
 function Object:is(T)
-  if getmetatable(self) == T then
-    return true
-  end
-  return false
+  return getmetatable(self) == T
 end
 
 
