@@ -466,6 +466,10 @@ local commands = {
       command.perform("doc:save-as")
     end
   end,
+  
+  ["doc:reload"] = function()
+    doc():reload()
+  end,
 
   ["file:rename"] = function()
     local old_filename = doc().filename
