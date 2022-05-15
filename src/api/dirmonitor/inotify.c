@@ -47,7 +47,7 @@ int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buff
 
 
 int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
-  return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
+  return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MODIFY | IN_MOVED_TO);
 }
 
 

@@ -35,9 +35,11 @@ end
 -- so as not to run into system limits (like in the autoreload plugin).
 function dirwatch:watch(directory, bool)
   if bool == false then return self:unwatch(directory) end
+  local info = system.get_file_info(directory)
+  if not info then return end
   if not self.watched[directory] and not self.scanned[directory] then
     if PLATFORM == "Windows" then
-      if system.get_file_info(directory).type ~= "dir" then return self:scan(directory) end
+      if info.type ~= "dir" then return self:scan(directory) end
       if not self.windows_watch_top or directory:find(self.windows_watch_top, 1, true) ~= 1 then
         -- Get the highest level of directory that is common to this directory, and the original.
         local target = directory
