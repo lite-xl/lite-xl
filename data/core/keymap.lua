@@ -3,32 +3,110 @@ local command = require "core.command"
 local config = require "core.config"
 local keymap = {}
 
+---@alias keymap.shortcut string
+---@alias keymap.command string
+---@alias keymap.modkey string
+---@alias keymap.pressed boolean
+---@alias keymap.map table<keymap.shortcut,keymap.command|keymap.command[]>
+---@alias keymap.rmap table<keymap.command, keymap.shortcut|keymap.shortcut[]>
+
+---Pressed status of mod keys.
+---@type table<keymap.modkey, keymap.pressed>
 keymap.modkeys = {}
+
+---List of commands assigned to a shortcut been the key of the map the shortcut.
+---@type keymap.map
 keymap.map = {}
+
+---List of shortcuts assigned to a command been the key of the map the command.
+---@type keymap.rmap
 keymap.reverse_map = {}
 
 local macos = PLATFORM == "Mac OS X"
 
 -- Thanks to mathewmariani, taken from his lite-macos github repository.
 local modkeys_os = require("core.modkeys-" .. (macos and "macos" or "generic"))
+
+---@type table<keymap.modkey, keymap.modkey>
 local modkey_map = modkeys_os.map
+
+---@type keymap.modkey[]
 local modkeys = modkeys_os.keys
 
-local function key_to_stroke(k)
+
+---Generates a stroke sequence including currently pressed mod keys.
+---@param key string
+---@return string
+local function key_to_stroke(key)
   local stroke = ""
   for _, mk in ipairs(modkeys) do
     if keymap.modkeys[mk] then
       stroke = stroke .. mk .. "+"
     end
   end
-  return stroke .. k
+  return stroke .. key
 end
 
 
+---Remove the given value from an array associated to a key in a table.
+---@param tbl table<string, string> The table containing the key
+---@param k string The key containing the array
+---@param v? string The value to remove from the array
+local function remove_only(tbl, k, v)
+  if tbl[k] then
+    if v then
+      local j = 0
+      for i=1, #tbl[k] do
+        while tbl[k][i + j] == v do
+          j = j + 1
+        end
+        tbl[k][i] = tbl[k][i + j]
+      end
+    else
+      tbl[k] = nil
+    end
+  end
+end
+
+
+---Removes from a keymap.map the bindings that are already registered.
+---@param map keymap.map
+local function remove_duplicates(map)
+  for stroke, commands in pairs(map) do
+    if type(commands) == "string" or type(commands) == "function" then
+      commands = { commands }
+    end
+    if keymap.map[stroke] then
+      for _, registered_cmd in ipairs(keymap.map[stroke]) do
+        local j = 0
+        for i=1, #commands do
+          while commands[i + j] == registered_cmd do
+            j = j + 1
+          end
+          commands[i] = commands[i + j]
+        end
+      end
+    end
+    if #commands < 1 then
+      map[stroke] = nil
+    else
+      map[stroke] = commands
+    end
+  end
+end
+
+
+---Add bindings by replacing commands that were previously assigned to a shortcut.
+---@param map keymap.map
 function keymap.add_direct(map)
   for stroke, commands in pairs(map) do
-    if type(commands) == "string" then
+    if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
+    end
+    if keymap.map[stroke] then
+      for _, cmd in ipairs(keymap.map[stroke]) do
+        remove_only(keymap.reverse_map, cmd, stroke)
+      end
     end
     keymap.map[stroke] = commands
     for _, cmd in ipairs(commands) do
@@ -38,15 +116,23 @@ function keymap.add_direct(map)
   end
 end
 
+
+---Adds bindings by appending commands to already registered shortcut or by
+---replacing currently assigned commands if overwrite is specified.
+---@param map keymap.map
+---@param overwrite? boolean
 function keymap.add(map, overwrite)
+  remove_duplicates(map)
   for stroke, commands in pairs(map) do
     if macos then
       stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
     end
-    if type(commands) == "string" or type(commands) == "function" then
-      commands = { commands }
-    end
     if overwrite then
+      if keymap.map[stroke] then
+        for _, cmd in ipairs(keymap.map[stroke]) do
+          remove_only(keymap.reverse_map, cmd, stroke)
+        end
+      end
       keymap.map[stroke] = commands
     else
       keymap.map[stroke] = keymap.map[stroke] or {}
@@ -62,35 +148,34 @@ function keymap.add(map, overwrite)
 end
 
 
-local function remove_only(tbl, k, v)
-  for key, values in pairs(tbl) do
-    if key == k then
-      if v then
-        for i, value in ipairs(values) do
-          if value == v then
-            table.remove(values, i)
-          end
-        end
-      else
-        tbl[key] = nil
-      end
-      break
-    end
-  end
+---Unregisters the given shortcut and associated command.
+---@param shortcut string
+---@param cmd string
+function keymap.unbind(shortcut, cmd)
+  remove_only(keymap.map, shortcut, cmd)
+  remove_only(keymap.reverse_map, cmd, shortcut)
 end
 
 
-function keymap.unbind(key, cmd)
-  remove_only(keymap.map, key, cmd)
-  remove_only(keymap.reverse_map, cmd, key)
-end
-
-
+---Returns all the shortcuts associated to a command unpacked for easy assignment.
+---@param cmd string
+---@return ...
 function keymap.get_binding(cmd)
   return table.unpack(keymap.reverse_map[cmd] or {})
 end
 
 
+---Returns all the shortcuts associated to a command packed in a table.
+---@param cmd string
+---@return table<integer, string> | nil shortcuts
+function keymap.get_bindings(cmd)
+  return keymap.reverse_map[cmd]
+end
+
+
+--------------------------------------------------------------------------------
+-- Events listening
+--------------------------------------------------------------------------------
 function keymap.on_key_pressed(k, ...)
   local mk = modkey_map[k]
   if mk then
@@ -101,7 +186,7 @@ function keymap.on_key_pressed(k, ...)
     end
   else
     local stroke = key_to_stroke(k)
-    local commands, performed = keymap.map[stroke]
+    local commands, performed = keymap.map[stroke], false
     if commands then
       for _, cmd in ipairs(commands) do
         if type(cmd) == "function" then
@@ -143,6 +228,9 @@ function keymap.on_key_released(k)
 end
 
 
+--------------------------------------------------------------------------------
+-- Register default bindings
+--------------------------------------------------------------------------------
 if macos then
   local keymap_macos = require("core.keymap-macos")
   keymap_macos(keymap)
