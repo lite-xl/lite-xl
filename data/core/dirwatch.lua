@@ -31,10 +31,13 @@ end
 -- In windows, this is a no-op for anything underneath a top-level directory,
 -- but code should be called anyway, so we can ensure that we have a proper
 -- experience across all platforms. Should be an absolute path.
+-- Can also be called on individual files, though this should be used sparingly,
+-- so as not to run into system limits (like in the autoreload plugin).
 function dirwatch:watch(directory, bool)
   if bool == false then return self:unwatch(directory) end
   if not self.watched[directory] and not self.scanned[directory] then
     if PLATFORM == "Windows" then
+      if system.get_file_info(directory).type ~= "dir" then return self:scan(directory) end
       if not self.windows_watch_top or directory:find(self.windows_watch_top, 1, true) ~= 1 then
         -- Get the highest level of directory that is common to this directory, and the original.
         local target = directory
