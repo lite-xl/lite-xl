@@ -1,6 +1,7 @@
 local core = require "core"
 local command = require "core.command"
 local config = require "core.config"
+local ime = require "core.ime"
 local keymap = {}
 
 ---@alias keymap.shortcut string
@@ -177,6 +178,10 @@ end
 -- Events listening
 --------------------------------------------------------------------------------
 function keymap.on_key_pressed(k, ...)
+  -- In Windows during IME composition, input is still sent to us
+  -- so we just ignore it
+  if ime.editing then return false end
+
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
