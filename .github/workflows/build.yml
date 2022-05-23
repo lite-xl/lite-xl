@@ -224,8 +224,8 @@ jobs:
       - run: pip install meson ninja
       - name: Set up environment variables
         run:  |
-          "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
-          "INSTALL_REF=${GITHUB_REF##*/}" >> $env:GITHUB_ENV
+          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
       - name: Configure
         run: |
           meson setup --buildtype=release --wrap-mode=forcefallback build
@@ -233,7 +233,9 @@ jobs:
         run: |
           meson install -C build --destdir="../$env:INSTALL_NAME"
       - name: Package
-        run: Compress-Archive -Path $env:INSTALL_NAME -DestinationPath "$env:INSTALL_NAME.zip"
+        run: |
+          Remove-Item -Recurse -Force -Path "$env:INSTALL_NAME/lib","$env:INSTALL_NAME/include"
+          Compress-Archive -Path $env:INSTALL_NAME -DestinationPath "$env:INSTALL_NAME.zip"
       - name: Artifacts
         uses: actions/upload-artifact@v2
         with:
