@@ -1,6 +1,6 @@
 project('lite-xl',
     ['c'],
-    version : '2.0.5',
+    version : '2.1.0',
     license : 'MIT',
     meson_version : '>= 0.47',
     default_options : [
@@ -174,6 +174,7 @@ endif
 
 install_data('licenses/licenses.md', install_dir : lite_docdir)
 
+install_subdir('docs/api' , install_dir : lite_datadir, strip_directory: true)
 install_subdir('data/core' , install_dir : lite_datadir, exclude_files : 'start.lua')
 foreach data_module : ['fonts', 'plugins', 'colors']
     install_subdir(join_paths('data', data_module), install_dir : lite_datadir)

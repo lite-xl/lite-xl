@@ -1,6 +1,6 @@
 -- this file is used by lite-xl to setup the Lua environment when starting
 VERSION = "@PROJECT_VERSION@"
-MOD_VERSION = "2"
+MOD_VERSION = "3"
 
 SCALE = tonumber(os.getenv("LITE_SCALE") or os.getenv("GDK_SCALE") or os.getenv("QT_SCALE_FACTOR")) or SCALE
 PATHSEP = package.config:sub(1, 1)
@@ -34,6 +34,8 @@ table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
 
 bit32 = bit32 or require "core.bit"
+
+require "core.utf8string"
 
 -- Because AppImages change the working directory before running the executable,
 -- we need to change it back to the original one.

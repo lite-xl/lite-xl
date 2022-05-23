@@ -31,25 +31,30 @@ end
 -- In windows, this is a no-op for anything underneath a top-level directory,
 -- but code should be called anyway, so we can ensure that we have a proper
 -- experience across all platforms. Should be an absolute path.
+-- Can also be called on individual files, though this should be used sparingly,
+-- so as not to run into system limits (like in the autoreload plugin).
 function dirwatch:watch(directory, bool)
   if bool == false then return self:unwatch(directory) end
+  local info = system.get_file_info(directory)
+  if not info then return end
   if not self.watched[directory] and not self.scanned[directory] then
     if PLATFORM == "Windows" then
+      if info.type ~= "dir" then return self:scan(directory) end
       if not self.windows_watch_top or directory:find(self.windows_watch_top, 1, true) ~= 1 then
-    -- Get the highest level of directory that is common to this directory, and the original.
-    local target = directory
-    while self.windows_watch_top and self.windows_watch_top:find(target, 1, true) ~= 1 do
-      target = common.dirname(target)
-    end
-    if target ~= self.windows_watch_top then
-      local value = self.monitor:watch(target)
-      if value and value < 0 then
-        return self:scan(directory)
+        -- Get the highest level of directory that is common to this directory, and the original.
+        local target = directory
+        while self.windows_watch_top and self.windows_watch_top:find(target, 1, true) ~= 1 do
+          target = common.dirname(target)
+        end
+        if target ~= self.windows_watch_top then
+          local value = self.monitor:watch(target)
+          if value and value < 0 then
+            return self:scan(directory)
+          end
+          self.windows_watch_top = target
+        end
       end
-      self.windows_watch_top = target
       self.windows_watch_count = self.windows_watch_count + 1
-    end
-      end
       self.watched[directory] = true
     else
       local value = self.monitor:watch(directory)
@@ -85,7 +90,9 @@ end
 
 -- designed to be run inside a coroutine.
 function dirwatch:check(change_callback, scan_time, wait_time)
+  local had_change = false
   self.monitor:check(function(id)
+    had_change = true
     if PLATFORM == "Windows" then
       change_callback(common.dirname(self.windows_watch_top .. PATHSEP .. id))
     elseif self.reverse_watched[id] then
@@ -95,9 +102,11 @@ function dirwatch:check(change_callback, scan_time, wait_time)
   local start_time = system.get_time()
   for directory, old_modified in pairs(self.scanned) do
     if old_modified then
-      local new_modified = system.get_file_info(directory).modified
-      if old_modified < new_modified then
+      local info = system.get_file_info(directory)
+      local new_modified = info and info.modified
+      if old_modified ~= new_modified then
         change_callback(directory)
+        had_change = true
         self.scanned[directory] = new_modified
       end
     end
@@ -106,6 +115,7 @@ function dirwatch:check(change_callback, scan_time, wait_time)
       start_time = system.get_time()
     end
   end
+  return had_change
 end
 
 

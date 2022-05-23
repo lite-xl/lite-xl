@@ -256,7 +256,12 @@ function RootView:on_mouse_moved(x, y, dx, dy)
 
   self.root_node:on_mouse_moved(x, y, dx, dy)
 
+  local last_overlapping_node = self.overlapping_node
   self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
+
+  if last_overlapping_node and last_overlapping_node ~= self.overlapping_node then
+    last_overlapping_node:on_mouse_left()
+  end
 
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local tab_index = self.overlapping_node and self.overlapping_node:get_tab_overlapping_point(x, y)
@@ -268,6 +273,13 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     core.request_cursor("arrow")
   elseif self.overlapping_node then
     core.request_cursor(self.overlapping_node.active_view.cursor)
+  end
+end
+
+
+function RootView:on_mouse_left()
+  if self.overlapping_node then
+    self.overlapping_node:on_mouse_left()
   end
 end
 
@@ -297,12 +309,12 @@ end
 
 
 function RootView:interpolate_drag_overlay(overlay)
-  self:move_towards(overlay, "x", overlay.to.x)
-  self:move_towards(overlay, "y", overlay.to.y)
-  self:move_towards(overlay, "w", overlay.to.w)
-  self:move_towards(overlay, "h", overlay.to.h)
+  self:move_towards(overlay, "x", overlay.to.x, nil, "tab_drag")
+  self:move_towards(overlay, "y", overlay.to.y, nil, "tab_drag")
+  self:move_towards(overlay, "w", overlay.to.w, nil, "tab_drag")
+  self:move_towards(overlay, "h", overlay.to.h, nil, "tab_drag")
 
-  self:move_towards(overlay, "opacity", overlay.visible and 100 or 0)
+  self:move_towards(overlay, "opacity", overlay.visible and 100 or 0, nil, "tab_drag")
   overlay.color[4] = overlay.base_color[4] * overlay.opacity / 100
 end
 

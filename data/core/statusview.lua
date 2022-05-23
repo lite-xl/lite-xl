@@ -113,9 +113,6 @@ function StatusView.Item:hide() self.visible = false end
 ---Show the item on the status bar.
 function StatusView.Item:show() self.visible = true end
 
----Function assiged by default when user provides a nil predicate.
-local function predicate_always_true() return true end
-
 ---A condition to evaluate if the item should be displayed. If a string
 ---is given it is treated as a require import that should return a valid object
 ---which is checked against the current active view, the sames applies if a
@@ -123,15 +120,7 @@ local function predicate_always_true() return true end
 ---perform a custom evaluation, setting to nil means always evaluates to true.
 ---@param predicate string | table | StatusView.Item.predicate
 function StatusView.Item:set_predicate(predicate)
-  predicate = predicate or predicate_always_true
-  if type(predicate) == "string" then
-    predicate = require(predicate)
-  end
-  if type(predicate) == "table" then
-    local class = predicate
-    predicate = function() return core.active_view:is(class) end
-  end
-  self.predicate = predicate
+  self.predicate = command.generate_predicate(predicate)
 end
 
 
@@ -655,14 +644,14 @@ local function merge_deprecated_items(destination, items, alignment)
   local position = alignment == StatusView.Item.LEFT and "left" or "right"
 
   local item_start = StatusView.Item(
-    predicate_always_true,
+    nil,
     "deprecated:"..position.."-start",
     alignment
   )
   item_start.get_item = items_start
 
   local item_end = StatusView.Item(
-    predicate_always_true,
+    nil,
     "deprecated:"..position.."-end",
     alignment
   )
@@ -1042,14 +1031,14 @@ function StatusView:update()
   if not self.visible and self.size.y <= 0 then
     return
   elseif not self.visible and self.size.y > 0 then
-    self:move_towards(self.size, "y", 0)
+    self:move_towards(self.size, "y", 0, nil, "statusbar")
     return
   end
 
   local height = style.font:get_height() + style.padding.y * 2;
 
   if self.size.y + 1 < height then
-    self:move_towards(self.size, "y", height)
+    self:move_towards(self.size, "y", height, nil, "statusbar")
   else
     self.size.y = height
   end

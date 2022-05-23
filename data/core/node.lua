@@ -51,6 +51,15 @@ function Node:on_mouse_released(...)
 end
 
 
+function Node:on_mouse_left()
+  if self.type == "leaf" then
+    self.active_view:on_mouse_left()
+  else
+    self:propagate("on_mouse_left")
+  end
+end
+
+
 function Node:consume(node)
   for k, _ in pairs(self) do self[k] = nil end
   for k, v in pairs(node) do self[k] = v   end
@@ -160,8 +169,12 @@ end
 
 function Node:set_active_view(view)
   assert(self.type == "leaf", "Tried to set active view on non-leaf node")
+  local last_active_view = self.active_view
   self.active_view = view
   core.set_active_view(view)
+  if last_active_view and last_active_view ~= view then
+    last_active_view:on_mouse_left()
+  end
 end
 
 
@@ -468,8 +481,8 @@ function Node:update()
     end
     self:tab_hovered_update(self.hovered.x, self.hovered.y)
     local tab_width = self:target_tab_width()
-    self:move_towards("tab_shift", tab_width * (self.tab_offset - 1))
-    self:move_towards("tab_width", tab_width)
+    self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
+    self:move_towards("tab_width", tab_width, nil, "tabs")
   else
     self.a:update()
     self.b:update()

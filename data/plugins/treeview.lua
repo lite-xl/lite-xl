@@ -1,4 +1,4 @@
--- mod-version:2 -- lite-xl 2.0
+-- mod-version:3 -- lite-xl 2.1
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -11,8 +11,6 @@ local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
 
 config.plugins.treeview = common.merge({
-  -- Amount of clicks to open a file
-  clicks_to_open = 2,
   -- Default treeview width
   size = 200 * SCALE
 }, config.plugins.treeview)
@@ -111,7 +109,7 @@ end
 
 
 function TreeView:get_name()
-  return "Project"
+  return nil
 end
 
 
@@ -237,46 +235,6 @@ function TreeView:on_mouse_moved(px, py, ...)
 end
 
 
-local function create_directory_in(item)
-  local path = item.abs_filename
-  core.command_view:enter("Create directory in " .. path, function(text)
-    local dirname = path .. PATHSEP .. text
-    local success, err = system.mkdir(dirname)
-    if not success then
-      core.error("cannot create directory %q: %s", dirname, err)
-    end
-    item.expanded = true
-  end)
-end
-
-
-function TreeView:on_mouse_pressed(button, x, y, clicks)
-  if not self.visible then return end
-  local caught = TreeView.super.on_mouse_pressed(self, button, x, y, clicks)
-  if caught or button ~= "left" then
-    return true
-  end
-
-  if self.hovered_item then
-    self:set_selection(self.hovered_item)
-
-    if keymap.modkeys["ctrl"] and button == "left" then
-      create_directory_in(self.selected_item)
-    elseif self.selected_item.type == "dir"
-      or (self.selected_item.type == "file"
-        and clicks == config.plugins.treeview.clicks_to_open
-      )
-    then
-      command.perform "treeview:open"
-    end
-  else
-    return false
-  end
-
-  return true
-end
-
-
 function TreeView:update()
   -- update width
   local dest = self.visible and self.target_size or 0
@@ -284,14 +242,14 @@ function TreeView:update()
     self.size.x = dest
     self.init_size = false
   else
-    self:move_towards(self.size, "x", dest)
+    self:move_towards(self.size, "x", dest, nil, "treeview")
   end
 
   if not self.visible then return end
 
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
-    self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate)
+    self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate, "treeview")
   else
     self.tooltip.alpha = 0
   end
@@ -454,7 +412,7 @@ function TreeView:toggle_expand(toggle)
     end
     local hovered_dir = core.project_dir_by_name(item.dir_name)
     if hovered_dir and hovered_dir.files_limit then
-      core.update_project_subdir(hovered_dir, item.filename, item.expanded)
+      core.update_project_subdir(hovered_dir, item.depth == 0 and "" or item.filename, item.expanded)
     end
   end
 end
@@ -643,6 +601,17 @@ command.add(TreeView, {
   ["treeview:deselect"] = function()
     view.selected_item = nil
   end,
+  
+  ["treeview:select"] = function()
+    view:set_selection(view.hovered_item)
+  end,
+  
+  ["treeview:select-and-open"] = function()
+    if view.hovered_item then 
+      view:set_selection(view.hovered_item)
+      command.perform "treeview:open"
+    end
+  end,
 
   ["treeview:collapse"] = function()
     if view.selected_item then
@@ -775,7 +744,7 @@ command.add(function() return treeitem() ~= nil end, {
     elseif PLATFORM == "Linux" or string.find(PLATFORM, "BSD") then
       system.exec(string.format("xdg-open %q", hovered_item.abs_filename))
     end
-  end,
+  end
 })
 
 keymap.add {
@@ -787,7 +756,10 @@ keymap.add {
   ["return"]      = "treeview:open",
   ["escape"]      = "treeview:deselect",
   ["delete"]      = "treeview:delete",
-  ["ctrl+return"] = "treeview:new-folder"
+  ["ctrl+return"] = "treeview:new-folder",
+  ["lclick"]      = "treeview:select-and-open",
+  ["mclick"]      = "treeview:select",
+  ["ctrl+lclick"] = "treeview:new-folder"
 }
 
 -- Return the treeview with toolbar and contextmenu to allow

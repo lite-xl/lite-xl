@@ -222,17 +222,56 @@ function common.bench(name, fn, ...)
 end
 
 
-function common.serialize(val)
+local function serialize(val, pretty, indent_str, escape, sort, limit, level)
+  local space = pretty and " " or ""
+  local indent = pretty and string.rep(indent_str, level) or ""
+  local newline = pretty and "\n" or ""
   if type(val) == "string" then
-    return string.format("%q", val)
+    local out = string.format("%q", val)
+    if escape then
+      out = string.gsub(out, "\\\n", "\\n")
+      out = string.gsub(out, "\\7", "\\a")
+      out = string.gsub(out, "\\8", "\\b")
+      out = string.gsub(out, "\\9", "\\t")
+      out = string.gsub(out, "\\11", "\\v")
+      out = string.gsub(out, "\\12", "\\f")
+      out = string.gsub(out, "\\13", "\\r")
+    end
+    return out
   elseif type(val) == "table" then
+    -- early exit
+    if level >= limit then return tostring(val) end
+    local next_indent = pretty and (indent .. indent_str) or ""
     local t = {}
     for k, v in pairs(val) do
-      table.insert(t, "[" .. common.serialize(k) .. "]=" .. common.serialize(v))
+      table.insert(t,
+        next_indent .. "[" ..
+          serialize(k, pretty, indent_str, escape, sort, limit, level + 1) ..
+        "]" .. space .. "=" .. space .. serialize(v, pretty, indent_str, escape, sort, limit, level + 1))
     end
-    return "{" .. table.concat(t, ",") .. "}"
+    if #t == 0 then return "{}" end
+    if sort then table.sort(t) end
+    return "{" .. newline .. table.concat(t, "," .. newline) .. newline .. indent .. "}"
   end
   return tostring(val)
+end
+
+-- Serialize `val` into a parsable string.
+-- Available options
+-- * pretty: enable pretty printing
+-- * indent_str: indent to use ("  " by default)
+-- * escape: use normal escape characters instead of the ones used by string.format("%q", ...)
+-- * sort: sort the keys inside tables
+-- * limit: limit how deep to serialize
+-- * initial_indent: the initial indentation level
+function common.serialize(val, opts)
+  opts = opts or {}
+  local indent_str = opts.indent_str or "  "
+  local initial_indent = opts.initial_indent or 0
+  local indent = opts.pretty and string.rep(indent_str, initial_indent) or ""
+  local limit = (opts.limit or math.huge) + initial_indent
+  return indent .. serialize(val, opts.pretty, indent_str,
+                   opts.escape, opts.sort, limit, initial_indent)
 end
 
 
