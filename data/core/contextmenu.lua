@@ -39,14 +39,7 @@ local function get_item_size(item)
 end
 
 function ContextMenu:register(predicate, items)
-  if type(predicate) == "string" then
-    predicate = require(predicate)
-  end
-  if type(predicate) == "table" then
-    local class = predicate
-    predicate = function() return core.active_view:is(class) end
-  end
-
+  predicate = command.generate_predicate(predicate)
   local width, height = 0, 0 --precalculate the size of context menu
   for i, item in ipairs(items) do
     if item ~= DIVIDER then

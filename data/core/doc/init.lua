@@ -458,7 +458,7 @@ end
 
 function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
   local old_text = self:get_text(line1, col1, line2, col2)
-  local new_text, n = fn(old_text)
+  local new_text, res = fn(old_text)
   if old_text ~= new_text then
     self:insert(line2, col2, new_text)
     self:remove(line1, col1, line2, col2)
@@ -467,22 +467,22 @@ function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
       self:set_selections(idx, line1, col1, line2, col2)
     end
   end
-  return n
+  return res
 end
 
 function Doc:replace(fn)
-  local has_selection, n = false, 0
+  local has_selection, results = false, { }
   for idx, line1, col1, line2, col2 in self:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
-      n = n + self:replace_cursor(idx, line1, col1, line2, col2, fn)
+      results[idx] = self:replace_cursor(idx, line1, col1, line2, col2, fn)
       has_selection = true
     end
   end
   if not has_selection then
     self:set_selection(table.unpack(self.selections))
-    n = n + self:replace_cursor(1, 1, 1, #self.lines, #self.lines[#self.lines], fn)
+    results[1] = self:replace_cursor(1, 1, 1, #self.lines, #self.lines[#self.lines], fn)
   end
-  return n
+  return results
 end
 
 
