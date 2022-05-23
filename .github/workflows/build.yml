@@ -212,19 +212,21 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        arch: [x86_64, x86]
+        arch:
+          - { name: i686, msvc: x86 }
+          - { name: x86_64, msvc: x86_64 }
     steps:
       - uses: actions/checkout@v2
       - uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.arch }}
+          arch: ${{ matrix.arch.msvc }}
       - uses: actions/setup-python@v1
         with:
           python-version: '3.x'
       - run: pip install meson ninja
       - name: Set up environment variables
         run:  |
-          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
       - name: Configure
         run: |
