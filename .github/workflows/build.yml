@@ -233,11 +233,11 @@ jobs:
           meson setup --buildtype=release --wrap-mode=forcefallback build
       - name: Build
         run: |
-          meson install -C build --destdir="../$env:INSTALL_NAME"
+          meson install -C build --destdir="../lite-xl"
       - name: Package
         run: |
-          Remove-Item -Recurse -Force -Path "$env:INSTALL_NAME/lib","$env:INSTALL_NAME/include"
-          Compress-Archive -Path $env:INSTALL_NAME -DestinationPath "$env:INSTALL_NAME.zip"
+          Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
+          Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
       - name: Artifacts
         uses: actions/upload-artifact@v2
         with:
