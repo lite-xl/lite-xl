@@ -112,6 +112,10 @@ jobs:
     - name: Set Environment Variables
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+<<<<<<< HEAD
+=======
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-$MSYSTEM_CARCH" >> "$GITHUB_ENV"
+>>>>>>> 0115661 (fix MSYS2 wrong arch in CI)
         echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
         if [[ "${MSYSTEM}" == "MINGW64" ]]; then
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"

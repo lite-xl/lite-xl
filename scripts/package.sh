@@ -60,7 +60,11 @@ source_package() {
 }
 
 main() {
+<<<<<<< HEAD
   local arch="$(get_platform_arch)"
+=======
+  local arch="$(get_target_arch)"
+>>>>>>> 0115661 (fix MSYS2 wrong arch in CI)
   local platform="$(get_platform_name)"
   local build_dir="$(get_default_build_dir)"
   local dest_dir=lite-xl

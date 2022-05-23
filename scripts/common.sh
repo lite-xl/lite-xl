@@ -72,6 +72,7 @@ get_platform_name() {
   fi
 }
 
+<<<<<<< HEAD
 get_platform_arch() {
   platform=$(get_platform_name)
   arch=$(uname -m)
@@ -85,11 +86,23 @@ get_platform_arch() {
     arch=$CROSS_ARCH
   fi
   echo "$arch"
+=======
+get_target_arch() {
+  if [[ "$OSTYPE" == "msys" ]]; then
+    echo "$MSYSTEM_CARCH"
+  else
+    uname -m
+  fi
+>>>>>>> 0115661 (fix MSYS2 wrong arch in CI)
 }
 
 get_default_build_dir() {
   platform=$(get_platform_name)
+<<<<<<< HEAD
   arch=$(get_platform_arch)
+=======
+  arch=$(get_target_arch)
+>>>>>>> 0115661 (fix MSYS2 wrong arch in CI)
   echo "build-$platform-$arch"
 }
 
