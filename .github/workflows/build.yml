@@ -253,6 +253,7 @@ jobs:
     - build_linux
     - build_macos
     - build_windows_msys2
+    - build_windows_msvc
     steps:
     - name: Set Environment Variables
       run: echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
