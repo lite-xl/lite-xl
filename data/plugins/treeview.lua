@@ -601,13 +601,13 @@ command.add(TreeView, {
   ["treeview:deselect"] = function()
     view.selected_item = nil
   end,
-  
+
   ["treeview:select"] = function()
     view:set_selection(view.hovered_item)
   end,
-  
+
   ["treeview:select-and-open"] = function()
-    if view.hovered_item then 
+    if view.hovered_item then
       view:set_selection(view.hovered_item)
       command.perform "treeview:open"
     end
@@ -760,6 +760,38 @@ keymap.add {
   ["lclick"]      = "treeview:select-and-open",
   ["mclick"]      = "treeview:select",
   ["ctrl+lclick"] = "treeview:new-folder"
+}
+
+-- The config specification used by gui generators
+config.plugins.treeview.config_spec = {
+  name = "Treeview",
+  {
+    label = "Size",
+    description = "Default treeview width.",
+    path = "size",
+    type = "number",
+    default = math.ceil(toolbar_view:get_min_width() / SCALE),
+    min = toolbar_view:get_min_width() / SCALE,
+    get_value = function(value)
+      return value / SCALE
+    end,
+    set_value = function(value)
+      return value * SCALE
+    end,
+    on_apply = function(value)
+      view:set_target_size("x", math.max(value, toolbar_view:get_min_width()))
+    end
+  },
+  {
+    label = "Hide on Startup",
+    description = "Show or hide the treeview on startup.",
+    path = "visible",
+    type = "toggle",
+    default = false,
+    on_apply = function(value)
+      view.visible = not value
+    end
+  }
 }
 
 -- Return the treeview with toolbar and contextmenu to allow
