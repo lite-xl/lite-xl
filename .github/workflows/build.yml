@@ -212,7 +212,7 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        arch: [amd64, amd64_x86]
+        arch: [x86_64, x86]
     steps:
       - uses: actions/checkout@v2
       - uses: ilammy/msvc-dev-cmd@v1
@@ -222,10 +222,23 @@ jobs:
         with:
           python-version: '3.x'
       - run: pip install meson ninja
+      - name: Set up environment variables
+        run:  |
+          "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_REF=${GITHUB_REF##*/}" >> $env:GITHUB_ENV
       - name: Configure
-        run: meson setup --buildtype=release --wrap-mode=forcefallback build
+        run: |
+          meson setup --buildtype=release --wrap-mode=forcefallback build
       - name: Build
-        run: ninja -C build
+        run: |
+          meson install -C build --destdir="../$env:INSTALL_NAME"
+      - name: Package
+        run: Compress-Archive -Path $env:INSTALL_NAME -DestinationPath "$env:INSTALL_NAME.zip"
+      - name: Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: Windows Artifacts
+          path: ${{ env.INSTALL_NAME }}.zip
 
 
   deploy:
