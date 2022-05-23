@@ -22,7 +22,50 @@ config.plugins.linewrapping = common.merge({
   -- Whether or not to enable wrapping by default when opening files.
   enable_by_default = false,
   -- Requires tokenization
-  require_tokenization = false
+  require_tokenization = false,
+  -- The config specification used by gui generators
+  config_spec = {
+    name = "Line Wrapping",
+    {
+      label = "Mode",
+      description = "The type of wrapping to perform.",
+      path = "mode",
+      type = "selection",
+      default = "letter",
+      values = {
+        {"Letters", "letter"},
+        {"Words", "word"}
+      }
+    },
+    {
+      label = "Guide",
+      description = "Whether or not to draw a guide.",
+      path = "guide",
+      type = "toggle",
+      default = true
+    },
+    {
+      label = "Indent",
+      description = "Whether or not to follow the indentation of wrapped line.",
+      path = "indent",
+      type = "toggle",
+      default = true
+    },
+    {
+      label = "Enable by Default",
+      description = "Whether or not to enable wrapping by default when opening files.",
+      path = "enable_by_default",
+      type = "toggle",
+      default = false
+    },
+    {
+      label = "Require Tokenization",
+      description = "Use tokenization when applying wrapping.",
+      path = "require_tokenization",
+      type = "toggle",
+      default = false
+    }
+  }
 }, config.plugins.linewrapping)
 
 local LineWrapping = {}
@@ -54,10 +97,10 @@ function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
         w = font:get_width(char)
         xoffset = xoffset + w
         if xoffset > width then
-          if mode == "word" and last_space then 
+          if mode == "word" and last_space then
             table.insert(splits, last_space + 1)
             xoffset = w + begin_width + (xoffset - last_width)
-          else 
+          else
             table.insert(splits, i)
             xoffset = w + begin_width
           end
@@ -113,11 +156,11 @@ function LineWrapping.reconstruct_breaks(docview, default_font, width, line_offs
     docview.wrapped_settings = nil
   end
 end
-  
+
 -- When we have an insertion or deletion, we have four sections of text.
 -- 1. The unaffected section, located prior to the cursor. This is completely ignored.
 -- 2. The beginning of the affected line prior to the insertion or deletion. Begins on column 1 of the selection.
--- 3. The removed/pasted lines. 
+-- 3. The removed/pasted lines.
 -- 4. Every line after the modification, begins one line after the selection in the initial document.
 function LineWrapping.update_breaks(docview, old_line1, old_line2, net_lines)
   -- Step 1: Determine the index for the line for #2.
@@ -134,16 +177,16 @@ function LineWrapping.update_breaks(docview, old_line1, old_line2, net_lines)
     table.remove(docview.wrapped_line_offsets, old_line1)
   end
   -- Step 4: Shift the line number of wrapped_lines past #4 by the amount of inserted/deleted lines.
-  if net_lines ~= 0 then 
+  if net_lines ~= 0 then
     for i = offset, #docview.wrapped_lines, 2 do
       docview.wrapped_lines[i] = docview.wrapped_lines[i] + net_lines
     end
-  end  
+  end
   -- Step 5: Compute the breaks and offsets for the lines for #2 and #3. Insert them into the table.
   local new_line1 = old_line1
   local new_line2 = old_line2 + net_lines
   for line = new_line1, new_line2 do
-    local breaks, begin_width = LineWrapping.compute_line_breaks(docview.doc, docview.wrapped_settings.font, line, docview.wrapped_settings.width, config.plugins.linewrapping.mode)  
+    local breaks, begin_width = LineWrapping.compute_line_breaks(docview.doc, docview.wrapped_settings.font, line, docview.wrapped_settings.width, config.plugins.linewrapping.mode)
     table.insert(docview.wrapped_line_offsets, line, begin_width)
     for i,b in ipairs(breaks) do
       table.insert(docview.wrapped_lines, offset, b)
@@ -177,7 +220,7 @@ end
 
 function LineWrapping.update_docview_breaks(docview)
   local x,y,w,h = docview:get_scrollbar_rect()
-  local width = (type(config.plugins.linewrapping.width_override) == "function" and config.plugins.linewrapping.width_override(docview)) 
+  local width = (type(config.plugins.linewrapping.width_override) == "function" and config.plugins.linewrapping.width_override(docview))
     or config.plugins.linewrapping.width_override or (docview.size.x - docview:get_gutter_width() - w)
   if (not docview.wrapped_settings or docview.wrapped_settings.width == nil or width ~= docview.wrapped_settings.width) then
     docview.scroll.to.x = 0
@@ -187,9 +230,9 @@ end
 
 local function get_idx_line_col(docview, idx)
   local doc = docview.doc
-  if not docview.wrapped_settings then 
+  if not docview.wrapped_settings then
     if idx > #doc.lines then return #doc.lines, #doc.lines[#doc.lines] + 1 end
-    return idx, 1 
+    return idx, 1
   end
   if idx < 1 then return 1, 1 end
   local offset = (idx - 1) * 2 + 1
@@ -199,7 +242,7 @@ end
 
 local function get_idx_line_length(docview, idx)
   local doc = docview.doc
-  if not docview.wrapped_settings then 
+  if not docview.wrapped_settings then
     if idx > #doc.lines then return #doc.lines[#doc.lines] + 1 end
     return #doc.lines[idx]
   end
@@ -353,8 +396,8 @@ function DocView:get_col_x_offset(line, col, line_end)
   local xoffset, i = (scol ~= 1 and self.wrapped_line_offsets[line] or 0), 1
   local default_font = self:get_font()
   for _, type, text in self.doc.highlighter:each_token(line) do
-    if i + #text >= scol then   
-      if i < scol then 
+    if i + #text >= scol then
+      if i < scol then
         text = text:sub(scol - i + 1)
         i = scol
       end
@@ -407,7 +450,7 @@ function DocView:draw_line_text(line, x, y)
     while text ~= nil and token_offset <= #text do
       local next_line, next_line_start_col = get_idx_line_col(self, idx + 1)
       if next_line ~= line then
-        next_line_start_col = #self.doc.lines[line] 
+        next_line_start_col = #self.doc.lines[line]
       end
       local max_length = next_line_start_col - total_offset
       local rendered_text = text:sub(token_offset, token_offset + max_length - 1)
@@ -454,9 +497,9 @@ function DocView:draw_line_body(line, x, y)
       draw_highlight = (line1 == line2 and col1 == col2)
     end
   end
-  if draw_highlight then 
+  if draw_highlight then
     local _, _, count = get_line_idx_col_count(self, line)
-    for i=1,count do 
+    for i=1,count do
       self:draw_line_highlight(x + self.scroll.x, y + lh * (i - 1))
     end
   end
@@ -468,9 +511,9 @@ local old_draw = DocView.draw
 function DocView:draw()
   old_draw(self)
   if self.wrapped_settings then
-    LineWrapping.draw_guide(self) 
+    LineWrapping.draw_guide(self)
   end
-end 
+end
 
 local old_draw_line_gutter = DocView.draw_line_gutter
 function DocView:draw_line_gutter(line, x, y, width)
@@ -512,18 +555,18 @@ function DocView.translate.next_line(doc, line, col, dv)
 end
 
 command.add(nil, {
-  ["line-wrapping:enable"] = function() 
-    if core.active_view and core.active_view.doc then 
+  ["line-wrapping:enable"] = function()
+    if core.active_view and core.active_view.doc then
       LineWrapping.update_docview_breaks(core.active_view)
     end
   end,
-  ["line-wrapping:disable"] = function() 
-    if core.active_view and core.active_view.doc then 
+  ["line-wrapping:disable"] = function()
+    if core.active_view and core.active_view.doc then
       LineWrapping.reconstruct_breaks(core.active_view, core.active_view:get_font(), math.huge)
     end
   end,
-  ["line-wrapping:toggle"] = function() 
-    if core.active_view and core.active_view.doc and core.active_view.wrapped_settings then 
+  ["line-wrapping:toggle"] = function()
+    if core.active_view and core.active_view.doc and core.active_view.wrapped_settings then
       command.perform("line-wrapping:disable")
     else
       command.perform("line-wrapping:enable")
