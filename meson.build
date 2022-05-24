@@ -1,6 +1,6 @@
 project('lite-xl',
     ['c'],
-    version : '2.0.5',
+    version : '2.1.0',
     license : 'MIT',
     meson_version : '>= 0.47',
     default_options : [

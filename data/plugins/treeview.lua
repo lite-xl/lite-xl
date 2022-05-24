@@ -1,4 +1,4 @@
--- mod-version:2 -- lite-xl 2.0
+-- mod-version:3 -- lite-xl 2.1
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -412,7 +412,7 @@ function TreeView:toggle_expand(toggle)
     end
     local hovered_dir = core.project_dir_by_name(item.dir_name)
     if hovered_dir and hovered_dir.files_limit then
-      core.update_project_subdir(hovered_dir, item.filename, item.expanded)
+      core.update_project_subdir(hovered_dir, item.depth == 0 and "" or item.filename, item.expanded)
     end
   end
 end

@@ -1,8 +1,8 @@
 #include <sys/inotify.h>
-#include <sys/select.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 
 
 struct dirmonitor_internal {
@@ -30,11 +30,8 @@ void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
 
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
-  fd_set set;
-  FD_ZERO(&set);
-  FD_SET(monitor->fd, &set);
-  FD_SET(monitor->sig[0], &set);
-  select(FD_SETSIZE, &set, NULL, NULL, NULL);
+  struct pollfd fds[2] = { { .fd = monitor->fd, .events = POLLIN | POLLERR, .revents = 0 }, { .fd = monitor->sig[0], .events = POLLIN | POLLERR, .revents = 0 } };
+  poll(fds, 2, -1);
   return read(monitor->fd, buffer, length);
 }
 

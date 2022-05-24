@@ -1,4 +1,4 @@
--- mod-version:2 -- lite-xl 2.0
+-- mod-version:3 -- lite-xl 2.1
 local core = require "core"
 local command = require "core.command"
 local keymap = require "core.keymap"
