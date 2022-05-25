@@ -103,6 +103,18 @@ int main(int argc, char **argv) {
   SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 #endif
 
+#if SDL_VERSION_ATLEAST(2, 0, 8)
+  /* This hint tells SDL to respect borderless window as a normal window.
+  ** For example, the window will sit right on top of the taskbar instead
+  ** of obscuring it. */
+  SDL_SetHint("SDL_BORDERLESS_WINDOWED_STYLE", "1");
+#endif
+#if SDL_VERSION_ATLEAST(2, 0, 12)
+  /* This hint tells SDL to allow the user to resize a borderless windoow.
+  ** It also enables aero-snap on Windows apparently. */
+  SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
+#endif
+
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(0, &dm);
 
