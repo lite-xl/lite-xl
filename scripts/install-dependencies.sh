@@ -48,7 +48,7 @@ main() {
     if [[ $lhelper == true ]]; then
       sudo apt-get install -qq ninja-build
     else
-      sudo apt-get install -qq ninja-build libsdl2-dev libfreetype6
+      sudo apt-get install -qq ninja-build wayland-protocols libsdl2-dev libfreetype6
     fi
     pip3 install meson
   elif [[ "$OSTYPE" == "darwin"* ]]; then
