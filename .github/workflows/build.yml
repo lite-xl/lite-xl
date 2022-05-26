@@ -12,6 +12,7 @@ on:
   pull_request:
     branches:
     - '*'
+  workflow_dispatch:
 
 jobs:
   archive_source_code:
