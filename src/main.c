@@ -23,8 +23,21 @@ static SDL_Window *window;
 static double get_scale(void) {
 #ifndef __APPLE__
   float dpi;
-  if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0)
+  SDL_DisplayMode dm;
+  if (SDL_GetDesktopDisplayMode(0, &dm) == 0) {
+    int base_width = 1280, base_height = 720;
+    double scale, current_aspect_ratio = (double) dm.w / dm.h,
+      base_aspect_ratio = (double) base_width / base_height;
+    if (current_aspect_ratio >= base_aspect_ratio) {
+      scale = (double) dm.w / base_width;
+    } else {
+      scale = (double) dm.h / base_height;
+    }
+    return scale;
+  }
+  else if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0) {
     return dpi / 96.0;
+  }
 #endif
   return 1.0;
 }
