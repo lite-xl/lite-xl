@@ -20,29 +20,6 @@
 
 static SDL_Window *window;
 
-static double get_scale(void) {
-#ifndef __APPLE__
-  float dpi;
-  SDL_DisplayMode dm;
-  if (SDL_GetDesktopDisplayMode(0, &dm) == 0) {
-    int base_width = 1280, base_height = 720;
-    double scale, current_aspect_ratio = (double) dm.w / dm.h,
-      base_aspect_ratio = (double) base_width / base_height;
-    if (current_aspect_ratio >= base_aspect_ratio) {
-      scale = (double) dm.w / base_width;
-    } else {
-      scale = (double) dm.h / base_height;
-    }
-    return scale;
-  }
-  else if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0) {
-    return dpi / 96.0;
-  }
-#endif
-  return 1.0;
-}
-
-
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
   int len = GetModuleFileName(NULL, buf, sz - 1);
@@ -209,9 +186,6 @@ init_lua:
 
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
-
-  lua_pushnumber(L, get_scale());
-  lua_setglobal(L, "SCALE");
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
