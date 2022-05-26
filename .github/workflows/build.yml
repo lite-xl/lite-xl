@@ -55,7 +55,7 @@ jobs:
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)" >> "$GITHUB_ENV"
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)-portable" >> "$GITHUB_ENV"
     - uses: actions/checkout@v2
     - name: Python Setup
       uses: actions/setup-python@v2
