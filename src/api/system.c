@@ -194,6 +194,12 @@ top:
         lua_pushinteger(L, e.window.data1);
         lua_pushinteger(L, e.window.data2);
         return 3;
+      } else if (e.window.event == SDL_WINDOWEVENT_MOVED ) {
+        lua_pushstring(L, "moved");
+        /* The new position coordinates. */
+        lua_pushinteger(L, e.window.data1);
+        lua_pushinteger(L, e.window.data2);
+        return 3;
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
         rencache_invalidate();
         lua_pushstring(L, "exposed");
@@ -412,6 +418,39 @@ static int f_set_cursor(lua_State *L) {
   return 0;
 }
 
+static int f_get_scale(lua_State *L) {
+#ifndef __APPLE__
+  SDL_DisplayMode dm;
+  char* env_scale = NULL;
+  double scale = 1.0, parsed_scale = 0;
+  int display_index = SDL_GetWindowDisplayIndex(window);
+
+  if (
+    (env_scale = getenv("GDK_SCALE")) != NULL
+    &&
+    (parsed_scale = strtod(env_scale, NULL)) > 0
+  ) {
+    scale = parsed_scale;
+  } else if (
+    (env_scale = getenv("QT_SCALE_FACTOR")) != NULL
+    &&
+    (parsed_scale = strtod(env_scale, NULL)) > 0
+  ) {
+    scale = parsed_scale;
+  } else if (SDL_GetCurrentDisplayMode(display_index, &dm) == 0) {
+    int base_width = 1280, base_height = 720;
+    double current_aspect_ratio = (double) dm.w / dm.h,
+      base_aspect_ratio = (double) base_width / base_height;
+    if (current_aspect_ratio >= base_aspect_ratio) {
+      scale = (double) dm.w / base_width;
+    } else {
+      scale = (double) dm.h / base_height;
+    }
+  }
+#endif
+  lua_pushnumber(L, scale);
+  return 1;
+}
 
 static int f_set_window_title(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
@@ -1075,6 +1114,7 @@ static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
   { "set_cursor",          f_set_cursor          },
+  { "get_scale",           f_get_scale           },
   { "set_window_title",    f_set_window_title    },
   { "set_window_mode",     f_set_window_mode     },
   { "get_window_mode",     f_get_window_mode     },
