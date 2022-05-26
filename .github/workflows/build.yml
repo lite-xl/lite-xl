@@ -65,21 +65,16 @@ jobs:
     - name: Install Dependencies
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       run: bash scripts/install-dependencies.sh --debug
-    - name: Install Release Dependencies
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      run: |
-        bash scripts/install-dependencies.sh --debug --lhelper
-        bash scripts/lhelper.sh --debug
     - name: Build
       run: |
         bash --version
-        bash scripts/build.sh --debug --forcefallback
+        bash scripts/build.sh --debug --forcefallback --portable
     - name: Package
       if: ${{ matrix.config.cc == 'gcc' }}
       run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary
     - name: AppImage
-      if: ${{ matrix.config.cc == 'gcc' && startsWith(github.ref, 'refs/tags/') }}
-      run: bash scripts/appimage.sh --nobuild --version ${INSTALL_REF}
+      if: ${{ matrix.config.cc == 'gcc' }}
+      run: bash scripts/appimage.sh --debug --addons --static --version ${INSTALL_REF}
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
       if: ${{ matrix.config.cc == 'gcc' }}
