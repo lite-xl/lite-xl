@@ -3,6 +3,7 @@ require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
 local style = require "colors.default"
+local scale
 local command
 local keymap
 local dirwatch
@@ -1306,6 +1307,20 @@ function core.step()
       did_keymap = false
     elseif type == "mousemoved" then
       core.try(core.on_event, type, a, b, c, d)
+    elseif type == "moved" and SCALE == DEFAULT_SCALE then
+      -- Change SCALE when lite-xl window is moved to a display
+      -- with a different resolution than previous one.
+      local new_scale = system.get_scale()
+      if SCALE ~= new_scale then
+        DEFAULT_SCALE = new_scale
+        local old_scale_mode = "ui"
+        if config.plugins.scale.mode ~= "ui" then
+          old_scale_mode = config.plugins.scale.mode
+          config.plugins.scale.mode = "ui"
+        end
+        scale.set(new_scale)
+        config.plugins.scale.mode = old_scale_mode
+      end
     else
       local _, res = core.try(core.on_event, type, a, b, c, d)
       did_keymap = res or did_keymap
@@ -1381,6 +1396,7 @@ end)
 
 
 function core.run()
+  scale = require "plugins.scale"
   local idle_iterations = 0
   while true do
     core.frame_start = system.get_time()
