@@ -420,26 +420,27 @@ static int f_set_cursor(lua_State *L) {
 }
 
 static int f_get_scale(lua_State *L) {
+  float scale = 1.0;
 #ifndef __APPLE__
   SDL_DisplayMode dm;
   char* env_scale = NULL;
-  float scale = 1.0, parsed_scale = 0;
+  float system_scale = 0;
   int display_index = SDL_GetWindowDisplayIndex(window);
 
   if (
     (env_scale = getenv("GDK_SCALE")) != NULL
     &&
-    (parsed_scale = strtod(env_scale, NULL)) > 0
+    (system_scale = strtod(env_scale, NULL)) > 0
   ) {
-    scale = parsed_scale;
+    scale = system_scale;
   } else if (
     (env_scale = getenv("QT_SCALE_FACTOR")) != NULL
     &&
-    (parsed_scale = strtod(env_scale, NULL)) > 0
+    (system_scale = strtod(env_scale, NULL)) > 0
   ) {
-    scale = parsed_scale;
-  } else if ((parsed_scale = ren_get_current_scale()) != 1.0) {
-    scale = parsed_scale;
+    scale = system_scale;
+  } else if ((system_scale = ren_get_current_scale()) != 1.0) {
+    scale = system_scale;
   } else if (SDL_GetCurrentDisplayMode(display_index, &dm) == 0) {
     float base_width = 1280, base_height = 720;
     float dmw = (float) dm.w, dmh = (float) dm.h;
