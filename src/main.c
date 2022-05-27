@@ -158,8 +158,14 @@ int main(int argc, char **argv) {
   SDL_GetCurrentDisplayMode(0, &dm);
 
   window = SDL_CreateWindow(
-    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, dm.w * 0.8, dm.h * 0.8,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
+    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+    dm.w * 0.8, dm.h * 0.8,
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN
+#if LITE_USE_SDL_RENDERER
+    | SDL_WINDOW_ALLOW_HIGHDPI
+#endif
+  );
+
   init_window_icon();
   if (!window) {
     fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
