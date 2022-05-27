@@ -560,3 +560,14 @@ void ren_get_size(int *x, int *y) {
   *x = surface->w / scale;
   *y = surface->h / scale;
 }
+
+
+float ren_get_current_scale() {
+  RenWindow *ren = &window_renderer;
+  int w_pixels, h_pixels;
+  int w_points, h_points;
+  SDL_GL_GetDrawableSize(ren->window, &w_pixels, &h_pixels);
+  SDL_GetWindowSize(ren->window, &w_points, &h_points);
+  float scale = (float) w_pixels / (float) w_points;
+  return scale;
+}

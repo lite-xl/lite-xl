@@ -39,6 +39,7 @@ void ren_update_rects(RenRect *rects, int count);
 void ren_set_clip_rect(RenRect rect);
 void ren_get_size(int *x, int *y); /* Reports the size in points. */
 void ren_free_window_resources();
+float ren_get_current_scale();
 
 
 #endif
