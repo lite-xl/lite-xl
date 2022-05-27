@@ -443,6 +443,10 @@ static int f_get_scale(lua_State *L) {
   } else if (SDL_GetCurrentDisplayMode(display_index, &dm) == 0) {
     float base_width = 1280, base_height = 720;
     float dmw = (float) dm.w, dmh = (float) dm.h;
+    if (dmw < dmh) {
+      base_width = 720;
+      base_height = 1280;
+    }
     float current_aspect_ratio = dmw / dmh,
       base_aspect_ratio = base_width / base_height;
     if (current_aspect_ratio >= base_aspect_ratio) {
