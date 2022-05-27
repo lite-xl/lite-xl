@@ -174,6 +174,17 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       if p.regex and #res > 0 then -- set correct utf8 len for regex result
         res[2] = res[1] + string.ulen(text:sub(res[1], res[2])) - 1
         res[1] = next
+        -- `regex.match` returns group results as a series of `begin, end`
+        -- we only want `begin`s
+        for i=1,(#res-3) do
+          local curr = i + 3
+          local from = i * 2 + 3
+          if from < #res then
+            res[curr] = string.uoffset(text, res[from])
+          else
+            res[curr] = nil
+          end
+        end
       end
       if res[1] and close and target[3] then
         local count = 0
