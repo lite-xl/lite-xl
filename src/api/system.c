@@ -195,12 +195,11 @@ top:
         lua_pushinteger(L, e.window.data1);
         lua_pushinteger(L, e.window.data2);
         return 3;
-      } else if (e.window.event == SDL_WINDOWEVENT_MOVED ) {
-        lua_pushstring(L, "moved");
-        /* The new position coordinates. */
+      } else if (e.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED ) {
+        lua_pushstring(L, "displaychanged");
+        /* The display index. */
         lua_pushinteger(L, e.window.data1);
-        lua_pushinteger(L, e.window.data2);
-        return 3;
+        return 2;
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
         rencache_invalidate();
         lua_pushstring(L, "exposed");

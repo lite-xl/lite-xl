@@ -1307,7 +1307,7 @@ function core.step()
       did_keymap = false
     elseif type == "mousemoved" then
       core.try(core.on_event, type, a, b, c, d)
-    elseif type == "moved" and SCALE == DEFAULT_SCALE then
+    elseif type == "displaychanged" and SCALE == DEFAULT_SCALE then
       -- Change SCALE when lite-xl window is moved to a display
       -- with a different resolution than previous one.
       local new_scale = system.get_scale()
