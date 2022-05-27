@@ -8,6 +8,7 @@
 #include "api.h"
 #include "../rencache.h"
 #include "../renwindow.h"
+#include "../renderer.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
@@ -422,7 +423,7 @@ static int f_get_scale(lua_State *L) {
 #ifndef __APPLE__
   SDL_DisplayMode dm;
   char* env_scale = NULL;
-  double scale = 1.0, parsed_scale = 0;
+  float scale = 1.0, parsed_scale = 0;
   int display_index = SDL_GetWindowDisplayIndex(window);
 
   if (
@@ -437,14 +438,17 @@ static int f_get_scale(lua_State *L) {
     (parsed_scale = strtod(env_scale, NULL)) > 0
   ) {
     scale = parsed_scale;
+  } else if ((parsed_scale = ren_get_current_scale()) != 1.0) {
+    scale = parsed_scale;
   } else if (SDL_GetCurrentDisplayMode(display_index, &dm) == 0) {
-    int base_width = 1280, base_height = 720;
-    double current_aspect_ratio = (double) dm.w / dm.h,
-      base_aspect_ratio = (double) base_width / base_height;
+    float base_width = 1280, base_height = 720;
+    float dmw = (float) dm.w, dmh = (float) dm.h;
+    float current_aspect_ratio = dmw / dmh,
+      base_aspect_ratio = base_width / base_height;
     if (current_aspect_ratio >= base_aspect_ratio) {
-      scale = (double) dm.w / base_width;
+      scale = dmw / base_width;
     } else {
-      scale = (double) dm.h / base_height;
+      scale = dmh / base_height;
     }
   }
 #endif
@@ -1007,7 +1011,7 @@ static int f_library_gc(lua_State *L) {
   lua_getfield(L, 1, "handle");
   void* handle = lua_touserdata(L, -1);
   SDL_UnloadObject(handle);
-  
+
   return 0;
 }
 
@@ -1149,7 +1153,7 @@ static const luaL_Reg lib[] = {
 
 
 int luaopen_system(lua_State *L) {
-  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN); 
+  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN);
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);
