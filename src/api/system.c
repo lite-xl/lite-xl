@@ -39,6 +39,8 @@
 #endif
 
 extern RenWindow window_renderer;
+extern float initial_scale;
+static bool got_initial_scale = false;
 
 static const char* button_name(int button) {
   switch (button) {
@@ -419,6 +421,15 @@ static int f_set_cursor(lua_State *L) {
 }
 
 static int f_get_scale(lua_State *L) {
+  /* returns the startup scale factor on first call if not 100% */
+  if (!got_initial_scale) {
+    got_initial_scale = true;
+    if (initial_scale != 1.0) {
+      lua_pushnumber(L, initial_scale);
+      return 1;
+    }
+  }
+
   float scale = 1.0;
 #ifndef __APPLE__
   SDL_DisplayMode dm;
@@ -438,7 +449,7 @@ static int f_get_scale(lua_State *L) {
     (system_scale = strtod(env_scale, NULL)) > 0
   ) {
     scale = system_scale;
-  } else if ((system_scale = ren_get_current_scale()) != 1.0) {
+  } else if ((system_scale = ren_get_scale_factor(window)) != 1.0) {
     scale = system_scale;
   } else if (SDL_GetCurrentDisplayMode(display_index, &dm) == 0) {
     float base_width = 1280, base_height = 720;
