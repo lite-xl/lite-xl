@@ -138,11 +138,11 @@ void renwin_update_rects(RenWindow *ren, RenRect *rects, int count) {
 }
 
 void renwin_free(RenWindow *ren) {
-  SDL_DestroyWindow(ren->window);
-  ren->window = NULL;
 #ifdef LITE_USE_SDL_RENDERER
   SDL_DestroyTexture(ren->texture);
   SDL_DestroyRenderer(ren->renderer);
   SDL_FreeSurface(ren->surface);
 #endif
+  SDL_DestroyWindow(ren->window);
+  ren->window = NULL;
 }
