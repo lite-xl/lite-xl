@@ -9,7 +9,6 @@ static float query_surface_scale(RenWindow *ren) {
   SDL_GL_GetDrawableSize(ren->window, &w_pixels, &h_pixels);
   SDL_GetWindowSize(ren->window, &w_points, &h_points);
   float scale = (float) w_pixels / (float) w_points;
-  scale = roundf(scale * 100) / 100;
   return scale;
 }
 
