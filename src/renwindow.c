@@ -61,8 +61,13 @@ void renwin_surface_scale(UNUSED RenWindow *ren, float *scale_x, float *scale_y)
 
 
 static RenRect scaled_rect(const RenRect rect, RenWindow *ren) {
+#ifdef LITE_USE_SDL_RENDERER
   float scale_x = ren->surface_scale_x;
   float scale_y = ren->surface_scale_y;
+#else
+  float scale_x = 1;
+  float scale_y = 1;
+#endif
   return (RenRect) {
     rect.x * scale_x,
     rect.y * scale_y,
