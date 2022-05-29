@@ -3,15 +3,14 @@
 #include "renwindow.h"
 
 #ifdef LITE_USE_SDL_RENDERER
-static int query_surface_scale(RenWindow *ren) {
+static float query_surface_scale(RenWindow *ren) {
   int w_pixels, h_pixels;
   int w_points, h_points;
   SDL_GL_GetDrawableSize(ren->window, &w_pixels, &h_pixels);
   SDL_GetWindowSize(ren->window, &w_points, &h_points);
-  /* We consider that the ratio pixel/point will always be an integer and
-     it is the same along the x and the y axis. */
-  assert(w_pixels % w_points == 0 && h_pixels % h_points == 0 && w_pixels / w_points == h_pixels / h_points);
-  return w_pixels / w_points;
+  float scale = (float) w_pixels / (float) w_points;
+  scale = roundf(scale * 100) / 100;
+  return scale;
 }
 
 static void setup_renderer(RenWindow *ren, int w, int h) {
@@ -45,7 +44,7 @@ void renwin_init_surface(UNUSED RenWindow *ren) {
 #endif
 }
 
-int renwin_surface_scale(UNUSED RenWindow *ren) {
+float renwin_surface_scale(UNUSED RenWindow *ren) {
 #ifdef LITE_USE_SDL_RENDERER
   return ren->surface_scale;
 #else
@@ -54,7 +53,7 @@ int renwin_surface_scale(UNUSED RenWindow *ren) {
 }
 
 
-static RenRect scaled_rect(const RenRect rect, const int scale) {
+static RenRect scaled_rect(const RenRect rect, const float scale) {
   return (RenRect) {rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale};
 }
 
@@ -102,7 +101,7 @@ void renwin_show_window(RenWindow *ren) {
 
 void renwin_update_rects(RenWindow *ren, RenRect *rects, int count) {
 #ifdef LITE_USE_SDL_RENDERER
-  const int scale = ren->surface_scale;
+  const float scale = ren->surface_scale;
   for (int i = 0; i < count; i++) {
     const RenRect *r = &rects[i];
     const int x = scale * r->x, y = scale * r->y;

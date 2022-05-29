@@ -257,7 +257,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
 #endif
 
-  const int surface_scale = renwin_surface_scale(&window_renderer);
+  const float surface_scale = renwin_surface_scale(&window_renderer);
   if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
     goto failure;
   int len = strlen(path);
@@ -372,7 +372,7 @@ float ren_font_group_get_width(RenFont **fonts, const char *text, size_t len) {
       break;
     width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
   }
-  const int surface_scale = renwin_surface_scale(&window_renderer);
+  const float surface_scale = renwin_surface_scale(&window_renderer);
   return width / surface_scale;
 }
 
@@ -380,7 +380,7 @@ float ren_draw_text(RenFont **fonts, const char *text, size_t len, float x, int 
   SDL_Surface *surface = renwin_get_surface(&window_renderer);
   const RenRect clip = window_renderer.clip;
 
-  const int surface_scale = renwin_surface_scale(&window_renderer);
+  const float surface_scale = renwin_surface_scale(&window_renderer);
   float pen_x = x * surface_scale;
   y *= surface_scale;
   int bytes_per_pixel = surface->format->BytesPerPixel;
@@ -479,7 +479,7 @@ static inline RenColor blend_pixel(RenColor dst, RenColor src) {
 void ren_draw_rect(RenRect rect, RenColor color) {
   if (color.a == 0) { return; }
 
-  const int surface_scale = renwin_surface_scale(&window_renderer);
+  const float surface_scale = renwin_surface_scale(&window_renderer);
 
   /* transforms coordinates in pixels. */
   rect.x      *= surface_scale;
@@ -555,7 +555,7 @@ void ren_set_clip_rect(RenRect rect) {
 
 void ren_get_size(int *x, int *y) {
   RenWindow *ren = &window_renderer;
-  const int scale = renwin_surface_scale(ren);
+  const float scale = renwin_surface_scale(ren);
   SDL_Surface *surface = renwin_get_surface(ren);
   *x = surface->w / scale;
   *y = surface->h / scale;

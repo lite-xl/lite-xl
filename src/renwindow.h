@@ -8,13 +8,13 @@ struct RenWindow {
   SDL_Renderer *renderer;
   SDL_Texture *texture;
   SDL_Surface *surface;
-  int surface_scale;
+  float surface_scale;
 #endif
 };
 typedef struct RenWindow RenWindow;
 
 void renwin_init_surface(RenWindow *ren);
-int  renwin_surface_scale(RenWindow *ren);
+float renwin_surface_scale(RenWindow *ren);
 void renwin_clip_to_surface(RenWindow *ren);
 void renwin_set_clip_rect(RenWindow *ren, RenRect rect);
 void renwin_resize_surface(RenWindow *ren);
