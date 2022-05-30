@@ -576,5 +576,5 @@ float ren_get_scale_factor(SDL_Window *win) {
   SDL_GL_GetDrawableSize(win, &w_pixels, &h_pixels);
   SDL_GetWindowSize(win, &w_points, &h_points);
   float scale = (float) w_pixels / (float) w_points;
-  return scale;
+  return roundf(scale * 100) / 100;
 }
