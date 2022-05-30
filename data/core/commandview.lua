@@ -25,7 +25,9 @@ local default_state = {
   submit = noop,
   suggest = noop,
   cancel = noop,
-  validate = function() return true end
+  validate = function() return true end,
+  typeahead = true,
+  wrap = true,
 }
 
 
@@ -44,7 +46,6 @@ function CommandView:new()
   self.font = "font"
   self.size.y = 0
   self.label = ""
-  self.wrap_on_overflow = false
 end
 
 
@@ -90,9 +91,10 @@ function CommandView:set_text(text, select)
   end
 end
 
+
 function CommandView:move_suggestion_idx(dir)
   local function overflow_suggestion_idx(n, count)
-    if self.wrap_on_overflow then
+    if self.state.wrap then
       return (n - 1) % count + 1
     else
       return common.clamp(n, 1, count)
@@ -143,17 +145,25 @@ function CommandView:submit()
 end
 
 
-function CommandView:enter(text, submit, suggest, cancel, validate, wrap_on_overflow)
+function CommandView:enter(text, ...)
   if self.state ~= default_state then
     return
   end
-  self.wrap_on_overflow = wrap_on_overflow or false;
-  self.state = {
-    submit = submit or noop,
-    suggest = suggest or noop,
-    cancel = cancel or noop,
-    validate = validate or function() return true end
-  }
+  local options = select(1, ...)
+
+  if type(options) ~= "table" then
+    core.info("Warning: deprecated CommandView:enter usage")
+    local submit, suggest, cancel, validate = ...
+    options = {
+      submit = submit,
+      suggest = suggest,
+      cancel = cancel,
+      validate = validate,
+    }
+  end
+
+  self.state = common.merge(default_state, options)
+
   core.set_active_view(self)
   self:update_suggestions()
   self.gutter_text_brightness = 100
@@ -210,7 +220,7 @@ function CommandView:update()
   -- update suggestions if text has changed
   if self.last_change_id ~= self.doc:get_change_id() then
     self:update_suggestions()
-    if self.suggestions[self.suggestion_idx] then
+    if self.state.typeahead and self.suggestions[self.suggestion_idx] then
       local current_text = self:get_text()
       local suggested_text = self.suggestions[self.suggestion_idx].text or ""
       if #self.last_text < #current_text and
