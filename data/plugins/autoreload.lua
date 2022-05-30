@@ -8,7 +8,17 @@ local common = require "core.common"
 local dirwatch = require "core.dirwatch"
 
 config.plugins.autoreload = common.merge({
-  always_show_nagview = false
+  always_show_nagview = false,
+  config_spec = {
+    name = "Autoreload",
+    {
+      label = "Always Show Nagview",
+      description = "Alerts you if an opened file changes externally even if you haven't modified it.",
+      path = "always_show_nagview",
+      type = "toggle",
+      default = false
+    }
+  }
 }, config.plugins.autoreload)
 
 local watch = dirwatch.new()

@@ -20,7 +20,55 @@ config.plugins.autocomplete = common.merge({
   -- Maximum amount of symbols to cache per document
   max_symbols = 4000,
   -- Font size of the description box
-  desc_font_size = 12
+  desc_font_size = 12,
+  -- The config specification used by gui generators
+  config_spec = {
+    name = "Autocomplete",
+    {
+      label = "Minimum Length",
+      description = "Amount of characters that need to be written for autocomplete to popup.",
+      path = "min_len",
+      type = "number",
+      default = 3,
+      min = 1,
+      max = 5
+    },
+    {
+      label = "Maximum Height",
+      description = "The maximum amount of visible items.",
+      path = "max_height",
+      type = "number",
+      default = 6,
+      min = 1,
+      max = 20
+    },
+    {
+      label = "Maximum Suggestions",
+      description = "The maximum amount of scrollable items.",
+      path = "max_suggestions",
+      type = "number",
+      default = 100,
+      min = 10,
+      max = 10000
+    },
+    {
+      label = "Maximum Symbols",
+      description = "Maximum amount of symbols to cache per document.",
+      path = "max_symbols",
+      type = "number",
+      default = 4000,
+      min = 1000,
+      max = 10000
+    },
+    {
+      label = "Description Font Size",
+      description = "Font size of the description box.",
+      path = "desc_font_size",
+      type = "number",
+      default = 12,
+      min = 8
+    }
+  }
 }, config.plugins.autocomplete)
 
 local autocomplete = {}
