@@ -29,6 +29,9 @@ DocView.translate = {
   end,
 
   ["next_page"] = function(doc, line, col, dv)
+    if line == #doc.lines then
+      return #doc.lines, #doc.lines[line]
+    end
     local min, max = dv:get_visible_line_range()
     return line + (max - min), 1
   end,
