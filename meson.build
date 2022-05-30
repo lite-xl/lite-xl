@@ -81,7 +81,7 @@ if not get_option('source-only')
     ]
 
     foreach lua : lua_names
-        last_lua = (lua == lua_names[-1])
+        last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
         lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : last_lua,
             version: '>= 5.4',
             default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
