@@ -244,30 +244,36 @@ end
 command.add(nil, {
   ["project-search:find"] = function()
     set_command_view_text()
-    core.command_view:enter("Find Text In Project", function(text)
-      text = text:lower()
-      begin_search(text, function(line_text)
-        return line_text:lower():find(text, nil, true)
-      end)
-    end)
+    core.command_view:enter("Find Text In Project", {
+      submit = function(text)
+        text = text:lower()
+        begin_search(text, function(line_text)
+          return line_text:lower():find(text, nil, true)
+        end)
+      end
+    })
   end,
 
   ["project-search:find-regex"] = function()
-    core.command_view:enter("Find Regex In Project", function(text)
-      local re = regex.compile(text, "i")
-      begin_search(text, function(line_text)
-        return regex.cmatch(re, line_text)
-      end)
-    end)
+    core.command_view:enter("Find Regex In Project", {
+      submit = function(text)
+        local re = regex.compile(text, "i")
+        begin_search(text, function(line_text)
+          return regex.cmatch(re, line_text)
+        end)
+      end
+    })
   end,
 
   ["project-search:fuzzy-find"] = function()
     set_command_view_text()
-    core.command_view:enter("Fuzzy Find Text In Project", function(text)
-      begin_search(text, function(line_text)
-        return common.fuzzy_match(line_text, text) and 1
-      end)
-    end)
+    core.command_view:enter("Fuzzy Find Text In Project", {
+      submit = function(text)
+        begin_search(text, function(line_text)
+          return common.fuzzy_match(line_text, text) and 1
+        end)
+      end
+    })
   end,
 })
 

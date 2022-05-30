@@ -690,48 +690,57 @@ command.add(function() return treeitem() ~= nil end, {
     local old_filename = treeitem().filename
     local old_abs_filename = treeitem().abs_filename
     core.command_view:set_text(old_filename)
-    core.command_view:enter("Rename", function(filename)
-      filename = core.normalize_to_project_dir(filename)
-      local abs_filename = core.project_absolute_path(filename)
-      local res, err = os.rename(old_abs_filename, abs_filename)
-      if res then -- successfully renamed
-        for _, doc in ipairs(core.docs) do
-          if doc.abs_filename and old_abs_filename == doc.abs_filename then
-            doc:set_filename(filename, abs_filename) -- make doc point to the new filename
-            doc:reset_syntax()
-            break -- only first needed
+    core.command_view:enter("Rename", {
+      submit = function(filename)
+        filename = core.normalize_to_project_dir(filename)
+        local abs_filename = core.project_absolute_path(filename)
+        local res, err = os.rename(old_abs_filename, abs_filename)
+        if res then -- successfully renamed
+          for _, doc in ipairs(core.docs) do
+            if doc.abs_filename and old_abs_filename == doc.abs_filename then
+              doc:set_filename(filename, abs_filename) -- make doc point to the new filename
+              doc:reset_syntax()
+              break -- only first needed
+            end
           end
+          core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+        else
+          core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
         end
-        core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
-      else
-        core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
-      end
-    end, common.path_suggest)
+      end,
+      suggest = common.path_suggest
+    })
   end,
 
   ["treeview:new-file"] = function()
     if not is_project_folder(treeitem().abs_filename) then
       core.command_view:set_text(treeitem().filename .. "/")
     end
-    core.command_view:enter("Filename", function(filename)
-      local doc_filename = core.project_dir .. PATHSEP .. filename
-      local file = io.open(doc_filename, "a+")
-      file:write("")
-      file:close()
-      core.root_view:open_doc(core.open_doc(doc_filename))
-      core.log("Created %s", doc_filename)
-    end, common.path_suggest)
+    core.command_view:enter("Filename", {
+      submit = function(filename)
+        local doc_filename = core.project_dir .. PATHSEP .. filename
+        local file = io.open(doc_filename, "a+")
+        file:write("")
+        file:close()
+        core.root_view:open_doc(core.open_doc(doc_filename))
+        core.log("Created %s", doc_filename)
+      end,
+      suggest = common.path_suggest
+    })
   end,
 
   ["treeview:new-folder"] = function()
     if not is_project_folder(treeitem().abs_filename) then
       core.command_view:set_text(treeitem().filename .. "/")
     end
-    core.command_view:enter("Folder Name", function(filename)
-      local dir_path = core.project_dir .. PATHSEP .. filename
-      common.mkdirp(dir_path)
-      core.log("Created %s", dir_path)
-    end, common.path_suggest)
+    core.command_view:enter("Folder Name", {
+      submit = function(filename)
+        local dir_path = core.project_dir .. PATHSEP .. filename
+        common.mkdirp(dir_path)
+        core.log("Created %s", dir_path)
+      end,
+      suggest = common.path_suggest
+    })
   end,
 
   ["treeview:open-in-system"] = function()

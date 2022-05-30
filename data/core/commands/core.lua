@@ -48,36 +48,42 @@ command.add(nil, {
   end,
 
   ["core:reload-module"] = function()
-    core.command_view:enter("Reload Module", function(text, item)
-      local text = item and item.text or text
-      core.reload_module(text)
-      core.log("Reloaded module %q", text)
-    end, function(text)
-      local items = {}
-      for name in pairs(package.loaded) do
-        table.insert(items, name)
+    core.command_view:enter("Reload Module", {
+      submit = function(text, item)
+        local text = item and item.text or text
+        core.reload_module(text)
+        core.log("Reloaded module %q", text)
+      end,
+      suggest = function(text)
+        local items = {}
+        for name in pairs(package.loaded) do
+          table.insert(items, name)
+        end
+        return common.fuzzy_match(items, text)
       end
-      return common.fuzzy_match(items, text)
-    end)
+    })
   end,
 
   ["core:find-command"] = function()
     local commands = command.get_all_valid()
-    core.command_view:enter("Do Command", function(text, item)
-      if item then
-        command.perform(item.command)
+    core.command_view:enter("Do Command", {
+      submit = function(text, item)
+        if item then
+          command.perform(item.command)
+        end
+      end,
+      suggest = function(text)
+        local res = common.fuzzy_match(commands, text)
+        for i, name in ipairs(res) do
+          res[i] = {
+            text = command.prettify_name(name),
+            info = keymap.get_binding(name),
+            command = name,
+          }
+        end
+        return res
       end
-    end, function(text)
-      local res = common.fuzzy_match(commands, text)
-      for i, name in ipairs(res) do
-        res[i] = {
-          text = command.prettify_name(name),
-          info = keymap.get_binding(name),
-          command = name,
-        }
-      end
-      return res
-    end)
+    })
   end,
 
   ["core:find-file"] = function()
@@ -91,12 +97,15 @@ command.add(nil, {
         table.insert(files, common.home_encode(path .. item.filename))
       end
     end
-    core.command_view:enter("Open File From Project", function(text, item)
-      text = item and item.text or text
-      core.root_view:open_doc(core.open_doc(common.home_expand(text)))
-    end, function(text)
-      return common.fuzzy_match_with_recents(files, core.visited_files, text)
-    end)
+    core.command_view:enter("Open File From Project", {
+      submit = function(text, item)
+        text = item and item.text or text
+        core.root_view:open_doc(core.open_doc(common.home_expand(text)))
+      end,
+      suggest = function(text)
+        return common.fuzzy_match_with_recents(files, core.visited_files, text)
+      end
+    })
   end,
 
   ["core:new-doc"] = function()
@@ -104,12 +113,11 @@ command.add(nil, {
   end,
 
   ["core:new-named-doc"] = function()
-    core.command_view:enter(
-      "File name",
-      function(text)
+    core.command_view:enter("File name", {
+      submit = function(text)
         core.root_view:open_doc(core.open_doc(text))
       end
-    )
+    })
   end,
 
   ["core:open-file"] = function()
@@ -122,30 +130,34 @@ command.add(nil, {
         core.command_view:set_text(text)
       end
     end
-    core.command_view:enter("Open File", function(text)
-      local filename = system.absolute_path(common.home_expand(text))
-      core.root_view:open_doc(core.open_doc(filename))
-    end, function (text)
-      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
-    end, nil, function(text)
-      local filename = common.home_expand(text)
-      local path_stat, err = system.get_file_info(filename)
-      if err then
-        if err:find("No such file", 1, true) then
-          -- check if the containing directory exists
-          local dirname = common.dirname(filename)
-          local dir_stat = dirname and system.get_file_info(dirname)
-          if not dirname or (dir_stat and dir_stat.type == 'dir') then
+    core.command_view:enter("Open File", {
+      submit = function(text)
+        local filename = system.absolute_path(common.home_expand(text))
+        core.root_view:open_doc(core.open_doc(filename))
+      end,
+      suggest = function (text)
+          return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+        end,
+      validate = function(text)
+          local filename = common.home_expand(text)
+          local path_stat, err = system.get_file_info(filename)
+          if err then
+            if err:find("No such file", 1, true) then
+              -- check if the containing directory exists
+              local dirname = common.dirname(filename)
+              local dir_stat = dirname and system.get_file_info(dirname)
+              if not dirname or (dir_stat and dir_stat.type == 'dir') then
+                return true
+              end
+            end
+            core.error("Cannot open file %s: %s", text, err)
+          elseif path_stat.type == 'dir' then
+            core.error("Cannot open %s, is a folder", text)
+          else
             return true
           end
-        end
-        core.error("Cannot open file %s: %s", text, err)
-      elseif path_stat.type == 'dir' then
-        core.error("Cannot open %s, is a folder", text)
-      else
-        return true
-      end
-    end, true)
+        end,
+    })
   end,
 
   ["core:open-log"] = function()
@@ -173,18 +185,21 @@ command.add(nil, {
     if dirname then
       core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
     end
-    core.command_view:enter("Change Project Folder", function(text)
-      local path = common.home_expand(text)
-      local abs_path = check_directory_path(path)
-      if not abs_path then
-        core.error("Cannot open directory %q", path)
-        return
-      end
-      if abs_path == core.project_dir then return end
-      core.confirm_close_docs(core.docs, function(dirpath)
-        core.open_folder_project(dirpath)
-      end, abs_path)
-    end, suggest_directory)
+    core.command_view:enter("Change Project Folder", {
+      submit = function(text)
+        local path = common.home_expand(text)
+        local abs_path = check_directory_path(path)
+        if not abs_path then
+          core.error("Cannot open directory %q", path)
+          return
+        end
+        if abs_path == core.project_dir then return end
+        core.confirm_close_docs(core.docs, function(dirpath)
+          core.open_folder_project(dirpath)
+        end, abs_path)
+      end,
+      suggest = suggest_directory
+    })
   end,
 
   ["core:open-project-folder"] = function()
@@ -192,34 +207,40 @@ command.add(nil, {
     if dirname then
       core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
     end
-    core.command_view:enter("Open Project", function(text)
-      local path = common.home_expand(text)
-      local abs_path = check_directory_path(path)
-      if not abs_path then
-        core.error("Cannot open directory %q", path)
-        return
-      end
-      if abs_path == core.project_dir then
-        core.error("Directory %q is currently opened", abs_path)
-        return
-      end
-      system.exec(string.format("%q %q", EXEFILE, abs_path))
-    end, suggest_directory)
+    core.command_view:enter("Open Project", {
+      submit = function(text)
+        local path = common.home_expand(text)
+        local abs_path = check_directory_path(path)
+        if not abs_path then
+          core.error("Cannot open directory %q", path)
+          return
+        end
+        if abs_path == core.project_dir then
+          core.error("Directory %q is currently opened", abs_path)
+          return
+        end
+        system.exec(string.format("%q %q", EXEFILE, abs_path))
+      end,
+      suggest = suggest_directory
+    })
   end,
 
   ["core:add-directory"] = function()
-    core.command_view:enter("Add Directory", function(text)
-      text = common.home_expand(text)
-      local path_stat, err = system.get_file_info(text)
-      if not path_stat then
-        core.error("cannot open %q: %s", text, err)
-        return
-      elseif path_stat.type ~= 'dir' then
-        core.error("%q is not a directory", text)
-        return
-      end
-      core.add_project_directory(system.absolute_path(text))
-    end, suggest_directory)
+    core.command_view:enter("Add Directory", {
+      submit = function(text)
+        text = common.home_expand(text)
+        local path_stat, err = system.get_file_info(text)
+        if not path_stat then
+          core.error("cannot open %q: %s", text, err)
+          return
+        elseif path_stat.type ~= 'dir' then
+          core.error("%q is not a directory", text)
+          return
+        end
+        core.add_project_directory(system.absolute_path(text))
+      end,
+      suggest = suggest_directory
+    })
   end,
 
   ["core:remove-directory"] = function()
@@ -228,14 +249,17 @@ command.add(nil, {
     for i = n, 2, -1 do
       dir_list[n - i + 1] = core.project_directories[i].name
     end
-    core.command_view:enter("Remove Directory", function(text, item)
-      text = common.home_expand(item and item.text or text)
-      if not core.remove_project_directory(text) then
-        core.error("No directory %q to be removed", text)
+    core.command_view:enter("Remove Directory", {
+      submit = function(text, item)
+        text = common.home_expand(item and item.text or text)
+        if not core.remove_project_directory(text) then
+          core.error("No directory %q to be removed", text)
+        end
+      end,
+      suggest = function(text)
+        text = common.home_expand(text)
+        return common.home_encode_list(common.dir_list_suggest(text, dir_list))
       end
-    end, function(text)
-      text = common.home_expand(text)
-      return common.home_encode_list(common.dir_list_suggest(text, dir_list))
-    end)
+    })
   end,
 })

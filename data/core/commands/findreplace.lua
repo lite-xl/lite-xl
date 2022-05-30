@@ -62,27 +62,31 @@ local function find(label, search_fn)
   core.status_view:show_tooltip(get_find_tooltip())
 
   core.command_view:set_hidden_suggestions()
-  core.command_view:enter(label, function(text, item)
-    insert_unique(core.previous_find, text)
-    core.status_view:remove_tooltip()
-    if found_expression then
+  core.command_view:enter(label, {
+    submit = function(text, item)
+      insert_unique(core.previous_find, text)
+      core.status_view:remove_tooltip()
+      if found_expression then
+        last_fn, last_text = search_fn, text
+      else
+        core.error("Couldn't find %q", text)
+        last_view.doc:set_selection(table.unpack(last_sel))
+        last_view:scroll_to_make_visible(table.unpack(last_sel))
+      end
+    end,
+    suggest = function(text)
+      update_preview(last_sel, search_fn, text)
       last_fn, last_text = search_fn, text
-    else
-      core.error("Couldn't find %q", text)
-      last_view.doc:set_selection(table.unpack(last_sel))
-      last_view:scroll_to_make_visible(table.unpack(last_sel))
+      return core.previous_find
+    end,
+    cancel = function(explicit)
+      core.status_view:remove_tooltip()
+      if explicit then
+        last_view.doc:set_selection(table.unpack(last_sel))
+        last_view:scroll_to_make_visible(table.unpack(last_sel))
+      end
     end
-  end, function(text)
-    update_preview(last_sel, search_fn, text)
-    last_fn, last_text = search_fn, text
-    return core.previous_find
-  end, function(explicit)
-    core.status_view:remove_tooltip()
-    if explicit then
-      last_view.doc:set_selection(table.unpack(last_sel))
-      last_view:scroll_to_make_visible(table.unpack(last_sel))
-    end
-  end)
+  })
 end
 
 
@@ -91,25 +95,31 @@ local function replace(kind, default, fn)
 
   core.status_view:show_tooltip(get_find_tooltip())
   core.command_view:set_hidden_suggestions()
-  core.command_view:enter("Find To Replace " .. kind, function(old)
-    insert_unique(core.previous_find, old)
-    core.command_view:set_text(old, true)
+  core.command_view:enter("Find To Replace " .. kind, {
+    submit = function(old)
+      insert_unique(core.previous_find, old)
+      core.command_view:set_text(old, true)
 
-    local s = string.format("Replace %s %q With", kind, old)
-    core.command_view:set_hidden_suggestions()
-    core.command_view:enter(s, function(new)
+      local s = string.format("Replace %s %q With", kind, old)
+      core.command_view:set_hidden_suggestions()
+      core.command_view:enter(s, {
+        submit = function(new)
+          core.status_view:remove_tooltip()
+          insert_unique(core.previous_replace, new)
+          local n = doc():replace(function(text)
+            return fn(text, old, new)
+          end)
+          core.log("Replaced %d instance(s) of %s %q with %q", n, kind, old, new)
+        end,
+        suggest = function() return core.previous_replace end, function()
+          core.status_view:remove_tooltip()
+        end
+      })
+    end,
+    suggest = function() return core.previous_find end, function()
       core.status_view:remove_tooltip()
-      insert_unique(core.previous_replace, new)
-      local n = doc():replace(function(text)
-        return fn(text, old, new)
-      end)
-      core.log("Replaced %d instance(s) of %s %q with %q", n, kind, old, new)
-    end, function() return core.previous_replace end, function()
-      core.status_view:remove_tooltip()
-    end)
-  end, function() return core.previous_find end, function()
-    core.status_view:remove_tooltip()
-  end)
+    end
+  })
 end
 
 local function has_selection()
