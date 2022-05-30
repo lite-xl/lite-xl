@@ -171,7 +171,7 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-float rencache_draw_text(RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color)
+float rencache_draw_text(RenFont **fonts, const char *text, size_t len, float x, float y, RenColor color)
 {
   float width = ren_font_group_get_width(fonts, text, len);
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
@@ -316,4 +316,3 @@ void rencache_end_frame() {
   cells_prev = tmp;
   command_buf_idx = 0;
 }
-
