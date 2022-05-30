@@ -145,7 +145,7 @@ command.add(nil, {
       else
         return true
       end
-    end)
+    end, true)
   end,
 
   ["core:open-log"] = function()
