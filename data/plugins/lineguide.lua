@@ -13,7 +13,7 @@ function DocView:draw_overlay(...)
     local y = self.position.y
     local w = math.ceil(SCALE * 1)
     local h = self.size.y
-  
+
     local color = style.guide or style.selection
     renderer.draw_rect(x, y, w, h, color)
   end
