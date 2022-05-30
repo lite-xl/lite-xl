@@ -300,22 +300,20 @@ local function set_indent_type(doc, type)
 end
 
 local function set_indent_type_command()
-  core.command_view:enter(
-    "Specify indent style for this file",
-    function(value) -- submit
+  core.command_view:enter("Specify indent style for this file", {
+    submit = function(value)
       local doc = core.active_view.doc
       value = value:lower()
       set_indent_type(doc, value == "tabs" and "hard" or "soft")
     end,
-    function(text) -- suggest
+    suggest = function(text)
       return common.fuzzy_match({"tabs", "spaces"}, text)
     end,
-    nil, -- cancel
-    function(text) -- validate
+    validate = function(text)
       local t = text:lower()
       return t == "tabs" or t == "spaces"
     end
-  )
+  })
 end
 
 
@@ -330,20 +328,17 @@ local function set_indent_size(doc, size)
 end
 
 local function set_indent_size_command()
-  core.command_view:enter(
-    "Specify indent size for current file",
-    function(value) -- submit
+  core.command_view:enter("Specify indent size for current file", {
+    submit = function(value)
       value = math.floor(tonumber(value))
       local doc = core.active_view.doc
       set_indent_size(doc, value)
     end,
-    nil, -- suggest
-    nil, -- cancel
-    function(value) -- validate
+    validate = function(value)
       value = tonumber(value)
       return value ~= nil and value >= 1
     end
-  )
+  })
 end
 
 
