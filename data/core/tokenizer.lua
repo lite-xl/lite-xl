@@ -1,9 +1,12 @@
+local core = require "core"
 local syntax = require "core.syntax"
 local common = require "core.common"
 
 local tokenizer = {}
+local bad_patterns = {}
 
 local function push_token(t, type, text)
+  type = type or "normal"
   local prev_type = t[#t-1]
   local prev_text = t[#t]
   if prev_type and (prev_type == type or prev_text:ufind("^%s*$")) then
@@ -256,6 +259,15 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     local matched = false
     for n, p in ipairs(current_syntax.patterns) do
       local find_results = { find_text(text, p, i, true, false) }
+      if #find_results - 1 > #p.type then
+        if not bad_patterns[current_syntax] then
+          bad_patterns[current_syntax] = { }
+        end
+        if not bad_patterns[current_syntax][n] then
+          bad_patterns[current_syntax][n] = true
+          core.error("Malformed pattern #%d in %s language plugin", n, current_syntax.name or "unnamed")
+        end
+      end
       if find_results[1] then
         -- matched pattern; make and add tokens
         push_tokens(res, current_syntax, p, text, find_results)
