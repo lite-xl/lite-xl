@@ -876,13 +876,6 @@ local function get_plugin_details(filename)
       if mod_version then
         version_match = (mod_version == MOD_VERSION)
       end
-      -- The following pattern is used for backward compatibility only
-      -- Future versions will look only at the mod-version tag.
-      local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)$')
-      if version then
-        -- we consider the version tag 2.0 equivalent to mod-version:2
-        version_match = (version == '2.0' and MOD_VERSION == "2")
-      end
     end
     if not priority then
       priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
