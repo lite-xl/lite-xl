@@ -1056,7 +1056,7 @@ function core.get_views_referencing_doc(doc)
 end
 
 
-function log(level, show, backtrace, fmt, ...)
+function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
     local s = style.log[level]
@@ -1081,20 +1081,20 @@ end
 
 
 function core.log(...)
-  return log("INFO", true, false, ...)
+  return core.custom_log("INFO", true, false, ...)
 end
 
 
 function core.log_quiet(...)
-  return log("INFO", false, false, ...)
+  return core.custom_log("INFO", false, false, ...)
 end
 
 function core.warn(...)
-  return log("WARN", true, true, ...)
+  return core.custom_log("WARN", true, true, ...)
 end
 
 function core.error(...)
-  return log("ERROR", true, true, ...)
+  return core.custom_log("ERROR", true, true, ...)
 end
 
 
