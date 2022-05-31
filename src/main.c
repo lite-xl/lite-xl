@@ -91,7 +91,10 @@ int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
 #endif
 
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+    fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
+    exit(1);
+  }
   SDL_EnableScreenSaver();
   SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
   atexit(SDL_Quit);
@@ -122,6 +125,10 @@ int main(int argc, char **argv) {
     "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, dm.w * 0.8, dm.h * 0.8,
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
   init_window_icon();
+  if (!window) {
+    fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
+    exit(1);
+  }
   ren_init(window);
 
   lua_State *L;

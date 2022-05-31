@@ -35,6 +35,10 @@ void renwin_init_surface(UNUSED RenWindow *ren) {
   int w, h;
   SDL_GL_GetDrawableSize(ren->window, &w, &h);
   ren->surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_BGRA32);
+  if (!ren->surface) {
+    fprintf(stderr, "Error creating surface: %s", SDL_GetError());
+    exit(1);
+  }
   setup_renderer(ren, w, h);
 #endif
 }
@@ -68,7 +72,12 @@ SDL_Surface *renwin_get_surface(RenWindow *ren) {
 #ifdef LITE_USE_SDL_RENDERER
   return ren->surface;
 #else
-  return SDL_GetWindowSurface(ren->window);
+  SDL_Surface *surface = SDL_GetWindowSurface(ren->window);
+  if (!surface) {
+    fprintf(stderr, "Error getting window surface: %s", SDL_GetError());
+    exit(1);
+  }
+  return surface;
 #endif
 }
 
