@@ -13,6 +13,7 @@ BUILD_DIR="$(get_default_build_dir)"
 RUN_BUILD=true
 STATIC_BUILD=false
 ADDONS=false
+BUILD_TYPE="debug"
 
 show_help(){
   echo
@@ -28,6 +29,7 @@ show_help(){
   echo "-s --static               Specify if building using static libraries."
   echo "-v --version VERSION      Specify a version, non whitespace separated string."
   echo "-a --addons               Install 3rd party addons."
+  echo "-r --release              Compile in release mode."
   echo
 }
 
@@ -54,6 +56,10 @@ for i in "$@"; do
       ;;
     -n|--nobuild)
       RUN_BUILD=false
+      shift
+      ;;
+    -r|--release)
+      BUILD_TYPE="release"
       shift
       ;;
     -s|--static)
@@ -111,10 +117,10 @@ build_litexl() {
   echo "Build lite-xl..."
   sleep 1
   if [[ $STATIC_BUILD == false ]]; then
-    meson setup --buildtype=release --prefix=/usr ${BUILD_DIR}
+    meson setup --buildtype=$BUILD_TYPE --prefix=/usr ${BUILD_DIR}
   else
     meson setup --wrap-mode=forcefallback \
-      --buildtype=release \
+      --buildtype=$BUILD_TYPE \
       --prefix=/usr \
       ${BUILD_DIR}
   fi

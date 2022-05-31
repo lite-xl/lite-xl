@@ -37,6 +37,7 @@ show_help() {
   echo "-D --dmg                  Create a DMG disk image (macOS only)."
   echo "                          Requires NPM and AppDMG."
   echo "-I --innosetup            Create an InnoSetup installer (Windows only)."
+  echo "-r --release              Compile in release mode."
   echo "-S --source               Create a source code package,"
   echo "                          including subprojects dependencies."
   echo
@@ -58,6 +59,7 @@ main() {
   local innosetup
   local portable
   local pgo
+  local release
 
   for i in "$@"; do
     case $i in
@@ -109,6 +111,10 @@ main() {
         portable="--portable"
         shift
         ;;
+      -r|--release)
+        release="--release"
+        shift
+        ;;
       -S|--source)
         source="--source"
         shift
@@ -145,6 +151,7 @@ main() {
     $force_fallback \
     $bundle \
     $portable \
+    $release \
     $pgo
 
   source scripts/package.sh \
@@ -158,6 +165,7 @@ main() {
     $appimage \
     $dmg \
     $innosetup \
+    $release \
     $source
 }
 

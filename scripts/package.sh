@@ -27,6 +27,7 @@ show_help() {
   echo "                          depending on how the build was configured. (Default.)"
   echo "-D --dmg                  Create a DMG disk image with AppDMG (macOS only)."
   echo "-I --innosetup            Create a InnoSetup package (Windows only)."
+  echo "-r --release              Strip debugging symbols."
   echo "-S --source               Create a source code package,"
   echo "                          including subprojects dependencies."
   echo
@@ -70,8 +71,10 @@ main() {
   local binary=false
   local dmg=false
   local innosetup=false
+  local release=false
   local source=false
 
+  # store the current flags to easily pass them to appimage script
   local flags="$@"
 
   for i in "$@"; do
@@ -126,6 +129,10 @@ main() {
         else
           innosetup=true
         fi
+        shift
+        ;;
+      -r|--release)
+        release=true
         shift
         ;;
       -S|--source)
@@ -218,7 +225,9 @@ main() {
   find . -type d -empty -delete
   popd
 
-  $stripcmd "${exe_file}"
+  if [[ $release == true ]]; then
+    $stripcmd "${exe_file}"
+  fi
 
   echo "Creating a compressed archive ${package_name}"
   if [[ $binary == true ]]; then
