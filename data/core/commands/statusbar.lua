@@ -50,20 +50,20 @@ command.add(nil, {
     core.status_view:display_messages(true)
   end,
   ["status-bar:hide-item"] = function()
-    core.command_view:enter("Status bar item to hide",
-      function(text, item)
+    core.command_view:enter("Status bar item to hide", {
+      submit = function(text, item)
         core.status_view:hide_items(item.name)
       end,
-      status_view_get_items
-    )
+      suggest = status_view_get_items
+    })
   end,
   ["status-bar:show-item"] = function()
-    core.command_view:enter("Status bar item to show",
-      function(text, item)
+    core.command_view:enter("Status bar item to show", {
+      submit = function(text, item)
         core.status_view:show_items(item.name)
       end,
-      status_view_get_items
-    )
+      suggest = status_view_get_items
+    })
   end,
   ["status-bar:reset-items"] = function()
     core.status_view:show_items()
