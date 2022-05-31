@@ -76,6 +76,7 @@ style.syntax_fonts = {}
 
 style.log = {
   INFO  = { icon = "i", color = style.text },
+  WARN  = { icon = "!", color = style.warn },
   ERROR = { icon = "!", color = style.error }
 }
 
