@@ -1089,6 +1089,9 @@ function core.log_quiet(...)
   return log("INFO", false, false, ...)
 end
 
+function core.warn(...)
+  return log("WARN", true, true, ...)
+end
 
 function core.error(...)
   return log("ERROR", true, true, ...)
