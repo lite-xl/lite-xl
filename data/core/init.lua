@@ -1097,7 +1097,7 @@ function core.get_views_referencing_doc(doc)
 end
 
 
-local function log(level, show, fmt, ...)
+function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
     local s = style.log[level]
@@ -1110,7 +1110,8 @@ local function log(level, show, fmt, ...)
     level = level,
     text = text,
     time = os.time(),
-    at = at
+    at = at,
+    info = backtrace and debug.traceback(nil, 2):gsub("\t", "")
   }
   table.insert(core.log_items, item)
   if #core.log_items > config.max_log_items then
@@ -1121,17 +1122,20 @@ end
 
 
 function core.log(...)
-  return log("INFO", true, ...)
+  return core.custom_log("INFO", true, false, ...)
 end
 
 
 function core.log_quiet(...)
-  return log("INFO", false, ...)
+  return core.custom_log("INFO", false, false, ...)
 end
 
+function core.warn(...)
+  return core.custom_log("WARN", true, true, ...)
+end
 
 function core.error(...)
-  return log("ERROR", true, ...)
+  return core.custom_log("ERROR", true, true, ...)
 end
 
 
