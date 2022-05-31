@@ -8,7 +8,17 @@ local common = require "core.common"
 local dirwatch = require "core.dirwatch"
 
 config.plugins.autoreload = common.merge({
-  always_show_nagview = false
+  always_show_nagview = false,
+  config_spec = {
+    name = "Autoreload",
+    {
+      label = "Always Show Nagview",
+      description = "Alerts you if an opened file changes externally even if you haven't modified it.",
+      path = "always_show_nagview",
+      type = "toggle",
+      default = false
+    }
+  }
 }, config.plugins.autoreload)
 
 local watch = dirwatch.new()
@@ -57,7 +67,7 @@ local on_check = dirwatch.check
 function dirwatch:check(change_callback, ...)
   on_check(self, function(dir)
     for _, doc in ipairs(core.docs) do
-      if dir == common.dirname(doc.abs_filename) or dir == doc.abs_filename then
+      if doc.abs_filename and (dir == common.dirname(doc.abs_filename) or dir == doc.abs_filename) then
         local info = system.get_file_info(doc.filename or "")
         if info and times[doc] ~= info.modified then
           if not doc:is_dirty() and not config.plugins.autoreload.always_show_nagview then

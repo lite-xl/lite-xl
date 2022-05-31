@@ -44,6 +44,7 @@ function CommandView:new()
   self.font = "font"
   self.size.y = 0
   self.label = ""
+  self.wrap_on_overflow = false
 end
 
 
@@ -89,11 +90,18 @@ function CommandView:set_text(text, select)
   end
 end
 
-
 function CommandView:move_suggestion_idx(dir)
+  local function overflow_suggestion_idx(n, count)
+    if self.wrap_on_overflow then
+      return (n - 1) % count + 1
+    else
+      return common.clamp(n, 1, count)
+    end
+  end
+
   if self.show_suggestions then
     local n = self.suggestion_idx + dir
-    self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
+    self.suggestion_idx = overflow_suggestion_idx(n, #self.suggestions)
     self:complete()
     self.last_change_id = self.doc:get_change_id()
   else
@@ -104,7 +112,7 @@ function CommandView:move_suggestion_idx(dir)
       if n == 0 and self.save_suggestion then
         self:set_text(self.save_suggestion)
       else
-        self.suggestion_idx = common.clamp(n, 1, #self.suggestions)
+        self.suggestion_idx = overflow_suggestion_idx(n, #self.suggestions)
         self:complete()
       end
     else
@@ -135,10 +143,11 @@ function CommandView:submit()
 end
 
 
-function CommandView:enter(text, submit, suggest, cancel, validate)
+function CommandView:enter(text, submit, suggest, cancel, validate, wrap_on_overflow)
   if self.state ~= default_state then
     return
   end
+  self.wrap_on_overflow = wrap_on_overflow or false;
   self.state = {
     submit = submit or noop,
     suggest = suggest or noop,

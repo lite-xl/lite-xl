@@ -9,8 +9,43 @@ local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
 
 config.plugins.scale = common.merge({
+  -- The method used to apply the scaling: "code", "ui"
   mode = "code",
-  use_mousewheel = true
+  -- Allow using CTRL + MouseWheel for changing the scale.
+  use_mousewheel = true,
+  -- The config specification used by gui generators
+  config_spec = {
+    name = "Scale",
+    {
+      label = "Mode",
+      description = "The method used to apply the scaling.",
+      path = "mode",
+      type = "selection",
+      default = "code",
+      values = {
+        {"Code Only", "code"},
+        {"Everything", "ui"}
+      }
+    },
+    {
+      label = "Use MouseWheel",
+      description = "Allow using CTRL + MouseWheel for changing the scale.",
+      path = "use_mousewheel",
+      type = "toggle",
+      default = true,
+      on_apply = function(enabled)
+        if enabled then
+          keymap.add {
+            ["ctrl+wheelup"] = "scale:increase",
+            ["ctrl+wheeldown"] = "scale:decrease"
+          }
+        else
+          keymap.unbind("ctrl+wheelup", "scale:increase")
+          keymap.unbind("ctrl+wheeldown", "scale:decrease")
+        end
+      end
+    }
+  }
 }, config.plugins.scale)
 
 local scale_steps = 0.05
@@ -89,10 +124,15 @@ command.add(nil, {
 keymap.add {
   ["ctrl+0"] = "scale:reset",
   ["ctrl+-"] = "scale:decrease",
-  ["ctrl+="] = "scale:increase",
-  ["ctrl+wheelup"] = "scale:increase",
-  ["ctrl+wheeldown"] = "scale:decrease"
+  ["ctrl+="] = "scale:increase"
 }
+
+if config.plugins.scale.use_mousewheel then
+  keymap.add {
+    ["ctrl+wheelup"] = "scale:increase",
+    ["ctrl+wheeldown"] = "scale:decrease"
+  }
+end
 
 return {
   ["set"] = set_scale,
