@@ -185,7 +185,11 @@ jobs:
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-$(uname -m)" >> "$GITHUB_ENV"
         echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-        echo "BUILD_ARCH=$(uname -m)" >> "$GITHUB_ENV"
+        if [[ "${MSYSTEM}" == "MINGW64" ]]; then
+          echo "BUILD_ARCH=x86_64" >> "$GITHUB_ENV"
+        else
+          echo "BUILD_ARCH=i686" >> "$GITHUB_ENV"
+        fi
     - name: Install Dependencies
       run: bash scripts/install-dependencies.sh --debug
     - name: Build
@@ -197,11 +201,6 @@ jobs:
     - name: Get InnoSetup Version
       run: |
         echo "INNOVER=$(grep -E '#define\sMyAppVersion\s' build-windows-${BUILD_ARCH}/scripts/innosetup.iss | cut -d\" -f2)" >> "$GITHUB_ENV"
-        if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-          echo "ARCHITECTURE=x86_64" >> "$GITHUB_ENV"
-        else
-          echo "ARCHITECTURE=i686" >> "$GITHUB_ENV"
-        fi
     - name: Build Installer
       run: bash scripts/innosetup/innosetup.sh --debug
     - name: Upload Zip Artifact
@@ -219,6 +218,6 @@ jobs:
         GITHUB_TOKEN: ${{ github.token }}
       with:
         upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: LiteXL-${{ env.INNOVER }}-${{ env.ARCHITECTURE }}-setup.exe
-        asset_name: LiteXL-${{ env.INNOVER }}-${{ env.ARCHITECTURE }}-setup.exe
+        asset_path: LiteXL-${{ env.INNOVER }}-${{ env.BUILD_ARCH }}-setup.exe
+        asset_name: LiteXL-${{ env.INNOVER }}-${{ env.BUILD_ARCH }}-setup.exe
         asset_content_type: application/x-dosexec

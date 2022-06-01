@@ -69,7 +69,7 @@ get_platform_name() {
   fi
 }
 
-get_default_build_dir() {
+get_platform_arch() {
   platform=$(get_platform_name)
   arch=$(uname -m)
   if [[ $MSYSTEM != "" ]]; then
@@ -79,6 +79,12 @@ get_default_build_dir() {
       arch=i686
     fi
   fi
+  echo "$arch"
+}
+
+get_default_build_dir() {
+  platform=$(get_platform_name)
+  arch=$(get_platform_arch)
   echo "build-$platform-$arch"
 }
 
