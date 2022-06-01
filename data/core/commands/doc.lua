@@ -448,13 +448,15 @@ local commands = {
 
   ["doc:save-as"] = function()
     local last_doc = core.last_active_view and core.last_active_view.doc
+    local text
     if doc().filename then
-      core.command_view:set_text(doc().filename)
+      text = doc().filename
     elseif last_doc and last_doc.filename then
       local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
-      core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
+      text = core.normalize_to_project_dir(dirname) .. PATHSEP
     end
     core.command_view:enter("Save As", {
+      text = text,
       submit = function(filename)
         save(common.home_expand(filename))
       end,
@@ -482,8 +484,8 @@ local commands = {
       core.error("Cannot rename unsaved doc")
       return
     end
-    core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", {
+      text = old_filename,
       submit = function(filename)
         save(common.home_expand(filename))
         core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
