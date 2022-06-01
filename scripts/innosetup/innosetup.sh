@@ -56,7 +56,11 @@ main() {
   # see https://github.com/msys2/MINGW-packages/issues/4164
   local mingwLibsDir="${build_dir}/mingwLibs$arch"
   mkdir -p "$mingwLibsDir"
-  ntldd -R "${build_dir}/src/lite-xl.exe" | grep mingw | awk '{print $3}' | sed 's#\\#/#g' | xargs -I '{}' cp -v '{}' $mingwLibsDir
+  ntldd -R "${build_dir}/src/lite-xl.exe" \
+    | grep mingw \
+    | awk '{print $3}' \
+    | sed 's#\\#/#g' \
+    | xargs -I '{}' cp -v '{}' $mingwLibsDir
 
   "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" -dARCH=$arch "${build_dir}/scripts/innosetup.iss"
   pushd "${build_dir}/scripts"; mv LiteXL*.exe "./../../"; popd
