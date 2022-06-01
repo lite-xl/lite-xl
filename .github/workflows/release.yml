@@ -44,6 +44,8 @@ jobs:
 
   archive_source_code:
     name: Source Code Tarball
+    # Disable this since github already provide source packages
+    if: false
     needs: release
     runs-on: ubuntu-18.04
     steps:
