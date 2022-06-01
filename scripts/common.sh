@@ -55,6 +55,11 @@ addons_install() {
     cp -r "${build_dir}/third/data/plugins/${plugin_name}.lua" \
       "${data_dir}/plugins/"
   done
+
+  rm "${build_dir}/third/data/plugins/language_cpp.lua"
+
+  cp "${build_dir}/third/data/plugins/"language_* \
+      "${data_dir}/plugins/"
 }
 
 get_platform_name() {
