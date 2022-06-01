@@ -605,7 +605,7 @@ end
 -- This function should get only filenames normalized using
 -- common.normalize_path function.
 function core.project_absolute_path(filename)
-  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
+  if common.is_absolute_path(filename) then
     return common.normalize_path(filename)
   elseif not core.project_dir then
     local cwd = system.absolute_path(".")
