@@ -166,8 +166,12 @@ jobs:
     - name: Set Environment Variables
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-$(uname -m)" >> "$GITHUB_ENV"
         echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+        if [[ "${MSYSTEM}" == "MINGW64" ]]; then
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
+        else
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
+        fi
     - name: Install Dependencies
       if: ${{ !startsWith(github.ref, 'refs/tags/') }}
       run: bash scripts/install-dependencies.sh --debug
