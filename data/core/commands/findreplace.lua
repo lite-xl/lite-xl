@@ -111,12 +111,14 @@ local function replace(kind, default, fn)
           end)
           core.log("Replaced %d instance(s) of %s %q with %q", n, kind, old, new)
         end,
-        suggest = function() return core.previous_replace end, function()
+        suggest = function() return core.previous_replace end,
+        cancel = function()
           core.status_view:remove_tooltip()
         end
       })
     end,
-    suggest = function() return core.previous_find end, function()
+    suggest = function() return core.previous_find end,
+    cancel = function()
       core.status_view:remove_tooltip()
     end
   })
