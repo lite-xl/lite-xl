@@ -109,7 +109,6 @@ if not get_option('source-only')
     sdl_options += 'use_atomic=enabled'
     sdl_options += 'use_threads=enabled'
     sdl_options += 'use_timers=enabled'
-    sdl_options += 'use_render=enabled'
     # investigate if this is truly needed
     # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
     sdl_options += 'use_events=enabled'
