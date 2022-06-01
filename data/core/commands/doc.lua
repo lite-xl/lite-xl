@@ -423,21 +423,23 @@ local commands = {
       end
     end
 
-    core.command_view:enter("Go To Line", function(text, item)
-      local line = item and item.line or tonumber(text)
-      if not line then
-        core.error("Invalid line number or unmatched string")
-        return
+    core.command_view:enter("Go To Line", {
+      submit = function(text, item)
+        local line = item and item.line or tonumber(text)
+        if not line then
+          core.error("Invalid line number or unmatched string")
+          return
+        end
+        dv.doc:set_selection(line, 1  )
+        dv:scroll_to_line(line, true)
+      end,
+      suggest = function(text)
+        if not text:find("^%d*$") then
+          init_items()
+          return common.fuzzy_match(items, text)
+        end
       end
-      dv.doc:set_selection(line, 1  )
-      dv:scroll_to_line(line, true)
-
-    end, function(text)
-      if not text:find("^%d*$") then
-        init_items()
-        return common.fuzzy_match(items, text)
-      end
-    end)
+    })
   end,
 
   ["doc:toggle-line-ending"] = function()
@@ -452,11 +454,14 @@ local commands = {
       local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
       core.command_view:set_text(core.normalize_to_project_dir(dirname) .. PATHSEP)
     end
-    core.command_view:enter("Save As", function(filename)
-      save(common.home_expand(filename))
-    end, function (text)
-      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
-    end)
+    core.command_view:enter("Save As", {
+      submit = function(filename)
+        save(common.home_expand(filename))
+      end,
+      suggest = function (text)
+        return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+      end
+    })
   end,
 
   ["doc:save"] = function()
@@ -478,15 +483,18 @@ local commands = {
       return
     end
     core.command_view:set_text(old_filename)
-    core.command_view:enter("Rename", function(filename)
-      save(common.home_expand(filename))
-      core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
-      if filename ~= old_filename then
-        os.remove(old_filename)
+    core.command_view:enter("Rename", {
+      submit = function(filename)
+        save(common.home_expand(filename))
+        core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+        if filename ~= old_filename then
+          os.remove(old_filename)
+        end
+      end,
+      suggest = function (text)
+        return common.home_encode_list(common.path_suggest(common.home_expand(text)))
       end
-    end, function (text)
-      return common.home_encode_list(common.path_suggest(common.home_expand(text)))
-    end)
+    })
   end,
 
 

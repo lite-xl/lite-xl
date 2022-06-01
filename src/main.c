@@ -103,7 +103,10 @@ int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
 #endif
 
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+    fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
+    exit(1);
+  }
   SDL_EnableScreenSaver();
   SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
   atexit(SDL_Quit);
@@ -141,6 +144,10 @@ int main(int argc, char **argv) {
      DwmSetWindowAttribute(handle, WINDOWS_DARK_MODE, &mode, 4);
 #endif
   init_window_icon();
+  if (!window) {
+    fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
+    exit(1);
+  }
   ren_init(window);
 
   lua_State *L;

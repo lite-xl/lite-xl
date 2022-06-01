@@ -5,8 +5,9 @@ regex.__index = function(table, key) return regex[key]; end
 regex.match = function(pattern_string, string, offset, options)
   local pattern = type(pattern_string) == "table" and
     pattern_string or regex.compile(pattern_string)
-  local s, e = regex.cmatch(pattern, string, offset or 1, options or 0)
-  return s, e and e - 1
+  local res = { regex.cmatch(pattern, string, offset or 1, options or 0) }
+  res[2] = res[2] and res[2] - 1
+  return table.unpack(res)
 end
 
 -- Will iterate back through any UTF-8 bytes so that we don't replace bits

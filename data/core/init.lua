@@ -859,7 +859,7 @@ function core.restart()
 end
 
 
-local function check_plugin_version(filename)
+local function get_plugin_details(filename)
   local info = system.get_file_info(filename)
   if info ~= nil and info.type == "dir" then
     filename = filename .. "/init.lua"
@@ -868,24 +868,28 @@ local function check_plugin_version(filename)
   if not info or not filename:match("%.lua$") then return false end
   local f = io.open(filename, "r")
   if not f then return false end
+  local priority = false
   local version_match = false
   for line in f:lines() do
-    local mod_version = line:match('%-%-.*%f[%a]mod%-version%s*:%s*(%d+)')
-    if mod_version then
-      version_match = (mod_version == MOD_VERSION)
-      break
+    if not version_match then
+      local mod_version = line:match('%-%-.*%f[%a]mod%-version%s*:%s*(%d+)')
+      if mod_version then
+        version_match = (mod_version == MOD_VERSION)
+      end
     end
-    -- The following pattern is used for backward compatibility only
-    -- Future versions will look only at the mod-version tag.
-    local version = line:match('%-%-%s*lite%-xl%s*(%d+%.%d+)$')
-    if version then
-      -- we consider the version tag 2.0 equivalent to mod-version:2
-      version_match = (version == '2.0' and MOD_VERSION == "2")
+    if not priority then
+      priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
+      if priority then priority = tonumber(priority) end
+    end
+    if version_match then
       break
     end
   end
   f:close()
-  return true, version_match
+  return true, {
+    version_match = version_match,
+    priority = priority or 100
+  }
 end
 
 
@@ -899,33 +903,70 @@ function core.load_plugins()
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. "/plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
-      if not files[filename] then table.insert(ordered, filename) end
-      files[filename] = plugin_dir -- user plugins will always replace system plugins
+      if not files[filename] then
+        table.insert(
+          ordered, {file = filename}
+        )
+      end
+      -- user plugins will always replace system plugins
+      files[filename] = plugin_dir
     end
   end
-  table.sort(ordered)
 
+  for _, plugin in ipairs(ordered) do
+    local dir = files[plugin.file]
+    local name = plugin.file:match("(.-)%.lua$") or plugin.file
+    local is_lua_file, details = get_plugin_details(dir .. '/' .. plugin.file)
+
+    plugin.valid = is_lua_file
+    plugin.name = name
+    plugin.dir = dir
+    plugin.priority = details and details.priority or 100
+    plugin.version_match = details and details.version_match or false
+  end
+
+  -- sort by priority or name for plugins that have same priority
+  table.sort(ordered, function(a, b)
+    if a.priority ~= b.priority then
+      return a.priority < b.priority
+    end
+    return a.name < b.name
+  end)
 
   local load_start = system.get_time()
-  for _, filename in ipairs(ordered) do
-    local plugin_dir, basename = files[filename], filename:match("(.-)%.lua$") or filename
-    local is_lua_file, version_match = check_plugin_version(plugin_dir .. '/' .. filename)
-    if is_lua_file then
-      if not config.skip_plugins_version and not version_match then
-        core.log_quiet("Version mismatch for plugin %q from %s", basename, plugin_dir)
-        local list = refused_list[plugin_dir:find(USERDIR, 1, true) == 1 and 'userdir' or 'datadir'].plugins
-        table.insert(list, filename)
-      elseif config.plugins[basename] ~= false then
+  for _, plugin in ipairs(ordered) do
+    if plugin.valid then
+      if not config.skip_plugins_version and not plugin.version_match then
+        core.log_quiet(
+          "Version mismatch for plugin %q from %s",
+          plugin.name,
+          plugin.dir
+        )
+        local rlist = plugin.dir:find(USERDIR, 1, true) == 1
+          and 'userdir' or 'datadir'
+        local list = refused_list[rlist].plugins
+        table.insert(list, plugin.file)
+      elseif config.plugins[plugin.name] ~= false then
         local start = system.get_time()
-        local ok = core.try(require, "plugins." .. basename)
-        if ok then core.log_quiet("Loaded plugin %q from %s in %.1fms", basename, plugin_dir, (system.get_time() - start)*1000) end
+        local ok = core.try(require, "plugins." .. plugin.name)
+        if ok then
+          core.log_quiet(
+            "Loaded plugin %q from %s in %.1fms",
+            plugin.name,
+            plugin.dir,
+            (system.get_time() - start) * 1000
+          )
+        end
         if not ok then
           no_errors = false
         end
       end
     end
   end
-  core.log_quiet("Loaded all plugins in %.1fms", (system.get_time() - load_start)*1000)
+  core.log_quiet(
+    "Loaded all plugins in %.1fms",
+    (system.get_time() - load_start) * 1000
+  )
   return no_errors, refused_list
 end
 
@@ -1056,7 +1097,7 @@ function core.get_views_referencing_doc(doc)
 end
 
 
-local function log(level, show, fmt, ...)
+function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
     local s = style.log[level]
@@ -1069,7 +1110,8 @@ local function log(level, show, fmt, ...)
     level = level,
     text = text,
     time = os.time(),
-    at = at
+    at = at,
+    info = backtrace and debug.traceback(nil, 2):gsub("\t", "")
   }
   table.insert(core.log_items, item)
   if #core.log_items > config.max_log_items then
@@ -1080,17 +1122,20 @@ end
 
 
 function core.log(...)
-  return log("INFO", true, ...)
+  return core.custom_log("INFO", true, false, ...)
 end
 
 
 function core.log_quiet(...)
-  return log("INFO", false, ...)
+  return core.custom_log("INFO", false, false, ...)
 end
 
+function core.warn(...)
+  return core.custom_log("WARN", true, true, ...)
+end
 
 function core.error(...)
-  return log("ERROR", true, ...)
+  return core.custom_log("ERROR", true, true, ...)
 end
 
 

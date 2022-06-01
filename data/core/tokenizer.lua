@@ -1,9 +1,12 @@
+local core = require "core"
 local syntax = require "core.syntax"
 local common = require "core.common"
 
 local tokenizer = {}
+local bad_patterns = {}
 
 local function push_token(t, type, text)
+  type = type or "normal"
   local prev_type = t[#t-1]
   local prev_text = t[#t]
   if prev_type and (prev_type == type or prev_text:ufind("^%s*$")) then
@@ -173,6 +176,20 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         or { regex.match(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
       if p.regex and #res > 0 then -- set correct utf8 len for regex result
         res[2] = res[1] + string.ulen(text:sub(res[1], res[2])) - 1
+        -- `regex.match` returns group results as a series of `begin, end`
+        -- we only want `begin`s
+        if #res >= 3 then
+          res[3] = res[1] + string.ulen(text:sub(res[1], res[3])) - 1
+        end
+        for i=1,(#res-3) do
+          local curr = i + 3
+          local from = i * 2 + 3
+          if from < #res then
+            res[curr] = res[1] + string.ulen(text:sub(res[1], res[from])) - 1
+          else
+            res[curr] = nil
+          end
+        end
         res[1] = next
       end
       if res[1] and close and target[3] then
@@ -242,6 +259,15 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     local matched = false
     for n, p in ipairs(current_syntax.patterns) do
       local find_results = { find_text(text, p, i, true, false) }
+      if #find_results - 1 > #p.type then
+        if not bad_patterns[current_syntax] then
+          bad_patterns[current_syntax] = { }
+        end
+        if not bad_patterns[current_syntax][n] then
+          bad_patterns[current_syntax][n] = true
+          core.error("Malformed pattern #%d in %s language plugin", n, current_syntax.name or "unnamed")
+        end
+      end
       if find_results[1] then
         -- matched pattern; make and add tokens
         push_tokens(res, current_syntax, p, text, find_results)

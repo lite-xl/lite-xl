@@ -88,7 +88,7 @@ static int f_pcre_match(lua_State *L) {
     return 0;
   }
   for (int i = 0; i < rc*2; i++)
-    lua_pushnumber(L, ovector[i]+offset+1);
+    lua_pushinteger(L, ovector[i]+offset+1);
   pcre2_match_data_free(md);
   return rc*2;
 }
