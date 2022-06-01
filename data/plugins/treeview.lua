@@ -389,6 +389,7 @@ function TreeView:draw()
   end
 end
 
+
 function TreeView:get_parent(item)
   local parent_path = common.dirname(item.abs_filename)
   if not parent_path then return end
@@ -398,6 +399,40 @@ function TreeView:get_parent(item)
     end
   end
 end
+
+
+function TreeView:get_item(item, where)
+  local last_item, last_x, last_y, last_w, last_h
+  local stop = false
+  
+  for it, x, y, w, h in self:each_item() do
+    if not item and where >= 0 then
+      return it, x, y, w, h
+    end
+    if item == it then
+      if where < 0 and last_item then
+        break
+      elseif where == 0 or (where < 0 and not last_item) then
+        return it, x, y, w, h
+      end
+      stop = true
+    elseif stop then
+      item = it
+      return it, x, y, w, h
+    end
+    last_item, last_x, last_y, last_w, last_h = it, x, y, w, h
+  end
+  return last_item, last_x, last_y, last_w, last_h
+end
+
+function TreeView:get_next(item)
+  return self:get_item(item, 1)
+end
+
+function TreeView:get_previous(item)
+  return self:get_item(item, -1)
+end
+
 
 function TreeView:toggle_expand(toggle)
   local item = self.selected_item
@@ -548,38 +583,13 @@ command.add(nil, {
 
 command.add(TreeView, {
   ["treeview:next"] = function()
-    local item = view.selected_item
-    local item_y
-    local stop = false
-    for it, _, y  in view:each_item() do
-      if item == it then
-        stop = true
-      elseif stop then
-        item = it
-        item_y = y
-        break
-      end
-    end
-
+    local item, _, item_y = view:get_next(view.selected_item)
     view:set_selection(item, item_y)
   end,
 
   ["treeview:previous"] = function()
-    local last_item
-    local last_item_y
-    for it, _, y in view:each_item() do
-      if it == view.selected_item then
-        if not last_item then
-          last_item = it
-          last_item_y = y
-        end
-        break
-      end
-      last_item = it
-      last_item_y = y
-    end
-
-    view:set_selection(last_item, last_item_y)
+    local item, _, item_y = view:get_previous(view.selected_item)
+    view:set_selection(item, item_y)
   end,
 
   ["treeview:open"] = function()
