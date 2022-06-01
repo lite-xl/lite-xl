@@ -404,7 +404,7 @@ end
 function TreeView:get_item(item, where)
   local last_item, last_x, last_y, last_w, last_h
   local stop = false
-  
+
   for it, x, y, w, h in self:each_item() do
     if not item and where >= 0 then
       return it, x, y, w, h
@@ -518,6 +518,15 @@ function core.on_quit_project()
 end
 
 local function is_project_folder(path)
+  for _,dir in pairs(core.project_directories) do
+    if dir.name == path then
+      return true
+    end
+  end
+  return false
+end
+
+local function is_primary_project_folder(path)
   return core.project_dir == path
 end
 
@@ -544,6 +553,17 @@ menu:register(
   {
     { text = "New File", command = "treeview:new-file" },
     { text = "New Folder", command = "treeview:new-folder" },
+  }
+)
+
+menu:register(
+  function()
+    return view.hovered_item
+      and not is_primary_project_folder(view.hovered_item.abs_filename)
+      and is_project_folder(view.hovered_item.abs_filename)
+  end,
+  {
+    { text = "Remove directory", command = "treeview:remove-project-directory" },
   }
 )
 
@@ -637,7 +657,17 @@ command.add(TreeView, {
   end,
 
   ["treeview:expand"] = function()
-    view:toggle_expand(true)
+    local item = view.selected_item
+    if not item or item.type ~= "dir" then return end
+
+    if item.expanded then
+      local next_item, _, next_y = view:get_next(item)
+      if next_item.depth > item.depth then
+        view:set_selection(next_item, next_y)
+      end
+    else
+      view:toggle_expand(true)
+    end
   end,
 })
 
@@ -656,8 +686,13 @@ command.add(
       )
   end, {
   ["treeview:delete"] = function()
-    local filename = treeitem().abs_filename
-    local relfilename = treeitem().filename
+    local item = treeitem()
+    local filename = item.abs_filename
+    local relfilename = item.filename
+    if item.dir_name ~= core.project_dir then
+      -- add secondary project dirs names to the file path to show
+      relfilename = common.basename(item.dir_name) .. PATHSEP .. relfilename
+    end
     local file_info = system.get_file_info(filename)
     local file_type = file_info.type == "dir" and "Directory" or "File"
     -- Ask before deleting
@@ -697,13 +732,16 @@ command.add(
 
 command.add(function() return treeitem() ~= nil end, {
   ["treeview:rename"] = function()
-    local old_filename = treeitem().filename
-    local old_abs_filename = treeitem().abs_filename
+    local item = treeitem()
+    local old_filename = item.filename
+    local old_abs_filename = item.abs_filename
     core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", {
       submit = function(filename)
-        filename = core.normalize_to_project_dir(filename)
-        local abs_filename = core.project_absolute_path(filename)
+        local abs_filename = filename
+        if not common.is_absolute_path(filename) then
+          abs_filename = item.dir_name .. PATHSEP .. filename
+        end
         local res, err = os.rename(old_abs_filename, abs_filename)
         if res then -- successfully renamed
           for _, doc in ipairs(core.docs) do
@@ -718,38 +756,47 @@ command.add(function() return treeitem() ~= nil end, {
           core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
         end
       end,
-      suggest = common.path_suggest
+      suggest = function(text)
+        return common.path_suggest(text, item.dir_name)
+      end
     })
   end,
 
   ["treeview:new-file"] = function()
-    if not is_project_folder(treeitem().abs_filename) then
-      core.command_view:set_text(treeitem().filename .. "/")
+    local item = treeitem()
+    if not is_project_folder(item.abs_filename) then
+      core.command_view:set_text(item.filename .. PATHSEP)
     end
     core.command_view:enter("Filename", {
       submit = function(filename)
-        local doc_filename = core.project_dir .. PATHSEP .. filename
+        local doc_filename = item.dir_name .. PATHSEP .. filename
+        core.log(doc_filename)
         local file = io.open(doc_filename, "a+")
         file:write("")
         file:close()
         core.root_view:open_doc(core.open_doc(doc_filename))
         core.log("Created %s", doc_filename)
       end,
-      suggest = common.path_suggest
+      suggest = function(text)
+        return common.path_suggest(text, item.dir_name)
+      end
     })
   end,
 
   ["treeview:new-folder"] = function()
-    if not is_project_folder(treeitem().abs_filename) then
-      core.command_view:set_text(treeitem().filename .. "/")
+    local item = treeitem()
+    if not is_project_folder(item.abs_filename) then
+      core.command_view:set_text(item.filename .. "/")
     end
     core.command_view:enter("Folder Name", {
       submit = function(filename)
-        local dir_path = core.project_dir .. PATHSEP .. filename
+        local dir_path = item.dir_name .. PATHSEP .. filename
         common.mkdirp(dir_path)
         core.log("Created %s", dir_path)
       end,
-      suggest = common.path_suggest
+      suggest = function(text)
+        return common.path_suggest(text, item.dir_name)
+      end
     })
   end,
 
@@ -765,6 +812,18 @@ command.add(function() return treeitem() ~= nil end, {
     end
   end
 })
+
+command.add(function()
+    local item = treeitem()
+    return item
+           and not is_primary_project_folder(item.abs_filename)
+           and is_project_folder(item.abs_filename)
+  end, {
+  ["treeview:remove-project-directory"] = function()
+    core.remove_project_directory(treeitem().dir_name)
+  end,
+})
+
 
 keymap.add {
   ["ctrl+\\"]     = "treeview:toggle",
