@@ -385,6 +385,11 @@ function common.normalize_path(filename)
 end
 
 
+function common.is_absolute_path(path)
+  return path:sub(1, 1) == PATHSEP or path:match("^(%a):\\")
+end
+
+
 function common.path_belongs_to(filename, path)
   return string.find(filename, path .. PATHSEP, 1, true) == 1
 end
