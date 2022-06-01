@@ -57,6 +57,7 @@ main() {
   echo "Linked libraries:"
   ntldd -R "${build_dir}/src/lite-xl.exe"
 
+  echo "Copy dll's:"
   local mingwLibsDir="${build_dir}/mingwLibs$arch"
   mkdir -p "$mingwLibsDir"
   ntldd -R "${build_dir}/src/lite-xl.exe" \
