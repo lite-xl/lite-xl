@@ -58,10 +58,11 @@ local function find(label, search_fn)
   local text = last_view.doc:get_text(table.unpack(last_sel))
   found_expression = false
 
-  core.command_view:set_text(text, true)
   core.status_view:show_tooltip(get_find_tooltip())
 
   core.command_view:enter(label, {
+    text = text,
+    select_text = true,
     show_suggestions = false,
     submit = function(text, item)
       insert_unique(core.previous_find, text)
@@ -91,17 +92,18 @@ end
 
 
 local function replace(kind, default, fn)
-  core.command_view:set_text(default, true)
-
   core.status_view:show_tooltip(get_find_tooltip())
   core.command_view:enter("Find To Replace " .. kind, {
+    text = default,
+    select_text = true,
     show_suggestions = false,
     submit = function(old)
       insert_unique(core.previous_find, old)
-      core.command_view:set_text(old, true)
 
       local s = string.format("Replace %s %q With", kind, old)
       core.command_view:enter(s, {
+        text = old,
+        select_text = true,
         show_suggestions = false,
         submit = function(new)
           core.status_view:remove_tooltip()

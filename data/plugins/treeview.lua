@@ -689,8 +689,8 @@ command.add(function() return treeitem() ~= nil end, {
   ["treeview:rename"] = function()
     local old_filename = treeitem().filename
     local old_abs_filename = treeitem().abs_filename
-    core.command_view:set_text(old_filename)
     core.command_view:enter("Rename", {
+      text = old_filename,
       submit = function(filename)
         filename = core.normalize_to_project_dir(filename)
         local abs_filename = core.project_absolute_path(filename)
@@ -713,10 +713,12 @@ command.add(function() return treeitem() ~= nil end, {
   end,
 
   ["treeview:new-file"] = function()
+    local text
     if not is_project_folder(treeitem().abs_filename) then
-      core.command_view:set_text(treeitem().filename .. "/")
+      text = treeitem().filename .. "/"
     end
     core.command_view:enter("Filename", {
+      text = text,
       submit = function(filename)
         local doc_filename = core.project_dir .. PATHSEP .. filename
         local file = io.open(doc_filename, "a+")
@@ -730,10 +732,12 @@ command.add(function() return treeitem() ~= nil end, {
   end,
 
   ["treeview:new-folder"] = function()
+    local text
     if not is_project_folder(treeitem().abs_filename) then
-      core.command_view:set_text(treeitem().filename .. "/")
+      text = treeitem().filename .. "/"
     end
     core.command_view:enter("Folder Name", {
+      text = text,
       submit = function(filename)
         local dir_path = core.project_dir .. PATHSEP .. filename
         common.mkdirp(dir_path)

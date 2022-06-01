@@ -26,6 +26,8 @@ local default_state = {
   suggest = noop,
   cancel = noop,
   validate = function() return true end,
+  text = "",
+  select_text = false,
   show_suggestions = true,
   typeahead = true,
   wrap = true,
@@ -146,14 +148,14 @@ function CommandView:submit()
 end
 
 
-function CommandView:enter(text, ...)
+function CommandView:enter(label, ...)
   if self.state ~= default_state then
     return
   end
   local options = select(1, ...)
 
   if type(options) ~= "table" then
-    core.log("Warning: deprecated CommandView:enter usage")
+    core.warn("Using CommandView:enter in a deprecated way")
     local submit, suggest, cancel, validate = ...
     options = {
       submit = submit,
@@ -171,10 +173,25 @@ function CommandView:enter(text, ...)
 
   self.state = common.merge(default_state, options)
 
+  -- We need to keep the text entered with CommandView:set_text to
+  -- maintain compatibility with deprecated usage, but still allow
+  -- overwriting with options.text
+  local old_text = self:get_text()
+  if old_text ~= "" then
+    core.warn("Using deprecated function CommandView:set_text")
+  end
+  if options.text or options.select_text then
+    local text = options.text or old_text
+    self:set_text(text, self.state.select_text)
+  end
+  -- Replace with a simple
+  -- self:set_text(self.state.text, self.state.select_text)
+  -- once old usage is removed
+
   core.set_active_view(self)
   self:update_suggestions()
   self.gutter_text_brightness = 100
-  self.label = text .. ": "
+  self.label = label .. ": "
 end
 
 
