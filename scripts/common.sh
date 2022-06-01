@@ -71,7 +71,15 @@ get_platform_name() {
 
 get_default_build_dir() {
   platform=$(get_platform_name)
-  echo "build-$platform-$(uname -m)"
+  arch=$(uname -m)
+  if [[ $MSYSTEM != "" ]]; then
+    if [[ $MSYSTEM == "MINGW64" ]]; then
+      arch=x86_64
+    else
+      arch=i686
+    fi
+  fi
+  echo "build-$platform-$arch"
 }
 
 if [[ $(get_platform_name) == "UNSUPPORTED-OS" ]]; then
