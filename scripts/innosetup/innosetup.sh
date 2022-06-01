@@ -54,6 +54,9 @@ main() {
   # Copy MinGW libraries dependencies.
   # MSYS2 ldd command seems to be only 64bit, so use ntldd
   # see https://github.com/msys2/MINGW-packages/issues/4164
+  echo "Linked libraries:"
+  ntldd -R "${build_dir}/src/lite-xl.exe"
+
   local mingwLibsDir="${build_dir}/mingwLibs$arch"
   mkdir -p "$mingwLibsDir"
   ntldd -R "${build_dir}/src/lite-xl.exe" \
