@@ -152,7 +152,7 @@ function CommandView:enter(text, ...)
   local options = select(1, ...)
 
   if type(options) ~= "table" then
-    core.info("Warning: deprecated CommandView:enter usage")
+    core.log("Warning: deprecated CommandView:enter usage")
     local submit, suggest, cancel, validate = ...
     options = {
       submit = submit,
