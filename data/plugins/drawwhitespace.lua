@@ -6,6 +6,7 @@ local common = require "core.common"
 local config = require "core.config"
 
 config.plugins.drawwhitespace = common.merge({
+  enabled = true,
   show_leading = true,
   show_trailing = true,
   show_middle = true,
@@ -31,6 +32,67 @@ config.plugins.drawwhitespace = common.merge({
       sub = "»",
     },
   },
+
+  config_spec = {
+    name = "Draw Whitespace",
+    {
+      label = "Enabled",
+      description = "Disable or enable the drawing of white spaces.",
+      path = "enabled",
+      type = "toggle",
+      default = true
+    },
+    {
+      label = "Show Leading",
+      description = "Draw whitespaces starting at the beginning of a line.",
+      path = "show_leading",
+      type = "toggle",
+      default = true,
+    },
+    {
+      label = "Show Middle",
+      description = "Draw whitespaces on the middle of a line.",
+      path = "show_middle",
+      type = "toggle",
+      default = true,
+    },
+    {
+      label = "Show Trailing",
+      description = "Draw whitespaces on the end of a line.",
+      path = "show_trailing",
+      type = "toggle",
+      default = true,
+    },
+    {
+      label = "Show Trailing as Error",
+      description = "Uses an error square to spot them easily, requires 'Show Trailing' enabled.",
+      path = "show_trailing_error",
+      type = "toggle",
+      default = false,
+      on_apply = function(enabled)
+        local found = nil
+        local substitutions = config.plugins.drawwhitespace.substitutions
+        for i, sub in ipairs(substitutions) do
+          if sub.trailing_error then
+            found = i
+          end
+        end
+        if found == nil and enabled then
+          table.insert(substitutions, {
+            char = " ",
+            sub = "█",
+            show_leading = false,
+            show_middle = false,
+            show_trailing = true,
+            trailing_color = style.error,
+            trailing_error = true
+          })
+        elseif found ~= nil and not enabled then
+          table.remove(substitutions, found)
+        end
+      end
+    }
+  }
 }, config.plugins.drawwhitespace)
 
 local function get_option(substitution, option)
@@ -42,7 +104,14 @@ end
 
 local draw_line_text = DocView.draw_line_text
 function DocView:draw_line_text(idx, x, y)
-  if getmetatable(self) ~= DocView then return draw_line_text(self, idx, x, y) end
+  if
+    not config.plugins.drawwhitespace.enabled
+    or
+    getmetatable(self) ~= DocView
+  then
+    return draw_line_text(self, idx, x, y)
+  end
+
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
   local ty = y + self:get_line_text_y_offset()
   local tx
