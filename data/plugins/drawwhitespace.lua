@@ -176,5 +176,5 @@ function DocView:draw_line_text(idx, x, y)
     end
   end
 
-  draw_line_text(self, idx, x, y)
+  return draw_line_text(self, idx, x, y)
 end
