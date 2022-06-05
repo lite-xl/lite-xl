@@ -65,8 +65,19 @@ end
 
 
 local function reload_customizations()
-  core.load_user_directory()
-  core.load_project_module()
+  local user_error = not core.load_user_directory()
+  local project_error = not core.load_project_module()
+  if user_error or project_error then
+    local LogView = require "core.logview"
+    local rn = core.root_view.root_node
+    for _,v in pairs(core.root_view.root_node:get_children()) do
+      if v:is(LogView) then
+        rn:get_node_for_view(v):set_active_view(v)
+        return
+      end
+    end
+    command.perform("core:open-log")
+  end
 end
 
 
