@@ -28,33 +28,40 @@ syntax.add {
     { pattern = "[<>~=]=",                   type = "operator" },
     { pattern = "[%+%-=/%*%^%%#<>]",         type = "operator" },
     -- Metamethods
-    { pattern = "__[%a][%w_]+",              type = "function" },
-    { pattern = "%.()__[%a][%w_]+",
+    { pattern = "__[%a][%w_]*",              type = "function" },
+    { pattern = "%.()__[%a][%w_]*",
       type = { "normal", "function" }
     },
-    -- Variable declaration
-    { pattern = "local()%s+()[%a_][%w_]+",
-      type = { "operator", "normal", "keyword2" }
+    -- function declarations to prevent matching as variables
+    { pattern = "local()%s+()function()%s+()[%a_][%w_]*",
+      type = { "keyword", "normal", "keyword", "normal", "function" }
     },
-    -- Multiple variable declarations
-    { pattern = "[%a][%w_]*()%s*,%s*()[%a][%w_]*() *=",
-      type = { "keyword2", "normal", "keyword2", "operator" }
+    { pattern = "local()%s+()function",
+      type = { "keyword", "normal", "keyword" }
     },
-    { pattern = "[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*=",
-      type = { "keyword2", "normal", "keyword2", "normal", "keyword2", "operator" }
+    -- Placeholder
+    { pattern = "_(),",
+      type = { "operator", "normal" }
     },
-    { pattern = "[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*=",
-      type = { "keyword2", "normal", "keyword2", "normal", "keyword2", "normal", "keyword2", "operator" }
-    },
-    { pattern = "[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*,%s*()[%a][%w_]*()%s*,%s*()[%a][%w_]*%s*=",
-      type = { "keyword2", "normal", "keyword2", "normal", "keyword2", "normal", "keyword2", "normal", "keyword2", "operator", }
+    -- Variable declarations
+    { pattern = {"local", "[=\n]"},
+      syntax = {
+        patterns = {
+          {
+            pattern = "[%a_][%w_]*()%s*,?%s*",
+            type = {"keyword2", "normal"}
+          }
+        },
+        symbols = {}
+      },
+      type = "normal"
     },
     -- Function calls
     { pattern = "[%a_][%w_]+()%s*%f[(\"'{]", type = {"function", "normal"} },
     { pattern = "[%a_][%w_%.]+()%.()[%a_][%w_]+()%s*%f[(\"'{]",
       type = { "normal", "normal", "function", "normal"} },
     -- Sub fields
-    { pattern = "%.()[%a_][%w_]*%f[^%.%w=%(]",
+    { pattern = "%.()[%a_][%w_]*",
       type = { "normal", "literal" }
     },
     -- Uppercase constants of at least 2 chars in len
@@ -65,10 +72,6 @@ syntax.add {
     -- Variable assignments
     { pattern = "%a[%w_]*() *= *%f[^=]",
       type = { "keyword2", "operator" }
-    },
-    -- Placeholder
-    { pattern = "_(),",
-      type = { "operator", "normal" }
     },
     -- Labels
     { pattern = "::[%a_][%w_]*::",           type = "function" },
@@ -96,9 +99,9 @@ syntax.add {
     ["or"]       = "keyword",
     ["goto"]     = "keyword",
     ["self"]     = "keyword2",
-    ["true"]     = "number",
-    ["false"]    = "number",
-    ["nil"]      = "number",
+    ["true"]     = "literal",
+    ["false"]    = "literal",
+    ["nil"]      = "literal",
   },
 }
 
