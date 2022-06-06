@@ -110,8 +110,8 @@ function dirwatch:check(change_callback, scan_time, wait_time)
         self.scanned[directory] = new_modified
       end
     end
-    if system.get_time() - start_time > scan_time then
-      coroutine.yield(wait_time)
+    if system.get_time() - start_time > (scan_time or 0.01) then
+      coroutine.yield(wait_time or 0.01)
       start_time = system.get_time()
     end
   end
