@@ -26,6 +26,9 @@ local default_state = {
   suggest = noop,
   cancel = noop,
   validate = function() return true end,
+  text = "",
+  select_text = false,
+  show_suggestions = true,
   typeahead = true,
   wrap = true,
 }
@@ -36,7 +39,6 @@ function CommandView:new()
   self.suggestion_idx = 1
   self.suggestions = {}
   self.suggestions_height = 0
-  self.show_suggestions = true
   self.last_change_id = 0
   self.last_text = ""
   self.gutter_width = 0
@@ -50,7 +52,8 @@ end
 
 
 function CommandView:set_hidden_suggestions()
-  self.show_suggestions = false
+  core.warn("Using deprecated function CommandView:set_hidden_suggestions")
+  self.state.show_suggestions = false
 end
 
 
@@ -101,7 +104,7 @@ function CommandView:move_suggestion_idx(dir)
     end
   end
 
-  if self.show_suggestions then
+  if self.state.show_suggestions then
     local n = self.suggestion_idx + dir
     self.suggestion_idx = overflow_suggestion_idx(n, #self.suggestions)
     self:complete()
@@ -145,14 +148,14 @@ function CommandView:submit()
 end
 
 
-function CommandView:enter(text, ...)
+function CommandView:enter(label, ...)
   if self.state ~= default_state then
     return
   end
   local options = select(1, ...)
 
   if type(options) ~= "table" then
-    core.log("Warning: deprecated CommandView:enter usage")
+    core.warn("Using CommandView:enter in a deprecated way")
     local submit, suggest, cancel, validate = ...
     options = {
       submit = submit,
@@ -162,12 +165,33 @@ function CommandView:enter(text, ...)
     }
   end
 
+  -- Support deprecated CommandView:set_hidden_suggestions
+  -- Remove this when set_hidden_suggestions is not supported anymore
+  if options.show_suggestions == nil then
+    options.show_suggestions = self.state.show_suggestions
+  end
+
   self.state = common.merge(default_state, options)
+
+  -- We need to keep the text entered with CommandView:set_text to
+  -- maintain compatibility with deprecated usage, but still allow
+  -- overwriting with options.text
+  local old_text = self:get_text()
+  if old_text ~= "" then
+    core.warn("Using deprecated function CommandView:set_text")
+  end
+  if options.text or options.select_text then
+    local text = options.text or old_text
+    self:set_text(text, self.state.select_text)
+  end
+  -- Replace with a simple
+  -- self:set_text(self.state.text, self.state.select_text)
+  -- once old usage is removed
 
   core.set_active_view(self)
   self:update_suggestions()
   self.gutter_text_brightness = 100
-  self.label = text .. ": "
+  self.label = label .. ": "
 end
 
 
@@ -180,7 +204,6 @@ function CommandView:exit(submitted, inexplicit)
   self.doc:reset()
   self.suggestions = {}
   if not submitted then cancel(not inexplicit) end
-  self.show_suggestions = true
   self.save_suggestion = nil
   self.last_text = ""
 end
@@ -246,7 +269,7 @@ function CommandView:update()
 
   -- update suggestions box height
   local lh = self:get_suggestion_line_height()
-  local dest = self.show_suggestions and math.min(#self.suggestions, max_suggestions) * lh or 0
+  local dest = self.state.show_suggestions and math.min(#self.suggestions, max_suggestions) * lh or 0
   self:move_towards("suggestions_height", dest, nil, "commandview")
 
   -- update suggestion cursor offset
@@ -316,7 +339,7 @@ end
 
 function CommandView:draw()
   CommandView.super.draw(self)
-  if self.show_suggestions then
+  if self.state.show_suggestions then
     core.root_view:defer_draw(draw_suggestions_box, self)
   end
 end

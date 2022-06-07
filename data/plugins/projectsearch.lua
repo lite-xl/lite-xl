@@ -229,22 +229,20 @@ local function begin_search(text, fn)
 end
 
 
-local function set_command_view_text()
+local function get_selected_text()
   local view = core.active_view
   local doc = (view and view.doc) and view.doc or nil
   if doc then
-    core.command_view:set_text(
-      doc:get_text(table.unpack({ doc:get_selection() })),
-      true
-    )
+    return doc:get_text(table.unpack({ doc:get_selection() }))
   end
 end
 
 
 command.add(nil, {
   ["project-search:find"] = function()
-    set_command_view_text()
     core.command_view:enter("Find Text In Project", {
+      text = get_selected_text(),
+      select_text = true,
       submit = function(text)
         text = text:lower()
         begin_search(text, function(line_text)
@@ -266,8 +264,9 @@ command.add(nil, {
   end,
 
   ["project-search:fuzzy-find"] = function()
-    set_command_view_text()
     core.command_view:enter("Fuzzy Find Text In Project", {
+      text = get_selected_text(),
+      select_text = true,
       submit = function(text)
         begin_search(text, function(line_text)
           return common.fuzzy_match(line_text, text) and 1

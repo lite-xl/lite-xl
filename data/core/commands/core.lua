@@ -122,15 +122,16 @@ command.add(nil, {
 
   ["core:open-file"] = function()
     local view = core.active_view
+    local text
     if view.doc and view.doc.abs_filename then
       local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
       if dirname then
         dirname = core.normalize_to_project_dir(dirname)
-        local text = dirname == core.project_dir and "" or common.home_encode(dirname) .. PATHSEP
-        core.command_view:set_text(text)
+        text = dirname == core.project_dir and "" or common.home_encode(dirname) .. PATHSEP
       end
     end
     core.command_view:enter("Open File", {
+      text = text,
       submit = function(text)
         local filename = system.absolute_path(common.home_expand(text))
         core.root_view:open_doc(core.open_doc(filename))
@@ -182,10 +183,12 @@ command.add(nil, {
 
   ["core:change-project-folder"] = function()
     local dirname = common.dirname(core.project_dir)
+    local text
     if dirname then
-      core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
+      text = common.home_encode(dirname) .. PATHSEP
     end
     core.command_view:enter("Change Project Folder", {
+      text = text,
       submit = function(text)
         local path = common.home_expand(text)
         local abs_path = check_directory_path(path)
@@ -204,10 +207,12 @@ command.add(nil, {
 
   ["core:open-project-folder"] = function()
     local dirname = common.dirname(core.project_dir)
+    local text
     if dirname then
-      core.command_view:set_text(common.home_encode(dirname) .. PATHSEP)
+      text = common.home_encode(dirname) .. PATHSEP
     end
     core.command_view:enter("Open Project", {
+      text = text,
       submit = function(text)
         local path = common.home_expand(text)
         local abs_path = check_directory_path(path)
