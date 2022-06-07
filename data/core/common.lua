@@ -140,9 +140,25 @@ function common.fuzzy_match_with_recents(haystack, recents, needle)
 end
 
 
-function common.path_suggest(text)
+function common.path_suggest(text, root)
+  if root and root:sub(-1) ~= PATHSEP then
+    root = root .. PATHSEP
+  end
   local path, name = text:match("^(.-)([^/\\]*)$")
-  local files = system.list_dir(path == "" and "." or path) or {}
+  -- ignore root if path is absolute
+  local is_absolute = common.is_absolute_path(text)
+  if not is_absolute then
+    if path == "" then
+      path = root or "."
+    else
+      path = (root or "") .. path
+    end
+  end
+
+  local files = system.list_dir(path) or {}
+  if path:sub(-1) ~= PATHSEP then
+    path = path .. PATHSEP
+  end
   local res = {}
   for _, file in ipairs(files) do
     file = path .. file
@@ -150,6 +166,13 @@ function common.path_suggest(text)
     if info then
       if info.type == "dir" then
         file = file .. PATHSEP
+      end
+      if root then
+        -- remove root part from file path
+        local s, e = file:find(root, nil, true)
+        if s == 1 then
+          file = file:sub(e + 1)
+        end
       end
       if file:lower():find(text:lower(), nil, true) == 1 then
         table.insert(res, file)
@@ -382,6 +405,11 @@ function common.normalize_path(filename)
   end
   local npath = table.concat(accu, PATHSEP)
   return (volume or "") .. (npath == "" and PATHSEP or npath)
+end
+
+
+function common.is_absolute_path(path)
+  return path:sub(1, 1) == PATHSEP or path:match("^(%a):\\")
 end
 
 
