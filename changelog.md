@@ -790,3 +790,28 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 ## [1.06] - 2020-05-31
 
 - subpixel font rendering with gamma correction
+
+[2.1.0]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.0
+[2.0.5]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.5
+[2.0.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.4
+[2.0.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.3
+[2.0.2]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.2
+[2.0.1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.1
+[2.0]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.0
+[1.16.11]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.11
+[1.16.10]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.10
+[1.16.9]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.9
+[1.16.8]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.8
+[1.16.7]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.7
+[1.16.6]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.6
+[1.16.5]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.5
+[1.16.4]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.4
+[1.16.2]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.2-lite-xl
+[1.16.1]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.1-lite-xl
+[1.16]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.0-lite-xl
+[1.15]: https://github.com/lite-xl/lite-xl/releases/tag/v1.15-lite-xl
+[1.14]: https://github.com/lite-xl/lite-xl/releases/tag/v1.14-lite-xl
+[1.13]: https://github.com/lite-xl/lite-xl/releases/tag/v1.13-lite-xl
+[1.11]: https://github.com/lite-xl/lite-xl/releases/tag/v1.11-lite-xl
+[1.08]: https://github.com/lite-xl/lite-xl/releases/tag/v1.08-subpixel
+[1.06]: https://github.com/lite-xl/lite-xl/releases/tag/1.06-subpixel-rc1
