@@ -17,6 +17,8 @@ local title_commands = {
   {symbol = "X", action = function() core.quit() end},
 }
 
+---@class core.titleview : core.view
+---@field super core.view
 local TitleView = View:extend()
 
 local function title_view_height()

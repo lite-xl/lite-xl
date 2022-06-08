@@ -6,13 +6,16 @@ local DocView = require "core.docview"
 local View = require "core.view"
 
 
+---@class core.commandview.input : core.doc
+---@field super core.doc
 local SingleLineDoc = Doc:extend()
 
 function SingleLineDoc:insert(line, col, text)
   SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
 end
 
-
+---@class core.commandview : core.docview
+---@field super core.docview
 local CommandView = DocView:extend()
 
 CommandView.context = "application"
@@ -21,6 +24,16 @@ local max_suggestions = 10
 
 local noop = function() end
 
+---@class core.commandview.state
+---@field submit function
+---@field suggest function
+---@field cancel function
+---@field validate function
+---@field text string
+---@field select_text boolean
+---@field show_suggestions boolean
+---@field typeahead boolean
+---@field wrap boolean
 local default_state = {
   submit = noop,
   suggest = noop,
@@ -51,6 +64,7 @@ function CommandView:new()
 end
 
 
+---@deprecated
 function CommandView:set_hidden_suggestions()
   core.warn("Using deprecated function CommandView:set_hidden_suggestions")
   self.state.show_suggestions = false
@@ -147,7 +161,9 @@ function CommandView:submit()
   end
 end
 
-
+---@param label string
+---@varargs any
+---@overload fun(label:string, options: core.commandview.state)
 function CommandView:enter(label, ...)
   if self.state ~= default_state then
     return

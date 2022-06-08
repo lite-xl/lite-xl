@@ -178,7 +178,9 @@
 
 * [CommandView:enter](https://github.com/lite-xl/lite-xl/pull/1004) now accepts
   a single options table as a parameter, meaning that the old way of calling
-  this function will now show a deprecation message.
+  this function will now show a deprecation message. Also `CommandView:set_text`
+  and `CommandView:set_hidden_suggestions` has been
+  [deprecated](https://github.com/lite-xl/lite-xl/pull/1014).
 
   **Example:**
   ```lua
@@ -187,6 +189,9 @@
     suggest = function() return end,
     cancel = function() end,
     validate = function() return true end,
+    text = "",
+    select_text = false,
+    show_suggestions = true,
     typeahead = true,
     wrap = true
   })
@@ -282,6 +287,9 @@
 
 * TreeView improvements for
   [multi-project](https://github.com/lite-xl/lite-xl/pull/1010).
+
+* Open LogView on user/project
+  [module reload error](https://github.com/lite-xl/lite-xl/pull/1022).
 
 * Many, many, many more changes that are too numerous to list.
 

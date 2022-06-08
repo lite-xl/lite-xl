@@ -4,7 +4,51 @@ local style = require "core.style"
 local common = require "core.common"
 local Object = require "core.object"
 
+---@class core.view.position
+---@field x number
+---@field y number
 
+---@class core.view.scroll
+---@field x number
+---@field y number
+---@field to core.view.position
+
+---@class core.view.thumbtrack
+---@field thumb number
+---@field track number
+
+---@class core.view.thumbtrackwidth
+---@field thumb number
+---@field track number
+---@field to core.view.thumbtrack
+
+---@class core.view.scrollbar
+---@field x core.view.thumbtrack
+---@field y core.view.thumbtrack
+---@field w core.view.thumbtrackwidth
+---@field h core.view.thumbtrack
+
+---@class core.view.increment
+---@field value number
+---@field to number
+
+---@alias core.view.cursor "'arrow'" | "'ibeam'" | "'sizeh'" | "'sizev'" | "'hand'"
+
+---@alias core.view.mousebutton "'left'" | "'right'"
+
+---@alias core.view.context "'application'" | "'session'"
+
+---Base view.
+---@class core.view : core.object
+---@field context core.view.context
+---@field super core.object
+---@field position core.view.position
+---@field size core.view.position
+---@field scroll core.view.scroll
+---@field cursor core.view.cursor
+---@field scrollable boolean
+---@field scrollbar core.view.scrollbar
+---@field scrollbar_alpha core.view.increment
 local View = Object:extend()
 
 -- context can be "application" or "session". The instance of objects
@@ -19,11 +63,11 @@ function View:new()
   self.cursor = "arrow"
   self.scrollable = false
   self.scrollbar = {
-                     x = { thumb = 0, track = 0 },
-                     y = { thumb = 0, track = 0 },
-                     w = { thumb = 0, track = 0, to = { thumb = 0, track = 0 } },
-                     h = { thumb = 0, track = 0 },
-                   }
+    x = { thumb = 0, track = 0 },
+    y = { thumb = 0, track = 0 },
+    w = { thumb = 0, track = 0, to = { thumb = 0, track = 0 } },
+    h = { thumb = 0, track = 0 },
+  }
   self.scrollbar_alpha = { value = 0, to = 0 }
 end
 
@@ -54,16 +98,22 @@ function View:try_close(do_close)
 end
 
 
+---@return string
 function View:get_name()
   return "---"
 end
 
 
+---@return number
 function View:get_scrollable_size()
   return math.huge
 end
 
 
+---@return number x
+---@return number y
+---@return number width
+---@return number height
 function View:get_scrollbar_track_rect()
   local sz = self:get_scrollable_size()
   if sz <= self.size.y or sz == math.huge then
@@ -81,6 +131,10 @@ function View:get_scrollbar_track_rect()
 end
 
 
+---@return number x
+---@return number y
+---@return number width
+---@return number height
 function View:get_scrollbar_rect()
   local sz = self:get_scrollable_size()
   if sz <= self.size.y or sz == math.huge then
@@ -99,17 +153,28 @@ function View:get_scrollbar_rect()
 end
 
 
+---@param x number
+---@param y number
+---@return boolean
 function View:scrollbar_overlaps_point(x, y)
   local sx, sy, sw, sh = self:get_scrollbar_rect()
   return x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh
 end
 
+---@param x number
+---@param y number
+---@return boolean
 function View:scrollbar_track_overlaps_point(x, y)
   local sx, sy, sw, sh = self:get_scrollbar_track_rect()
   return x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh
 end
 
 
+---@param button core.view.mousebutton
+---@param x number
+---@param y number
+---@param clicks integer
+---return boolean
 function View:on_mouse_pressed(button, x, y, clicks)
   if self:scrollbar_track_overlaps_point(x, y) then
     if self:scrollbar_overlaps_point(x, y) then
@@ -125,11 +190,18 @@ function View:on_mouse_pressed(button, x, y, clicks)
 end
 
 
+---@param button core.view.mousebutton
+---@param x number
+---@param y number
 function View:on_mouse_released(button, x, y)
   self.dragging_scrollbar = false
 end
 
 
+---@param x number
+---@param y number
+---@param dx number
+---@param dy number
 function View:on_mouse_moved(x, y, dx, dy)
   if self.dragging_scrollbar then
     local delta = self:get_scrollable_size() / self.size.y * dy
@@ -150,15 +222,22 @@ function View:on_mouse_left()
 end
 
 
+---@param filename string
+---@param x number
+---@param y number
+---@return boolean
 function View:on_file_dropped(filename, x, y)
   return false
 end
 
 
+---@param text string
 function View:on_text_input(text)
   -- no-op
 end
 
+---@param y number
+---@return boolean
 function View:on_mouse_wheel(y)
 
 end
@@ -170,6 +249,8 @@ function View:get_content_bounds()
 end
 
 
+---@return number x
+---@return number y
 function View:get_content_offset()
   local x = common.round(self.position.x - self.scroll.x)
   local y = common.round(self.position.y - self.scroll.y)
@@ -213,6 +294,7 @@ function View:update()
 end
 
 
+---@param color renderer.color
 function View:draw_background(color)
   local x, y = self.position.x, self.position.y
   local w, h = self.size.x, self.size.y

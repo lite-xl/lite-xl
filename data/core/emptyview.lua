@@ -2,6 +2,8 @@ local style = require "core.style"
 local keymap = require "core.keymap"
 local View = require "core.view"
 
+---@class core.emptyview : core.view
+---@field super core.view
 local EmptyView = View:extend()
 
 local function draw_text(x, y, color)

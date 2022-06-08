@@ -11,6 +11,7 @@ local border_width = 1
 local divider_width = 1
 local DIVIDER = {}
 
+---@class core.contextmenu : core.object
 local ContextMenu = Object:extend()
 
 ContextMenu.DIVIDER = DIVIDER

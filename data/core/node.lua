@@ -6,6 +6,7 @@ local Object = require "core.object"
 local EmptyView = require "core.emptyview"
 local View = require "core.view"
 
+---@class core.node : core.object
 local Node = Object:extend()
 
 function Node:new(type)

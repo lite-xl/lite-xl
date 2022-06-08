@@ -5,7 +5,7 @@ local syntax = require "core.syntax"
 local config = require "core.config"
 local common = require "core.common"
 
-
+---@class core.doc : core.object
 local Doc = Object:extend()
 
 

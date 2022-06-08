@@ -6,7 +6,8 @@ local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
 local View = require "core.view"
 
-
+---@class core.docview : core.view
+---@field super core.view
 local DocView = View:extend()
 
 DocView.context = "session"

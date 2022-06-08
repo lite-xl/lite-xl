@@ -766,7 +766,7 @@ command.add(function() return treeitem() ~= nil end, {
     local text
     local item = treeitem()
     if not is_project_folder(item.abs_filename) then
-      text = treeitem().filename .. PATHSEP
+      text = item.filename .. PATHSEP
     end
     core.command_view:enter("Filename", {
       text = text,
@@ -789,7 +789,7 @@ command.add(function() return treeitem() ~= nil end, {
     local text
     local item = treeitem()
     if not is_project_folder(item.abs_filename) then
-      text = treeitem().filename .. PATHSEP
+      text = item.filename .. PATHSEP
     end
     core.command_view:enter("Folder Name", {
       text = text,
