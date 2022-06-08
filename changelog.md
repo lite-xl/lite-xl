@@ -1,6 +1,6 @@
 # Changes Log
 
-## 2.1 - 2022-06-07
+## [2.1.0] - 2022-06-07
 
 ### New Features
 * Make distinction between
@@ -107,6 +107,11 @@
   startup named [skip_plugins_version](https://github.com/lite-xl/lite-xl/pull/879)
 
 ### Backward Incompatible Changes
+* [Upgraded Lua to 5.4](https://github.com/lite-xl/lite-xl/pull/781), which
+  should improve performance, and provide useful extra functionality. It should
+  also be more available out of the box with most modern
+  linux/unix-based package managers.
+
 * Bumped plugin mod-version number as various interfaces like: `DocView`,
   `StatusView` and `CommandView` have changed which should require a revision
   from plugin developers to make sure their plugins work with this new release.
@@ -116,7 +121,7 @@
 
 * For plugin developers, declaring config options by directly assigning
   to the plugin table (eg: `config.plugins.plugin_name.myvalue = 10`) was
-  deprecated in favor of using `common.merge`
+  deprecated in favor of using `common.merge`.
 
   **Example:**
   ```lua
@@ -173,7 +178,9 @@
 
 * [CommandView:enter](https://github.com/lite-xl/lite-xl/pull/1004) now accepts
   a single options table as a parameter, meaning that the old way of calling
-  this function will now show a deprecation message.
+  this function will now show a deprecation message. Also `CommandView:set_text`
+  and `CommandView:set_hidden_suggestions` has been
+  [deprecated](https://github.com/lite-xl/lite-xl/pull/1014).
 
   **Example:**
   ```lua
@@ -182,17 +189,15 @@
     suggest = function() return end,
     cancel = function() end,
     validate = function() return true end,
+    text = "",
+    select_text = false,
+    show_suggestions = true,
     typeahead = true,
     wrap = true
   })
   ```
 
 ### Other Changes
-* [Upgraded Lua to 5.4](https://github.com/lite-xl/lite-xl/pull/781), which
-  should improve performance, and provide useful extra functionality. It should
-  also be more available out of the box with most modern
-  linux/unix-based package managers.
-
 * Removed `dmon`, and implemented independent backends for dirmonitoring. Also
   more cleanly split out dirmonitoring into its own class in lua, from core.init.
   We should now support FreeBSD; and any other system that uses `kqueue` as
@@ -227,7 +232,7 @@
   syntax file.
 
 * [Improvements to borderless](https://github.com/lite-xl/lite-xl/pull/994)
-  mode on Windows
+  mode on Windows.
 
 * Fixed a bunch of problems relating to
   [multi-cursor](https://github.com/lite-xl/lite-xl/pull/886).
@@ -280,9 +285,15 @@
 
 * Improved [tokenizer performance](https://github.com/lite-xl/lite-xl/pull/896).
 
+* TreeView improvements for
+  [multi-project](https://github.com/lite-xl/lite-xl/pull/1010).
+
+* Open LogView on user/project
+  [module reload error](https://github.com/lite-xl/lite-xl/pull/1022).
+
 * Many, many, many more changes that are too numerous to list.
 
-## 2.0.5
+## [2.0.5] - 2022-01-29
 
 Revamp the project's user module so that modifications are immediately applied.
 
@@ -322,7 +333,7 @@ entry is highlighted.
 
 The NagView warning window now no longer moves the document content.
 
-## 2.0.4
+## [2.0.4] - 2021-12-20
 
 Fix some bugs related to newly introduced directory monitoring using the
 dmon library.
@@ -334,7 +345,7 @@ characters visualization.
 
 Other fixes and improvements contributed by @Guldoman.
 
-## 2.0.3
+## [2.0.3] - 2021-10-23
 
 Replace periodic rescan of project folder with a notification based system
 using the [dmon library](https://github.com/septag/dmon). Improves performance
@@ -361,7 +372,7 @@ Add some improvements for very slow network file systems.
 
 Fix problem with python syntax highlighting, contributed by @dflock.
 
-## 2.0.2
+## [2.0.2] - 2021-09-10
 
 Fix problem project directory when starting the application from Launcher on
 macOS.
@@ -397,7 +408,7 @@ Other minor improvements and fixes.
 With many thanks to the contributors: @adamharrison, @takase1121, @Guldoman,
 @redtide, @Timofffee, @boppyt, @Jan200101.
 
-## 2.0.1
+## [2.0.1] - 2021-08-28
 
 Fix a few bugs and we mandate the mod-version 2 for plugins.
 This means that users should ensure they have up-to-date plugins for Lite XL 2.0.
@@ -412,7 +423,7 @@ Here some details about the bug fixes:
 - fix error that prevented the verification of plugins versions
 - fix error on X11 that caused a bug window event on exit
 
-## 2.0
+## [2.0] - 2021-08-16
 
 The 2.0 version of lite contains *breaking changes* to lite, in terms of how
 plugin settings are structured; any custom plugins may need to be adjusted
@@ -455,7 +466,7 @@ folder to remove these if they're present.
 In addition, there have been many other small fixes and improvements, too
 numerous to list here.
 
-## 1.16.11
+## [1.16.11] - 2021-05-28
 
 When opening directories with too many files lite-xl now keep displaying files
 and directories in the treeview. The application remains functional and the
@@ -483,7 +494,7 @@ Fix bug with close button not working in borderless window mode.
 
 Fix problem with normalization of filename for opened documents.
 
-## 1.16.10
+## [1.16.10] - 2021-05-22
 
 Improved syntax highlight system thanks to @liquidev and @adamharrison.
 Thanks to the new system we provide more a accurate syntax highlighting for
@@ -500,13 +511,13 @@ Add documentation for keymap binding, thanks to @Janis-Leuenberger.
 
 Added a contributors page in `doc/contributors.md`.
 
-## 1.16.9
+## [1.16.9] - 2021-05-06
 
 Fix a bug related to nested panes resizing.
 
 Fix problem preventing creating a new file.
 
-## 1.16.8
+## [1.16.8] - 2021-05-06
 
 Fix application crash when using the command `core:restart`.
 
@@ -528,13 +539,13 @@ Both kind of tags can appear in new plugins in the form:
 
 where the old tag needs to appear at the end for compatibility.
 
-## 1.16.7
+## [1.16.7] - 2021-05-01
 
 Add support for retina displays on Mac OS X.
 
 Fix a few problems related to file paths.
 
-## 1.16.6
+## [1.16.6] - 2021-04-21
 
 Implement a system to check the compatibility of plugins by checking a release
 tag. Plugins that don't have the release tag will not be loaded.
@@ -570,11 +581,11 @@ Improve the NagView to accept keyboard commands and introduce dialog commands.
 Add hook function `Doc:on_text_change` called on document changes, to be
 used by plugins.
 
-## 1.16.5
+## [1.16.5] - 2021-03-20
 
 Hotfix for Github's issue https://github.com/franko/lite-xl/issues/122
 
-## 1.16.4
+## [1.16.4] - 2021-03-20
 
 Add tooltips to show full file names from the tree-view.
 
@@ -589,7 +600,7 @@ Made borders between tabs look cleaner.
 
 Fix problem with files using hard tabs.
 
-## 1.16.2
+## [1.16.2] - 2021-03-05
 
 Implement close button for tabs.
 
@@ -597,7 +608,7 @@ Make the command view list of suggestion scrollable to see all the items.
 
 Improve update/resize behavior of treeview and toolbar.
 
-## 1.16.1
+## [1.16.1] - 2021-02-25
 
 Improve behavior of commands to move, delete and duplicate multiple lines:
 no longer include the last line if it does not contain any selection.
@@ -611,7 +622,7 @@ Very useful for remote sessions where visual transitions doesn't work well.
 Fix many small problems related to the new toolbar and the tooptips.
 Fix problem with spacing in treeview when using monospace fonts.
 
-## 1.16
+## [1.16] - 2021-02-19
 
 Implement a toolbar shown in the bottom part of the tree-view.
 The toolbar is especially meant for new users to give an easy, visual, access
@@ -632,7 +643,7 @@ Show the full path filename of the active document in the window's title.
 
 Fix problem with user's module reload not always enabled.
 
-## 1.15
+## [1.15] - 2021-01-04
 
 **Project directories**
 
@@ -676,7 +687,7 @@ Show 'Lite XL' instead of 'lite' and the version number.
 A few quirks previously with some of the new features have been fixed for a
 better user experience.
 
-## 1.14
+## [1.14] - 2020-12-13
 
 **Project Management**
 
@@ -717,7 +728,7 @@ improves text selection with mouse.
 
 Correct font's rendering for full hinting mode when using subpixel antialiasing.
 
-## 1.13
+## [1.13] - 2020-12-06
 
 **Rendering options for fonts**
 
@@ -763,7 +774,7 @@ on Windows wher "USERPROFILE" is used instead.
 
 A new global variable `USERDIR` is exposed to point to the user's directory.
 
-## 1.11
+## [1.11] - 2020-07-05
 
 - include changes from rxi's Lite 1.11
 - fix behavior of tab to indent multiple lines
@@ -771,11 +782,36 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 - limit project scan to a maximum number of files to limit memory usage
 - list recently visited files when using "Find File" command
 
-## 1.08
+## [1.08] - 2020-06-14
 
 - Subpixel font rendering, removed gamma correction
 - Avoid using CPU when the editor is idle
 
-## 1.06
+## [1.06] - 2020-05-31
 
 - subpixel font rendering with gamma correction
+
+[2.1.0]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.0
+[2.0.5]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.5
+[2.0.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.4
+[2.0.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.3
+[2.0.2]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.2
+[2.0.1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.1
+[2.0]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.0
+[1.16.11]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.11
+[1.16.10]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.10
+[1.16.9]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.9
+[1.16.8]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.8
+[1.16.7]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.7
+[1.16.6]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.6
+[1.16.5]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.5
+[1.16.4]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.4
+[1.16.2]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.2-lite-xl
+[1.16.1]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.1-lite-xl
+[1.16]: https://github.com/lite-xl/lite-xl/releases/tag/v1.16.0-lite-xl
+[1.15]: https://github.com/lite-xl/lite-xl/releases/tag/v1.15-lite-xl
+[1.14]: https://github.com/lite-xl/lite-xl/releases/tag/v1.14-lite-xl
+[1.13]: https://github.com/lite-xl/lite-xl/releases/tag/v1.13-lite-xl
+[1.11]: https://github.com/lite-xl/lite-xl/releases/tag/v1.11-lite-xl
+[1.08]: https://github.com/lite-xl/lite-xl/releases/tag/v1.08-subpixel
+[1.06]: https://github.com/lite-xl/lite-xl/releases/tag/1.06-subpixel-rc1

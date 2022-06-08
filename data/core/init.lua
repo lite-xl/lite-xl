@@ -65,8 +65,19 @@ end
 
 
 local function reload_customizations()
-  core.load_user_directory()
-  core.load_project_module()
+  local user_error = not core.load_user_directory()
+  local project_error = not core.load_project_module()
+  if user_error or project_error then
+    local LogView = require "core.logview"
+    local rn = core.root_view.root_node
+    for _,v in pairs(core.root_view.root_node:get_children()) do
+      if v:is(LogView) then
+        rn:get_node_for_view(v):set_active_view(v)
+        return
+      end
+    end
+    command.perform("core:open-log")
+  end
 end
 
 
@@ -605,7 +616,7 @@ end
 -- This function should get only filenames normalized using
 -- common.normalize_path function.
 function core.project_absolute_path(filename)
-  if filename:match('^%a:\\') or filename:find('/', 1, true) == 1 then
+  if common.is_absolute_path(filename) then
     return common.normalize_path(filename)
   elseif not core.project_dir then
     local cwd = system.absolute_path(".")
@@ -683,10 +694,15 @@ function core.init()
   core.quit_request = false
 
   -- We load core views before plugins that may need them.
+  ---@type core.rootview
   core.root_view = RootView()
+  ---@type core.commandview
   core.command_view = CommandView()
+  ---@type core.statusview
   core.status_view = StatusView()
+  ---@type core.nagview
   core.nag_view = NagView()
+  ---@type core.titleview
   core.title_view = TitleView()
 
   -- Some plugins (eg: console) require the nodes to be initialized to defaults
