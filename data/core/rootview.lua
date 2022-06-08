@@ -5,7 +5,10 @@ local Node = require "core.node"
 local View = require "core.view"
 local DocView = require "core.docview"
 
-
+---@class core.rootview : core.view
+---@field super core.view
+---@field root_node core.node
+---@field mouse core.view.position
 local RootView = View:extend()
 
 function RootView:new()
@@ -29,6 +32,7 @@ function RootView:defer_draw(fn, ...)
 end
 
 
+---@return core.node
 function RootView:get_active_node()
   local node = self.root_node:get_node_for_view(core.active_view)
   if not node then node = self:get_primary_node() end
@@ -36,6 +40,7 @@ function RootView:get_active_node()
 end
 
 
+---@return core.node
 local function get_primary_node(node)
   if node.is_primary_node then
     return node
@@ -46,6 +51,7 @@ local function get_primary_node(node)
 end
 
 
+---@return core.node
 function RootView:get_active_node_default()
   local node = self.root_node:get_node_for_view(core.active_view)
   if not node then node = self:get_primary_node() end
@@ -59,11 +65,14 @@ function RootView:get_active_node_default()
 end
 
 
+---@return core.node
 function RootView:get_primary_node()
   return get_primary_node(self.root_node)
 end
 
 
+---@param node core.node
+---@return core.node
 local function select_next_primary_node(node)
   if node.is_primary_node then return end
   if node.type ~= "leaf" then
@@ -77,11 +86,14 @@ local function select_next_primary_node(node)
 end
 
 
+---@return core.node
 function RootView:select_next_primary_node()
   return select_next_primary_node(self.root_node)
 end
 
 
+---@param doc core.doc
+---@return core.docview
 function RootView:open_doc(doc)
   local node = self:get_active_node_default()
   for i, view in ipairs(node.views) do
@@ -98,17 +110,27 @@ function RootView:open_doc(doc)
 end
 
 
+---@param keep_active boolean
 function RootView:close_all_docviews(keep_active)
   self.root_node:close_all_docviews(keep_active)
 end
 
 
--- Function to intercept mouse pressed events on the active view.
--- Do nothing by default.
+---Function to intercept mouse pressed events on the active view.
+---Do nothing by default.
+---@param button core.view.mousebutton
+---@param x number
+---@param y number
+---@param clicks integer
 function RootView.on_view_mouse_pressed(button, x, y, clicks)
 end
 
 
+---@param button core.view.mousebutton
+---@param x number
+---@param y number
+---@param clicks integer
+---@return boolean
 function RootView:on_mouse_pressed(button, x, y, clicks)
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local node = self.root_node:get_child_overlapping_point(x, y)
@@ -162,6 +184,9 @@ function RootView:set_show_overlay(overlay, status)
 end
 
 
+---@param button core.view.mousebutton
+---@param x number
+---@param y number
 function RootView:on_mouse_released(button, x, y, ...)
   if self.dragged_divider then
     self.dragged_divider = nil
@@ -220,6 +245,10 @@ local function resize_child_node(node, axis, value, delta)
 end
 
 
+---@param x number
+---@param y number
+---@param dx number
+---@param dy number
 function RootView:on_mouse_moved(x, y, dx, dy)
   if core.active_view == core.nag_view then
     core.request_cursor("arrow")
@@ -284,6 +313,10 @@ function RootView:on_mouse_left()
 end
 
 
+---@param filename string
+---@param x number
+---@param y number
+---@return boolean
 function RootView:on_file_dropped(filename, x, y)
   local node = self.root_node:get_child_overlapping_point(x, y)
   return node and node.active_view:on_file_dropped(filename, x, y)

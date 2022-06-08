@@ -694,10 +694,15 @@ function core.init()
   core.quit_request = false
 
   -- We load core views before plugins that may need them.
+  ---@type core.rootview
   core.root_view = RootView()
+  ---@type core.commandview
   core.command_view = CommandView()
+  ---@type core.statusview
   core.status_view = StatusView()
+  ---@type core.nagview
   core.nag_view = NagView()
+  ---@type core.titleview
   core.title_view = TitleView()
 
   -- Some plugins (eg: console) require the nodes to be initialized to defaults

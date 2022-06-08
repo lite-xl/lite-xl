@@ -11,6 +11,8 @@ local UNDERLINE_MARGIN = common.round(1 * SCALE)
 
 local noop = function() end
 
+---@class core.nagview : core.view
+---@field super core.view
 local NagView = View:extend()
 
 function NagView:new()
