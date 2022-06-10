@@ -6,6 +6,8 @@
 #include <ft2build.h>
 #include <freetype/ftlcdfil.h>
 #include <freetype/ftoutln.h>
+#include <freetype/ftsnames.h>
+#include <freetype/ttnameid.h>
 #include FT_FREETYPE_H
 
 #ifdef _WIN32
@@ -320,6 +322,228 @@ void ren_font_free(RenFont* font) {
   CloseHandle(font->file_handle);
 #endif
   free(font);
+}
+
+/**
+ * Function adapted from https://github.com/GNOME/libxml2/blob/master/encoding.c
+ */
+static int UTF16BEToUTF8(
+  unsigned char* out, int *outlen, const unsigned char* inb, int *inlenb
+) {
+  unsigned short int tst = 0x1234;
+  unsigned char *ptr = (unsigned char *) &tst;
+
+  bool little_endian = true;
+  if (*ptr == 0x12) little_endian = false;
+  else if (*ptr == 0x34) little_endian = true;
+
+  unsigned char* outstart = out;
+  const unsigned char* processed = inb;
+  unsigned char* outend;
+  unsigned short* in = (unsigned short*) inb;
+  unsigned short* inend;
+  unsigned int c, d, inlen;
+  unsigned char *tmp;
+  int bits;
+
+  if (*outlen == 0) {
+    *inlenb = 0;
+    return(0);
+  }
+
+  outend = out + *outlen;
+  if ((*inlenb % 2) == 1)
+    (*inlenb)--;
+  inlen = *inlenb / 2;
+  inend= in + inlen;
+  while ((in < inend) && (out - outstart + 5 < *outlen)) {
+    if (little_endian) {
+      tmp = (unsigned char *) in;
+      c = *tmp++;
+      c = (c << 8) | (unsigned int) *tmp;
+      in++;
+    } else {
+      c= *in++;
+    }
+    if ((c & 0xFC00) == 0xD800) {    /* surrogates */
+      if (in >= inend) {           /* handle split mutli-byte characters */
+        break;
+      }
+      if (little_endian) {
+        tmp = (unsigned char *) in;
+        d = *tmp++;
+        d = (d << 8) | (unsigned int) *tmp;
+        in++;
+      } else {
+        d = *in++;
+      }
+      if ((d & 0xFC00) == 0xDC00) {
+        c &= 0x03FF;
+        c <<= 10;
+        c |= d & 0x03FF;
+        c += 0x10000;
+      }
+      else {
+        *outlen = out - outstart;
+        *inlenb = processed - inb;
+        return(-2);
+      }
+    }
+
+    /* assertion: c is a single UTF-4 value */
+    if (out >= outend)
+      break;
+
+    if      (c <    0x80) {  *out++=  c;                bits= -6; }
+    else if (c <   0x800) {  *out++= ((c >>  6) & 0x1F) | 0xC0;  bits=  0; }
+    else if (c < 0x10000) {  *out++= ((c >> 12) & 0x0F) | 0xE0;  bits=  6; }
+    else                  {  *out++= ((c >> 18) & 0x07) | 0xF0;  bits= 12; }
+
+    for ( ; bits >= 0; bits-= 6) {
+      if (out >= outend)
+        break;
+      *out++= ((c >> bits) & 0x3F) | 0x80;
+    }
+    processed = (const unsigned char*) in;
+  }
+  *outlen = out - outstart;
+  *inlenb = processed - inb;
+  return(*outlen);
+}
+
+int ren_font_get_metadata(
+  const char *path, FontMetaData **data, int *count, bool *monospaced
+) {
+  *data = NULL;
+  *count = 0;
+  *monospaced = false;
+
+  int found = 0;
+  FT_Face face;
+  FT_SfntName *properties = NULL;
+  int ret_code = 0;
+  int error = FT_New_Face(library, path, 0, &face);
+
+  if (error == 0 ) {
+    found = FT_Get_Sfnt_Name_Count(face);
+
+    if (found > 0) {
+      properties = malloc(sizeof(FT_SfntName) * found);
+      for (int i=0; i<found; i++) {
+        FT_Get_Sfnt_Name(face, i, &properties[i]);
+      }
+    }
+  }
+
+  if (found > 0){
+    int meta_count = 0;
+    for (int i=0; i<found; i++){
+      bool added = false;
+      unsigned char *name = malloc(properties[i].string_len * 2);
+      int outlen, inlen;
+      outlen = properties[i].string_len * 2;
+      inlen = properties[i].string_len;
+
+      if (UTF16BEToUTF8(name, &outlen, properties[i].string, &inlen) == -2) {
+        memcpy(name, properties[i].string, properties[i].string_len);
+        outlen = properties[i].string_len;
+      }
+
+      int lang_id = properties[i].language_id;
+      FontMetaData meta = { -1, NULL, 0 };
+
+      if (
+        lang_id == TT_MAC_LANGID_ENGLISH
+        || lang_id == TT_MS_LANGID_ENGLISH_UNITED_STATES
+        || lang_id == TT_MS_LANGID_ENGLISH_UNITED_KINGDOM
+        || lang_id == TT_MS_LANGID_ENGLISH_AUSTRALIA
+        || lang_id == TT_MS_LANGID_ENGLISH_CANADA
+        || lang_id == TT_MS_LANGID_ENGLISH_NEW_ZEALAND
+        || lang_id == TT_MS_LANGID_ENGLISH_IRELAND
+        || lang_id == TT_MS_LANGID_ENGLISH_SOUTH_AFRICA
+        || lang_id == TT_MS_LANGID_ENGLISH_JAMAICA
+        || lang_id == TT_MS_LANGID_ENGLISH_CARIBBEAN
+        || lang_id == TT_MS_LANGID_ENGLISH_BELIZE
+        || lang_id == TT_MS_LANGID_ENGLISH_TRINIDAD
+        || lang_id == TT_MS_LANGID_ENGLISH_ZIMBABWE
+        || lang_id == TT_MS_LANGID_ENGLISH_PHILIPPINES
+        || lang_id == TT_MS_LANGID_ENGLISH_INDIA
+        || lang_id == TT_MS_LANGID_ENGLISH_MALAYSIA
+        || lang_id == TT_MS_LANGID_ENGLISH_SINGAPORE
+      ) {
+        switch(properties[i].name_id) {
+          case TT_NAME_ID_FONT_FAMILY:
+            added = true;
+            meta.tag = FONT_FAMILY;
+            break;
+          case TT_NAME_ID_FONT_SUBFAMILY:
+            added = true;
+            meta.tag = FONT_SUBFAMILY;
+            break;
+          case TT_NAME_ID_UNIQUE_ID:
+            added = true;
+            meta.tag = FONT_ID;
+            break;
+          case TT_NAME_ID_FULL_NAME:
+            added = true;
+            meta.tag = FONT_FULLNAME;
+            break;
+          case TT_NAME_ID_VERSION_STRING:
+            added = true;
+            meta.tag = FONT_VERSION;
+            break;
+          case TT_NAME_ID_PS_NAME:
+            added = true;
+            meta.tag = FONT_PSNAME;
+            break;
+          case TT_NAME_ID_TYPOGRAPHIC_FAMILY:
+            added = true;
+            meta.tag = FONT_TFAMILY;
+            break;
+          case TT_NAME_ID_TYPOGRAPHIC_SUBFAMILY:
+            added = true;
+            meta.tag = FONT_TSUBFAMILY;
+            break;
+          case TT_NAME_ID_WWS_FAMILY:
+            added = true;
+            meta.tag = FONT_WWSFAMILY;
+            break;
+          case TT_NAME_ID_WWS_SUBFAMILY:
+            added = true;
+            meta.tag = FONT_WWSSUBFAMILY;
+            break;
+        }
+      }
+      if (!added) {
+        free(name);
+      } else {
+        meta.value = (char*) name;
+        meta.len = outlen;
+
+        if (meta_count == 0) {
+          *data = malloc(sizeof(FontMetaData));
+        } else {
+          *data = realloc(*data, sizeof(FontMetaData) * (meta_count+1));
+        }
+        memcpy((*data)+meta_count, &meta, sizeof(FontMetaData));
+        meta_count++;
+      }
+    }
+    *monospaced = FT_IS_FIXED_WIDTH(face);
+    *count = meta_count;
+  } else if (error != 0) {
+    ret_code = 2;
+  } else {
+    ret_code = 1;
+  }
+
+  if (properties != NULL)
+    free(properties);
+
+  if (error == 0)
+    FT_Done_Face(face);
+
+  return ret_code;
 }
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {

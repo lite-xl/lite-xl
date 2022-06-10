@@ -221,6 +221,78 @@ static int f_font_set_size(lua_State *L) {
   return 0;
 }
 
+static int f_font_get_metadata(lua_State *L) {
+  const char *filename  = luaL_checkstring(L, 1);
+  int found = 0;
+  int ret_count = 1;
+  FontMetaData *data;
+  bool monospaced = false;
+  int error = ren_font_get_metadata(filename, &data, &found, &monospaced);
+
+  if (error == 0 && found > 0){
+    lua_newtable(L);
+    for (int i=0; i<found; i++){
+
+      switch(data[i].tag) {
+        case FONT_FAMILY:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "family");
+          break;
+        case FONT_SUBFAMILY:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "subfamily");
+          break;
+        case FONT_ID:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "id");
+          break;
+        case FONT_FULLNAME:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "fullname");
+          break;
+        case FONT_VERSION:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "version");
+          break;
+        case FONT_PSNAME:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "psname");
+          break;
+        case FONT_TFAMILY:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "tfamily");
+          break;
+        case FONT_TSUBFAMILY:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "tsubfamily");
+          break;
+        case FONT_WWSFAMILY:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "wwsfamily");
+          break;
+        case FONT_WWSSUBFAMILY:
+          lua_pushlstring(L, data[i].value, data[i].len);
+          lua_setfield(L, -2, "wwssubfamily");
+          break;
+      }
+      free(data[i].value);
+    }
+    lua_pushboolean(L, monospaced);
+    lua_setfield(L, -2, "monospace");
+    free(data);
+  } else if (error == 2) {
+    lua_pushnil(L);
+    lua_pushstring(L, "could not retrieve the font properties");
+    ret_count = 2;
+  } else {
+    lua_pushnil(L);
+    lua_pushstring(L, "no properties found");
+    ret_count = 2;
+  }
+
+  return ret_count;
+}
+
 static int color_value_error(lua_State *L, int idx, int table_idx) {
   const char *type, *msg;
   // generate an appropriate error message
@@ -375,6 +447,7 @@ static const luaL_Reg fontLib[] = {
   { "get_size",           f_font_get_size           },
   { "set_size",           f_font_set_size           },
   { "get_path",           f_font_get_path           },
+  { "get_metadata",       f_font_get_metadata       },
   { NULL, NULL }
 };
 
