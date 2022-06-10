@@ -24,6 +24,7 @@ config.plugins.autoreload = common.merge({
 local watch = dirwatch.new()
 local times = setmetatable({}, { __mode = "k" })
 local visible = setmetatable({}, { __mode = "k" })
+local recently_modified, recent_selections = {}, {}
 
 local function get_project_doc_watch(doc)
   for i, v in ipairs(core.project_directories) do
@@ -38,6 +39,7 @@ end
 
 local function reload_doc(doc)
   doc:reload()
+  doc:set_selection(table.unpack(recent_selections[doc]))
   update_time(doc)
   core.redraw = true
   core.log_quiet("Auto-reloaded doc \"%s\"", doc.filename)
@@ -63,20 +65,29 @@ local function doc_changes_visiblity(doc, visibility)
   end
 end
 
+local function perform_check(doc, force_reload)
+  local info = system.get_file_info(doc.filename or "")
+  if info and times[doc] ~= info.modified then
+    if not doc:is_dirty() and not config.plugins.autoreload.always_show_nagview then
+      if force_reload or not recently_modified[doc] then  
+        if not recently_modified[doc] then recent_selections[doc] = { doc:get_selection() } end
+        reload_doc(doc) 
+      end
+      recently_modified[doc] = system.get_time()
+    else
+      doc.deferred_reload = true
+      if doc == core.active_view.doc then check_prompt_reload(doc) end
+    end
+    return true
+  end
+end
+
 local on_check = dirwatch.check
 function dirwatch:check(change_callback, ...)
   on_check(self, function(dir)
     for _, doc in ipairs(core.docs) do
-      if doc.abs_filename and (dir == common.dirname(doc.abs_filename) or dir == doc.abs_filename) then
-        local info = system.get_file_info(doc.filename or "")
-        if info and times[doc] ~= info.modified then
-          if not doc:is_dirty() and not config.plugins.autoreload.always_show_nagview then
-            reload_doc(doc)
-          else
-            doc.deferred_reload = true
-            if doc == core.active_view.doc then check_prompt_reload(doc) end
-          end
-        end
+      if doc.abs_filename and (dir == common.dirname(doc.abs_filename) or dir == doc.abs_filename) and not recently_modified[doc] then
+        perform_check(doc)
       end
     end
     change_callback(dir)
@@ -101,6 +112,20 @@ core.add_thread(function()
     -- because we already hook this function above; we only
     -- need to check the file.
     watch:check(function() end)
+    -- because some programs will save things in chunks, this can 
+    -- lead to race conditions because our dirwatch uses really-fast
+    -- OS-level mechanisms to check. perform another check after 0.5s
+    -- has passed on an automatic reload, to ensure that it's not modified
+    -- again. Clear the table when we have none pending.
+    local has_one = false
+    for k,v in pairs(recently_modified) do
+      if k and system.get_time() - v > 0.5 and not perform_check(k, true) then
+        recently_modified[k], recent_selections[k] = nil 
+      else 
+        has_one = true 
+      end
+    end
+    if not has_one then recently_modified, recent_selections = { }, { } end
     coroutine.yield(0.05)
   end
 end)
