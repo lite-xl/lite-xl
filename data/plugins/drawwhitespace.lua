@@ -4,6 +4,7 @@ local style = require "core.style"
 local DocView = require "core.docview"
 local common = require "core.common"
 local config = require "core.config"
+local Highlighter = require "core.doc.highlighter"
 
 config.plugins.drawwhitespace = common.merge({
   enabled = true,
@@ -95,6 +96,52 @@ config.plugins.drawwhitespace = common.merge({
   }
 }, config.plugins.drawwhitespace)
 
+
+local ws_cache = setmetatable({}, { __mode = "k" })
+
+-- Move cache to make space for new lines
+local prev_insert_notify = Highlighter.insert_notify
+function Highlighter:insert_notify(line, n, ...)
+  prev_insert_notify(self, line, n, ...)
+  local blanks = { }
+  if not ws_cache[self] then
+    ws_cache[self] = {}
+  end
+  local to = math.min(line + n, #self.doc.lines)
+  for i=#self.doc.lines+n,to,-1 do
+    ws_cache[self][i] = ws_cache[self][i - n]
+  end
+  for i=line,to do
+    ws_cache[self][i] = nil
+  end
+end
+
+-- Close the cache gap created by removed lines
+local prev_remove_notify = Highlighter.remove_notify
+function Highlighter:remove_notify(line, n, ...)
+  prev_remove_notify(self, line, n, ...)
+  if not ws_cache[self] then
+    ws_cache[self] = {}
+  end
+  local to = math.max(line + n, #self.doc.lines)
+  for i=line,to do
+    ws_cache[self][i] = ws_cache[self][i + n]
+  end
+end
+
+-- Remove changed lines from the cache
+local prev_update_notify = Highlighter.update_notify
+function Highlighter:update_notify(line, n, ...)
+  prev_update_notify(self, line, n, ...)
+  if not ws_cache[self] then
+    ws_cache[self] = {}
+  end
+  for i=line,line+n do
+    ws_cache[self][i] = nil
+  end
+end
+
+
 local function get_option(substitution, option)
   if substitution[option] == nil then
     return config.plugins.drawwhitespace[option]
@@ -114,66 +161,99 @@ function DocView:draw_line_text(idx, x, y)
 
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
   local ty = y + self:get_line_text_y_offset()
-  local tx
-  local text, offset, s, e = self.doc.lines[idx], 1
-  local x1, _, x2, _ = self:get_content_bounds()
-  local _offset = self:get_x_offset_col(idx, x1)
 
-  for _, substitution in pairs(config.plugins.drawwhitespace.substitutions) do
-    local char = substitution.char
-    local sub = substitution.sub
-    offset = _offset
+  if
+    not ws_cache[self.doc.highlighter]
+    or ws_cache[self.doc.highlighter].font ~= font
+  then
+    ws_cache[self.doc.highlighter] = {font = font}
+  end
 
-    local show_leading = get_option(substitution, "show_leading")
-    local show_middle = get_option(substitution, "show_middle")
-    local show_trailing = get_option(substitution, "show_trailing")
+  if not ws_cache[self.doc.highlighter][idx] then -- need to cache line
+    local cache = {}
 
-    local show_middle_min = get_option(substitution, "show_middle_min")
+    local tx
+    local text = self.doc.lines[idx]
 
-    local base_color = get_option(substitution, "color")
-    local leading_color = get_option(substitution, "leading_color") or base_color
-    local middle_color = get_option(substitution, "middle_color") or base_color
-    local trailing_color = get_option(substitution, "trailing_color") or base_color
+    for _, substitution in pairs(config.plugins.drawwhitespace.substitutions) do
+      local char = substitution.char
+      local sub = substitution.sub
+      local offset = 1
 
-    local pattern = char.."+"
-    while true do
-      s, e = text:find(pattern, offset)
-      if not s then break end
+      local show_leading = get_option(substitution, "show_leading")
+      local show_middle = get_option(substitution, "show_middle")
+      local show_trailing = get_option(substitution, "show_trailing")
 
-      tx = self:get_col_x_offset(idx, s) + x
+      local show_middle_min = get_option(substitution, "show_middle_min")
 
-      local color = base_color
-      local draw = false
+      local base_color = get_option(substitution, "color")
+      local leading_color = get_option(substitution, "leading_color") or base_color
+      local middle_color = get_option(substitution, "middle_color") or base_color
+      local trailing_color = get_option(substitution, "trailing_color") or base_color
 
-      if e == #text - 1 then
-        draw = show_trailing
-        color = trailing_color
-      elseif s == 1 then
-        draw = show_leading
-        color = leading_color
-      else
-        draw = show_middle and (e - s + 1 >= show_middle_min)
-        color = middle_color
-      end
+      local pattern = char.."+"
+      while true do
+        local s, e = text:find(pattern, offset)
+        if not s then break end
 
-      if draw then
-        -- We need to draw tabs one at a time because they might have a
-        -- different size than the substituting character.
-        -- This also applies to any other char if we use non-monospace fonts
-        -- but we ignore this case for now.
-        if char == "\t" then
-          for i = s,e do
-            tx = self:get_col_x_offset(idx, i) + x
-            tx = renderer.draw_text(font, sub, tx, ty, color)
-          end
+        tx = self:get_col_x_offset(idx, s)
+
+        local color = base_color
+        local draw = false
+
+        if e == #text - 1 then
+          draw = show_trailing
+          color = trailing_color
+        elseif s == 1 then
+          draw = show_leading
+          color = leading_color
         else
-          tx = renderer.draw_text(font, string.rep(sub, e - s + 1), tx, ty, color)
+          draw = show_middle and (e - s + 1 >= show_middle_min)
+          color = middle_color
         end
-      end
 
-      if tx > x + x2 then break end
-      offset = e + 1
+        if draw then
+          local last_cache_idx = #cache
+          -- We need to draw tabs one at a time because they might have a
+          -- different size than the substituting character.
+          -- This also applies to any other char if we use non-monospace fonts
+          -- but we ignore this case for now.
+          if char == "\t" then
+            for i = s,e do
+              tx = self:get_col_x_offset(idx, i)
+              cache[last_cache_idx + 1] = sub
+              cache[last_cache_idx + 2] = tx
+              cache[last_cache_idx + 3] = font:get_width(sub)
+              cache[last_cache_idx + 4] = color
+              last_cache_idx = last_cache_idx + 4
+            end
+          else
+            cache[last_cache_idx + 1] = string.rep(sub, e - s + 1)
+            cache[last_cache_idx + 2] = tx
+            cache[last_cache_idx + 3] = font:get_width(cache[last_cache_idx + 1])
+            cache[last_cache_idx + 4] = color
+          end
+        end
+        offset = e + 1
+      end
     end
+    ws_cache[self.doc.highlighter][idx] = cache
+  end
+
+  -- draw from cache
+  local x1, _, x2, _ = self:get_content_bounds()
+  x1 = x1 + x
+  x2 = x2 + x
+  local cache = ws_cache[self.doc.highlighter][idx]
+  for i=1,#cache,4 do
+    local sub = cache[i]
+    local tx = cache[i + 1] + x
+    local tw = cache[i + 2]
+    local color = cache[i + 3]
+    if tx + tw >= x1 then
+      tx = renderer.draw_text(font, sub, tx, y, color)
+    end
+    if tx > x2 then break end
   end
 
   return draw_line_text(self, idx, x, y)
