@@ -1,0 +1,195 @@
+diff -ruN lua-5.4.3/meson.build newlua/meson.build
+--- lua-5.4.3/meson.build	2022-05-29 21:04:17.850449500 +0800
++++ newlua/meson.build	2022-06-10 19:23:55.685139800 +0800
+@@ -82,6 +82,7 @@
+   'src/lutf8lib.c',
+   'src/lvm.c',
+   'src/lzio.c',
++  'src/utf8_wrappers.c',
+   dependencies: lua_lib_deps,
+   override_options: project_options,
+   implicit_include_directories: false,
+Binary files lua-5.4.3/src/lua54.dll and newlua/src/lua54.dll differ
+diff -ruN lua-5.4.3/src/luaconf.h newlua/src/luaconf.h
+--- lua-5.4.3/src/luaconf.h	2021-03-15 21:32:52.000000000 +0800
++++ newlua/src/luaconf.h	2022-06-10 19:15:03.014745300 +0800
+@@ -786,5 +786,15 @@
+
+
+
++#if defined(lua_c) || defined(luac_c) || (defined(LUA_LIB) && \
++    (defined(lauxlib_c) || defined(liolib_c) || \
++     defined(loadlib_c) || defined(loslib_c)))
++#include "utf8_wrappers.h"
++#endif
++
++
++
++
++
+ #endif
+
+diff -ruN lua-5.4.3/src/Makefile newlua/src/Makefile
+--- lua-5.4.3/src/Makefile	2021-02-10 02:47:17.000000000 +0800
++++ newlua/src/Makefile	2022-06-10 19:22:45.267931400 +0800
+@@ -33,7 +33,7 @@
+ PLATS= guess aix bsd c89 freebsd generic linux linux-readline macosx mingw posix solaris
+
+ LUA_A=	liblua.a
+-CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o
++CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o utf8_wrappers.o
+ LIB_O=	lauxlib.o lbaselib.o lcorolib.o ldblib.o liolib.o lmathlib.o loadlib.o loslib.o lstrlib.o ltablib.o lutf8lib.o linit.o
+ BASE_O= $(CORE_O) $(LIB_O) $(MYOBJS)
+
+
+diff -ruN lua-5.4.3/src/utf8_wrappers.c newlua/src/utf8_wrappers.c
+--- lua-5.4.3/src/utf8_wrappers.c	1970-01-01 07:30:00.000000000 +0730
++++ newlua/src/utf8_wrappers.c	2022-06-10 19:13:11.904613300 +0800
+@@ -0,0 +1,101 @@
++/**
++ * Wrappers to provide Unicode (UTF-8) support on Windows.
++ *
++ * Copyright (c) 2018 Peter Wu <peter@lekensteyn.nl>
++ * SPDX-License-Identifier: (GPL-2.0-or-later OR MIT)
++ */
++
++#ifdef _WIN32
++#include <windows.h>    /* for MultiByteToWideChar */
++#include <wchar.h>      /* for _wrename */
++#include <stdio.h>
++#include <stdlib.h>
++#include <errno.h>
++
++// Set a high limit in case long paths are enabled.
++#define MAX_PATH_SIZE   4096
++#define MAX_MODE_SIZE   128
++// cmd.exe argument length is reportedly limited to 8192.
++#define MAX_CMD_SIZE    8192
++
++FILE *fopen_utf8(const char *pathname, const char *mode) {
++    wchar_t pathname_w[MAX_PATH_SIZE];
++    wchar_t mode_w[MAX_MODE_SIZE];
++    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pathname, -1, pathname_w, MAX_PATH_SIZE) ||
++        !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mode, -1, mode_w, MAX_MODE_SIZE)) {
++        errno = EINVAL;
++        return NULL;
++    }
++    return _wfopen(pathname_w, mode_w);
++}
++
++FILE *freopen_utf8(const char *pathname, const char *mode, FILE *stream) {
++    wchar_t pathname_w[MAX_PATH_SIZE];
++    wchar_t mode_w[MAX_MODE_SIZE];
++    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pathname, -1, pathname_w, MAX_PATH_SIZE) ||
++        !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mode, -1, mode_w, MAX_MODE_SIZE)) {
++        // Close stream as documented for the error case.
++        fclose(stream);
++        errno = EINVAL;
++        return NULL;
++    }
++    return _wfreopen(pathname_w, mode_w, stream);
++}
++
++int remove_utf8(const char *pathname) {
++    wchar_t pathname_w[MAX_PATH_SIZE];
++    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pathname, -1, pathname_w, MAX_PATH_SIZE)) {
++        errno = EINVAL;
++        return -1;
++    }
++    return _wremove(pathname_w);
++}
++
++int rename_utf8(const char *oldpath, const char *newpath) {
++    wchar_t oldpath_w[MAX_PATH_SIZE];
++    wchar_t newpath_w[MAX_PATH_SIZE];
++    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, oldpath, -1, oldpath_w, MAX_PATH_SIZE) ||
++        !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, newpath, -1, newpath_w, MAX_PATH_SIZE)) {
++        errno = EINVAL;
++        return -1;
++    }
++    return _wrename(oldpath_w, newpath_w);
++}
++
++FILE *popen_utf8(const char *command, const char *mode) {
++    wchar_t command_w[MAX_CMD_SIZE];
++    wchar_t mode_w[MAX_MODE_SIZE];
++    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, command, -1, command_w, MAX_CMD_SIZE) ||
++        !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, mode, -1, mode_w, MAX_MODE_SIZE)) {
++        errno = EINVAL;
++        return NULL;
++    }
++    return _wpopen(command_w, mode_w);
++}
++
++int system_utf8(const char *command) {
++    wchar_t command_w[MAX_CMD_SIZE];
++    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, command, -1, command_w, MAX_CMD_SIZE)) {
++        errno = EINVAL;
++        return -1;
++    }
++    return _wsystem(command_w);
++}
++
++DWORD GetModuleFileNameA_utf8(HMODULE hModule, LPSTR lpFilename, DWORD nSize) {
++    wchar_t filename_w[MAX_PATH + 1];
++    if (!GetModuleFileNameW(hModule, filename_w, MAX_PATH + 1)) {
++        return 0;
++    }
++    return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, filename_w, -1, lpFilename, nSize, NULL, NULL);
++}
++
++HMODULE LoadLibraryExA_utf8(LPCSTR lpLibFileName, HANDLE hFile, DWORD dwFlags) {
++    wchar_t pathname_w[MAX_PATH_SIZE];
++    if (!MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, lpLibFileName, -1, pathname_w, MAX_PATH_SIZE)) {
++        SetLastError(ERROR_INVALID_NAME);
++        return NULL;
++    }
++    return LoadLibraryExW(pathname_w, hFile, dwFlags);
++}
++#endif
+diff -ruN lua-5.4.3/src/utf8_wrappers.h newlua/src/utf8_wrappers.h
+--- lua-5.4.3/src/utf8_wrappers.h	1970-01-01 07:30:00.000000000 +0730
++++ newlua/src/utf8_wrappers.h	2022-06-10 19:22:53.554879400 +0800
+@@ -0,0 +1,42 @@
++/**
++ * Wrappers to provide Unicode (UTF-8) support on Windows.
++ *
++ * Copyright (c) 2018 Peter Wu <peter@lekensteyn.nl>
++ * SPDX-License-Identifier: (GPL-2.0-or-later OR MIT)
++ */
++
++#ifdef _WIN32
++
++#if defined(loadlib_c) || defined(lauxlib_c) || defined(liolib_c) || defined(luac_c)
++#include <stdio.h>  /* for loadlib_c */
++FILE *fopen_utf8(const char *pathname, const char *mode);
++#define fopen               fopen_utf8
++#endif
++
++#ifdef lauxlib_c
++FILE *freopen_utf8(const char *pathname, const char *mode, FILE *stream);
++#define freopen             freopen_utf8
++#endif
++
++#ifdef liolib_c
++FILE *popen_utf8(const char *command, const char *mode);
++#define _popen              popen_utf8
++#endif
++
++#ifdef loslib_c
++int remove_utf8(const char *pathname);
++int rename_utf8(const char *oldpath, const char *newpath);
++int system_utf8(const char *command);
++#define remove              remove_utf8
++#define rename              rename_utf8
++#define system              system_utf8
++#endif
++
++#ifdef loadlib_c
++#include <windows.h>
++DWORD GetModuleFileNameA_utf8(HMODULE hModule, LPSTR lpFilename, DWORD nSize);
++HMODULE LoadLibraryExA_utf8(LPCSTR lpLibFileName, HANDLE hFile, DWORD dwFlags);
++#define GetModuleFileNameA  GetModuleFileNameA_utf8
++#define LoadLibraryExA      LoadLibraryExA_utf8
++#endif
++#endif

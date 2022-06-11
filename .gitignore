@@ -17,3 +17,5 @@ compile_commands.json
 error.txt
 lite-xl*
 LiteXL*
+
+!resources/windows/*.diff
