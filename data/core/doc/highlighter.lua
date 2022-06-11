@@ -22,12 +22,20 @@ function Highlighter:new(doc)
       else
         local max = math.min(self.first_invalid_line + 40, self.max_wanted_line)
 
+        local retokenized_from
         for i = self.first_invalid_line, max do
           local state = (i > 1) and self.lines[i - 1].state
           local line = self.lines[i]
           if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
+            retokenized_from = retokenized_from or i
             self.lines[i] = self:tokenize_line(i, state)
+          elseif retokenized_from then
+            self:update_notify(retokenized_from, i - retokenized_from - 1)
+            retokenized_from = nil
           end
+        end
+        if retokenized_from then
+          self:update_notify(retokenized_from, max - retokenized_from)
         end
 
         self.first_invalid_line = max + 1
@@ -71,6 +79,10 @@ function Highlighter:remove_notify(line, n)
   common.splice(self.lines, line, n)
 end
 
+function Highlighter:update_notify(line, n)
+  -- plugins can hook here to be notified that lines have been retokenized
+end
+
 
 function Highlighter:tokenize_line(idx, state)
   local res = {}
@@ -87,6 +99,7 @@ function Highlighter:get_line(idx)
     local prev = self.lines[idx - 1]
     line = self:tokenize_line(idx, prev and prev.state)
     self.lines[idx] = line
+    self:update_notify(idx, 0)
   end
   self.max_wanted_line = math.max(self.max_wanted_line, idx)
   return line
