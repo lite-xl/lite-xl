@@ -175,27 +175,29 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       res = p.pattern and { text:ufind((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
         or { regex.match(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
       if p.regex and #res > 0 then -- set correct utf8 len for regex result
-        res[2] = res[1] + string.ulen(text:sub(res[1], res[2])) - 1
+        local char_pos_1 = string.ulen(text:sub(1, res[1]))
+        local char_pos_2 = char_pos_1 + string.ulen(text:sub(res[1], res[2])) - 1
         -- `regex.match` returns group results as a series of `begin, end`
         -- we only want `begin`s
         if #res >= 3 then
-          res[3] = res[1] + string.ulen(text:sub(res[1], res[3])) - 1
+          res[3] = char_pos_1 + string.ulen(text:sub(res[1], res[3])) - 1
         end
         for i=1,(#res-3) do
           local curr = i + 3
           local from = i * 2 + 3
           if from < #res then
-            res[curr] = res[1] + string.ulen(text:sub(res[1], res[from])) - 1
+            res[curr] = char_pos_1 + string.ulen(text:sub(res[1], res[from])) - 1
           else
             res[curr] = nil
           end
         end
-        res[1] = next
+        res[1] = char_pos_1
+        res[2] = char_pos_2
       end
       if res[1] and close and target[3] then
         local count = 0
         for i = res[1] - 1, 1, -1 do
-          if text:byte(i) ~= target[3]:byte() then break end
+          if text:ubyte(i) ~= target[3]:ubyte() then break end
           count = count + 1
         end
         -- Check to see if the escaped character is there,
