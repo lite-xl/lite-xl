@@ -194,15 +194,21 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         res[1] = char_pos_1
         res[2] = char_pos_2
       end
-      if res[1] and close and target[3] then
+      if res[1] and target[3] then
+        -- Check to see if the escaped character is there,
+        -- and if it is not itself escaped.
         local count = 0
         for i = res[1] - 1, 1, -1 do
           if text:ubyte(i) ~= target[3]:ubyte() then break end
           count = count + 1
         end
-        -- Check to see if the escaped character is there,
-        -- and if it is not itself escaped.
-        if count % 2 == 0 then break end
+        if count % 2 == 0 then
+          -- The match is not escaped, so confirm it
+          break
+        elseif not close then
+          -- The *open* match is escaped, so avoid it
+          return
+        end
       end
     until not res[1] or not close or not target[3]
     return table.unpack(res)
