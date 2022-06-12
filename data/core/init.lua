@@ -921,6 +921,8 @@ function core.restart()
 end
 
 
+local mod_version_regex =
+  regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
 local function get_plugin_details(filename)
   local info = system.get_file_info(filename)
   if info ~= nil and info.type == "dir" then
@@ -932,17 +934,33 @@ local function get_plugin_details(filename)
   if not f then return false end
   local priority = false
   local version_match = false
+
   for line in f:lines() do
     if not version_match then
-      local mod_version = line:match('%-%-.*%f[%a]mod%-version%s*:%s*(%d+)')
-      if mod_version then
-        version_match = (mod_version == MOD_VERSION)
+      local _, _,
+        major_a, major_b,
+        minor_a, minor_b,
+        patch_a, patch_b = mod_version_regex:match(line)
+      local major, minor, patch
+      if major_a then
+        major = tonumber(line:sub(major_a, major_b))
+        version_match = major == MOD_VERSION_MAJOR
+      end
+      if version_match and minor_a then
+        minor = tonumber(line:sub(minor_a, minor_b))
+        version_match = (minor or 0) <= MOD_VERSION_MINOR
+      end
+      if version_match and patch_a then
+        patch = tonumber(line:sub(patch_a, patch_b))
+        version_match = (patch or 0) <= MOD_VERSION_PATCH
       end
     end
+
     if not priority then
       priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
       if priority then priority = tonumber(priority) end
     end
+
     if version_match then
       break
     end
