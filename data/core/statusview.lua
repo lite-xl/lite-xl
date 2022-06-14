@@ -606,7 +606,7 @@ end
 ---@return table right
 function StatusView:get_items(nowarn)
   if not nowarn and not self.get_items_warn then
-    core.error(
+    core.warn(
       "Overriding StatusView:get_items() is deprecated, "
       .. "use core.status_view:add_item() instead."
     )
