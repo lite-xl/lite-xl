@@ -4,6 +4,7 @@ lhelper/
 submodules/
 subprojects/*/
 /appimage*
+.cache
 .ccls-cache
 .lite-debug.log
 .run*
