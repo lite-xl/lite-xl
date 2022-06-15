@@ -272,7 +272,11 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       if find_results[1] then
         local type_is_table = type(p.type) == "table"
         local n_types = type_is_table and #p.type or 1
-        if #find_results - 1 > n_types then
+        if #find_results == 2 and type_is_table then
+          report_bad_pattern(core.warn, current_syntax, n,
+            "Token type is a table, but a string was expected.")
+          p.type = p.type[1]
+        elseif #find_results - 1 > n_types then
           report_bad_pattern(core.error, current_syntax, n,
             "Not enough token types: got %d needed %d.", n_types, #find_results - 1)
         elseif #find_results - 1 < n_types then
