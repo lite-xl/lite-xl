@@ -106,6 +106,18 @@
 * Config: added new development option to prevent plugin version checking at
   startup named [skip_plugins_version](https://github.com/lite-xl/lite-xl/pull/879)
 
+### Performance Improvements
+
+* [Load space metrics only when creating font](https://github.com/lite-xl/lite-xl/pull/1032)
+
+* [Performance improvement](https://github.com/lite-xl/lite-xl/pull/883)
+  of detect indent plugin.
+
+* Improve performance of
+  [ren_draw_rect](https://github.com/lite-xl/lite-xl/pull/935).
+
+* Improved [tokenizer performance](https://github.com/lite-xl/lite-xl/pull/896).
+
 ### Backward Incompatible Changes
 * [Upgraded Lua to 5.4](https://github.com/lite-xl/lite-xl/pull/781), which
   should improve performance, and provide useful extra functionality. It should
@@ -237,9 +249,6 @@
 * Fixed a bunch of problems relating to
   [multi-cursor](https://github.com/lite-xl/lite-xl/pull/886).
 
-* [Performance improvement](https://github.com/lite-xl/lite-xl/pull/883)
-  of detect indent plugin.
-
 * NagView: [support vscroll](https://github.com/lite-xl/lite-xl/pull/876) when
   message is too long.
 
@@ -270,9 +279,6 @@
 
 * [Autoreload Nagview](https://github.com/lite-xl/lite-xl/pull/942).
 
-* Improve performance of
-  [ren_draw_rect](https://github.com/lite-xl/lite-xl/pull/935).
-
 * [Enhancements to scrollbar](https://github.com/lite-xl/lite-xl/pull/916).
 
 * Set the correct working directory for the
@@ -282,8 +288,6 @@
   [temp file](https://github.com/lite-xl/lite-xl/pull/906) functions.
 
 * [Added plugin load-time log](https://github.com/lite-xl/lite-xl/pull/966).
-
-* Improved [tokenizer performance](https://github.com/lite-xl/lite-xl/pull/896).
 
 * TreeView improvements for
   [multi-project](https://github.com/lite-xl/lite-xl/pull/1010).
