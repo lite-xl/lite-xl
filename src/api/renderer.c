@@ -60,16 +60,16 @@ static int f_font_load(lua_State *L) {
 
 static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
   memset(fonts, 0, sizeof(RenFont*)*FONT_FALLBACK_MAX);
-  if (lua_type(L, 1) != LUA_TTABLE) {
+  if (lua_type(L, idx) != LUA_TTABLE) {
     fonts[0] = *(RenFont**)luaL_checkudata(L, idx, API_TYPE_FONT);
     return false;
   }
-  int i = 0;
-  do {
+  int len = luaL_len(L, idx); len = len > FONT_FALLBACK_MAX ? FONT_FALLBACK_MAX : len;
+  for (int i = 0; i < len; i++) {
     lua_rawgeti(L, idx, i+1);
-    fonts[i] = !lua_isnil(L, -1) ? *(RenFont**)luaL_checkudata(L, -1, API_TYPE_FONT) : NULL;
+    fonts[i] = *(RenFont**) luaL_checkudata(L, -1, API_TYPE_FONT);
     lua_pop(L, 1);
-  } while (fonts[i] && i++ < FONT_FALLBACK_MAX);
+  }
   return true;
 }
 
