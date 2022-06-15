@@ -97,13 +97,48 @@ config.plugins.drawwhitespace = common.merge({
 }, config.plugins.drawwhitespace)
 
 
-local ws_cache = setmetatable({}, { __mode = "k" })
+local ws_cache
+local cached_settings
+local function reset_cache()
+  ws_cache = setmetatable({}, { __mode = "k" })
+  local settings = config.plugins.drawwhitespace
+  cached_settings = {
+    show_leading = settings.show_leading,
+    show_trailing = settings.show_trailing,
+    show_middle = settings.show_middle,
+    show_middle_min = settings.show_middle_min,
+    color = settings.color,
+    leading_color = settings.leading_color,
+    middle_color = settings.middle_color,
+    trailing_color = settings.trailing_color,
+    substitutions = settings.substitutions,
+  }
+end
+reset_cache()
+
+local function reset_cache_if_needed()
+  local settings = config.plugins.drawwhitespace
+  if
+    not ws_cache or
+    cached_settings.show_leading       ~= settings.show_leading
+    or cached_settings.show_trailing   ~= settings.show_trailing
+    or cached_settings.show_middle     ~= settings.show_middle
+    or cached_settings.show_middle_min ~= settings.show_middle_min
+    or cached_settings.color           ~= settings.color
+    or cached_settings.leading_color   ~= settings.leading_color
+    or cached_settings.middle_color    ~= settings.middle_color
+    or cached_settings.trailing_color  ~= settings.trailing_color
+    -- we assume that the entire table changes
+    or cached_settings.substitutions   ~= settings.substitutions
+  then
+    reset_cache()
+  end
+end
 
 -- Move cache to make space for new lines
 local prev_insert_notify = Highlighter.insert_notify
 function Highlighter:insert_notify(line, n, ...)
   prev_insert_notify(self, line, n, ...)
-  local blanks = { }
   if not ws_cache[self] then
     ws_cache[self] = {}
   end
@@ -160,8 +195,8 @@ function DocView:draw_line_text(idx, x, y)
   end
 
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
-  local ty = y + self:get_line_text_y_offset()
 
+  reset_cache_if_needed()
   if
     not ws_cache[self.doc.highlighter]
     or ws_cache[self.doc.highlighter].font ~= font
