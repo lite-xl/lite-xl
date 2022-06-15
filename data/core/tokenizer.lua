@@ -259,16 +259,16 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     local matched = false
     for n, p in ipairs(current_syntax.patterns) do
       local find_results = { find_text(text, p, i, true, false) }
-      if #find_results - 1 > #p.type then
-        if not bad_patterns[current_syntax] then
-          bad_patterns[current_syntax] = { }
-        end
-        if not bad_patterns[current_syntax][n] then
-          bad_patterns[current_syntax][n] = true
-          core.error("Malformed pattern #%d in %s language plugin", n, current_syntax.name or "unnamed")
-        end
-      end
       if find_results[1] then
+        if #find_results - 1 > (type(p.type) == "table" and #p.type or 1) then
+          if not bad_patterns[current_syntax] then
+            bad_patterns[current_syntax] = { }
+          end
+          if not bad_patterns[current_syntax][n] then
+            bad_patterns[current_syntax][n] = true
+            core.error("Malformed pattern #%d in %s language plugin", n, current_syntax.name or "unnamed")
+          end
+        end
         -- matched pattern; make and add tokens
         push_tokens(res, current_syntax, p, text, find_results)
         -- update state if this was a start|end pattern pair
