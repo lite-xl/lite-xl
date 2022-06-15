@@ -95,6 +95,16 @@ local function retrieve_syntax_state(incoming_syntax, state)
   return current_syntax, subsyntax_info, current_pattern_idx, current_level
 end
 
+local function report_bad_pattern(log_fn, syntax, pattern_idx, msg, ...)
+  if not bad_patterns[syntax] then
+    bad_patterns[syntax] = { }
+  end
+  if bad_patterns[syntax][pattern_idx] then return end
+  bad_patterns[syntax][pattern_idx] = true
+  log_fn("Malformed pattern #%d in %s language plugin. " .. msg,
+            pattern_idx, syntax.name or "unnamed", ...)
+end
+
 ---@param incoming_syntax table
 ---@param text string
 ---@param state integer
@@ -260,14 +270,14 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     for n, p in ipairs(current_syntax.patterns) do
       local find_results = { find_text(text, p, i, true, false) }
       if find_results[1] then
-        if #find_results - 1 > (type(p.type) == "table" and #p.type or 1) then
-          if not bad_patterns[current_syntax] then
-            bad_patterns[current_syntax] = { }
-          end
-          if not bad_patterns[current_syntax][n] then
-            bad_patterns[current_syntax][n] = true
-            core.error("Malformed pattern #%d in %s language plugin", n, current_syntax.name or "unnamed")
-          end
+        local type_is_table = type(p.type) == "table"
+        local n_types = type_is_table and #p.type or 1
+        if #find_results - 1 > n_types then
+          report_bad_pattern(core.error, current_syntax, n,
+            "Not enough token types: got %d needed %d.", n_types, #find_results - 1)
+        elseif #find_results - 1 < n_types then
+          report_bad_pattern(core.warn, current_syntax, n,
+            "Too many token types: got %d needed %d.", n_types, #find_results - 1)
         end
         -- matched pattern; make and add tokens
         push_tokens(res, current_syntax, p, text, find_results)
