@@ -32,29 +32,54 @@ syntax.add {
     { pattern = "%.()__[%a][%w_]*",
       type = { "normal", "function" }
     },
-    -- function declarations to prevent matching as variables
-    { pattern = "local()%s+()function()%s+()[%a_][%w_]*",
-      type = { "keyword", "normal", "keyword", "normal", "function" }
+    -- Function parameters
+    {
+      regex = {
+        "(?="
+          .. "(?:local)?\\s*"
+          .. "(?:function\\s*)"
+          .. "(?:[a-zA-Z_][a-zA-Z0-9_\\.\\:]*\\s*)?"
+          .. "\\("
+        .. ")",
+        "\\)"
+      },
+      type = "normal",
+      syntax = {
+        patterns = {
+          { pattern = "%.%.%.", type = "operator" },
+          { pattern = "[%a_][%w_]*%s*(),%s*",
+            type = {"operator", "normal"}
+          },
+          { pattern = "[%a_][%w_]*%s*%f[)]",
+            type = "operator"
+          },
+          { pattern = "%.()[%a_][%w_]*()%s*%f[(]",
+            type = { "normal", "function", "normal"}
+          },
+          { pattern = "[%a_][%w_]*()%s*%f[(]",
+            type = {"function", "normal"}
+          },
+          { pattern = "%.()[%a_][%w_]*",
+            type = { "normal", "symbol" }
+          },
+          { pattern = "[%a_][%w_]*",
+            type = "symbol"
+          },
+        },
+        symbols = {
+          ["local"] = "keyword",
+          ["function"] = "keyword",
+          ["self"] = "keyword2"
+        }
+      }
     },
-    { pattern = "local()%s+()function",
-      type = { "keyword", "normal", "keyword" }
+    -- require statements
+    { pattern = "local()%s+()[%a_][%w_]*()%s*()=()%s*()require",
+      type = { "keyword", "normal", "keyword2", "normal", "operator", "normal", "function" }
     },
     -- Placeholder
     { pattern = "_(),",
       type = { "operator", "normal" }
-    },
-    -- Variable declarations
-    { pattern = {"local", "[=\n]"},
-      syntax = {
-        patterns = {
-          {
-            pattern = "[%a_][%w_]*()%s*,?%s*",
-            type = {"keyword2", "normal"}
-          }
-        },
-        symbols = {}
-      },
-      type = "normal"
     },
     -- Function calls
     { pattern = "[%a_][%w_]+()%s*%f[(\"'{]", type = {"function", "normal"} },
@@ -62,16 +87,12 @@ syntax.add {
       type = { "normal", "normal", "function", "normal"} },
     -- Sub fields
     { pattern = "%.()[%a_][%w_]*",
-      type = { "normal", "literal" }
+      type = { "normal", "symbol" }
     },
     -- Uppercase constants of at least 2 chars in len
     {
         pattern = "%u[%u_][%u%d_]*%f[%s%+%*%-%.%(%)%?%^%%=/<>~|&:,~]",
         type = "number"
-    },
-    -- Variable assignments
-    { pattern = "%a[%w_]*() *= *%f[^=]",
-      type = { "keyword2", "operator" }
     },
     -- Labels
     { pattern = "::[%a_][%w_]*::",           type = "function" },
