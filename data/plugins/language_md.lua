@@ -110,6 +110,9 @@ syntax.add {
     { pattern = "&#?[a-zA-Z0-9]+;",         type = "keyword2" },
 
   ---- Markdown rules
+    -- math
+    { pattern = { "%$%$", "%$%$", "\\"  },  type = "string", syntax = ".tex"},
+    { pattern = { "%$", "%$", "\\" },       type = "string", syntax = ".tex"},
     -- code blocks
     { pattern = { "```c++", "```" },        type = "string", syntax = ".cpp" },
     { pattern = { "```cpp", "```" },        type = "string", syntax = ".cpp" },
