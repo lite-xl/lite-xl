@@ -56,8 +56,6 @@ addons_install() {
       "${data_dir}/plugins/"
   done
 
-  rm "${build_dir}/third/data/plugins/language_cpp.lua"
-
   cp "${build_dir}/third/data/plugins/"language_* \
       "${data_dir}/plugins/"
 }
