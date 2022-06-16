@@ -108,10 +108,12 @@ end
 
 local function inc_scale()
   set_scale(current_scale + scale_steps)
+  collectgarbage "step"
 end
 
 local function dec_scale()
   set_scale(current_scale - scale_steps)
+  collectgarbage "step"
 end
 
 
