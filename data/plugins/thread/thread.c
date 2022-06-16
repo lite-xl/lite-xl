@@ -617,3 +617,8 @@ int luaopen_lite_xl_thread(lua_State *L, void* (*api_require)(char *)) {
 
   return luaopen_thread(L);
 }
+
+/* Fix link issue on windows */
+#if defined(_WIN32)
+int SDL_main(int argc, char *argv[]){ return 0; }
+#endif
