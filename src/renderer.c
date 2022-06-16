@@ -420,36 +420,29 @@ int ren_font_get_metadata(
 
   int found = 0;
   FT_Face face;
-  FT_SfntName *properties = NULL;
   int ret_code = 0;
   int error = FT_New_Face(library, path, 0, &face);
 
-  if (error == 0 ) {
+  if (error == 0 )
     found = FT_Get_Sfnt_Name_Count(face);
 
-    if (found > 0) {
-      properties = malloc(sizeof(FT_SfntName) * found);
-      for (int i=0; i<found; i++) {
-        FT_Get_Sfnt_Name(face, i, &properties[i]);
-      }
-    }
-  }
-
-  if (found > 0){
+  if (found > 0) {
     int meta_count = 0;
-    for (int i=0; i<found; i++){
-      bool added = false;
-      unsigned char *name = malloc(properties[i].string_len * 2);
-      int outlen, inlen;
-      outlen = properties[i].string_len * 2;
-      inlen = properties[i].string_len;
+    for (int i=0; i<found; i++) {
+      FT_SfntName metaprop;
+      FT_Get_Sfnt_Name(face, i, &metaprop);
 
-      if (UTF16BEToUTF8(name, &outlen, properties[i].string, &inlen) == -2) {
-        memcpy(name, properties[i].string, properties[i].string_len);
-        outlen = properties[i].string_len;
+      unsigned char *name = malloc(metaprop.string_len * 2);
+      int outlen, inlen;
+      outlen = metaprop.string_len * 2;
+      inlen = metaprop.string_len;
+
+      if (UTF16BEToUTF8(name, &outlen, metaprop.string, &inlen) == -2) {
+        memcpy(name, metaprop.string, metaprop.string_len);
+        outlen = metaprop.string_len;
       }
 
-      int lang_id = properties[i].language_id;
+      int lang_id = metaprop.language_id;
       FontMetaData meta = { -1, NULL, 0 };
 
       if (
@@ -471,50 +464,40 @@ int ren_font_get_metadata(
         || lang_id == TT_MS_LANGID_ENGLISH_MALAYSIA
         || lang_id == TT_MS_LANGID_ENGLISH_SINGAPORE
       ) {
-        switch(properties[i].name_id) {
+        switch(metaprop.name_id) {
           case TT_NAME_ID_FONT_FAMILY:
-            added = true;
             meta.tag = FONT_FAMILY;
             break;
           case TT_NAME_ID_FONT_SUBFAMILY:
-            added = true;
             meta.tag = FONT_SUBFAMILY;
             break;
           case TT_NAME_ID_UNIQUE_ID:
-            added = true;
             meta.tag = FONT_ID;
             break;
           case TT_NAME_ID_FULL_NAME:
-            added = true;
             meta.tag = FONT_FULLNAME;
             break;
           case TT_NAME_ID_VERSION_STRING:
-            added = true;
             meta.tag = FONT_VERSION;
             break;
           case TT_NAME_ID_PS_NAME:
-            added = true;
             meta.tag = FONT_PSNAME;
             break;
           case TT_NAME_ID_TYPOGRAPHIC_FAMILY:
-            added = true;
             meta.tag = FONT_TFAMILY;
             break;
           case TT_NAME_ID_TYPOGRAPHIC_SUBFAMILY:
-            added = true;
             meta.tag = FONT_TSUBFAMILY;
             break;
           case TT_NAME_ID_WWS_FAMILY:
-            added = true;
             meta.tag = FONT_WWSFAMILY;
             break;
           case TT_NAME_ID_WWS_SUBFAMILY:
-            added = true;
             meta.tag = FONT_WWSSUBFAMILY;
             break;
         }
       }
-      if (!added) {
+      if (meta.tag == -1) {
         free(name);
       } else {
         meta.value = (char*) name;
@@ -536,9 +519,6 @@ int ren_font_get_metadata(
   } else {
     ret_code = 1;
   }
-
-  if (properties != NULL)
-    free(properties);
 
   if (error == 0)
     FT_Done_Face(face);

@@ -229,10 +229,9 @@ static int f_font_get_metadata(lua_State *L) {
   bool monospaced = false;
   int error = ren_font_get_metadata(filename, &data, &found, &monospaced);
 
-  if (error == 0 && found > 0){
+  if (error == 0 && found > 0) {
     lua_newtable(L);
-    for (int i=0; i<found; i++){
-
+    for (int i=0; i<found; i++) {
       switch(data[i].tag) {
         case FONT_FAMILY:
           lua_pushlstring(L, data[i].value, data[i].len);
@@ -282,11 +281,11 @@ static int f_font_get_metadata(lua_State *L) {
     free(data);
   } else if (error == 2) {
     lua_pushnil(L);
-    lua_pushstring(L, "could not retrieve the font properties");
+    lua_pushstring(L, "could not retrieve the font meta data");
     ret_count = 2;
   } else {
     lua_pushnil(L);
-    lua_pushstring(L, "no properties found");
+    lua_pushstring(L, "no meta data found");
     ret_count = 2;
   }
 
