@@ -1,31 +1,21 @@
--- mod-version:3
+-- mod-version:2 -- lite-xl 2.0
 local syntax = require "core.syntax"
 
 syntax.add {
   name = "HTML",
   files = { "%.html?$" },
-  block_comment = { "<!--", "-->" },
   patterns = {
     {
       pattern = {
-        "<%s*[sS][cC][rR][iI][pP][tT]%s+[tT][yY][pP][eE]%s*=%s*" ..
-          "['\"]%a+/[jJ][aA][vV][aA][sS][cC][rR][iI][pP][tT]['\"]%s*>",
-        "<%s*/[sS][cC][rR][iI][pP][tT]>"
+        "<%s*[sS][cC][rR][iI][pP][tT]%f[%s>].->",
+        "<%s*/%s*[sS][cC][rR][iI][pP][tT]%s*>"
       },
       syntax = ".js",
       type = "function"
     },
     {
       pattern = {
-        "<%s*[sS][cC][rR][iI][pP][tT]%s*>",
-        "<%s*/%s*[sS][cC][rR][iI][pP][tT]>"
-      },
-      syntax = ".js",
-      type = "function"
-    },
-    {
-      pattern = {
-        "<%s*[sS][tT][yY][lL][eE][^>]*>",
+        "<%s*[sS][tT][yY][lL][eE]%f[%s>].->",
         "<%s*/%s*[sS][tT][yY][lL][eE]%s*>"
       },
       syntax = ".css",
