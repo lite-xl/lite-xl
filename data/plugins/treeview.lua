@@ -153,28 +153,30 @@ function TreeView:each_item()
       count_lines = count_lines + 1
       y = y + h
       local i = 1
-      while i <= #dir.files and dir_cached.expanded do
-        local item = dir.files[i]
-        local cached = self:get_cached(dir, item, dir.name)
+      if dir.files then -- if consumed max sys file descriptors this can be nil
+        while i <= #dir.files and dir_cached.expanded do
+          local item = dir.files[i]
+          local cached = self:get_cached(dir, item, dir.name)
 
-        coroutine.yield(cached, ox, y, w, h)
-        count_lines = count_lines + 1
-        y = y + h
-        i = i + 1
+          coroutine.yield(cached, ox, y, w, h)
+          count_lines = count_lines + 1
+          y = y + h
+          i = i + 1
 
-        if not cached.expanded then
-          if cached.skip then
-            i = cached.skip
-          else
-            local depth = cached.depth
-            while i <= #dir.files do
-              if get_depth(dir.files[i].filename) <= depth then break end
-              i = i + 1
+          if not cached.expanded then
+            if cached.skip then
+              i = cached.skip
+            else
+              local depth = cached.depth
+              while i <= #dir.files do
+                if get_depth(dir.files[i].filename) <= depth then break end
+                i = i + 1
+              end
+              cached.skip = i
             end
-            cached.skip = i
           end
-        end
-      end -- while files
+        end -- while files
+      end
     end -- for directories
     self.count_lines = count_lines
   end)
