@@ -111,7 +111,7 @@ main() {
     $pgo \
     "${build_dir}"
 
-  lua_subproject_path=subprojects/lua-*/
+  lua_subproject_path=$(echo subprojects/lua-*/)
   if [[ $patch_lua == "true" ]] && [[ ! -z $force_fallback ]] && [[ -d $lua_subproject_path ]]; then
     patch -d $lua_subproject_path -p1 --forward < resources/windows/001-lua-unicode.diff
   fi
