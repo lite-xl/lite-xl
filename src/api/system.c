@@ -2,9 +2,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <dirent.h>
-#include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include "api.h"
 #include "../rencache.h"
@@ -12,8 +11,15 @@
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
-#elif __linux__
+  #include "../utfconv.h"
+#else
+
+#include <dirent.h>
+#include <unistd.h>
+
+#ifdef __linux__
   #include <sys/vfs.h>
+#endif
 #endif
 
 extern SDL_Window *window;
@@ -124,6 +130,31 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
     return buf;
   }
 }
+
+#ifdef _WIN32
+static char *win32_error(DWORD rc) {
+  LPSTR message;
+  FormatMessage(
+    FORMAT_MESSAGE_ALLOCATE_BUFFER |
+    FORMAT_MESSAGE_FROM_SYSTEM |
+    FORMAT_MESSAGE_IGNORE_INSERTS,
+    NULL,
+    rc,
+    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+    (LPTSTR) &message,
+    0,
+    NULL
+  );
+
+  return message;
+}
+
+static void push_win32_error(lua_State *L, DWORD rc) {
+  LPSTR message = win32_error(rc);
+  lua_pushstring(L, message);
+  LocalFree(message);
+}
+#endif
 
 static int f_poll_event(lua_State *L) {
   char buf[16];
@@ -425,29 +456,14 @@ static int f_rmdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
 #ifdef _WIN32
-  int deleted = RemoveDirectoryA(path);
-  if(deleted > 0) {
+  LPWSTR wpath = utfconv_utf8towc(path);
+  int deleted = RemoveDirectoryW(wpath);
+  free(wpath);
+  if (deleted > 0) {
     lua_pushboolean(L, 1);
   } else {
-    DWORD error_code = GetLastError();
-    LPVOID message;
-
-    FormatMessage(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER |
-      FORMAT_MESSAGE_FROM_SYSTEM |
-      FORMAT_MESSAGE_IGNORE_INSERTS,
-      NULL,
-      error_code,
-      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      (LPTSTR) &message,
-      0,
-      NULL
-    );
-
     lua_pushboolean(L, 0);
-    lua_pushlstring(L, (LPCTSTR)message, lstrlen((LPCTSTR)message));
-    LocalFree(message);
-
+    push_win32_error(L, GetLastError());
     return 2;
   }
 #else
@@ -468,8 +484,15 @@ static int f_rmdir(lua_State *L) {
 
 static int f_chdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+#ifdef _WIN32
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) { return luaL_error(L, UTFCONV_ERROR_INVALID_CONVERSION ); }
+  int err = _wchdir(wpath);
+  free(wpath);
+#else
   int err = chdir(path);
-  if (err) { luaL_error(L, "chdir() failed"); }
+#endif
+  if (err) { luaL_error(L, "chdir() failed: %s", strerror(errno)); }
   return 0;
 }
 
@@ -477,6 +500,57 @@ static int f_chdir(lua_State *L) {
 static int f_list_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
+#ifdef _WIN32
+  lua_settop(L, 1);
+  if (strchr("\\/", path[strlen(path) - 2]) != NULL)
+    lua_pushstring(L, "*");
+  else
+    lua_pushstring(L, "/*");
+
+  lua_concat(L, 2);
+  path = lua_tostring(L, -1);
+
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) {
+    lua_pushnil(L);
+    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    return 2;
+  }
+
+  WIN32_FIND_DATAW fd;
+  HANDLE find_handle = FindFirstFileExW(wpath, FindExInfoBasic, &fd, FindExSearchNameMatch, NULL, 0);
+  free(wpath);
+  if (find_handle == INVALID_HANDLE_VALUE) {
+    lua_pushnil(L);
+    push_win32_error(L, GetLastError());
+    return 2;
+  }
+
+  char mbpath[MAX_PATH * 4]; // utf-8 spans 4 bytes at most
+  int len, i = 1;
+  lua_newtable(L);
+
+  do
+  {
+    if (wcscmp(fd.cFileName, L".") == 0) { continue; }
+    if (wcscmp(fd.cFileName, L"..") == 0) { continue; }
+
+    len = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, mbpath, MAX_PATH * 4, NULL, NULL);
+    if (len == 0) { break; }
+    lua_pushlstring(L, mbpath, len - 1); // len includes \0
+    lua_rawseti(L, -2, i++);
+  } while (FindNextFileW(find_handle, &fd));
+
+  if (GetLastError() != ERROR_NO_MORE_FILES) {
+    lua_pushnil(L);
+    push_win32_error(L, GetLastError());
+    FindClose(find_handle);
+    return 2;
+  }
+
+  FindClose(find_handle);
+  return 1;
+#else
   DIR *dir = opendir(path);
   if (!dir) {
     lua_pushnil(L);
@@ -497,17 +571,29 @@ static int f_list_dir(lua_State *L) {
 
   closedir(dir);
   return 1;
+#endif
 }
 
 
 #ifdef _WIN32
-  #include <windows.h>
-  #define realpath(x, y) _fullpath(y, x, MAX_PATH)
+  #define realpath(x, y) _wfullpath(y, x, MAX_PATH)
 #endif
 
 static int f_absolute_path(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+#ifdef _WIN32
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (!wpath) { return 0; }
+
+  LPWSTR wfullpath = realpath(wpath, NULL);
+  free(wpath);
+  if (!wfullpath) { return 0; }
+
+  char *res = utfconv_wctoutf8(wfullpath);
+  free(wfullpath);
+#else
   char *res = realpath(path, NULL);
+#endif
   if (!res) { return 0; }
   lua_pushstring(L, res);
   free(res);
@@ -518,8 +604,20 @@ static int f_absolute_path(lua_State *L) {
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
+#ifdef _WIN32
+  struct _stat s;
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) {
+    lua_pushnil(L);
+    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    return 2;
+  }
+  int err = _wstat(wpath, &s);
+  free(wpath);
+#else
   struct stat s;
   int err = stat(path, &s);
+#endif
   if (err < 0) {
     lua_pushnil(L);
     lua_pushstring(L, strerror(errno));
@@ -600,7 +698,15 @@ static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
 #ifdef _WIN32
-  int err = _mkdir(path);
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) {
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    return 2;
+  }
+
+  int err = _wmkdir(wpath);
+  free(wpath);
 #else
   int err = mkdir(path, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 #endif
