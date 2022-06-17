@@ -181,7 +181,7 @@ jobs:
     - name: Build
       run: |
         bash --version
-        bash scripts/build.sh --debug --forcefallback
+        bash scripts/build.sh -U --debug --forcefallback
     - name: Error Logs
       if: failure()
       run: |
