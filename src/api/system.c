@@ -7,11 +7,11 @@
 #include <sys/stat.h>
 #include "api.h"
 #include "../rencache.h"
-#include "../utfconv.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
+  #include "../utfconv.h"
 #else
 
 #include <dirent.h>
