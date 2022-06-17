@@ -699,7 +699,7 @@ static int f_mkdir(lua_State *L) {
 
 #ifdef _WIN32
   LPWSTR wpath = utfconv_utf8towc(path);
-  if (path == NULL) {
+  if (wpath == NULL) {
     lua_pushboolean(L, 0);
     lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
     return 2;
