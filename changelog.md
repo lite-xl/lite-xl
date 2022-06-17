@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.0] - 2022-06-07
+## [2.1.0] - 202X-XX-XX
 
 ### New Features
 * Make distinction between
@@ -117,6 +117,8 @@
   [ren_draw_rect](https://github.com/lite-xl/lite-xl/pull/935).
 
 * Improved [tokenizer performance](https://github.com/lite-xl/lite-xl/pull/896).
+
+* drawwhitespace: [Cache whitespace location](https://github.com/lite-xl/lite-xl/pull/1030)
 
 ### Backward Incompatible Changes
 * [Upgraded Lua to 5.4](https://github.com/lite-xl/lite-xl/pull/781), which
@@ -294,6 +296,16 @@
 
 * Open LogView on user/project
   [module reload error](https://github.com/lite-xl/lite-xl/pull/1022).
+
+* Check if ["open" pattern is escaped](https://github.com/lite-xl/lite-xl/pull/1034)
+
+* Support [UTF-8 on Windows](https://github.com/lite-xl/lite-xl/pull/1041) (Lua)
+
+* Make system.* functions support
+  [UTF8 filenames on windows](https://github.com/lite-xl/lite-xl/pull/1042)
+
+* [Fix memory leak](https://github.com/lite-xl/lite-xl/pull/1039) and wrong
+  check in font_retrieve
 
 * Many, many, many more changes that are too numerous to list.
 
