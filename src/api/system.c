@@ -52,9 +52,10 @@ struct HitTestInfo {
 typedef struct HitTestInfo HitTestInfo;
 
 static HitTestInfo window_hit_info[1] = {{0, 0, 0}};
+static int window_hit_ref = LUA_NOREF;
 
-#define RESIZE_FROM_TOP 0
-#define RESIZE_FROM_RIGHT 0
+#define RESIZE_FROM_TOP 1
+#define RESIZE_FROM_RIGHT 1
 
 static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
   const HitTestInfo *hit_info = (HitTestInfo *) data;
@@ -99,6 +100,23 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
   }
 
   return SDL_HITTEST_NORMAL;
+}
+
+static int SDLCALL event_filter(void *userdata, SDL_Event *event) {
+  lua_State *L = (lua_State *) userdata;
+  if (L == NULL) return 0;
+  if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_RESIZED) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, window_hit_ref);
+    if (!lua_isfunction(L, -1)) {
+      lua_pop(L, 1);
+      return 0;
+    }
+
+    if (lua_pcall(L, 0, 0, 0) == LUA_ERRRUN) {
+      lua_pop(L, 1);
+    }
+  }
+  return 0;
 }
 
 static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
@@ -378,6 +396,24 @@ static int f_set_window_hit_test(lua_State *L) {
   window_hit_info->resize_border = luaL_checknumber(L, 3);
   SDL_SetWindowHitTest(window, hit_test, window_hit_info);
   return 0;
+}
+
+
+static int f_set_window_on_resize(lua_State *L) {
+#ifdef _WIN32
+  if (lua_isnoneornil(L, 1)) {
+    SDL_AddEventWatch(event_filter, (void *) L);
+    luaL_unref(L, LUA_REGISTRYINDEX, window_hit_ref);
+    return 0;
+  }
+
+  lua_settop(L, 1);
+  window_hit_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  if (window_hit_ref == LUA_REFNIL || window_hit_ref == LUA_NOREF)
+    luaL_error(L, "cannot create reference on registry");
+  SDL_AddEventWatch(event_filter, (void *) L);
+  return 0;
+#endif
 }
 
 
@@ -964,35 +1000,36 @@ static int f_path_compare(lua_State *L) {
 
 
 static const luaL_Reg lib[] = {
-  { "poll_event",          f_poll_event          },
-  { "wait_event",          f_wait_event          },
-  { "set_cursor",          f_set_cursor          },
-  { "set_window_title",    f_set_window_title    },
-  { "set_window_mode",     f_set_window_mode     },
-  { "get_window_mode",     f_get_window_mode     },
-  { "set_window_bordered", f_set_window_bordered },
-  { "set_window_hit_test", f_set_window_hit_test },
-  { "get_window_size",     f_get_window_size     },
-  { "set_window_size",     f_set_window_size     },
-  { "window_has_focus",    f_window_has_focus    },
-  { "show_fatal_error",    f_show_fatal_error    },
-  { "rmdir",               f_rmdir               },
-  { "chdir",               f_chdir               },
-  { "mkdir",               f_mkdir               },
-  { "list_dir",            f_list_dir            },
-  { "absolute_path",       f_absolute_path       },
-  { "get_file_info",       f_get_file_info       },
-  { "get_clipboard",       f_get_clipboard       },
-  { "set_clipboard",       f_set_clipboard       },
-  { "get_process_id",      f_get_process_id      },
-  { "get_time",            f_get_time            },
-  { "sleep",               f_sleep               },
-  { "exec",                f_exec                },
-  { "fuzzy_match",         f_fuzzy_match         },
-  { "set_window_opacity",  f_set_window_opacity  },
-  { "load_native_plugin",  f_load_native_plugin  },
-  { "path_compare",        f_path_compare        },
-  { "get_fs_type",         f_get_fs_type         },
+  { "poll_event",           f_poll_event           },
+  { "wait_event",           f_wait_event           },
+  { "set_cursor",           f_set_cursor           },
+  { "set_window_title",     f_set_window_title     },
+  { "set_window_mode",      f_set_window_mode      },
+  { "get_window_mode",      f_get_window_mode      },
+  { "set_window_bordered",  f_set_window_bordered  },
+  { "set_window_hit_test",  f_set_window_hit_test  },
+  { "set_window_on_resize", f_set_window_on_resize },
+  { "get_window_size",      f_get_window_size      },
+  { "set_window_size",      f_set_window_size      },
+  { "window_has_focus",     f_window_has_focus     },
+  { "show_fatal_error",     f_show_fatal_error     },
+  { "rmdir",                f_rmdir                },
+  { "chdir",                f_chdir                },
+  { "mkdir",                f_mkdir                },
+  { "list_dir",             f_list_dir             },
+  { "absolute_path",        f_absolute_path        },
+  { "get_file_info",        f_get_file_info        },
+  { "get_clipboard",        f_get_clipboard        },
+  { "set_clipboard",        f_set_clipboard        },
+  { "get_process_id",       f_get_process_id       },
+  { "get_time",             f_get_time             },
+  { "sleep",                f_sleep                },
+  { "exec",                 f_exec                 },
+  { "fuzzy_match",          f_fuzzy_match          },
+  { "set_window_opacity",   f_set_window_opacity   },
+  { "load_native_plugin",   f_load_native_plugin   },
+  { "path_compare",         f_path_compare         },
+  { "get_fs_type",          f_get_fs_type          },
   { NULL, NULL }
 };
 

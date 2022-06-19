@@ -37,8 +37,10 @@ function TitleView:configure_hit_test(borderless)
     local icon_spacing = icon_w
     local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
     system.set_window_hit_test(title_height, controls_width, icon_spacing)
+    system.set_window_on_resize(core.step)
     -- core.hit_test_title_height = title_height
   else
+    system.set_window_on_resize()
     system.set_window_hit_test()
   end
 end
