@@ -407,7 +407,7 @@ static int f_set_window_hit_test(lua_State *L) {
 static int f_set_window_on_resize(lua_State *L) {
 #ifdef _WIN32
   if (lua_isnoneornil(L, 1)) {
-    SDL_AddEventWatch(event_filter, (void *) L);
+    SDL_DelEventWatch(event_filter, (void *) L);
     luaL_unref(L, LUA_REGISTRYINDEX, window_hit_ref);
     return 0;
   }
