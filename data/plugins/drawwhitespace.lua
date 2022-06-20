@@ -279,6 +279,7 @@ function DocView:draw_line_text(idx, x, y)
   local x1, _, x2, _ = self:get_content_bounds()
   x1 = x1 + x
   x2 = x2 + x
+  local ty = y + self:get_line_text_y_offset()
   local cache = ws_cache[self.doc.highlighter][idx]
   for i=1,#cache,4 do
     local sub = cache[i]
@@ -286,7 +287,7 @@ function DocView:draw_line_text(idx, x, y)
     local tw = cache[i + 2]
     local color = cache[i + 3]
     if tx + tw >= x1 then
-      tx = renderer.draw_text(font, sub, tx, y, color)
+      tx = renderer.draw_text(font, sub, tx, ty, color)
     end
     if tx > x2 then break end
   end
