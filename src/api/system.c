@@ -52,7 +52,6 @@ struct HitTestInfo {
 typedef struct HitTestInfo HitTestInfo;
 
 static HitTestInfo window_hit_info[1] = {{0, 0, 0}};
-static int window_hit_ref = LUA_NOREF;
 
 #define RESIZE_FROM_TOP 1
 #define RESIZE_FROM_RIGHT 1
@@ -102,6 +101,10 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
   return SDL_HITTEST_NORMAL;
 }
 
+
+#ifdef _WIN32
+static int window_hit_ref = LUA_NOREF;
+
 static int SDLCALL event_filter(void *userdata, SDL_Event *event) {
   lua_State *L = (lua_State *) userdata;
   if (L == NULL) return 0;
@@ -118,6 +121,8 @@ static int SDLCALL event_filter(void *userdata, SDL_Event *event) {
   }
   return 0;
 }
+#endif
+
 
 static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
 
@@ -412,8 +417,8 @@ static int f_set_window_on_resize(lua_State *L) {
   if (window_hit_ref == LUA_REFNIL || window_hit_ref == LUA_NOREF)
     luaL_error(L, "cannot create reference on registry");
   SDL_AddEventWatch(event_filter, (void *) L);
-  return 0;
 #endif
+  return 0;
 }
 
 
