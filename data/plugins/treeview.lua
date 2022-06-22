@@ -854,8 +854,10 @@ config.plugins.treeview.config_spec = {
     description = "Default treeview width.",
     path = "size",
     type = "number",
-    default = math.ceil(toolbar_view:get_min_width() / SCALE),
-    min = toolbar_view:get_min_width() / SCALE,
+    default = toolbar_view and math.ceil(toolbar_view:get_min_width() / SCALE)
+      or 200,
+    min = toolbar_view and toolbar_view:get_min_width() / SCALE
+      or 200,
     get_value = function(value)
       return value / SCALE
     end,
@@ -863,7 +865,9 @@ config.plugins.treeview.config_spec = {
       return value * SCALE
     end,
     on_apply = function(value)
-      view:set_target_size("x", math.max(value, toolbar_view:get_min_width()))
+      view:set_target_size("x", math.max(
+        value, toolbar_view and toolbar_view:get_min_width() or 200
+      ))
     end
   },
   {
