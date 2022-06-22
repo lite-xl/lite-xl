@@ -20,11 +20,13 @@ typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 
 RenFont* ren_font_load(const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style);
-RenFont* ren_font_copy(RenFont* font, float size);
+RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style);
+const char* ren_font_get_path(RenFont *font);
 void ren_font_free(RenFont *font);
 int ren_font_group_get_tab_size(RenFont **font);
 int ren_font_group_get_height(RenFont **font);
 float ren_font_group_get_size(RenFont **font);
+void ren_font_group_set_size(RenFont **font, float size);
 void ren_font_group_set_tab_size(RenFont **font, int n);
 float ren_font_group_get_width(RenFont **font, const char *text);
 float ren_draw_text(RenFont **font, const char *text, float x, int y, RenColor color);
