@@ -120,6 +120,9 @@
 
 * drawwhitespace: [Cache whitespace location](https://github.com/lite-xl/lite-xl/pull/1030)
 
+* CommandView: improve performance by
+  [only drawing visible](https://github.com/lite-xl/lite-xl/pull/1047)
+
 ### Backward Incompatible Changes
 * [Upgraded Lua to 5.4](https://github.com/lite-xl/lite-xl/pull/781), which
   should improve performance, and provide useful extra functionality. It should
