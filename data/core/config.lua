@@ -54,7 +54,6 @@ setmetatable(config.plugins, {
 
 -- Disable these plugins by default.
 config.plugins.trimwhitespace = false
-config.plugins.lineguide = false
 config.plugins.drawwhitespace = false
 
 return config

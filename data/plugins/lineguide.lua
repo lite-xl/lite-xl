@@ -1,19 +1,20 @@
 -- mod-version:3
+local common = require "core.common"
 local command = require "core.command"
 local config = require "core.config"
 local style = require "core.style"
 local DocView = require "core.docview"
 local CommandView = require "core.commandview"
 
-config.plugins.lineguide = {
-  enabled = true,
+config.plugins.lineguide = common.merge({
+  enabled = false,
   width = 2,
   rulers = {
     -- 80,
     -- 100,
     120,
   }
-}
+}, config.plugins.lineguide)
 
 local function get_ruler(v)
   local result = nil
