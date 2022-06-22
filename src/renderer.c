@@ -189,6 +189,19 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
   return fonts[0];
 }
 
+static void font_clear_glyph_cache(RenFont* font) {
+  for (int i = 0; i < SUBPIXEL_BITMAPS_CACHED; ++i) {
+    for (int j = 0; j < MAX_GLYPHSET; ++j) {
+      if (font->sets[i][j]) {
+        if (font->sets[i][j]->surface)
+          SDL_FreeSurface(font->sets[i][j]->surface);
+        free(font->sets[i][j]);
+        font->sets[i][j] = NULL;
+      }
+    }
+  }
+}
+
 RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   FT_Face face;
   if (FT_New_Face( library, path, 0, &face))
@@ -217,20 +230,20 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   return NULL;
 }
 
-RenFont* ren_font_copy(RenFont* font, float size) {
-  return ren_font_load(font->path, size, font->antialiasing, font->hinting, font->style);
+RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
+  antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
+  hinting = hinting == -1 ? font->hinting : hinting;
+  style = style == -1 ? font->style : style;
+
+  return ren_font_load(font->path, size, antialiasing, hinting, style);
+}
+
+const char* ren_font_get_path(RenFont *font) {
+  return font->path;
 }
 
 void ren_font_free(RenFont* font) {
-  for (int i = 0; i < SUBPIXEL_BITMAPS_CACHED; ++i) {
-    for (int j = 0; j < MAX_GLYPHSET; ++j) {
-      if (font->sets[i][j]) {
-        if (font->sets[i][j]->surface)
-          SDL_FreeSurface(font->sets[i][j]->surface);
-        free(font->sets[i][j]);
-      }
-    }
-  }
+  font_clear_glyph_cache(font);
   FT_Done_Face(font->face);
   free(font);
 }
@@ -253,6 +266,22 @@ int ren_font_group_get_tab_size(RenFont **fonts) {
 float ren_font_group_get_size(RenFont **fonts) {
   return fonts[0]->size;
 }
+
+void ren_font_group_set_size(RenFont **fonts, float size) {
+  const int surface_scale = renwin_surface_scale(&window_renderer);
+  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
+    font_clear_glyph_cache(fonts[i]);
+    FT_Face face = fonts[i]->face;
+    FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale));
+    fonts[i]->size = size;
+    fonts[i]->height = (short)((face->height / (float)face->units_per_EM) * size);
+    fonts[i]->baseline = (short)((face->ascender / (float)face->units_per_EM) * size);
+    FT_Load_Char(face, ' ', font_set_load_options(fonts[i]));
+    fonts[i]->space_advance = face->glyph->advance.x / 64.0f;
+    fonts[i]->tab_advance = fonts[i]->space_advance * 2;
+  }
+}
+
 int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }

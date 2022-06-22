@@ -79,14 +79,14 @@ local function set_scale(scale)
     style.tab_width      = style.tab_width      * s
 
     for _, name in ipairs {"font", "big_font", "icon_font", "icon_big_font", "code_font"} do
-      style[name] = renderer.font.copy(style[name], s * style[name]:get_size())
+      style[name]:set_size(s * style[name]:get_size())
     end
   else
-    style.code_font = renderer.font.copy(style.code_font, s * style.code_font:get_size())
+    style.code_font:set_size(s * style.code_font:get_size())
   end
 
   for name, font in pairs(style.syntax_fonts) do
-    style.syntax_fonts[name] = renderer.font.copy(font, s * font:get_size())
+    style.syntax_fonts[name]:set_size(s * font:get_size())
   end
 
   -- restore scroll positions
@@ -108,12 +108,10 @@ end
 
 local function inc_scale()
   set_scale(current_scale + scale_steps)
-  collectgarbage "step"
 end
 
 local function dec_scale()
   set_scale(current_scale - scale_steps)
-  collectgarbage "step"
 end
 
 
