@@ -51,7 +51,7 @@ addons_install() {
 
   mkdir -p "${data_dir}/plugins"
 
-  for plugin_name in settings; do
+  for plugin_name in settings open_ext; do
     cp -r "${build_dir}/third/data/plugins/${plugin_name}.lua" \
       "${data_dir}/plugins/"
   done
