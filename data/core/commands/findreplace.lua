@@ -46,9 +46,12 @@ end
 local function insert_unique(t, v)
   local n = #t
   for i = 1, n do
-    if t[i] == v then return end
+    if t[i] == v then
+      table.remove(t, i)
+      break
+    end
   end
-  t[n + 1] = v
+  table.insert(t, 1, v)
 end
 
 
