@@ -12,7 +12,8 @@ config.plugins.lineguide = common.merge({
   rulers = {
     -- 80,
     -- 100,
-    120,
+    -- 120,
+    config.line_limit
   }
 }, config.plugins.lineguide)
 
