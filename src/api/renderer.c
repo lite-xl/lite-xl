@@ -3,55 +3,83 @@
 #include "../renderer.h"
 #include "../rencache.h"
 
-static int f_font_load(lua_State *L) {
-  const char *filename  = luaL_checkstring(L, 1);
-  float size = luaL_checknumber(L, 2);
-  unsigned int font_hinting = FONT_HINTING_SLIGHT, font_style = 0;
-  ERenFontAntialiasing font_antialiasing = FONT_ANTIALIASING_SUBPIXEL;
+static int font_get_options(
+  lua_State *L,
+  ERenFontAntialiasing *antialiasing,
+  ERenFontHinting *hinting,
+  int *style
+) {
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
     if (lua_isstring(L, -1)) {
-      const char *antialiasing = lua_tostring(L, -1);
-      if (antialiasing) {
-        if (strcmp(antialiasing, "none") == 0) {
-          font_antialiasing = FONT_ANTIALIASING_NONE;
-        } else if (strcmp(antialiasing, "grayscale") == 0) {
-          font_antialiasing = FONT_ANTIALIASING_GRAYSCALE;
-        } else if (strcmp(antialiasing, "subpixel") == 0) {
-          font_antialiasing = FONT_ANTIALIASING_SUBPIXEL;
+      const char *antialiasing_str = lua_tostring(L, -1);
+      if (antialiasing_str) {
+        if (strcmp(antialiasing_str, "none") == 0) {
+          *antialiasing = FONT_ANTIALIASING_NONE;
+        } else if (strcmp(antialiasing_str, "grayscale") == 0) {
+          *antialiasing = FONT_ANTIALIASING_GRAYSCALE;
+        } else if (strcmp(antialiasing_str, "subpixel") == 0) {
+          *antialiasing = FONT_ANTIALIASING_SUBPIXEL;
         } else {
-          return luaL_error(L, "error in renderer.font.load, unknown antialiasing option: \"%s\"", antialiasing);
+          return luaL_error(
+            L,
+            "error in font options, unknown antialiasing option: \"%s\"",
+            antialiasing_str
+          );
         }
       }
     }
     lua_getfield(L, 3, "hinting");
     if (lua_isstring(L, -1)) {
-      const char *hinting = lua_tostring(L, -1);
-      if (hinting) {
-        if (strcmp(hinting, "slight") == 0) {
-          font_hinting = FONT_HINTING_SLIGHT;
-        } else if (strcmp(hinting, "none") == 0) {
-          font_hinting = FONT_HINTING_NONE;
-        } else if (strcmp(hinting, "full") == 0) {
-          font_hinting = FONT_HINTING_FULL;
+      const char *hinting_str = lua_tostring(L, -1);
+      if (hinting_str) {
+        if (strcmp(hinting_str, "slight") == 0) {
+          *hinting = FONT_HINTING_SLIGHT;
+        } else if (strcmp(hinting_str, "none") == 0) {
+          *hinting = FONT_HINTING_NONE;
+        } else if (strcmp(hinting_str, "full") == 0) {
+          *hinting = FONT_HINTING_FULL;
         } else {
-          return luaL_error(L, "error in renderer.font.load, unknown hinting option: \"%s\"", hinting);
+          return luaL_error(
+            L,
+            "error in font options, unknown hinting option: \"%s\"",
+            hinting
+          );
         }
       }
     }
+    int style_local = 0;
     lua_getfield(L, 3, "italic");
     if (lua_toboolean(L, -1))
-      font_style |= FONT_STYLE_ITALIC;
+      style_local |= FONT_STYLE_ITALIC;
     lua_getfield(L, 3, "bold");
     if (lua_toboolean(L, -1))
-      font_style |= FONT_STYLE_BOLD;
+      style_local |= FONT_STYLE_BOLD;
     lua_getfield(L, 3, "underline");
     if (lua_toboolean(L, -1))
-      font_style |= FONT_STYLE_UNDERLINE;
+      style_local |= FONT_STYLE_UNDERLINE;
     lua_pop(L, 5);
+
+    if (style_local != 0)
+      *style = style_local;
   }
+
+  return 0;
+}
+
+static int f_font_load(lua_State *L) {
+  const char *filename  = luaL_checkstring(L, 1);
+  float size = luaL_checknumber(L, 2);
+  int style = 0;
+  ERenFontHinting hinting = FONT_HINTING_SLIGHT;
+  ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
+
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  if (ret_code > 0)
+    return ret_code;
+
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, font_antialiasing, font_hinting, font_style);
+  *font = ren_font_load(filename, size, antialiasing, hinting, style);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
@@ -77,13 +105,21 @@ static int f_font_copy(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
   bool table = font_retrieve(L, fonts, 1);
   float size = lua_gettop(L) >= 2 ? luaL_checknumber(L, 2) : ren_font_group_get_height(fonts);
+  int style = -1;
+  ERenFontHinting hinting = -1;
+  ERenFontAntialiasing antialiasing = -1;
+
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  if (ret_code > 0)
+    return ret_code;
+
   if (table) {
     lua_newtable(L);
     luaL_setmetatable(L, API_TYPE_FONT);
   }
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-    *font = ren_font_copy(fonts[i], size);
+    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style);
     if (!*font)
       return luaL_error(L, "failed to copy font");
     luaL_setmetatable(L, API_TYPE_FONT);
@@ -96,6 +132,22 @@ static int f_font_copy(lua_State *L) {
 static int f_font_group(lua_State* L) {
   luaL_checktype(L, 1, LUA_TTABLE);
   luaL_setmetatable(L, API_TYPE_FONT);
+  return 1;
+}
+
+static int f_font_get_path(lua_State *L) {
+  RenFont* fonts[FONT_FALLBACK_MAX];
+  bool table = font_retrieve(L, fonts, 1);
+
+  if (table) {
+    lua_newtable(L);
+  }
+  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
+    const char* path = ren_font_get_path(fonts[i]);
+    lua_pushstring(L, path);
+    if (table)
+      lua_rawseti(L, -2, i+1);
+  }
   return 1;
 }
 
@@ -131,6 +183,13 @@ static int f_font_get_size(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
   lua_pushnumber(L, ren_font_group_get_size(fonts));
   return 1;
+}
+
+static int f_font_set_size(lua_State *L) {
+  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
+  float size = luaL_checknumber(L, 2);
+  ren_font_group_set_size(fonts, size);
+  return 0;
 }
 
 static RenColor checkcolor(lua_State *L, int idx, int def) {
@@ -240,6 +299,8 @@ static const luaL_Reg fontLib[] = {
   { "get_width",          f_font_get_width          },
   { "get_height",         f_font_get_height         },
   { "get_size",           f_font_get_size           },
+  { "set_size",           f_font_set_size           },
+  { "get_path",           f_font_get_path           },
   { NULL, NULL }
 };
 

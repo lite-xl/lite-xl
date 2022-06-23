@@ -14,9 +14,7 @@ for _, attr in pairs({"bold", "italic", "bold_italic"}) do
     attributes["bold"] = true
     attributes["italic"] = true
   end
-  -- no way to copy user custom font with additional attributes :(
-  style.syntax_fonts["markdown_"..attr] = renderer.font.load(
-    DATADIR .. "/fonts/JetBrainsMono-Regular.ttf",
+  style.syntax_fonts["markdown_"..attr] = style.code_font:copy(
     style.code_font:get_size(),
     attributes
   )
