@@ -65,6 +65,8 @@ local function cut_or_copy(delete)
       if delete then
         if line1 < #doc().lines then
           doc():remove(line1, 1, line1 + 1, 1)
+        elseif #doc().lines == 1 then
+          doc():remove(line1, 1, line1, math.huge)
         else
           doc():remove(line1 - 1, math.huge, line1, math.huge)
         end
