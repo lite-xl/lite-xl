@@ -195,13 +195,19 @@ function DocView:draw_line_text(idx, x, y)
   end
 
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
+  local font_size = font:get_size()
 
   reset_cache_if_needed()
   if
     not ws_cache[self.doc.highlighter]
     or ws_cache[self.doc.highlighter].font ~= font
+    or ws_cache[self.doc.highlighter].font_size ~= font_size
   then
-    ws_cache[self.doc.highlighter] = {font = font}
+    ws_cache[self.doc.highlighter] =
+      setmetatable(
+        { font = font, font_size = font_size },
+        { __mode = "k" }
+      )
   end
 
   if not ws_cache[self.doc.highlighter][idx] then -- need to cache line
