@@ -46,9 +46,12 @@ end
 local function insert_unique(t, v)
   local n = #t
   for i = 1, n do
-    if t[i] == v then return end
+    if t[i] == v then
+      table.remove(t, i)
+      break
+    end
   end
-  t[n + 1] = v
+  table.insert(t, 1, v)
 end
 
 
@@ -108,9 +111,13 @@ local function replace(kind, default, fn)
         submit = function(new)
           core.status_view:remove_tooltip()
           insert_unique(core.previous_replace, new)
-          local n = doc():replace(function(text)
+          local results = doc():replace(function(text)
             return fn(text, old, new)
           end)
+          local n = 0
+          for _,v in pairs(results) do
+            n = n + v
+          end
           core.log("Replaced %d instance(s) of %s %q with %q", n, kind, old, new)
         end,
         suggest = function() return core.previous_replace end,

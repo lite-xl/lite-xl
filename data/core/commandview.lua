@@ -334,20 +334,20 @@ local function draw_suggestions_box(self)
   end
 
   -- draw suggestion text
-  local suggestion_offset = math.max(self.suggestion_idx - max_suggestions, 0)
+  local offset = math.max(self.suggestion_idx - max_suggestions, 0)
+  local last = math.min(offset + max_suggestions, #self.suggestions)
   core.push_clip_rect(rx, ry, rw, rh)
-  local i = 1 + suggestion_offset
-  while i <= #self.suggestions do
+  local first = 1 + offset
+  for i=first, last do
     local item = self.suggestions[i]
     local color = (i == self.suggestion_idx) and style.accent or style.text
-    local y = self.position.y - (i - suggestion_offset) * lh - dh
+    local y = self.position.y - (i - offset) * lh - dh
     common.draw_text(self:get_font(), color, item.text, nil, x, y, 0, lh)
 
     if item.info then
       local w = self.size.x - x - style.padding.x
       common.draw_text(self:get_font(), style.dim, item.info, "right", x, y, w, lh)
     end
-    i = i + 1
   end
   core.pop_clip_rect()
 end

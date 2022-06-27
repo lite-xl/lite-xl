@@ -95,6 +95,16 @@ local function retrieve_syntax_state(incoming_syntax, state)
   return current_syntax, subsyntax_info, current_pattern_idx, current_level
 end
 
+local function report_bad_pattern(log_fn, syntax, pattern_idx, msg, ...)
+  if not bad_patterns[syntax] then
+    bad_patterns[syntax] = { }
+  end
+  if bad_patterns[syntax][pattern_idx] then return end
+  bad_patterns[syntax][pattern_idx] = true
+  log_fn("Malformed pattern #%d in %s language plugin. " .. msg,
+            pattern_idx, syntax.name or "unnamed", ...)
+end
+
 ---@param incoming_syntax table
 ---@param text string
 ---@param state integer
@@ -175,32 +185,40 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       res = p.pattern and { text:ufind((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
         or { regex.match(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
       if p.regex and #res > 0 then -- set correct utf8 len for regex result
-        res[2] = res[1] + string.ulen(text:sub(res[1], res[2])) - 1
+        local char_pos_1 = string.ulen(text:sub(1, res[1]))
+        local char_pos_2 = char_pos_1 + string.ulen(text:sub(res[1], res[2])) - 1
         -- `regex.match` returns group results as a series of `begin, end`
         -- we only want `begin`s
         if #res >= 3 then
-          res[3] = res[1] + string.ulen(text:sub(res[1], res[3])) - 1
+          res[3] = char_pos_1 + string.ulen(text:sub(res[1], res[3])) - 1
         end
         for i=1,(#res-3) do
           local curr = i + 3
           local from = i * 2 + 3
           if from < #res then
-            res[curr] = res[1] + string.ulen(text:sub(res[1], res[from])) - 1
+            res[curr] = char_pos_1 + string.ulen(text:sub(res[1], res[from])) - 1
           else
             res[curr] = nil
           end
         end
-        res[1] = next
+        res[1] = char_pos_1
+        res[2] = char_pos_2
       end
-      if res[1] and close and target[3] then
-        local count = 0
-        for i = res[1] - 1, 1, -1 do
-          if text:byte(i) ~= target[3]:byte() then break end
-          count = count + 1
-        end
+      if res[1] and target[3] then
         -- Check to see if the escaped character is there,
         -- and if it is not itself escaped.
-        if count % 2 == 0 then break end
+        local count = 0
+        for i = res[1] - 1, 1, -1 do
+          if text:ubyte(i) ~= target[3]:ubyte() then break end
+          count = count + 1
+        end
+        if count % 2 == 0 then
+          -- The match is not escaped, so confirm it
+          break
+        elseif not close then
+          -- The *open* match is escaped, so avoid it
+          return
+        end
       end
     until not res[1] or not close or not target[3]
     return table.unpack(res)
@@ -259,16 +277,20 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     local matched = false
     for n, p in ipairs(current_syntax.patterns) do
       local find_results = { find_text(text, p, i, true, false) }
-      if #find_results - 1 > #p.type then
-        if not bad_patterns[current_syntax] then
-          bad_patterns[current_syntax] = { }
-        end
-        if not bad_patterns[current_syntax][n] then
-          bad_patterns[current_syntax][n] = true
-          core.error("Malformed pattern #%d in %s language plugin", n, current_syntax.name or "unnamed")
-        end
-      end
       if find_results[1] then
+        local type_is_table = type(p.type) == "table"
+        local n_types = type_is_table and #p.type or 1
+        if #find_results == 2 and type_is_table then
+          report_bad_pattern(core.warn, current_syntax, n,
+            "Token type is a table, but a string was expected.")
+          p.type = p.type[1]
+        elseif #find_results - 1 > n_types then
+          report_bad_pattern(core.error, current_syntax, n,
+            "Not enough token types: got %d needed %d.", n_types, #find_results - 1)
+        elseif #find_results - 1 < n_types then
+          report_bad_pattern(core.warn, current_syntax, n,
+            "Too many token types: got %d needed %d.", n_types, #find_results - 1)
+        end
         -- matched pattern; make and add tokens
         push_tokens(res, current_syntax, p, text, find_results)
         -- update state if this was a start|end pattern pair

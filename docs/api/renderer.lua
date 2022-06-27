@@ -35,7 +35,7 @@ renderer.font = {}
 ---
 ---@param path string
 ---@param size number
----@param options renderer.fontoptions
+---@param options? renderer.fontoptions
 ---
 ---@return renderer.font
 function renderer.font.load(path, size, options) end
@@ -54,9 +54,10 @@ function renderer.font.group(fonts) end
 ---Clones a font object into a new one.
 ---
 ---@param size? number Optional new size for cloned font.
+---@param options? renderer.fontoptions
 ---
 ---@return renderer.font
-function renderer.font:copy(size) end
+function renderer.font:copy(size, options) end
 
 ---
 ---Set the amount of characters that represent a tab.
@@ -91,6 +92,13 @@ function renderer.font:get_size() end
 ---
 ---@param size number
 function renderer.font:set_size(size) end
+
+---
+---Get the current path of the font as a string if a single font or as an
+---array of strings if a group font.
+---
+---@return string | table<integer, string>
+function renderer.font:get_path() end
 
 ---
 ---Toggles drawing debugging rectangles on the currently rendered sections

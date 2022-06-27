@@ -42,7 +42,7 @@ int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buff
   for (FILE_NOTIFY_INFORMATION* info = (FILE_NOTIFY_INFORMATION*)buffer; (char*)info < buffer + buffer_size; info = (FILE_NOTIFY_INFORMATION*)(((char*)info) + info->NextEntryOffset)) {
     char transform_buffer[PATH_MAX*4];
     int count = WideCharToMultiByte(CP_UTF8, 0, (WCHAR*)info->FileName, info->FileNameLength, transform_buffer, PATH_MAX*4 - 1, NULL, NULL);
-    change_callback(count, buffer, data);
+    change_callback(count, transform_buffer, data);
     if (!info->NextEntryOffset)
       break;
   }
