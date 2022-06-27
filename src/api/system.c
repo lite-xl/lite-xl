@@ -13,12 +13,15 @@
   #include <fileapi.h>
   #include "SDL_syswm.h"
   #include <dwmapi.h>
-#elif __linux__
   #include "../utfconv.h"
-  #include <sys/vfs.h>
 #else
+
 #include <dirent.h>
 #include <unistd.h>
+
+#ifdef __linux__
+  #include <sys/vfs.h>
+#endif
 #endif
 
 extern SDL_Window *window;
