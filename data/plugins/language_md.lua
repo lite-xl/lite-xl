@@ -110,7 +110,7 @@ syntax.add {
   ---- Markdown rules
     -- math
     { pattern = { "%$%$", "%$%$", "\\"  },  type = "string", syntax = ".tex"},
-    { pattern = { "%$", "%$", "\\" },       type = "string", syntax = ".tex"},
+    { regex   = { "\\$", [[\$|(?=\\*\n)]], "\\" },  type = "string", syntax = ".tex"},
     -- code blocks
     { pattern = { "```c++", "```" },        type = "string", syntax = ".cpp" },
     { pattern = { "```cpp", "```" },        type = "string", syntax = ".cpp" },
