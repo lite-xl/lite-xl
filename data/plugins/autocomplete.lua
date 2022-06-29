@@ -145,8 +145,14 @@ core.add_thread(function()
           if symbols_count > max_symbols then
             s = nil
             doc.disable_symbols = true
+            local filename_message
+            if doc.filename then
+              filename_message = "document " .. doc.filename
+            else
+              filename_message = "unnamed document"
+            end
             core.status_view:show_message("!", style.accent,
-              "Too many symbols in document "..doc.filename..
+              "Too many symbols in "..filename_message..
               ": stopping auto-complete for this document according to "..
               "config.plugins.autocomplete.max_symbols."
             )
