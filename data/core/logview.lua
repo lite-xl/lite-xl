@@ -1,5 +1,6 @@
 local core = require "core"
 local common = require "core.common"
+local config = require "core.config"
 local keymap = require "core.keymap"
 local style = require "core.style"
 local View = require "core.view"
@@ -78,6 +79,19 @@ function LogView:each_item()
       y = y + h
     end
   end)
+end
+
+
+function LogView:get_scrollable_size()
+  local _, y_off = self:get_content_offset()
+  local last_y, last_h = 0, 0
+  for i, item, x, y, w, h in self:each_item() do
+    last_y, last_h = y, h
+  end
+  if not config.scroll_past_end then
+    return last_y + last_h - y_off + style.padding.y
+  end
+  return last_y + self.size.y - y_off
 end
 
 
@@ -195,6 +209,7 @@ function LogView:draw()
       core.pop_clip_rect()
     end
   end
+  LogView.super.draw_scrollbar(self)
 end
 
 
