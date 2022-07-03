@@ -41,6 +41,8 @@ syntax.add {
     ["if"]       = "keyword",
     ["or"]       = "keyword",
     ["else"]     = "keyword",
+    ["match"]    = "keyword",
+    ["case"]     = "keyword",
     ["import"]   = "keyword",
     ["pass"]     = "keyword",
     ["break"]    = "keyword",
