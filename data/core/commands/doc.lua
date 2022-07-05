@@ -233,6 +233,10 @@ local commands = {
       if col <= #indent then
         indent = indent:sub(#indent + 2 - col)
       end
+      -- Remove current line if it contains only whitespace
+      if doc().lines[line]:match("^%s+$") then
+        doc():remove(line, 1, line, math.huge)
+      end
       doc():text_input("\n" .. indent, idx)
     end
   end,
@@ -475,7 +479,7 @@ local commands = {
       command.perform("doc:save-as")
     end
   end,
-  
+
   ["doc:reload"] = function()
     doc():reload()
   end,
