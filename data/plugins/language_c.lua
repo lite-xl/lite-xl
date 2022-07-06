@@ -7,7 +7,7 @@ syntax.add {
   comment = "//",
   block_comment = { "/*", "*/" },
   patterns = {
-    { pattern = "//.-\n",                type = "comment" },
+    { pattern = "//.*$",                 type = "comment" },
     { pattern = { "/%*", "%*/" },        type = "comment" },
     { pattern = { '"', '"', '\\' },      type = "string"  },
     { pattern = { "'", "'", '\\' },      type = "string"  },
@@ -61,11 +61,11 @@ syntax.add {
     { pattern = "_?%u[%u_][%u%d_]*%f[%s%+%*%-%.%)%]}%?%^%%=/<>~|&;:,!]",
       type = "number"
     },
-     -- Magic constants
+    -- Magic constants
     { pattern = "__[%u%l]+__",           type = "number"   },
     -- all other functions
     { pattern = "[%a_][%w_]*%f[(]",      type = "function" },
-     -- Macros
+    -- Macros
     { pattern = "^%s*#%s*define%s+()[%a_][%a%d_]*",
       type = { "keyword", "symbol" }
     },
