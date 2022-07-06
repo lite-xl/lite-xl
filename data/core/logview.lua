@@ -1,5 +1,6 @@
 local core = require "core"
 local common = require "core.common"
+local config = require "core.config"
 local keymap = require "core.keymap"
 local style = require "core.style"
 local View = require "core.view"
@@ -81,6 +82,19 @@ function LogView:each_item()
 end
 
 
+function LogView:get_scrollable_size()
+  local _, y_off = self:get_content_offset()
+  local last_y, last_h = 0, 0
+  for i, item, x, y, w, h in self:each_item() do
+    last_y, last_h = y, h
+  end
+  if not config.scroll_past_end then
+    return last_y + last_h - y_off + style.padding.y
+  end
+  return last_y + self.size.y - y_off
+end
+
+
 function LogView:on_mouse_pressed(button, px, py, clicks)
   if LogView.super.on_mouse_pressed(self, button, px, py, clicks) then
     return true
@@ -154,45 +168,48 @@ function LogView:draw()
 
   local tw = style.font:get_width(datestr)
   for _, item, x, y, w, h in self:each_item() do
-    core.push_clip_rect(x, y, w, h)
-    x = x + style.padding.x
+    if y + h >= self.position.y and y <= self.position.y + self.size.y then
+      core.push_clip_rect(x, y, w, h)
+      x = x + style.padding.x
 
-    x = common.draw_text(
-      style.icon_font,
-      style.log[item.level].color,
-      style.log[item.level].icon,
-      "center",
-      x, y, iw, lh
-    )
-    x = x + style.padding.x
+      x = common.draw_text(
+        style.icon_font,
+        style.log[item.level].color,
+        style.log[item.level].icon,
+        "center",
+        x, y, iw, lh
+      )
+      x = x + style.padding.x
 
-    -- timestamps are always 15% of the width
-    local time = os.date(nil, item.time)
-    common.draw_text(style.font, style.dim, time, "left", x, y, tw, lh)
-    x = x + tw + style.padding.x
+      -- timestamps are always 15% of the width
+      local time = os.date(nil, item.time)
+      common.draw_text(style.font, style.dim, time, "left", x, y, tw, lh)
+      x = x + tw + style.padding.x
 
-    w = w - (x - self:get_content_offset())
+      w = w - (x - self:get_content_offset())
 
-    if is_expanded(item) then
-      y = y + common.round(style.padding.y / 2)
-      _, y = draw_text_multiline(style.font, item.text, x, y, style.text)
+      if is_expanded(item) then
+        y = y + common.round(style.padding.y / 2)
+        _, y = draw_text_multiline(style.font, item.text, x, y, style.text)
 
-      local at = "at " .. common.home_encode(item.at)
-      _, y = common.draw_text(style.font, style.dim, at, "left", x, y, w, lh)
+        local at = "at " .. common.home_encode(item.at)
+        _, y = common.draw_text(style.font, style.dim, at, "left", x, y, w, lh)
 
-      if item.info then
-        _, y = draw_text_multiline(style.font, item.info, x, y, style.dim)
+        if item.info then
+          _, y = draw_text_multiline(style.font, item.info, x, y, style.dim)
+        end
+      else
+        local line, has_newline = string.match(item.text, "([^\n]+)(\n?)")
+        if has_newline ~= "" then
+          line = line .. " ..."
+        end
+        _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
       end
-    else
-      local line, has_newline = string.match(item.text, "([^\n]+)(\n?)")
-      if has_newline ~= "" then
-        line = line .. " ..."
-      end
-      _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
+
+      core.pop_clip_rect()
     end
-
-    core.pop_clip_rect()
   end
+  LogView.super.draw_scrollbar(self)
 end
 
 

@@ -563,10 +563,12 @@ function Doc:indent_text(unindent, line1, col1, line2, col2)
   if unindent or has_selection or in_beginning_whitespace then
     local l1d, l2d = #self.lines[line1], #self.lines[line2]
     for line = line1, line2 do
-      local e, rnded = self:get_line_indent(self.lines[line], unindent)
-      self:remove(line, 1, line, (e or 0) + 1)
-      self:insert(line, 1,
-        unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
+      if not has_selection or #self.lines[line] > 1 then -- don't indent empty lines in a selection
+        local e, rnded = self:get_line_indent(self.lines[line], unindent)
+        self:remove(line, 1, line, (e or 0) + 1)
+        self:insert(line, 1,
+          unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
+      end
     end
     l1d, l2d = #self.lines[line1] - l1d, #self.lines[line2] - l2d
     if (unindent or in_beginning_whitespace) and not has_selection then
