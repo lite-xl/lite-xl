@@ -66,8 +66,6 @@ static int f_dirmonitor_new(lua_State* L) {
   luaL_setmetatable(L, API_TYPE_DIRMONITOR);
   memset(monitor, 0, sizeof(struct dirmonitor));
   monitor->internal = init_dirmonitor();
-  if (monitor->internal)
-    monitor->thread = SDL_CreateThread(dirmonitor_check_thread, "dirmonitor_check_thread", monitor);
   return 1;
 }
 
@@ -86,7 +84,10 @@ static int f_dirmonitor_gc(lua_State* L) {
 
 
 static int f_dirmonitor_watch(lua_State *L) {
-  lua_pushnumber(L, add_dirmonitor(((struct dirmonitor*)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR))->internal, luaL_checkstring(L, 2)));
+  struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  lua_pushnumber(L, add_dirmonitor(monitor->internal, luaL_checkstring(L, 2)));
+  if (!monitor->thread)
+    monitor->thread = SDL_CreateThread(dirmonitor_check_thread, "dirmonitor_check_thread", monitor);
   return 1;
 }
 
