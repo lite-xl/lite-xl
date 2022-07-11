@@ -111,6 +111,7 @@ end
 
 function CommandView:move_suggestion_idx(dir)
   local function overflow_suggestion_idx(n, count)
+    if count == 0 then return 0 end
     if self.state.wrap then
       return (n - 1) % count + 1
     else
