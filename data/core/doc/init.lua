@@ -146,8 +146,8 @@ end
 -- curors can never swap positions; only merge or split, or change their position in cursor
 -- order.
 function Doc:get_selection(sort)
-  local idx, line1, col1, line2, col2 = self:get_selections(sort)({ self.selections, sort }, 0)
-  return line1, col1, line2, col2, sort
+  local idx, line1, col1, line2, col2, swap = self:get_selections(sort)({ self.selections, sort }, 0)
+  return line1, col1, line2, col2, swap
 end
 
 function Doc:get_selection_text(limit)
@@ -183,9 +183,9 @@ end
 
 local function sort_positions(line1, col1, line2, col2)
   if line1 > line2 or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1
+    return line2, col2, line1, col1, true
   end
-  return line1, col1, line2, col2
+  return line1, col1, line2, col2, false
 end
 
 function Doc:set_selections(idx, line1, col1, line2, col2, swap, rm)
