@@ -6,8 +6,12 @@ syntax.add {
   files = { "%.py$", "%.pyw$", "%.rpy$" },
   headers = "^#!.*[ /]python",
   comment = "#",
+  block_comment = '"""',
   patterns = {
     { pattern = { "#", "\n" },                 type = "comment"  },
+    { regex   = { '^\\s*"""', '"""' },         type = "comment"  },
+    { regex   = '[uUrR](?=")',                 type = "keyword"  },
+    { pattern = "class%s+()[%a_][%w_]*",       type = {"keyword", "keyword2"} },
     { pattern = { '[ruU]?"""', '"""'; '\\' },  type = "string"   },
     { pattern = { "[ruU]?'''", "'''", '\\' },  type = "string"   },
     { pattern = { '[ruU]?"', '"', '\\' },      type = "string"   },
