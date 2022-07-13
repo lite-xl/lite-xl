@@ -12,7 +12,7 @@ syntax.add {
     { pattern = { "'", "'", '\\' },          type = "string" },
     { pattern = { "%[%[", "%]%]" },          type = "string" },
     { pattern = { "%-%-%[%[", "%]%]"},       type = "comment" },
-    { pattern = "%-%-.-\n",                  type = "comment" },
+    { pattern = "%-%-.*",                    type = "comment" },
     { pattern = "0x%x+%.%x*[pP][-+]?%d+",    type = "number" },
     { pattern = "0x%x+%.%x*",                type = "number" },
     { pattern = "0x%.%x+[pP][-+]?%d+",       type = "number" },
