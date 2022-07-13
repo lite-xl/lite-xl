@@ -47,7 +47,7 @@ StatusView.separator2 = "   |   "
 
 ---@alias core.statusview.item.predicate fun():boolean
 ---@alias core.statusview.item.onclick fun(button: string, x: number, y: number)
----@alias core.statusview.item.getitem fun():core.statusview.styledtext,core.statusview.styledtext
+---@alias core.statusview.item.get_item fun():core.statusview.styledtext,core.statusview.styledtext
 ---@alias core.statusview.item.ondraw fun(x, y, h, hovered: boolean, calc_only?: boolean):number
 
 ---@class core.statusview.item : core.object
@@ -68,6 +68,44 @@ StatusView.separator2 = "   |   "
 ---@field private cached_item core.statusview.styledtext
 local StatusViewItem = Object:extend()
 
+
+---Available StatusViewItem options.
+---@class core.statusview.item.options : table
+---@field predicate string | table | core.statusview.item.predicate
+---@field name string
+---@field alignment core.statusview.item.alignment
+---@field get_item core.statusview.item.get_item
+---@field command? string | core.statusview.item.onclick
+---@field position? integer
+---@field tooltip? string
+---@field separator? core.statusview.item.separator
+local StatusViewItemOptions = {
+  ---A condition to evaluate if the item should be displayed. If a string
+  ---is given it is treated as a require import that should return a valid object
+  ---which is checked against the current active view, the sames applies if a
+  ---table is given. A function that returns a boolean can be used instead to
+  ---perform a custom evaluation, setting to nil means always evaluates to true.
+  predicate = nil,
+  ---A unique name to identify the item on the status bar.
+  name = nil,
+  alignment = nil,
+  ---A function that should return a core.statusview.styledtext element,
+  ---returning empty table is allowed.
+  get_item = nil,
+  ---The name of a valid registered command or a callback function to execute
+  ---when the item is clicked.
+  command = nil,
+  ---The position in which to insert the given item on the internal table,
+  ---a value of -1 inserts the item at the end which is the default. A value
+  ---of 1 will insert the item at the beggining.
+  position = nil,
+  ---Displayed when mouse hovers the item
+  tooltip = nil,
+  separator = nil,
+}
+
+StatusViewItem.options = StatusViewItemOptions
+
 ---Flag to tell the item should me aligned on left side of status bar.
 ---@type number
 StatusViewItem.LEFT = 1
@@ -81,26 +119,23 @@ StatusViewItem.RIGHT = 2
 ---| 'core.statusview.item.RIGHT'
 
 ---Constructor
----@param predicate string | table | core.statusview.item.predicate
----@param name string
----@param alignment core.statusview.item.alignment
----@param command string | core.statusview.item.onclick
----@param tooltip? string | nil
-function StatusViewItem:new(predicate, name, alignment, command, tooltip)
-  self:set_predicate(predicate)
-  self.name = name
-  self.alignment = alignment or StatusView.Item.LEFT
-  self.command = type(command) == "string" and command or nil
-  self.tooltip = tooltip or ""
-  self.on_click = type(command) == "function" and command or nil
+---@param options core.statusview.item.options
+function StatusViewItem:new(options)
+  self:set_predicate(options.predicate)
+  self.name = options.name
+  self.alignment = options.alignment or StatusView.Item.LEFT
+  self.command = type(options.command) == "string" and options.command or nil
+  self.tooltip = options.tooltip or ""
+  self.on_click = type(options.command) == "function" and options.command or nil
   self.on_draw = nil
   self.background_color = nil
   self.background_color_hover = nil
-  self.visible = true
+  self.visible = options.visible == nil and true or options.visible
   self.active = false
   self.x = 0
   self.w = 0
-  self.separator = StatusView.separator
+  self.separator = options.separator or StatusView.separator
+  self.get_item = options.get_item
 end
 
 ---Called by the status bar each time that the item needs to be rendered,
@@ -166,11 +201,11 @@ end
 function StatusView:register_docview_items()
   if self:get_item("doc:file") then return end
 
-  self:add_item(
-    predicate_docview,
-    "doc:file",
-    StatusView.Item.LEFT,
-    function()
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:file",
+    alignment = StatusView.Item.LEFT,
+    get_item = function()
       local dv = core.active_view
       return {
         dv.doc:is_dirty() and style.accent or style.text, style.icon_font, "f",
@@ -178,13 +213,13 @@ function StatusView:register_docview_items()
         dv.doc.filename and style.text or style.dim, dv.doc:get_name()
       }
     end
-  )
+  })
 
-  self:add_item(
-    predicate_docview,
-    "doc:position",
-    StatusView.Item.LEFT,
-    function()
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:position",
+    alignment = StatusView.Item.LEFT,
+    get_item = function()
       local dv = core.active_view
       local line, col = dv.doc:get_selection()
       return {
@@ -195,14 +230,15 @@ function StatusView:register_docview_items()
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
     end,
-    "doc:go-to-line"
-  ).tooltip = "line : column"
+    command = "doc:go-to-line",
+    tooltip = "line : column"
+  })
 
-  self:add_item(
-    predicate_docview,
-    "doc:indentation",
-    StatusView.Item.RIGHT,
-    function()
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:indentation",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
       local dv = core.active_view
       local indent_type, indent_size, indent_confirmed = dv.doc:get_indent_info()
       local indent_label = (indent_type == "hard") and "tabs: " or "spaces: "
@@ -211,20 +247,21 @@ function StatusView:register_docview_items()
         indent_confirmed and "" or "*"
       }
     end,
-    function(button, x, y)
+    command = function(button, x, y)
       if button == "left" then
         command.perform "indent:set-file-indent-size"
       elseif button == "right" then
         command.perform "indent:set-file-indent-type"
       end
-    end
-  ).separator = self.separator2
+    end,
+    separator = self.separator2
+  })
 
-  self:add_item(
-    predicate_docview,
-    "doc:lines",
-    StatusView.Item.RIGHT,
-    function()
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:lines",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
       local dv = core.active_view
       return {
         style.text,
@@ -232,21 +269,22 @@ function StatusView:register_docview_items()
         style.font, style.dim, self.separator2,
         style.text, #dv.doc.lines, " lines",
       }
-    end
-  ).separator = self.separator2
+    end,
+    separator = self.separator2
+  })
 
-  self:add_item(
-    predicate_docview,
-    "doc:line-ending",
-    StatusView.Item.RIGHT,
-    function()
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:line-ending",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
       local dv = core.active_view
       return {
         style.text, dv.doc.crlf and "CRLF" or "LF"
       }
     end,
-    "doc:toggle-line-ending"
-  )
+    command = "doc:toggle-line-ending"
+  })
 end
 
 
@@ -254,11 +292,11 @@ end
 function StatusView:register_command_items()
   if self:get_item("command:files") then return end
 
-  self:add_item(
-    "core.commandview",
-    "command:files",
-    StatusView.Item.RIGHT,
-    function()
+  self:add_item({
+    predicate = "core.commandview",
+    name = "command:files",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
       return {
         style.icon_font, "g",
         style.font, style.dim, self.separator2,
@@ -266,7 +304,7 @@ function StatusView:register_command_items()
         #core.project_files, " files"
       }
     end
-  )
+  })
 end
 
 
@@ -303,33 +341,13 @@ end
 
 
 ---Adds an item to be rendered in the status bar.
----@param predicate string | table | core.statusview.item.predicate :
----A condition to evaluate if the item should be displayed. If a string
----is given it is treated as a require import that should return a valid object
----which is checked against the current active view, the sames applies if a
----table is given. A function that returns a boolean can be used instead to
----perform a custom evaluation, setting to nil means always evaluates to true.
----@param name string A unique name to identify the item on the status bar.
----@param alignment core.statusview.item.alignment
----@param getitem core.statusview.item.getitem :
----A function that should return a core.statusview.styledtext element,
----returning empty table is allowed.
----@param command? string | core.statusview.item.onclick :
----The name of a valid registered command or a callback function to execute
----when the item is clicked.
----@param pos? integer :
----The position in which to insert the given item on the internal table,
----a value of -1 inserts the item at the end which is the default. A value
----of 1 will insert the item at the beggining.
----@param tooltip? string Displayed when mouse hovers the item
+---@param options core.statusview.item.options
 ---@return core.statusview.item
-function StatusView:add_item(predicate, name, alignment, getitem, command, pos, tooltip)
-  assert(self:get_item(name) == nil, "status item already exists: " .. name)
+function StatusView:add_item(options)
+  assert(self:get_item(options.name) == nil, "status item already exists: " .. options.name)
   ---@type core.statusview.item
-  local item = StatusView.Item(predicate, name, alignment, command, tooltip)
-  item.get_item = getitem
-  pos = type(pos) == "nil" and -1 or tonumber(pos)
-  table.insert(self.items, normalize_position(self, pos, alignment), item)
+  local item = StatusView.Item(options)
+  table.insert(self.items, normalize_position(self, options.position or -1, options.alignment), item)
   return item
 end
 
@@ -647,19 +665,17 @@ local function merge_deprecated_items(destination, items, alignment)
 
   local position = alignment == StatusView.Item.LEFT and "left" or "right"
 
-  local item_start = StatusView.Item(
-    nil,
-    "deprecated:"..position.."-start",
-    alignment
-  )
-  item_start.get_item = items_start
+  local item_start = StatusView.Item({
+    name = "deprecated:"..position.."-start",
+    alignment = alignment,
+    get_item = items_start
+  })
 
-  local item_end = StatusView.Item(
-    nil,
-    "deprecated:"..position.."-end",
-    alignment
-  )
-  item_end.get_item = items_end
+  local item_end = StatusView.Item({
+    name = "deprecated:"..position.."-end",
+    alignment = alignment,
+    get_item = items_end
+  })
 
   table.insert(destination, 1, item_start)
   table.insert(destination, item_end)
@@ -674,7 +690,7 @@ end
 ---@return core.statusview.item
 local function add_spacing(self, destination, separator, alignment, x)
   ---@type core.statusview.item
-  local space = StatusView.Item(nil, "space", alignment)
+  local space = StatusView.Item({name = "space", alignment = alignment})
   space.cached_item = separator == self.separator and {
     style.text, separator
   } or {
