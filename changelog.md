@@ -168,17 +168,17 @@
   ```lua
   ------@return StatusView.Item
   function StatusView:add_item(
-    predicate, name, alignment, getitem, command, pos, tooltip
+    { predicate, name, alignment, get_item, command, position, tooltip, separator }
   ) end
   ```
 
   **Example:**
   ```lua
-  core.status_view:add_item(
-    nil,
-    "status:memory-usage",
-    StatusView.Item.RIGHT,
-    function()
+  core.status_view:add_item({
+    predicate = nil,
+    name = "status:memory-usage",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
       return {
         style.text,
         string.format(
@@ -187,10 +187,11 @@
         )
       }
     end,
-    nil,
-    1,
-    "lua memory usage"
-  ).separator = core.status_view.separator2
+    command = nil,
+    position = 1,
+    tooltip = "lua memory usage",
+    separator = core.status_view.separator2
+  })
   ```
 
 * [CommandView:enter](https://github.com/lite-xl/lite-xl/pull/1004) now accepts
