@@ -9,7 +9,7 @@ syntax.add {
   block_comment = { '"""', '"""' },
   patterns = {
     { pattern = { "#", "\n" },                 type = "comment"  },
-    { regex   = { '^\\s*"""', '"""' },         type = "comment"  },
+    { pattern = { '^%s*"""', '"""' },         type = "comment"  },
     { regex   = '[uUrR](?=")',                 type = "keyword"  },
     { pattern = "class%s+()[%a_][%w_]*",       type = {"keyword", "keyword2"} },
     { pattern = { '[ruU]?"""', '"""'; '\\' },  type = "string"   },
