@@ -8,7 +8,7 @@ syntax.add {
   comment = "#",
   block_comment = { '"""', '"""' },
   patterns = {
-    { pattern = { "#", "\n" },                 type = "comment"  },
+    { pattern = "#.*",                         type = "comment"  },
     { pattern = { '^%s*"""', '"""' },          type = "comment"  },
     { pattern = '[uUrR]%f["]',                 type = "keyword"  },
     { pattern = "class%s+()[%a_][%w_]*",       type = {"keyword", "keyword2"} },

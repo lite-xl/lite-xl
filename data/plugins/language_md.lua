@@ -51,7 +51,7 @@ syntax.add {
       type = { "function", "number", "function" }
     },
     {
-      pattern = "^%s*%[%^?()["..in_squares_match.."]+()%]:%s+.+\n",
+      pattern = "^%s*%[%^?()["..in_squares_match.."]+()%]:%s+.*",
       type = { "function", "number", "function" }
     },
     -- optimization
@@ -154,9 +154,9 @@ syntax.add {
     -- highlight
     { pattern = { "==", "==" },             type = "literal" },
     -- lines
-    { pattern = "^%-%-%-+\n",               type = "comment" },
-    { pattern = "^%*%*%*+\n",               type = "comment" },
-    { pattern = "^___+\n",                  type = "comment" },
+    { pattern = "^%-%-%-+$" ,               type = "comment" },
+    { pattern = "^%*%*%*+$",                type = "comment" },
+    { pattern = "^___+$",                   type = "comment" },
     -- bold and italic
     { pattern = { "%*%*%*%S", "%*%*%*" },   type = "markdown_bold_italic" },
     { pattern = { "%*%*%S", "%*%*" },       type = "markdown_bold" },
@@ -175,7 +175,7 @@ syntax.add {
       type = { "keyword", "function", "string", "function" }
     },
     -- headings
-    { pattern = "^#+%s.+\n",                type = "keyword" },
+    { pattern = "^#+%s.+$",                 type = "keyword" },
     -- superscript and subscript
     {
       pattern = "%^()%d+()%^",
