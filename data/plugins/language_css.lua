@@ -7,7 +7,7 @@ syntax.add {
   block_comment = { "/*", "*/" },
   patterns = {
     { pattern = "\\.",                type = "normal"   },
-    { pattern = "//.*$",              type = "comment"  },
+    { pattern = "//.*",               type = "comment"  },
     { pattern = { "/%*", "%*/" },     type = "comment"  },
     { pattern = { '"', '"', '\\' },   type = "string"   },
     { pattern = { "'", "'", '\\' },   type = "string"   },

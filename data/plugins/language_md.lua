@@ -51,7 +51,7 @@ syntax.add {
       type = { "function", "number", "function" }
     },
     {
-      pattern = "^%s*%[%^?()["..in_squares_match.."]+()%]:%s+.+$",
+      pattern = "^%s*%[%^?()["..in_squares_match.."]+()%]:%s+.*",
       type = { "function", "number", "function" }
     },
     -- optimization
