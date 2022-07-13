@@ -7,7 +7,7 @@ syntax.add {
   headers = "^#!.*[ /]python",
   comment = "#",
   patterns = {
-    { pattern = "#.*$",                        type = "comment"  },
+    { pattern = "#.*",                         type = "comment"  },
     { pattern = { '[ruU]?"""', '"""'; '\\' },  type = "string"   },
     { pattern = { "[ruU]?'''", "'''", '\\' },  type = "string"   },
     { pattern = { '[ruU]?"', '"', '\\' },      type = "string"   },
