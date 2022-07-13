@@ -6,7 +6,7 @@ syntax.add {
   files = { "%.py$", "%.pyw$", "%.rpy$" },
   headers = "^#!.*[ /]python",
   comment = "#",
-  block_comment = '"""',
+  block_comment = { '"""', '"""' },
   patterns = {
     { pattern = { "#", "\n" },                 type = "comment"  },
     { regex   = { '^\\s*"""', '"""' },         type = "comment"  },
