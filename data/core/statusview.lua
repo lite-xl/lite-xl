@@ -222,6 +222,17 @@ function StatusView:register_docview_items()
     get_item = function()
       local dv = core.active_view
       local line, col = dv.doc:get_selection()
+      -- Calculating tabs when using "hard" indent type.
+      if config.tab_type == "hard" then
+        local temp_col = col
+        for i=1, temp_col do
+          if i == temp_col then break end
+          local char = dv.doc:get_char(line, i)
+          if char == "\t" then
+            col = col + (dv.doc.indent_info.size or config.indent_size) - 1
+          end
+        end
+      end
       return {
         style.text, line, ":",
         col > config.line_limit and style.accent or style.text, col,
