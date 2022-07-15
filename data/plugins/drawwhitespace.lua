@@ -196,16 +196,18 @@ function DocView:draw_line_text(idx, x, y)
 
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
   local font_size = font:get_size()
+  local _, indent_size = self.doc:get_indent_info()
 
   reset_cache_if_needed()
   if
     not ws_cache[self.doc.highlighter]
     or ws_cache[self.doc.highlighter].font ~= font
     or ws_cache[self.doc.highlighter].font_size ~= font_size
+    or ws_cache[self.doc.highlighter].indent_size ~= indent_size
   then
     ws_cache[self.doc.highlighter] =
       setmetatable(
-        { font = font, font_size = font_size },
+        { font = font, font_size = font_size, indent_size = indent_size },
         { __mode = "k" }
       )
   end
