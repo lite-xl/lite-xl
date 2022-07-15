@@ -226,6 +226,11 @@ function CommandView:exit(submitted, inexplicit)
 end
 
 
+function CommandView:get_line_height()
+  return math.floor(self:get_font():get_height() * 1.2)
+end
+
+
 function CommandView:get_gutter_width()
   return self.gutter_width
 end
