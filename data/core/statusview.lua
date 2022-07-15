@@ -222,27 +222,35 @@ function StatusView:register_docview_items()
     get_item = function()
       local dv = core.active_view
       local line, col = dv.doc:get_selection()
-      -- Calculating tabs when using "hard" indent type.
-      if config.tab_type == "hard" then
-        local temp_col = col
-        for i=1, temp_col do
-          if i == temp_col then break end
-          local char = dv.doc:get_char(line, i)
-          if char == "\t" then
-            col = col + (dv.doc.indent_info.size or config.indent_size) - 1
+      local char_byte = string.byte(dv.doc:get_char(line, col))
+      local indent_type, indent_size = dv.doc:get_indent_info()
+      -- Calculating tabs when the doc is using the "hard" indent type.
+      if indent_type == "hard" then
+        local ntabs = 0
+        local last_idx = 0
+        while last_idx < col do
+          local s, e = string.find(dv.doc.lines[line], "\t", last_idx, true)
+          if s and s < col then
+            ntabs = ntabs + 1
+            last_idx = e + 1
+          else
+            break
           end
         end
+        col = col + ntabs * (indent_size - 1)
       end
+      local byte_info = config.show_char_byte_info and string.format("(%d)", char_byte) or ""
       return {
         style.text, line, ":",
         col > config.line_limit and style.accent or style.text, col,
         style.text,
+        byte_info,
         self.separator,
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
     end,
     command = "doc:go-to-line",
-    tooltip = "line : column"
+    tooltip = "line : column (byte)"
   })
 
   self:add_item({
