@@ -222,24 +222,25 @@ function StatusView:register_docview_items()
     get_item = function()
       local dv = core.active_view
       local line, col = dv.doc:get_selection()
-      local char_byte = string.byte(dv.doc:get_char(line, col))
-      local indent_type, indent_size = dv.doc:get_indent_info()
+      local _, indent_size = dv.doc:get_indent_info()
+      local byte_info = ""
       -- Calculating tabs when the doc is using the "hard" indent type.
-      if indent_type == "hard" then
-        local ntabs = 0
-        local last_idx = 0
-        while last_idx < col do
-          local s, e = string.find(dv.doc.lines[line], "\t", last_idx, true)
-          if s and s < col then
-            ntabs = ntabs + 1
-            last_idx = e + 1
-          else
-            break
-          end
+      local ntabs = 0
+      local last_idx = 0
+      while last_idx < col do
+        local s, e = string.find(dv.doc.lines[line], "\t", last_idx, true)
+        if s and s < col then
+          ntabs = ntabs + 1
+          last_idx = e + 1
+        else
+          break
         end
-        col = col + ntabs * (indent_size - 1)
       end
-      local byte_info = config.show_char_byte_info and string.format("(%d)", char_byte) or ""
+      col = col + ntabs * (indent_size - 1)
+      if config.show_char_byte_info then
+        local char_byte = string.byte(dv.doc:get_char(line, col))
+        byte_info = string.format("(%d)", char_byte)
+      end
       return {
         style.text, line, ":",
         col > config.line_limit and style.accent or style.text, col,
@@ -1178,5 +1179,10 @@ function StatusView:draw()
   end
 end
 
+command.add(nil, {
+  ["status-bar:toggle-show-char-byte-info"] = function()
+    config.show_char_byte_info = not config.show_char_byte_info
+  end
+})
 
 return StatusView
