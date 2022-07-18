@@ -223,7 +223,6 @@ function StatusView:register_docview_items()
       local dv = core.active_view
       local line, col = dv.doc:get_selection()
       local _, indent_size = dv.doc:get_indent_info()
-      local byte_info = ""
       -- Calculating tabs when the doc is using the "hard" indent type.
       local ntabs = 0
       local last_idx = 0
@@ -237,21 +236,16 @@ function StatusView:register_docview_items()
         end
       end
       col = col + ntabs * (indent_size - 1)
-      if config.show_char_byte_info then
-        local char_byte = string.byte(dv.doc:get_char(line, col))
-        byte_info = string.format("(%d)", char_byte)
-      end
       return {
         style.text, line, ":",
         col > config.line_limit and style.accent or style.text, col,
         style.text,
-        byte_info,
         self.separator,
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
     end,
     command = "doc:go-to-line",
-    tooltip = "line : column (byte)"
+    tooltip = "line : column"
   })
 
   self:add_item({
@@ -1178,11 +1172,5 @@ function StatusView:draw()
     end
   end
 end
-
-command.add(nil, {
-  ["status-bar:toggle-show-char-byte-info"] = function()
-    config.show_char_byte_info = not config.show_char_byte_info
-  end
-})
 
 return StatusView
