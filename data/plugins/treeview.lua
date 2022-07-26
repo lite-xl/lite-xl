@@ -195,10 +195,10 @@ end
 
 function TreeView:on_mouse_moved(px, py, ...)
   if not self.visible then return end
-  TreeView.super.on_mouse_moved(self, px, py, ...)
   self.cursor_pos.x = px
   self.cursor_pos.y = py
-  if self.dragging_scrollbar then
+  if TreeView.super.on_mouse_moved(self, px, py, ...) then
+    -- mouse movement handled by the View (scrollbar)
     self.hovered_item = nil
     return
   end
