@@ -45,6 +45,7 @@ local Scrollbar = require "core.scrollbar"
 ---@field cursor core.view.cursor
 ---@field scrollable boolean
 ---@field v_scrollbar core.scrollbar
+---@field h_scrollbar core.scrollbar
 ---@field current_scale number
 local View = Object:extend()
 
@@ -60,6 +61,7 @@ function View:new()
   self.cursor = "arrow"
   self.scrollable = false
   self.v_scrollbar = Scrollbar("v", "e")
+  self.h_scrollbar = Scrollbar("h", "e")
   self.current_scale = SCALE
 end
 
@@ -101,12 +103,17 @@ function View:get_scrollable_size()
   return math.huge
 end
 
+---@return number
+function View:get_h_scrollable_size()
+  return 0
+end
+
 
 ---@param x number
 ---@param y number
 ---@return boolean
 function View:scrollbar_overlaps_point(x, y)
-  return not (not self.v_scrollbar:overlaps(x, y))
+  return not (not (self.v_scrollbar:overlaps(x, y) or self.h_scrollbar:overlaps(x, y)))
 end
 
 
@@ -114,7 +121,7 @@ end
 ---@param y number
 ---@return boolean
 function View:scrollbar_dragging()
-  return self.v_scrollbar.dragging
+  return self.v_scrollbar.dragging or self.h_scrollbar.dragging
 end
 
 
@@ -122,7 +129,7 @@ end
 ---@param y number
 ---@return boolean
 function View:scrollbar_hovering()
-  return self.v_scrollbar.hovering.track
+  return self.v_scrollbar.hovering.track or self.h_scrollbar.hovering.track
 end
 
 
@@ -140,6 +147,13 @@ function View:on_mouse_pressed(button, x, y, clicks)
     end
     return true
   end
+  result = self.h_scrollbar:on_mouse_pressed(button, x, y, clicks)
+  if result then
+    if result ~= true then
+      self.scroll.to.x = result * self:get_h_scrollable_size()
+    end
+    return true
+  end
 end
 
 
@@ -149,6 +163,7 @@ end
 function View:on_mouse_released(button, x, y)
   if not self.scrollable then return end
   self.v_scrollbar:on_mouse_released(button, x, y)
+  self.h_scrollbar:on_mouse_released(button, x, y)
 end
 
 
@@ -169,12 +184,24 @@ function View:on_mouse_moved(x, y, dx, dy)
     end
     return true
   end
+  result = self.h_scrollbar:on_mouse_moved(x, y, dx, dy)
+  if result then
+    if result ~= true then
+      self.scroll.to.x = result * self:get_h_scrollable_size()
+      if not config.animate_drag_scroll then
+        self:clamp_scroll_position()
+        self.scroll.x = self.scroll.to.x
+      end
+    end
+    return true
+  end
 end
 
 
 function View:on_mouse_left()
   if not self.scrollable then return end
   self.v_scrollbar:on_mouse_left()
+  self.h_scrollbar:on_mouse_left()
 end
 
 
@@ -227,6 +254,9 @@ end
 function View:clamp_scroll_position()
   local max = self:get_scrollable_size() - self.size.y
   self.scroll.to.y = common.clamp(self.scroll.to.y, 0, max)
+
+  max = self:get_h_scrollable_size() - self.size.x
+  self.scroll.to.x = common.clamp(self.scroll.to.x, 0, max)
 end
 
 
@@ -235,6 +265,11 @@ function View:update_scrollbar()
   self.v_scrollbar:set_size(self.position.x, self.position.y, self.size.x, self.size.y, v_scrollable)
   self.v_scrollbar:set_percent(self.scroll.y/v_scrollable)
   self.v_scrollbar:update()
+
+  local h_scrollable = self:get_h_scrollable_size()
+  self.h_scrollbar:set_size(self.position.x, self.position.y, self.size.x, self.size.y, h_scrollable)
+  self.h_scrollbar:set_percent(self.scroll.x/h_scrollable)
+  self.h_scrollbar:update()
 end
 
 
@@ -260,19 +295,11 @@ function View:draw_background(color)
 end
 
 
-function View:draw_scrollbar_track()
-  self.v_scrollbar:draw_track()
-end
-
-
-function View:draw_scrollbar_thumb()
-  self.v_scrollbar:draw_thumb()
-end
-
-
 function View:draw_scrollbar()
-  self:draw_scrollbar_track()
-  self:draw_scrollbar_thumb()
+  self.v_scrollbar:draw_track()
+  self.v_scrollbar:draw_thumb()
+  self.h_scrollbar:draw_track()
+  self.h_scrollbar:draw_thumb()
 end
 
 
