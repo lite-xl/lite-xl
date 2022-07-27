@@ -132,6 +132,7 @@ end
 ---@param clicks integer
 ---return boolean
 function View:on_mouse_pressed(button, x, y, clicks)
+  if not self.scrollable then return end
   local result = self.v_scrollbar:on_mouse_pressed(button, x, y, clicks)
   if result then
     if result ~= true then
@@ -146,6 +147,7 @@ end
 ---@param x number
 ---@param y number
 function View:on_mouse_released(button, x, y)
+  if not self.scrollable then return end
   self.v_scrollbar:on_mouse_released(button, x, y)
 end
 
@@ -155,6 +157,7 @@ end
 ---@param dx number
 ---@param dy number
 function View:on_mouse_moved(x, y, dx, dy)
+  if not self.scrollable then return end
   local result = self.v_scrollbar:on_mouse_moved(x, y, dx, dy)
   if result then
     if result ~= true then
@@ -170,6 +173,7 @@ end
 
 
 function View:on_mouse_left()
+  if not self.scrollable then return end
   self.v_scrollbar:on_mouse_left()
 end
 
@@ -243,6 +247,7 @@ function View:update()
   self:clamp_scroll_position()
   self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3, "scroll")
   self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3, "scroll")
+  if not self.scrollable then return end
   self:update_scrollbar()
 end
 
