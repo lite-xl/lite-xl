@@ -123,5 +123,13 @@ command.add(nil, {
       return true
     end
     return false
+  end,
+  ["root:horizontal-scroll"] = function(delta)
+    local view = (core.root_view.overlapping_node and core.root_view.overlapping_node.active_view) or core.active_view
+    if view and view.scrollable then
+      view.scroll.to.x = view.scroll.to.x + delta * -config.mouse_wheel_scroll
+      return true
+    end
+    return false
   end
 })

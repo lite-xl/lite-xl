@@ -277,6 +277,7 @@ keymap.add_direct {
   ["alt+8"] = "root:switch-to-tab-8",
   ["alt+9"] = "root:switch-to-tab-9",
   ["wheel"] = "root:scroll",
+  ["shift+wheel"] = "root:horizontal-scroll",
 
   ["ctrl+f"] = "find-replace:find",
   ["ctrl+r"] = "find-replace:replace",
