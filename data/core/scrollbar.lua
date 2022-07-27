@@ -17,6 +17,13 @@ function Scrollbar:new(direction, alignment)
     ---Scrollable size
     scrollable = 0
   }
+  self.normal_rect = {
+    across = 0,
+    along = 0,
+    across_size = 0,
+    along_size = 0,
+    scrollable = 0
+  }
   ---@type integer @Position in percent [0-1]
   self.percent = 0
   ---@type boolean @Scrollbar dragging status
@@ -34,44 +41,69 @@ function Scrollbar:new(direction, alignment)
 end
 
 
-function Scrollbar:get_thumb_rect()
-  local sz = self.rect.scrollable
-  if sz <= self.rect.h or sz == math.huge then
-    return 0, 0, 0, 0
+function Scrollbar:real_to_normal(x, y, w, h)
+  if self.direction == "v" then
+    return x, y, w, h
+  else
+    return y, x, h, w
   end
-  local h = math.max(20, self.rect.h * self.rect.h / sz)
-  local width = style.scrollbar_size
-  width = width + (style.expanded_scrollbar_size - style.scrollbar_size) * self.expand_percent
-  return
-    self.rect.x + self.rect.w - width,
-    self.rect.y + self.percent * self.rect.scrollable * (self.rect.h - h) / (sz - self.rect.h),
-    width,
-    h
 end
 
+
+function Scrollbar:normal_to_real(x, y, w, h)
+  return self:real_to_normal(x, y, w, h)
+end
+
+
+function Scrollbar:get_thumb_rect_normal()
+  local nr = self.normal_rect
+  local sz = nr.scrollable
+  if sz == math.huge or sz <= nr.along_size
+  then
+    return 0, 0, 0, 0
+  end
+  local along_size = math.max(20, nr.along_size * nr.along_size / sz)
+  local across_size = style.scrollbar_size
+  across_size = across_size + (style.expanded_scrollbar_size - style.scrollbar_size) * self.expand_percent
+  return
+    nr.across + nr.across_size - across_size,
+    nr.along + self.percent * nr.scrollable * (nr.along_size - along_size) / (sz - nr.along_size),
+    across_size,
+    along_size
+end
+
+function Scrollbar:get_thumb_rect()
+  return self:normal_to_real(self:get_thumb_rect_normal())
+end
+
+
+function Scrollbar:get_track_rect_normal()
+  local nr = self.normal_rect
+  local sz = nr.scrollable
+  if sz <= nr.along_size or sz == math.huge then
+    return 0, 0, 0, 0
+  end
+  local across_size = style.scrollbar_size
+  across_size = across_size + (style.expanded_scrollbar_size - style.scrollbar_size) * self.expand_percent
+  return
+    nr.across + nr.across_size - across_size,
+    nr.along,
+    across_size,
+    nr.along_size
+end
 
 function Scrollbar:get_track_rect()
-  local sz = self.rect.scrollable
-  if sz <= self.rect.h or sz == math.huge then
-    return 0, 0, 0, 0
-  end
-  local width = style.scrollbar_size
-  width = width + (style.expanded_scrollbar_size - style.scrollbar_size) * self.expand_percent
-  return
-    self.rect.x + self.rect.w - width,
-    self.rect.y,
-    width,
-    self.rect.h
+  return self:normal_to_real(self:get_track_rect_normal())
 end
 
 
-function Scrollbar:overlaps(x, y)
-  local sx, sy, sw, sh = self:get_thumb_rect()
+function Scrollbar:overlaps_normal(x, y)
+  local sx, sy, sw, sh = self:get_thumb_rect_normal()
   local result
   if x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh then
     result = "thumb"
   else
-    sx, sy, sw, sh = self:get_track_rect()
+    sx, sy, sw, sh = self:get_track_rect_normal()
     if x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh then
       result = "track"
     end
@@ -79,11 +111,16 @@ function Scrollbar:overlaps(x, y)
   return result
 end
 
+function Scrollbar:overlaps(x, y)
+  x, y = self:real_to_normal(x, y)
+  return self:overlaps_normal(x, y)
+end
 
-function Scrollbar:on_mouse_pressed(button, x, y, clicks)
-  local overlaps = self:overlaps(x, y)
+
+function Scrollbar:on_mouse_pressed_normal(button, x, y, clicks)
+  local overlaps = self:overlaps_normal(x, y)
   if overlaps then
-    local _, ty, _, th = self:get_thumb_rect()
+    local _, ty, _, th = self:get_thumb_rect_normal()
     if overlaps == "thumb" then
       self.dragging = true
       self.drag_start_offset = ty - y
@@ -94,20 +131,32 @@ function Scrollbar:on_mouse_pressed(button, x, y, clicks)
   end
 end
 
+function Scrollbar:on_mouse_pressed(button, x, y, clicks)
+  x, y = self:real_to_normal(x, y)
+  return self:on_mouse_pressed_normal(button, x, y, clicks)
+end
+
 
 function Scrollbar:on_mouse_released(button, x, y)
   self.dragging = false
 end
 
 
-function Scrollbar:on_mouse_moved(x, y, dx, dy)
+function Scrollbar:on_mouse_moved_normal(x, y, dx, dy)
   if self.dragging then
-    return common.clamp((y - self.rect.y + self.drag_start_offset) / self.rect.h, 0, 1)
+    local nr = self.normal_rect
+    return common.clamp((y - nr.along + self.drag_start_offset) / nr.along_size, 0, 1)
   end
-  local overlaps = self:overlaps(x, y)
+  local overlaps = self:overlaps_normal(x, y)
   self.hovering.thumb = overlaps == "thumb"
   self.hovering.track = self.hovering.thumb or overlaps == "track"
   return self.hovering.track or self.hovering.thumb
+end
+
+function Scrollbar:on_mouse_moved(x, y, dx, dy)
+  x, y = self:real_to_normal(x, y)
+  dx, dy = self:real_to_normal(dx, dy) -- TODO: do we need this? (is this even correct?)
+  return self:on_mouse_moved_normal(x, y, dx, dy)
 end
 
 
@@ -119,6 +168,10 @@ end
 function Scrollbar:set_size(x, y, w, h, scrollable)
   self.rect.x, self.rect.y, self.rect.w, self.rect.h = x, y, w, h
   self.rect.scrollable = scrollable
+
+  local nr = self.normal_rect
+  nr.across, nr.along, nr.across_size, nr.along_size = self:real_to_normal(x, y, w, h)
+  nr.scrollable = scrollable
 end
 
 
