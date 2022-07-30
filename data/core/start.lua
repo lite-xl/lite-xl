@@ -16,7 +16,7 @@ USERDIR = (system.get_file_info(EXEDIR .. '/user') and (EXEDIR .. '/user'))
        or ((os.getenv("XDG_CONFIG_HOME") and os.getenv("XDG_CONFIG_HOME") .. "/lite-xl"))
        or (HOME and (HOME .. '/.config/lite-xl'))
 
-package.path = DATADIR .. '/?.lua;' .. package.path
+package.path = DATADIR .. '/?.lua;'
 package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
