@@ -7,7 +7,8 @@ static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
   ERenFontHinting *hinting,
-  int *style
+  int *style,
+  bool* smoothing
 ) {
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
@@ -58,6 +59,10 @@ static int font_get_options(
     lua_getfield(L, 3, "underline");
     if (lua_toboolean(L, -1))
       style_local |= FONT_STYLE_UNDERLINE;
+    lua_getfield(L, 3, "smoothing");
+    if (lua_toboolean(L, -1))
+      *smoothing = true;
+    
     lua_pop(L, 5);
 
     if (style_local != 0)
@@ -71,10 +76,11 @@ static int f_font_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);
   int style = 0;
+  bool smoothing = false;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
   ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &smoothing);
   if (ret_code > 0)
     return ret_code;
 
@@ -108,8 +114,9 @@ static int f_font_copy(lua_State *L) {
   int style = -1;
   ERenFontHinting hinting = -1;
   ERenFontAntialiasing antialiasing = -1;
+  bool smoothing = false;
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &smoothing);
   if (ret_code > 0)
     return ret_code;
 
