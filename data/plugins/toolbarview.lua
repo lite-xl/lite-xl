@@ -7,31 +7,26 @@ local View = require "core.view"
 
 local ToolbarView = View:extend()
 
-local toolbar_commands = {
-  {symbol = "f", command = "core:new-doc"},
-  {symbol = "D", command = "core:open-file"},
-  {symbol = "S", command = "doc:save"},
-  {symbol = "L", command = "core:find-file"},
-  {symbol = "B", command = "core:find-command"},
-  {symbol = "P", command = "core:open-user-module"},
-}
-
-
-local function toolbar_height()
-  return style.icon_big_font:get_height() + style.padding.y * 2
-end
-
 
 function ToolbarView:new()
   ToolbarView.super.new(self)
   self.visible = true
   self.init_size = true
   self.tooltip = false
+  self.toolbar_font = style.icon_big_font
+  self.toolbar_commands = {
+    {symbol = "f", command = "core:new-doc"},
+    {symbol = "D", command = "core:open-file"},
+    {symbol = "S", command = "doc:save"},
+    {symbol = "L", command = "core:find-file"},
+    {symbol = "B", command = "core:find-command"},
+    {symbol = "P", command = "core:open-user-module"},
+  }
 end
 
 
 function ToolbarView:update()
-  local dest_size = self.visible and toolbar_height() or 0
+  local dest_size = self.visible and (self.toolbar_font:get_height() + style.padding.y * 2) or 0
   if self.init_size then
     self.size.y = dest_size
     self.init_size = nil
@@ -46,19 +41,24 @@ function ToolbarView:toggle_visible()
   self.visible = not self.visible
 end
 
+function ToolbarView:get_icon_width()
+  local max_width = 0
+  for i,v in ipairs(self.toolbar_commands) do max_width = math.max(max_width, self.toolbar_font:get_width(v.symbol)) end
+  return max_width
+end
 
 function ToolbarView:each_item()
-  local icon_h, icon_w = style.icon_big_font:get_height(), style.icon_big_font:get_width("D")
+  local icon_h, icon_w = self.toolbar_font:get_height(), self:get_icon_width()
   local toolbar_spacing = icon_w / 2
   local ox, oy = self:get_content_offset()
   local index = 0
   local iter = function()
     index = index + 1
-    if index <= #toolbar_commands then
+    if index <= #self.toolbar_commands then
       local dx = style.padding.x + (icon_w + toolbar_spacing) * (index - 1)
       local dy = style.padding.y
       if dx + icon_w > self.size.x then return end
-      return toolbar_commands[index], ox + dx, oy + dy, icon_w, icon_h
+      return self.toolbar_commands[index], ox + dx, oy + dy, icon_w, icon_h
     end
   end
   return iter
@@ -66,9 +66,9 @@ end
 
 
 function ToolbarView:get_min_width()
-  local icon_w = style.icon_big_font:get_width("D")
+  local icon_w = self:get_icon_width()
   local space = icon_w / 2
-  return 2 * style.padding.x + (icon_w + space) * #toolbar_commands - space
+  return 2 * style.padding.x + (icon_w + space) * #self.toolbar_commands - space
 end
 
 
@@ -76,8 +76,8 @@ function ToolbarView:draw()
   self:draw_background(style.background2)
 
   for item, x, y, w, h in self:each_item() do
-    local color = item == self.hovered_item and style.text or style.dim
-    common.draw_text(style.icon_big_font, color, item.symbol, nil, x, y, 0, h)
+    local color = item == self.hovered_item and command.is_valid(item.command) and style.text or style.dim
+    common.draw_text(self.toolbar_font, color, item.symbol, nil, x, y, 0, h)
   end
 end
 
@@ -86,7 +86,7 @@ function ToolbarView:on_mouse_pressed(button, x, y, clicks)
   local caught = ToolbarView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught then return caught end
   core.set_active_view(core.last_active_view)
-  if self.hovered_item then
+  if self.hovered_item and command.is_valid(self.hovered_item.command) then
     command.perform(self.hovered_item.command)
   end
   return true
