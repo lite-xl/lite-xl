@@ -49,7 +49,6 @@ typedef struct RenFont {
   unsigned short max_height, baseline, height;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
-  bool smoothing;
   unsigned char style;
   char path[1];
 } RenFont;
@@ -99,9 +98,10 @@ static int font_set_render_options(RenFont* font) {
   return 0;
 }
 
-static int font_set_style(FT_Outline* outline, int x_translation, unsigned char style, bool smoothing) {
+static int font_set_style(FT_Outline* outline, int x_translation, unsigned char style) {
   FT_Outline_Translate(outline, x_translation, 0 );
-  if(smoothing) FT_Outline_Embolden(outline, 1 << 5);
+  if (style & FONT_STYLE_SMOOTH)
+    FT_Outline_Embolden(outline, 1 << 5);
   if (style & FONT_STYLE_BOLD)
     FT_Outline_EmboldenXY(outline, 1 << 5, 0);
   if (style & FONT_STYLE_ITALIC) {
@@ -121,7 +121,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
     for (int i = 0; i < MAX_GLYPHSET; ++i) {
       int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)
-        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style, font->smoothing) || FT_Render_Glyph(font->face->glyph, render_option)) {
+        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
         continue;
       }
       FT_GlyphSlot slot = font->face->glyph;
@@ -133,7 +133,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       font->max_height = slot->bitmap.rows > font->max_height ? slot->bitmap.rows : font->max_height;
       // In order to fix issues with monospacing; we need the unhinted xadvance; as FreeType doesn't correctly report the hinted advance for spaces on monospace fonts (like RobotoMono). See #843.
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)
-        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style, font->smoothing) || FT_Render_Glyph(font->face->glyph, render_option)) {
+        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
         continue;
       }
       slot = font->face->glyph;
@@ -148,7 +148,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
         continue;
       FT_GlyphSlot slot = font->face->glyph;
-      font_set_style(&slot->outline, (64 / bitmaps_cached) * j, font->style, font->smoothing);
+      font_set_style(&slot->outline, (64 / bitmaps_cached) * j, font->style);
       if (FT_Render_Glyph(slot, render_option))
         continue;
       for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
@@ -204,7 +204,7 @@ static void font_clear_glyph_cache(RenFont* font) {
   }
 }
 
-RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, bool smoothing) {
+RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   FT_Face face;
   if (FT_New_Face( library, path, 0, &face))
     return NULL;
@@ -221,7 +221,6 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->antialiasing = antialiasing;
   font->hinting = hinting;
   font->style = style;
-  font->smoothing = smoothing;
 
   if (FT_Load_Char(face, ' ', font_set_load_options(font)))
     goto failure;
@@ -233,12 +232,12 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   return NULL;
 }
 
-RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style, bool smoothing) {
+RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
   antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
 
-  return ren_font_load(font->path, size, antialiasing, hinting, style, smoothing);
+  return ren_font_load(font->path, size, antialiasing, hinting, style);
 }
 
 const char* ren_font_get_path(RenFont *font) {

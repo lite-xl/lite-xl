@@ -7,8 +7,7 @@ static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
   ERenFontHinting *hinting,
-  int *style,
-  bool* smoothing
+  int *style
 ) {
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
@@ -61,7 +60,7 @@ static int font_get_options(
       style_local |= FONT_STYLE_UNDERLINE;
     lua_getfield(L, 3, "smoothing");
     if (lua_toboolean(L, -1))
-      *smoothing = true;
+      style_local |= FONT_STYLE_SMOOTH;
     
     lua_pop(L, 5);
 
@@ -85,7 +84,7 @@ static int f_font_load(lua_State *L) {
     return ret_code;
 
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, antialiasing, hinting, style, smoothing);
+  *font = ren_font_load(filename, size, antialiasing, hinting, style);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
@@ -126,7 +125,7 @@ static int f_font_copy(lua_State *L) {
   }
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style, smoothing);
+    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style);
     if (!*font)
       return luaL_error(L, "failed to copy font");
     luaL_setmetatable(L, API_TYPE_FONT);
