@@ -233,7 +233,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   return NULL;
 }
 
-RenFont *ren_font_copy(RenFont *font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style, bool smoothing) {
+RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style, bool smoothing) {
   antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;

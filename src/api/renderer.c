@@ -85,7 +85,7 @@ static int f_font_load(lua_State *L) {
     return ret_code;
 
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, antialiasing, hinting, style);
+  *font = ren_font_load(filename, size, antialiasing, hinting, style, smoothing);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
@@ -126,7 +126,7 @@ static int f_font_copy(lua_State *L) {
   }
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style);
+    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style, smoothing);
     if (!*font)
       return luaL_error(L, "failed to copy font");
     luaL_setmetatable(L, API_TYPE_FONT);
