@@ -28,9 +28,10 @@
 #endif /* VC++ _fsopen for share-allowed file read */
 
 #ifndef COMPAT53_HAVE_STRERROR_R
-#  if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || \
+#  if (!defined(_WIN32)) && \
+      ((defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || \
       (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 600) || \
-      defined(__APPLE__)
+      defined(__APPLE__))
 #    define COMPAT53_HAVE_STRERROR_R 1
 #  else /* none of the defines matched: define to 0 */
 #    define COMPAT53_HAVE_STRERROR_R 0
