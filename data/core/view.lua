@@ -182,6 +182,8 @@ function View:on_mouse_moved(x, y, dx, dy)
         self.scroll.y = self.scroll.to.y
       end
     end
+    -- hide horizontal scrollbar
+    self.h_scrollbar:on_mouse_left()
     return true
   end
   result = self.h_scrollbar:on_mouse_moved(x, y, dx, dy)
