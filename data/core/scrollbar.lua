@@ -42,16 +42,35 @@ end
 
 
 function Scrollbar:real_to_normal(x, y, w, h)
+  x, y, w, h = x or 0, y or 0, w or 0, h or 0
   if self.direction == "v" then
+    if self.alignment == "s" then
+      x = (self.rect.x + self.rect.w) - x - w
+    end
     return x, y, w, h
   else
+    if self.alignment == "s" then
+      y = (self.rect.y + self.rect.h) - y - h
+    end
     return y, x, h, w
   end
 end
 
 
 function Scrollbar:normal_to_real(x, y, w, h)
-  return self:real_to_normal(x, y, w, h)
+  local nr = self.normal_rect
+  x, y, w, h = x or 0, y or 0, w or 0, h or 0
+  if self.direction == "v" then
+    if self.alignment == "s" then
+      x = (self.rect.x + self.rect.w) - x - w
+    end
+    return x, y, w, h
+  else
+    if self.alignment == "s" then
+      x = (self.rect.y + self.rect.h) - x - w
+    end
+    return y, x, h, w
+  end
 end
 
 
@@ -100,11 +119,11 @@ end
 function Scrollbar:overlaps_normal(x, y)
   local sx, sy, sw, sh = self:get_thumb_rect_normal()
   local result
-  if x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh then
+  if x >= sx - style.scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
     result = "thumb"
   else
     sx, sy, sw, sh = self:get_track_rect_normal()
-    if x >= sx - style.scrollbar_size * 3 and x < sx + sw and y > sy and y <= sy + sh then
+    if x >= sx - style.scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
       result = "track"
     end
   end
