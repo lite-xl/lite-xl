@@ -120,13 +120,14 @@ end
 function Scrollbar:on_mouse_pressed_normal(button, x, y, clicks)
   local overlaps = self:overlaps_normal(x, y)
   if overlaps then
-    local _, ty, _, th = self:get_thumb_rect_normal()
+    local _, along, _, along_size = self:get_thumb_rect_normal()
+    self.dragging = true
     if overlaps == "thumb" then
-      self.dragging = true
-      self.drag_start_offset = ty - y
+      self.drag_start_offset = along - y
       return true
     elseif overlaps == "track" then
-      return (y - self.rect.y - th / 2) / self.rect.h
+      self.drag_start_offset = - along_size / 2
+      return (y - self.normal_rect.along - along_size / 2) / self.normal_rect.along_size
     end
   end
 end
@@ -161,7 +162,7 @@ end
 
 
 function Scrollbar:on_mouse_left()
-  self.hovering = { track = false, thumb = false }
+  self.hovering.track, self.hovering.thumb = false, false
 end
 
 
