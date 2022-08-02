@@ -173,7 +173,9 @@ end
 ---@param dy number
 function View:on_mouse_moved(x, y, dx, dy)
   if not self.scrollable then return end
-  local result = self.v_scrollbar:on_mouse_moved(x, y, dx, dy)
+  local result
+  if self.h_scrollbar.dragging then goto skip_v_scrollbar end
+  result = self.v_scrollbar:on_mouse_moved(x, y, dx, dy)
   if result then
     if result ~= true then
       self.scroll.to.y = result * self:get_scrollable_size()
@@ -186,6 +188,7 @@ function View:on_mouse_moved(x, y, dx, dy)
     self.h_scrollbar:on_mouse_left()
     return true
   end
+  ::skip_v_scrollbar::
   result = self.h_scrollbar:on_mouse_moved(x, y, dx, dy)
   if result then
     if result ~= true then
