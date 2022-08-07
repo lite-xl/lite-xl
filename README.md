@@ -27,7 +27,7 @@ The changes and differences between Lite XL and rxi/lite are listed in the
 
 ## Overview
 
-Lite XL is derived from lite.
+Lite XL is derived from [lite].
 It is a lightweight text editor written mostly in Lua — it aims to provide
 something practical, pretty, *small* and fast easy to modify and extend,
 or to use without doing either.
@@ -148,7 +148,7 @@ See the [licenses] file for details on licenses used by the required dependencie
 [screenshot-dark]:            https://user-images.githubusercontent.com/433545/111063905-66943980-84b1-11eb-9040-3876f1133b20.png
 [lite]:                       https://github.com/rxi/lite
 [website]:                    https://lite-xl.com
-[build]:                      https://lite-xl.com/en/documentation/build/
+[build]:                      https://lite-xl.com/en/documentation/build
 [Get Lite XL]:                https://github.com/lite-xl/lite-xl/releases/latest
 [Get plugins]:                https://github.com/lite-xl/lite-xl-plugins
 [Get color themes]:           https://github.com/lite-xl/lite-xl-colors
