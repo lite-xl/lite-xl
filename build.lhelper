@@ -1,0 +1,10 @@
+CC=${CC:-gcc}
+CXX=${CXX:-g++}
+
+BUILD_TYPE=Release
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  packages=(freetype2 pcre2 "sdl2 -opengl -render")
+else
+  packages=(freetype2 pcre2 sdl2)
+fi  

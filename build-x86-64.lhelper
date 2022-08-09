@@ -1,8 +1,0 @@
-CC=gcc
-CXX=g++
-CPU_TYPE=x86-64
-CPU_TARGET=nehalem
-
-BUILD_TYPE=Release
-
-packages=(freetype2 pcre2 sdl2)
