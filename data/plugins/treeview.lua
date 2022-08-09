@@ -458,7 +458,7 @@ end
 -- init
 local view = TreeView()
 local node = core.root_view:get_active_node()
-local treeview_node = node:split("left", view, {x = true}, true)
+view.node = node:split("left", view, {x = true}, true)
 
 -- The toolbarview plugin is special because it is plugged inside
 -- a treeview pane which is itelf provided in a plugin.
@@ -470,7 +470,7 @@ local toolbar_view = nil
 local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
 if config.plugins.toolbarview ~= false and toolbar_plugin then
   toolbar_view = ToolbarView()
-  treeview_node:split("down", toolbar_view, {y = true})
+  view.node:split("down", toolbar_view, {y = true})
   local min_toolbar_width = toolbar_view:get_min_width()
   view:set_target_size("x", math.max(config.plugins.treeview.size, min_toolbar_width))
   command.add(nil, {
