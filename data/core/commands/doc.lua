@@ -527,6 +527,23 @@ local commands = {
     doc():set_selection(line2, col2, line1, col1)
   end,
 
+  ["doc:create-cursor-previous-line"] = function()
+    split_cursor(-1)
+    doc():merge_cursors()
+  end,
+
+  ["doc:create-cursor-next-line"] = function()
+    split_cursor(1)
+    doc():merge_cursors()
+  end
+
+}
+
+command.add(function(x, y)
+  if x == nil or y == nil or not doc() then return false end
+  local x1,y1,x2,y2 = dv().position.x, dv().position.y, dv().position.x + dv().size.x, dv().position.y + dv().size.y
+  return x >= x1 + dv():get_gutter_width() and x < x2 and y >= y1 and y < y2
+end, {
   ["doc:set-cursor"] = function(x, y)
     set_cursor(x, y, "set")
   end,
@@ -553,20 +570,8 @@ local commands = {
       doc():add_selection(line, col, line, col)
     end
     dv().mouse_selecting = { line, col, "set" }
-  end,
-
-  ["doc:create-cursor-previous-line"] = function()
-    split_cursor(-1)
-    doc():merge_cursors()
-  end,
-
-  ["doc:create-cursor-next-line"] = function()
-    split_cursor(1)
-    doc():merge_cursors()
   end
-
-}
-
+})
 
 local translations = {
   ["previous-char"] = translate,

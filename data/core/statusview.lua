@@ -1109,9 +1109,10 @@ function StatusView:draw()
 
   if self.message and system.get_time() <= self.message_timeout then
     self:draw_items(self.message, false, 0, self.size.y)
-  elseif self.tooltip_mode then
-    self:draw_items(self.tooltip)
   else
+    if self.tooltip_mode then
+      self:draw_items(self.tooltip)
+    end
     if #self.active_items > 0 then
       --- draw left pane
       core.push_clip_rect(
@@ -1121,7 +1122,7 @@ function StatusView:draw()
       for _, item in ipairs(self.active_items) do
         local item_x = self.left_xoffset + item.x + style.padding.x
         local hovered, item_bg = get_item_bg_color(self, item)
-        if item.alignment == StatusView.Item.LEFT then
+        if item.alignment == StatusView.Item.LEFT and not self.tooltip_mode then
           if type(item_bg) == "table" then
             renderer.draw_rect(
               item_x, self.position.y,
