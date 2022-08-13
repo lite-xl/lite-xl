@@ -33,9 +33,9 @@ function command.generate_predicate(predicate)
   if type(predicate) == "table" then
     local class = predicate
     if not strict then
-      predicate = function() return core.active_view:extends(class) end
+      predicate = function(...) return core.active_view:extends(class), core.active_view, ... end
     else
-      predicate = function() return core.active_view:is(class) end
+      predicate = function(...) return core.active_view:is(class), core.active_view, ... end
     end
   end
   return predicate
@@ -76,8 +76,16 @@ end
 
 local function perform(name, ...)
   local cmd = command.map[name]
-  if cmd and cmd.predicate(...) then
-    cmd.perform(...)
+  if not cmd then return false end
+  local res = { cmd.predicate(...) }
+  if table.remove(res, 1) then
+    if #res > 0 then
+      -- send values returned from predicate
+      cmd.perform(table.unpack(res))
+    else
+      -- send original parameters
+      cmd.perform(...)
+    end
     return true
   end
   return false

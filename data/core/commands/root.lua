@@ -7,13 +7,11 @@ local config = require "core.config"
 
 
 local t = {
-  ["root:close"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:close"] = function(node)
     node:close_active_view(core.root_view.root_node)
   end,
 
-  ["root:close-or-quit"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:close-or-quit"] = function(node)
     if node and (not node:is_empty() or not node.is_primary_node) then
       node:close_active_view(core.root_view.root_node)
     else
@@ -31,24 +29,21 @@ local t = {
     core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
   end,
 
-  ["root:switch-to-previous-tab"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:switch-to-previous-tab"] = function(node)
     local idx = node:get_view_idx(core.active_view)
     idx = idx - 1
     if idx < 1 then idx = #node.views end
     node:set_active_view(node.views[idx])
   end,
 
-  ["root:switch-to-next-tab"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:switch-to-next-tab"] = function(node)
     local idx = node:get_view_idx(core.active_view)
     idx = idx + 1
     if idx > #node.views then idx = 1 end
     node:set_active_view(node.views[idx])
   end,
 
-  ["root:move-tab-left"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:move-tab-left"] = function(node)
     local idx = node:get_view_idx(core.active_view)
     if idx > 1 then
       table.remove(node.views, idx)
@@ -56,8 +51,7 @@ local t = {
     end
   end,
 
-  ["root:move-tab-right"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:move-tab-right"] = function(node)
     local idx = node:get_view_idx(core.active_view)
     if idx < #node.views then
       table.remove(node.views, idx)
@@ -65,15 +59,13 @@ local t = {
     end
   end,
 
-  ["root:shrink"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:shrink"] = function(node)
     local parent = node:get_parent_node(core.root_view.root_node)
     local n = (parent.a == node) and -0.1 or 0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
   end,
 
-  ["root:grow"] = function()
-    local node = core.root_view:get_active_node()
+  ["root:grow"] = function(node)
     local parent = node:get_parent_node(core.root_view.root_node)
     local n = (parent.a == node) and 0.1 or -0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
@@ -82,8 +74,7 @@ local t = {
 
 
 for i = 1, 9 do
-  t["root:switch-to-tab-" .. i] = function()
-    local node = core.root_view:get_active_node()
+  t["root:switch-to-tab-" .. i] = function(node)
     local view = node.views[i]
     if view then
       node:set_active_view(view)
@@ -93,8 +84,7 @@ end
 
 
 for _, dir in ipairs { "left", "right", "up", "down" } do
-  t["root:split-" .. dir] = function()
-    local node = core.root_view:get_active_node()
+  t["root:split-" .. dir] = function(node)
     local av = node.active_view
     node:split(dir)
     if av:is(DocView) then
@@ -102,8 +92,7 @@ for _, dir in ipairs { "left", "right", "up", "down" } do
     end
   end
 
-  t["root:switch-to-" .. dir] = function()
-    local node = core.root_view:get_active_node()
+  t["root:switch-to-" .. dir] = function(node)
     local x, y
     if dir == "left" or dir == "right" then
       y = node.position.y + node.size.y / 2
@@ -123,7 +112,7 @@ end
 command.add(function()
   local node = core.root_view:get_active_node()
   local sx, sy = node:get_locked_size()
-  return not sx and not sy
+  return not sx and not sy, node
 end, t)
 
 command.add(nil, {
