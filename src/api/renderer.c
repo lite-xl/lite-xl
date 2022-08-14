@@ -75,11 +75,10 @@ static int f_font_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);
   int style = 0;
-  bool smoothing = false;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
   ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &smoothing);
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
   if (ret_code > 0)
     return ret_code;
 
@@ -113,9 +112,8 @@ static int f_font_copy(lua_State *L) {
   int style = -1;
   ERenFontHinting hinting = -1;
   ERenFontAntialiasing antialiasing = -1;
-  bool smoothing = false;
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &smoothing);
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
   if (ret_code > 0)
     return ret_code;
 
