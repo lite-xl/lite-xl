@@ -50,6 +50,7 @@ typedef struct RenFont {
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
   unsigned char style;
+  unsigned short underline_thickness;
   char path[1];
 } RenFont;
 
@@ -222,6 +223,9 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->hinting = hinting;
   font->style = style;
 
+  if(FT_IS_SCALABLE(face)) font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
+  else font->underline_thickness = 1;
+
   if (FT_Load_Char(face, ' ', font_set_load_options(font)))
     goto failure;
   font->space_advance = face->glyph->advance.x / 64.0f;
@@ -371,10 +375,16 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
         }
       }
     }
-    pen_x += metric->xadvance ? metric->xadvance : font->space_advance;
+
+    float adv = metric->xadvance ? metric->xadvance : font->space_advance;
+
+    if (fonts[0]->style & FONT_STYLE_UNDERLINE)
+      ren_draw_rect((RenRect){x, y / surface_scale + font->height - 1, adv / surface_scale, font->underline_thickness * surface_scale}, color);
+    if (fonts[0]->style & FONT_STYLE_STRIKETHROUGH)
+      ren_draw_rect((RenRect){x, y / surface_scale + font->height / 2, adv / surface_scale, font->underline_thickness * surface_scale}, color);
+    
+    pen_x += adv;
   }
-  if (fonts[0]->style & FONT_STYLE_UNDERLINE)
-    ren_draw_rect((RenRect){ x, y / surface_scale + ren_font_group_get_height(fonts) - 1, (pen_x - x) / surface_scale, 1 }, color);
   return pen_x / surface_scale;
 }
 
