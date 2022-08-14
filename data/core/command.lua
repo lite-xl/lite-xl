@@ -62,8 +62,12 @@ end
 
 function command.get_all_valid()
   local res = {}
+  local memoized_predicates = {}
   for name, cmd in pairs(command.map) do
-    if cmd.predicate() then
+    if memoized_predicates[cmd.predicate] == nil then
+      memoized_predicates[cmd.predicate] = cmd.predicate()
+    end
+    if memoized_predicates[cmd.predicate] then
       table.insert(res, name)
     end
   end
