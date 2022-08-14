@@ -45,7 +45,9 @@ end
 function command.add(predicate, map)
   predicate = command.generate_predicate(predicate)
   for name, fn in pairs(map) do
-    assert(not command.map[name], "command already exists: " .. name)
+    if command.map[name] then
+      core.log_quiet("Replacing existing command \"%s\"", name)
+    end
     command.map[name] = { predicate = predicate, perform = fn }
   end
 end
