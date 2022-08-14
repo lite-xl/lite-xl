@@ -271,7 +271,7 @@ local function get_partial_symbol()
 end
 
 local function get_active_view()
-  if getmetatable(core.active_view) == DocView then
+  if core.active_view:is(DocView) then
     return core.active_view
   end
 end
