@@ -25,6 +25,7 @@ renderer.color = {}
 -- @field public italic boolean
 -- @field public underline boolean
 -- @field public smoothing boolean
+-- @field public strikethrough boolean
 renderer.fontoptions = {}
 
 ---

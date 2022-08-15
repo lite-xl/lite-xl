@@ -497,7 +497,7 @@ local style = require "core.style"
 --
 -- the function to load the font accept a 3rd optional argument like:
 --
--- {antialiasing="grayscale", hinting="full", bold=true, italic=true, underline=true, smoothing=true}
+-- {antialiasing="grayscale", hinting="full", bold=true, italic=true, underline=true, smoothing=true, strikethrough=true}
 --
 -- possible values are:
 -- antialiasing: grayscale, subpixel
@@ -506,6 +506,7 @@ local style = require "core.style"
 -- italic: true, false
 -- underline: true, false
 -- smoothing: true, false
+-- strikethrough: true, false
 
 ------------------------------ Plugins ----------------------------------------
 
