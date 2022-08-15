@@ -388,9 +388,9 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
     else if(font != last || text == end) {
       float local_pen_x = text == end ? pen_x + adv : pen_x;
       if (underline)
-        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height - 1, (last_pen_x - local_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
       if (strikethrough)
-        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height / 2, (last_pen_x - local_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height / 2, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
       last = font;
       last_pen_x = pen_x;
     }
