@@ -225,7 +225,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
   if(FT_IS_SCALABLE(face))
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
-  if(!font->underline_thickness) font->underline_thickness = font->height / 10;
+  if(!font->underline_thickness) font->underline_thickness = ceil((double) font->height / 14.0);
 
   if (FT_Load_Char(face, ' ', font_set_load_options(font)))
     goto failure;
