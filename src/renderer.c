@@ -223,8 +223,9 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->hinting = hinting;
   font->style = style;
 
-  if(FT_IS_SCALABLE(face)) font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
-  else font->underline_thickness = 1;
+  if(FT_IS_SCALABLE(face))
+    font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
+  if(!font->underline_thickness) font->underline_thickness = font->height / 10;
 
   if (FT_Load_Char(face, ' ', font_set_load_options(font)))
     goto failure;
@@ -320,6 +321,11 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
 
+  RenFont* last;
+  float last_pen_x = x;
+  bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
+  bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
+
   while (text < end) {
     unsigned int codepoint, r, g, b;
     text = utf8_to_codepoint(text, &codepoint);
@@ -378,11 +384,17 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
 
     float adv = metric->xadvance ? metric->xadvance : font->space_advance;
 
-    if (fonts[0]->style & FONT_STYLE_UNDERLINE)
-      ren_draw_rect((RenRect){x, y / surface_scale + font->height - 1, adv / surface_scale, font->underline_thickness * surface_scale}, color);
-    if (fonts[0]->style & FONT_STYLE_STRIKETHROUGH)
-      ren_draw_rect((RenRect){x, y / surface_scale + font->height / 2, adv / surface_scale, font->underline_thickness * surface_scale}, color);
-    
+    if(!last) last = font;
+    else if(font != last || text == end) {
+      float local_pen_x = text == end ? pen_x + adv : pen_x;
+      if (underline)
+        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height - 1, (last_pen_x - local_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+      if (strikethrough)
+        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height / 2, (last_pen_x - local_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+      last = font;
+      last_pen_x = pen_x;
+    }
+
     pen_x += adv;
   }
   return pen_x / surface_scale;
