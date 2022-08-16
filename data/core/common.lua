@@ -152,11 +152,13 @@ function common.path_suggest(text, root)
     root = root .. PATHSEP
   end
   local path, name = text:match("^(.-)([^/\\]*)$")
+  local clean_dotslash = false
   -- ignore root if path is absolute
   local is_absolute = common.is_absolute_path(text)
   if not is_absolute then
     if path == "" then
       path = root or "."
+      clean_dotslash = not root
     else
       path = (root or "") .. path
     end
@@ -177,6 +179,12 @@ function common.path_suggest(text, root)
       if root then
         -- remove root part from file path
         local s, e = file:find(root, nil, true)
+        if s == 1 then
+          file = file:sub(e + 1)
+        end
+      elseif clean_dotslash then
+        -- remove added dot slash
+        local s, e = file:find("." .. PATHSEP, nil, true)
         if s == 1 then
           file = file:sub(e + 1)
         end
