@@ -89,13 +89,13 @@ local function split_cursor(direction)
   core.blink_reset()
 end
 
-local function set_cursor(x, y, snap_type)
-  local line, col = dv():resolve_screen_position(x, y)
-  doc():set_selection(line, col, line, col)
+local function set_cursor(dv, x, y, snap_type)
+  local line, col = dv:resolve_screen_position(x, y)
+  dv.doc:set_selection(line, col, line, col)
   if snap_type == "word" or snap_type == "lines" then
     command.perform("doc:select-" .. snap_type)
   end
-  dv().mouse_selecting = { line, col, snap_type }
+  dv.mouse_selecting = { line, col, snap_type }
   core.blink_reset()
 end
 
@@ -178,9 +178,9 @@ local function block_comment(comment, line1, col1, line2, col2)
 end
 
 local commands = {
-  ["doc:select-none"] = function()
-    local line, col = doc():get_selection()
-    doc():set_selection(line, col)
+  ["doc:select-none"] = function(dv)
+    local line, col = dv.doc:get_selection()
+    dv.doc:set_selection(line, col)
   end,
 
   ["doc:cut"] = function()
@@ -191,15 +191,15 @@ local commands = {
     cut_or_copy(false)
   end,
 
-  ["doc:undo"] = function()
-    doc():undo()
+  ["doc:undo"] = function(dv)
+    dv.doc:undo()
   end,
 
-  ["doc:redo"] = function()
-    doc():redo()
+  ["doc:redo"] = function(dv)
+    dv.doc:redo()
   end,
 
-  ["doc:paste"] = function()
+  ["doc:paste"] = function(dv)
     local clipboard = system.get_clipboard()
     -- If the clipboard has changed since our last look, use that instead
     local external_paste = core.cursor_clipboard["full"] ~= clipboard
@@ -208,8 +208,8 @@ local commands = {
       core.cursor_clipboard_whole_line = {}
     end
     local value, whole_line
-    for idx, line1, col1, line2, col2 in doc():get_selections() do
-      if #core.cursor_clipboard_whole_line == (#doc().selections/4) then
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
+      if #core.cursor_clipboard_whole_line == (#dv.doc.selections/4) then
         value = core.cursor_clipboard[idx]
         whole_line = core.cursor_clipboard_whole_line[idx] == true
       else
@@ -217,172 +217,172 @@ local commands = {
         whole_line = not external_paste and clipboard:find("\n") ~= nil
       end
       if whole_line then
-        doc():insert(line1, 1, value:gsub("\r", ""))
+        dv.doc:insert(line1, 1, value:gsub("\r", ""))
         if col1 == 1 then
-          doc():move_to_cursor(idx, #value)
+          dv.doc:move_to_cursor(idx, #value)
         end
       else
-        doc():text_input(value:gsub("\r", ""), idx)
+        dv.doc:text_input(value:gsub("\r", ""), idx)
       end
     end
   end,
 
-  ["doc:newline"] = function()
-    for idx, line, col in doc():get_selections(false, true) do
-      local indent = doc().lines[line]:match("^[\t ]*")
+  ["doc:newline"] = function(dv)
+    for idx, line, col in dv.doc:get_selections(false, true) do
+      local indent = dv.doc.lines[line]:match("^[\t ]*")
       if col <= #indent then
         indent = indent:sub(#indent + 2 - col)
       end
       -- Remove current line if it contains only whitespace
-      if doc().lines[line]:match("^%s+$") then
-        doc():remove(line, 1, line, math.huge)
+      if dv.doc.lines[line]:match("^%s+$") then
+        dv.doc:remove(line, 1, line, math.huge)
       end
-      doc():text_input("\n" .. indent, idx)
+      dv.doc:text_input("\n" .. indent, idx)
     end
   end,
 
-  ["doc:newline-below"] = function()
-    for idx, line in doc():get_selections(false, true) do
-      local indent = doc().lines[line]:match("^[\t ]*")
-      doc():insert(line, math.huge, "\n" .. indent)
-      doc():set_selections(idx, line + 1, math.huge)
+  ["doc:newline-below"] = function(dv)
+    for idx, line in dv.doc:get_selections(false, true) do
+      local indent = dv.doc.lines[line]:match("^[\t ]*")
+      dv.doc:insert(line, math.huge, "\n" .. indent)
+      dv.doc:set_selections(idx, line + 1, math.huge)
     end
   end,
 
-  ["doc:newline-above"] = function()
-    for idx, line in doc():get_selections(false, true) do
-      local indent = doc().lines[line]:match("^[\t ]*")
-      doc():insert(line, 1, indent .. "\n")
-      doc():set_selections(idx, line, math.huge)
+  ["doc:newline-above"] = function(dv)
+    for idx, line in dv.doc:get_selections(false, true) do
+      local indent = dv.doc.lines[line]:match("^[\t ]*")
+      dv.doc:insert(line, 1, indent .. "\n")
+      dv.doc:set_selections(idx, line, math.huge)
     end
   end,
 
-  ["doc:delete"] = function()
-    for idx, line1, col1, line2, col2 in doc():get_selections() do
-      if line1 == line2 and col1 == col2 and doc().lines[line1]:find("^%s*$", col1) then
-        doc():remove(line1, col1, line1, math.huge)
+  ["doc:delete"] = function(dv)
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
+      if line1 == line2 and col1 == col2 and dv.doc.lines[line1]:find("^%s*$", col1) then
+        dv.doc:remove(line1, col1, line1, math.huge)
       end
-      doc():delete_to_cursor(idx, translate.next_char)
+      dv.doc:delete_to_cursor(idx, translate.next_char)
     end
   end,
 
-  ["doc:backspace"] = function()
-    local _, indent_size = doc():get_indent_info()
-    for idx, line1, col1, line2, col2 in doc():get_selections() do
+  ["doc:backspace"] = function(dv)
+    local _, indent_size = dv.doc:get_indent_info()
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
       if line1 == line2 and col1 == col2 then
-        local text = doc():get_text(line1, 1, line1, col1)
+        local text = dv.doc:get_text(line1, 1, line1, col1)
         if #text >= indent_size and text:find("^ *$") then
-          doc():delete_to_cursor(idx, 0, -indent_size)
+          dv.doc:delete_to_cursor(idx, 0, -indent_size)
           return
         end
       end
-      doc():delete_to_cursor(idx, translate.previous_char)
+      dv.doc:delete_to_cursor(idx, translate.previous_char)
     end
   end,
 
-  ["doc:select-all"] = function()
-    doc():set_selection(1, 1, math.huge, math.huge)
+  ["doc:select-all"] = function(dv)
+    dv.doc:set_selection(1, 1, math.huge, math.huge)
     -- avoid triggering DocView:scroll_to_make_visible
-    dv().last_line1 = 1
-    dv().last_col1 = 1
-    dv().last_line2 = #doc().lines
-    dv().last_col2 = #doc().lines[#doc().lines]
+    dv.last_line1 = 1
+    dv.last_col1 = 1
+    dv.last_line2 = #dv.doc.lines
+    dv.last_col2 = #dv.doc.lines[#dv.doc.lines]
   end,
 
-  ["doc:select-lines"] = function()
-    for idx, line1, _, line2 in doc():get_selections(true) do
+  ["doc:select-lines"] = function(dv)
+    for idx, line1, _, line2 in dv.doc:get_selections(true) do
       append_line_if_last_line(line2)
-      doc():set_selections(idx, line1, 1, line2 + 1, 1)
+      dv.doc:set_selections(idx, line1, 1, line2 + 1, 1)
     end
   end,
 
-  ["doc:select-word"] = function()
-    for idx, line1, col1 in doc():get_selections(true) do
-      local line1, col1 = translate.start_of_word(doc(), line1, col1)
-      local line2, col2 = translate.end_of_word(doc(), line1, col1)
-      doc():set_selections(idx, line2, col2, line1, col1)
+  ["doc:select-word"] = function(dv)
+    for idx, line1, col1 in dv.doc:get_selections(true) do
+      local line1, col1 = translate.start_of_word(dv.doc, line1, col1)
+      local line2, col2 = translate.end_of_word(dv.doc, line1, col1)
+      dv.doc:set_selections(idx, line2, col2, line1, col1)
     end
   end,
 
-  ["doc:join-lines"] = function()
-    for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+  ["doc:join-lines"] = function(dv)
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections(true) do
       if line1 == line2 then line2 = line2 + 1 end
-      local text = doc():get_text(line1, 1, line2, math.huge)
+      local text = dv.doc:get_text(line1, 1, line2, math.huge)
       text = text:gsub("(.-)\n[\t ]*", function(x)
         return x:find("^%s*$") and x or x .. " "
       end)
-      doc():insert(line1, 1, text)
-      doc():remove(line1, #text + 1, line2, math.huge)
+      dv.doc:insert(line1, 1, text)
+      dv.doc:remove(line1, #text + 1, line2, math.huge)
       if line1 ~= line2 or col1 ~= col2 then
-        doc():set_selections(idx, line1, math.huge)
+        dv.doc:set_selections(idx, line1, math.huge)
       end
     end
   end,
 
-  ["doc:indent"] = function()
+  ["doc:indent"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-      local l1, c1, l2, c2 = doc():indent_text(false, line1, col1, line2, col2)
+      local l1, c1, l2, c2 = dv.doc:indent_text(false, line1, col1, line2, col2)
       if l1 then
-        doc():set_selections(idx, l1, c1, l2, c2)
+        dv.doc:set_selections(idx, l1, c1, l2, c2)
       end
     end
   end,
 
-  ["doc:unindent"] = function()
+  ["doc:unindent"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-      local l1, c1, l2, c2 = doc():indent_text(true, line1, col1, line2, col2)
+      local l1, c1, l2, c2 = dv.doc:indent_text(true, line1, col1, line2, col2)
       if l1 then
-        doc():set_selections(idx, l1, c1, l2, c2)
+        dv.doc:set_selections(idx, l1, c1, l2, c2)
       end
     end
   end,
 
-  ["doc:duplicate-lines"] = function()
+  ["doc:duplicate-lines"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       append_line_if_last_line(line2)
       local text = doc():get_text(line1, 1, line2 + 1, 1)
-      doc():insert(line2 + 1, 1, text)
+      dv.doc:insert(line2 + 1, 1, text)
       local n = line2 - line1 + 1
-      doc():set_selections(idx, line1 + n, col1, line2 + n, col2)
+      dv.doc:set_selections(idx, line1 + n, col1, line2 + n, col2)
     end
   end,
 
-  ["doc:delete-lines"] = function()
+  ["doc:delete-lines"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       append_line_if_last_line(line2)
-      doc():remove(line1, 1, line2 + 1, 1)
-      doc():set_selections(idx, line1, col1)
+      dv.doc:remove(line1, 1, line2 + 1, 1)
+      dv.doc:set_selections(idx, line1, col1)
     end
   end,
 
-  ["doc:move-lines-up"] = function()
+  ["doc:move-lines-up"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       append_line_if_last_line(line2)
       if line1 > 1 then
         local text = doc().lines[line1 - 1]
-        doc():insert(line2 + 1, 1, text)
-        doc():remove(line1 - 1, 1, line1, 1)
-        doc():set_selections(idx, line1 - 1, col1, line2 - 1, col2)
+        dv.doc:insert(line2 + 1, 1, text)
+        dv.doc:remove(line1 - 1, 1, line1, 1)
+        dv.doc:set_selections(idx, line1 - 1, col1, line2 - 1, col2)
       end
     end
   end,
 
-  ["doc:move-lines-down"] = function()
+  ["doc:move-lines-down"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       append_line_if_last_line(line2 + 1)
-      if line2 < #doc().lines then
-        local text = doc().lines[line2 + 1]
-        doc():remove(line2 + 1, 1, line2 + 2, 1)
-        doc():insert(line1, 1, text)
-        doc():set_selections(idx, line1 + 1, col1, line2 + 1, col2)
+      if line2 < #dv.doc.lines then
+        local text = dv.doc.lines[line2 + 1]
+        dv.doc:remove(line2 + 1, 1, line2 + 2, 1)
+        dv.doc:insert(line1, 1, text)
+        dv.doc:set_selections(idx, line1 + 1, col1, line2 + 1, col2)
       end
     end
   end,
 
-  ["doc:toggle-block-comments"] = function()
-    local comment = doc().syntax.block_comment
+  ["doc:toggle-block-comments"] = function(dv)
+    local comment = dv.doc.syntax.block_comment
     if not comment then
-      if doc().syntax.comment then
+      if dv.doc.syntax.comment then
         command.perform "doc:toggle-line-comments"
       end
       return
@@ -392,32 +392,30 @@ local commands = {
       -- if nothing is selected, toggle the whole line
       if line1 == line2 and col1 == col2 then
         col1 = 1
-        col2 = #doc().lines[line2]
+        col2 = #dv.doc.lines[line2]
       end
-      doc():set_selections(idx, block_comment(comment, line1, col1, line2, col2))
+      dv.doc:set_selections(idx, block_comment(comment, line1, col1, line2, col2))
     end
   end,
 
-  ["doc:toggle-line-comments"] = function()
-    local comment = doc().syntax.comment or doc().syntax.block_comment
+  ["doc:toggle-line-comments"] = function(dv)
+    local comment = dv.doc.syntax.comment or dv.doc.syntax.block_comment
     if comment then
       for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-        doc():set_selections(idx, line_comment(comment, line1, col1, line2, col2))
+        dv.doc:set_selections(idx, line_comment(comment, line1, col1, line2, col2))
       end
     end
   end,
 
-  ["doc:upper-case"] = function()
-    doc():replace(string.uupper)
+  ["doc:upper-case"] = function(dv)
+    dv.doc:replace(string.uupper)
   end,
 
-  ["doc:lower-case"] = function()
-    doc():replace(string.ulower)
+  ["doc:lower-case"] = function(dv)
+    dv.doc:replace(string.ulower)
   end,
 
-  ["doc:go-to-line"] = function()
-    local dv = dv()
-
+  ["doc:go-to-line"] = function(dv)
     local items
     local function init_items()
       if items then return end
@@ -448,15 +446,15 @@ local commands = {
     })
   end,
 
-  ["doc:toggle-line-ending"] = function()
-    doc().crlf = not doc().crlf
+  ["doc:toggle-line-ending"] = function(dv)
+    dv.doc.crlf = not dv.doc.crlf
   end,
 
-  ["doc:save-as"] = function()
+  ["doc:save-as"] = function(dv)
     local last_doc = core.last_active_view and core.last_active_view.doc
     local text
-    if doc().filename then
-      text = doc().filename
+    if dv.doc.filename then
+      text = dv.doc.filename
     elseif last_doc and last_doc.filename then
       local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
       text = core.normalize_to_project_dir(dirname) .. PATHSEP
@@ -472,20 +470,20 @@ local commands = {
     })
   end,
 
-  ["doc:save"] = function()
-    if doc().filename then
+  ["doc:save"] = function(dv)
+    if dv.doc.filename then
       save()
     else
       command.perform("doc:save-as")
     end
   end,
 
-  ["doc:reload"] = function()
-    doc():reload()
+  ["doc:reload"] = function(dv)
+    dv.doc:reload()
   end,
 
-  ["file:rename"] = function()
-    local old_filename = doc().filename
+  ["file:rename"] = function(dv)
+    local old_filename = dv.doc.filename
     if not old_filename then
       core.error("Cannot rename unsaved doc")
       return
@@ -506,13 +504,13 @@ local commands = {
   end,
 
 
-  ["file:delete"] = function()
-    local filename = doc().abs_filename
+  ["file:delete"] = function(dv)
+    local filename = dv.doc.abs_filename
     if not filename then
       core.error("Cannot remove unsaved doc")
       return
     end
-    for i,docview in ipairs(core.get_views_referencing_doc(doc())) do
+    for i,docview in ipairs(core.get_views_referencing_doc(dv.doc)) do
       local node = core.root_view.root_node:get_node_for_view(docview)
       node:close_view(core.root_view.root_node, docview)
     end
@@ -520,56 +518,57 @@ local commands = {
     core.log("Removed \"%s\"", filename)
   end,
 
-  ["doc:select-to-cursor"] = function(x, y, clicks)
+  ["doc:select-to-cursor"] = function(dv, x, y, clicks)
     local line1, col1 = select(3, doc():get_selection())
-    local line2, col2 = dv():resolve_screen_position(x, y)
-    dv().mouse_selecting = { line1, col1, nil }
-    doc():set_selection(line2, col2, line1, col1)
+    local line2, col2 = dv:resolve_screen_position(x, y)
+    dv.mouse_selecting = { line1, col1, nil }
+    dv.doc:set_selection(line2, col2, line1, col1)
   end,
 
-  ["doc:create-cursor-previous-line"] = function()
+  ["doc:create-cursor-previous-line"] = function(dv)
     split_cursor(-1)
-    doc():merge_cursors()
+    dv.doc:merge_cursors()
   end,
 
-  ["doc:create-cursor-next-line"] = function()
+  ["doc:create-cursor-next-line"] = function(dv)
     split_cursor(1)
-    doc():merge_cursors()
+    dv.doc:merge_cursors()
   end
 
 }
 
 command.add(function(x, y)
-  if x == nil or y == nil or not doc() then return false end
-  local x1,y1,x2,y2 = dv().position.x, dv().position.y, dv().position.x + dv().size.x, dv().position.y + dv().size.y
-  return x >= x1 + dv():get_gutter_width() and x < x2 and y >= y1 and y < y2
+  if x == nil or y == nil or not core.active_view:is(DocView) then return false end
+  local dv = core.active_view
+  local x1,y1,x2,y2 = dv.position.x, dv.position.y, dv.position.x + dv.size.x, dv.position.y + dv.size.y
+  return x >= x1 + dv:get_gutter_width() and x < x2 and y >= y1 and y < y2, dv, x, y
 end, {
-  ["doc:set-cursor"] = function(x, y)
-    set_cursor(x, y, "set")
+  ["doc:set-cursor"] = function(dv, x, y)
+    set_cursor(dv, x, y, "set")
   end,
 
-  ["doc:set-cursor-word"] = function(x, y)
-    set_cursor(x, y, "word")
+  ["doc:set-cursor-word"] = function(dv, x, y)
+    set_cursor(dv, x, y, "word")
   end,
 
-  ["doc:set-cursor-line"] = function(x, y, clicks)
-    set_cursor(x, y, "lines")
+  ["doc:set-cursor-line"] = function(dv, x, y, clicks)
+    set_cursor(dv, x, y, "lines")
   end,
 
-  ["doc:split-cursor"] = function(x, y, clicks)
-    local line, col = dv():resolve_screen_position(x, y)
+  ["doc:split-cursor"] = function(dv, x, y, clicks)
+    local line, col = dv:resolve_screen_position(x, y)
     local removal_target = nil
-    for idx, line1, col1 in doc():get_selections(true) do
+    for idx, line1, col1 in dv.doc:get_selections(true) do
       if line1 == line and col1 == col and #doc().selections > 4 then
         removal_target = idx
       end
     end
     if removal_target then
-      doc():remove_selection(removal_target)
+      dv.doc:remove_selection(removal_target)
     else
-      doc():add_selection(line, col, line, col)
+      dv.doc:add_selection(line, col, line, col)
     end
-    dv().mouse_selecting = { line, col, "set" }
+    dv.mouse_selecting = { line, col, "set" }
   end
 })
 
@@ -594,27 +593,27 @@ local translations = {
 }
 
 for name, obj in pairs(translations) do
-  commands["doc:move-to-" .. name] = function() doc():move_to(obj[name:gsub("-", "_")], dv()) end
-  commands["doc:select-to-" .. name] = function() doc():select_to(obj[name:gsub("-", "_")], dv()) end
-  commands["doc:delete-to-" .. name] = function() doc():delete_to(obj[name:gsub("-", "_")], dv()) end
+  commands["doc:move-to-" .. name] = function(dv) dv.doc:move_to(obj[name:gsub("-", "_")], dv) end
+  commands["doc:select-to-" .. name] = function(dv) dv.doc:select_to(obj[name:gsub("-", "_")], dv) end
+  commands["doc:delete-to-" .. name] = function(dv) dv.doc:delete_to(obj[name:gsub("-", "_")], dv) end
 end
 
-commands["doc:move-to-previous-char"] = function()
-  for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+commands["doc:move-to-previous-char"] = function(dv)
+  for idx, line1, col1, line2, col2 in dv.doc:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
-      doc():set_selections(idx, line1, col1)
+      dv.doc:set_selections(idx, line1, col1)
     else
-      doc():move_to_cursor(idx, translate.previous_char)
+      dv.doc:move_to_cursor(idx, translate.previous_char)
     end
   end
 end
 
-commands["doc:move-to-next-char"] = function()
-  for idx, line1, col1, line2, col2 in doc():get_selections(true) do
+commands["doc:move-to-next-char"] = function(dv)
+  for idx, line1, col1, line2, col2 in dv.doc:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
-      doc():set_selections(idx, line2, col2)
+      dv.doc:set_selections(idx, line2, col2)
     else
-      doc():move_to_cursor(idx, translate.next_char)
+      dv.doc:move_to_cursor(idx, translate.next_char)
     end
   end
 end

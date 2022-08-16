@@ -271,7 +271,7 @@ local function get_partial_symbol()
 end
 
 local function get_active_view()
-  if getmetatable(core.active_view) == DocView then
+  if core.active_view:is(DocView) then
     return core.active_view
   end
 end
@@ -621,12 +621,13 @@ end
 -- Commands
 --
 local function predicate()
-  return get_active_view() and #suggestions > 0
+  local active_docview = get_active_view()
+  return active_docview and #suggestions > 0, active_docview
 end
 
 command.add(predicate, {
-  ["autocomplete:complete"] = function()
-    local doc = core.active_view.doc
+  ["autocomplete:complete"] = function(dv)
+    local doc = dv.doc
     local line, col = doc:get_selection()
     local item = suggestions[suggestions_idx]
     local text = item.text

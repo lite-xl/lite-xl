@@ -299,10 +299,10 @@ local function set_indent_type(doc, type)
   doc.indent_info = cache[doc]
 end
 
-local function set_indent_type_command()
+local function set_indent_type_command(dv)
   core.command_view:enter("Specify indent style for this file", {
     submit = function(value)
-      local doc = core.active_view.doc
+      local doc = dv.doc
       value = value:lower()
       set_indent_type(doc, value == "tabs" and "hard" or "soft")
     end,
@@ -327,11 +327,11 @@ local function set_indent_size(doc, size)
   doc.indent_info = cache[doc]
 end
 
-local function set_indent_size_command()
+local function set_indent_size_command(dv)
   core.command_view:enter("Specify indent size for current file", {
     submit = function(value)
       value = math.floor(tonumber(value))
-      local doc = core.active_view.doc
+      local doc = dv.doc
       set_indent_size(doc, value)
     end,
     validate = function(value)
