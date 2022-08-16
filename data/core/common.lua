@@ -164,7 +164,9 @@ function common.path_suggest(text, root)
     end
   end
 
-  if path:sub(-1) ~= PATHSEP then
+  -- Only in Windows allow using both styles of PATHSEP
+  if (PATHSEP == "\\" and not string.match(path:sub(-1), "[\\/]")) or
+     (PATHSEP ~= "\\" and path:sub(-1) ~= PATHSEP) then
     path = path .. PATHSEP
   end
   local files = system.list_dir(path) or {}
