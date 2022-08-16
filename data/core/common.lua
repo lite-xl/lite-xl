@@ -370,11 +370,11 @@ end
 -- absolute path without . or .. elements.
 -- This function exists because on Windows the drive letter returned
 -- by system.absolute_path is sometimes with a lower case and sometimes
--- with an upper case to we normalize to upper case.
+-- with an upper case so we normalize to upper case.
 function common.normalize_volume(filename)
   if not filename then return end
   if PATHSEP == '\\' then
-    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.-)'..PATHSEP..'?$')
     if drive then
       return drive:upper() .. rem
     end
