@@ -164,10 +164,10 @@ function common.path_suggest(text, root)
     end
   end
 
-  local files = system.list_dir(path) or {}
   if path:sub(-1) ~= PATHSEP then
     path = path .. PATHSEP
   end
+  local files = system.list_dir(path) or {}
   local res = {}
   for _, file in ipairs(files) do
     file = path .. file
