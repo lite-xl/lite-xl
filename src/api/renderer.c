@@ -58,6 +58,13 @@ static int font_get_options(
     lua_getfield(L, 3, "underline");
     if (lua_toboolean(L, -1))
       style_local |= FONT_STYLE_UNDERLINE;
+    lua_getfield(L, 3, "smoothing");
+    if (lua_toboolean(L, -1))
+      style_local |= FONT_STYLE_SMOOTH;
+    lua_getfield(L, 3, "strikethrough");
+    if (lua_toboolean(L, -1))
+      style_local |= FONT_STYLE_STRIKETHROUGH;
+
     lua_pop(L, 5);
 
     if (style_local != 0)

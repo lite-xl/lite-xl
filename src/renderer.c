@@ -50,6 +50,7 @@ typedef struct RenFont {
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
   unsigned char style;
+  unsigned short underline_thickness;
   char path[1];
 } RenFont;
 
@@ -100,6 +101,8 @@ static int font_set_render_options(RenFont* font) {
 
 static int font_set_style(FT_Outline* outline, int x_translation, unsigned char style) {
   FT_Outline_Translate(outline, x_translation, 0 );
+  if (style & FONT_STYLE_SMOOTH)
+    FT_Outline_Embolden(outline, 1 << 5);
   if (style & FONT_STYLE_BOLD)
     FT_Outline_EmboldenXY(outline, 1 << 5, 0);
   if (style & FONT_STYLE_ITALIC) {
@@ -220,6 +223,10 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->hinting = hinting;
   font->style = style;
 
+  if(FT_IS_SCALABLE(face))
+    font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
+  if(!font->underline_thickness) font->underline_thickness = ceil((double) font->height / 14.0);
+
   if (FT_Load_Char(face, ' ', font_set_load_options(font)))
     goto failure;
   font->space_advance = face->glyph->advance.x / 64.0f;
@@ -314,6 +321,11 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
 
+  RenFont* last;
+  float last_pen_x = x;
+  bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
+  bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
+
   while (text < end) {
     unsigned int codepoint, r, g, b;
     text = utf8_to_codepoint(text, &codepoint);
@@ -369,10 +381,22 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
         }
       }
     }
-    pen_x += metric->xadvance ? metric->xadvance : font->space_advance;
+
+    float adv = metric->xadvance ? metric->xadvance : font->space_advance;
+
+    if(!last) last = font;
+    else if(font != last || text == end) {
+      float local_pen_x = text == end ? pen_x + adv : pen_x;
+      if (underline)
+        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+      if (strikethrough)
+        ren_draw_rect((RenRect){last_pen_x, y / surface_scale + last->height / 2, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+      last = font;
+      last_pen_x = pen_x;
+    }
+
+    pen_x += adv;
   }
-  if (fonts[0]->style & FONT_STYLE_UNDERLINE)
-    ren_draw_rect((RenRect){ x, y / surface_scale + ren_font_group_get_height(fonts) - 1, (pen_x - x) / surface_scale, 1 }, color);
   return pen_x / surface_scale;
 }
 
@@ -464,4 +488,3 @@ void ren_get_size(int *x, int *y) {
   *x = surface->w / scale;
   *y = surface->h / scale;
 }
-

@@ -4,6 +4,7 @@ lhelper/
 submodules/
 subprojects/*/
 /appimage*
+.vscode
 .cache
 .ccls-cache
 .lite-debug.log
