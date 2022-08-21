@@ -117,6 +117,9 @@ int main(int argc, char **argv) {
   ** It also enables aero-snap on Windows apparently. */
   SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 #endif
+#if SDL_VERSION_ATLEAST(2, 0, 9)
+  SDL_SetHint("SDL_MOUSE_DOUBLE_CLICK_RADIUS", "4");
+#endif
 
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(0, &dm);
