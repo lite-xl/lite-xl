@@ -733,6 +733,8 @@ command.add(
 
 
 command.add(function()
+    if not (core.root_view.overlapping_node and core.root_view.overlapping_node.active_view) then return end
+    if core.root_view.overlapping_node.active_view ~= view then return end
     local item = treeitem()
     return item ~= nil, item
   end, {
