@@ -433,7 +433,9 @@ static int f_get_scale(lua_State *L) {
   float scale = 1.0;
 #ifndef __APPLE__
   SDL_DisplayMode dm;
+#if _WIN32
   float dpi = 0;
+#endif
   char* env_scale = NULL;
   float system_scale = 0;
   int display_index = SDL_GetWindowDisplayIndex(window);
