@@ -17,7 +17,7 @@ on:
 jobs:
   archive_source_code:
     name: Source Code Tarball
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     # Only on tags/releases
     if: startsWith(github.ref, 'refs/tags/')
     steps:
@@ -25,7 +25,7 @@ jobs:
     - name: Python Setup
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: 3.9
     - name: Install Dependencies
       run: |
         sudo apt-get install -qq ninja-build
@@ -40,7 +40,7 @@ jobs:
 
   build_linux:
     name: Linux
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         config:
@@ -60,7 +60,7 @@ jobs:
     - name: Python Setup
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: 3.9
     - name: Update Packages
       run: sudo apt-get update
     - name: Install Dependencies
@@ -87,7 +87,7 @@ jobs:
 
   build_macos:
     name: macOS (x86_64)
-    runs-on: macos-10.15
+    runs-on: macos-11
     env:
       CC: clang
       CXX: clang++
@@ -209,7 +209,7 @@ jobs:
 
   deploy:
     name: Deployment
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
 #   if: startsWith(github.ref, 'refs/tags/')
     if: false
     needs:

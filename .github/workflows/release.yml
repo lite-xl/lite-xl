@@ -15,7 +15,7 @@ on:
 jobs:
   release:
     name: Create Release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.tag.outputs.version }}
@@ -47,13 +47,13 @@ jobs:
     # Disable this since github already provide source packages
     if: false
     needs: release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Python Setup
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: 3.9
     - name: Install Dependencies
       run: |
         sudo apt-get install -qq ninja-build
@@ -74,7 +74,7 @@ jobs:
   build_linux:
     name: Linux
     needs: release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env:
       CC: gcc
       CXX: g++
@@ -88,7 +88,7 @@ jobs:
     - name: Python Setup
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: 3.9
     - name: Update Packages
       run: sudo apt-get update
     - name: Install Dependencies
@@ -123,7 +123,7 @@ jobs:
   build_macos:
     name: macOS (x86_64)
     needs: release
-    runs-on: macos-10.15
+    runs-on: macos-11
     env:
       CC: clang
       CXX: clang++
