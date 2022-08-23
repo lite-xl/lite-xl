@@ -113,18 +113,31 @@ if not get_option('source-only')
     # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
     sdl_options += 'use_events=enabled'
 
-    # we leave this up to what the host system has
-    sdl_options += 'use_video_x11=auto'
-    sdl_options += 'use_video_wayland=auto'
+    if host_machine.system() == 'darwin' or host_machine.system() == 'windows'
+        sdl_options += 'use_video_x11=disabled'
+        sdl_options += 'use_video_wayland=disabled'
+    else
+        sdl_options += 'use_render=enabled'
+        sdl_options += 'use_video_x11=auto'
+        sdl_options += 'use_video_wayland=auto'
+    endif
+
+    # we leave this up to what the host system has except on windows
+    if host_machine.system() != 'windows'
+        sdl_options += 'use_video_opengl=auto'
+        sdl_options += 'use_video_openglesv2=auto'
+    else
+        sdl_options += 'use_video_opengl=disabled'
+        sdl_options += 'use_video_openglesv2=disabled'
+    endif
 
     # we don't need these
+    sdl_options += 'test=false'
     sdl_options += 'use_sensor=disabled'
     sdl_options += 'use_haptic=disabled'
     sdl_options += 'use_audio=disabled'
     sdl_options += 'use_cpuinfo=disabled'
     sdl_options += 'use_joystick=disabled'
-    sdl_options += 'use_video_opengl=disabled'
-    sdl_options += 'use_video_openglesv2=disabled'
     sdl_options += 'use_video_vulkan=disabled'
     sdl_options += 'use_video_offscreen=disabled'
     sdl_options += 'use_power=disabled'
