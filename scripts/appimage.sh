@@ -177,6 +177,10 @@ generate_appimage() {
     version="-$VERSION"
   fi
 
+  if [[ $ADDONS == true ]]; then
+    version="${version}-addons"
+  fi
+
   ./appimagetool LiteXL.AppDir LiteXL${version}-${ARCH}.AppImage
 }
 

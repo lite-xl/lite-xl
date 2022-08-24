@@ -32,44 +32,14 @@ jobs:
           fi
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.tag.outputs.version }}
-          release_name: "Lite XL ${{ steps.tag.outputs.version }}"
+          name: Lite XL ${{ steps.tag.outputs.version }}
           draft: true
           prerelease: false
           body_path: changelog.md
-
-  archive_source_code:
-    name: Source Code Tarball
-    # Disable this since github already provide source packages
-    if: false
-    needs: release
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: Python Setup
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install Dependencies
-      run: |
-        sudo apt-get install -qq ninja-build
-        pip3 install meson
-    - name: Package
-      shell: bash
-      run: bash scripts/package.sh --version ${{ needs.release.outputs.version }} --debug --source
-    - name: Upload Source Code Artifact
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: lite-xl-${{ needs.release.outputs.version }}-src.tar.gz
-        asset_name: lite-xl-${{ needs.release.outputs.version }}-src.tar.gz
-        asset_content_type: application/gzip
+          generate_release_notes: true
 
   build_linux:
     name: Linux
@@ -79,46 +49,42 @@ jobs:
       CC: gcc
       CXX: g++
     steps:
-    - name: Set Environment Variables
-      run: |
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-        echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-linux-$(uname -m)-portable" >> "$GITHUB_ENV"
-    - uses: actions/checkout@v2
-    - name: Python Setup
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Update Packages
-      run: sudo apt-get update
-    - name: Install Dependencies
-      run: bash scripts/install-dependencies.sh --debug
-    - name: Build
-      run: |
-        bash --version
-        bash scripts/build.sh --debug --forcefallback --portable --release
-    - name: Package
-      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
-    - name: AppImage
-      run: bash scripts/appimage.sh --debug --addons --static --version ${INSTALL_REF} --release
-    - name: Upload Portable Artifact
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: ${{ env.INSTALL_NAME }}.tar.gz
-        asset_name: ${{ env.INSTALL_NAME }}.tar.gz
-        asset_content_type: application/gzip
-    - name: Upload AppImage Artifact
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
-        asset_name: LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
-        asset_content_type: application/x-executable
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v2
+      - name: Python Setup
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Update Packages
+        run: sudo apt-get update
+      - name: Install Dependencies
+        run: |
+          bash scripts/install-dependencies.sh --debug
+          sudo apt-get install -y ccache
+      - name: Build Portable
+        run: |
+          bash --version
+          bash scripts/build.sh --debug --forcefallback --portable --release
+      - name: Package Portables
+        run: |
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
+      - name: Build AppImages
+        run: |
+          bash scripts/appimage.sh --debug --static --version ${INSTALL_REF} --release
+          bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}
+      - name: Upload Files
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.release.outputs.version }}
+          files: |
+            lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
+            lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
+            LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
+            LiteXL-${{ env.INSTALL_REF }}-addons-x86_64.AppImage
 
   build_macos:
     name: macOS (x86_64)
@@ -128,39 +94,40 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-    - name: System Information
-      run: |
-        system_profiler SPSoftwareDataType
-        bash --version
-        gcc -v
-        xcodebuild -version
-    - name: Set Environment Variables
-      run: |
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-        echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-$(uname -m)" >> "$GITHUB_ENV"
-    - uses: actions/checkout@v2
-    - name: Python Setup
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install Dependencies
-      run: bash scripts/install-dependencies.sh --debug
-    - name: Build
-      run: |
-        bash --version
-        bash scripts/build.sh --bundle --debug --forcefallback --release
-    - name: Create DMG Image
-      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg --release
-    - name: Upload DMG Image Artifact
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: ${{ env.INSTALL_NAME }}.dmg
-        asset_name: ${{ env.INSTALL_NAME }}.dmg
-        asset_content_type: application/x-bzip2
+      - name: System Information
+        run: |
+          system_profiler SPSoftwareDataType
+          bash --version
+          gcc -v
+          xcodebuild -version
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
+          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-$(uname -m)" >> "$GITHUB_ENV"
+          echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-$(uname -m)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v2
+      - name: Python Setup
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install Dependencies
+        run: bash scripts/install-dependencies.sh --debug
+      - name: Build
+        run: |
+          bash --version
+          bash scripts/build.sh --bundle --debug --forcefallback --release
+      - name: Create DMG Image
+        run: |
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg --release
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg --release
+      - name: Upload Files
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.release.outputs.version }}
+          files: |
+            ${{ env.INSTALL_NAME }}.dmg
+            ${{ env.INSTALL_NAME_ADDONS }}.dmg
 
   build_windows_msys2:
     name: Windows
@@ -173,54 +140,48 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v2
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: ${{ matrix.msystem }}
-        update: true
-        install: >-
-          base-devel
-          git
-          zip
-    - name: Set Environment Variables
-      run: |
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-        if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-          echo "BUILD_ARCH=x86_64" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-x86_64" >> "$GITHUB_ENV"
-        else
-          echo "BUILD_ARCH=i686" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-i686" >> "$GITHUB_ENV"
-        fi
-    - name: Install Dependencies
-      run: bash scripts/install-dependencies.sh --debug
-    - name: Build
-      run: |
-        bash --version
-        bash scripts/build.sh -U --debug --forcefallback --release
-    - name: Package
-      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
-    - name: Get InnoSetup Version
-      run: |
-        echo "INNOVER=$(grep -E '#define\sMyAppVersion\s' build-windows-${BUILD_ARCH}/scripts/innosetup.iss | cut -d\" -f2)" >> "$GITHUB_ENV"
-    - name: Build Installer
-      run: bash scripts/innosetup/innosetup.sh --debug
-    - name: Upload Zip Artifact
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: ${{ env.INSTALL_NAME }}.zip
-        asset_name: ${{ env.INSTALL_NAME }}.zip
-        asset_content_type: application/zip
-    - name: Upload Setup Artifact
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: LiteXL-${{ env.INNOVER }}-${{ env.BUILD_ARCH }}-setup.exe
-        asset_name: LiteXL-${{ env.INNOVER }}-${{ env.BUILD_ARCH }}-setup.exe
-        asset_content_type: application/x-dosexec
+      - uses: actions/checkout@v2
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            base-devel
+            git
+            zip
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
+          if [[ "${MSYSTEM}" == "MINGW64" ]]; then
+            echo "BUILD_ARCH=x86_64" >> "$GITHUB_ENV"
+            echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-x86_64" >> "$GITHUB_ENV"
+            echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-x86_64" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_ARCH=i686" >> "$GITHUB_ENV"
+            echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-i686" >> "$GITHUB_ENV"
+            echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-i686" >> "$GITHUB_ENV"
+          fi
+      - name: Install Dependencies
+        run: bash scripts/install-dependencies.sh --debug
+      - name: Build
+        run: |
+          bash --version
+          bash scripts/build.sh -U --debug --forcefallback --release
+      - name: Package
+        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
+      - name: Build Installer
+        run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF}
+      - name: Package With Addons
+        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
+      - name: Build Installer With Addons
+        run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF} --addons
+      - name: Upload Files
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.release.outputs.version }}
+          files: |
+            ${{ env.INSTALL_NAME }}.zip
+            ${{ env.INSTALL_NAME_ADDONS }}.zip
+            LiteXL-${{ env.INSTALL_REF }}-${{ env.BUILD_ARCH }}-setup.exe
+            LiteXL-${{ env.INSTALL_REF }}-addons-${{ env.BUILD_ARCH }}-setup.exe

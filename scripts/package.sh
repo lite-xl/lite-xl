@@ -153,6 +153,10 @@ main() {
     esac
   done
 
+  if [[ $addons == true ]]; then
+    version="$version-addons"
+  fi
+
   if [[ -n $1 ]]; then show_help; exit 1; fi
 
   # The source package doesn't require a previous build,
@@ -256,7 +260,7 @@ main() {
     source scripts/appdmg.sh "${package_name}"
   fi
   if [[ $innosetup == true ]]; then
-    source scripts/innosetup/innosetup.sh -b "${build_dir}"
+    source scripts/innosetup/innosetup.sh $flags
   fi
 }
 
