@@ -33,8 +33,8 @@ function RootView:draw(...)
 end
 
 command.add("core.docview!", {
-  ["context:show"] = function()
-    menu:show(core.active_view.position.x, core.active_view.position.y)
+  ["context:show"] = function(dv)
+    menu:show(dv.position.x, dv.position.y)
   end
 })
 

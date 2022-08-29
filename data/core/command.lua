@@ -33,9 +33,9 @@ function command.generate_predicate(predicate)
   if type(predicate) == "table" then
     local class = predicate
     if not strict then
-      predicate = function() return core.active_view:extends(class) end
+      predicate = function(...) return core.active_view:extends(class), core.active_view, ... end
     else
-      predicate = function() return core.active_view:is(class) end
+      predicate = function(...) return core.active_view:is(class), core.active_view, ... end
     end
   end
   return predicate
@@ -45,7 +45,9 @@ end
 function command.add(predicate, map)
   predicate = command.generate_predicate(predicate)
   for name, fn in pairs(map) do
-    assert(not command.map[name], "command already exists: " .. name)
+    if command.map[name] then
+      core.log_quiet("Replacing existing command \"%s\"", name)
+    end
     command.map[name] = { predicate = predicate, perform = fn }
   end
 end
@@ -62,8 +64,12 @@ end
 
 function command.get_all_valid()
   local res = {}
+  local memoized_predicates = {}
   for name, cmd in pairs(command.map) do
-    if cmd.predicate() then
+    if memoized_predicates[cmd.predicate] == nil then
+      memoized_predicates[cmd.predicate] = cmd.predicate()
+    end
+    if memoized_predicates[cmd.predicate] then
       table.insert(res, name)
     end
   end
@@ -76,8 +82,16 @@ end
 
 local function perform(name, ...)
   local cmd = command.map[name]
-  if cmd and cmd.predicate(...) then
-    cmd.perform(...)
+  if not cmd then return false end
+  local res = { cmd.predicate(...) }
+  if table.remove(res, 1) then
+    if #res > 0 then
+      -- send values returned from predicate
+      cmd.perform(table.unpack(res))
+    else
+      -- send original parameters
+      cmd.perform(...)
+    end
     return true
   end
   return false

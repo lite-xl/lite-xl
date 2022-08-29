@@ -458,7 +458,7 @@ end
 -- init
 local view = TreeView()
 local node = core.root_view:get_active_node()
-local treeview_node = node:split("left", view, {x = true}, true)
+view.node = node:split("left", view, {x = true}, true)
 
 -- The toolbarview plugin is special because it is plugged inside
 -- a treeview pane which is itelf provided in a plugin.
@@ -470,7 +470,7 @@ local toolbar_view = nil
 local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
 if config.plugins.toolbarview ~= false and toolbar_plugin then
   toolbar_view = ToolbarView()
-  treeview_node:split("down", toolbar_view, {y = true})
+  view.node:split("down", toolbar_view, {y = true})
   local min_toolbar_width = toolbar_view:get_min_width()
   view:set_target_size("x", math.max(config.plugins.treeview.size, min_toolbar_width))
   command.add(nil, {
@@ -679,16 +679,16 @@ local function treeitem() return view.hovered_item or view.selected_item end
 
 command.add(
   function()
-    return treeitem() ~= nil
+    local item = treeitem()
+    return item ~= nil
       and (
         core.active_view == view or core.active_view == menu
         or (view.toolbar and core.active_view == view.toolbar)
         -- sometimes the context menu is shown on top of statusbar
         or core.active_view == core.status_view
-      )
+      ), item
   end, {
-  ["treeview:delete"] = function()
-    local item = treeitem()
+  ["treeview:delete"] = function(item)
     local filename = item.abs_filename
     local relfilename = item.filename
     if item.dir_name ~= core.project_dir then
@@ -732,9 +732,13 @@ command.add(
 })
 
 
-command.add(function() return treeitem() ~= nil end, {
-  ["treeview:rename"] = function()
+command.add(function()
+    if not (core.root_view.overlapping_node and core.root_view.overlapping_node.active_view) then return end
+    if core.root_view.overlapping_node.active_view ~= view then return end
     local item = treeitem()
+    return item ~= nil, item
+  end, {
+  ["treeview:rename"] = function(item)
     local old_filename = item.filename
     local old_abs_filename = item.abs_filename
     core.command_view:enter("Rename", {
@@ -764,9 +768,8 @@ command.add(function() return treeitem() ~= nil end, {
     })
   end,
 
-  ["treeview:new-file"] = function()
+  ["treeview:new-file"] = function(item)
     local text
-    local item = treeitem()
     if not is_project_folder(item.abs_filename) then
       text = item.filename .. PATHSEP
     end
@@ -787,9 +790,8 @@ command.add(function() return treeitem() ~= nil end, {
     })
   end,
 
-  ["treeview:new-folder"] = function()
+  ["treeview:new-folder"] = function(item)
     local text
-    local item = treeitem()
     if not is_project_folder(item.abs_filename) then
       text = item.filename .. PATHSEP
     end
@@ -806,15 +808,13 @@ command.add(function() return treeitem() ~= nil end, {
     })
   end,
 
-  ["treeview:open-in-system"] = function()
-    local hovered_item = treeitem()
-
+  ["treeview:open-in-system"] = function(item)
     if PLATFORM == "Windows" then
-      system.exec(string.format("start \"\" %q", hovered_item.abs_filename))
+      system.exec(string.format("start \"\" %q", item.abs_filename))
     elseif string.find(PLATFORM, "Mac") then
-      system.exec(string.format("open %q", hovered_item.abs_filename))
+      system.exec(string.format("open %q", item.abs_filename))
     elseif PLATFORM == "Linux" or string.find(PLATFORM, "BSD") then
-      system.exec(string.format("xdg-open %q", hovered_item.abs_filename))
+      system.exec(string.format("xdg-open %q", item.abs_filename))
     end
   end
 })
@@ -823,10 +823,10 @@ command.add(function()
     local item = treeitem()
     return item
            and not is_primary_project_folder(item.abs_filename)
-           and is_project_folder(item.abs_filename)
+           and is_project_folder(item.abs_filename), item
   end, {
-  ["treeview:remove-project-directory"] = function()
-    core.remove_project_directory(treeitem().dir_name)
+  ["treeview:remove-project-directory"] = function(item)
+    core.remove_project_directory(item.dir_name)
   end,
 })
 

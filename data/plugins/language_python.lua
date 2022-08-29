@@ -33,6 +33,8 @@ syntax.add {
     ["lambda"]   = "keyword",
     ["try"]      = "keyword",
     ["def"]      = "keyword",
+    ["async"]    = "keyword",
+    ["await"]    = "keyword",
     ["from"]     = "keyword",
     ["nonlocal"] = "keyword",
     ["while"]    = "keyword",

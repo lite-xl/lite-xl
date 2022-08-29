@@ -152,20 +152,24 @@ function common.path_suggest(text, root)
     root = root .. PATHSEP
   end
   local path, name = text:match("^(.-)([^/\\]*)$")
+  local clean_dotslash = false
   -- ignore root if path is absolute
   local is_absolute = common.is_absolute_path(text)
   if not is_absolute then
     if path == "" then
       path = root or "."
+      clean_dotslash = not root
     else
       path = (root or "") .. path
     end
   end
 
-  local files = system.list_dir(path) or {}
-  if path:sub(-1) ~= PATHSEP then
+  -- Only in Windows allow using both styles of PATHSEP
+  if (PATHSEP == "\\" and not string.match(path:sub(-1), "[\\/]")) or
+     (PATHSEP ~= "\\" and path:sub(-1) ~= PATHSEP) then
     path = path .. PATHSEP
   end
+  local files = system.list_dir(path) or {}
   local res = {}
   for _, file in ipairs(files) do
     file = path .. file
@@ -177,6 +181,12 @@ function common.path_suggest(text, root)
       if root then
         -- remove root part from file path
         local s, e = file:find(root, nil, true)
+        if s == 1 then
+          file = file:sub(e + 1)
+        end
+      elseif clean_dotslash then
+        -- remove added dot slash
+        local s, e = file:find("." .. PATHSEP, nil, true)
         if s == 1 then
           file = file:sub(e + 1)
         end
@@ -362,11 +372,11 @@ end
 -- absolute path without . or .. elements.
 -- This function exists because on Windows the drive letter returned
 -- by system.absolute_path is sometimes with a lower case and sometimes
--- with an upper case to we normalize to upper case.
+-- with an upper case so we normalize to upper case.
 function common.normalize_volume(filename)
   if not filename then return end
   if PATHSEP == '\\' then
-    local drive, rem = filename:match('^([a-zA-Z]:\\)(.*)')
+    local drive, rem = filename:match('^([a-zA-Z]:\\)(.-)'..PATHSEP..'?$')
     if drive then
       return drive:upper() .. rem
     end
