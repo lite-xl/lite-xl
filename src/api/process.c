@@ -278,7 +278,7 @@ static int process_start(lua_State* L) {
       retval = luaL_error(L, "Error running fork: %s.", strerror(errno));
       goto cleanup;
     } else if (!self->pid) {
-      setpgrp();
+      setpgid(0,0);
       for (int stream = 0; stream < 3; ++stream) {
         if (new_fds[stream] == REDIRECT_DISCARD) { // Close the stream if we don't want it.
           close(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
