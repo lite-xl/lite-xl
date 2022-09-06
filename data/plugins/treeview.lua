@@ -819,6 +819,22 @@ command.add(function()
   end
 })
 
+local projectsearch = core.try(require, "plugins.projectsearch")
+if projectsearch then
+  menu:register(function()
+    return view.hovered_item and view.hovered_item.type == "dir"
+  end, { 
+    { text = "Find in directory", command = "treeview:search-in-directory" } 
+  })
+  command.add(function()
+    return view.hovered_item and view.hovered_item.type == "dir"
+  end, {
+    ["treeview:search-in-directory"] = function(item)
+      command.perform("project-search:find", view.hovered_item.abs_filename)
+    end
+  })
+end
+
 command.add(function()
     local item = treeitem()
     return item
