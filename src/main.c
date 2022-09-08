@@ -151,6 +151,13 @@ init_lua:
   lua_pushstring(L, SDL_GetPlatform());
   lua_setglobal(L, "PLATFORM");
 
+  #if __x86_64__ || __ppc64__ || _WIN64
+    lua_pushstring(L, "x86-64");
+  #else
+    lua_pushstring(L, "x86");
+  #endif
+  lua_setglobal(L, "ARCH");
+
   lua_pushnumber(L, get_scale());
   lua_setglobal(L, "SCALE");
 
