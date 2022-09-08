@@ -238,9 +238,21 @@ local function get_selected_text()
 end
 
 
+local function normalize_path(path)
+  if not path then return nil end
+  path = common.normalize_path(path)
+  for i, project_dir in ipairs(core.project_directories) do
+    if common.path_belongs_to(path, project_dir.name) then
+      return project_dir.item.filename .. PATHSEP .. common.relative_path(project_dir.name, path)
+    end
+  end
+  return path
+end
+
+
 command.add(nil, {
   ["project-search:find"] = function(path)
-    core.command_view:enter("Find Text In " .. (path or "Project"), {
+    core.command_view:enter("Find Text In " .. (normalize_path(path) or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
@@ -253,7 +265,7 @@ command.add(nil, {
   end,
 
   ["project-search:find-regex"] = function(path)
-    core.command_view:enter("Find Regex In " .. (path or "Project"), {
+    core.command_view:enter("Find Regex In " .. (normalize_path(path) or "Project"), {
       submit = function(text)
         local re = regex.compile(text, "i")
         begin_search(path, text, function(line_text)
@@ -264,7 +276,7 @@ command.add(nil, {
   end,
 
   ["project-search:fuzzy-find"] = function(path)
-    core.command_view:enter("Fuzzy Find Text In " .. (path or "Project"), {
+    core.command_view:enter("Fuzzy Find Text In " .. (normalize_path(path) or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
@@ -332,5 +344,3 @@ keymap.add {
   ["home"]               = "project-search:move-to-start-of-doc",
   ["end"]                = "project-search:move-to-end-of-doc"
 }
-
-return {}

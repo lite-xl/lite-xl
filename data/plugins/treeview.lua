@@ -467,7 +467,7 @@ view.node = node:split("left", view, {x = true}, true)
 -- plugin module that plug itself in the active node but it is plugged here
 -- in the treeview node.
 local toolbar_view = nil
-local toolbar_plugin, ToolbarView = core.try(require, "plugins.toolbarview")
+local toolbar_plugin, ToolbarView = pcall(require, "plugins.toolbarview")
 if config.plugins.toolbarview ~= false and toolbar_plugin then
   toolbar_view = ToolbarView()
   view.node:split("down", toolbar_view, {y = true})
@@ -819,7 +819,7 @@ command.add(function()
   end
 })
 
-local projectsearch = core.try(require, "plugins.projectsearch")
+local projectsearch = pcall(require, "plugins.projectsearch")
 if projectsearch then
   menu:register(function()
     return view.hovered_item and view.hovered_item.type == "dir"
