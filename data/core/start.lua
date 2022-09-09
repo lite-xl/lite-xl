@@ -21,16 +21,9 @@ package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
 
-local suffix, platform
-if PLATFORM == "Mac OS X" then
-  suffix, tuple = 'lib', ARCH .. "-darwin"
-elseif PLATFORM == "Windows" then
-  suffix, tuple = 'dll', ARCH .. "-win32"
-else 
-  suffix, tuple = 'so', ARCH .. "-linux"
-end
+local suffix = PLATFORM == "Mac OS X" and 'lib' or (PLATFORM == "Windows" and 'dll' or 'so')
 
-package.cpath = USERDIR .. '/?.' .. tuple .. "." .. suffix .. ";" .. DATADIR .. '/?.' .. tuple .. "." .. suffix .. 
+package.cpath = USERDIR .. '/?.' .. ARCH .. "." .. suffix .. ";" .. DATADIR .. '/?.' .. ARCH .. "." .. suffix .. 
   USERDIR .. '/?.' .. suffix .. ";" .. DATADIR .. '/?.' .. suffix
 package.native_plugins = {}
 package.searchers = { package.searchers[1], package.searchers[2], function(modname)
