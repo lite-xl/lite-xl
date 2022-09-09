@@ -95,7 +95,7 @@ void set_macos_bundle_resources(lua_State *L);
   #elif __APPLE__
     #define ARCH_PLATFORM "darwin"
   #else
-    #error "Please define -DLITE_ARCH_TUPPLE."
+    #error "Please define -DLITE_ARCH_TUPLE."
   #endif
   #define LITE_ARCH_TUPLE ARCH_PROCESSOR "-" ARCH_PLATFORM
 #endif
