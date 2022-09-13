@@ -499,13 +499,12 @@ static int f_get_scale(lua_State *L) {
 
   float scale = 1.0;
 #ifndef __APPLE__
-  SDL_DisplayMode dm;
-#if _WIN32
-  float dpi = 0;
-#endif
   char* env_scale = NULL;
   float system_scale = 0;
+#if _WIN32
+  float dpi = 0;
   int display_index = SDL_GetWindowDisplayIndex(window);
+#endif
 
   if (
     (env_scale = getenv("GDK_SCALE")) != NULL
@@ -535,21 +534,6 @@ static int f_get_scale(lua_State *L) {
     got_initial_scale && (system_scale = sdl_scale_factor()) > 0
   ) {
     scale = system_scale;
-  /* if all other methods failed use a suggested scale factor */
-  } else if (SDL_GetCurrentDisplayMode(display_index, &dm) == 0) {
-    float base_width = 1280, base_height = 720;
-    float dmw = (float) dm.w, dmh = (float) dm.h;
-    if (dmw < dmh) {
-      base_width = 720;
-      base_height = 1280;
-    }
-    float current_aspect_ratio = dmw / dmh,
-      base_aspect_ratio = base_width / base_height;
-    if (current_aspect_ratio >= base_aspect_ratio) {
-      scale = dmw / base_width;
-    } else {
-      scale = dmh / base_height;
-    }
   }
 #endif /* __APPLE__ */
   got_initial_scale = true;
