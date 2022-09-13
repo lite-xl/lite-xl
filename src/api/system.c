@@ -420,11 +420,78 @@ static int f_set_cursor(lua_State *L) {
   return 0;
 }
 
+#ifdef __linux__
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xresource.h>
+
+static float x11_scale_factor() {
+  static bool initialized = false;
+
+  if (!initialized) {
+    XrmInitialize();
+    initialized = true;
+  }
+
+  float scale = 0.0;
+  char *resourceString = XResourceManagerString(XOpenDisplay(NULL));
+
+  if (resourceString) {
+    XrmDatabase db = XrmGetStringDatabase(resourceString);
+    XrmValue value;
+    char *type = NULL;
+    float dpi = 0.0;
+
+    if (XrmGetResource(db, "Xft.dpi", "String", &type, &value)) {
+      if (value.addr) {
+          dpi = atof(value.addr);
+          if (dpi > 0)
+            scale = roundf((dpi / 96) * 100) / 100;
+      }
+    }
+    XrmDestroyDatabase(db);
+    free(resourceString);
+  }
+
+  return scale;
+}
+#endif
+
+static float sdl_scale_factor() {
+  /* When not using the sdl renderer the SDL_WINDOW_ALLOW_HIGHDPI flag
+    causes the window to render the content pixelated, so we create
+    a separate window with the high dpi flag to retrieve the display
+    scale factor and then we destroy it.
+  */
+#ifndef LITE_USE_SDL_RENDERER
+  SDL_DisplayMode dm;
+  SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &dm);
+
+  SDL_Window *windowHDPI = SDL_CreateWindow(
+    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+    dm.w * 0.8, dm.h * 0.8,
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN
+  );
+#else
+  SDL_Window *windowHDPI = window;
+#endif
+
+  float scale = ren_get_scale_factor(windowHDPI);
+#ifndef LITE_USE_SDL_RENDERER
+  SDL_DestroyWindow(windowHDPI);
+#endif
+
+  return scale;
+}
+
 static int f_get_scale(lua_State *L) {
+  static bool got_initial_scale = false;
+
   /* returns the startup scale factor on first call if not 100% */
   if (!got_initial_scale) {
-    got_initial_scale = true;
+    float initial_scale = sdl_scale_factor();
     if (initial_scale != 1.0) {
+      got_initial_scale = true;
       lua_pushnumber(L, initial_scale);
       return 1;
     }
@@ -452,12 +519,23 @@ static int f_get_scale(lua_State *L) {
     (system_scale = strtod(env_scale, NULL)) > 0
   ) {
     scale = system_scale;
-  } else if ((system_scale = ren_get_scale_factor(window)) != 1.0) {
+#ifdef __linux__
+  } else if (
+    strstr(SDL_GetCurrentVideoDriver(), "x11")
+    &&
+    (system_scale = x11_scale_factor()) > 0
+  ) {
     scale = system_scale;
+#endif
 #if _WIN32
   } else if (SDL_GetDisplayDPI(display_index, NULL, &dpi, NULL) == 0) {
     scale = dpi / 96.0;
 #endif
+  } else if (
+    got_initial_scale && (system_scale = sdl_scale_factor()) > 0
+  ) {
+    scale = system_scale;
+  /* if all other methods failed use a suggested scale factor */
   } else if (SDL_GetCurrentDisplayMode(display_index, &dm) == 0) {
     float base_width = 1280, base_height = 720;
     float dmw = (float) dm.w, dmh = (float) dm.h;
@@ -473,7 +551,8 @@ static int f_get_scale(lua_State *L) {
       scale = dmh / base_height;
     }
   }
-#endif
+#endif /* __APPLE__ */
+  got_initial_scale = true;
   lua_pushnumber(L, scale);
   return 1;
 }

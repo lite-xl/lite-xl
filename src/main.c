@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
     SDL_WINDOW_RESIZABLE
     | SDL_WINDOW_HIDDEN
 #if LITE_USE_SDL_RENDERER
-    /* causes pixelated rendering when not using the sdl renderer */
+    /* causes pixelated rendering when not using the sdl renderer and scaled */
     | SDL_WINDOW_ALLOW_HIGHDPI
 #endif
   );
@@ -169,27 +169,6 @@ int main(int argc, char **argv) {
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &dm);
   SDL_SetWindowSize(window, dm.w * 0.8, dm.h * 0.8);
-
-/* When not using the sdl renderer the SDL_WINDOW_ALLOW_HIGHDPI flag
-   causes the window to render the content pixelated, so we create
-   a separate window with the high dpi flag to retrieve the display
-   scale factor and then we destroy it.
-*/
-#ifndef LITE_USE_SDL_RENDERER
-  SDL_Window *windowHDPI = SDL_CreateWindow(
-    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-    dm.w * 0.8, dm.h * 0.8,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN
-  );
-#else
-  SDL_Window *windowHDPI = window;
-#endif
-
-  /* Get the system scale factor. */
-  initial_scale = ren_get_scale_factor(windowHDPI);
-#ifndef LITE_USE_SDL_RENDERER
-  SDL_DestroyWindow(windowHDPI);
-#endif
 
   init_window_icon();
   if (!window) {

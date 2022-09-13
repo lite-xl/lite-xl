@@ -162,6 +162,15 @@ if not get_option('source-only')
 
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
 endif
+
+#===============================================================================
+# Link to X11 on linux to detect scale factor when video driver is x11
+#===============================================================================
+if host_machine.system() == 'linux'
+    x_dep = dependency('X11')
+    lite_deps += x_dep
+endif
+
 #===============================================================================
 # Install Configuration
 #===============================================================================
