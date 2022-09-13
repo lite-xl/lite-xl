@@ -159,6 +159,7 @@ int main(int argc, char **argv) {
     "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
     800, 450,
     SDL_WINDOW_RESIZABLE
+    | SDL_WINDOW_HIDDEN
 #if LITE_USE_SDL_RENDERER
     /* causes pixelated rendering when not using the sdl renderer */
     | SDL_WINDOW_ALLOW_HIGHDPI
@@ -178,7 +179,7 @@ int main(int argc, char **argv) {
   SDL_Window *windowHDPI = SDL_CreateWindow(
     "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
     dm.w * 0.8, dm.h * 0.8,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN
   );
 #else
   SDL_Window *windowHDPI = window;
