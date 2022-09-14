@@ -85,6 +85,10 @@ void set_macos_bundle_resources(lua_State *L);
 #ifndef LITE_ARCH_TUPLE
   #if __x86_64__ || _WIN64 || __MINGW64__
     #define ARCH_PROCESSOR "x86_64"
+  #elif __aarch64__
+    #define ARCH_PROCESSOR "aarch64"
+  #elif __arm__
+    #define ARCH_PROCESSOR "arm"
   #else
     #define ARCH_PROCESSOR "x86"
   #endif
