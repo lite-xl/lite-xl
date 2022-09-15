@@ -22,6 +22,7 @@ function ContextMenu:new()
   self.selected = -1
   self.height = 0
   self.position = { x = 0, y = 0 }
+  self.current_scale = SCALE
 end
 
 local function get_item_size(item)
@@ -39,11 +40,10 @@ local function get_item_size(item)
   return lw, lh
 end
 
-function ContextMenu:register(predicate, items)
-  predicate = command.generate_predicate(predicate)
-  local width, height = 0, 0 --precalculate the size of context menu
-  for i, item in ipairs(items) do
-    if item ~= DIVIDER then
+local function update_items_size(items, update_binding)
+  local width, height = 0, 0
+  for _, item in ipairs(items) do
+    if update_binding and item ~= DIVIDER then
       item.info = keymap.get_binding(item.command)
     end
     local lw, lh = get_item_size(item)
@@ -52,6 +52,11 @@ function ContextMenu:register(predicate, items)
   end
   width = width + style.padding.x * 2
   items.width, items.height = width, height
+end
+
+function ContextMenu:register(predicate, items)
+  predicate = command.generate_predicate(predicate)
+  update_items_size(items, true)
   table.insert(self.itemset, { predicate = predicate, items = items })
 end
 
@@ -194,6 +199,13 @@ end
 
 function ContextMenu:draw()
   if not self.show_context_menu then return end
+  if self.current_scale ~= SCALE then
+    update_items_size(self.items)
+    for _, set in ipairs(self.itemset) do
+      update_items_size(set.items)
+    end
+    self.current_scale = SCALE
+  end
   core.root_view:defer_draw(self.draw_context_menu, self)
 end
 
