@@ -200,7 +200,7 @@ command.add(has_unique_selection, {
   ["find-replace:select-add-all"] = function() select_add_next(true) end
 })
 
-command.add("core.docview", {
+command.add("core.docview!", {
   ["find-replace:find"] = function()
     find("Find Text", function(doc, line, col, text, case_sensitive, find_regex, find_reverse)
       local opt = { wrap = true, no_case = not case_sensitive, regex = find_regex, reverse = find_reverse }

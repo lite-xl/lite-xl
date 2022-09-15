@@ -11,11 +11,11 @@ local ResultsView = View:extend()
 
 ResultsView.context = "session"
 
-function ResultsView:new(text, fn)
+function ResultsView:new(path, text, fn)
   ResultsView.super.new(self)
   self.scrollable = true
   self.brightness = 0
-  self:begin_search(text, fn)
+  self:begin_search(path, text, fn)
 end
 
 
@@ -45,8 +45,8 @@ local function find_all_matches_in_file(t, filename, fn)
 end
 
 
-function ResultsView:begin_search(text, fn)
-  self.search_args = { text, fn }
+function ResultsView:begin_search(path, text, fn)
+  self.search_args = { path, text, fn }
   self.results = {}
   self.last_file_idx = 1
   self.query = text
@@ -56,9 +56,9 @@ function ResultsView:begin_search(text, fn)
   core.add_thread(function()
     local i = 1
     for dir_name, file in core.get_project_files() do
-      if file.type == "file" then
-        local path = (dir_name == core.project_dir and "" or (dir_name .. PATHSEP))
-        find_all_matches_in_file(self.results, path .. file.filename, fn)
+      if file.type == "file" and (not path or (dir_name .. "/" .. file.filename):find(path, 1, true) == 1) then
+        local truncated_path = (dir_name == core.project_dir and "" or (dir_name .. PATHSEP))
+        find_all_matches_in_file(self.results, truncated_path .. file.filename, fn)
       end
       self.last_file_idx = i
       i = i + 1
@@ -219,12 +219,12 @@ function ResultsView:draw()
 end
 
 
-local function begin_search(text, fn)
+local function begin_search(path, text, fn)
   if text == "" then
     core.error("Expected non-empty string")
     return
   end
-  local rv = ResultsView(text, fn)
+  local rv = ResultsView(path, text, fn)
   core.root_view:get_active_node_default():add_view(rv)
 end
 
@@ -238,37 +238,49 @@ local function get_selected_text()
 end
 
 
+local function normalize_path(path)
+  if not path then return nil end
+  path = common.normalize_path(path)
+  for i, project_dir in ipairs(core.project_directories) do
+    if common.path_belongs_to(path, project_dir.name) then
+      return project_dir.item.filename .. PATHSEP .. common.relative_path(project_dir.name, path)
+    end
+  end
+  return path
+end
+
+
 command.add(nil, {
-  ["project-search:find"] = function()
-    core.command_view:enter("Find Text In Project", {
+  ["project-search:find"] = function(path)
+    core.command_view:enter("Find Text In " .. (normalize_path(path) or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
         text = text:lower()
-        begin_search(text, function(line_text)
+        begin_search(path, text, function(line_text)
           return line_text:lower():find(text, nil, true)
         end)
       end
     })
   end,
 
-  ["project-search:find-regex"] = function()
-    core.command_view:enter("Find Regex In Project", {
+  ["project-search:find-regex"] = function(path)
+    core.command_view:enter("Find Regex In " .. (normalize_path(path) or "Project"), {
       submit = function(text)
         local re = regex.compile(text, "i")
-        begin_search(text, function(line_text)
+        begin_search(path, text, function(line_text)
           return regex.cmatch(re, line_text)
         end)
       end
     })
   end,
 
-  ["project-search:fuzzy-find"] = function()
-    core.command_view:enter("Fuzzy Find Text In Project", {
+  ["project-search:fuzzy-find"] = function(path)
+    core.command_view:enter("Fuzzy Find Text In " .. (normalize_path(path) or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
-        begin_search(text, function(line_text)
+        begin_search(path, text, function(line_text)
           return common.fuzzy_match(line_text, text) and 1
         end)
       end

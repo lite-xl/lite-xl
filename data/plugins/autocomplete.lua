@@ -636,9 +636,10 @@ command.add(predicate, {
       inserted = item.onselect(suggestions_idx, item)
     end
     if not inserted then
+      local current_partial = get_partial_symbol()
       doc:insert(line, col, text)
-      doc:remove(line, col, line, col - #partial)
-      doc:set_selection(line, col + #text - #partial)
+      doc:remove(line, col, line, col - #current_partial)
+      doc:set_selection(line, col + #text - #current_partial)
     end
     reset_suggestions()
   end,
