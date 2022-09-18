@@ -141,6 +141,13 @@ function Doc:get_change_id()
   return self.undo_stack.idx
 end
 
+local function sort_positions(line1, col1, line2, col2)
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1, true
+  end
+  return line1, col1, line2, col2, false
+end
+
 -- Cursor section. Cursor indices are *only* valid during a get_selections() call.
 -- Cursors will always be iterated in order from top to bottom. Through normal operation
 -- curors can never swap positions; only merge or split, or change their position in cursor
@@ -148,6 +155,15 @@ end
 function Doc:get_selection(sort)
   local idx, line1, col1, line2, col2, swap = self:get_selections(sort)({ self.selections, sort }, 0)
   return line1, col1, line2, col2, swap
+end
+
+function Doc:get_selection_idx(idx, sort)
+  local line1, col1, line2, col2 = self.selections[idx*4-3], self.selections[idx*4-2], self.selections[idx*4-1], self.selections[idx*4]
+  if sort then
+    return sort_positions(line1, col1, line2, col2)
+  else
+    return line1, col1, line2, col2
+  end
 end
 
 function Doc:get_selection_text(limit)
@@ -179,13 +195,6 @@ function Doc:sanitize_selection()
   for idx, line1, col1, line2, col2 in self:get_selections() do
     self:set_selections(idx, line1, col1, line2, col2)
   end
-end
-
-local function sort_positions(line1, col1, line2, col2)
-  if line1 > line2 or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1, true
-  end
-  return line1, col1, line2, col2, false
 end
 
 function Doc:set_selections(idx, line1, col1, line2, col2, swap, rm)
