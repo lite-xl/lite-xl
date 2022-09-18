@@ -82,6 +82,28 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 #endif
 
+#ifndef LITE_ARCH_TUPLE
+  #if __x86_64__ || _WIN64 || __MINGW64__
+    #define ARCH_PROCESSOR "x86_64"
+  #elif __aarch64__
+    #define ARCH_PROCESSOR "aarch64"
+  #elif __arm__
+    #define ARCH_PROCESSOR "arm"
+  #else
+    #define ARCH_PROCESSOR "x86"
+  #endif
+  #if _WIN32
+    #define ARCH_PLATFORM "windows"
+  #elif __linux__
+    #define ARCH_PLATFORM "linux"
+  #elif __APPLE__
+    #define ARCH_PLATFORM "darwin"
+  #else
+    #error "Please define -DLITE_ARCH_TUPLE."
+  #endif
+  #define LITE_ARCH_TUPLE ARCH_PROCESSOR "-" ARCH_PLATFORM
+#endif
+
 int main(int argc, char **argv) {
 #ifdef _WIN32
   HINSTANCE lib = LoadLibrary("user32.dll");
@@ -150,6 +172,9 @@ init_lua:
 
   lua_pushstring(L, SDL_GetPlatform());
   lua_setglobal(L, "PLATFORM");
+
+  lua_pushstring(L, LITE_ARCH_TUPLE);
+  lua_setglobal(L, "ARCH");
 
   lua_pushnumber(L, get_scale());
   lua_setglobal(L, "SCALE");
