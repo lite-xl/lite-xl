@@ -177,6 +177,23 @@ local function block_comment(comment, line1, col1, line2, col2)
   end
 end
 
+local function insert_paste(doc, value, whole_line, idx)
+  if whole_line then
+    local line1, col1 = doc:get_selection_idx(idx)
+    doc:insert(line1, 1, value:gsub("\r", ""))
+    -- Because we're inserting at the start of the line,
+    -- if the cursor is in the middle of the line
+    -- it gets carried to the next line along with the old text.
+    -- If it's at the start of the line it doesn't get carried,
+    -- so we move it to the end of the paste.
+    if col1 == 1 then
+      doc:move_to_cursor(idx, #value)
+    end
+  else
+    doc:text_input(value:gsub("\r", ""), idx)
+  end
+end
+
 local commands = {
   ["doc:select-none"] = function(dv)
     local line, col = dv.doc:get_selection()
@@ -202,27 +219,32 @@ local commands = {
   ["doc:paste"] = function(dv)
     local clipboard = system.get_clipboard()
     -- If the clipboard has changed since our last look, use that instead
-    local external_paste = core.cursor_clipboard["full"] ~= clipboard
-    if external_paste then
+    if core.cursor_clipboard["full"] ~= clipboard then
       core.cursor_clipboard = {}
       core.cursor_clipboard_whole_line = {}
-    end
-    local value, whole_line
-    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
-      if #core.cursor_clipboard_whole_line == (#dv.doc.selections/4) then
-        value = core.cursor_clipboard[idx]
-        whole_line = core.cursor_clipboard_whole_line[idx] == true
-      else
-        value = clipboard
-        whole_line = not external_paste and clipboard:find("\n") ~= nil
+      for idx in dv.doc:get_selections() do
+        insert_paste(dv.doc, clipboard, false, idx)
       end
-      if whole_line then
-        dv.doc:insert(line1, 1, value:gsub("\r", ""))
-        if col1 == 1 then
-          dv.doc:move_to_cursor(idx, #value)
+      return
+    end
+    -- Use internal clipboard(s)
+    if #core.cursor_clipboard_whole_line == (#dv.doc.selections/4) then
+    -- If we have the same number of clipboards and selections,
+    -- paste each clipboard into its corresponding selection
+      for idx in dv.doc:get_selections() do
+        insert_paste(dv.doc, core.cursor_clipboard[idx], core.cursor_clipboard_whole_line[idx], idx)
+      end
+    else
+      -- Paste every clipboard and add a selection at the end of each one
+      local new_selections = {}
+      for idx in dv.doc:get_selections() do
+        for cb_idx,whole_line in ipairs(core.cursor_clipboard_whole_line) do
+          insert_paste(dv.doc, core.cursor_clipboard[cb_idx], whole_line, idx)
+          table.insert(new_selections, {dv.doc:get_selection_idx(idx)})
         end
-      else
-        dv.doc:text_input(value:gsub("\r", ""), idx)
+      end
+      for i,selection in ipairs(new_selections) do
+        dv.doc:set_selections(#new_selections - i + 1, table.unpack(selection))
       end
     end
   end,
