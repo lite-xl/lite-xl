@@ -163,9 +163,9 @@ local function load_node(node, t)
         if t.active_view == i then
           active_view = view
         end
-	if not view:is(DocView) then
-	  view.scroll = v.scroll	
-	end
+        if not view:is(DocView) then
+          view.scroll = v.scroll	
+        end
       end
     end
     if active_view then
