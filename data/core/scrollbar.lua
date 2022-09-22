@@ -5,6 +5,17 @@ local style = require "core.style"
 local Object = require "core.object"
 
 ---Scrollbar
+---Use Scrollbar:set_size to set the bounding box of the view the scrollbar belongs to.
+---Use Scrollbar:update to update the scrollbar animations.
+---Use Scrollbar:draw to draw the scrollbar.
+---Use Scrollbar:on_mouse_pressed, Scrollbar:on_mouse_released,
+---Scrollbar:on_mouse_moved and Scrollbar:on_mouse_left to react to mouse movements;
+---the scrollbar won't update automatically.
+---Use Scrollbar:set_percent to set the scrollbar location externally.
+---
+---To manage all the orientations, the scrollbar changes the coordinates system
+---accordingly. The "normal" coordinate system adapts the scrollbar coordinates
+---as if it's always a vertical scrollbar, positioned at the end of the bounding box.
 ---@class core.scrollbar : core.object
 local Scrollbar = Object:extend()
 
@@ -36,7 +47,7 @@ function Scrollbar:new(direction, alignment)
   self.direction = direction or "v"
   ---@type "s" | "e" @Start or End (left to right, top to bottom)
   self.alignment = alignment or "e"
-  ---@type integer @Private. Used to keep track of animations
+  ---@type number @Private. Used to keep track of animations
   self.expand_percent = 0
 end
 
@@ -58,7 +69,6 @@ end
 
 
 function Scrollbar:normal_to_real(x, y, w, h)
-  local nr = self.normal_rect
   x, y, w, h = x or 0, y or 0, w or 0, h or 0
   if self.direction == "v" then
     if self.alignment == "s" then
@@ -74,7 +84,7 @@ function Scrollbar:normal_to_real(x, y, w, h)
 end
 
 
-function Scrollbar:get_thumb_rect_normal()
+function Scrollbar:_get_thumb_rect_normal()
   local nr = self.normal_rect
   local sz = nr.scrollable
   if sz == math.huge or sz <= nr.along_size
@@ -91,12 +101,14 @@ function Scrollbar:get_thumb_rect_normal()
     along_size
 end
 
+---Get the thumb rect (the part of the scrollbar that can be dragged)
+---@return integer,integer,integer,integer @x, y, w, h
 function Scrollbar:get_thumb_rect()
-  return self:normal_to_real(self:get_thumb_rect_normal())
+  return self:normal_to_real(self:_get_thumb_rect_normal())
 end
 
 
-function Scrollbar:get_track_rect_normal()
+function Scrollbar:_get_track_rect_normal()
   local nr = self.normal_rect
   local sz = nr.scrollable
   if sz <= nr.along_size or sz == math.huge then
@@ -111,18 +123,20 @@ function Scrollbar:get_track_rect_normal()
     nr.along_size
 end
 
+---Get the track rect (the "background" of the scrollbar)
+---@return number,number,number,number @x, y, w, h
 function Scrollbar:get_track_rect()
-  return self:normal_to_real(self:get_track_rect_normal())
+  return self:normal_to_real(self:_get_track_rect_normal())
 end
 
 
-function Scrollbar:overlaps_normal(x, y)
-  local sx, sy, sw, sh = self:get_thumb_rect_normal()
+function Scrollbar:_overlaps_normal(x, y)
+  local sx, sy, sw, sh = self:_get_thumb_rect_normal()
   local result
   if x >= sx - style.scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
     result = "thumb"
   else
-    sx, sy, sw, sh = self:get_track_rect_normal()
+    sx, sy, sw, sh = self:_get_track_rect_normal()
     if x >= sx - style.scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
       result = "track"
     end
@@ -130,16 +144,18 @@ function Scrollbar:overlaps_normal(x, y)
   return result
 end
 
+---Get what part of the scrollbar the coordinates overlap
+---@return "thumb"|"track"|nil
 function Scrollbar:overlaps(x, y)
   x, y = self:real_to_normal(x, y)
-  return self:overlaps_normal(x, y)
+  return self:_overlaps_normal(x, y)
 end
 
 
-function Scrollbar:on_mouse_pressed_normal(button, x, y, clicks)
-  local overlaps = self:overlaps_normal(x, y)
+function Scrollbar:_on_mouse_pressed_normal(button, x, y, clicks)
+  local overlaps = self:_overlaps_normal(x, y)
   if overlaps then
-    local _, along, _, along_size = self:get_thumb_rect_normal()
+    local _, along, _, along_size = self:_get_thumb_rect_normal()
     self.dragging = true
     if overlaps == "thumb" then
       self.drag_start_offset = along - y
@@ -151,40 +167,67 @@ function Scrollbar:on_mouse_pressed_normal(button, x, y, clicks)
   end
 end
 
+---Updates the scrollbar with mouse pressed info.
+---Won't update the scrollbar position automatically.
+---Use Scrollbar:set_percent to update it.
+---
+---This sets the dragging status if needed.
+---
+---Returns a falsy value if the event happened outside the scrollbar.
+---Returns `true` if the thumb was pressed.
+---If the track was pressed this returns a value between 0 and 1
+---representing the percent of the position.
+---@return boolean|number
 function Scrollbar:on_mouse_pressed(button, x, y, clicks)
   x, y = self:real_to_normal(x, y)
-  return self:on_mouse_pressed_normal(button, x, y, clicks)
+  return self:_on_mouse_pressed_normal(button, x, y, clicks)
 end
 
-
+---Updates the scrollbar dragging status
 function Scrollbar:on_mouse_released(button, x, y)
   self.dragging = false
 end
 
 
-function Scrollbar:on_mouse_moved_normal(x, y, dx, dy)
+function Scrollbar:_on_mouse_moved_normal(x, y, dx, dy)
   if self.dragging then
     local nr = self.normal_rect
     return common.clamp((y - nr.along + self.drag_start_offset) / nr.along_size, 0, 1)
   end
-  local overlaps = self:overlaps_normal(x, y)
+  local overlaps = self:_overlaps_normal(x, y)
   self.hovering.thumb = overlaps == "thumb"
   self.hovering.track = self.hovering.thumb or overlaps == "track"
   return self.hovering.track or self.hovering.thumb
 end
 
+---Updates the scrollbar with mouse moved info.
+---Won't update the scrollbar position automatically.
+---Use Scrollbar:set_percent to update it.
+---
+---This updates the hovering status.
+---
+---Returns a falsy value if the event happened outside the scrollbar.
+---Returns `true` if the scrollbar is hovered.
+---If the scrollbar was being dragged, this returns a value between 0 and 1
+---representing the percent of the position.
+---@return boolean|number
 function Scrollbar:on_mouse_moved(x, y, dx, dy)
   x, y = self:real_to_normal(x, y)
   dx, dy = self:real_to_normal(dx, dy) -- TODO: do we need this? (is this even correct?)
-  return self:on_mouse_moved_normal(x, y, dx, dy)
+  return self:_on_mouse_moved_normal(x, y, dx, dy)
 end
 
-
+---Updates the scrollbar hovering status
 function Scrollbar:on_mouse_left()
   self.hovering.track, self.hovering.thumb = false, false
 end
 
-
+---Updates the bounding box of the view the scrollbar belongs to.
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param scrollable number @size of the scrollable area
 function Scrollbar:set_size(x, y, w, h, scrollable)
   self.rect.x, self.rect.y, self.rect.w, self.rect.h = x, y, w, h
   self.rect.scrollable = scrollable
@@ -194,12 +237,13 @@ function Scrollbar:set_size(x, y, w, h, scrollable)
   nr.scrollable = scrollable
 end
 
-
+---Updates the scrollbar location
+---@param percent number @number between 0 and 1 representing the position of the middle part of the thumb
 function Scrollbar:set_percent(percent)
   self.percent = percent
 end
 
-
+---Updates the scrollbar animations
 function Scrollbar:update()
   -- TODO: move the animation code to its own class
   local dest = (self.hovering.track or self.dragging) and 1 or 0
@@ -220,6 +264,7 @@ function Scrollbar:update()
 end
 
 
+---Draw the scrollbar track
 function Scrollbar:draw_track()
   if not (self.hovering.track or self.dragging)
      and self.expand_percent == 0 then
@@ -231,7 +276,7 @@ function Scrollbar:draw_track()
   renderer.draw_rect(x, y, w, h, color)
 end
 
-
+---Draw the scrollbar thumb
 function Scrollbar:draw_thumb()
   local highlight = self.hovering.thumb or self.dragging
   local color = highlight and style.scrollbar2 or style.scrollbar
@@ -239,7 +284,7 @@ function Scrollbar:draw_thumb()
   renderer.draw_rect(x, y, w, h, color)
 end
 
-
+---Draw both the scrollbar track and thumb
 function Scrollbar:draw()
   self:draw_track()
   self:draw_thumb()
