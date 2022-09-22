@@ -847,7 +847,7 @@ static void* api_require(const char* symbol) {
     U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
     U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring),
     U(newstate), U(setfuncs), U(buffinit), U(addlstring), U(addstring),
-    U(addvalue), U(pushresult),
+    U(addvalue), U(pushresult), {"api_load_libs", (void*)(api_load_libs)},
     #if LUA_VERSION_NUM >= 502
     P(absindex), P(arith), P(callk), P(compare), P(getglobal),
     P(len), P(pcallk), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
