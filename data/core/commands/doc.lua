@@ -59,8 +59,9 @@ local function cut_or_copy(delete)
         doc():delete_to_cursor(idx, 0)
       end
     else -- Cut/copy whole line
-      text = doc().lines[line1]
-      full_text = full_text == "" and text or (full_text .. text)
+      -- Remove newline from the text. It will be added as needed on paste.
+      text = string.sub(doc().lines[line1], 1, -2)
+      full_text = full_text == "" and text or (full_text .. text .. "\n")
       core.cursor_clipboard_whole_line[idx] = true
       if delete then
         if line1 < #doc().lines then
@@ -180,14 +181,14 @@ end
 local function insert_paste(doc, value, whole_line, idx)
   if whole_line then
     local line1, col1 = doc:get_selection_idx(idx)
-    doc:insert(line1, 1, value:gsub("\r", ""))
+    doc:insert(line1, 1, value:gsub("\r", "").."\n")
     -- Because we're inserting at the start of the line,
     -- if the cursor is in the middle of the line
     -- it gets carried to the next line along with the old text.
     -- If it's at the start of the line it doesn't get carried,
-    -- so we move it to the end of the paste.
+    -- so we move it of as many characters as we're adding.
     if col1 == 1 then
-      doc:move_to_cursor(idx, #value)
+      doc:move_to_cursor(idx, #value+1)
     end
   else
     doc:text_input(value:gsub("\r", ""), idx)
@@ -228,23 +229,47 @@ local commands = {
       return
     end
     -- Use internal clipboard(s)
+    -- If there are mixed whole lines and normal lines, consider them all as normal
+    local only_whole_lines = true
+    for _,whole_line in pairs(core.cursor_clipboard_whole_line) do
+      if not whole_line then
+        only_whole_lines = false
+        break
+      end
+    end
     if #core.cursor_clipboard_whole_line == (#dv.doc.selections/4) then
     -- If we have the same number of clipboards and selections,
     -- paste each clipboard into its corresponding selection
       for idx in dv.doc:get_selections() do
-        insert_paste(dv.doc, core.cursor_clipboard[idx], core.cursor_clipboard_whole_line[idx], idx)
+        insert_paste(dv.doc, core.cursor_clipboard[idx], only_whole_lines, idx)
       end
     else
       -- Paste every clipboard and add a selection at the end of each one
       local new_selections = {}
       for idx in dv.doc:get_selections() do
-        for cb_idx,whole_line in ipairs(core.cursor_clipboard_whole_line) do
-          insert_paste(dv.doc, core.cursor_clipboard[cb_idx], whole_line, idx)
-          table.insert(new_selections, {dv.doc:get_selection_idx(idx)})
+        local new_partial_selections = {}
+        for cb_idx in ipairs(core.cursor_clipboard_whole_line) do
+          insert_paste(dv.doc, core.cursor_clipboard[cb_idx], only_whole_lines, idx)
+          -- Make the last selection the initial one;
+          -- this way pressing escape will keep the last selection.
+          -- When dealing with whole lines, only keep the last cursor
+          if not only_whole_lines then
+            table.insert(new_partial_selections, 1, {dv.doc:get_selection_idx(idx)})
+          end
         end
+        if only_whole_lines then
+          table.insert(new_partial_selections, 1, {dv.doc:get_selection_idx(idx)})
+        end
+        table.insert(new_selections, new_partial_selections)
       end
-      for i,selection in ipairs(new_selections) do
-        dv.doc:set_selections(#new_selections - i + 1, table.unpack(selection))
+      -- The new_selections and partial_selection system is needed to keep the
+      -- last cursor added to the first "original" cursor as the primary one.
+      local i = 1
+      for _,partial_selection in pairs(new_selections) do
+        for _,selection in pairs(partial_selection) do
+          dv.doc:set_selections(i, table.unpack(selection))
+          i = i + 1
+        end
       end
     end
   end,
