@@ -113,6 +113,10 @@ function DocView:get_scrollable_size()
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
 
+function DocView:get_h_scrollable_size()
+  return math.huge
+end
+
 
 function DocView:get_font()
   return style[self.font]

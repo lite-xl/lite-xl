@@ -88,6 +88,10 @@ function CommandView:get_scrollable_size()
   return 0
 end
 
+function CommandView:get_h_scrollable_size()
+  return 0
+end
+
 
 function CommandView:scroll_to_make_visible()
   -- no-op function to disable this functionality
