@@ -157,6 +157,11 @@ function Doc:get_selection(sort)
   return line1, col1, line2, col2, swap
 end
 
+
+---Get the selection specified by `idx`
+---@param idx integer @the index of the selection to retrieve
+---@param sort? boolean @whether to sort the selection returned
+---@return integer,integer,integer,integer,boolean? @line1, col1, line2, col2, was the selection sorted
 function Doc:get_selection_idx(idx, sort)
   local line1, col1, line2, col2 = self.selections[idx*4-3], self.selections[idx*4-2], self.selections[idx*4-1], self.selections[idx*4]
   if sort then
