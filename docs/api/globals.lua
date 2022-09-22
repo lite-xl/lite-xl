@@ -4,6 +4,11 @@
 ---@type table<integer, string>
 ARGS = {}
 
+---The current platform tuple used for native modules loading,
+---for example: "x86_64-linux", "x86_64-darwin", "x86_64-windows", etc...
+---@type string
+ARCH = "Architecture-OperatingSystem"
+
 ---The current operating system.
 ---@type string | "'Windows'" | "'Mac OS X'" | "'Linux'" | "'iOS'" | "'Android'"
 PLATFORM = "Operating System"
