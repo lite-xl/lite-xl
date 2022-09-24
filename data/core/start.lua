@@ -29,7 +29,7 @@ package.cpath =
   USERDIR .. '/?/init.' .. suffix .. ";" .. 
   DATADIR .. '/?.' .. ARCH .. "." .. suffix .. 
   DATADIR .. '/?/init.' .. ARCH .. "." .. suffix .. 
-  DATADIR .. '/?.' .. suffix
+  DATADIR .. '/?.' .. suffix ..
   DATADIR .. '/?/init.' .. suffix
   
 package.native_plugins = {}
