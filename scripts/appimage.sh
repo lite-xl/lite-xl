@@ -1,5 +1,5 @@
 #!/bin/env bash
-set -ex
+set -e
 
 if [ ! -e "src/api/api.h" ]; then
   echo "Please run this script from the root directory of Lite XL."
@@ -7,6 +7,13 @@ if [ ! -e "src/api/api.h" ]; then
 fi
 
 source scripts/common.sh
+
+ARCH="$(uname -m)"
+BUILD_DIR="$(get_default_build_dir)"
+RUN_BUILD=true
+STATIC_BUILD=false
+ADDONS=false
+BUILD_TYPE="debug"
 
 show_help(){
   echo
@@ -16,22 +23,21 @@ show_help(){
   echo
   echo "-h --help                 Show this help and exits."
   echo "-b --builddir DIRNAME     Sets the name of the build dir (no path)."
-  echo "                          Default: 'build'."
+  echo "                          Default: '${BUILD_DIR}'."
+  echo "   --debug                Debug this script."
   echo "-n --nobuild              Skips the build step, use existing files."
-  echo "-s --static               Specify if building using static libraries"
-  echo "                          by using lhelper tool."
+  echo "-s --static               Specify if building using static libraries."
   echo "-v --version VERSION      Specify a version, non whitespace separated string."
+  echo "-a --addons               Install 3rd party addons."
+  echo "-r --release              Compile in release mode."
   echo
 }
 
-ARCH="$(uname -m)"
-BUILD_DIR="$(get_default_build_dir)"
-RUN_BUILD=true
-STATIC_BUILD=false
+initial_arg_count=$#
 
 for i in "$@"; do
   case $i in
-    -h|--belp)
+    -h|--help)
       show_help
       exit 0
       ;;
@@ -40,8 +46,20 @@ for i in "$@"; do
       shift
       shift
       ;;
+    -a|--addons)
+      ADDONS=true
+      shift
+      ;;
+    --debug)
+      set -x
+      shift
+      ;;
     -n|--nobuild)
       RUN_BUILD=false
+      shift
+      ;;
+    -r|--release)
+      BUILD_TYPE="release"
       shift
       ;;
     -s|--static)
@@ -59,25 +77,19 @@ for i in "$@"; do
   esac
 done
 
-# TODO: Versioning using git
-#if [[ -z $VERSION && -d .git ]]; then
-#  VERSION=$(git describe --tags --long | sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/./g')
-#fi
-
-if [[ -n $1 ]]; then
+# show help if no valid argument was found
+if [ $initial_arg_count -eq $# ]; then
   show_help
   exit 1
 fi
 
 setup_appimagetool() {
-  if ! which appimagetool > /dev/null ; then
-    if [ ! -e appimagetool ]; then
-      if ! wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage" ; then
-        echo "Could not download the appimagetool for the arch '${ARCH}'."
-        exit 1
-      else
-        chmod 0755 appimagetool
-      fi
+  if [ ! -e appimagetool ]; then
+    if ! wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage" ; then
+      echo "Could not download the appimagetool for the arch '${ARCH}'."
+      exit 1
+    else
+      chmod 0755 appimagetool
     fi
   fi
 }
@@ -104,7 +116,14 @@ build_litexl() {
 
   echo "Build lite-xl..."
   sleep 1
-  meson setup --buildtype=release --prefix /usr ${BUILD_DIR}
+  if [[ $STATIC_BUILD == false ]]; then
+    meson setup --buildtype=$BUILD_TYPE --prefix=/usr ${BUILD_DIR}
+  else
+    meson setup --wrap-mode=forcefallback \
+      --buildtype=$BUILD_TYPE \
+      --prefix=/usr \
+      ${BUILD_DIR}
+  fi
   meson compile -C ${BUILD_DIR}
 }
 
@@ -120,6 +139,11 @@ generate_appimage() {
   # These could be symlinks but it seems they doesn't work with AppimageLauncher
   cp resources/icons/lite-xl.svg LiteXL.AppDir/
   cp resources/linux/org.lite_xl.lite_xl.desktop LiteXL.AppDir/
+
+  if [[ $ADDONS == true ]]; then
+    addons_download "${BUILD_DIR}"
+    addons_install "${BUILD_DIR}" "LiteXL.AppDir/usr/share/lite-xl"
+  fi
 
   if [[ $STATIC_BUILD == false ]]; then
     echo "Copying libraries..."
@@ -151,6 +175,10 @@ generate_appimage() {
   local version=""
   if [ -n "$VERSION" ]; then
     version="-$VERSION"
+  fi
+
+  if [[ $ADDONS == true ]]; then
+    version="${version}-addons"
   fi
 
   ./appimagetool LiteXL.AppDir LiteXL${version}-${ARCH}.AppImage

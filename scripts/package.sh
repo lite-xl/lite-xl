@@ -20,42 +20,17 @@ show_help() {
   echo "-h --help                 Show this help and exit."
   echo "-p --prefix PREFIX        Install directory prefix. Default: '/'."
   echo "-v --version VERSION      Sets the version on the package name."
-  echo "   --addons               Install 3rd party addons (currently Lite XL colors)."
+  echo "-a --addons               Install 3rd party addons."
   echo "   --debug                Debug this script."
   echo "-A --appimage             Create an AppImage (Linux only)."
   echo "-B --binary               Create a normal / portable package or macOS bundle,"
   echo "                          depending on how the build was configured. (Default.)"
   echo "-D --dmg                  Create a DMG disk image with AppDMG (macOS only)."
   echo "-I --innosetup            Create a InnoSetup package (Windows only)."
+  echo "-r --release              Strip debugging symbols."
   echo "-S --source               Create a source code package,"
   echo "                          including subprojects dependencies."
   echo
-}
-
-# Addons installation: some distributions forbid external downloads
-# so make it as optional module.
-install_addons() {
-  local build_dir="$1"
-  local data_dir="$2"
-
-  if [[ -d "${build_dir}/third/data/colors" ]]; then
-    echo "Warning: found previous colors addons installation, skipping."
-    return 0
-  fi
-
-  # Copy third party color themes
-  curl --insecure \
-    -L "https://github.com/lite-xl/lite-xl-colors/archive/master.zip" \
-    -o "${build_dir}/lite-xl-colors.zip"
-
-  mkdir -p "${build_dir}/third/data/colors"
-  unzip "${build_dir}/lite-xl-colors.zip" -d "${build_dir}"
-  mv "${build_dir}/lite-xl-colors-master/colors" "${build_dir}/third/data"
-  rm -rf "${build_dir}/lite-xl-colors-master"
-
-  for module_name in colors; do
-    cp -r "${build_dir}/third/data/$module_name" "${data_dir}"
-  done
 }
 
 source_package() {
@@ -85,7 +60,7 @@ source_package() {
 }
 
 main() {
-  local arch="$(uname -m)"
+  local arch="$(get_platform_arch)"
   local platform="$(get_platform_name)"
   local build_dir="$(get_default_build_dir)"
   local dest_dir=lite-xl
@@ -96,7 +71,11 @@ main() {
   local binary=false
   local dmg=false
   local innosetup=false
+  local release=false
   local source=false
+
+  # store the current flags to easily pass them to appimage script
+  local flags="$@"
 
   for i in "$@"; do
     case $i in
@@ -152,11 +131,15 @@ main() {
         fi
         shift
         ;;
+      -r|--release)
+        release=true
+        shift
+        ;;
       -S|--source)
         source=true
         shift
         ;;
-      --addons)
+      -a|--addons)
         addons=true
         shift
         ;;
@@ -169,6 +152,10 @@ main() {
         ;;
     esac
   done
+
+  if [[ $addons == true ]]; then
+    version="$version-addons"
+  fi
 
   if [[ -n $1 ]]; then show_help; exit 1; fi
 
@@ -190,6 +177,7 @@ main() {
 
   local data_dir="$(pwd)/${dest_dir}/data"
   local exe_file="$(pwd)/${dest_dir}/lite-xl"
+
   local package_name=lite-xl$version-$platform-$arch
   local bundle=false
   local portable=false
@@ -202,6 +190,14 @@ main() {
     if [[ $platform == "windows" ]]; then
       exe_file="${exe_file}.exe"
       stripcmd="strip --strip-all"
+      # Copy MinGW libraries dependencies.
+      # MSYS2 ldd command seems to be only 64bit, so use ntldd
+      # see https://github.com/msys2/MINGW-packages/issues/4164
+      ntldd -R "${exe_file}" \
+        | grep mingw \
+        | awk '{print $3}' \
+        | sed 's#\\#/#g' \
+        | xargs -I '{}' cp -v '{}' "$(pwd)/${dest_dir}/"
     else
       # Windows archive is always portable
       package_name+="-portable"
@@ -227,7 +223,10 @@ main() {
 
   mkdir -p "${data_dir}"
 
-  if [[ $addons == true ]]; then install_addons "${build_dir}" "${data_dir}"; fi
+  if [[ $addons == true ]]; then
+    addons_download "${build_dir}"
+    addons_install "${build_dir}" "${data_dir}"
+  fi
 
   # TODO: use --skip-subprojects when 0.58.0 will be available on supported
   # distributions to avoid subprojects' include and lib directories to be copied.
@@ -238,7 +237,9 @@ main() {
   find . -type d -empty -delete
   popd
 
-  $stripcmd "${exe_file}"
+  if [[ $release == true ]]; then
+    $stripcmd "${exe_file}"
+  fi
 
   echo "Creating a compressed archive ${package_name}"
   if [[ $binary == true ]]; then
@@ -252,9 +253,15 @@ main() {
     fi
   fi
 
-  if [[ $appimage == true ]]; then source scripts/appimage.sh; fi
-  if [[ $bundle == true && $dmg == true ]]; then source scripts/appdmg.sh "${package_name}"; fi
-  if [[ $innosetup == true ]]; then source scripts/innosetup/innosetup.sh -b "${build_dir}"; fi
+  if [[ $appimage == true ]]; then
+    source scripts/appimage.sh $flags --static
+  fi
+  if [[ $bundle == true && $dmg == true ]]; then
+    source scripts/appdmg.sh "${package_name}"
+  fi
+  if [[ $innosetup == true ]]; then
+    source scripts/innosetup/innosetup.sh $flags
+  fi
 }
 
 main "$@"
