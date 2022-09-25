@@ -387,6 +387,7 @@ static int f_thread_create(lua_State *L)
   /* Copy globals from main state to properly set the packages path */
   copy_global("ARGS", L, thread->L);
   copy_global("PLATFORM", L, thread->L);
+  copy_global("ARCH", L, thread->L);
   copy_global("EXEFILE", L, thread->L);
   copy_global("HOME", L, thread->L);
 
