@@ -15,7 +15,7 @@ on:
 jobs:
   release:
     name: Create Release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.tag.outputs.version }}
@@ -30,12 +30,6 @@ jobs:
           else
             echo ::set-output name=version::${GITHUB_REF/refs\/tags\//}
           fi
-      - name: Update Tag
-        uses: richardsimko/update-tag@v1
-        with:
-          tag_name: ${{ steps.tag.outputs.version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -43,13 +37,14 @@ jobs:
           tag_name: ${{ steps.tag.outputs.version }}
           name: Lite XL ${{ steps.tag.outputs.version }}
           draft: true
+          prerelease: false
           body_path: changelog.md
           generate_release_notes: true
 
   build_linux:
     name: Linux
     needs: release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env:
       CC: gcc
       CXX: g++
@@ -85,7 +80,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.release.outputs.version }}
-          draft: true
           files: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
             lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
@@ -96,9 +90,6 @@ jobs:
     name: macOS (x86_64)
     needs: release
     runs-on: macos-11
-    strategy:
-      matrix:
-        arch: [x86_64, arm64]
     env:
       CC: clang
       CXX: clang++
@@ -113,8 +104,8 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
+          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-$(uname -m)" >> "$GITHUB_ENV"
+          echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-$(uname -m)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v2
       - name: Python Setup
         uses: actions/setup-python@v2
@@ -125,16 +116,15 @@ jobs:
       - name: Build
         run: |
           bash --version
-          CROSS_ARCH=${{ matrix.arch }} bash scripts/build.sh --bundle --debug --forcefallback --release
+          bash scripts/build.sh --bundle --debug --forcefallback --release
       - name: Create DMG Image
         run: |
-          CROSS_ARCH=${{ matrix.arch }} bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg --release
-          CROSS_ARCH=${{ matrix.arch }} bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg --release
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg --release
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg --release
       - name: Upload Files
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.release.outputs.version }}
-          draft: true
           files: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
@@ -190,7 +180,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.release.outputs.version }}
-          draft: true
           files: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip

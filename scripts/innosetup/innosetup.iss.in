@@ -69,9 +69,7 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 Name: "portablemode"; Description: "Portable Mode"; Flags: unchecked
 
 [Files]
-Source: "{#BuildDir}/src/lite-xl.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#BuildDir}/mingwLibs{#Arch}/*"; DestDir: "{app}"; Flags: ignoreversion ; Check: DirExists(ExpandConstant('{#BuildDir}/mingwLibs{#Arch}'))
-Source: "{#SourceDir}/data/*"; DestDir: "{app}/data"; Flags: ignoreversion recursesubdirs
+Source: "{#SourceDir}/lite-xl/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
