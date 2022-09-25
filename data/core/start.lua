@@ -23,15 +23,15 @@ package.path = USERDIR .. '/?/init.lua;' .. package.path
 
 local suffix = PLATFORM == "Mac OS X" and 'lib' or (PLATFORM == "Windows" and 'dll' or 'so')
 package.cpath =
-  USERDIR .. '/?.' .. ARCH .. "." .. suffix .. ";" .. 
-  USERDIR .. '/?/init.' .. ARCH .. "." .. suffix .. ";" .. 
-  USERDIR .. '/?.' .. suffix .. ";" .. 
-  USERDIR .. '/?/init.' .. suffix .. ";" .. 
-  DATADIR .. '/?.' .. ARCH .. "." .. suffix .. 
-  DATADIR .. '/?/init.' .. ARCH .. "." .. suffix .. 
-  DATADIR .. '/?.' .. suffix ..
-  DATADIR .. '/?/init.' .. suffix
-  
+  USERDIR .. '/?.' .. ARCH .. "." .. suffix .. ";" ..
+  USERDIR .. '/?/init.' .. ARCH .. "." .. suffix .. ";" ..
+  USERDIR .. '/?.' .. suffix .. ";" ..
+  USERDIR .. '/?/init.' .. suffix .. ";" ..
+  DATADIR .. '/?.' .. ARCH .. "." .. suffix .. ";" ..
+  DATADIR .. '/?/init.' .. ARCH .. "." .. suffix .. ";" ..
+  DATADIR .. '/?.' .. suffix .. ";" ..
+  DATADIR .. '/?/init.' .. suffix .. ";"
+
 package.native_plugins = {}
 package.searchers = { package.searchers[1], package.searchers[2], function(modname)
   local path = package.searchpath(modname, package.cpath)
