@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.0] - 202X-XX-XX
+## [2.1.0] - 2022-09-25
 
 ### New Features
 * Make distinction between
@@ -106,6 +106,24 @@
 * Config: added new development option to prevent plugin version checking at
   startup named [skip_plugins_version](https://github.com/lite-xl/lite-xl/pull/879)
 
+* Added a smoothing and strikethrough option to font loading
+  ([#1087](https://github.com/lite-xl/lite-xl/pull/1087))
+
+* Allow command predicates to manage parameters, allow overwriting commands
+  ([#1098](https://github.com/lite-xl/lite-xl/pull/1098))
+
+* Added in simple directory search to treeview.
+  ([#1110](https://github.com/lite-xl/lite-xl/pull/1110))
+
+* Added in native modules suffixes.
+  ([#1111](https://github.com/lite-xl/lite-xl/pull/1111))
+
+* plugin scale: added option to set default scale
+  ([#1115](https://github.com/lite-xl/lite-xl/pull/1115))
+
+* Added in ability to have init.so as a require for cpath.
+  ([#1126](https://github.com/lite-xl/lite-xl/pull/1126))
+
 ### Performance Improvements
 
 * [Load space metrics only when creating font](https://github.com/lite-xl/lite-xl/pull/1032)
@@ -147,8 +165,6 @@
     files = { "%.md$", "%.txt$" }
   }, config.plugins.autowrap)
   ```
-
-* The `font.set_size` function was dropped in favor of `font.copy`.
 
 * `DocView:draw_text_line` and related functions been used by plugin developers
   require a revision, since some of this interfaces were updated to support
@@ -312,6 +328,9 @@
   check in font_retrieve
 
 * Many, many, many more changes that are too numerous to list.
+
+* CommandView: do not change caret size with config.line_height
+  ([#1080](https://github.com/lite-xl/lite-xl/pull/1080))
 
 ## [2.0.5] - 2022-01-29
 
