@@ -103,7 +103,6 @@ if not get_option('source-only')
     sdl_options = ['default_library=static']
 
     # we explicitly need these
-    sdl_options += 'test=false'
     sdl_options += 'use_loadso=enabled'
     sdl_options += 'prefer_dlopen=true'
     sdl_options += 'use_video=enabled'
