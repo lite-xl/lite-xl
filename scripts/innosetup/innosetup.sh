@@ -15,15 +15,29 @@ show_help() {
   echo
   echo "-b --builddir DIRNAME     Sets the name of the build directory (not path)."
   echo "                          Default: '$(get_default_build_dir)'."
+  echo "-v --version VERSION      Sets the version on the package name."
+  echo "-a --addons               Tell the script we are packaging an install with addons."
   echo "   --debug                Debug this script."
   echo
 }
 
 main() {
   local build_dir=$(get_default_build_dir)
+  local addons=false
   local arch
+  local arch_file
+  local version
+  local output
 
-  if [[ $MSYSTEM == "MINGW64" ]]; then arch=x64; else arch=Win32; fi
+  if [[ $MSYSTEM == "MINGW64" ]]; then
+    arch=x64
+    arch_file=x86_64
+  else
+    arch=i686;
+    arch_file=i686
+  fi
+
+  initial_arg_count=$#
 
   for i in "$@"; do
     case $i in
@@ -31,8 +45,17 @@ main() {
         show_help
         exit 0
         ;;
+      -a|--addons)
+        addons=true
+        shift
+        ;;
       -b|--builddir)
         build_dir="$2"
+        shift
+        shift
+        ;;
+      -v|--version)
+        if [[ -n $2 ]]; then version="-$2"; fi
         shift
         shift
         ;;
@@ -46,19 +69,19 @@ main() {
     esac
   done
 
-  if [[ -n $1 ]]; then
+  # show help if no valid argument was found
+  if [ $initial_arg_count -eq $# ]; then
     show_help
     exit 1
   fi
 
-  # Copy MinGW libraries dependencies.
-  # MSYS2 ldd command seems to be only 64bit, so use ntldd
-  # see https://github.com/msys2/MINGW-packages/issues/4164
-  local mingwLibsDir="${build_dir}/mingwLibs$arch"
-  mkdir -p "$mingwLibsDir"
-  ntldd -R "${build_dir}/src/lite-xl.exe" | grep mingw | awk '{print $3}' | sed 's#\\#/#g' | xargs -I '{}' cp -v '{}' $mingwLibsDir
+  if [[ $addons == true ]]; then
+    version="${version}-addons"
+  fi
 
-  "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" -dARCH=$arch "${build_dir}/scripts/innosetup.iss"
+  output="LiteXL${version}-${arch_file}-setup"
+
+  "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" -dARCH=$arch //F"${output}" "${build_dir}/scripts/innosetup.iss"
   pushd "${build_dir}/scripts"; mv LiteXL*.exe "./../../"; popd
 }
 
