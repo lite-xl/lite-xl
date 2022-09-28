@@ -1,6 +1,5 @@
 local core = require "core"
 local config = require "core.config"
-local style = require "core.style"
 local common = require "core.common"
 local Object = require "core.object"
 local Scrollbar = require "core.scrollbar"
@@ -117,16 +116,12 @@ function View:scrollbar_overlaps_point(x, y)
 end
 
 
----@param x number
----@param y number
 ---@return boolean
 function View:scrollbar_dragging()
   return self.v_scrollbar.dragging or self.h_scrollbar.dragging
 end
 
 
----@param x number
----@param y number
 ---@return boolean
 function View:scrollbar_hovering()
   return self.v_scrollbar.hovering.track or self.h_scrollbar.hovering.track
@@ -224,14 +219,17 @@ function View:on_text_input(text)
   -- no-op
 end
 
+
 function View:on_ime_text_editing(text, start, length)
   -- no-op
 end
 
----@param y number
----@return boolean
-function View:on_mouse_wheel(y)
 
+---@param y number @Vertical scroll delta; positive is "up"
+---@param x number @Horizontal scroll delta; positive is "left"
+---@return boolean @Capture event
+function View:on_mouse_wheel(y, x)
+  -- no-op
 end
 
 ---Can be overriden to listen for scale change events to apply
