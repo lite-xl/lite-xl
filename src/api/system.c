@@ -427,6 +427,19 @@ static int f_get_window_mode(lua_State *L) {
 }
 
 
+static int f_raise_window(lua_State *L) {
+  /*
+    SDL_RaiseWindow should be enough but on some window managers like the
+    one used on Gnome the window needs to first have input focus in order
+    to allow the window to be focused. Also on wayland the raise window event
+    may not always be obeyed.
+  */
+  SDL_SetWindowInputFocus(window);
+  SDL_RaiseWindow(window);
+  return 0;
+}
+
+
 static int f_show_fatal_error(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
   const char *msg = luaL_checkstring(L, 2);
@@ -975,6 +988,7 @@ static const luaL_Reg lib[] = {
   { "get_window_size",     f_get_window_size     },
   { "set_window_size",     f_set_window_size     },
   { "window_has_focus",    f_window_has_focus    },
+  { "raise_window",        f_raise_window        },
   { "show_fatal_error",    f_show_fatal_error    },
   { "rmdir",               f_rmdir               },
   { "chdir",               f_chdir               },

@@ -132,6 +132,11 @@ function system.set_window_size(width, height, x, y) end
 function system.window_has_focus() end
 
 ---
+---Raise the main window and give it input focus.
+---Note: may not always be obeyed by the users window manager.
+function system.raise_window() end
+
+---
 ---Opens a message box to display an error message.
 ---
 ---@param title string
