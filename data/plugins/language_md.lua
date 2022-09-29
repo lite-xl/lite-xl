@@ -42,9 +42,9 @@ syntax.add {
     -- blockquote
     { pattern = "^%s*>+%s",                 type = "string" },
     -- alternative bold italic formats
-    { pattern = { "%s___", "___%f[%s]" },   type = "markdown_bold_italic" },
-    { pattern = { "%s__", "__%f[%s]" },     type = "markdown_bold" },
-    { pattern = { "%s_[%S]", "_%f[%s]" },   type = "markdown_italic" },
+    { pattern = { "%s___", "___" },         type = "markdown_bold_italic" },
+    { pattern = { "%s__", "__" },           type = "markdown_bold" },
+    { pattern = { "%s_[%S]", "_" },         type = "markdown_italic" },
     -- reference links
     {
       pattern = "^%s*%[%^()["..in_squares_match.."]+()%]: ",
@@ -166,9 +166,9 @@ syntax.add {
       type = "markdown_italic"
     },
     -- alternative bold italic formats
-    { pattern = "^___[%s%p%w]+___%s" ,      type = "markdown_bold_italic" },
-    { pattern = "^__[%s%p%w]+__%s" ,        type = "markdown_bold" },
-    { pattern = "^_[%s%p%w]+_%s" ,          type = "markdown_italic" },
+    { pattern = "^___[%s%p%w]+___" ,        type = "markdown_bold_italic" },
+    { pattern = "^__[%s%p%w]+__" ,          type = "markdown_bold" },
+    { pattern = "^_[%s%p%w]+_" ,            type = "markdown_italic" },
     -- heading with custom id
     {
       pattern = "^#+%s[%w%s%p]+(){()#[%w%-]+()}",
