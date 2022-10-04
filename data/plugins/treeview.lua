@@ -50,20 +50,6 @@ function TreeView:new()
 
   self.item_icon_width = 0
   self.item_text_spacing = 0
-
-  self:add_core_hooks()
-end
-
-
-function TreeView:add_core_hooks()
-  -- When a file or directory is deleted we delete the corresponding cache entry
-  -- because if the entry is recreated we may use wrong information from cache.
-  local on_delete = core.on_dirmonitor_delete
-  core.on_dirmonitor_delete = function(dir, filepath)
-    local cache = self.cache[dir.name]
-    if cache then cache[filepath] = nil end
-    on_delete(dir, filepath)
-  end
 end
 
 
@@ -86,7 +72,7 @@ function TreeView:get_cached(dir, item, dirname)
   -- used only to identify the entry into the cache.
   local cache_name = item.filename .. (item.topdir and ":" or "")
   local t = dir_cache[cache_name]
-  if not t then
+  if not t or t.type ~= item.type then
     t = {}
     local basename = common.basename(item.filename)
     if item.topdir then
