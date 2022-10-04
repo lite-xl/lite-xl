@@ -73,22 +73,22 @@ function TreeView:get_cached(dir, item, dirname)
   local cache_name = item.filename .. (item.topdir and ":" or "")
   local t = dir_cache[cache_name]
   if not t or t.type ~= item.type then
-    local n = {}
+    t = {}
     local basename = common.basename(item.filename)
     if item.topdir then
-      n.filename = basename
-      n.expanded = true
-      n.depth = 0
-      n.abs_filename = dirname
+      t.filename = basename
+      t.expanded = true
+      t.depth = 0
+      t.abs_filename = dirname
     else
-      n.filename = item.filename
-      n.depth = get_depth(item.filename)
-      n.abs_filename = dirname .. PATHSEP .. item.filename
+      t.filename = item.filename
+      t.depth = get_depth(item.filename)
+      t.abs_filename = dirname .. PATHSEP .. item.filename
     end
-    n.name = basename
-    n.type = item.type
-    n.dir_name = dir.name -- points to top level "dir" item
-    dir_cache[cache_name], t = n, n
+    t.name = basename
+    t.type = item.type
+    t.dir_name = dir.name -- points to top level "dir" item
+    dir_cache[cache_name] = t
   end
   return t
 end
