@@ -29,7 +29,7 @@ typedef int process_handle;
 #endif
 
 typedef struct {
-  bool running;
+  bool running, detached;
   int returncode, deadline;
   long pid;
   #if _WIN32
@@ -38,7 +38,7 @@ typedef struct {
     bool reading[2];
     char buffer[2][READ_BUF_SIZE];
   #endif
-    process_handle child_pipes[3][2];
+  process_handle child_pipes[3][2];
 } process_t;
 
 typedef enum {
@@ -183,6 +183,7 @@ static int process_start(lua_State* L) {
   memset(self, 0, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
   self->deadline = deadline;
+  self->detached = detach;
   #if _WIN32
     for (int i = 0; i < 3; ++i) {
       switch (new_fds[i]) {
@@ -455,7 +456,8 @@ static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
 static int f_gc(lua_State* L) { 
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  signal_process(self, SIGNAL_TERM);
+  if (!self->detached)
+    signal_process(self, SIGNAL_TERM);
   close_fd(&self->child_pipes[STDIN_FD ][1]);
   close_fd(&self->child_pipes[STDOUT_FD][0]);
   close_fd(&self->child_pipes[STDERR_FD][0]); 
