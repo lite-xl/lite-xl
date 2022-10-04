@@ -82,12 +82,19 @@ if not get_option('source-only')
 
     foreach lua : lua_names
         last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
-        lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : last_lua,
+        lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : false,
             version: '>= 5.4',
             default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
         )
         if lua_dep.found()
             break
+        endif
+
+        if last_lua
+            # If we could not find lua on the system and fallbacks are disabled
+            # try the compiler as a last ditch effort, since Lua has no official
+            # pkg-config support.
+            lua_dep = cc.find_library('lua', required : true)
         endif
     endforeach
 
