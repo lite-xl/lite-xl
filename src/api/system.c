@@ -515,7 +515,7 @@ static int f_list_dir(lua_State *L) {
 
 #ifdef _WIN32
   lua_settop(L, 1);
-  if (strchr("\\/", path[strlen(path) - 2]) != NULL)
+  if (path[0] == 0 || strchr("\\/", path[strlen(path) - 1]) != NULL)
     lua_pushstring(L, "*");
   else
     lua_pushstring(L, "/*");
