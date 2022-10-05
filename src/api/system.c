@@ -3,41 +3,24 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <errno.h>
-
-// TODO: completely replace stat on Windows
-// because this implementation is hella sketchy
-#define _CRT_INTERNAL_NONSTDC_NAMES 1
+#include <sys/types.h>
 #include <sys/stat.h>
-
-#ifdef _WIN32
-  #include <windows.h>
-  #include <fileapi.h>
-  #include <direct.h>
-
-  // Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
-  // We have to define _CRT_INTERNAL_NONSTDC_NAMES 1 before #including sys/stat.h
-  // in order for Microsoft's stat.h to define names like S_IFMT, S_IFREG, and S_IFDIR,
-  // rather than just defining  _S_IFMT, _S_IFREG, and _S_IFDIR as it normally does.
-  #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
-    #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-  #endif
-  #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
-    #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
-  #endif
-
-  typedef DWORD system_error_t;
-#else
-  #include <dirent.h>
-  #include <unistd.h>
-  #ifdef __linux__
-    #include <sys/vfs.h>
-  #endif
-
-  typedef int system_error_t;
-#endif
-
 #include "api.h"
 #include "../rencache.h"
+#ifdef _WIN32
+  #include <direct.h>
+  #include <windows.h>
+  #include <fileapi.h>
+  #include "../utfconv.h"
+#else
+
+#include <dirent.h>
+#include <unistd.h>
+
+#ifdef __linux__
+  #include <sys/vfs.h>
+#endif
+#endif
 
 extern SDL_Window *window;
 
@@ -148,26 +131,30 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
   }
 }
 
-static void l_pusherrorstr(lua_State *L, system_error_t e) {
 #ifdef _WIN32
-  LPSTR msg = NULL;
-  FormatMessageA(
-    FORMAT_MESSAGE_ALLOCATE_BUFFER
-    | FORMAT_MESSAGE_FROM_SYSTEM
-    | FORMAT_MESSAGE_IGNORE_INSERTS,
+static char *win32_error(DWORD rc) {
+  LPSTR message;
+  FormatMessage(
+    FORMAT_MESSAGE_ALLOCATE_BUFFER |
+    FORMAT_MESSAGE_FROM_SYSTEM |
+    FORMAT_MESSAGE_IGNORE_INSERTS,
     NULL,
-    e,
+    rc,
     MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-    (LPSTR) &msg,
+    (LPTSTR) &message,
     0,
     NULL
   );
-  lua_pushstring(L, msg ? msg : "unknown error");
-  LocalFree(msg);
-#else
-  lua_pushstring(L, strerror(e));
-#endif
+
+  return message;
 }
+
+static void push_win32_error(lua_State *L, DWORD rc) {
+  LPSTR message = win32_error(rc);
+  lua_pushstring(L, message);
+  LocalFree(message);
+}
+#endif
 
 static int f_poll_event(lua_State *L) {
   char buf[16];
@@ -482,10 +469,16 @@ static int f_rmdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
 #ifdef _WIN32
-  int deleted = RemoveDirectoryA(path);
-  lua_pushboolean(L, deleted);
-  if (!deleted)
-    l_pusherrorstr(L, GetLastError());
+  LPWSTR wpath = utfconv_utf8towc(path);
+  int deleted = RemoveDirectoryW(wpath);
+  free(wpath);
+  if (deleted > 0) {
+    lua_pushboolean(L, 1);
+  } else {
+    lua_pushboolean(L, 0);
+    push_win32_error(L, GetLastError());
+    return 2;
+  }
 #else
   int deleted = remove(path);
   if(deleted < 0) {
@@ -504,49 +497,67 @@ static int f_rmdir(lua_State *L) {
 
 static int f_chdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+#ifdef _WIN32
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) { return luaL_error(L, UTFCONV_ERROR_INVALID_CONVERSION ); }
+  int err = _wchdir(wpath);
+  free(wpath);
+#else
   int err = chdir(path);
-  if (err) { luaL_error(L, "chdir() failed"); }
+#endif
+  if (err) { luaL_error(L, "chdir() failed: %s", strerror(errno)); }
   return 0;
 }
 
 
 static int f_list_dir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-#ifdef _WIN32
-  HANDLE find_handle = INVALID_HANDLE_VALUE;
-  WIN32_FIND_DATAA fd;
 
-  // for Windows, the path should be appended with a \*.
-  // we do that with lua for convenience
-  lua_pushvalue(L, 1);
-  if (path[strlen(path)-1] == '\\' || path[strlen(path)-1] == '/')
+#ifdef _WIN32
+  lua_settop(L, 1);
+  if (path[0] == 0 || strchr("\\/", path[strlen(path) - 1]) != NULL)
     lua_pushstring(L, "*");
   else
-    lua_pushstring(L, "\\*");
+    lua_pushstring(L, "/*");
 
-  path = (lua_concat(L, 2), lua_tostring(L, -1));
+  lua_concat(L, 2);
+  path = lua_tostring(L, -1);
 
-  find_handle = FindFirstFileExA(path, FindExInfoStandard, &fd, FindExSearchNameMatch, NULL, 0);
-  if (find_handle == INVALID_HANDLE_VALUE) {
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) {
     lua_pushnil(L);
-    l_pusherrorstr(L, GetLastError());
+    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
     return 2;
   }
 
-  lua_newtable(L);
-  int i = 1;
-  do {
-    if (strcmp(fd.cFileName, ".") == 0) { continue; }
-    if (strcmp(fd.cFileName, ".") == 0) { continue; }
+  WIN32_FIND_DATAW fd;
+  HANDLE find_handle = FindFirstFileExW(wpath, FindExInfoBasic, &fd, FindExSearchNameMatch, NULL, 0);
+  free(wpath);
+  if (find_handle == INVALID_HANDLE_VALUE) {
+    lua_pushnil(L);
+    push_win32_error(L, GetLastError());
+    return 2;
+  }
 
-    lua_pushstring(L, fd.cFileName);
+  char mbpath[MAX_PATH * 4]; // utf-8 spans 4 bytes at most
+  int len, i = 1;
+  lua_newtable(L);
+
+  do
+  {
+    if (wcscmp(fd.cFileName, L".") == 0) { continue; }
+    if (wcscmp(fd.cFileName, L"..") == 0) { continue; }
+
+    len = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, mbpath, MAX_PATH * 4, NULL, NULL);
+    if (len == 0) { break; }
+    lua_pushlstring(L, mbpath, len - 1); // len includes \0
     lua_rawseti(L, -2, i++);
-  } while (FindNextFileA(find_handle, &fd));
+  } while (FindNextFileW(find_handle, &fd));
 
   if (GetLastError() != ERROR_NO_MORE_FILES) {
-    FindClose(find_handle);
     lua_pushnil(L);
-    l_pusherrorstr(L, GetLastError());
+    push_win32_error(L, GetLastError());
+    FindClose(find_handle);
     return 2;
   }
 
@@ -572,18 +583,30 @@ static int f_list_dir(lua_State *L) {
   }
 
   closedir(dir);
-#endif
   return 1;
+#endif
 }
 
 
 #ifdef _WIN32
-  #define realpath(x, y) _fullpath(y, x, MAX_PATH)
+  #define realpath(x, y) _wfullpath(y, x, MAX_PATH)
 #endif
 
 static int f_absolute_path(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+#ifdef _WIN32
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (!wpath) { return 0; }
+
+  LPWSTR wfullpath = realpath(wpath, NULL);
+  free(wpath);
+  if (!wfullpath) { return 0; }
+
+  char *res = utfconv_wctoutf8(wfullpath);
+  free(wfullpath);
+#else
   char *res = realpath(path, NULL);
+#endif
   if (!res) { return 0; }
   lua_pushstring(L, res);
   free(res);
@@ -594,8 +617,20 @@ static int f_absolute_path(lua_State *L) {
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
+#ifdef _WIN32
+  struct _stat s;
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) {
+    lua_pushnil(L);
+    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    return 2;
+  }
+  int err = _wstat(wpath, &s);
+  free(wpath);
+#else
   struct stat s;
   int err = stat(path, &s);
+#endif
   if (err < 0) {
     lua_pushnil(L);
     lua_pushstring(L, strerror(errno));
@@ -618,7 +653,7 @@ static int f_get_file_info(lua_State *L) {
   }
   lua_setfield(L, -2, "type");
 
-#ifdef __linux__
+#if __linux__
   if (S_ISDIR(s.st_mode)) {
     if (lstat(path, &s) == 0) {
       lua_pushboolean(L, S_ISLNK(s.st_mode));
@@ -629,7 +664,7 @@ static int f_get_file_info(lua_State *L) {
   return 1;
 }
 
-#ifdef __linux__
+#if __linux__
 // https://man7.org/linux/man-pages/man2/statfs.2.html
 
 struct f_type_names {
@@ -653,7 +688,7 @@ static struct f_type_names fs_names[] = {
 #endif
 
 static int f_get_fs_type(lua_State *L) {
-  #ifdef __linux__
+  #if __linux__
     const char *path = luaL_checkstring(L, 1);
     struct statfs buf;
     int status = statfs(path, &buf);
@@ -676,7 +711,15 @@ static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
 #ifdef _WIN32
-  int err = _mkdir(path);
+  LPWSTR wpath = utfconv_utf8towc(path);
+  if (wpath == NULL) {
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    return 2;
+  }
+
+  int err = _wmkdir(wpath);
+  free(wpath);
 #else
   int err = mkdir(path, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 #endif
