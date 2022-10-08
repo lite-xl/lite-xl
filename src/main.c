@@ -85,6 +85,21 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 #endif
 
+#if __linux__
+/* Because AppImages change the working directory before running the executable,
+** we need to change it back to the original one.
+** https://github.com/AppImage/AppImageKit/issues/172
+** https://github.com/AppImage/AppImageKit/pull/191 */
+static void fix_appimage_working_dir() {
+  char *appimage = getenv("APPIMAGE");
+  char *owd = (appimage ? getenv("OWD") : NULL);
+  if (owd) {
+    /* Ignoring any error since there is not much we can do. */
+    chdir(owd);
+  }
+}
+#endif
+
 int main(int argc, char **argv) {
 #ifdef _WIN32
   HINSTANCE lib = LoadLibrary("user32.dll");
@@ -92,6 +107,10 @@ int main(int argc, char **argv) {
   SetProcessDPIAware();
 #else
   signal(SIGPIPE, SIG_IGN);
+#endif
+
+#if __linux__
+  fix_appimage_working_dir();
 #endif
 
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
