@@ -10,11 +10,12 @@ if MACOS_RESOURCES then
   DATADIR = MACOS_RESOURCES
 else
   local prefix = EXEDIR:match("^(.+)[/\\]bin$")
-  DATADIR = prefix and (prefix .. '/share/lite-xl') or (EXEDIR .. '/data')
+  DATADIR = prefix and (prefix .. PATHSEP .. 'share' .. PATHSEP .. 'lite-xl') or (EXEDIR .. PATHSEP .. 'data')
 end
-USERDIR = (system.get_file_info(EXEDIR .. '/user') and (EXEDIR .. '/user'))
-       or ((os.getenv("XDG_CONFIG_HOME") and os.getenv("XDG_CONFIG_HOME") .. "/lite-xl"))
-       or (HOME and (HOME .. '/.config/lite-xl'))
+USERDIR = (system.get_file_info(EXEDIR .. PATHSEP .. 'user') and (EXEDIR .. PATHSEP .. 'user'))
+       or os.getenv("LITE_USERDIR")
+       or ((os.getenv("XDG_CONFIG_HOME") and os.getenv("XDG_CONFIG_HOME") .. PATHSEP .. "lite-xl"))
+       or (HOME and (HOME .. PATHSEP .. '.config' .. PATHSEP .. 'lite-xl'))
 
 package.path = DATADIR .. '/?.lua;'
 package.path = DATADIR .. '/?/init.lua;' .. package.path
