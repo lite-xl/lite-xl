@@ -23,6 +23,7 @@ int get_changes_dirmonitor(struct dirmonitor_internal*, char*, int);
 int translate_changes_dirmonitor(struct dirmonitor_internal*, char*, int, int (*)(int, const char*, void*), void*);
 int add_dirmonitor(struct dirmonitor_internal*, const char*);
 void remove_dirmonitor(struct dirmonitor_internal*, int);
+int get_mode_dirmonitor();
 
 
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
@@ -111,12 +112,23 @@ static int f_dirmonitor_check(lua_State* L) {
 }
 
 
+static int f_dirmonitor_mode(lua_State* L) {
+  int mode = get_mode_dirmonitor();
+  if (mode == 1)
+    lua_pushstring(L, "single");
+  else
+    lua_pushstring(L, "multiple");
+  return 1;
+}
+
+
 static const luaL_Reg dirmonitor_lib[] = {
   { "new",      f_dirmonitor_new         },
   { "__gc",     f_dirmonitor_gc          },
   { "watch",    f_dirmonitor_watch       },
   { "unwatch",  f_dirmonitor_unwatch     },
   { "check",    f_dirmonitor_check       },
+  { "mode",     f_dirmonitor_mode        },
   {NULL, NULL}
 };
 
