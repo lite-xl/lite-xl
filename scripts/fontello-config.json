@@ -125,6 +125,76 @@
       "css": "right-open",
       "code": 62,
       "src": "fontawesome"
+    },
+    {
+      "uid": "ebf4bfe82c54f9beb94c5221a7bdd975",
+      "css": "lite-xlbg",
+      "code": 53,
+      "src": "custom_icons",
+      "selected": true,
+      "svg": {
+        "path": "M83.3 0H916.7C962.7 0 1000 37.3 1000 83.3V916.7C1000 962.7 962.7 1000 916.7 1000H83.3C37.3 1000 0 962.7 0 916.7V83.3C0 37.3 37.3 0 83.3 0Z",
+        "width": 1000
+      },
+      "search": [
+        "lite-xlbg"
+      ]
+    },
+    {
+      "uid": "cde50fad6c2cd7a805a8d5026939d645",
+      "css": "lite-xl1",
+      "code": 54,
+      "src": "custom_icons",
+      "selected": true,
+      "svg": {
+        "path": "M395.8 562.5V312.5C395.8 289.5 377.2 270.8 354.2 270.8H270.8V625C270.8 682.5 317.5 729.2 375 729.2H729.2V645.8C729.2 622.8 710.5 604.2 687.5 604.2H437.5C414.5 604.2 395.8 585.5 395.8 562.5Z",
+        "width": 1000
+      },
+      "search": [
+        "lite-xl1"
+      ]
+    },
+    {
+      "uid": "526539ec7fcda0b3e7e7ceaa6ae416e6",
+      "css": "lite-xl2",
+      "code": 55,
+      "src": "custom_icons",
+      "selected": true,
+      "svg": {
+        "path": "M729.2 270.8H437.5L729.2 562.5Z",
+        "width": 1000
+      },
+      "search": [
+        "lite-xl2"
+      ]
+    },
+    {
+      "uid": "cccbe047c5cb17c63c41a1fb1fc022f4",
+      "css": "lite-xl3",
+      "code": 57,
+      "src": "custom_icons",
+      "selected": true,
+      "svg": {
+        "path": "M666.7 333.3H500L666.7 500Z",
+        "width": 1000
+      },
+      "search": [
+        "lite-xl3"
+      ]
+    },
+    {
+      "uid": "09d781dca1f50fcae90e67df9cc2f8dd",
+      "css": "lite-xl4",
+      "code": 56,
+      "src": "custom_icons",
+      "selected": true,
+      "svg": {
+        "path": "M500 458.3V333.3L604.2 395.8 666.7 500H541.7C518.7 500 500 481.3 500 458.3Z",
+        "width": 1000
+      },
+      "search": [
+        "lite-xl4"
+      ]
     }
   ]
 }
