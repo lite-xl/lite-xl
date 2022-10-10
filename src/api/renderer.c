@@ -137,7 +137,20 @@ static int f_font_copy(lua_State *L) {
 }
 
 static int f_font_group(lua_State* L) {
+  int table_size;
   luaL_checktype(L, 1, LUA_TTABLE);
+
+  table_size = lua_rawlen(L, 1);
+  if (table_size >= FONT_FALLBACK_MAX)
+    return luaL_error(L, "failed to create font group: table size too large");
+
+  // we also need to ensure that there are no fontgroups inside it
+  for (int i = 1; i <= table_size; i++) {
+    if (lua_rawgeti(L, 1, i) != LUA_TUSERDATA)
+      return luaL_typeerror(L, -1, API_TYPE_FONT "(userdata)");
+    lua_pop(L, 1);
+  }
+
   luaL_setmetatable(L, API_TYPE_FONT);
   return 1;
 }
@@ -204,6 +217,7 @@ static RenColor checkcolor(lua_State *L, int idx, int def) {
   if (lua_isnoneornil(L, idx)) {
     return (RenColor) { def, def, def, 255 };
   }
+  luaL_checktype(L, idx, LUA_TTABLE);
   lua_rawgeti(L, idx, 1);
   lua_rawgeti(L, idx, 2);
   lua_rawgeti(L, idx, 3);
