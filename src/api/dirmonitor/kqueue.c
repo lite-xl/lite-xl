@@ -11,7 +11,7 @@ struct dirmonitor_internal {
 
 
 struct dirmonitor_internal* init_dirmonitor() {
-  struct dirmonitor_internal* monitor = calloc(sizeof(struct dirmonitor_internal), 1);
+  struct dirmonitor_internal* monitor = calloc(1, sizeof(struct dirmonitor_internal));
   monitor->fd = kqueue();
   return monitor;
 }
@@ -53,3 +53,6 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
 void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   close(fd);
 }
+
+
+int get_mode_dirmonitor() { return 2; }

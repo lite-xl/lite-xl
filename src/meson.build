@@ -15,6 +15,8 @@ lite_sources = [
 if get_option('dirmonitor_backend') == ''
     if cc.has_function('inotify_init', prefix : '#include<sys/inotify.h>')
         dirmonitor_backend = 'inotify'
+    elif host_machine.system() == 'darwin' and cc.check_header('CoreServices/CoreServices.h')
+        dirmonitor_backend = 'fsevents'
     elif cc.has_function('kqueue', prefix : '#include<sys/event.h>')
         dirmonitor_backend = 'kqueue'
     elif dependency('libkqueue', required : false).found()
