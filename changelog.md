@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.0] - 2022-09-25
+## [2.1.0] - 2022-10-10
 
 ### New Features
 * Make distinction between
@@ -123,6 +123,8 @@
 
 * Added in ability to have init.so as a require for cpath.
   ([#1126](https://github.com/lite-xl/lite-xl/pull/1126))
+
+* Added system.raise_window() ([#1131](https://github.com/lite-xl/lite-xl/pull/1131))
 
 ### Performance Improvements
 
@@ -331,6 +333,14 @@
 
 * CommandView: do not change caret size with config.line_height
   ([#1080](https://github.com/lite-xl/lite-xl/pull/1080))
+
+* Fixed process layer argument quoting; allows for strings with spaces
+  ([#1132](https://github.com/lite-xl/lite-xl/pull/1132))
+
+* Draw lite-xl icon in TitleView ([#1143](https://github.com/lite-xl/lite-xl/pull/1143))
+
+* Add parameter validation to checkcolor and f_font_group
+  ([#1145](https://github.com/lite-xl/lite-xl/pull/1145))
 
 ## [2.0.5] - 2022-01-29
 
