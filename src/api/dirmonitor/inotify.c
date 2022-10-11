@@ -13,7 +13,7 @@ struct dirmonitor_internal {
 
 
 struct dirmonitor_internal* init_dirmonitor() {
-  struct dirmonitor_internal* monitor = calloc(sizeof(struct dirmonitor_internal), 1);
+  struct dirmonitor_internal* monitor = calloc(1, sizeof(struct dirmonitor_internal));
   monitor->fd = inotify_init();
   pipe(monitor->sig);
   fcntl(monitor->sig[0], F_SETFD, FD_CLOEXEC);
@@ -51,3 +51,6 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
 void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   inotify_rm_watch(monitor->fd, fd);
 }
+
+
+int get_mode_dirmonitor() { return 2; }
