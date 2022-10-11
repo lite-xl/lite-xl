@@ -295,7 +295,19 @@ function core.add_project_directory(path)
         end
         return refresh_directory(topdir, dirpath)
       end, 0.01, 0.01)
-      coroutine.yield(changed and 0.05 or 0)
+      -- properly exit coroutine if project not open anymore to clear dir watch
+      local project_dir_open = false
+      for _, prj in ipairs(core.project_directories) do
+        if topdir == prj then
+          project_dir_open = true
+          break
+        end
+      end
+      if project_dir_open then
+        coroutine.yield(changed and 0.05 or 0)
+      else
+        return
+      end
     end
   end)
 
