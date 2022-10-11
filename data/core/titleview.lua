@@ -51,7 +51,7 @@ function TitleView:configure_hit_test(borderless)
   end
 end
 
-function TitleView:on_rescale()
+function TitleView:on_scale_change()
   self:configure_hit_test(self.visible)
 end
 

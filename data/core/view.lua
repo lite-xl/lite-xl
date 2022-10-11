@@ -248,7 +248,7 @@ end
 ---any neccesary changes in sizes, padding, etc...
 ---@param new_scale number
 ---@param prev_scale number
-function View:on_rescale(new_scale, prev_scale) end
+function View:on_scale_change(new_scale, prev_scale) end
 
 function View:get_content_bounds()
   local x = self.scroll.x
@@ -295,7 +295,7 @@ end
 
 function View:update()
   if self.current_scale ~= SCALE then
-    self:on_rescale(SCALE, self.current_scale)
+    self:on_scale_change(SCALE, self.current_scale)
     self.current_scale = SCALE
   end
 
