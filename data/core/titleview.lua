@@ -51,6 +51,10 @@ function TitleView:configure_hit_test(borderless)
   end
 end
 
+function TitleView:on_scale_change()
+  self:configure_hit_test(self.visible)
+end
+
 function TitleView:update()
   self.size.y = self.visible and title_view_height() or 0
   title_commands[2] = core.window_mode == "maximized" and restore_command or maximize_command
