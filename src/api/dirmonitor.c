@@ -63,6 +63,7 @@ static int f_dirmonitor_new(lua_State* L) {
   struct dirmonitor* monitor = lua_newuserdata(L, sizeof(struct dirmonitor));
   luaL_setmetatable(L, API_TYPE_DIRMONITOR);
   memset(monitor, 0, sizeof(struct dirmonitor));
+  monitor->mutex = SDL_CreateMutex();
   monitor->internal = init_dirmonitor();
   return 1;
 }
