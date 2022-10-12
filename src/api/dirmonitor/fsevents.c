@@ -22,6 +22,7 @@ struct dirmonitor_internal* init_dirmonitor() {
   monitor->stream = NULL;
   monitor->changes = NULL;
   monitor->count = 0;
+  monitor->lock = NULL;
 
   return monitor;
 }
@@ -135,6 +136,8 @@ int translate_changes_dirmonitor(
 
 int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   stop_monitor_stream(monitor);
+
+  monitor->lock = SDL_CreateMutex();
 
   FSEventStreamContext context = {
     .info = monitor,
