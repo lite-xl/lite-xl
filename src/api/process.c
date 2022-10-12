@@ -125,22 +125,26 @@ static int process_start(lua_State* L) {
   int retval = 1;
   size_t env_len = 0, key_len, val_len;
   const char *cmd[256] = { NULL }, *env_names[256] = { NULL }, *env_values[256] = { NULL }, *cwd = NULL;
-  bool detach = false;
+  bool detach = false, literal = false;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
-  luaL_checktype(L, 1, LUA_TTABLE);
-  #if LUA_VERSION_NUM > 501
-    lua_len(L, 1);
-  #else
-    lua_pushinteger(L, (int)lua_objlen(L, 1));
-  #endif
-  size_t cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
-  size_t arg_len = lua_gettop(L);
-  for (size_t i = 1; i <= cmd_len; ++i) {
-    lua_pushinteger(L, i);
-    lua_rawget(L, 1);
-    cmd[i-1] = luaL_checkstring(L, -1);
+  size_t arg_len = lua_gettop(L), cmd_len;
+  if (lua_type(L, 1) == LUA_TTABLE) {
+    #if LUA_VERSION_NUM > 501
+      lua_len(L, 1);
+    #else
+      lua_pushinteger(L, (int)lua_objlen(L, 1));
+    #endif
+    cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
+    for (size_t i = 1; i <= cmd_len; ++i) {
+      lua_pushinteger(L, i);
+      lua_rawget(L, 1);
+      cmd[i-1] = luaL_checkstring(L, -1);
+    }
+  } else {
+    literal = true;
+    cmd[0] = luaL_checkstring(L, 1);
+    cmd_len = 1;
   }
-
   // this should never trip
   // but if it does we are in deep trouble
   assert(cmd[0]);
@@ -239,15 +243,35 @@ static int process_start(lua_State* L) {
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
     char commandLine[32767] = { 0 }, environmentBlock[32767], wideEnvironmentBlock[32767*2];
-    strcpy(commandLine, cmd[0]);
     int offset = 0;
-    for (size_t i = 1; i < cmd_len; ++i) {
-      size_t len = strlen(cmd[i]);
-      offset += len + 1;
-      if (offset >= sizeof(commandLine))
-        break;
-      strcat(commandLine, " ");
-      strcat(commandLine, cmd[i]);
+    if (!literal) {
+      for (size_t i = 0; i < cmd_len; ++i) {
+        size_t len = strlen(cmd[i]);
+        if (offset + len + 2 >= sizeof(commandLine)) break;
+        if (i > 0)
+          commandLine[offset++] = ' ';
+        commandLine[offset++] = '"';
+        int backslashCount = 0; // Yes, this is necessary.
+        for (size_t j = 0; j < len && offset + 2 + backslashCount < sizeof(commandLine); ++j) {
+          if (cmd[i][j] == '\\')
+            ++backslashCount;
+          else if (cmd[i][j] == '"') {
+            for (size_t k = 0; k < backslashCount; ++k)
+              commandLine[offset++] = '\\';
+            commandLine[offset++] = '\\';
+            backslashCount = 0;
+          } else
+            backslashCount = 0;
+          commandLine[offset++] = cmd[i][j];
+        }
+        if (offset + 1 + backslashCount >= sizeof(commandLine)) break;
+        for (size_t k = 0; k < backslashCount; ++k)
+          commandLine[offset++] = '\\';
+        commandLine[offset++] = '"';
+      }
+      commandLine[offset] = 0;
+    } else {
+      strncpy(commandLine, cmd[0], sizeof(commandLine));
     }
     offset = 0;
     for (size_t i = 0; i < env_len; ++i) {

@@ -49,6 +49,7 @@ local Object = require "core.object"
 ---@field scrollable boolean
 ---@field scrollbar core.view.scrollbar
 ---@field scrollbar_alpha core.view.increment
+---@field current_scale number
 local View = Object:extend()
 
 -- context can be "application" or "session". The instance of objects
@@ -69,6 +70,7 @@ function View:new()
     h = { thumb = 0, track = 0 },
   }
   self.scrollbar_alpha = { value = 0, to = 0 }
+  self.current_scale = SCALE
 end
 
 function View:move_towards(t, k, dest, rate, name)
@@ -242,6 +244,12 @@ function View:on_mouse_wheel(y)
 
 end
 
+---Can be overriden to listen for scale change events to apply
+---any neccesary changes in sizes, padding, etc...
+---@param new_scale number
+---@param prev_scale number
+function View:on_scale_change(new_scale, prev_scale) end
+
 function View:get_content_bounds()
   local x = self.scroll.x
   local y = self.scroll.y
@@ -286,6 +294,11 @@ end
 
 
 function View:update()
+  if self.current_scale ~= SCALE then
+    self:on_scale_change(SCALE, self.current_scale)
+    self.current_scale = SCALE
+  end
+
   self:clamp_scroll_position()
   self:move_towards(self.scroll, "x", self.scroll.to.x, 0.3, "scroll")
   self:move_towards(self.scroll, "y", self.scroll.to.y, 0.3, "scroll")

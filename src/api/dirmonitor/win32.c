@@ -19,7 +19,7 @@ int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, in
 
 
 struct dirmonitor* init_dirmonitor() {
-  return calloc(sizeof(struct dirmonitor_internal), 1);
+  return calloc(1, sizeof(struct dirmonitor_internal));
 }
 
 
@@ -60,3 +60,6 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
 void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   close_monitor_handle(monitor);
 }
+
+
+int get_mode_dirmonitor() { return 1; }

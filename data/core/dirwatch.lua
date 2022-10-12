@@ -2,7 +2,7 @@ local common = require "core.common"
 local config = require "core.config"
 local dirwatch = {}
 
-function dirwatch:__index(idx) 
+function dirwatch:__index(idx)
   local value = rawget(self, idx)
   if value ~= nil then return value end
   return dirwatch[idx]
@@ -14,8 +14,8 @@ function dirwatch.new()
     watched = {},
     reverse_watched = {},
     monitor = dirmonitor.new(),
-    windows_watch_top = nil,
-    windows_watch_count = 0
+    single_watch_top = nil,
+    single_watch_count = 0
   }
   setmetatable(t, dirwatch)
   return t
@@ -38,23 +38,23 @@ function dirwatch:watch(directory, bool)
   local info = system.get_file_info(directory)
   if not info then return end
   if not self.watched[directory] and not self.scanned[directory] then
-    if PLATFORM == "Windows" then
+    if self.monitor:mode() == "single" then
       if info.type ~= "dir" then return self:scan(directory) end
-      if not self.windows_watch_top or directory:find(self.windows_watch_top, 1, true) ~= 1 then
+      if not self.single_watch_top or directory:find(self.single_watch_top, 1, true) ~= 1 then
         -- Get the highest level of directory that is common to this directory, and the original.
         local target = directory
-        while self.windows_watch_top and self.windows_watch_top:find(target, 1, true) ~= 1 do
+        while self.single_watch_top and self.single_watch_top:find(target, 1, true) ~= 1 do
           target = common.dirname(target)
         end
-        if target ~= self.windows_watch_top then
+        if target ~= self.single_watch_top then
           local value = self.monitor:watch(target)
           if value and value < 0 then
             return self:scan(directory)
           end
-          self.windows_watch_top = target
+          self.single_watch_top = target
         end
       end
-      self.windows_watch_count = self.windows_watch_count + 1
+      self.single_watch_count = self.single_watch_count + 1
       self.watched[directory] = true
     else
       local value = self.monitor:watch(directory)
@@ -72,13 +72,13 @@ end
 -- this should be an absolute path
 function dirwatch:unwatch(directory)
   if self.watched[directory] then
-    if PLATFORM ~= "Windows" then
+    if self.monitor:mode() == "multiple" then
       self.monitor:unwatch(self.watched[directory])
       self.reverse_watched[directory] = nil
     else
-      self.windows_watch_count = self.windows_watch_count - 1
-      if self.windows_watch_count == 0 then
-        self.windows_watch_top = nil
+      self.single_watch_count = self.single_watch_count - 1
+      if self.single_watch_count == 0 then
+        self.single_watch_top = nil
         self.monitor:unwatch(directory)
       end
     end
@@ -93,8 +93,12 @@ function dirwatch:check(change_callback, scan_time, wait_time)
   local had_change = false
   self.monitor:check(function(id)
     had_change = true
-    if PLATFORM == "Windows" then
-      change_callback(common.dirname(self.windows_watch_top .. PATHSEP .. id))
+    if self.monitor:mode() == "single" then
+      local path = common.dirname(id)
+      if not string.match(id, "^/") and not string.match(id, "^%a:[/\\]") then
+        path = common.dirname(self.single_watch_top .. PATHSEP .. id)
+      end
+      change_callback(path)
     elseif self.reverse_watched[id] then
       change_callback(self.reverse_watched[id])
     end

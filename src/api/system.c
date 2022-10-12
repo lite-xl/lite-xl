@@ -160,7 +160,7 @@ static void push_win32_error(lua_State *L, DWORD rc) {
 
 static int f_poll_event(lua_State *L) {
   char buf[16];
-  int mx, my, wx, wy;
+  int mx, my;
   SDL_Event e;
 #ifdef _WIN32
   if (SDL_GetEventState(SDL_SYSWMEVENT) == SDL_DISABLE)
@@ -238,12 +238,11 @@ top:
       goto top;
 
     case SDL_DROPFILE:
-      SDL_GetGlobalMouseState(&mx, &my);
-      SDL_GetWindowPosition(window, &wx, &wy);
+      SDL_GetMouseState(&mx, &my);
       lua_pushstring(L, "filedropped");
       lua_pushstring(L, e.drop.file);
-      lua_pushinteger(L, mx - wx);
-      lua_pushinteger(L, my - wy);
+      lua_pushinteger(L, mx);
+      lua_pushinteger(L, my);
       SDL_free(e.drop.file);
       return 4;
 
