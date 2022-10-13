@@ -52,6 +52,9 @@ lite_cargs = ['-DSDL_MAIN_HANDLED', '-DPCRE2_STATIC']
 if get_option('renderer') or host_machine.system() == 'darwin'
     lite_cargs += '-DLITE_USE_SDL_RENDERER'
 endif
+if get_option('arch_tuple') != ''
+    lite_cargs += '-DLITE_ARCH_TUPLE="@0@"'.format(get_option('arch_tuple'))
+endif
 #===============================================================================
 # Linker Settings
 #===============================================================================
