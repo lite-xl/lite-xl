@@ -373,6 +373,11 @@ end
 function core.update_project_subdir(dir, filename, expanded)
   assert(dir.files_limit, "function should be called only when directory is in files limit mode")
   dir.shown_subdir[filename] = expanded
+  if expanded then
+    dir.watch:watch(dir.name .. PATHSEP .. filename)
+  else
+    dir.watch:unwatch(dir.name .. PATHSEP .. filename)
+  end
   return refresh_directory(dir, filename)
 end
 
