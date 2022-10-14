@@ -12,7 +12,7 @@ syntax.add {
     { pattern = { "'", "'", '\\' },          type = "string" },
     { pattern = { "%[%[", "%]%]" },          type = "string" },
     { pattern = { "%-%-%[%[", "%]%]"},       type = "comment" },
-    { pattern = "%-%-.*",                    type = "comment" },
+    { pattern = "%-%-.-\n",                  type = "comment" },
     { pattern = "0x%x+%.%x*[pP][-+]?%d+",    type = "number" },
     { pattern = "0x%x+%.%x*",                type = "number" },
     { pattern = "0x%.%x+[pP][-+]?%d+",       type = "number" },
@@ -50,7 +50,7 @@ syntax.add {
           { pattern = "[%a_][%w_]*%s*(),%s*",
             type = {"operator", "normal"}
           },
-          { pattern = "[%a_][%w_]*%s*%f[)]",
+          { pattern = "[%a_][%w_]*%s*%f[%s)]",
             type = "operator"
           },
           { pattern = "%.()[%a_][%w_]*()%s*%f[(]",
