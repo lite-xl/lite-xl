@@ -133,6 +133,12 @@ int main(int argc, char **argv) {
 #if SDL_VERSION_ATLEAST(2, 0, 5)
   SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 #endif
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+  SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
+#endif
+#if SDL_VERSION_ATLEAST(2, 0, 22)
+  SDL_SetHint(SDL_HINT_IME_SUPPORT_EXTENDED_TEXT, "1");
+#endif
 
 #if SDL_VERSION_ATLEAST(2, 0, 8)
   /* This hint tells SDL to respect borderless window as a normal window.

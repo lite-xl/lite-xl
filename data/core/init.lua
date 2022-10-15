@@ -6,6 +6,7 @@ local style = require "colors.default"
 local command
 local keymap
 local dirwatch
+local ime
 local RootView
 local StatusView
 local TitleView
@@ -657,6 +658,7 @@ function core.init()
   command = require "core.command"
   keymap = require "core.keymap"
   dirwatch = require "core.dirwatch"
+  ime = require "core.ime"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
@@ -1051,6 +1053,8 @@ end
 
 function core.set_active_view(view)
   assert(view, "Tried to set active view to nil")
+  -- Reset the IME even if the focus didn't change
+  ime.stop()
   if view ~= core.active_view then
     if core.active_view and core.active_view.force_focus then
       core.next_active_view = view
@@ -1215,6 +1219,8 @@ function core.on_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
     core.root_view:on_text_input(...)
+  elseif type == "textediting" then
+    ime.on_text_editing(...)
   elseif type == "keypressed" then
     did_keymap = keymap.on_key_pressed(...)
   elseif type == "keyreleased" then

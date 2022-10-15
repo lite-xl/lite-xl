@@ -456,6 +456,18 @@ function Doc:text_input(text, idx)
   end
 end
 
+
+function Doc:ime_text_editing(text, start, length, idx)
+  for sidx, line1, col1, line2, col2 in self:get_selections(true, idx or true) do
+    if line1 ~= line2 or col1 ~= col2 then
+      self:delete_to_cursor(sidx)
+    end
+    self:insert(line1, col1, text)
+    self:set_selections(sidx, line1, col1 + #text, line1, col1)
+  end
+end
+
+
 function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
   local old_text = self:get_text(line1, col1, line2, col2)
   local new_text, res = fn(old_text)

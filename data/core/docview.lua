@@ -4,6 +4,7 @@ local config = require "core.config"
 local style = require "core.style"
 local keymap = require "core.keymap"
 local translate = require "core.doc.translate"
+local ime = require "core.ime"
 local View = require "core.view"
 
 ---@class core.docview : core.view
@@ -60,6 +61,7 @@ function DocView:new(doc)
   self.doc = assert(doc)
   self.font = "code_font"
   self.last_x_offset = {}
+  self.ime_selection = { from = 0, size = 0 }
 end
 
 
@@ -292,13 +294,42 @@ function DocView:on_text_input(text)
   self.doc:text_input(text)
 end
 
+function DocView:on_ime_text_editing(text, start, length)
+  self.doc:ime_text_editing(text, start, length)
+  self.ime_selection.from = start
+  self.ime_selection.size = length
+
+  -- Set the composition bounding box that the system IME
+  -- will consider when drawing its interface
+  local line1, col1, line2, col2 = self.doc:get_selection(true)
+  local x, y = self:get_line_screen_position(line1)
+  local h = self:get_line_height()
+  local col = math.min(col1, col2)
+
+  local x1, x2 = 0, 0
+
+  if length > 0 then
+    -- focus on a part of the text
+    local from = col + start
+    local to = from + length
+    x1 = self:get_col_x_offset(line1, from)
+    x2 = self:get_col_x_offset(line1, to)
+  else
+    -- focus the whole text
+    x1 = self:get_col_x_offset(line1, col1)
+    x2 = self:get_col_x_offset(line2, col2)
+  end
+
+  ime.set_location(x + x1, y, x2 - x1, h)
+  self:scroll_to_make_visible(line1, col + start)
+end
 
 function DocView:update()
   -- scroll to make caret visible and reset blink timer if it moved
   local line1, col1, line2, col2 = self.doc:get_selection()
   if (line1 ~= self.last_line1 or col1 ~= self.last_col1 or
       line2 ~= self.last_line2 or col2 ~= self.last_col2) and self.size.x > 0 then
-    if core.active_view == self then
+    if core.active_view == self and not ime.editing then
       self:scroll_to_make_visible(line1, col1)
     end
     core.blink_reset()
@@ -399,17 +430,45 @@ function DocView:draw_line_gutter(line, x, y, width)
 end
 
 
+function DocView:draw_ime_decoration(line1, col1, line2, col2)
+  local x, y = self:get_line_screen_position(line1)
+  local line_size = math.max(1, SCALE)
+  local lh = self:get_line_height()
+
+  -- Draw IME underline
+  local x1 = self:get_col_x_offset(line1, col1)
+  local x2 = self:get_col_x_offset(line2, col2)
+  renderer.draw_rect(x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.text)
+
+  -- Draw IME selection
+  local col = math.min(col1, col2)
+  local from = col + self.ime_selection.from
+  local to = from + self.ime_selection.size
+  x1 = self:get_col_x_offset(line1, from)
+  if from ~= to then
+    x2 = self:get_col_x_offset(line1, to)
+    line_size = style.caret_width
+    renderer.draw_rect(x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.caret)
+  end
+  self:draw_caret(x + x1, y)
+end
+
+
 function DocView:draw_overlay()
   if core.active_view == self then
     local minline, maxline = self:get_visible_line_range()
     -- draw caret if it overlaps this line
     local T = config.blink_period
-    for _, line, col in self.doc:get_selections() do
-      if line >= minline and line <= maxline
+    for _, line1, col1, line2, col2 in self.doc:get_selections() do
+      if line1 >= minline and line1 <= maxline
       and system.window_has_focus() then
-        if config.disable_blink
-        or (core.blink_timer - core.blink_start) % T < T / 2 then
-          self:draw_caret(self:get_line_screen_position(line, col))
+        if ime.editing then
+          self:draw_ime_decoration(line1, col1, line2, col2)
+        else
+          if config.disable_blink
+          or (core.blink_timer - core.blink_start) % T < T / 2 then
+            self:draw_caret(self:get_line_screen_position(line1, col1))
+          end
         end
       end
     end
