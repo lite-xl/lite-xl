@@ -184,10 +184,25 @@ function Scrollbar:on_mouse_pressed(button, x, y, clicks)
   return self:_on_mouse_pressed_normal(button, x, y, clicks)
 end
 
+---Updates the scrollbar hover status.
+---This gets called by other functions and shouldn't be called manually
+function Scrollbar:_update_hover_status_normal(x, y)
+  local overlaps = self:_overlaps_normal(x, y)
+  self.hovering.thumb = overlaps == "thumb"
+  self.hovering.track = self.hovering.thumb or overlaps == "track"
+  return self.hovering.track or self.hovering.thumb
+end
+
+function Scrollbar:_on_mouse_released_normal(button, x, y)
+  self.dragging = false
+  return self:_update_hover_status_normal(x, y)
+end
+
 ---Updates the scrollbar dragging status
 function Scrollbar:on_mouse_released(button, x, y)
   if button ~= "left" then return end
-  self.dragging = false
+  x, y = self:real_to_normal(x, y)
+  return self:_on_mouse_released_normal(button, x, y)
 end
 
 
@@ -196,10 +211,7 @@ function Scrollbar:_on_mouse_moved_normal(x, y, dx, dy)
     local nr = self.normal_rect
     return common.clamp((y - nr.along + self.drag_start_offset) / nr.along_size, 0, 1)
   end
-  local overlaps = self:_overlaps_normal(x, y)
-  self.hovering.thumb = overlaps == "thumb"
-  self.hovering.track = self.hovering.thumb or overlaps == "track"
-  return self.hovering.track or self.hovering.thumb
+  return self:_update_hover_status_normal(x, y)
 end
 
 ---Updates the scrollbar with mouse moved info.
