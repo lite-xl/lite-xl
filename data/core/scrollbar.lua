@@ -179,12 +179,14 @@ end
 ---representing the percent of the position.
 ---@return boolean|number
 function Scrollbar:on_mouse_pressed(button, x, y, clicks)
+  if button ~= "left" then return end
   x, y = self:real_to_normal(x, y)
   return self:_on_mouse_pressed_normal(button, x, y, clicks)
 end
 
 ---Updates the scrollbar dragging status
 function Scrollbar:on_mouse_released(button, x, y)
+  if button ~= "left" then return end
   self.dragging = false
 end
 
