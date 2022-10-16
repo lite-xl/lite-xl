@@ -212,9 +212,32 @@ function keymap.on_key_pressed(k, ...)
   return false
 end
 
-function keymap.on_mouse_wheel(delta, ...)
-  return not (keymap.on_key_pressed("wheel" .. (delta > 0 and "up" or "down"), delta, ...)
-    or keymap.on_key_pressed("wheel", delta, ...))
+function keymap.on_mouse_wheel(delta_y, delta_x, ...)
+  local y_direction = delta_y > 0 and "up" or "down"
+  local x_direction = delta_x > 0 and "left" or "right"
+  -- Try sending a "cumulative" event for both scroll directions
+  if delta_y ~= 0 and delta_x ~= 0 then
+    local result = keymap.on_key_pressed("wheel" .. y_direction .. x_direction, delta_y, delta_x, ...)
+    if not result then
+      result = keymap.on_key_pressed("wheelyx", delta_y, delta_x, ...)
+    end
+    if result then return true end
+  end
+  -- Otherwise send each direction as its own separate event
+  local y_result, x_result
+  if delta_y ~= 0 then
+    y_result = keymap.on_key_pressed("wheel" .. y_direction, delta_y, ...)
+    if not y_result then
+      y_result = keymap.on_key_pressed("wheel", delta_y, ...)
+    end
+  end
+  if delta_x ~= 0 then
+    x_result = keymap.on_key_pressed("wheel" .. x_direction, delta_x, ...)
+    if not x_result then
+      x_result = keymap.on_key_pressed("hwheel", delta_x, ...)
+    end
+  end
+  return y_result or x_result
 end
 
 function keymap.on_mouse_pressed(button, x, y, clicks)
@@ -277,6 +300,8 @@ keymap.add_direct {
   ["alt+8"] = "root:switch-to-tab-8",
   ["alt+9"] = "root:switch-to-tab-9",
   ["wheel"] = "root:scroll",
+  ["hwheel"] = "root:horizontal-scroll",
+  ["shift+wheel"] = "root:horizontal-scroll",
 
   ["ctrl+f"] = "find-replace:find",
   ["ctrl+r"] = "find-replace:replace",

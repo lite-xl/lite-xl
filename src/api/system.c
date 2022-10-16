@@ -301,8 +301,15 @@ top:
 
     case SDL_MOUSEWHEEL:
       lua_pushstring(L, "mousewheel");
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+      lua_pushnumber(L, e.wheel.preciseY);
+      // Use -x to keep consistency with vertical scrolling values (e.g. shift+scroll)
+      lua_pushnumber(L, -e.wheel.preciseX);
+#else
       lua_pushinteger(L, e.wheel.y);
-      return 2;
+      lua_pushinteger(L, -e.wheel.x);
+#endif
+      return 3;
 
     default:
       goto top;
