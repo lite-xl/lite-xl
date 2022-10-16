@@ -1053,9 +1053,13 @@ function StatusView:on_mouse_released(button, x, y)
 end
 
 
-function StatusView:on_mouse_wheel(y)
+function StatusView:on_mouse_wheel(y, x)
   if not self.visible then return end
-  self:drag_panel(self.hovered_panel, y * self.left_width / 10)
+  if x ~= 0 then
+    self:drag_panel(self.hovered_panel, x * self.left_width / 10)
+  else
+    self:drag_panel(self.hovered_panel, y * self.left_width / 10)
+  end
 end
 
 

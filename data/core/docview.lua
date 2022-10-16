@@ -113,6 +113,10 @@ function DocView:get_scrollable_size()
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
 
+function DocView:get_h_scrollable_size()
+  return math.huge
+end
+
 
 function DocView:get_font()
   return style[self.font]
@@ -241,7 +245,7 @@ end
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
-  if self.hovered_scrollbar_track or self.dragging_scrollbar then
+  if self:scrollbar_hovering() or self:scrollbar_dragging() then
     self.cursor = "arrow"
   else
     self.cursor = "ibeam"
