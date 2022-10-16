@@ -86,7 +86,7 @@ function DocView:draw_overlay(...)
     and
     config.plugins.lineguide.enabled
     and
-    not self:is(CommandView)
+    self:is(DocView)
   then
     local line_x = self:get_line_screen_position(1)
     local character_width = self:get_font():get_width("n")
