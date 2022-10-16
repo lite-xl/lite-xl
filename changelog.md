@@ -126,6 +126,10 @@
 
 * Added system.raise_window() ([#1131](https://github.com/lite-xl/lite-xl/pull/1131))
 
+* Initial horizontal scrollbar support ([#1124](https://github.com/lite-xl/lite-xl/pull/1124))
+
+* IME support ([#991](https://github.com/lite-xl/lite-xl/pull/991))
+
 ### Performance Improvements
 
 * [Load space metrics only when creating font](https://github.com/lite-xl/lite-xl/pull/1032)
@@ -329,8 +333,6 @@
 * [Fix memory leak](https://github.com/lite-xl/lite-xl/pull/1039) and wrong
   check in font_retrieve
 
-* Many, many, many more changes that are too numerous to list.
-
 * CommandView: do not change caret size with config.line_height
   ([#1080](https://github.com/lite-xl/lite-xl/pull/1080))
 
@@ -341,6 +343,8 @@
 
 * Add parameter validation to checkcolor and f_font_group
   ([#1145](https://github.com/lite-xl/lite-xl/pull/1145))
+
+* Many, many, many more changes that are too numerous to list.
 
 ## [2.0.5] - 2022-01-29
 
