@@ -2,6 +2,7 @@ local core = require "core"
 local command = require "core.command"
 local common = require "core.common"
 local config = require "core.config"
+local encodings = require "core.doc.encodings"
 local translate = require "core.doc.translate"
 local style = require "core.style"
 local DocView = require "core.docview"
@@ -544,6 +545,30 @@ local commands = {
     dv.doc.crlf = not dv.doc.crlf
   end,
 
+  ["doc:change-encoding"] = function(dv)
+    encodings.select_encoding("Select Output Encoding", function(charset)
+      dv.doc.encoding = charset
+      if charset ~= "UTF-8" and charset ~= "ASCII" then
+        dv.doc.convert = true
+      else
+        dv.doc.convert = false
+      end
+      dv.doc:save()
+    end)
+  end,
+
+  ["doc:reload-with-encoding"] = function(dv)
+    encodings.select_encoding("Reload With Encoding", function(charset)
+      dv.doc.encoding = charset
+      if charset ~= "UTF-8" and charset ~= "ASCII" then
+        dv.doc.convert = true
+      else
+        dv.doc.convert = false
+      end
+      dv.doc:reload()
+    end)
+  end,
+
   ["doc:save-as"] = function(dv)
     local last_doc = core.last_active_view and core.last_active_view.doc
     local text
@@ -597,7 +622,6 @@ local commands = {
     })
   end,
 
-
   ["file:delete"] = function(dv)
     local filename = dv.doc.abs_filename
     if not filename then
@@ -628,7 +652,6 @@ local commands = {
     split_cursor(1)
     dv.doc:merge_cursors()
   end
-
 }
 
 command.add(function(x, y)

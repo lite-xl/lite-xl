@@ -110,6 +110,7 @@ if not get_option('source-only')
         default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
     )
 
+    uchardet_dep = dependency('uchardet')
 
     sdl_options = ['default_library=static']
 
@@ -157,7 +158,7 @@ if not get_option('source-only')
         default_options: default_fallback_options + sdl_options
     )
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
+    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, uchardet_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration

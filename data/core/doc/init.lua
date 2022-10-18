@@ -20,6 +20,8 @@ end
 
 function Doc:new(filename, abs_filename, new_file)
   self.new_file = new_file
+  self.encoding = nil
+  self.convert = false
   self:reset()
   if filename then
     self:set_filename(filename, abs_filename)
@@ -60,18 +62,46 @@ end
 
 
 function Doc:load(filename)
+  if not self.encoding then
+    local errmsg
+    self.encoding, errmsg = encoding.detect(filename);
+    if not self.encoding then core.error("%s", errmsg) error(errmsg) end
+  end
+  self.convert = false
+  if self.encoding ~= "UTF-8" and self.encoding ~= "ASCII" then
+    self.convert = true
+  end
   local fp = assert( io.open(filename, "rb") )
   self:reset()
   self.lines = {}
   local i = 1
-  for line in fp:lines() do
-    if line:byte(-1) == 13 then
-      line = line:sub(1, -2)
-      self.crlf = true
+  if self.convert then
+    local content = fp:read("*a");
+    content = assert(encoding.convert("UTF-8", self.encoding, content, {
+      strict = false,
+      handle_from_bom = true
+    }))
+    for line in content:gmatch("([^\n]*)\n?") do
+      if line:byte(-1) == 13 then
+        line = line:sub(1, -2)
+        self.crlf = true
+      end
+      table.insert(self.lines, line .. "\n")
+      self.highlighter.lines[i] = false
+      i = i + 1
     end
-    table.insert(self.lines, line .. "\n")
-    self.highlighter.lines[i] = false
-    i = i + 1
+    content = nil
+  else
+    for line in fp:lines() do
+      if (i == 1) then line = encoding.strip_bom(line, "UTF-8") end
+      if line:byte(-1) == 13 then
+        line = line:sub(1, -2)
+        self.crlf = true
+      end
+      table.insert(self.lines, line .. "\n")
+      self.highlighter.lines[i] = false
+      i = i + 1
+    end
   end
   if #self.lines == 0 then
     table.insert(self.lines, "\n")
@@ -99,14 +129,42 @@ function Doc:save(filename, abs_filename)
   else
     assert(self.filename or abs_filename, "calling save on unnamed doc without absolute path")
   end
-  local fp = assert( io.open(filename, "wb") )
-  for _, line in ipairs(self.lines) do
-    if self.crlf then line = line:gsub("\n", "\r\n") end
-    fp:write(line)
+  local fp
+  local output = ""
+  if not self.convert then
+    fp = assert( io.open(filename, "wb") )
+    for _, line in ipairs(self.lines) do
+      if self.crlf then line = line:gsub("\n", "\r\n") end
+      fp:write(line)
+    end
+  else
+      output = table.concat(self.lines);
+      if self.crlf then output = output:gsub("\n", "\r\n") end
   end
-  fp:close()
+  local conversion_error = false
+  if self.convert then
+    local errmsg
+    output, errmsg = encoding.convert(self.encoding, "UTF-8", output, {
+      strict = true,
+      handle_to_bom = true
+    })
+    if output then
+      fp = assert( io.open(filename, "wb") )
+      fp:write(encoding.get_charset_bom(self.encoding) .. output)
+      fp:close()
+    else
+      conversion_error = true
+      core.error("%s", errmsg)
+    end
+  else
+    fp:close()
+  end
   self:set_filename(filename, abs_filename)
-  self.new_file = false
+  if not conversion_error then
+    self.new_file = false
+  else
+    self.new_file = true
+  end
   self:clean()
 end
 

@@ -297,6 +297,26 @@ function StatusView:register_docview_items()
 
   self:add_item({
     predicate = predicate_docview,
+    name = "doc:encoding",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
+      local dv = core.active_view
+      return {
+        style.text, dv.doc.encoding or "none"
+      }
+    end,
+    command = function(button)
+      if button == "left" then
+        command.perform "doc:change-encoding"
+      elseif button == "right" then
+        command.perform "doc:reload-with-encoding"
+      end
+    end,
+    tooltip = "encoding"
+  })
+
+  self:add_item({
+    predicate = predicate_docview,
     name = "doc:line-ending",
     alignment = StatusView.Item.RIGHT,
     get_item = function()

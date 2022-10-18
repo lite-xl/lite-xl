@@ -5,6 +5,7 @@ lite_sources = [
     'api/system.c',
     'api/process.c',
     'api/utf8.c',
+    'api/encoding.c',
     'renderer.c',
     'renwindow.c',
     'rencache.c',
