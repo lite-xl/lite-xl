@@ -9,13 +9,13 @@ config.scroll_past_end = true
 config.file_size_limit = 10
 config.ignore_files = {
   -- folders
-  "^%.svn/",        "^%.git/",   "^%.hg/", "^CVS/", "^%.Trash/", "^%.Trash%-.*/",
-  "^node_modules/", "^%.cache/",
+  "^%.svn/",        "^%.git/",   "^%.hg/",        "^CVS/", "^%.Trash/", "^%.Trash%-.*/",
+  "^node_modules/", "^%.cache/", "^__pycache__/",
   -- files
-  "^%.pyc$", "^%.pyo$", "^%.exe$",      "^%.dll$",      "^%.obj$",       "^%.o$",
-  "^%.a$",   "^%.lib$", "^%.so$",       "^%.dylib$",    "^%.ncb$",       "^%.sdf$",
-  "^%.suo$", "^%.pdb$", "^%.idb$",      "^%.DS_Store$", "^%.directory$", "^%.class$",
-  "^%.psd$", "^%.db$",  "^desktop%.ini$",
+  "%.pyc$",         "%.pyo$",       "%.exe$",        "%.dll$",   "%.obj$", "%.o$",
+  "%.a$",           "%.lib$",       "%.so$",         "%.dylib$", "%.ncb$", "%.sdf$",
+  "%.suo$",         "%.pdb$",       "%.idb$",        "%.class$", "%.psd$", "%.db$",
+  "^desktop%.ini$", "^%.DS_Store$", "^%.directory$",
 }
 config.symbol_pattern = "[%a_][%w_]*"
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
