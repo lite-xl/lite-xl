@@ -278,6 +278,23 @@ top:
       lua_pushstring(L, e.text.text);
       return 2;
 
+    case SDL_TEXTEDITING:
+      lua_pushstring(L, "textediting");
+      lua_pushstring(L, e.edit.text);
+      lua_pushinteger(L, e.edit.start);
+      lua_pushinteger(L, e.edit.length);
+      return 4;
+
+#if SDL_VERSION_ATLEAST(2, 0, 22)
+    case SDL_TEXTEDITING_EXT:
+      lua_pushstring(L, "textediting");
+      lua_pushstring(L, e.editExt.text);
+      lua_pushinteger(L, e.editExt.start);
+      lua_pushinteger(L, e.editExt.length);
+      SDL_free(e.editExt.text);
+      return 4;
+#endif
+
     case SDL_MOUSEBUTTONDOWN:
       if (e.button.button == 1) { SDL_CaptureMouse(1); }
       lua_pushstring(L, "mousepressed");
@@ -313,8 +330,15 @@ top:
 
     case SDL_MOUSEWHEEL:
       lua_pushstring(L, "mousewheel");
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+      lua_pushnumber(L, e.wheel.preciseY);
+      // Use -x to keep consistency with vertical scrolling values (e.g. shift+scroll)
+      lua_pushnumber(L, -e.wheel.preciseX);
+#else
       lua_pushinteger(L, e.wheel.y);
-      return 2;
+      lua_pushinteger(L, -e.wheel.x);
+#endif
+      return 3;
 
     default:
       goto top;
@@ -452,6 +476,23 @@ static int f_get_window_mode(lua_State *L) {
     lua_pushstring(L, "normal");
   }
   return 1;
+}
+
+static int f_set_text_input_rect(lua_State *L) {
+  SDL_Rect rect;
+  rect.x = luaL_checknumber(L, 1);
+  rect.y = luaL_checknumber(L, 2);
+  rect.w = luaL_checknumber(L, 3);
+  rect.h = luaL_checknumber(L, 4);
+  SDL_SetTextInputRect(&rect);
+  return 0;
+}
+
+static int f_clear_ime(lua_State *L) {
+#if SDL_VERSION_ATLEAST(2, 0, 22)
+  SDL_ClearComposition();
+#endif
+  return 0;
 }
 
 
@@ -1015,6 +1056,8 @@ static const luaL_Reg lib[] = {
   { "set_window_hit_test", f_set_window_hit_test },
   { "get_window_size",     f_get_window_size     },
   { "set_window_size",     f_set_window_size     },
+  { "set_text_input_rect", f_set_text_input_rect },
+  { "clear_ime",           f_clear_ime           },
   { "window_has_focus",    f_window_has_focus    },
   { "raise_window",        f_raise_window        },
   { "show_fatal_error",    f_show_fatal_error    },

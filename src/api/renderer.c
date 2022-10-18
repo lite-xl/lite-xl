@@ -3,6 +3,9 @@
 #include "../renderer.h"
 #include "../rencache.h"
 
+// a reference index to a table that stores the fonts
+static int RENDERER_FONT_REF = LUA_NOREF;
+
 static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
@@ -255,6 +258,9 @@ static int f_begin_frame(UNUSED lua_State *L) {
 
 static int f_end_frame(UNUSED lua_State *L) {
   rencache_end_frame();
+  // clear the font reference table
+  lua_newtable(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
   return 0;
 }
 
@@ -291,6 +297,19 @@ static int f_draw_rect(lua_State *L) {
 static int f_draw_text(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
   font_retrieve(L, fonts, 1);
+
+  // stores a reference to this font to the reference table
+  lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
+  if (lua_istable(L, -1))
+  {
+    lua_pushvalue(L, 1);
+    lua_pushboolean(L, 1);
+    lua_rawset(L, -3);
+  } else {
+    fprintf(stderr, "warning: failed to reference count fonts\n");
+  }
+  lua_pop(L, 1);
+
   const char *text = luaL_checkstring(L, 2);
   float x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
@@ -326,6 +345,10 @@ static const luaL_Reg fontLib[] = {
 };
 
 int luaopen_renderer(lua_State *L) {
+  // gets a reference on the registry to store font data
+  lua_newtable(L);
+  RENDERER_FONT_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+
   luaL_newlib(L, lib);
   luaL_newmetatable(L, API_TYPE_FONT);
   luaL_setfuncs(L, fontLib, 0);
