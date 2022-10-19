@@ -299,10 +299,8 @@ end
 
 
 function View:draw_scrollbar()
-  self.v_scrollbar:draw_track()
-  self.v_scrollbar:draw_thumb()
-  self.h_scrollbar:draw_track()
-  self.h_scrollbar:draw_thumb()
+  self.v_scrollbar:draw()
+  self.h_scrollbar:draw()
 end
 
 
