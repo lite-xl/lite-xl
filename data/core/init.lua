@@ -495,7 +495,6 @@ local style = require "core.style"
 -- key binding:
 -- keymap.add { ["ctrl+escape"] = "core:quit" }
 
-
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
@@ -535,6 +534,21 @@ local style = require "core.style"
 --
 -- disable detectindent, otherwise it is enabled by default
 -- config.plugins.detectindent = false
+
+---------------------------- Miscellanous --------------------------------------
+
+-- modify list of files to ignore when indexing the project:
+-- config.ignore_files = {
+--   -- folders
+--   "^%.svn/",        "^%.git/",   "^%.hg/",        "^CVS/", "^%.Trash/", "^%.Trash%-.*/",
+--   "^node_modules/", "^%.cache/", "^__pycache__/",
+--   -- files
+--   "%.pyc$",         "%.pyo$",       "%.exe$",        "%.dll$",   "%.obj$", "%.o$",
+--   "%.a$",           "%.lib$",       "%.so$",         "%.dylib$", "%.ncb$", "%.sdf$",
+--   "%.suo$",         "%.pdb$",       "%.idb$",        "%.class$", "%.psd$", "%.db$",
+--   "^desktop%.ini$", "^%.DS_Store$", "^%.directory$",
+-- }
+
 ]])
   init_file:close()
 end
