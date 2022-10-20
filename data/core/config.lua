@@ -56,8 +56,9 @@ config.plugins = {}
 -- Allow you to set plugin configs even if we haven't seen the plugin before.
 setmetatable(config.plugins, {
   __index = function(t, k)
-    if rawget(t, k) == nil then rawset(t, k, {}) end
-    return rawget(t, k)
+    local v = rawget(t, k)
+    if v == true or v == nil then v = {} rawset(t, k, v) end
+    return v
   end
 })
 
