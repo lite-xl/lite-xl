@@ -11,7 +11,7 @@
 #define UNUSED
 #endif
 
-#define FONT_FALLBACK_MAX 4
+#define FONT_FALLBACK_MAX 10
 typedef struct RenFont RenFont;
 typedef enum { FONT_HINTING_NONE, FONT_HINTING_SLIGHT, FONT_HINTING_FULL } ERenFontHinting;
 typedef enum { FONT_ANTIALIASING_NONE, FONT_ANTIALIASING_GRAYSCALE, FONT_ANTIALIASING_SUBPIXEL } ERenFontAntialiasing;
