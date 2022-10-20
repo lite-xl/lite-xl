@@ -110,7 +110,9 @@ if not get_option('source-only')
         default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
     )
 
-    uchardet_dep = dependency('uchardet')
+    uchardet_dep = dependency('uchardet', fallback: ['uchardet', 'uchardet_dep'],
+        default_options: default_fallback_options + ['default_library=static']
+    )
 
     sdl_options = ['default_library=static']
 
