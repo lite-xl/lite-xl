@@ -7,7 +7,16 @@ config.mouse_wheel_scroll = 50 * SCALE
 config.animate_drag_scroll = false
 config.scroll_past_end = true
 config.file_size_limit = 10
-config.ignore_files = { "^%." }
+config.ignore_files = {
+  -- folders
+  "^%.svn/",        "^%.git/",   "^%.hg/",        "^CVS/", "^%.Trash/", "^%.Trash%-.*/",
+  "^node_modules/", "^%.cache/", "^__pycache__/",
+  -- files
+  "%.pyc$",         "%.pyo$",       "%.exe$",        "%.dll$",   "%.obj$", "%.o$",
+  "%.a$",           "%.lib$",       "%.so$",         "%.dylib$", "%.ncb$", "%.sdf$",
+  "%.suo$",         "%.pdb$",       "%.idb$",        "%.class$", "%.psd$", "%.db$",
+  "^desktop%.ini$", "^%.DS_Store$", "^%.directory$",
+}
 config.symbol_pattern = "[%a_][%w_]*"
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
 config.undo_merge_timeout = 0.3
