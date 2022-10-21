@@ -244,7 +244,7 @@ function DocView:draw_line_text(idx, x, y)
         local color = base_color
         local draw = false
 
-        if e == #text - 1 then
+        if e >= #text - 1 then
           draw = show_trailing
           color = trailing_color
         elseif s == 1 then
