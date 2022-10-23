@@ -7,4 +7,4 @@ Icon=lite-xl
 Terminal=false
 StartupWMClass=lite-xl
 Categories=Development;IDE;
-MimeType=text/plain;
+MimeType=text/plain;inode/directory;
