@@ -48,16 +48,16 @@ syntax.add {
         patterns = {
           { pattern = "%.%.%.", type = "operator" },
           { pattern = "[%a_][%w_]*%s*(),%s*",
-            type = {"operator", "normal"}
+            type = { "operator", "normal" }
           },
           { pattern = "[%a_][%w_]*%s*%f[%s)]",
             type = "operator"
           },
           { pattern = "%.()[%a_][%w_]*()%s*%f[(]",
-            type = { "normal", "function", "normal"}
+            type = { "normal", "function", "normal" }
           },
           { pattern = "[%a_][%w_]*()%s*%f[(]",
-            type = {"function", "normal"}
+            type = { "function", "normal" }
           },
           { pattern = "%.()[%a_][%w_]*",
             type = { "normal", "symbol" }
@@ -78,13 +78,14 @@ syntax.add {
       type = { "keyword", "normal", "keyword2", "normal", "operator", "normal", "function" }
     },
     -- Placeholder
-    { pattern = "_(),",
+    { pattern = "_%s*(),",
       type = { "operator", "normal" }
     },
     -- Function calls
-    { pattern = "[%a_][%w_]+()%s*%f[(\"'{]", type = {"function", "normal"} },
+    { pattern = "[%a_][%w_]+()%s*%f[(\"'{]", type = { "function", "normal" } },
     { pattern = "[%a_][%w_%.]+()%.()[%a_][%w_]+()%s*%f[(\"'{]",
-      type = { "normal", "normal", "function", "normal"} },
+      type = { "normal", "normal", "function", "normal" }
+    },
     -- Sub fields
     { pattern = "%.()[%a_][%w_]*",
       type = { "normal", "symbol" }
