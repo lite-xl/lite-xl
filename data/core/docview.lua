@@ -62,6 +62,7 @@ function DocView:new(doc)
   self.font = "code_font"
   self.last_x_offset = {}
   self.ime_selection = { from = 0, size = 0 }
+  self.ime_status = false
   self.hovering_gutter = false
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
   self.h_scrollbar:set_forced_status(config.force_scrollbar_status)
@@ -332,11 +333,23 @@ end
 
 function DocView:on_ime_text_editing(text, start, length)
   self.doc:ime_text_editing(text, start, length)
+  self.ime_status = #text > 0
   self.ime_selection.from = start
   self.ime_selection.size = length
 
   -- Set the composition bounding box that the system IME
   -- will consider when drawing its interface
+  local line1, col1, line2, col2 = self.doc:get_selection(true)
+  local col = math.min(col1, col2)
+  self:update_ime_location()
+  self:scroll_to_make_visible(line1, col + start)
+end
+
+---Update the composition bounding box that the system IME
+---will consider when drawing its interface
+function DocView:update_ime_location()
+  if not self.ime_status then return end
+
   local line1, col1, line2, col2 = self.doc:get_selection(true)
   local x, y = self:get_line_screen_position(line1)
   local h = self:get_line_height()
@@ -344,10 +357,10 @@ function DocView:on_ime_text_editing(text, start, length)
 
   local x1, x2 = 0, 0
 
-  if length > 0 then
+  if self.ime_selection.size > 0 then
     -- focus on a part of the text
-    local from = col + start
-    local to = from + length
+    local from = col + self.ime_selection.from
+    local to = from + self.ime_selection.size
     x1 = self:get_col_x_offset(line1, from)
     x2 = self:get_col_x_offset(line1, to)
   else
@@ -357,7 +370,6 @@ function DocView:on_ime_text_editing(text, start, length)
   end
 
   ime.set_location(x + x1, y, x2 - x1, h)
-  self:scroll_to_make_visible(line1, col + start)
 end
 
 function DocView:update()
@@ -382,6 +394,8 @@ function DocView:update()
     end
     core.blink_timer = tb
   end
+
+  self:update_ime_location()
 
   DocView.super.update(self)
 end
