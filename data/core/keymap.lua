@@ -178,9 +178,9 @@ end
 -- Events listening
 --------------------------------------------------------------------------------
 function keymap.on_key_pressed(k, ...)
-  -- In Windows during IME composition, input is still sent to us
+  -- In MacOS and Windows during IME composition input is still sent to us
   -- so we just ignore it
-  if ime.editing then return false end
+  if PLATFORM ~= "Linux" and ime.editing then return false end
 
   local mk = modkey_map[k]
   if mk then
