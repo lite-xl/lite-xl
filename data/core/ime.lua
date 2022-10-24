@@ -4,6 +4,7 @@ local ime = { }
 
 function ime.reset()
   ime.editing = false
+  ime.last_location = { x = 0, y = 0, w = 0, h = 0 }
 end
 
 ---Convert from utf-8 offset and length (from SDL) to byte offsets
@@ -76,7 +77,15 @@ end
 ---@param w number
 ---@param h number
 function ime.set_location(x, y, w, h)
-  system.set_text_input_rect(x, y, w, h)
+  if not ime.last_location or
+     ime.last_location.x ~= x or
+     ime.last_location.y ~= y or
+     ime.last_location.w ~= w or
+     ime.last_location.h ~= h
+  then
+    ime.last_location.x, ime.last_location.y, ime.last_location.w, ime.last_location.h = x, y, w, h
+    system.set_text_input_rect(x, y, w, h)
+  end
 end
 
 ime.reset()
