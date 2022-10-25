@@ -588,8 +588,11 @@ function autocomplete.open(on_close)
   end
 
   local av = get_active_view()
-  last_line, last_col = av.doc:get_selection()
-  update_suggestions()
+  if av then
+    partial = get_partial_symbol()
+    last_line, last_col = av.doc:get_selection()
+    update_suggestions()
+  end
 end
 
 function autocomplete.close()
