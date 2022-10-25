@@ -19,9 +19,12 @@ local Object = require "core.object"
 ---@class core.scrollbar : core.object
 local Scrollbar = Object:extend()
 
----@param direction "v" | "h" @Vertical or Horizontal
----@param alignment "s" | "e" @Start or End (left to right, top to bottom)
-function Scrollbar:new(direction, alignment)
+---@class ScrollbarOptions
+---@field direction "v" | "h" @Vertical or Horizontal
+---@field alignment "s" | "e" @Start or End (left to right, top to bottom)
+
+---@param options ScrollbarOptions
+function Scrollbar:new(options)
   ---Position information of the owner
   self.rect = {
     x = 0, y = 0, w = 0, h = 0,
@@ -44,9 +47,9 @@ function Scrollbar:new(direction, alignment)
   ---What is currently being hovered. `thumb` implies` track`
   self.hovering = { track = false, thumb = false }
   ---@type "v" | "h"@Vertical or Horizontal
-  self.direction = direction or "v"
+  self.direction = options.direction or "v"
   ---@type "s" | "e" @Start or End (left to right, top to bottom)
-  self.alignment = alignment or "e"
+  self.alignment = options.alignment or "e"
   ---@type number @Private. Used to keep track of animations
   self.expand_percent = 0
 end
