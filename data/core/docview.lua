@@ -296,14 +296,16 @@ end
 
 
 function DocView:on_mouse_pressed(button, x, y, clicks)
-  if button ~= "left" or not self.hovering_gutter then return end
+  if button ~= "left" or not self.hovering_gutter then
+    return DocView.super.on_mouse_pressed(self, button, x, y, clicks)
+  end
   local line = self:resolve_screen_position(x, y)
   if keymap.modkeys["shift"] then
     local sline, scol, sline2, scol2 = self.doc:get_selection(true)
     if line > sline then
-      self.doc:set_selection(line, #self.doc.lines[line], sline, scol)
+      self.doc:set_selection(sline, 1, line,  #self.doc.lines[line])
     else
-      self.doc:set_selection(line, #self.doc.lines[line], sline2, scol2)
+      self.doc:set_selection(line, 1, sline2, #self.doc.lines[sline2])
     end
   else
     if clicks == 1 then
@@ -312,6 +314,7 @@ function DocView:on_mouse_pressed(button, x, y, clicks)
       self.doc:set_selection(line, 1, line, #self.doc.lines[line])
     end
   end
+  return true
 end
 
 
