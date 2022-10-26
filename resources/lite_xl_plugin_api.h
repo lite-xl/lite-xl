@@ -290,7 +290,7 @@ static	void (*lua_callk)	(lua_State *L, int nargs, int nresults, int ctx, lua_CF
 static	int (*lua_getctx)	(lua_State *L, int *ctx);
 static	int (*lua_pcallk)	(lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
 static	int (*lua_load)	(lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode);
-static	int (*lua_dump)	(lua_State *L, lua_Writer writer, void *data);
+static	int (*lua_dump)	(lua_State *L, lua_Writer writer, void *data, int strip);
 static	int (*lua_yieldk)	(lua_State *L, int nresults, int ctx, lua_CFunction k);
 static	int (*lua_resume)	(lua_State *L, lua_State *from, int narg);
 static	int (*lua_status)	(lua_State *L);
@@ -468,7 +468,7 @@ static	void 	__lite_xl_fallback_lua_callk	(lua_State *L, int nargs, int nresults
 static	int 	__lite_xl_fallback_lua_getctx	(lua_State *L, int *ctx) { fputs("warning: lua_getctx is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_pcallk	(lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k) { fputs("warning: lua_pcallk is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_load	(lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode) { fputs("warning: lua_load is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_dump	(lua_State *L, lua_Writer writer, void *data) { fputs("warning: lua_dump is a stub", stderr); }
+static	int 	__lite_xl_fallback_lua_dump	(lua_State *L, lua_Writer writer, void *data, int strip) { fputs("warning: lua_dump is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_yieldk	(lua_State *L, int nresults, int ctx, lua_CFunction k) { fputs("warning: lua_yieldk is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_resume	(lua_State *L, lua_State *from, int narg) { fputs("warning: lua_resume is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_status	(lua_State *L) { fputs("warning: lua_status is a stub", stderr); }
@@ -696,7 +696,7 @@ static void lite_xl_plugin_init(void *XL) {
 	IMPORT_SYMBOL(lua_getctx, int , lua_State *L, int *ctx);
 	IMPORT_SYMBOL(lua_pcallk, int , lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
 	IMPORT_SYMBOL(lua_load, int , lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode);
-	IMPORT_SYMBOL(lua_dump, int , lua_State *L, lua_Writer writer, void *data);
+	IMPORT_SYMBOL(lua_dump, int , lua_State *L, lua_Writer writer, void *data, int strip);
 	IMPORT_SYMBOL(lua_yieldk, int , lua_State *L, int nresults, int ctx, lua_CFunction k);
 	IMPORT_SYMBOL(lua_resume, int , lua_State *L, lua_State *from, int narg);
 	IMPORT_SYMBOL(lua_status, int , lua_State *L);

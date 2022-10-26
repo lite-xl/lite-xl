@@ -364,9 +364,17 @@ end
 function DocView:draw_line_text(line, x, y)
   local default_font = self:get_font()
   local tx, ty = x, y + self:get_line_text_y_offset()
-  for _, type, text in self.doc.highlighter:each_token(line) do
+  local last_token = nil
+  local tokens = self.doc.highlighter:get_line(line).tokens
+  local tokens_count = #tokens
+  if string.sub(tokens[tokens_count], -1) == "\n" then
+    last_token = tokens_count - 1
+  end
+  for tidx, type, text in self.doc.highlighter:each_token(line) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
+    -- do not render newline, fixes issue #1164
+    if tidx == last_token then text = text:sub(1, -2) end
     tx = renderer.draw_text(font, text, tx, ty, color)
   end
   return self:get_line_height()
