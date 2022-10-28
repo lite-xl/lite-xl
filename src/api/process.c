@@ -41,6 +41,11 @@ typedef struct {
   process_handle child_pipes[3][2];
 } process_t;
 
+typedef struct {
+  char *key;
+  char *value;
+} envvar_t;
+
 typedef enum {
   SIGNAL_KILL,
   SIGNAL_TERM,
@@ -66,6 +71,10 @@ typedef enum {
 #ifdef _WIN32
   static volatile long PipeSerialNumber;
   static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = NULL; }
+
+  #ifndef strdup
+  #define strdup _strdup
+  #endif
 #else
   static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
 #endif
@@ -121,10 +130,118 @@ static bool signal_process(process_t* proc, signal_e sig) {
   return true;
 }
 
+static int compare_env(envvar_t *a, envvar_t *b) {
+#ifdef _WIN32
+  // on windows env variables are case-preserving.
+  return stricmp(a->key, b->key);
+#endif
+  return strcmp(a->key, b->key);
+}
+
+static int get_env_array(lua_State *L, int index, envvar_t *env, int envvar_size) {
+  size_t current_env_len;
+  // we need to make sure that we're not exceeding env size
+  // since we're sticking with a fixed size array
+  if (lua_rawlen(L, index) > envvar_size)
+    return luaL_error(L, "error: env size exceeds 256");
+
+  current_env_len = 0;
+
+  #define SORT_ENV() \
+    do {                                                       \
+      size_t i = current_env_len - 1;                          \
+      while (i > 0 && compare_env(&env[i], &env[i - 1]) < 0) { \
+        char *temp_key, *temp_value;                           \
+        temp_key = env[i].key;                                 \
+        temp_value = env[i].value;                             \
+        env[i].key = env[i-1].key;                             \
+        env[i].value = env[i-1].value;                         \
+        env[i-1].key = temp_key;                               \
+        env[i-1].value = temp_value;                           \
+        i--;                                                   \
+      }                                                        \
+    } while (0)
+
+#ifdef _WIN32
+  // copy the parent's environment
+  char *parent_env = GetEnvironmentStringsA();
+  char *original_parent_env = parent_env;
+  while (current_env_len < envvar_size && strlen(parent_env) > 0) {
+    char *eq_pos;
+    int key_len, value_len;
+
+    if ((eq_pos = strchr(parent_env, '=')) != NULL)
+    {
+      // https://unix.stackexchange.com/a/251215
+      if (parent_env[0] == '='
+        && isalpha(parent_env[1])
+        && parent_env[2] == ':'
+        && parent_env[3] == '=') {
+        // tl;dr when it see something like =:C it'll know
+        key_len = 3;
+      } else {
+        key_len = eq_pos - parent_env;
+      }
+      
+      value_len = strlen(parent_env + key_len);
+      
+      env[current_env_len].key = malloc(key_len + 1);
+      strncpy(env[current_env_len].key, parent_env, key_len);
+      env[current_env_len].key[key_len] = '\0';
+
+      env[current_env_len].value = malloc(value_len + 1);
+      strncpy(env[current_env_len].value, parent_env + key_len + 1, value_len);
+      env[current_env_len].value[value_len] = '\0';
+
+      current_env_len++;
+
+      // sort the string
+      SORT_ENV();
+    }
+    
+    parent_env += strlen(parent_env) + 1;
+  }
+  FreeEnvironmentStrings(original_parent_env);
+#endif
+
+  // copy the user env table into the list
+  lua_pushnil(L);
+  while (current_env_len < envvar_size && lua_next(L, index) != 0) {
+    // not using checkstring as it can skip cleanup
+    if (!lua_isstring(L, -2) || !lua_isstring(L, -1))
+      continue;
+
+    env[current_env_len].key = strdup(lua_tostring(L, -2));
+    env[current_env_len].value = strdup(lua_tostring(L, -1));
+    current_env_len++;
+
+    lua_pop(L, 1);
+
+    // if they're already in the list elsewhere, replace current one
+    for (size_t i = 0; i < current_env_len - 1; i++) {
+      if (compare_env(&env[current_env_len - 1], &env[i]) == 0) {
+        env[i].key = env[current_env_len - 1].key;
+        env[i].value = env[current_env_len - 1].value;
+        env[current_env_len - 1].key = NULL;
+        env[current_env_len - 1].value = NULL;
+        current_env_len--;
+        break;
+      }
+    }
+
+    // sort it
+    SORT_ENV();
+  }
+
+  return current_env_len;
+}
+
 static int process_start(lua_State* L) {
   int retval = 1;
-  size_t env_len = 0, key_len, val_len;
-  const char *cmd[256] = { NULL }, *env_names[256] = { NULL }, *env_values[256] = { NULL }, *cwd = NULL;
+  size_t env_len = 0;
+  envvar_t env[256];
+  const char *cmd[256] = { NULL };
+  const char *cwd = NULL;
   bool detach = false, literal = false;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
   size_t arg_len = lua_gettop(L), cmd_len;
@@ -152,19 +269,10 @@ static int process_start(lua_State* L) {
   if (arg_len > 1) {
     lua_getfield(L, 2, "env");
     if (!lua_isnil(L, -1)) {
-      lua_pushnil(L); 
-      while (lua_next(L, -2) != 0) {
-        const char* key = luaL_checklstring(L, -2, &key_len);
-        const char* val = luaL_checklstring(L, -1, &val_len);
-        env_names[env_len] = malloc(key_len+1);
-        strcpy((char*)env_names[env_len], key);
-        env_values[env_len] = malloc(val_len+1);
-        strcpy((char*)env_values[env_len], val);
-        lua_pop(L, 1);
-        ++env_len;
-      }
-    } else
-      lua_pop(L, 1);
+      // this function accepts absolute indices!
+      env_len = get_env_array(L, lua_absindex(L, -1), env, 256);
+    }
+    lua_pop(L, 1);
     lua_getfield(L, 2, "detach");  detach = lua_toboolean(L, -1);
     lua_getfield(L, 2, "timeout"); deadline = luaL_optnumber(L, -1, deadline);
     lua_getfield(L, 2, "cwd");     cwd = luaL_optstring(L, -1, NULL);
@@ -173,16 +281,12 @@ static int process_start(lua_State* L) {
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
       if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT) {
-        for (size_t i = 0; i < env_len; ++i) {
-          free((char*)env_names[i]);
-          free((char*)env_values[i]);
-        }
         retval = luaL_error(L, "redirect to handles, FILE* and paths are not supported");
         goto cleanup;
       }
     }
   }
-  
+
   process_t* self = lua_newuserdata(L, sizeof(process_t));
   memset(self, 0, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
@@ -275,9 +379,9 @@ static int process_start(lua_State* L) {
     }
     offset = 0;
     for (size_t i = 0; i < env_len; ++i) {
-      if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
+      if (offset + strlen(env[i].key) + strlen(env[i].value) + 1 >= sizeof(environmentBlock))
         break;
-      offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env_names[i], env_values[i]);
+      offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env[i].key, env[i].value);
       environmentBlock[offset++] = 0;
     }
     environmentBlock[offset++] = 0;
@@ -323,9 +427,9 @@ static int process_start(lua_State* L) {
     }
   #endif
   cleanup:
-  for (size_t i = 0; i < env_len; ++i) {
-    free((char*)env_names[i]);
-    free((char*)env_values[i]);
+  for (int i = 0; i < env_len; i++) {
+    free((void *) env[i].key);
+    free((void *) env[i].value);
   }
   for (int stream = 0; stream < 3; ++stream) {
     process_handle* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
