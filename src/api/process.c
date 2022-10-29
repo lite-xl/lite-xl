@@ -242,46 +242,52 @@ static int process_start(lua_State* L) {
   envvar_t env[256];
   const char *cmd[256] = { NULL };
   const char *cwd = NULL;
-  bool detach = false, literal = false;
+  bool detach = false;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
-  size_t arg_len = lua_gettop(L), cmd_len;
-  if (lua_type(L, 1) == LUA_TTABLE) {
-    #if LUA_VERSION_NUM > 501
-      lua_len(L, 1);
-    #else
-      lua_pushinteger(L, (int)lua_objlen(L, 1));
-    #endif
-    cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
-    for (size_t i = 1; i <= cmd_len; ++i) {
-      lua_pushinteger(L, i);
-      lua_rawget(L, 1);
+
+#ifdef _WIN32
+  bool literal = false;
+#endif
+
+  size_t cmd_len;
+  if (lua_istable(L, 1)) {
+    cmd_len = lua_rawlen(L, 1);
+    if (cmd_len <= 0) {
+      retval = 0;
+      lua_pushstring(L, "error: arguments table cannot be empty");
+      goto cleanup;
+    }
+
+    for (size_t i = 1; i <= cmd_len; i++) {
+      lua_rawgeti(L, 1, i);
       cmd[i-1] = luaL_checkstring(L, -1);
+      lua_pop(L, 1);
     }
   } else {
+#ifdef _WIN32
     literal = true;
+#endif
     cmd[0] = luaL_checkstring(L, 1);
     cmd_len = 1;
   }
-  // this should never trip
-  // but if it does we are in deep trouble
-  assert(cmd[0]);
 
-  if (arg_len > 1) {
+  if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "env");
-    if (!lua_isnil(L, -1)) {
-      // this function accepts absolute indices!
+    if (lua_istable(L, -1))
       env_len = get_env_array(L, lua_absindex(L, -1), env, 256);
-    }
-    lua_pop(L, 1);
+
     lua_getfield(L, 2, "detach");  detach = lua_toboolean(L, -1);
     lua_getfield(L, 2, "timeout"); deadline = luaL_optnumber(L, -1, deadline);
     lua_getfield(L, 2, "cwd");     cwd = luaL_optstring(L, -1, NULL);
     lua_getfield(L, 2, "stdin");   new_fds[STDIN_FD] = luaL_optnumber(L, -1, STDIN_FD);
     lua_getfield(L, 2, "stdout");  new_fds[STDOUT_FD] = luaL_optnumber(L, -1, STDOUT_FD);
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
+    lua_pop(L, 7);
+
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
       if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT) {
-        retval = luaL_error(L, "redirect to handles, FILE* and paths are not supported");
+        retval = 0;
+        lua_pushstring(L, "redirect to handles and paths are not supported");
         goto cleanup;
       }
     }
@@ -292,150 +298,209 @@ static int process_start(lua_State* L) {
   luaL_setmetatable(L, API_TYPE_PROCESS);
   self->deadline = deadline;
   self->detached = detach;
-  #if _WIN32
-    for (int i = 0; i < 3; ++i) {
-      switch (new_fds[i]) {
-        case REDIRECT_PARENT:
-          switch (i) {
-            case STDIN_FD: self->child_pipes[i][0] = GetStdHandle(STD_INPUT_HANDLE); break;
-            case STDOUT_FD: self->child_pipes[i][1] = GetStdHandle(STD_OUTPUT_HANDLE); break;
-            case STDERR_FD: self->child_pipes[i][1] = GetStdHandle(STD_ERROR_HANDLE); break;
-          }
-          self->child_pipes[i][i == STDIN_FD ? 1 : 0] = INVALID_HANDLE_VALUE;
-        break;
-        case REDIRECT_DISCARD:
-          self->child_pipes[i][0] = INVALID_HANDLE_VALUE;
-          self->child_pipes[i][1] = INVALID_HANDLE_VALUE;
-        break;
-        default: {
-          if (new_fds[i] == i) {
-            char pipeNameBuffer[MAX_PATH];
-            sprintf(pipeNameBuffer, "\\\\.\\Pipe\\RemoteExeAnon.%08lx.%08lx", GetCurrentProcessId(), InterlockedIncrement(&PipeSerialNumber));
-            self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-              PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 0, NULL);
-            if (self->child_pipes[i][0] == INVALID_HANDLE_VALUE) {
-              retval = luaL_error(L, "Error creating read pipe: %d.", GetLastError());
-              goto cleanup;
-            }
-            self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-            if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
-              CloseHandle(self->child_pipes[i][0]);
-              retval = luaL_error(L, "Error creating write pipe: %d.", GetLastError());
-              goto cleanup;
-            }
-            if (!SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
-                !SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 0 : 1], HANDLE_FLAG_INHERIT, 1)) {
-                  retval = luaL_error(L, "Error inheriting pipes: %d.", GetLastError());
-                  goto cleanup;
-            }
-          }
-        } break;
-      }
-    }
-    for (int i = 0; i < 3; ++i) {
-      if (new_fds[i] != i) {
-        self->child_pipes[i][0] = self->child_pipes[new_fds[i]][0];
-        self->child_pipes[i][1] = self->child_pipes[new_fds[i]][1];
-      }
-    }
-    STARTUPINFO siStartInfo;
-    memset(&self->process_information, 0, sizeof(self->process_information));
-    memset(&siStartInfo, 0, sizeof(siStartInfo));
-    siStartInfo.cb = sizeof(siStartInfo);
-    siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
-    siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
-    siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
-    siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
-    char commandLine[32767] = { 0 }, environmentBlock[32767], wideEnvironmentBlock[32767*2];
-    int offset = 0;
-    if (!literal) {
-      for (size_t i = 0; i < cmd_len; ++i) {
-        size_t len = strlen(cmd[i]);
-        if (offset + len + 2 >= sizeof(commandLine)) break;
-        if (i > 0)
-          commandLine[offset++] = ' ';
-        commandLine[offset++] = '"';
-        int backslashCount = 0; // Yes, this is necessary.
-        for (size_t j = 0; j < len && offset + 2 + backslashCount < sizeof(commandLine); ++j) {
-          if (cmd[i][j] == '\\')
-            ++backslashCount;
-          else if (cmd[i][j] == '"') {
-            for (size_t k = 0; k < backslashCount; ++k)
-              commandLine[offset++] = '\\';
-            commandLine[offset++] = '\\';
-            backslashCount = 0;
-          } else
-            backslashCount = 0;
-          commandLine[offset++] = cmd[i][j];
+#if _WIN32
+  for (int i = 0; i < 3; ++i) {
+    switch (new_fds[i]) {
+      case REDIRECT_PARENT:
+        switch (i) {
+          case STDIN_FD: self->child_pipes[i][0] = GetStdHandle(STD_INPUT_HANDLE); break;
+          case STDOUT_FD: self->child_pipes[i][1] = GetStdHandle(STD_OUTPUT_HANDLE); break;
+          case STDERR_FD: self->child_pipes[i][1] = GetStdHandle(STD_ERROR_HANDLE); break;
         }
-        if (offset + 1 + backslashCount >= sizeof(commandLine)) break;
-        for (size_t k = 0; k < backslashCount; ++k)
-          commandLine[offset++] = '\\';
-        commandLine[offset++] = '"';
-      }
-      commandLine[offset] = 0;
-    } else {
-      strncpy(commandLine, cmd[0], sizeof(commandLine));
-    }
-    offset = 0;
-    for (size_t i = 0; i < env_len; ++i) {
-      if (offset + strlen(env[i].key) + strlen(env[i].value) + 1 >= sizeof(environmentBlock))
+        self->child_pipes[i][i == STDIN_FD ? 1 : 0] = INVALID_HANDLE_VALUE;
+      break;
+      case REDIRECT_DISCARD:
+        self->child_pipes[i][0] = INVALID_HANDLE_VALUE;
+        self->child_pipes[i][1] = INVALID_HANDLE_VALUE;
+      break;
+      default:
+        if (new_fds[i] == i) {
+          char pipeNameBuffer[MAX_PATH];
+          sprintf(pipeNameBuffer, "\\\\.\\Pipe\\RemoteExeAnon.%08lx.%08lx", GetCurrentProcessId(), InterlockedIncrement(&PipeSerialNumber));
+          self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 0, NULL);
+          if (self->child_pipes[i][0] == INVALID_HANDLE_VALUE) {
+            retval = 0;
+            lua_pushfstring(L, "Error creating pipe: %d", GetLastError());
+            goto cleanup;
+          }
+          self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+          if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
+            retval = 0;
+            lua_pushfstring(L, "Error opening pipe: %d", GetLastError());
+            goto cleanup;
+          }
+          if (!SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
+              !SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 0 : 1], HANDLE_FLAG_INHERIT, 1)) {
+                retval = 0;
+                lua_pushfstring(L, "Error inheriting pipes: %d", GetLastError());
+                goto cleanup;
+          }
+        }
         break;
-      offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env[i].key, env[i].value);
-      environmentBlock[offset++] = 0;
     }
+  }
+  for (int i = 0; i < 3; ++i) {
+    if (new_fds[i] != i) {
+      self->child_pipes[i][0] = self->child_pipes[new_fds[i]][0];
+      self->child_pipes[i][1] = self->child_pipes[new_fds[i]][1];
+    }
+  }
+  STARTUPINFO siStartInfo;
+  memset(&self->process_information, 0, sizeof(self->process_information));
+  memset(&siStartInfo, 0, sizeof(siStartInfo));
+  siStartInfo.cb = sizeof(siStartInfo);
+  siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+  siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
+  siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
+  siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
+  char commandLine[32767] = { 0 }, environmentBlock[32767], wideEnvironmentBlock[32767*2];
+  int offset = 0;
+  if (!literal) {
+    for (size_t i = 0; i < cmd_len; ++i) {
+      size_t len = strlen(cmd[i]);
+      if (offset + len + 2 >= sizeof(commandLine)) break;
+      if (i > 0)
+        commandLine[offset++] = ' ';
+      commandLine[offset++] = '"';
+      int backslashCount = 0; // Yes, this is necessary.
+      for (size_t j = 0; j < len && offset + 2 + backslashCount < sizeof(commandLine); ++j) {
+        if (cmd[i][j] == '\\')
+          ++backslashCount;
+        else if (cmd[i][j] == '"') {
+          for (size_t k = 0; k < backslashCount; ++k)
+            commandLine[offset++] = '\\';
+          commandLine[offset++] = '\\';
+          backslashCount = 0;
+        } else
+          backslashCount = 0;
+        commandLine[offset++] = cmd[i][j];
+      }
+      if (offset + 1 + backslashCount >= sizeof(commandLine)) break;
+      for (size_t k = 0; k < backslashCount; ++k)
+        commandLine[offset++] = '\\';
+      commandLine[offset++] = '"';
+    }
+    commandLine[offset] = 0;
+  } else {
+    strncpy(commandLine, cmd[0], sizeof(commandLine));
+  }
+  offset = 0;
+  for (size_t i = 0; i < env_len; ++i) {
+    if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
+      break;
+    offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env_names[i], env_values[i]);
     environmentBlock[offset++] = 0;
-    if (env_len > 0)
-      MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information)) {
-      retval = luaL_error(L, "Error creating a process: %d.", GetLastError());
+  }
+  environmentBlock[offset++] = 0;
+  if (env_len > 0)
+    MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
+  if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information)) {
+    retval = 0;
+    lua_pushfstring(L, "Error creating a process: %d", GetLastError());
+    goto cleanup;
+  }
+  self->pid = (long)self->process_information.dwProcessId;
+  if (detach)
+    CloseHandle(self->process_information.hProcess);
+  CloseHandle(self->process_information.hThread);
+#else
+  for (int i = 0; i < 3; ++i) { // Make only the parents fd's non-blocking. Children should block.
+    if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][i == STDIN_FD ? 1 : 0], F_SETFL, O_NONBLOCK) == -1) {
+      retval = 0;
+      lua_pushfstring(L, "Error creating pipes: %s", strerror(errno));
       goto cleanup;
     }
-    self->pid = (long)self->process_information.dwProcessId;
-    if (detach)
-      CloseHandle(self->process_information.hProcess);
-    CloseHandle(self->process_information.hThread);
-  #else
-    for (int i = 0; i < 3; ++i) { // Make only the parents fd's non-blocking. Children should block.
-      if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][i == STDIN_FD ? 1 : 0], F_SETFL, O_NONBLOCK) == -1) {
-        retval = luaL_error(L, "Error creating pipes: %s", strerror(errno));
+  }
+  // create a status pipe to pass errno back to parent
+  int status_fd[2] = { 0 };
+  if (pipe(status_fd) == -1) {
+    retval = 0;
+    lua_pushfstring(L, "Error creating pipes: %s", strerror(errno));
+    goto cleanup;
+  }
+  // set the status fd to close on exec (very important)
+  if (fcntl(status_fd[1], F_SETFD, FD_CLOEXEC) == -1) {
+    retval = 1;
+    lua_pushfstring(L, "Error creating pipes: %s", strerror(errno));
+    goto cleanup;
+  }
+
+  self->pid = (long)fork();
+  if (self->pid < 0) {
+    retval = 0;
+    lua_pushfstring(L, "Error running fork(): %s", strerror(errno));
+    goto cleanup;
+  } else if (!self->pid) {
+    if (!detach)
+      setpgid(0,0);
+    for (int stream = 0; stream < 3; ++stream) {
+      if (new_fds[stream] == REDIRECT_DISCARD) { // Close the stream if we don't want it.
+        close(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
+        close(stream);
+      } else if (new_fds[stream] != REDIRECT_PARENT) // Use the parent handles if we redirect to parent.
+        dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
+      close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
+    }
+
+    size_t set;
+    for (set = 0; set < env_len && setenv(env[set].key, env[set].value, 1) == 0; ++set);
+    if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
+      execvp(cmd[0], (char** const)cmd);
+
+    int err = errno;
+    write(status_fd[1], &errno, sizeof(errno));
+    _exit(err);
+  } else {
+    close(status_fd[1]);
+    // wait for the subprocess to return _something_
+    size_t r;
+    int child_errno;
+    while ((r = read(status_fd[0], &child_errno, sizeof(child_errno))) == -1) {
+      if (errno == EPIPE)
+        break; // exec was successful
+      if (errno != EINTR) {
+        // read failed
+        retval = 0;
+        lua_pushfstring(L, "Error reading status: %s", strerror(errno));
         goto cleanup;
       }
     }
-    self->pid = (long)fork();
-    if (self->pid < 0) {
-      retval = luaL_error(L, "Error running fork: %s.", strerror(errno));
+    if (r > 0) {
+      // read an error message from child
+      retval = 0;
+      lua_pushfstring(L, "Error spawning process: %s", strerror(child_errno));
       goto cleanup;
-    } else if (!self->pid) {
-      if (!detach)
-        setpgid(0,0);
-      for (int stream = 0; stream < 3; ++stream) {
-        if (new_fds[stream] == REDIRECT_DISCARD) { // Close the stream if we don't want it.
-          close(self->child_pipes[stream][stream == STDIN_FD ? 0 : 1]);
-          close(stream);
-        } else if (new_fds[stream] != REDIRECT_PARENT) // Use the parent handles if we redirect to parent.
-          dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
-        close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
-      }
-      size_t set;
-      for (set = 0; set < env_len && setenv(env[set].key, env[set].value, 1) == 0; set++);
-      if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
-        execvp(cmd[0], (char** const)cmd);
-      const char* msg = strerror(errno);
-      size_t result = write(STDERR_FD, msg, strlen(msg)+1);
-      _exit(result == strlen(msg)+1 ? -1 : -2);
     }
-  #endif
-  cleanup:
-  for (int i = 0; i < env_len; i++) {
-    free((void *) env[i].key);
-    free((void *) env[i].value);
+  }
+#endif
+
+cleanup:
+  for (size_t i = 0; i < env_len; ++i) {
+    free((char*)env[i].key);
+    free((char*)env[i].value);
   }
   for (int stream = 0; stream < 3; ++stream) {
     process_handle* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
     if (*pipe) {
       close_fd(pipe);
     }
+    // clean up the parent side pipe as well
+    if (retval == 0 && stream != STDIN_FD) {
+      pipe = &self->child_pipes[stream][0];
+      if (*pipe) {
+        close_fd(pipe);
+      }
+    }
+  }
+
+#ifndef _WIN32
+  if (status_fd[0]) close(status_fd[0]);
+  if (status_fd[1]) close(status_fd[1]);
+#endif
+
+  if (retval == 0) {
+    return lua_error(L);
   }
   self->running = true;
   return retval;
