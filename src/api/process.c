@@ -387,9 +387,9 @@ static int process_start(lua_State* L) {
   }
   offset = 0;
   for (size_t i = 0; i < env_len; ++i) {
-    if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
+    if (offset + strlen(env[i].key) + strlen(env[i].value) + 1 >= sizeof(environmentBlock))
       break;
-    offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env_names[i], env_values[i]);
+    offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env[i].key, env[i].value);
     environmentBlock[offset++] = 0;
   }
   environmentBlock[offset++] = 0;
