@@ -22,7 +22,7 @@ local Scrollbar = Object:extend()
 ---@class ScrollbarOptions
 ---@field direction "v" | "h" @Vertical or Horizontal
 ---@field alignment "s" | "e" @Start or End (left to right, top to bottom)
----@field force_status "expanded" | "contracted" | false @Force the scrollbar status on hover
+---@field force_status "expanded" | "contracted" | false @Force the scrollbar status
 ---@field expanded_size number? @Override the default value specified by `style.expanded_scrollbar_size`
 ---@field contracted_size number? @Override the default value specified by `style.scrollbar_size`
 
@@ -55,15 +55,23 @@ function Scrollbar:new(options)
   self.alignment = options.alignment or "e"
   ---@type number @Private. Used to keep track of animations
   self.expand_percent = 0
-  ---@type "expanded" | "contracted" | false @Force the scrollbar status on hover
+  ---@type "expanded" | "contracted" | false @Force the scrollbar status
   self.force_status = options.force_status
-  if self.force_status == "expanded" then
-    self.expand_percent = 1
-  end
+  self:set_forced_status(options.force_status)
   ---@type number? @Override the default value specified by `style.expanded_scrollbar_size`
   self.contracted_size = options.contracted_size
   ---@type number? @Override the default value specified by `style.scrollbar_size`
   self.expanded_size = options.expanded_size
+end
+
+
+---Set the status the scrollbar is forced to keep
+---@param status "expanded" | "contracted" | false @The status to force
+function Scrollbar:set_forced_status(status)
+  self.force_status = status
+  if self.force_status == "expanded" then
+    self.expand_percent = 1
+  end
 end
 
 
