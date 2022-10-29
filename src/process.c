@@ -1,5 +1,4 @@
 #include "process.h"
-#include "lopcodes.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -132,6 +131,7 @@ static int create_lpcmdline(wchar_t *cmdline, int argc, char **argv, bool verbat
         cmdline[args_len++] = L'"';
       } else {
         wcsncpy(cmdline + args_len, argument, r);
+        args_len += r;
       }
       cmdline[args_len++] = L' ';
     } else {
@@ -139,7 +139,7 @@ static int create_lpcmdline(wchar_t *cmdline, int argc, char **argv, bool verbat
     }
   }
   // terminate the string
-  cmdline[args_len] = L'\0';
+  cmdline[args_len - 1] = L'\0';
 
   return args_len;
 }
@@ -156,13 +156,13 @@ static int find_key_len(wchar_t *env) {
     wchar_t *eq_pos;
     if ((eq_pos = wcschr(env, L'=')) != NULL)
       return eq_pos - env;
-    return 0
+    return 0;
   }
 }
 
 static int compare_env(wchar_t *a, wchar_t *b) {
   wchar_t a_upper[32767], b_upper[32767];
-  wchar_t a_upper_ptr, b_upper_ptr;
+  wchar_t *a_upper_ptr, *b_upper_ptr;
   int a_key_len, b_key_len;
 
   a_key_len = find_key_len(a);
@@ -181,18 +181,33 @@ static int compare_env(wchar_t *a, wchar_t *b) {
 
   a_upper_ptr = a_upper;
   b_upper_ptr = b_upper;
-  while (*a_upper_ptr && *b_upper_ptr)
-  {
+  for (;;) {
     if (*a_upper_ptr < *b_upper_ptr)
       return -1;
-    else
+    else if (*a_upper_ptr > *b_upper_ptr)
       return 1;
+    else if (!(*a_upper_ptr) && !(*b_upper_ptr))
+      return 0;
+    a_upper_ptr++;
+    b_upper_ptr++;
   }
-  return 0;
 }
 
-static int qsort_env(const void *a, const void *b) {
-  return compare_env(*(wchar_t *const *) a, *(wchar_t *const *) b);
+static int find_env(wchar_t *needle, wchar_t **haystack, size_t haystack_size) {
+  size_t low = 0, high = haystack_size - 1;
+  if (haystack_size == 0) return -1;
+  while (low <= high) {
+    size_t mid = low + (high - low) / 2;
+    int cmp = compare_env(haystack[mid], needle);
+
+    if (cmp == 0)
+      return mid;
+    else if (cmp < 0)
+      low = mid + 1;
+    else
+      high = mid - 1;
+  }
+  return -1;
 }
 
 static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
@@ -207,20 +222,22 @@ static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
    * TL;DR: an envvar has the maximum size of 32767, the entire block itself (multiple envvar)
    * has no limits.
    */
-  wchar_t env_variable[32767];
   wchar_t **env_block = NULL;
   wchar_t *output = NULL;
   wchar_t *parent_env = NULL;
-  int retval, r;
+  int r;
+  bool fail;
   size_t env_block_len = 0;
-  size_t env_block_capacity = 0;
+  size_t env_block_capacity = 11;
   size_t env_str_len = 0;
 
+  // this code moves the last element to the correct place and resizes
+  // the array
 #define PUSH_ENV()                                       \
   do {                                                   \
     env_block_len++;                                     \
     for (size_t i = env_block_len - 1; i > 0; i--) {     \
-      if (compare_env(env_block[i-1], env_block[i]) <= 0)\
+      if (compare_env(env_block[i-1], env_block[i]) < 0) \
         break;                                           \
       wchar_t *tmp = env_block[i-1];                     \
       env_block[i-1] = env_block[i];                     \
@@ -235,7 +252,7 @@ static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
     }                                                    \
   } while (0)
 
-  env_block = malloc(11 * sizeof(wchar_t *));
+  env_block = malloc(env_block_capacity * sizeof(wchar_t *));
   if (env_block == NULL)
     goto FAIL;
 
@@ -252,6 +269,12 @@ static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
 
       MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS | MB_PRECOMPOSED,
                           env[i], -1, env_block[env_block_len], r);
+      if (wcschr(env_block[env_block_len], '=') == NULL) {
+        // let FAIL free the newly allocated memory
+        env_block_len++;
+        goto FAIL; 
+      }
+
       env_str_len += r;
       PUSH_ENV();
     } else {
@@ -265,45 +288,34 @@ static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
     wchar_t *parent_env_ptr = parent_env;
 
     while ((r = wcslen(parent_env_ptr)) > 0) {
-      int i;
-      // TODO: improve search
-      for (i = 0; i < env_block_len; i++) {
-        if (compare_env(parent_env_ptr, env_block[i]) == 0) {
-          // already has it, skip this one
-          break;
-        }
-      }
-      if (i == env_block_len) {
+      if (find_env(parent_env_ptr, env_block, env_block_len) == -1) {
         // don't have it, copy
-        env_block[env_block_len] = malloc(r * sizeof(wchar_t));
+        env_block[env_block_len] = malloc((r + 1) * sizeof(wchar_t));
         if (env_block[env_block_len] == NULL)
           goto FAIL;
         // copy (including nul character)
-        wcsncpy(env_block[env_block_len], parent_env, r + 1);
-        env_block_len += r + 1;
+        wcsncpy(env_block[env_block_len], parent_env_ptr, r + 1);
+        env_str_len += r + 1;
         PUSH_ENV();
       }
+      parent_env_ptr += r + 1;
     }
   }
 
   // copy the required env too
   for (int i = 0; i < (sizeof(REQUIRED_ENV)/sizeof(*REQUIRED_ENV)); i++) {
-    int j;
-    // TODO: improve search
-    for (j = 0; j < env_block_len; j++) {
-      if (compare_env(REQUIRED_ENV[i].key_eq, env_block[j]) == 0) {
-        // already has it, skip this one
-        break;
-      }
-    }
-    if (j == env_block_len) {
+    if (find_env(REQUIRED_ENV[i].key_eq, env_block, env_block_len) == -1) {
       if ((r = GetEnvironmentVariableW(REQUIRED_ENV[i].key, NULL, 0)) != 0) {
         r += REQUIRED_ENV[i].len + 1; // key len and the equal sign
-        // copy finally
+
         env_block[env_block_len] = malloc(r * sizeof(wchar_t));
         if (env_block[env_block_len] == NULL)
           goto FAIL;
-        GetEnvironmentVariableW(REQUIRED_ENV[i].key, env_block[env_block_len], r);
+
+        // copy the key
+        wcsncpy(env_block[env_block_len], REQUIRED_ENV[i].key_eq, REQUIRED_ENV[i].len + 1);
+        // copy the value
+        GetEnvironmentVariableW(REQUIRED_ENV[i].key, env_block[env_block_len] + REQUIRED_ENV[i].len + 1, r);
         env_str_len += r;
         PUSH_ENV();
       } else {
@@ -323,19 +335,22 @@ static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
     wcsncpy(output_ptr, env_block[i], r);
     output_ptr += r;
   }
-  *(++output) = L'\0';
+  *(output_ptr++) = L'\0';
   goto CLEANUP;
 
 
 FAIL:
-  retval = 0;
+  fail = true;
 CLEANUP:
-  if (parent_env != NULL) FreeEnvironmentStrings(parent_env);
+  if (parent_env != NULL)
+    FreeEnvironmentStringsW(parent_env);
   for (size_t i = 0; i < env_block_len; i++)
     free(env_block[i]);
   free(env_block);
-  if (retval == 0)
+  if (fail) {
     free(output);
-  return retval;
+    output = NULL;
+  }
+  return output;
 }
 #endif
