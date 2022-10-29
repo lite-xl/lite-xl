@@ -33,6 +33,7 @@ end
 function Doc:reset()
   self.lines = { "\n" }
   self.selections = { 1, 1, 1, 1 }
+  self.last_selection = 1
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -220,10 +221,14 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
     end
   end
   self:set_selections(target, line1, col1, line2, col2, swap, 0)
+  self.last_selection = target
 end
 
 
 function Doc:remove_selection(idx)
+  if self.last_selection >= idx then
+    self.last_selection = self.last_selection - 1
+  end
   common.splice(self.selections, (idx - 1) * 4 + 1, 4)
 end
 
@@ -231,6 +236,7 @@ end
 function Doc:set_selection(line1, col1, line2, col2, swap)
   self.selections = {}
   self:set_selections(1, line1, col1, line2, col2, swap)
+  self.last_selection = 1
 end
 
 function Doc:merge_cursors(idx)
@@ -239,6 +245,9 @@ function Doc:merge_cursors(idx)
       if self.selections[i] == self.selections[j] and
         self.selections[i+1] == self.selections[j+1] then
           common.splice(self.selections, i, 4)
+          if self.last_selection >= (i+3)/4 then
+            self.last_selection = self.last_selection - 1
+          end
           break
       end
     end
