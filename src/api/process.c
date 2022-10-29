@@ -418,7 +418,7 @@ static int process_start(lua_State* L) {
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
       size_t set;
-      for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
+      for (set = 0; set < env_len && setenv(env[set].key, env[set].value, 1) == 0; set++);
       if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
         execvp(cmd[0], (char** const)cmd);
       const char* msg = strerror(errno);
