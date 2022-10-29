@@ -86,7 +86,15 @@ local function split_cursor(direction)
       table.insert(new_cursors, { line1 + direction, col1 })
     end
   end
-  for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
+  -- add selections in the order that will leave the "last" added one as doc.last_selection
+  local start, stop = 1, #new_cursors
+  if direction < 0 then
+    start, stop = #new_cursors, 1
+  end
+  for i = start, stop, direction do
+    local v = new_cursors[i]
+    doc():add_selection(v[1], v[2])
+  end
   core.blink_reset()
 end
 
@@ -197,8 +205,11 @@ end
 
 local commands = {
   ["doc:select-none"] = function(dv)
-    local line, col = dv.doc:get_selection()
-    dv.doc:set_selection(line, col)
+    local l1, c1 = dv.doc:get_selection_idx(dv.doc.last_selection)
+    if not l1 then
+      l1, c1 = dv.doc:get_selection_idx(1)
+    end
+    dv.doc:set_selection(l1, c1)
   end,
 
   ["doc:cut"] = function()
@@ -247,28 +258,23 @@ local commands = {
       -- Paste every clipboard and add a selection at the end of each one
       local new_selections = {}
       for idx in dv.doc:get_selections() do
-        local new_partial_selections = {}
         for cb_idx in ipairs(core.cursor_clipboard_whole_line) do
           insert_paste(dv.doc, core.cursor_clipboard[cb_idx], only_whole_lines, idx)
-          -- Make the last selection the initial one;
-          -- this way pressing escape will keep the last selection.
-          -- When dealing with whole lines, only keep the last cursor
           if not only_whole_lines then
-            table.insert(new_partial_selections, 1, {dv.doc:get_selection_idx(idx)})
+            table.insert(new_selections, {dv.doc:get_selection_idx(idx)})
           end
         end
         if only_whole_lines then
-          table.insert(new_partial_selections, 1, {dv.doc:get_selection_idx(idx)})
+          table.insert(new_selections, {dv.doc:get_selection_idx(idx)})
         end
-        table.insert(new_selections, new_partial_selections)
       end
-      -- The new_selections and partial_selection system is needed to keep the
-      -- last cursor added to the first "original" cursor as the primary one.
-      local i = 1
-      for _,partial_selection in pairs(new_selections) do
-        for _,selection in pairs(partial_selection) do
-          dv.doc:set_selections(i, table.unpack(selection))
-          i = i + 1
+      local first = true
+      for _,selection in pairs(new_selections) do
+        if first then
+          dv.doc:set_selection(table.unpack(selection))
+          first = false
+        else
+          dv.doc:add_selection(table.unpack(selection))
         end
       end
     end
