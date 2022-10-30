@@ -27,7 +27,7 @@ extern int PROCESS_SIGKILL;
 extern int PROCESS_SIGINT;
 
 process_t *process_new(void);
-int process_start(int argc, const char **argv, const char *cwd,
+int process_start(const char **argv, const char *cwd,
                   const char *env, process_env_action_t action,
                   process_redirect_t pipe[3], int timeout,
                   bool detach, bool verbatim_arguments);

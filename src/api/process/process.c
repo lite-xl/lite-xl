@@ -70,13 +70,13 @@ process_t *process_new(void) {
 }
 
 #ifdef _WIN32
-static int create_lpcmdline(wchar_t *cmdline, int argc, char **argv, bool verbatim) {
+static int create_lpcmdline(wchar_t *cmdline, char **argv, bool verbatim) {
   // for lpcmdline, this is 32767 at max
   wchar_t argument[32767];
   int r, arg_len, args_len;
   arg_len = args_len = 0;
 
-  for (int i = 0; i < argc; i++) {
+  for (int i = 0; argv[i] != NULL; i++) {
     if ((r = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS | MB_PRECOMPOSED,
                                 argv[i], -1, argument, 32767)) != 0) {
       // this number includes the trailing \0 characters (assume as space)
@@ -337,7 +337,6 @@ static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
   }
   *(output_ptr++) = L'\0';
   goto CLEANUP;
-
 
 FAIL:
   fail = true;
