@@ -107,8 +107,10 @@ main() {
       portable=""
   fi
 
-  if [[ $platform == "macos" && $arch == "arm64" ]]; then
-      cross_file="--cross-file resources/macos/macos_arm64.conf"
+  if [[ $CROSS_ARCH != "" ]]; then
+    if [[ $platform == "macos" && $CROSS_ARCH == "arm64" ]]; then
+        cross_file="--cross-file resources/macos/macos_arm64.conf"
+    fi
   fi
 
   rm -rf "${build_dir}"
