@@ -31,6 +31,7 @@ show_help() {
 
 main() {
   local platform="$(get_platform_name)"
+  local arch="$(get_platform_arch)"
   local build_dir="$(get_default_build_dir)"
   local build_type="debug"
   local prefix=/
@@ -106,11 +107,16 @@ main() {
       portable=""
   fi
 
+  if [[ $platform == "macos" && $arch == "arm64" ]]; then
+      cross_file="--cross-file resources/macos/macos_arm64.conf"
+  fi
+
   rm -rf "${build_dir}"
 
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
     --buildtype=$build_type \
     --prefix "$prefix" \
+    $cross_file \
     $force_fallback \
     $bundle \
     $portable \
@@ -124,7 +130,7 @@ main() {
 
   meson compile -C "${build_dir}"
 
-  if [ ! -z ${pgo+x} ]; then
+  if [[ $pgo != "" ]]; then
     cp -r data "${build_dir}/src"
     "${build_dir}/src/lite-xl"
     meson configure -Db_pgo=use "${build_dir}"

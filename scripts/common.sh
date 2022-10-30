@@ -81,6 +81,8 @@ get_platform_arch() {
     else
       arch=i686
     fi
+  elif [[ $CROSS_ARCH != "" ]]; then
+    arch=$CROSS_ARCH
   fi
   echo "$arch"
 }
