@@ -88,10 +88,15 @@ static const required_env_t REQUIRED_ENV[] = {
 #endif
 
 process_t *process_new(void) {
-  process_t *proc = malloc(sizeof(process_t));
-  if (proc != NULL)
-    memset(proc, 0, sizeof(process_t));
-  return proc;
+  process_t *self = malloc(sizeof(process_t));
+  if (self != NULL) {
+    memset(self, 0, sizeof(process_t));
+    for (int i = 0; i < 3; i++) {
+      self->pipes[i][0] = PROCESS_INVALID_HANDLE;
+      self->pipes[i][1] = PROCESS_INVALID_HANDLE;
+    } 
+  }
+  return self;
 }
 
 #ifdef _WIN32
