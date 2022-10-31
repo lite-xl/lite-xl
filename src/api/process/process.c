@@ -1,8 +1,11 @@
 #include "process.h"
 
+#include <errhandlingapi.h>
+#include <handleapi.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <winerror.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -399,10 +402,6 @@ int process_start(process_t *self,
   self->detached = detach;
 
   process_redirect_t redirect[3];
-  if (pipe_redirect[PROCESS_STDIN] == PROCESS_REDIRECT_STDOUT)
-    return PROCESS_EINVAL;
-  if (pipe_redirect[PROCESS_STDOUT] == PROCESS_REDIRECT_STDOUT)
-    return PROCESS_EINVAL;
 
   // normalize
   redirect[PROCESS_STDIN] = pipe_redirect[PROCESS_STDIN] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PIPE : redirect[PROCESS_STDIN];
@@ -431,6 +430,10 @@ int process_start(process_t *self,
         break;
 
       case PROCESS_REDIRECT_STDOUT:
+        if (i != PROCESS_STDERR) {
+          SetLastError(ERROR_INVALID_PARAMETER);
+          goto FAIL;
+        }
         self->pipes[PROCESS_STDERR][0] = self->pipes[PROCESS_STDOUT][0];
         self->pipes[PROCESS_STDERR][1] = self->pipes[PROCESS_STDOUT][1];
         break;
