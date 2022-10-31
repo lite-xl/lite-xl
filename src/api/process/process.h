@@ -28,6 +28,9 @@ extern int PROCESS_SIGTERM;
 extern int PROCESS_SIGKILL;
 extern int PROCESS_SIGINT;
 
+extern int PROCESS_EINVAL;
+extern int PROCESS_ENOMEM;
+
 process_t *process_new(void);
 int process_start(process_t *proc,
                   const char **argv, const char *cwd,
