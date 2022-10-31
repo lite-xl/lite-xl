@@ -467,6 +467,7 @@ int process_start(process_t *self,
       break;
 
       default:
+        SetLastError(ERROR_INVALID_PARAMETER);
         goto FAIL;
     }
   }
