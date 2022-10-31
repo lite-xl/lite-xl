@@ -26,8 +26,10 @@ int PROCESS_EINVAL = -ERROR_INVALID_PARAMETER;
 int PROCESS_ENOMEM = -ERROR_NOT_ENOUGH_MEMORY;
 
 static void close_handle(process_handle_t *handle) {
-  CloseHandle(*handle);
-  *handle = INVALID_HANDLE_VALUE;
+  if (*handle != INVALID_HANDLE_VALUE) {
+    CloseHandle(*handle);
+    *handle = INVALID_HANDLE_VALUE;
+  }
 }
 
 #else
@@ -39,8 +41,10 @@ int PROCESS_EINVAL = -EINVAL;
 int PROCESS_ENOMEM = -ENOMEM;
 
 static void close_handle(process_handle_t *handle) {
-  close(*handle);
-  *handle = 0;
+  if (*handle != INVALID_HANDLE_VALUE) {
+    close(*handle);
+    *handle = 0;
+  }
 }
 
 #endif
