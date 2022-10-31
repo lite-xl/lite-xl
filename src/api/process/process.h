@@ -31,7 +31,7 @@ extern int PROCESS_SIGINT;
 process_t *process_new(void);
 int process_start(process_t *proc,
                   const char **argv, const char *cwd,
-                  const char *env, process_env_action_t action,
+                  const char **env, process_env_action_t action,
                   process_redirect_t pipe[3], int timeout,
                   bool detach, bool verbatim_arguments);
 int process_read(process_t *proc, process_stream_t stream,
