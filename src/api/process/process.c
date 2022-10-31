@@ -1,5 +1,6 @@
 #include "process.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -17,9 +18,31 @@
 #define READ_BUF_SIZE 4096
 
 #ifdef _WIN32
+
 typedef HANDLE process_handle_t;
+#define PROCESS_INVALID_HANDLE INVALID_HANDLE_VALUE
+
+int PROCESS_EINVAL = -ERROR_INVALID_PARAMETER;
+int PROCESS_ENOMEM = -ERROR_NOT_ENOUGH_MEMORY;
+
+static void close_handle(process_handle_t *handle) {
+  CloseHandle(*handle);
+  *handle = INVALID_HANDLE_VALUE;
+}
+
 #else
+
 typedef int process_handle_t;
+#define PROCESS_INVALID_HANDLE 0
+
+int PROCESS_EINVAL = -EINVAL;
+int PROCESS_ENOMEM = -ENOMEM;
+
+static void close_handle(process_handle_t *handle) {
+  close(*handle);
+  *handle = 0;
+}
+
 #endif
 
 struct process_s {
@@ -37,6 +60,8 @@ struct process_s {
 };
 
 #ifdef _WIN32
+
+static volatile long pipe_serial = 0;
 
 typedef struct {
   wchar_t *key;
@@ -70,7 +95,7 @@ process_t *process_new(void) {
 }
 
 #ifdef _WIN32
-static int create_lpcmdline(wchar_t *cmdline, char **argv, bool verbatim) {
+static int create_lpcmdline(wchar_t *cmdline, const char **argv, bool verbatim) {
   // for lpcmdline, this is 32767 at max
   wchar_t argument[32767];
   int r, arg_len, args_len;
@@ -210,7 +235,7 @@ static int find_env(wchar_t *needle, wchar_t **haystack, size_t haystack_size) {
   return -1;
 }
 
-static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
+static wchar_t *create_lpenvironment(const char **env, bool extend) {
   /**
    * The maximum size of a user-defined environment variable is 32,767 characters.
    * There is no technical limitation on the size of the environment block.
@@ -257,7 +282,7 @@ static wchar_t *create_lpenvironment(char **env, size_t env_size, bool extend) {
     goto FAIL;
 
   // copy user envs
-  for (size_t i = 0; i < env_size; i++) {
+  for (size_t i = 0; env[i] != NULL; i++) {
     if ((r = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS | MB_PRECOMPOSED,
                                 env[i], -1, NULL, 0)) != 0) {
       if (r > 32767)
@@ -353,3 +378,150 @@ CLEANUP:
   return output;
 }
 #endif
+
+int process_start(process_t *self,
+                  const char **argv, const char *cwd,
+                  const char **env, process_env_action_t action,
+                  process_redirect_t pipe_redirect[3], int timeout,
+                  bool detach, bool verbatim_arguments) {
+  int retval = 0;
+
+  self->deadline = timeout;  
+  self->detached = detach;
+
+  process_redirect_t redirect[3];
+  if (pipe_redirect[PROCESS_STDIN] == PROCESS_REDIRECT_STDOUT)
+    return PROCESS_EINVAL;
+  if (pipe_redirect[PROCESS_STDOUT] == PROCESS_REDIRECT_STDOUT)
+    return PROCESS_EINVAL;
+
+  // normalize
+  redirect[PROCESS_STDIN] = pipe_redirect[PROCESS_STDIN] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PIPE : redirect[PROCESS_STDIN];
+  redirect[PROCESS_STDOUT] = pipe_redirect[PROCESS_STDOUT] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PIPE : redirect[PROCESS_STDOUT];
+  redirect[PROCESS_STDERR] = pipe_redirect[PROCESS_STDERR] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PARENT : redirect[PROCESS_STDERR];
+
+#ifdef _WIN32
+  STARTUPINFOW si;
+  wchar_t wcs_cwd[MAX_PATH];
+  wchar_t cmdline[32767];
+  wchar_t *environment = NULL;
+
+  for (int i = 0; i < 3; i++) {
+    switch (redirect[i]) {
+      case PROCESS_REDIRECT_PARENT:
+        switch (i) {
+          case PROCESS_STDIN: self->pipes[i][0] = GetStdHandle(STD_INPUT_HANDLE); break;
+          case PROCESS_STDOUT: self->pipes[i][1] = GetStdHandle(STD_OUTPUT_HANDLE); break;
+          case PROCESS_STDERR: self->pipes[i][1] = GetStdHandle(STD_ERROR_HANDLE); break;
+        }
+        self->pipes[i][i == PROCESS_STDIN ? 1 : 0] = INVALID_HANDLE_VALUE;
+        break;
+
+      case PROCESS_REDIRECT_DISCARD:
+        self->pipes[i][0] = self->pipes[i][1] = INVALID_HANDLE_VALUE;
+        break;
+
+      case PROCESS_REDIRECT_STDOUT:
+        self->pipes[PROCESS_STDERR][0] = self->pipes[PROCESS_STDOUT][0];
+        self->pipes[PROCESS_STDERR][1] = self->pipes[PROCESS_STDOUT][1];
+        break;
+
+      case PROCESS_REDIRECT_PIPE: {
+        char pipe_name[MAX_PATH];
+        snprintf(pipe_name, MAX_PATH, "\\\\.\\pipe\\LiteXLProc.%08lx.%08lx", GetCurrentProcessId(), InterlockedIncrement(&pipe_serial));
+        self->pipes[i][0] = CreateNamedPipeA(pipe_name,
+                                            PIPE_ACCESS_INBOUND
+                                              | FILE_FLAG_OVERLAPPED
+                                              | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                                            PIPE_TYPE_BYTE | PIPE_WAIT,
+                                            1,
+                                            READ_BUF_SIZE, READ_BUF_SIZE,
+                                            0,
+                                            NULL);
+        if (self->pipes[i][0] == INVALID_HANDLE_VALUE)
+          goto FAIL;
+
+        self->pipes[i][1] = CreateFileA(pipe_name,
+                                        GENERIC_WRITE,
+                                        0,
+                                        NULL,
+                                        OPEN_EXISTING,
+                                        FILE_ATTRIBUTE_NORMAL,
+                                        NULL);
+        if (self->pipes[i][1] == INVALID_HANDLE_VALUE)
+          goto FAIL;
+
+        if (!SetHandleInformation(self->pipes[i][i == PROCESS_STDIN ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
+            !SetHandleInformation(self->pipes[i][i == PROCESS_STDIN ? 0 : 1], HANDLE_FLAG_INHERIT, 1))
+          goto FAIL;
+      }
+      break;
+
+      default:
+        goto FAIL;
+    }
+  }
+
+
+  memset(&si, 0, sizeof(STARTUPINFOW));
+  si.cb = sizeof(STARTUPINFOW);
+  si.dwFlags |= STARTF_USESTDHANDLES;
+  si.hStdInput = self->pipes[PROCESS_STDIN][1];
+  si.hStdOutput = self->pipes[PROCESS_STDOUT][0];
+  si.hStdError = self->pipes[PROCESS_STDERR][0];
+
+
+  if (!create_lpcmdline(cmdline, argv, verbatim_arguments))
+    goto FAIL;
+
+  if (env != NULL
+      && (environment = create_lpenvironment(env, action == PROCESS_ENV_EXTEND)) == NULL)
+    goto FAIL;
+
+  if (cwd != NULL
+      && MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS | MB_PRECOMPOSED,
+                            cwd, -1, wcs_cwd, MAX_PATH) == 0)
+    goto FAIL;
+
+  if (!CreateProcessW(NULL,
+                      cmdline,
+                      NULL, NULL,
+                      TRUE,
+                      CREATE_UNICODE_ENVIRONMENT
+                        | (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW),
+                      env != NULL ? environment : NULL,
+                      cwd != NULL ? wcs_cwd : NULL,
+                      &si, &self->pi))
+    goto FAIL;
+
+  self->pid = self->pi.dwProcessId;
+  CloseHandle(self->pi.hThread);
+  if (detach)
+    CloseHandle(self->pi.hProcess);
+#endif
+
+  goto CLEANUP;
+
+FAIL:
+#ifdef _WIN32
+  retval = -GetLastError();
+#else
+  retval = -errno;
+#endif
+
+CLEANUP:
+#ifdef _WIN32
+  free(environment);
+#endif
+
+  for (int i = 0; i < 3; i++) {
+    process_handle_t *handle = &self->pipes[i][i == PROCESS_STDIN ? 0 : 1];
+    close_handle(handle);
+
+    // if failed, clean up the parent side as well
+    if (retval != 0 && i != PROCESS_STDIN) {
+      close_handle(&self->pipes[i][0]);
+    }
+  }
+  return retval;
+}
