@@ -19,9 +19,9 @@ typedef enum {
 } process_redirect_t;
 
 typedef enum {
+  PROCESS_STDIN,
   PROCESS_STDOUT,
   PROCESS_STDERR,
-  PROCESS_STDIN,
 } process_stream_t;
 
 extern int PROCESS_SIGTERM;
