@@ -34,7 +34,7 @@ local function keymap_macos(keymap)
     ["cmd+8"] = "root:switch-to-tab-8",
     ["cmd+9"] = "root:switch-to-tab-9",
     ["wheel"] = "root:scroll",
-    ["shift+wheel"] = "root:horizontal-scroll",
+    ["shift+hwheel"] = "root:horizontal-scroll",
 
     ["cmd+f"] = "find-replace:find",
     ["cmd+r"] = "find-replace:replace",
