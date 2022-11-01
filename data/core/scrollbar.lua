@@ -19,9 +19,15 @@ local Object = require "core.object"
 ---@class core.scrollbar : core.object
 local Scrollbar = Object:extend()
 
----@param direction "v" | "h" @Vertical or Horizontal
----@param alignment "s" | "e" @Start or End (left to right, top to bottom)
-function Scrollbar:new(direction, alignment)
+---@class ScrollbarOptions
+---@field direction "v" | "h" @Vertical or Horizontal
+---@field alignment "s" | "e" @Start or End (left to right, top to bottom)
+---@field force_status "expanded" | "contracted" | false @Force the scrollbar status
+---@field expanded_size number? @Override the default value specified by `style.expanded_scrollbar_size`
+---@field contracted_size number? @Override the default value specified by `style.scrollbar_size`
+
+---@param options ScrollbarOptions
+function Scrollbar:new(options)
   ---Position information of the owner
   self.rect = {
     x = 0, y = 0, w = 0, h = 0,
@@ -44,11 +50,28 @@ function Scrollbar:new(direction, alignment)
   ---What is currently being hovered. `thumb` implies` track`
   self.hovering = { track = false, thumb = false }
   ---@type "v" | "h"@Vertical or Horizontal
-  self.direction = direction or "v"
+  self.direction = options.direction or "v"
   ---@type "s" | "e" @Start or End (left to right, top to bottom)
-  self.alignment = alignment or "e"
+  self.alignment = options.alignment or "e"
   ---@type number @Private. Used to keep track of animations
   self.expand_percent = 0
+  ---@type "expanded" | "contracted" | false @Force the scrollbar status
+  self.force_status = options.force_status
+  self:set_forced_status(options.force_status)
+  ---@type number? @Override the default value specified by `style.expanded_scrollbar_size`
+  self.contracted_size = options.contracted_size
+  ---@type number? @Override the default value specified by `style.scrollbar_size`
+  self.expanded_size = options.expanded_size
+end
+
+
+---Set the status the scrollbar is forced to keep
+---@param status "expanded" | "contracted" | false @The status to force
+function Scrollbar:set_forced_status(status)
+  self.force_status = status
+  if self.force_status == "expanded" then
+    self.expand_percent = 1
+  end
 end
 
 
@@ -91,9 +114,11 @@ function Scrollbar:_get_thumb_rect_normal()
   then
     return 0, 0, 0, 0
   end
+  local scrollbar_size = self.contracted_size or style.scrollbar_size
+  local expanded_scrollbar_size = self.expanded_size or style.expanded_scrollbar_size
   local along_size = math.max(20, nr.along_size * nr.along_size / sz)
-  local across_size = style.scrollbar_size
-  across_size = across_size + (style.expanded_scrollbar_size - style.scrollbar_size) * self.expand_percent
+  local across_size = scrollbar_size
+  across_size = across_size + (expanded_scrollbar_size - scrollbar_size) * self.expand_percent
   return
     nr.across + nr.across_size - across_size,
     nr.along + self.percent * nr.scrollable * (nr.along_size - along_size) / (sz - nr.along_size),
@@ -114,8 +139,10 @@ function Scrollbar:_get_track_rect_normal()
   if sz <= nr.along_size or sz == math.huge then
     return 0, 0, 0, 0
   end
-  local across_size = style.scrollbar_size
-  across_size = across_size + (style.expanded_scrollbar_size - style.scrollbar_size) * self.expand_percent
+  local scrollbar_size = self.contracted_size or style.scrollbar_size
+  local expanded_scrollbar_size = self.expanded_size or style.expanded_scrollbar_size
+  local across_size = scrollbar_size
+  across_size = across_size + (expanded_scrollbar_size - scrollbar_size) * self.expand_percent
   return
     nr.across + nr.across_size - across_size,
     nr.along,
@@ -132,12 +159,13 @@ end
 
 function Scrollbar:_overlaps_normal(x, y)
   local sx, sy, sw, sh = self:_get_thumb_rect_normal()
+  local scrollbar_size = self.contracted_size or style.scrollbar_size
   local result
-  if x >= sx - style.scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
+  if x >= sx - scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
     result = "thumb"
   else
     sx, sy, sw, sh = self:_get_track_rect_normal()
-    if x >= sx - style.scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
+    if x >= sx - scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
       result = "track"
     end
   end
@@ -270,7 +298,13 @@ function Scrollbar:update()
       local dt = 60 / config.fps
       rate = 1 - common.clamp(1 - rate, 1e-8, 1 - 1e-8)^(config.animation_rate * dt)
     end
-    self.expand_percent = common.lerp(self.expand_percent, dest, rate)
+    if not self.force_status then
+      self.expand_percent = common.lerp(self.expand_percent, dest, rate)
+    elseif self.force_status == "expanded" then
+      self.expand_percent = 1
+    elseif self.force_status == "contracted" then
+      self.expand_percent = 0
+    end
   end
   if diff > 1e-8 then
     core.redraw = true
