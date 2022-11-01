@@ -62,6 +62,8 @@ function DocView:new(doc)
   self.font = "code_font"
   self.last_x_offset = {}
   self.ime_selection = { from = 0, size = 0 }
+  self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
+  self.h_scrollbar:set_forced_status(config.force_scrollbar_status)
 end
 
 
