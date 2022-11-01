@@ -62,6 +62,7 @@ function DocView:new(doc)
   self.font = "code_font"
   self.last_x_offset = {}
   self.ime_selection = { from = 0, size = 0 }
+  self.hovering_gutter = false
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
   self.h_scrollbar:set_forced_status(config.force_scrollbar_status)
 end
@@ -247,8 +248,14 @@ end
 function DocView:on_mouse_moved(x, y, ...)
   DocView.super.on_mouse_moved(self, x, y, ...)
 
+  self.hovering_gutter = false
+  local gw = self:get_gutter_width()
+
   if self:scrollbar_hovering() or self:scrollbar_dragging() then
     self.cursor = "arrow"
+  elseif gw > 0 and x >= self.position.x and x <= (self.position.x + gw) then
+    self.cursor = "arrow"
+    self.hovering_gutter = true
   else
     self.cursor = "ibeam"
   end
@@ -287,6 +294,29 @@ function DocView:mouse_selection(doc, snap_type, line1, col1, line2, col2)
     return line2, col2, line1, col1
   end
   return line1, col1, line2, col2
+end
+
+
+function DocView:on_mouse_pressed(button, x, y, clicks)
+  if button ~= "left" or not self.hovering_gutter then
+    return DocView.super.on_mouse_pressed(self, button, x, y, clicks)
+  end
+  local line = self:resolve_screen_position(x, y)
+  if keymap.modkeys["shift"] then
+    local sline, scol, sline2, scol2 = self.doc:get_selection(true)
+    if line > sline then
+      self.doc:set_selection(sline, 1, line,  #self.doc.lines[line])
+    else
+      self.doc:set_selection(line, 1, sline2, #self.doc.lines[sline2])
+    end
+  else
+    if clicks == 1 then
+      self.doc:set_selection(line, 1, line, 1)
+    elseif clicks == 2 then
+      self.doc:set_selection(line, 1, line, #self.doc.lines[line])
+    end
+  end
+  return true
 end
 
 
