@@ -59,8 +59,8 @@ function View:new()
   self.scroll = { x = 0, y = 0, to = { x = 0, y = 0 } }
   self.cursor = "arrow"
   self.scrollable = false
-  self.v_scrollbar = Scrollbar("v", "e")
-  self.h_scrollbar = Scrollbar("h", "e")
+  self.v_scrollbar = Scrollbar({direction = "v", alignment = "e"})
+  self.h_scrollbar = Scrollbar({direction = "h", alignment = "e"})
   self.current_scale = SCALE
 end
 
