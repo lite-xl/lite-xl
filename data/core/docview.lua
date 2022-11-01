@@ -252,7 +252,7 @@ function DocView:on_mouse_moved(x, y, ...)
   if self:scrollbar_hovering() or self:scrollbar_dragging() then
     self.cursor = "arrow"
   elseif gw > 0 and x >= self.position.x and x <= (self.position.x + gw) then
-    self.cursor = "hand"
+    self.cursor = "arrow"
     self.hovering_gutter = true
   else
     self.cursor = "ibeam"
