@@ -33,6 +33,7 @@ end
 function Doc:reset()
   self.lines = { "\n" }
   self.selections = { 1, 1, 1, 1 }
+  self.last_selection = 1
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -141,13 +142,37 @@ function Doc:get_change_id()
   return self.undo_stack.idx
 end
 
+local function sort_positions(line1, col1, line2, col2)
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1, true
+  end
+  return line1, col1, line2, col2, false
+end
+
 -- Cursor section. Cursor indices are *only* valid during a get_selections() call.
 -- Cursors will always be iterated in order from top to bottom. Through normal operation
 -- curors can never swap positions; only merge or split, or change their position in cursor
 -- order.
 function Doc:get_selection(sort)
-  local idx, line1, col1, line2, col2, swap = self:get_selections(sort)({ self.selections, sort }, 0)
+  local line1, col1, line2, col2, swap = self:get_selection_idx(self.last_selection, sort)
+  if not line1 then
+    line1, col1, line2, col2, swap = self:get_selection_idx(1, sort)
+  end
   return line1, col1, line2, col2, swap
+end
+
+
+---Get the selection specified by `idx`
+---@param idx integer @the index of the selection to retrieve
+---@param sort? boolean @whether to sort the selection returned
+---@return integer,integer,integer,integer,boolean? @line1, col1, line2, col2, was the selection sorted
+function Doc:get_selection_idx(idx, sort)
+  local line1, col1, line2, col2 = self.selections[idx*4-3], self.selections[idx*4-2], self.selections[idx*4-1], self.selections[idx*4]
+  if sort then
+    return sort_positions(line1, col1, line2, col2)
+  else
+    return line1, col1, line2, col2
+  end
 end
 
 function Doc:get_selection_text(limit)
@@ -181,13 +206,6 @@ function Doc:sanitize_selection()
   end
 end
 
-local function sort_positions(line1, col1, line2, col2)
-  if line1 > line2 or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1, true
-  end
-  return line1, col1, line2, col2, false
-end
-
 function Doc:set_selections(idx, line1, col1, line2, col2, swap, rm)
   assert(not line2 == not col2, "expected 3 or 5 arguments")
   if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
@@ -206,10 +224,14 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
     end
   end
   self:set_selections(target, line1, col1, line2, col2, swap, 0)
+  self.last_selection = target
 end
 
 
 function Doc:remove_selection(idx)
+  if self.last_selection >= idx then
+    self.last_selection = self.last_selection - 1
+  end
   common.splice(self.selections, (idx - 1) * 4 + 1, 4)
 end
 
@@ -217,6 +239,7 @@ end
 function Doc:set_selection(line1, col1, line2, col2, swap)
   self.selections = {}
   self:set_selections(1, line1, col1, line2, col2, swap)
+  self.last_selection = 1
 end
 
 function Doc:merge_cursors(idx)
@@ -225,6 +248,9 @@ function Doc:merge_cursors(idx)
       if self.selections[i] == self.selections[j] and
         self.selections[i+1] == self.selections[j+1] then
           common.splice(self.selections, i, 4)
+          if self.last_selection >= (i+3)/4 then
+            self.last_selection = self.last_selection - 1
+          end
           break
       end
     end
