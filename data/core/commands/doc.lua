@@ -59,8 +59,9 @@ local function cut_or_copy(delete)
         doc():delete_to_cursor(idx, 0)
       end
     else -- Cut/copy whole line
-      text = doc().lines[line1]
-      full_text = full_text == "" and text or (full_text .. text)
+      -- Remove newline from the text. It will be added as needed on paste.
+      text = string.sub(doc().lines[line1], 1, -2)
+      full_text = full_text == "" and text or (full_text .. text .. "\n")
       core.cursor_clipboard_whole_line[idx] = true
       if delete then
         if line1 < #doc().lines then
@@ -85,7 +86,15 @@ local function split_cursor(direction)
       table.insert(new_cursors, { line1 + direction, col1 })
     end
   end
-  for i,v in ipairs(new_cursors) do doc():add_selection(v[1], v[2]) end
+  -- add selections in the order that will leave the "last" added one as doc.last_selection
+  local start, stop = 1, #new_cursors
+  if direction < 0 then
+    start, stop = #new_cursors, 1
+  end
+  for i = start, stop, direction do
+    local v = new_cursors[i]
+    doc():add_selection(v[1], v[2])
+  end
   core.blink_reset()
 end
 
@@ -177,10 +186,30 @@ local function block_comment(comment, line1, col1, line2, col2)
   end
 end
 
+local function insert_paste(doc, value, whole_line, idx)
+  if whole_line then
+    local line1, col1 = doc:get_selection_idx(idx)
+    doc:insert(line1, 1, value:gsub("\r", "").."\n")
+    -- Because we're inserting at the start of the line,
+    -- if the cursor is in the middle of the line
+    -- it gets carried to the next line along with the old text.
+    -- If it's at the start of the line it doesn't get carried,
+    -- so we move it of as many characters as we're adding.
+    if col1 == 1 then
+      doc:move_to_cursor(idx, #value+1)
+    end
+  else
+    doc:text_input(value:gsub("\r", ""), idx)
+  end
+end
+
 local commands = {
   ["doc:select-none"] = function(dv)
-    local line, col = dv.doc:get_selection()
-    dv.doc:set_selection(line, col)
+    local l1, c1 = dv.doc:get_selection_idx(dv.doc.last_selection)
+    if not l1 then
+      l1, c1 = dv.doc:get_selection_idx(1)
+    end
+    dv.doc:set_selection(l1, c1)
   end,
 
   ["doc:cut"] = function()
@@ -202,27 +231,51 @@ local commands = {
   ["doc:paste"] = function(dv)
     local clipboard = system.get_clipboard()
     -- If the clipboard has changed since our last look, use that instead
-    local external_paste = core.cursor_clipboard["full"] ~= clipboard
-    if external_paste then
+    if core.cursor_clipboard["full"] ~= clipboard then
       core.cursor_clipboard = {}
       core.cursor_clipboard_whole_line = {}
-    end
-    local value, whole_line
-    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
-      if #core.cursor_clipboard_whole_line == (#dv.doc.selections/4) then
-        value = core.cursor_clipboard[idx]
-        whole_line = core.cursor_clipboard_whole_line[idx] == true
-      else
-        value = clipboard
-        whole_line = not external_paste and clipboard:find("\n") ~= nil
+      for idx in dv.doc:get_selections() do
+        insert_paste(dv.doc, clipboard, false, idx)
       end
-      if whole_line then
-        dv.doc:insert(line1, 1, value:gsub("\r", ""))
-        if col1 == 1 then
-          dv.doc:move_to_cursor(idx, #value)
+      return
+    end
+    -- Use internal clipboard(s)
+    -- If there are mixed whole lines and normal lines, consider them all as normal
+    local only_whole_lines = true
+    for _,whole_line in pairs(core.cursor_clipboard_whole_line) do
+      if not whole_line then
+        only_whole_lines = false
+        break
+      end
+    end
+    if #core.cursor_clipboard_whole_line == (#dv.doc.selections/4) then
+    -- If we have the same number of clipboards and selections,
+    -- paste each clipboard into its corresponding selection
+      for idx in dv.doc:get_selections() do
+        insert_paste(dv.doc, core.cursor_clipboard[idx], only_whole_lines, idx)
+      end
+    else
+      -- Paste every clipboard and add a selection at the end of each one
+      local new_selections = {}
+      for idx in dv.doc:get_selections() do
+        for cb_idx in ipairs(core.cursor_clipboard_whole_line) do
+          insert_paste(dv.doc, core.cursor_clipboard[cb_idx], only_whole_lines, idx)
+          if not only_whole_lines then
+            table.insert(new_selections, {dv.doc:get_selection_idx(idx)})
+          end
         end
-      else
-        dv.doc:text_input(value:gsub("\r", ""), idx)
+        if only_whole_lines then
+          table.insert(new_selections, {dv.doc:get_selection_idx(idx)})
+        end
+      end
+      local first = true
+      for _,selection in pairs(new_selections) do
+        if first then
+          dv.doc:set_selection(table.unpack(selection))
+          first = false
+        else
+          dv.doc:add_selection(table.unpack(selection))
+        end
       end
     end
   end,
