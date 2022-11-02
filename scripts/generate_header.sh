@@ -3,7 +3,7 @@
 ##### CONFIG
 
 # symbols to ignore
-IGNORE_SYM='luaL_pushmodule\|luaL_openlib'
+IGNORE_SYM='luaL_pushmodule'
 
 ##### CONFIG
 
