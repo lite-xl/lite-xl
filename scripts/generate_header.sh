@@ -98,6 +98,7 @@ generate_header() {
   decl "$LUA_PATH/lua.h"
   echo
   decl "$LUA_PATH/lauxlib.h"
+  echo "static void luaL_openlibs (lua_State *L);"
   echo
 
   echo "#define IMPORT_SYMBOL(name, ret, ...) name = (name = (ret (*) (__VA_ARGS__)) symbol(#name), name == NULL ? &__lite_xl_fallback_##name : name)"
