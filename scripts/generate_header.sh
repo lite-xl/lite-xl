@@ -3,7 +3,7 @@
 ##### CONFIG
 
 # symbols to ignore
-IGNORE_SYM='luaL_pushmodule\|luaL_openlib'
+IGNORE_SYM='luaL_pushmodule'
 
 ##### CONFIG
 
@@ -76,7 +76,7 @@ generate_header() {
   echo "The lite_xl plugin API is quite simple. Any shared library can be a plugin file, so long"
   echo "as it has an entrypoint that looks like the following, where xxxxx is the plugin name:"
   echo '#include "lite_xl_plugin_api.h"'
-  echo "int lua_open_lite_xl_xxxxx(lua_State* L, void* XL) {"
+  echo "int luaopen_lite_xl_xxxxx(lua_State* L, void* XL) {"
   echo "  lite_xl_plugin_init(XL);"
   echo "  ..."
   echo "  return 1;"
@@ -98,6 +98,8 @@ generate_header() {
   decl "$LUA_PATH/lua.h"
   echo
   decl "$LUA_PATH/lauxlib.h"
+  echo "static  void (*luaL_openlibs)      (lua_State *L);"
+  echo 'static  void  __lite_xl_fallback_luaL_openlibs    (lua_State *L) { fputs("warning: luaL_openlibs is a stub", stderr); }'
   echo
 
   echo "#define IMPORT_SYMBOL(name, ret, ...) name = (name = (ret (*) (__VA_ARGS__)) symbol(#name), name == NULL ? &__lite_xl_fallback_##name : name)"
@@ -106,6 +108,7 @@ generate_header() {
 
   decl_import "$LUA_PATH/lua.h"
   decl_import "$LUA_PATH/lauxlib.h"
+  echo -e "\tIMPORT_SYMBOL(luaL_openlibs, void, lua_State* L);"
 
   echo "}"
   echo "#endif"

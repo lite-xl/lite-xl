@@ -6,6 +6,8 @@ config.message_timeout = 5
 config.mouse_wheel_scroll = 50 * SCALE
 config.animate_drag_scroll = false
 config.scroll_past_end = true
+---@type "expanded" | "contracted" | false @Force the scrollbar status of the DocView
+config.force_scrollbar_status = false
 config.file_size_limit = 10
 config.ignore_files = {
   -- folders
