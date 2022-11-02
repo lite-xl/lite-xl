@@ -76,7 +76,7 @@ generate_header() {
   echo "The lite_xl plugin API is quite simple. Any shared library can be a plugin file, so long"
   echo "as it has an entrypoint that looks like the following, where xxxxx is the plugin name:"
   echo '#include "lite_xl_plugin_api.h"'
-  echo "int lua_open_lite_xl_xxxxx(lua_State* L, void* XL) {"
+  echo "int luaopen_lite_xl_xxxxx(lua_State* L, void* XL) {"
   echo "  lite_xl_plugin_init(XL);"
   echo "  ..."
   echo "  return 1;"

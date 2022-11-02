@@ -4,7 +4,7 @@
 The lite_xl plugin API is quite simple. Any shared library can be a plugin file, so long
 as it has an entrypoint that looks like the following, where xxxxx is the plugin name:
 #include "lite_xl_plugin_api.h"
-int lua_open_lite_xl_xxxxx(lua_State* L, void* XL) {
+int luaopen_lite_xl_xxxxx(lua_State* L, void* XL) {
   lite_xl_plugin_init(XL);
   ...
   return 1;
