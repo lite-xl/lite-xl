@@ -65,7 +65,7 @@ typedef enum {
 
 #ifdef _WIN32
   static volatile long PipeSerialNumber;
-  static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = NULL; }
+  static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = INVALID_HANDLE_VALUE; }
 #else
   static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
 #endif
