@@ -733,7 +733,8 @@ static	void 	__lite_xl_fallback_luaL_addvalue	(luaL_Buffer *B) { fputs("warning:
 static	void 	__lite_xl_fallback_luaL_pushresult	(luaL_Buffer *B) { fputs("warning: luaL_pushresult is a stub", stderr); }
 static	void 	__lite_xl_fallback_luaL_pushresultsize	(luaL_Buffer *B, size_t sz) { fputs("warning: luaL_pushresultsize is a stub", stderr); }
 static	char *	__lite_xl_fallback_luaL_buffinitsize	(lua_State *L, luaL_Buffer *B, size_t sz) { fputs("warning: luaL_buffinitsize is a stub", stderr); }
-static void luaL_openlibs (lua_State *L);
+static  void (*luaL_openlibs)      (lua_State *L);
+static  void  __lite_xl_fallback_luaL_openlibs    (lua_State *L) { fputs("warning: luaL_openlibs is a stub", stderr); }
 
 #define IMPORT_SYMBOL(name, ret, ...) name = (name = (ret (*) (__VA_ARGS__)) symbol(#name), name == NULL ? &__lite_xl_fallback_##name : name)
 static void lite_xl_plugin_init(void *XL) {
@@ -880,5 +881,6 @@ static void lite_xl_plugin_init(void *XL) {
 	IMPORT_SYMBOL(luaL_pushresult, void , luaL_Buffer *B);
 	IMPORT_SYMBOL(luaL_pushresultsize, void , luaL_Buffer *B, size_t sz);
 	IMPORT_SYMBOL(luaL_buffinitsize, char *, lua_State *L, luaL_Buffer *B, size_t sz);
+	IMPORT_SYMBOL(luaL_openlibs, void, lua_State* L);
 }
 #endif
