@@ -168,7 +168,7 @@ end
 ---@return integer,integer,integer,integer,boolean? @line1, col1, line2, col2, was the selection sorted
 function Doc:get_selection_idx(idx, sort)
   local line1, col1, line2, col2 = self.selections[idx*4-3], self.selections[idx*4-2], self.selections[idx*4-1], self.selections[idx*4]
-  if sort then
+  if line1 and sort then
     return sort_positions(line1, col1, line2, col2)
   else
     return line1, col1, line2, col2
