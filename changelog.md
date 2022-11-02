@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.0] - 2022-10-10
+## [2.1.0] - 2022-11-01
 
 ### New Features
 * Make distinction between

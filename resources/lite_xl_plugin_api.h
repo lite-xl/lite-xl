@@ -12,6 +12,11 @@ int luaopen_lite_xl_xxxxx(lua_State* L, void* XL) {
 In linux, to compile this file, you'd do: 'gcc -o xxxxx.so -shared xxxxx.c'. Simple!
 Due to the way the API is structured, you *should not* link or include lua libraries.
 This file was automatically generated. DO NOT MODIFY DIRECTLY.
+
+UNLESS you're us, and you had to modify this file manually to get it ready for 2.1.
+
+Go figure.
+
 **/
 
 
@@ -492,6 +497,7 @@ static	lua_Hook 	__lite_xl_fallback_lua_gethook	(lua_State *L) { fputs("warning:
 static	int 	__lite_xl_fallback_lua_gethookmask	(lua_State *L) { fputs("warning: lua_gethookmask is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_gethookcount	(lua_State *L) { fputs("warning: lua_gethookcount is a stub", stderr); }
 
+
 /** lauxlib.h **/
 
 typedef struct luaL_Reg {
@@ -554,6 +560,7 @@ static	void (*luaL_addvalue)	(luaL_Buffer *B);
 static	void (*luaL_pushresult)	(luaL_Buffer *B);
 static	void (*luaL_pushresultsize)	(luaL_Buffer *B, size_t sz);
 static	char *(*luaL_buffinitsize)	(lua_State *L, luaL_Buffer *B, size_t sz);
+static  void (*luaL_openlibs)		(lua_State *L);
 #define lauxlib_h
 #define LUA_ERRFILE (LUA_ERRERR+1)
 #define luaL_checkversion(L) luaL_checkversion_(L, LUA_VERSION_NUM)
@@ -624,6 +631,7 @@ static	void 	__lite_xl_fallback_luaL_addvalue	(luaL_Buffer *B) { fputs("warning:
 static	void 	__lite_xl_fallback_luaL_pushresult	(luaL_Buffer *B) { fputs("warning: luaL_pushresult is a stub", stderr); }
 static	void 	__lite_xl_fallback_luaL_pushresultsize	(luaL_Buffer *B, size_t sz) { fputs("warning: luaL_pushresultsize is a stub", stderr); }
 static	char *	__lite_xl_fallback_luaL_buffinitsize	(lua_State *L, luaL_Buffer *B, size_t sz) { fputs("warning: luaL_buffinitsize is a stub", stderr); }
+static  void    __lite_xl_fallback_luaL_openlibs        (lua_State *L) { fputs("warning: luaL_openlibs is a stub", stderr); }
 
 #define IMPORT_SYMBOL(name, ret, ...) name = (name = (ret (*) (__VA_ARGS__)) symbol(#name), name == NULL ? &__lite_xl_fallback_##name : name)
 static void lite_xl_plugin_init(void *XL) {
@@ -764,5 +772,6 @@ static void lite_xl_plugin_init(void *XL) {
 	IMPORT_SYMBOL(luaL_pushresult, void , luaL_Buffer *B);
 	IMPORT_SYMBOL(luaL_pushresultsize, void , luaL_Buffer *B, size_t sz);
 	IMPORT_SYMBOL(luaL_buffinitsize, char *, lua_State *L, luaL_Buffer *B, size_t sz);
+	IMPORT_SYMBOL(luaL_openlibs, void, lua_State* L);
 }
 #endif
