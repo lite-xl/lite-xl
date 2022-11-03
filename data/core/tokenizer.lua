@@ -55,10 +55,10 @@ end
 -- index of the pattern for the current subsyntax in relation to its parent
 -- syntax. Using a string of bytes allows us to have as many subsyntaxes as
 -- bytes can be stored on a string while keeping some level of performance in
--- comparison to a Lua table. The only limitation is that a pattern would not
+-- comparison to a Lua table. The only limitation is that a syntax would not
 -- be able to contain more than 255 patterns.
 --
--- Lets say a string contains 2 bytes byte #1 with value `3` and byte #2 with
+-- Lets say a state contains 2 bytes byte #1 with value `3` and byte #2 with
 -- a value of `5`. This would mean that on the parent syntax at index `3` a
 -- pattern subsyntax that matched current text was found, then inside that
 -- subsyntax another subsyntax pattern at index `5` that matched current text
