@@ -287,7 +287,7 @@ local commands = {
         indent = indent:sub(#indent + 2 - col)
       end
       -- Remove current line if it contains only whitespace
-      if dv.doc.lines[line]:match("^%s+$") then
+      if not config.keep_newline_whitespace and dv.doc.lines[line]:match("^%s+$") then
         dv.doc:remove(line, 1, line, math.huge)
       end
       dv.doc:text_input("\n" .. indent, idx)
