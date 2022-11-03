@@ -160,7 +160,6 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
 
   local function pop_subsyntax()
-    set_subsyntax_pattern_idx(0)
     current_level = current_level - 1
     state = string.sub(state, 1, current_level)
     set_subsyntax_pattern_idx(0)
