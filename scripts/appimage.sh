@@ -138,7 +138,7 @@ generate_appimage() {
   mv AppRun LiteXL.AppDir/
   # These could be symlinks but it seems they doesn't work with AppimageLauncher
   cp resources/icons/lite-xl.svg LiteXL.AppDir/
-  cp resources/linux/org.lite_xl.lite_xl.desktop LiteXL.AppDir/
+  cp resources/linux/com.lite_xl.LiteXL.desktop LiteXL.AppDir/
 
   if [[ $ADDONS == true ]]; then
     addons_download "${BUILD_DIR}"
