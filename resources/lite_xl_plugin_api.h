@@ -281,8 +281,10 @@ static	void (*lua_rawgeti)	(lua_State *L, int idx, int n);
 static	void (*lua_rawgetp)	(lua_State *L, int idx, const void *p);
 static	void (*lua_createtable)	(lua_State *L, int narr, int nrec);
 static	void *(*lua_newuserdata)	(lua_State *L, size_t sz);
+static	void *(*lua_newuserdatauv)	(lua_State *L, size_t sz, int nuvalue);
 static	int (*lua_getmetatable)	(lua_State *L, int objindex);
 static	void (*lua_getuservalue)	(lua_State *L, int idx);
+static	void (*lua_getiuservalue)	(lua_State *L, int idx, int n);
 static	void (*lua_setglobal)	(lua_State *L, const char *var);
 static	void (*lua_settable)	(lua_State *L, int idx);
 static	void (*lua_setfield)	(lua_State *L, int idx, const char *k);
@@ -291,6 +293,7 @@ static	void (*lua_rawseti)	(lua_State *L, int idx, int n);
 static	void (*lua_rawsetp)	(lua_State *L, int idx, const void *p);
 static	int (*lua_setmetatable)	(lua_State *L, int objindex);
 static	void (*lua_setuservalue)	(lua_State *L, int idx);
+static	void (*lua_setiuservalue)	(lua_State *L, int idx, int n);
 static	void (*lua_callk)	(lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k);
 static	int (*lua_getctx)	(lua_State *L, int *ctx);
 static	int (*lua_pcallk)	(lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
@@ -459,8 +462,10 @@ static	void 	__lite_xl_fallback_lua_rawgeti	(lua_State *L, int idx, int n) { fpu
 static	void 	__lite_xl_fallback_lua_rawgetp	(lua_State *L, int idx, const void *p) { fputs("warning: lua_rawgetp is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_createtable	(lua_State *L, int narr, int nrec) { fputs("warning: lua_createtable is a stub", stderr); }
 static	void *	__lite_xl_fallback_lua_newuserdata	(lua_State *L, size_t sz) { fputs("warning: lua_newuserdata is a stub", stderr); }
+static	void *	__lite_xl_fallback_lua_newuserdatauv	(lua_State *L, size_t sz, int nuvalue) { fputs("warning: lua_newuserdatauv is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_getmetatable	(lua_State *L, int objindex) { fputs("warning: lua_getmetatable is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_getuservalue	(lua_State *L, int idx) { fputs("warning: lua_getuservalue is a stub", stderr); }
+static	void 	__lite_xl_fallback_lua_getiuservalue	(lua_State *L, int idx, int n) { fputs("warning: lua_getiuservalue is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_setglobal	(lua_State *L, const char *var) { fputs("warning: lua_setglobal is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_settable	(lua_State *L, int idx) { fputs("warning: lua_settable is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_setfield	(lua_State *L, int idx, const char *k) { fputs("warning: lua_setfield is a stub", stderr); }
@@ -469,6 +474,7 @@ static	void 	__lite_xl_fallback_lua_rawseti	(lua_State *L, int idx, int n) { fpu
 static	void 	__lite_xl_fallback_lua_rawsetp	(lua_State *L, int idx, const void *p) { fputs("warning: lua_rawsetp is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_setmetatable	(lua_State *L, int objindex) { fputs("warning: lua_setmetatable is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_setuservalue	(lua_State *L, int idx) { fputs("warning: lua_setuservalue is a stub", stderr); }
+static	void 	__lite_xl_fallback_lua_setiuservalue	(lua_State *L, int idx, int n) { fputs("warning: lua_setiuservalue is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_callk	(lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k) { fputs("warning: lua_callk is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_getctx	(lua_State *L, int *ctx) { fputs("warning: lua_getctx is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_pcallk	(lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k) { fputs("warning: lua_pcallk is a stub", stderr); }
@@ -690,8 +696,10 @@ static void lite_xl_plugin_init(void *XL) {
 	IMPORT_SYMBOL(lua_rawgetp, void , lua_State *L, int idx, const void *p);
 	IMPORT_SYMBOL(lua_createtable, void , lua_State *L, int narr, int nrec);
 	IMPORT_SYMBOL(lua_newuserdata, void *, lua_State *L, size_t sz);
+	IMPORT_SYMBOL(lua_newuserdatauv, void *, lua_State *L, size_t sz, int nuvalue);
 	IMPORT_SYMBOL(lua_getmetatable, int , lua_State *L, int objindex);
 	IMPORT_SYMBOL(lua_getuservalue, void , lua_State *L, int idx);
+	IMPORT_SYMBOL(lua_getiuservalue, void , lua_State *L, int idx, int n);
 	IMPORT_SYMBOL(lua_setglobal, void , lua_State *L, const char *var);
 	IMPORT_SYMBOL(lua_settable, void , lua_State *L, int idx);
 	IMPORT_SYMBOL(lua_setfield, void , lua_State *L, int idx, const char *k);
@@ -700,6 +708,7 @@ static void lite_xl_plugin_init(void *XL) {
 	IMPORT_SYMBOL(lua_rawsetp, void , lua_State *L, int idx, const void *p);
 	IMPORT_SYMBOL(lua_setmetatable, int , lua_State *L, int objindex);
 	IMPORT_SYMBOL(lua_setuservalue, void , lua_State *L, int idx);
+	IMPORT_SYMBOL(lua_setiuservalue, void , lua_State *L, int idx, int n);
 	IMPORT_SYMBOL(lua_callk, void , lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k);
 	IMPORT_SYMBOL(lua_getctx, int , lua_State *L, int *ctx);
 	IMPORT_SYMBOL(lua_pcallk, int , lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
