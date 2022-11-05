@@ -236,9 +236,6 @@ static	int (*lua_absindex)	(lua_State *L, int idx);
 static	int (*lua_gettop)	(lua_State *L);
 static	void (*lua_settop)	(lua_State *L, int idx);
 static	void (*lua_pushvalue)	(lua_State *L, int idx);
-static	void (*lua_remove)	(lua_State *L, int idx);
-static	void (*lua_insert)	(lua_State *L, int idx);
-static	void (*lua_replace)	(lua_State *L, int idx);
 static	void (*lua_copy)	(lua_State *L, int fromidx, int toidx);
 static	int (*lua_checkstack)	(lua_State *L, int sz);
 static	void (*lua_xmove)	(lua_State *from, lua_State *to, int n);
@@ -399,6 +396,9 @@ static	int (*lua_gethookcount)	(lua_State *L);
 #define lua_pushliteral(L, s) lua_pushlstring(L, "" s, (sizeof(s)/sizeof(char))-1)
 #define lua_pushglobaltable(L) lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS)
 #define lua_tostring(L,i) lua_tolstring(L, (i), NULL)
+#define lua_insert(L,idx)   lua_rotate(L, (idx), 1)
+#define lua_replace(L,idx)  (lua_copy(L, -1, (idx)), lua_pop(L, 1))
+#define lua_remove(L,idx)   (lua_rotate(L, (idx), -1), lua_pop(L, 1))
 #define LUA_HOOKCALL 0
 #define LUA_HOOKRET 1
 #define LUA_HOOKLINE 2
@@ -417,9 +417,6 @@ static	int 	__lite_xl_fallback_lua_absindex	(lua_State *L, int idx) { fputs("war
 static	int 	__lite_xl_fallback_lua_gettop	(lua_State *L) { fputs("warning: lua_gettop is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_settop	(lua_State *L, int idx) { fputs("warning: lua_settop is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_pushvalue	(lua_State *L, int idx) { fputs("warning: lua_pushvalue is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_remove	(lua_State *L, int idx) { fputs("warning: lua_remove is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_insert	(lua_State *L, int idx) { fputs("warning: lua_insert is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_replace	(lua_State *L, int idx) { fputs("warning: lua_replace is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_copy	(lua_State *L, int fromidx, int toidx) { fputs("warning: lua_copy is a stub", stderr); }
 static	int 	__lite_xl_fallback_lua_checkstack	(lua_State *L, int sz) { fputs("warning: lua_checkstack is a stub", stderr); }
 static	void 	__lite_xl_fallback_lua_xmove	(lua_State *from, lua_State *to, int n) { fputs("warning: lua_xmove is a stub", stderr); }
@@ -651,9 +648,6 @@ static void lite_xl_plugin_init(void *XL) {
 	IMPORT_SYMBOL(lua_gettop, int , lua_State *L);
 	IMPORT_SYMBOL(lua_settop, void , lua_State *L, int idx);
 	IMPORT_SYMBOL(lua_pushvalue, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_remove, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_insert, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_replace, void , lua_State *L, int idx);
 	IMPORT_SYMBOL(lua_copy, void , lua_State *L, int fromidx, int toidx);
 	IMPORT_SYMBOL(lua_checkstack, int , lua_State *L, int sz);
 	IMPORT_SYMBOL(lua_xmove, void , lua_State *from, lua_State *to, int n);
