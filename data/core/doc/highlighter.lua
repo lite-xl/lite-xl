@@ -10,40 +10,47 @@ local Highlighter = Object:extend()
 
 function Highlighter:new(doc)
   self.doc = doc
+  self.running = false
   self:reset()
+end
 
-  -- init incremental syntax highlighting
+-- init incremental syntax highlighting
+function Highlighter:start()
+  if self.running then return end
+  self.running = true
   core.add_thread(function()
-    while true do
-      if self.first_invalid_line > self.max_wanted_line then
-        self.max_wanted_line = 0
-        coroutine.yield(1 / config.fps)
-
-      else
-        local max = math.min(self.first_invalid_line + 40, self.max_wanted_line)
-
-        local retokenized_from
-        for i = self.first_invalid_line, max do
-          local state = (i > 1) and self.lines[i - 1].state
-          local line = self.lines[i]
-          if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
-            retokenized_from = retokenized_from or i
-            self.lines[i] = self:tokenize_line(i, state)
-          elseif retokenized_from then
-            self:update_notify(retokenized_from, i - retokenized_from - 1)
-            retokenized_from = nil
-          end
+    while self.first_invalid_line < self.max_wanted_line do
+      local max = math.min(self.first_invalid_line + 40, self.max_wanted_line)
+      local retokenized_from
+      for i = self.first_invalid_line, max do
+        local state = (i > 1) and self.lines[i - 1].state
+        local line = self.lines[i]
+        if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
+          retokenized_from = retokenized_from or i
+          self.lines[i] = self:tokenize_line(i, state)
+        elseif retokenized_from then
+          self:update_notify(retokenized_from, i - retokenized_from - 1)
+          retokenized_from = nil
         end
-        if retokenized_from then
-          self:update_notify(retokenized_from, max - retokenized_from)
-        end
-
-        self.first_invalid_line = max + 1
-        core.redraw = true
-        coroutine.yield()
       end
+      if retokenized_from then
+        self:update_notify(retokenized_from, max - retokenized_from)
+      end
+
+      self.first_invalid_line = max + 1
+      core.redraw = true
+      coroutine.yield()
     end
+    self.max_wanted_line = 0
+    self.running = false
   end, self)
+end
+
+local function set_max_wanted_lines(self, amount)
+  self.max_wanted_line = amount
+  if self.first_invalid_line < self.max_wanted_line then
+    self:start()
+  end
 end
 
 
@@ -62,7 +69,7 @@ end
 
 function Highlighter:invalidate(idx)
   self.first_invalid_line = math.min(self.first_invalid_line, idx)
-  self.max_wanted_line = math.min(self.max_wanted_line, #self.doc.lines)
+  set_max_wanted_lines(self, math.min(self.max_wanted_line, #self.doc.lines))
 end
 
 function Highlighter:insert_notify(line, n)
@@ -101,7 +108,7 @@ function Highlighter:get_line(idx)
     self.lines[idx] = line
     self:update_notify(idx, 0)
   end
-  self.max_wanted_line = math.max(self.max_wanted_line, idx)
+  set_max_wanted_lines(self, math.max(self.max_wanted_line, idx))
   return line
 end
 
