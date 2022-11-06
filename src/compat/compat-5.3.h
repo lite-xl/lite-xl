@@ -206,6 +206,9 @@ COMPAT53_API int luaL_fileresult (lua_State *L, int stat, const char *fname);
 #define luaL_execresult COMPAT53_CONCAT(COMPAT53_PREFIX, L_execresult)
 COMPAT53_API int luaL_execresult (lua_State *L, int stat);
 
+#define luaL_typeerror COMPAT53_CONCAT(COMPAT53_PREFIX, L_typeerror)
+COMPAT53_API int (luaL_typeerror) (lua_State *L, int arg, const char *tname);
+
 #define lua_callk(L, na, nr, ctx, cont) \
   ((void)(ctx), (void)(cont), lua_call((L), (na), (nr)))
 #define lua_pcallk(L, na, nr, err, ctx, cont) \
