@@ -365,8 +365,15 @@ function DocView:new(doc)
   end
 end
 
+local old_scroll_to_line = DocView.scroll_to_line
+function DocView:scroll_to_line(...)
+  LineWrapping.update_docview_breaks(self)
+  old_scroll_to_line(self, ...)
+end
+
 local old_scroll_to_make_visible = DocView.scroll_to_make_visible
 function DocView:scroll_to_make_visible(line, col)
+  LineWrapping.update_docview_breaks(self)
   old_scroll_to_make_visible(self, line, col)
   if self.wrapped_settings then self.scroll.to.x = 0 end
 end
