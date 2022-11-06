@@ -10,15 +10,21 @@ local Highlighter = Object:extend()
 
 function Highlighter:new(doc)
   self.doc = doc
+  self.running = false
   self:reset()
+  self:start()
+end
 
-  -- init incremental syntax highlighting
+-- init incremental syntax highlighting
+function Highlighter:start()
+  if self.running then return end
+  self.running = true
   core.add_thread(function()
     while true do
       if self.first_invalid_line > self.max_wanted_line then
         self.max_wanted_line = 0
-        coroutine.yield(1 / config.fps)
-
+        self.running = false
+        return
       else
         local max = math.min(self.first_invalid_line + 40, self.max_wanted_line)
 
@@ -46,6 +52,13 @@ function Highlighter:new(doc)
   end, self)
 end
 
+local function set_max_wanted_lines(self, amount)
+  self.max_wanted_line = amount
+  if self.first_invalid_line < self.max_wanted_line then
+    self:start()
+  end
+end
+
 
 function Highlighter:reset()
   self.lines = {}
@@ -62,7 +75,7 @@ end
 
 function Highlighter:invalidate(idx)
   self.first_invalid_line = math.min(self.first_invalid_line, idx)
-  self.max_wanted_line = math.min(self.max_wanted_line, #self.doc.lines)
+  set_max_wanted_lines(self, math.min(self.max_wanted_line, #self.doc.lines))
 end
 
 function Highlighter:insert_notify(line, n)
@@ -101,7 +114,7 @@ function Highlighter:get_line(idx)
     self.lines[idx] = line
     self:update_notify(idx, 0)
   end
-  self.max_wanted_line = math.max(self.max_wanted_line, idx)
+  set_max_wanted_lines(self, math.max(self.max_wanted_line, idx))
   return line
 end
 
