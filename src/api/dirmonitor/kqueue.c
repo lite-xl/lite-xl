@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 struct dirmonitor_internal {
   int fd;
@@ -23,7 +24,9 @@ void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
 
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
-  int nev = kevent(monitor->fd, NULL, 0, (struct kevent*)buffer, buffer_size / sizeof(kevent), NULL);
+  struct timespec ts = { 0, 10 * 1000000 }; // 10 ms
+
+  int nev = kevent(monitor->fd, NULL, 0, (struct kevent*)buffer, buffer_size / sizeof(kevent), &ts);
   if (nev == -1)
     return -1;
   if (nev <= 0)
@@ -42,9 +45,12 @@ int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buff
 int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   int fd = open(path, O_RDONLY);
   struct kevent change;
+  
+  // a timeout of zero should make kevent return immediately
+  struct timespec ts = { 0, 0 }; // 0 s
 
   EV_SET(&change, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_LINK | NOTE_RENAME, 0, (void*)path);
-  kevent(monitor->fd, &change, 1, NULL, 0, NULL);
+  kevent(monitor->fd, &change, 1, NULL, 0, &ts);
 
   return fd;
 }
