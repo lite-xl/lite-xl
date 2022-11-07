@@ -361,19 +361,22 @@ function DocView:new(doc)
   if not open_files[doc] then open_files[doc] = {} end
   table.insert(open_files[doc], self)
   if config.plugins.linewrapping.enable_by_default then
+    self.wrapping_enabled = true
     LineWrapping.update_docview_breaks(self)
+  else
+    self.wrapping_enabled = false
   end
 end
 
 local old_scroll_to_line = DocView.scroll_to_line
 function DocView:scroll_to_line(...)
-  LineWrapping.update_docview_breaks(self)
+  if self.wrapping_enabled then LineWrapping.update_docview_breaks(self) end
   old_scroll_to_line(self, ...)
 end
 
 local old_scroll_to_make_visible = DocView.scroll_to_make_visible
 function DocView:scroll_to_make_visible(line, col)
-  LineWrapping.update_docview_breaks(self)
+  if self.wrapping_enabled then LineWrapping.update_docview_breaks(self) end
   old_scroll_to_make_visible(self, line, col)
   if self.wrapped_settings then self.scroll.to.x = 0 end
 end
@@ -564,11 +567,13 @@ end
 command.add(nil, {
   ["line-wrapping:enable"] = function()
     if core.active_view and core.active_view.doc then
+      core.active_view.wrapping_enabled = true
       LineWrapping.update_docview_breaks(core.active_view)
     end
   end,
   ["line-wrapping:disable"] = function()
     if core.active_view and core.active_view.doc then
+      core.active_view.wrapping_enabled = false
       LineWrapping.reconstruct_breaks(core.active_view, core.active_view:get_font(), math.huge)
     end
   end,
