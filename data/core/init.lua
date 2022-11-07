@@ -1171,7 +1171,7 @@ function core.custom_log(level, show, backtrace, fmt, ...)
     text = text,
     time = os.time(),
     at = at,
-    info = backtrace and debug.traceback(nil, 2):gsub("\t", "")
+    info = backtrace and debug.traceback("", 2):gsub("\t", "")
   }
   table.insert(core.log_items, item)
   if #core.log_items > config.max_log_items then
@@ -1220,7 +1220,7 @@ function core.try(fn, ...)
   local err
   local ok, res = xpcall(fn, function(msg)
     local item = core.error("%s", msg)
-    item.info = debug.traceback(nil, 2):gsub("\t", "")
+    item.info = debug.traceback("", 2):gsub("\t", "")
     err = msg
   end, ...)
   if ok then
@@ -1421,7 +1421,7 @@ function core.on_error(err)
   -- write error to file
   local fp = io.open(USERDIR .. "/error.txt", "wb")
   fp:write("Error: " .. tostring(err) .. "\n")
-  fp:write(debug.traceback(nil, 4) .. "\n")
+  fp:write(debug.traceback("", 4) .. "\n")
   fp:close()
   -- save copy of all unsaved documents
   for _, doc in ipairs(core.docs) do
