@@ -481,9 +481,9 @@ int process_start(process_t *self,
   memset(&si, 0, sizeof(STARTUPINFOW));
   si.cb = sizeof(STARTUPINFOW);
   si.dwFlags |= STARTF_USESTDHANDLES;
-  si.hStdInput = self->pipes[PROCESS_STDIN][1];
-  si.hStdOutput = self->pipes[PROCESS_STDOUT][0];
-  si.hStdError = self->pipes[PROCESS_STDERR][0];
+  si.hStdInput = self->pipes[PROCESS_STDIN][0];
+  si.hStdOutput = self->pipes[PROCESS_STDOUT][1];
+  si.hStdError = self->pipes[PROCESS_STDERR][1];
 
 
   if (!create_lpcmdline(cmdline, argv, verbatim_arguments))
