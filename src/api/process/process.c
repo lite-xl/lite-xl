@@ -16,6 +16,7 @@
 #endif
 
 #define READ_BUF_SIZE 4096
+#define P_MIN(A, B) ((A) > (B) ? (B) : (A))
 
 #ifdef _WIN32
 
@@ -61,6 +62,8 @@ struct process_s {
     PROCESS_INFORMATION pi;
     OVERLAPPED overlapped[2];
     bool reading[2];
+    // keeps track of how much you can read from buffer
+    int remaining[2];
     char buffer[2][READ_BUF_SIZE];
 #endif
 };
@@ -537,3 +540,56 @@ CLEANUP:
   }
   return retval;
 }
+
+int process_read(process_t *self, process_stream_t stream, char *buf, int buf_size) {
+  int retval = 0;
+
+  if (stream != PROCESS_STDOUT && stream != PROCESS_STDERR)
+    return PROCESS_EINVAL;
+
+  buf_size = P_MIN(buf_size, READ_BUF_SIZE);
+
+#ifdef _WIN32
+  DWORD read;
+  int overlapped_stream = stream - 1;
+
+  if (!self->remaining[overlapped_stream] && !self->reading[overlapped_stream]) {
+    // no more data from previous read; initialize a read
+    if (ReadFile(self->pipes[stream][0],
+                self->buffer[overlapped_stream], buf_size, &read,
+                &self->overlapped[overlapped_stream])) {
+      // we read something without going into overlapped
+      // save the remaining bytes so that we can use it
+      self->remaining[overlapped_stream] = read;
+    } else if (GetLastError() == ERROR_IO_PENDING) {
+      // going into overlapped
+      self->reading[overlapped_stream] = true;
+    } else if (GetLastError() == ERROR_BROKEN_PIPE) {
+      // broken pipe
+      return PROCESS_EPIPE;
+    } else {
+      return -GetLastError();
+    }
+  }
+
+  if (self->reading[overlapped_stream]
+      && GetOverlappedResult(self->pipes[stream][0],
+                              &self->overlapped[overlapped_stream],
+                              &read,
+                              FALSE)) {
+    // overlapped is completed, get size so we can read them
+    self->reading[overlapped_stream] = false;
+    self->remaining[overlapped_stream] = self->overlapped[overlapped_stream].InternalHigh;
+  }
+
+  if (self->remaining[overlapped_stream]) {
+    // we still have leftovers, return them!
+    retval = P_MIN(buf_size, self->remaining[overlapped_stream]);
+    memcpy(buf, self->buffer[overlapped_stream], retval);
+    self->remaining[overlapped_stream] -= retval;
+  }
+#endif
+
+  return retval;
+}
+
