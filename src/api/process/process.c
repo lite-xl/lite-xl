@@ -27,6 +27,7 @@ typedef HANDLE process_handle_t;
 
 int PROCESS_EINVAL = -ERROR_INVALID_PARAMETER;
 int PROCESS_ENOMEM = -ERROR_NOT_ENOUGH_MEMORY;
+int PROCESS_EPIPE = -ERROR_BROKEN_PIPE;
 
 static void close_handle(process_handle_t *handle) {
   if (*handle != INVALID_HANDLE_VALUE) {
@@ -42,6 +43,7 @@ typedef int process_handle_t;
 
 int PROCESS_EINVAL = -EINVAL;
 int PROCESS_ENOMEM = -ENOMEM;
+int PROCESS_EPIPE = -EPIPE;
 
 static void close_handle(process_handle_t *handle) {
   if (*handle != INVALID_HANDLE_VALUE) {

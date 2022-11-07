@@ -30,6 +30,7 @@ extern int PROCESS_SIGINT;
 
 extern int PROCESS_EINVAL;
 extern int PROCESS_ENOMEM;
+extern int PROCESS_EPIPE;
 
 process_t *process_new(void);
 int process_start(process_t *proc,
