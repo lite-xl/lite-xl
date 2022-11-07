@@ -17,7 +17,7 @@ version = meson.project_version()
 lua_jit_found = false
 if get_option('jit')
     luajit_dep = dependency('luajit', required : false,
-        default_options: ['default_library=static', 'app=false']
+        default_options: ['default_library=static']
     )
 
     if luajit_dep.found()
@@ -81,10 +81,6 @@ lite_cargs += '-DLITE_ARCH_TUPLE="@0@"'.format(arch_tuple)
 lite_link_args = []
 if host_machine.system() == 'darwin'
     lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
-    # the linker aguments below are needed by luajit on macOS
-    if lua_jit_found
-        lite_link_args += ['-pagezero_size', '10000', '-image_base', '100000000']
-    endif
 endif
 #===============================================================================
 # Dependencies

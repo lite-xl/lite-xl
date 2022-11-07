@@ -1,5 +1,9 @@
-[wrap-git]
-directory = luajit
-url = https://github.com/franko/luajit
-revision = v2.0.5-lhelper5
+[wrap-file]
+directory = LuaJIT-6c4826f12c4d33b8b978004bc681eb1eef2be977
+source_url = https://github.com/LuaJIT/LuaJIT/archive/6c4826f12c4d33b8b978004bc681eb1eef2be977.zip
+source_filename = LuaJIT-6c4826f12c4d33b8b978004bc681eb1eef2be977.zip
+source_hash = 4a384b218557e650e6fbbe2e0f14aa7a7d08a3e1f31eedbfc54de1cc62583496
+patch_directory = luajit
 
+[provide]
+luajit = luajit_dep
