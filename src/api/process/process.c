@@ -74,11 +74,11 @@ struct process_s {
 
 #if _WIN32
     PROCESS_INFORMATION pi;
-    OVERLAPPED overlapped[2];
-    bool reading[2];
+    OVERLAPPED overlapped[3];
+    bool reading[3];
     // keeps track of how much you can read from buffer
-    int remaining[2];
-    char buffer[2][READ_BUF_SIZE];
+    int remaining[3];
+    char buffer[3][READ_BUF_SIZE];
 #endif
 };
 
@@ -693,42 +693,44 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
 
 #ifdef _WIN32
   DWORD read;
-  int overlapped_stream = stream - 1;
 
-  if (!self->remaining[overlapped_stream] && !self->reading[overlapped_stream]) {
+  if (!self->remaining[stream] && !self->reading[stream]) {
     // no more data from previous read; initialize a read
     if (ReadFile(self->pipes[stream][0],
-                self->buffer[overlapped_stream], buf_size, &read,
-                &self->overlapped[overlapped_stream])) {
-      // we read something without going into overlapped
-      // save the remaining bytes so that we can use it
-      self->remaining[overlapped_stream] = read;
+                self->buffer[stream], buf_size, &read,
+                &self->overlapped[stream])) {
+      // read something without going into overlapped
+      self->remaining[stream] = read;
     } else if (GetLastError() == ERROR_IO_PENDING) {
       // going into overlapped
-      self->reading[overlapped_stream] = true;
+      self->reading[stream] = true;
     } else if (GetLastError() == ERROR_BROKEN_PIPE) {
       // broken pipe
       return PROCESS_EPIPE;
     } else {
+      // other errors
       return -GetLastError();
     }
   }
 
-  if (self->reading[overlapped_stream]
+  if (self->reading[stream]
       && GetOverlappedResult(self->pipes[stream][0],
-                              &self->overlapped[overlapped_stream],
+                              &self->overlapped[stream],
                               &read,
                               FALSE)) {
     // overlapped is completed, get size so we can read them
-    self->reading[overlapped_stream] = false;
-    self->remaining[overlapped_stream] = self->overlapped[overlapped_stream].InternalHigh;
+    self->reading[stream] = false;
+    self->remaining[stream] = self->overlapped[stream].InternalHigh;
   }
 
-  if (self->remaining[overlapped_stream]) {
+  if (self->remaining[stream]) {
     // we still have leftovers, return them!
-    retval = P_MIN(buf_size, self->remaining[overlapped_stream]);
-    memcpy(buf, self->buffer[overlapped_stream], retval);
-    self->remaining[overlapped_stream] -= retval;
+    retval = P_MIN(buf_size, self->remaining[stream]);
+    memcpy(buf, self->buffer[stream], retval);
+    self->remaining[stream] -= retval;
+  } else {
+    // it would block
+    return PROCESS_EWOULDBLOCK;
   }
 #endif
 
