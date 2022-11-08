@@ -24,14 +24,14 @@ typedef enum {
   PROCESS_STDERR,
 } process_stream_t;
 
-extern int PROCESS_SIGTERM;
-extern int PROCESS_SIGKILL;
-extern int PROCESS_SIGINT;
+extern const int PROCESS_SIGTERM;
+extern const int PROCESS_SIGKILL;
+extern const int PROCESS_SIGINT;
 
-extern int PROCESS_EINVAL;
-extern int PROCESS_ENOMEM;
-extern int PROCESS_EPIPE;
-extern int PROCESS_EWOULDBLOCK;
+extern const int PROCESS_EINVAL;
+extern const int PROCESS_ENOMEM;
+extern const int PROCESS_EPIPE;
+extern const int PROCESS_EWOULDBLOCK;
 
 process_t *process_new(void);
 int process_start(process_t *proc,

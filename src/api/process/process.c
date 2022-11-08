@@ -25,15 +25,15 @@
 typedef HANDLE process_handle_t;
 #define PROCESS_INVALID_HANDLE INVALID_HANDLE_VALUE
 
-int PROCESS_EINVAL = -ERROR_INVALID_PARAMETER;
-int PROCESS_ENOMEM = -ERROR_NOT_ENOUGH_MEMORY;
-int PROCESS_EPIPE = -ERROR_BROKEN_PIPE;
-int PROCESS_EWOULDBLOCK = -ERROR_IO_PENDING;
+const int PROCESS_EINVAL = -ERROR_INVALID_PARAMETER;
+const int PROCESS_ENOMEM = -ERROR_NOT_ENOUGH_MEMORY;
+const int PROCESS_EPIPE = -ERROR_BROKEN_PIPE;
+const int PROCESS_EWOULDBLOCK = -ERROR_IO_PENDING;
 
 // stolen from linux
-int PROCESS_SIGTERM = 15;
-int PROCESS_SIGINT = 2;
-int PROCESS_SIGKILL = 9;
+const int PROCESS_SIGTERM = 15;
+const int PROCESS_SIGINT = 2;
+const int PROCESS_SIGKILL = 9;
 
 
 static void close_handle(process_handle_t *handle) {
@@ -48,14 +48,14 @@ static void close_handle(process_handle_t *handle) {
 typedef int process_handle_t;
 #define PROCESS_INVALID_HANDLE 0
 
-int PROCESS_EINVAL = -EINVAL;
-int PROCESS_ENOMEM = -ENOMEM;
-int PROCESS_EPIPE = -EPIPE;
-int PROCESS_EWOULDBLOCK = -EWOULDBLOCK;
+const int PROCESS_EINVAL = -EINVAL;
+const int PROCESS_ENOMEM = -ENOMEM;
+const int PROCESS_EPIPE = -EPIPE;
+const int PROCESS_EWOULDBLOCK = -EWOULDBLOCK;
 
-int PROCESS_SIGTERM = SIGTERM;
-int PROCESS_SIGINT = SIGINT;
-int PROCESS_SIGKILL = SIGKILL;
+const int PROCESS_SIGTERM = SIGTERM;
+const int PROCESS_SIGINT = SIGINT;
+const int PROCESS_SIGKILL = SIGKILL;
 
 static void close_handle(process_handle_t *handle) {
   if (*handle != 0) {
