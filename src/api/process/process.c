@@ -783,3 +783,20 @@ int process_write(process_t *self, char *buf, int buf_size) {
 
   return retval;
 }
+
+int process_signal(process_t *self, int sig) {
+  int retval = 0;
+
+#ifdef _WIN32
+  switch (sig) {
+    case PROCESS_SIGTERM: retval = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, self->pid); break;
+    case PROCESS_SIGINT: retval = DebugBreakProcess(self->pi.hProcess); break;
+    case PROCESS_SIGKILL: retval = TerminateProcess(self->pi.hProcess, 137); break;
+    default: retval = PROCESS_EINVAL;
+  }
+  if (!retval && retval != PROCESS_EINVAL)
+    return -GetLastError();
+#endif
+
+  return retval;
+}
