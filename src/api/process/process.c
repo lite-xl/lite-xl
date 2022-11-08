@@ -30,6 +30,12 @@ int PROCESS_ENOMEM = -ERROR_NOT_ENOUGH_MEMORY;
 int PROCESS_EPIPE = -ERROR_BROKEN_PIPE;
 int PROCESS_EWOULDBLOCK = -ERROR_IO_PENDING;
 
+// stolen from linux
+int PROCESS_SIGTERM = 15;
+int PROCESS_SIGINT = 2;
+int PROCESS_SIGKILL = 9;
+
+
 static void close_handle(process_handle_t *handle) {
   if (*handle != INVALID_HANDLE_VALUE) {
     CloseHandle(*handle);
@@ -46,6 +52,10 @@ int PROCESS_EINVAL = -EINVAL;
 int PROCESS_ENOMEM = -ENOMEM;
 int PROCESS_EPIPE = -EPIPE;
 int PROCESS_EWOULDBLOCK = -EWOULDBLOCK;
+
+int PROCESS_SIGTERM = SIGTERM;
+int PROCESS_SIGINT = SIGINT;
+int PROCESS_SIGKILL = SIGKILL;
 
 static void close_handle(process_handle_t *handle) {
   if (*handle != 0) {
