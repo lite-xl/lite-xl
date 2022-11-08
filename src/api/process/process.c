@@ -737,3 +737,49 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
   return retval;
 }
 
+int process_write(process_t *self, char *buf, int buf_size) {
+  int retval = 0;
+
+#ifdef _WIN32
+  /**
+   * there is no way to safely know if a pipe would block on windows.
+   * NtQueryInformationFile can do this but this is prone to race conditions.
+   * we workaround this by copying data to our buffer and declare that it is done.
+   * On subsequent writes, we will return EWOULDBLOCK until the write is done.
+   */
+  DWORD write;
+  if (self->reading[PROCESS_STDIN]) {
+    // check if the overlap read(actually write) is done.
+    if (GetOverlappedResult(self->pipes[PROCESS_STDIN][1],
+                            &self->overlapped[PROCESS_STDIN],
+                            &write,
+                            FALSE)) {
+      // done writing
+      self->reading[PROCESS_STDIN] = false;
+    } else if (GetLastError() == ERROR_IO_INCOMPLETE) {
+      //  still writing
+      return PROCESS_EWOULDBLOCK;
+    } else {
+      // unknown error
+      return -GetLastError();
+    }
+  }
+  // copy data to buffer and prepare for writing
+  retval = P_MIN(buf_size, READ_BUF_SIZE);
+  memcpy(self->buffer[PROCESS_STDIN], buf, retval);
+
+  if (!WriteFile(self->pipes[PROCESS_STDIN][1],
+                self->buffer[PROCESS_STDIN], retval, &write,
+                &self->overlapped[PROCESS_STDIN])) {
+    if (GetLastError() == ERROR_IO_PENDING) {
+      // going into overlap
+      self->reading[PROCESS_STDIN] = true;
+    } else {
+      // other errors
+      return -GetLastError();
+    }
+  }
+#endif
+
+  return retval;
+}
