@@ -156,7 +156,7 @@ process_t *process_new(void) {
     for (int i = 0; i < 3; i++) {
       self->pipes[i][0] = PROCESS_INVALID_HANDLE;
       self->pipes[i][1] = PROCESS_INVALID_HANDLE;
-    } 
+    }
   }
   return self;
 }
@@ -468,7 +468,7 @@ int process_start(process_t *self,
   P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
   P_ASSERT_ERR(PROCESS_EINVAL, argv != NULL);
   P_ASSERT_ERR(PROCESS_EINVAL, action >= PROCESS_ENV_EXTEND && action <= PROCESS_ENV_REPLACE);
-  P_ASSERT_ERR(PROCESS_EINVAL, timeout >= PROCESS_DEADLINE);
+  P_ASSERT_ERR(PROCESS_EINVAL, timeout > PROCESS_DEADLINE);
 
   self->deadline = timeout;
   self->detached = detach;
