@@ -613,7 +613,7 @@ int process_start(process_t *self,
         goto CHILD_FAIL;
     }
 
-    if (action == PROCESS_ENV_CLEAR)
+    if (action == PROCESS_ENV_REPLACE)
       clearenv();
 
     for (int i = 0; i < env_len; i++) {

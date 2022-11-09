@@ -7,7 +7,7 @@ typedef struct process_s process_t;
 
 typedef enum {
   PROCESS_ENV_EXTEND,
-  PROCESS_ENV_CLEAR,
+  PROCESS_ENV_REPLACE,
 } process_env_action_t;
 
 typedef enum {
