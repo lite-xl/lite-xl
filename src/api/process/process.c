@@ -671,7 +671,7 @@ int process_start(process_t *self,
 
 #endif
 
-  goto CLEANUP;
+  self->running = true;
 
 CLEANUP:
 #ifdef _WIN32
@@ -706,6 +706,7 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
   int retval = 0;
 
   P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, self->running);
   P_ASSERT_ERR(PROCESS_EINVAL, stream == PROCESS_STDOUT || stream == PROCESS_STDERR);
   P_ASSERT_ERR(PROCESS_EINVAL, buf != NULL);
   P_ASSERT_ERR(PROCESS_EINVAL, buf_size > 0);
@@ -766,6 +767,7 @@ int process_write(process_t *self, char *buf, int buf_size) {
   int retval = 0;
 
   P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, self->running);
   P_ASSERT_ERR(PROCESS_EINVAL, buf != NULL);
   P_ASSERT_ERR(PROCESS_EINVAL, buf_size > 0);
 
@@ -816,6 +818,9 @@ CLEANUP:
 
 int process_signal(process_t *self, int sig) {
   int retval = 0;
+
+  P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, self->running);
 
 #ifdef _WIN32
   switch (sig) {
