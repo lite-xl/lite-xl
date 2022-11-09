@@ -114,6 +114,7 @@ main() {
         cross_file="--cross-file resources/macos/macos_arm64.conf"
         macos_version_min=11.0
       fi
+      export MACOSX_DEPLOYMENT_TARGET=$macos_version_min
       export MIN_SUPPORTED_MACOSX_DEPLOYMENT_TARGET=$macos_version_min
       export CFLAGS=-mmacosx-version-min=$macos_version_min
       export CXXFLAGS=-mmacosx-version-min=$macos_version_min
