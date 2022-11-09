@@ -847,3 +847,51 @@ CLEANUP:
   return retval;
 }
 
+int process_poll(process_t *self, int timeout) {
+  int retval = 0;
+
+  P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, self->running);
+  P_ASSERT_ERR(PROCESS_EINVAL, timeout >= PROCESS_DEADLINE);
+
+  timeout = timeout == PROCESS_DEADLINE ? self->deadline : timeout;
+
+#ifdef _WIN32
+  // if the process is detached, we've closed the handle.
+  // we need to get the handle again to wait on it
+  HANDLE proc_handle;
+  DWORD status;
+
+  if (self->detached) {
+    // this function returns NULL instead of INVALID_HANDLE_VALUE !
+    proc_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, self->pid);
+    P_ASSERT_SYS(proc_handle != NULL);
+  } else {
+    proc_handle = self->pi.hProcess;
+    P_ASSERT_ERR(PROCESS_EINVAL, proc_handle != INVALID_HANDLE_VALUE);
+  }
+
+  timeout = timeout == PROCESS_INFINITE ? INFINITE : timeout;
+  // not exactly what reproc did but its similar
+  status = WaitForSingleObject(proc_handle, timeout);
+  if (status == WAIT_TIMEOUT)
+    P_ASSERT_ERR(status, false); // timed out
+  else if (status == WAIT_FAILED)
+    P_ASSERT_SYS(false); // actual error
+
+  P_ASSERT_SYS(GetExitCodeProcess(proc_handle, &status));
+
+  // `GenerateConsoleCtrlEvent` causes a process to exit with this exit code.
+  // Because `GenerateConsoleCtrlEvent` has roughly the same semantics as
+  // `SIGTERM`, we map its exit code to `SIGTERM`.
+  if (status == 3221225786) {
+    status = (DWORD) PROCESS_SIGTERM;
+  }
+
+  retval = self->returncode = status;
+#endif
+
+CLEANUP:
+  return retval;
+}
+
