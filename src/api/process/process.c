@@ -10,7 +10,9 @@
 #include <wchar.h>
 #include <wctype.h>
 #else
+#include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #endif
@@ -93,6 +95,33 @@ static const required_env_t REQUIRED_ENV[] = {
   E("USERPROFILE"),
   E("WINDIR"),
 };
+
+#else
+
+// use _NSGetEnviron() to get the env var on Apple devices
+// this is normally avaiable via extern
+// refer to https://github.com/dcreager/libcork/blob/a89596ce224438c136ef0336a81c51262cad9cd3/src/libcork/posix/env.c#L23
+#if defined(__APPLE__)
+    #pragma message "environ is unavailable. " \
+                    "workaround: use _NSGetEnviron()"
+    #include <crt_externs.h>
+    #define environ (*_NSGetEnviron())
+#else
+    extern char **environ;
+#endif
+
+// use a custom implementation of clearenv(3) if it is unavailable
+// refer to https://github.com/dcreager/libcork/blob/a89596ce224438c136ef0336a81c51262cad9cd3/src/libcork/posix/env.c#L190
+#if (defined(__APPLE__) || (defined(BSD) && (BSD >= 199103)) || \
+    (defined(__CYGWIN__) && CYGWIN_VERSION_API_MINOR < 326)) && \
+    !defined(__GNU__)
+    #pragma message "clearenv() is unavailable. " \
+                    "workaround: self-implemented clearenv()"
+
+    static void clearenv() {
+        *environ = NULL;
+    }
+#endif
 
 #endif
 
@@ -513,6 +542,102 @@ int process_start(process_t *self,
   CloseHandle(self->pi.hThread);
   if (detach)
     CloseHandle(self->pi.hProcess);
+#else
+  int env_len = 0;
+  int status_pipe[2] = {0};
+  char **env_keys = NULL, **env_values = NULL;
+
+  // copy all the envs
+  for (const char **envp = env; *envp != NULL; envp++)
+    env_len++;
+
+  env_keys = calloc(env_len, sizeof(char *));
+  env_values = calloc(env_len,  sizeof(char *));
+  if (env_keys == NULL || env_values == NULL)
+    goto FAIL;
+
+  for (int i = 0; i < env_len; i++) {
+    // TODO: env must be valid
+    env_keys[i] = strdup(env[i]);
+    env_values[i] = strdup(strchr(env[i], '=') + 1);
+    if (env_keys[i] == NULL || env_keys[i] == NULL)
+      goto FAIL;
+  }
+
+  // create the pipe for sending errno
+  if (pipe(status_pipe)
+      || fcntl(status_pipe[1], F_SETFD, O_CLOEXEC) == -1)
+    goto FAIL;
+
+  // create pipes for all the things
+  for (int i = 0; i < 3; i++) {
+    if (pipe(self->pipes[i])
+        || fcntl(self->pipes[i][i == PROCESS_STDIN ? 1 : 0], F_SETFL, O_NONBLOCK) == -1)
+      goto FAIL;
+  }
+
+  self->pid = fork();
+  if (self->pid == 0) {
+    // child
+    if (!detach || setpgid(0, 0) == -1 || setsid() == -1 )
+      goto CHILD_FAIL;
+
+    if (cwd != NULL || chdir(cwd) == -1)
+      goto CHILD_FAIL;
+
+    for (int i = 0; i < 3; i++) {
+      if (redirect[i] == PROCESS_REDIRECT_DISCARD) {
+        // close the stream
+        if (close(self->pipes[i][i == PROCESS_STDIN ? 0 : 1]) == -1)
+          goto CHILD_FAIL;
+        // close child's stdin/out/err
+        if (close(i) == -1)
+          goto CHILD_FAIL;
+      } else if (redirect[i] != PROCESS_REDIRECT_PARENT) {
+        // not inheriting fds, use our fd as stdin/out/err
+        if (dup2(self->pipes[i][i == PROCESS_STDIN ? 0 : 1], i) == -1)
+          goto CHILD_FAIL;
+      }
+      // close parent side of the strema
+      if (close(self->pipes[i][i == PROCESS_STDIN ? 1 : 0]) == -1)
+        goto CHILD_FAIL;
+    }
+
+    if (action == PROCESS_ENV_CLEAR)
+      clearenv();
+
+    for (int i = 0; i < env_len; i++) {
+      if (setenv(env_keys[i], env_values[i], true) == -1)
+        goto CHILD_FAIL;
+    }
+
+    execvp(argv[0], (char *const *) argv);
+
+CHILD_FAIL:
+    // send the errno back to parent
+    write(status_pipe[1], &errno, sizeof(errno));
+    _exit(errno);
+  } else if (self->pid > 0) {
+    // parent
+    size_t r;
+    // this pipe must be closed to receive data from child
+    close(status_pipe[1]);
+
+    while ((r = read(status_pipe[0], &retval, sizeof(errno))) == -1) {
+      if (errno == EPIPE)
+        break; // success, pipe closed due to CLOEXEC
+      else if (errno != EINTR)
+        goto FAIL; // unknown error
+    }
+
+    if (r == sizeof(errno)) {
+      // child process returned an error code
+      retval = -retval;
+      goto CLEANUP; // retval is set, skip FAIL
+    }
+  } else {
+    goto FAIL;
+  }
 #endif
 
   goto CLEANUP;
@@ -527,6 +652,13 @@ FAIL:
 CLEANUP:
 #ifdef _WIN32
   free(environment);
+#else
+  if (env_keys != NULL)
+    for (char **envp = env_keys; *envp != NULL; envp++) free(*envp);
+  if (env_values != NULL)
+    for (char **envp = env_values; *envp != NULL; envp++) free(*envp);
+  free(env_keys);
+  free(env_values);
 #endif
 
   for (int i = 0; i < 3; i++) {
