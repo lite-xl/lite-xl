@@ -834,3 +834,16 @@ int process_signal(process_t *self, int sig) {
 CLEANUP:
   return retval;
 }
+
+int process_returncode(process_t *self) {
+  int retval = 0;
+
+  P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, !self->running);
+
+  return self->returncode;
+
+CLEANUP:
+  return retval;
+}
+

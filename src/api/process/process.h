@@ -48,6 +48,7 @@ int process_read(process_t *proc, process_stream_t stream,
                 char *buf, int buf_size);
 int process_write(process_t *proc, char *buf, int buf_size);
 int process_signal(process_t *proc, int sig);
+int process_returncode(process_t *proc);
 int process_poll(process_t *proc);
 void process_free(process_t *proc);
 
