@@ -19,8 +19,18 @@
 
 #define READ_BUF_SIZE 4096
 #define P_MIN(A, B) ((A) > (B) ? (B) : (A))
+#define P_ASSERT_ERR(E, COND) \
+  do { \
+    if (!(COND)) { \
+      retval = (E); \
+      goto CLEANUP; \
+    } \
+  } while (0)
+#define P_ASSERT_SYS(COND) P_ASSERT_ERR(-P_SYS_ERRNO, (COND))
 
 #ifdef _WIN32
+
+#define P_SYS_ERRNO (GetLastError())
 
 typedef HANDLE process_handle_t;
 #define PROCESS_INVALID_HANDLE INVALID_HANDLE_VALUE
@@ -44,6 +54,8 @@ static void close_handle(process_handle_t *handle) {
 }
 
 #else
+
+#define P_SYS_ERRNO (errno)
 
 typedef int process_handle_t;
 #define PROCESS_INVALID_HANDLE 0
@@ -440,25 +452,41 @@ int process_start(process_t *self,
                   process_redirect_t pipe_redirect[3], int timeout,
                   bool detach, bool verbatim_arguments) {
   int retval = 0;
-
-  self->deadline = timeout;  
-  self->detached = detach;
-
   process_redirect_t redirect[3];
-
-  // normalize
-  redirect[PROCESS_STDIN] = pipe_redirect[PROCESS_STDIN] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PIPE : pipe_redirect[PROCESS_STDIN];
-  redirect[PROCESS_STDOUT] = pipe_redirect[PROCESS_STDOUT] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PIPE : pipe_redirect[PROCESS_STDOUT];
-  redirect[PROCESS_STDERR] = pipe_redirect[PROCESS_STDERR] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PARENT : pipe_redirect[PROCESS_STDERR];
 
 #ifdef _WIN32
   STARTUPINFOW si;
   wchar_t wcs_cwd[MAX_PATH];
   wchar_t cmdline[32767];
   wchar_t *environment = NULL;
+#else
+  int env_len = 0;
+  int status_pipe[2] = {0};
+  char **env_keys = NULL, **env_values = NULL;
+#endif
+
+  P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, argv != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, action >= PROCESS_ENV_EXTEND && action <= PROCESS_ENV_REPLACE);
+  P_ASSERT_ERR(PROCESS_EINVAL, timeout >= PROCESS_DEADLINE);
+
+  self->deadline = timeout;
+  self->detached = detach;
+  memset(redirect, PROCESS_REDIRECT_DEFAULT, sizeof(redirect));
+
+  if (pipe_redirect != NULL)
+    memcpy(redirect, pipe_redirect, sizeof(redirect));
+
+  // normalize
+  redirect[PROCESS_STDIN] = redirect[PROCESS_STDIN] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PIPE : redirect[PROCESS_STDIN];
+  redirect[PROCESS_STDOUT] = redirect[PROCESS_STDOUT] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PIPE : redirect[PROCESS_STDOUT];
+  redirect[PROCESS_STDERR] = redirect[PROCESS_STDERR] == PROCESS_REDIRECT_DEFAULT ? PROCESS_REDIRECT_PARENT : redirect[PROCESS_STDERR];
+
+#ifdef _WIN32
 
   for (int i = 0; i < 3; i++) {
     switch (redirect[i]) {
+
       case PROCESS_REDIRECT_PARENT:
         switch (i) {
           case PROCESS_STDIN: self->pipes[i][0] = GetStdHandle(STD_INPUT_HANDLE); break;
@@ -473,10 +501,7 @@ int process_start(process_t *self,
         break;
 
       case PROCESS_REDIRECT_STDOUT:
-        if (i != PROCESS_STDERR) {
-          SetLastError(ERROR_INVALID_PARAMETER);
-          goto FAIL;
-        }
+        P_ASSERT_ERR(PROCESS_EINVAL, i == PROCESS_STDERR);
         self->pipes[PROCESS_STDERR][0] = self->pipes[PROCESS_STDOUT][0];
         self->pipes[PROCESS_STDERR][1] = self->pipes[PROCESS_STDOUT][1];
         break;
@@ -493,8 +518,7 @@ int process_start(process_t *self,
                                             READ_BUF_SIZE, READ_BUF_SIZE,
                                             0,
                                             NULL);
-        if (self->pipes[i][0] == INVALID_HANDLE_VALUE)
-          goto FAIL;
+        P_ASSERT_SYS(self->pipes[i][0] != INVALID_HANDLE_VALUE);
 
         self->pipes[i][1] = CreateFileA(pipe_name,
                                         GENERIC_WRITE,
@@ -503,18 +527,17 @@ int process_start(process_t *self,
                                         OPEN_EXISTING,
                                         FILE_ATTRIBUTE_NORMAL,
                                         NULL);
-        if (self->pipes[i][1] == INVALID_HANDLE_VALUE)
-          goto FAIL;
+        P_ASSERT_SYS(self->pipes[i][1] != INVALID_HANDLE_VALUE);
 
-        if (!SetHandleInformation(self->pipes[i][i == PROCESS_STDIN ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
-            !SetHandleInformation(self->pipes[i][i == PROCESS_STDIN ? 0 : 1], HANDLE_FLAG_INHERIT, 1))
-          goto FAIL;
-      }
-      break;
+        P_ASSERT_SYS(SetHandleInformation(self->pipes[i][i == PROCESS_STDIN ? 1 : 0], HANDLE_FLAG_INHERIT, 0)
+                      && SetHandleInformation(self->pipes[i][i == PROCESS_STDIN ? 0 : 1], HANDLE_FLAG_INHERIT, 1));
+        break;
 
       default:
-        SetLastError(ERROR_INVALID_PARAMETER);
-        goto FAIL;
+        P_ASSERT_ERR(PROCESS_EINVAL, false);
+        break;
+
+      }
     }
   }
 
@@ -525,37 +548,41 @@ int process_start(process_t *self,
   si.hStdOutput = self->pipes[PROCESS_STDOUT][1];
   si.hStdError = self->pipes[PROCESS_STDERR][1];
 
-  if (!create_lpcmdline(cmdline, argv, verbatim_arguments))
-    goto FAIL;
+  P_ASSERT_ERR(PROCESS_EINVAL, create_lpcmdline(cmdline, argv, verbatim_arguments));
 
-  if (env != NULL
-      && (environment = create_lpenvironment(env, action == PROCESS_ENV_EXTEND)) == NULL)
-    goto FAIL;
+  if (env != NULL)
+    P_ASSERT_ERR(PROCESS_EINVAL, 
+                (environment = create_lpenvironment(env, action == PROCESS_ENV_EXTEND)) != NULL);
 
-  if (cwd != NULL
-      && MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS | MB_PRECOMPOSED,
-                            cwd, -1, wcs_cwd, MAX_PATH) == 0)
-    goto FAIL;
+  if (cwd != NULL)
+    P_ASSERT_SYS(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS | MB_PRECOMPOSED,
+                                    cwd, -1, wcs_cwd, MAX_PATH) == 0);
 
-  if (!CreateProcessW(NULL,
-                      cmdline,
-                      NULL, NULL,
-                      TRUE,
-                      CREATE_UNICODE_ENVIRONMENT
-                        | (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW),
-                      env != NULL ? environment : NULL,
-                      cwd != NULL ? wcs_cwd : NULL,
-                      &si, &self->pi))
-    goto FAIL;
+  P_ASSERT_SYS(CreateProcessW(NULL,
+                              cmdline,
+                              NULL, NULL,
+                              TRUE,
+                              CREATE_UNICODE_ENVIRONMENT
+                                | (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW),
+                              env != NULL ? environment : NULL,
+                              cwd != NULL ? wcs_cwd : NULL,
+                              &si, &self->pi));
 
   self->pid = self->pi.dwProcessId;
   CloseHandle(self->pi.hThread);
+
   if (detach)
     CloseHandle(self->pi.hProcess);
+
 #else
-  int env_len = 0;
-  int status_pipe[2] = {0};
-  char **env_keys = NULL, **env_values = NULL;
+
+#define P_CHILD_ASSERT_SYS(COND) \
+  do { \
+    if ((!COND)) { \
+      write(status_pipe[1], &errno, sizeof(errno)); \
+      _exit(errno); \
+    } \
+  } while (0)
 
   // copy all the envs
   for (const char **envp = env; *envp != NULL; envp++)
@@ -563,112 +590,103 @@ int process_start(process_t *self,
 
   env_keys = calloc(env_len, sizeof(char *));
   env_values = calloc(env_len,  sizeof(char *));
-  if (env_keys == NULL || env_values == NULL)
-    goto FAIL;
+  P_ASSERT_ERR(PROCESS_ENOMEM, env_keys != NULL && env_values != NULL);
 
   for (int i = 0; i < env_len; i++) {
     // TODO: env must be valid
     env_keys[i] = strdup(env[i]);
     env_values[i] = strdup(strchr(env[i], '=') + 1);
-    if (env_keys[i] == NULL || env_keys[i] == NULL)
-      goto FAIL;
+    P_ASSERT_ERR(PROCESS_ENOMEM, env_keys[i] != NULL && env_values[i] != NULL);
   }
 
   // create the pipe for sending errno
-  if (pipe(status_pipe)
-      || fcntl(status_pipe[1], F_SETFD, O_CLOEXEC) == -1)
-    goto FAIL;
+  P_ASSERT_SYS(pipe(status_pipe) == 0 && fcntl(status_pipe[1], F_SETFD, O_CLOEXEC) == 0);
 
   // create pipes for all the things
   for (int i = 0; i < 3; i++) {
-    if (pipe(self->pipes[i])
-        || fcntl(self->pipes[i][i == PROCESS_STDIN ? 1 : 0], F_SETFL, O_NONBLOCK) == -1)
-      goto FAIL;
+    P_ASSERT_SYS(pipe(self->pipes[i]) == 0
+                  && fcntl(self->pipes[i][i == PROCESS_STDIN ? 1 : 0], F_SETFL, O_NONBLOCK) == 0);
   }
 
   self->pid = fork();
+  P_ASSERT_SYS(self->pid >= 0);
   if (self->pid == 0) {
-    // child
-    if (!detach || setpgid(0, 0) == -1 || setsid() == -1 )
-      goto CHILD_FAIL;
 
-    if (cwd != NULL || chdir(cwd) == -1)
-      goto CHILD_FAIL;
+    // child process
+    if (detach)
+      // set child as its own process group
+      P_CHILD_ASSERT_SYS(setsid() == 0);
+    else
+      // join parent's process group
+      P_CHILD_ASSERT_SYS(setpgid(0, 0) == 0);
+
+    if (cwd != NULL)
+      P_CHILD_ASSERT_SYS(chdir(cwd) == 0);
 
     for (int i = 0; i < 3; i++) {
       if (redirect[i] == PROCESS_REDIRECT_DISCARD) {
         // close the stream
-        if (close(self->pipes[i][i == PROCESS_STDIN ? 0 : 1]) == -1)
-          goto CHILD_FAIL;
+        P_CHILD_ASSERT_SYS(close(self->pipes[i][i == PROCESS_STDIN ? 0 : 1]) == 0);
         // close child's stdin/out/err
-        if (close(i) == -1)
-          goto CHILD_FAIL;
+        P_CHILD_ASSERT_SYS(close(i) == 0);
       } else if (redirect[i] != PROCESS_REDIRECT_PARENT) {
         // not inheriting fds, use our fd as stdin/out/err
-        if (dup2(self->pipes[i][i == PROCESS_STDIN ? 0 : 1], i) == -1)
-          goto CHILD_FAIL;
+        P_CHILD_ASSERT_SYS(dup2(self->pipes[i][i == PROCESS_STDIN ? 0 : 1], i) == 0);
       }
-      // close parent side of the strema
-      if (close(self->pipes[i][i == PROCESS_STDIN ? 1 : 0]) == -1)
-        goto CHILD_FAIL;
+      // close parent side of the stream
+      P_CHILD_ASSERT_SYS(close(self->pipes[i][i == PROCESS_STDIN ? 1 : 0]) == 0);
     }
 
     if (action == PROCESS_ENV_REPLACE)
       clearenv();
 
     for (int i = 0; i < env_len; i++) {
-      if (setenv(env_keys[i], env_values[i], true) == -1)
-        goto CHILD_FAIL;
+      P_CHILD_ASSERT_SYS(setenv(env_keys[i], env_values[i], true) == 0);
     }
 
     execvp(argv[0], (char *const *) argv);
+    P_CHILD_ASSERT_SYS(false);
 
-CHILD_FAIL:
-    // send the errno back to parent
-    write(status_pipe[1], &errno, sizeof(errno));
-    _exit(errno);
   } else if (self->pid > 0) {
-    // parent
-    size_t r;
-    // this pipe must be closed to receive data from child
-    close(status_pipe[1]);
 
+    // parent process
+    size_t r;
+
+    // this pipe must be closed to receive data from child
+    P_CHILD_ASSERT_SYS(close(status_pipe[1]));
+
+    // keep polling the pipe until the child process returns something
     while ((r = read(status_pipe[0], &retval, sizeof(errno))) == -1) {
       if (errno == EPIPE)
         break; // success, pipe closed due to CLOEXEC
-      else if (errno != EINTR)
-        goto FAIL; // unknown error
+      P_ASSERT_SYS(errno != EINTR);
     }
 
-    if (r == sizeof(errno)) {
-      // child process returned an error code
-      retval = -retval;
-      goto CLEANUP; // retval is set, skip FAIL
-    }
-  } else {
-    goto FAIL;
+    // child process returned an error code
+    if (r == sizeof(errno))
+      P_ASSERT_ERR(-retval, false);
   }
+
+#undef P_CHILD_ASSERT_SYS
+
 #endif
 
   goto CLEANUP;
 
-FAIL:
-#ifdef _WIN32
-  retval = -GetLastError();
-#else
-  retval = -errno;
-#endif
-
 CLEANUP:
 #ifdef _WIN32
+
   free(environment);
+
 #else
+
   if (env_keys != NULL)
     for (char **envp = env_keys; *envp != NULL; envp++) free(*envp);
   if (env_values != NULL)
     for (char **envp = env_values; *envp != NULL; envp++) free(*envp);
   free(env_keys);
   free(env_values);
+
 #endif
 
   for (int i = 0; i < 3; i++) {
@@ -680,14 +698,17 @@ CLEANUP:
       close_handle(&self->pipes[i][0]);
     }
   }
+
   return retval;
 }
 
 int process_read(process_t *self, process_stream_t stream, char *buf, int buf_size) {
   int retval = 0;
 
-  if (stream != PROCESS_STDOUT && stream != PROCESS_STDERR)
-    return PROCESS_EINVAL;
+  P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, stream == PROCESS_STDOUT || stream == PROCESS_STDERR);
+  P_ASSERT_ERR(PROCESS_EINVAL, buf != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, buf_size > 0);
 
   buf_size = P_MIN(buf_size, READ_BUF_SIZE);
 
@@ -704,9 +725,6 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
     } else if (GetLastError() == ERROR_IO_PENDING) {
       // going into overlapped
       self->reading[stream] = true;
-    } else if (GetLastError() == ERROR_BROKEN_PIPE) {
-      // broken pipe
-      return PROCESS_EPIPE;
     } else {
       // other errors
       return -GetLastError();
@@ -721,6 +739,12 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
     // overlapped is completed, get size so we can read them
     self->reading[stream] = false;
     self->remaining[stream] = self->overlapped[stream].InternalHigh;
+  } else if (GetLastError() == ERROR_IO_INCOMPLETE) {
+    // io still processing
+    return PROCESS_EWOULDBLOCK;
+  } else {
+    // other errors
+    return -GetLastError();
   }
 
   if (self->remaining[stream]) {
@@ -734,11 +758,16 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
   }
 #endif
 
+CLEANUP:
   return retval;
 }
 
 int process_write(process_t *self, char *buf, int buf_size) {
   int retval = 0;
+
+  P_ASSERT_ERR(PROCESS_EINVAL, self != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, buf != NULL);
+  P_ASSERT_ERR(PROCESS_EINVAL, buf_size > 0);
 
 #ifdef _WIN32
   /**
@@ -781,6 +810,7 @@ int process_write(process_t *self, char *buf, int buf_size) {
   }
 #endif
 
+CLEANUP:
   return retval;
 }
 
@@ -789,14 +819,13 @@ int process_signal(process_t *self, int sig) {
 
 #ifdef _WIN32
   switch (sig) {
-    case PROCESS_SIGTERM: retval = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, self->pid); break;
-    case PROCESS_SIGINT: retval = DebugBreakProcess(self->pi.hProcess); break;
-    case PROCESS_SIGKILL: retval = TerminateProcess(self->pi.hProcess, 137); break;
-    default: retval = PROCESS_EINVAL;
+    case PROCESS_SIGTERM: P_ASSERT_SYS(GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, self->pid)); break;
+    case PROCESS_SIGINT: P_ASSERT_SYS(DebugBreakProcess(self->pi.hProcess)); break;
+    case PROCESS_SIGKILL: P_ASSERT_SYS(TerminateProcess(self->pi.hProcess, 137)); break;
+    default: P_ASSERT_ERR(PROCESS_EINVAL, false);
   }
-  if (!retval && retval != PROCESS_EINVAL)
-    return -GetLastError();
 #endif
 
+CLEANUP:
   return retval;
 }
