@@ -24,6 +24,11 @@ typedef enum {
   PROCESS_STDERR,
 } process_stream_t;
 
+typedef enum {
+  PROCESS_INFINITE = -1,
+  PROCESS_DEADLINE = -2
+} process_wait_type_t;
+
 extern const int PROCESS_SIGTERM;
 extern const int PROCESS_SIGKILL;
 extern const int PROCESS_SIGINT;
