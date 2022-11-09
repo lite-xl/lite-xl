@@ -46,7 +46,7 @@ int PROCESS_ENOMEM = -ENOMEM;
 int PROCESS_EPIPE = -EPIPE;
 
 static void close_handle(process_handle_t *handle) {
-  if (*handle != INVALID_HANDLE_VALUE) {
+  if (*handle != 0) {
     close(*handle);
     *handle = 0;
   }
