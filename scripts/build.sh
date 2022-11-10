@@ -108,8 +108,17 @@ main() {
   fi
 
   if [[ $CROSS_ARCH != "" ]]; then
-    if [[ $platform == "macos" && $CROSS_ARCH == "arm64" ]]; then
+    if [[ $platform == "macos" ]]; then
+      macos_version_min=10.11
+      if [[ $CROSS_ARCH == "arm64" ]]; then
         cross_file="--cross-file resources/macos/macos_arm64.conf"
+        macos_version_min=11.0
+      fi
+      export MACOSX_DEPLOYMENT_TARGET=$macos_version_min
+      export MIN_SUPPORTED_MACOSX_DEPLOYMENT_TARGET=$macos_version_min
+      export CFLAGS=-mmacosx-version-min=$macos_version_min
+      export CXXFLAGS=-mmacosx-version-min=$macos_version_min
+      export LDFLAGS=-mmacosx-version-min=$macos_version_min
     fi
   fi
 
