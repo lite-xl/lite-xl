@@ -852,12 +852,23 @@ int process_signal(process_t *self, int sig) {
   P_ASSERT_ERR(PROCESS_EINVAL, self->running);
 
 #ifdef _WIN32
+
   switch (sig) {
     case PROCESS_SIGTERM: P_ASSERT_SYS(GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, self->pid)); break;
     case PROCESS_SIGINT: P_ASSERT_SYS(DebugBreakProcess(self->pi.hProcess)); break;
     case PROCESS_SIGKILL: P_ASSERT_SYS(TerminateProcess(self->pi.hProcess, 137)); break;
     default: P_ASSERT_ERR(PROCESS_EINVAL, false);
   }
+
+#else
+
+  switch (sig) {
+    case PROCESS_SIGTERM: P_ASSERT_SYS(kill(-self->pid, SIGTERM)); break;
+    case PROCESS_SIGINT: P_ASSERT_SYS(kill(-self->pid, SIGINT)); break;
+    case PROCESS_SIGKILL: P_ASSERT_SYS(kill(-self->pid, SIGKILL)); break;
+    default: P_ASSERT_ERR(PROCESS_EINVAL, false);
+  }
+
 #endif
 
 CLEANUP:
