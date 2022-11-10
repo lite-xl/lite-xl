@@ -578,7 +578,7 @@ int process_start(process_t *self,
 
 #define P_CHILD_ASSERT_SYS(COND) \
   do { \
-    if ((!COND)) { \
+    if (!(COND)) { \
       write(status_pipe[1], &errno, sizeof(errno)); \
       _exit(errno); \
     } \
