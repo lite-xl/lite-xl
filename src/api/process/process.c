@@ -594,9 +594,11 @@ int process_start(process_t *self,
   P_ASSERT_ERR(PROCESS_ENOMEM, env_keys != NULL && env_values != NULL);
 
   for (int i = 0; i < env_len; i++) {
-    // TODO: env must be valid
+    char *eq_ptr = strchr(env[i], '=');
+    P_ASSERT_ERR(PROCESS_EINVAL, eq_ptr != NULL);
+
     env_keys[i] = strdup(env[i]);
-    env_values[i] = strdup(strchr(env[i], '=') + 1);
+    env_values[i] = strdup(eq_ptr + 1);
     P_ASSERT_ERR(PROCESS_ENOMEM, env_keys[i] != NULL && env_values[i] != NULL);
   }
 
