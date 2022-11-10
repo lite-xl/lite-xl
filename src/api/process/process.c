@@ -717,6 +717,7 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
   buf_size = P_MIN(buf_size, READ_BUF_SIZE);
 
 #ifdef _WIN32
+
   DWORD read;
 
   if (!self->remaining[stream] && !self->reading[stream]) {
@@ -760,6 +761,17 @@ int process_read(process_t *self, process_stream_t stream, char *buf, int buf_si
     // it would block
     return PROCESS_EWOULDBLOCK;
   }
+
+#else
+
+  retval = read(self->pipes[stream][0], buf, buf_size);
+  if (retval < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+      retval = PROCESS_EWOULDBLOCK;
+    else
+      retval = -errno;
+  }
+
 #endif
 
 CLEANUP:
