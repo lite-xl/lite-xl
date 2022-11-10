@@ -10,6 +10,7 @@
 #include <wchar.h>
 #include <wctype.h>
 #else
+#include <time.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -857,6 +858,7 @@ int process_poll(process_t *self, int timeout) {
   timeout = timeout == PROCESS_DEADLINE ? self->deadline : timeout;
 
 #ifdef _WIN32
+
   // if the process is detached, we've closed the handle.
   // we need to get the handle again to wait on it
   HANDLE proc_handle;
@@ -889,6 +891,27 @@ int process_poll(process_t *self, int timeout) {
   }
 
   retval = self->returncode = status;
+
+#else
+
+  struct timespec tm = { 0, 5000000 }; // 5ms
+  pid_t wait_response;
+  int status;
+
+  do {
+    wait_response = waitpid(self->pid, &status, WNOHANG);
+    if (wait_response != 0) {
+      self->running = false;
+      self->returncode = WIFEXITED(status) ? WEXITSTATUS(status) : WTERMSIG(status) + 128;
+    }
+    if (timeout != PROCESS_INFINITE) {
+      nanosleep(&tm, NULL);
+      timeout -= 5;
+    }
+  } while (timeout == PROCESS_INFINITE || timeout > 0);
+
+  retval = self->returncode;
+
 #endif
 
 CLEANUP:
