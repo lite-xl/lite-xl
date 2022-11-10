@@ -786,7 +786,10 @@ int process_write(process_t *self, char *buf, int buf_size) {
   P_ASSERT_ERR(PROCESS_EINVAL, buf != NULL);
   P_ASSERT_ERR(PROCESS_EINVAL, buf_size > 0);
 
+  buf_size = P_MIN(buf_size, READ_BUF_SIZE);
+
 #ifdef _WIN32
+
   /**
    * there is no way to safely know if a pipe would block on windows.
    * NtQueryInformationFile can do this but this is prone to race conditions.
@@ -825,6 +828,17 @@ int process_write(process_t *self, char *buf, int buf_size) {
       return -GetLastError();
     }
   }
+
+#else
+
+  retval = write(self->pipes[PROCESS_STDIN][1], buf, buf_size);
+  if (retval < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+      retval = PROCESS_EWOULDBLOCK;
+    else
+      retval = -errno;
+  }
+
 #endif
 
 CLEANUP:
