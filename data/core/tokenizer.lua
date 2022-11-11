@@ -1,6 +1,5 @@
 local core = require "core"
 local syntax = require "core.syntax"
-local common = require "core.common"
 
 local tokenizer = {}
 local bad_patterns = {}
@@ -51,31 +50,37 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
   end
 end
 
+-- State is a string of bytes, where the count of bytes represents the depth
+-- of the subsyntax we are currently in. Each individual byte represents the
+-- index of the pattern for the current subsyntax in relation to its parent
+-- syntax. Using a string of bytes allows us to have as many subsyntaxes as
+-- bytes can be stored on a string while keeping some level of performance in
+-- comparison to a Lua table. The only limitation is that a syntax would not
+-- be able to contain more than 255 patterns.
+--
+-- Lets say a state contains 2 bytes byte #1 with value `3` and byte #2 with
+-- a value of `5`. This would mean that on the parent syntax at index `3` a
+-- pattern subsyntax that matched current text was found, then inside that
+-- subsyntax another subsyntax pattern at index `5` that matched current text
+-- was also found.
 
--- State is a 32-bit number that is four separate bytes, illustrating how many
--- differnet delimiters we have open, and which subsyntaxes we have active.
--- At most, there are 3 subsyntaxes active at the same time. Beyond that,
--- does not support further highlighting.
+-- Calling `push_subsyntax` appends the current subsyntax pattern index to the
+-- state and increases the stack depth. Calling `pop_subsyntax` clears the
+-- last appended subsyntax and decreases the stack.
 
--- You can think of it as a maximum 4 integer (0-255) stack. It always has
--- 1 integer in it. Calling `push_subsyntax` increases the stack depth. Calling
--- `pop_subsyntax` decreases it. The integers represent the index of a pattern
--- that we're following in the syntax. The top of the stack can be any valid
--- pattern index, any integer lower in the stack must represent a pattern that
--- specifies a subsyntax.
-
--- If you do not have subsyntaxes in your syntax, the three most
--- singificant numbers will always be 0, the stack will only ever be length 1
--- and the state variable will only ever range from 0-255.
 local function retrieve_syntax_state(incoming_syntax, state)
   local current_syntax, subsyntax_info, current_pattern_idx, current_level =
-    incoming_syntax, nil, state, 0
-  if state > 0 and (state > 255 or current_syntax.patterns[state].syntax) then
-    -- If we have higher bits, then decode them one at a time, and find which
+    incoming_syntax, nil, state:byte(1) or 0, 1
+  if
+    current_pattern_idx > 0
+    and
+    current_syntax.patterns[current_pattern_idx]
+  then
+    -- If the state is not empty we iterate over each byte, and find which
     -- syntax we're using. Rather than walking the bytes, and calling into
     -- `syntax` each time, we could probably cache this in a single table.
-    for i = 0, 2 do
-      local target = bit32.extract(state, i*8, 8)
+    for i = 1, #state do
+      local target = state:byte(i)
       if target ~= 0 then
         if current_syntax.patterns[target].syntax then
           subsyntax_info = current_syntax.patterns[target]
@@ -107,7 +112,7 @@ end
 
 ---@param incoming_syntax table
 ---@param text string
----@param state integer
+---@param state string
 function tokenizer.tokenize(incoming_syntax, text, state)
   local res = {}
   local i = 1
@@ -116,9 +121,9 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     return { "normal", text }
   end
 
-  state = state or 0
+  state = state or ""
   -- incoming_syntax    : the parent syntax of the file.
-  -- state              : a 32-bit number representing syntax state (see above)
+  -- state              : a string of bytes representing syntax state (see above)
 
   -- current_syntax     : the syntax we're currently in.
   -- subsyntax_info     : info about the delimiters of this subsyntax.
@@ -130,7 +135,18 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   -- Should be used to set the state variable. Don't modify it directly.
   local function set_subsyntax_pattern_idx(pattern_idx)
     current_pattern_idx = pattern_idx
-    state = bit32.replace(state, pattern_idx, current_level*8, 8)
+    local state_len = #state
+    if current_level > state_len then
+      state = state .. string.char(pattern_idx)
+    elseif state_len == 1 then
+      state = string.char(pattern_idx)
+    else
+      state = ("%s%s%s"):format(
+        state:sub(1,current_level-1),
+        string.char(pattern_idx),
+        state:sub(current_level+1)
+      )
+    end
   end
 
 
@@ -144,8 +160,8 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
 
   local function pop_subsyntax()
-    set_subsyntax_pattern_idx(0)
     current_level = current_level - 1
+    state = string.sub(state, 1, current_level)
     set_subsyntax_pattern_idx(0)
     current_syntax, subsyntax_info, current_pattern_idx, current_level =
       retrieve_syntax_state(incoming_syntax, state)
