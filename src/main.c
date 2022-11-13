@@ -51,7 +51,7 @@ static void get_exe_filename(char *buf, int sz) {
   const int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
   sysctl(mib, 4, buf, &len, NULL, 0);
 #else
-  strcpy(buf, "./lite");
+  *buf = NULL;
 #endif
 }
 
@@ -200,7 +200,12 @@ init_lua:
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
-  lua_pushstring(L, exename);
+  if (*exename) {
+    lua_pushstring(L, exename);
+  } else {
+    // get_exe_filename failed
+    lua_pushstring(L, argv[0]);
+  }
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
