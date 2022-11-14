@@ -9,11 +9,14 @@
   #include <windows.h>
   #include "SDL_syswm.h"
   #include <dwmapi.h>
-#elif __linux__ || __FreeBSD__
+#elif __linux__
   #include <unistd.h>
   #include <signal.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
+#elif __FreeBSD__
+  #include <sys/sysctl.h>
+  #include <signal.h>
 #endif
 
 
@@ -55,8 +58,12 @@ static void get_exe_filename(char *buf, int sz) {
   char exepath[size];
   _NSGetExecutablePath(exepath, &size);
   realpath(exepath, buf);
+#elif __FreeBSD__
+  size_t len = sz;
+  const int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
+  sysctl(mib, 4, buf, &len, NULL, 0);
 #else
-  strcpy(buf, "./lite");
+  *buf = NULL;
 #endif
 }
 
@@ -212,7 +219,12 @@ init_lua:
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
-  lua_pushstring(L, exename);
+  if (*exename) {
+    lua_pushstring(L, exename);
+  } else {
+    // get_exe_filename failed
+    lua_pushstring(L, argv[0]);
+  }
   lua_setglobal(L, "EXEFILE");
 
 #ifdef __APPLE__
