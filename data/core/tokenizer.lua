@@ -100,6 +100,21 @@ local function retrieve_syntax_state(incoming_syntax, state)
   return current_syntax, subsyntax_info, current_pattern_idx, current_level
 end
 
+---Return the list of syntaxes used in the specified state.
+---@param base_syntax table @The initial base syntax (the syntax of the file)
+---@param state string @The state of the tokenizer to extract from
+---@return table @Array of syntaxes starting from the innermost one
+function tokenizer.extract_subsyntaxes(base_syntax, state)
+  local current_syntax
+  local t = {}
+  repeat
+    current_syntax = retrieve_syntax_state(base_syntax, state)
+    table.insert(t, current_syntax)
+    state = string.sub(state, 2)
+  until #state == 0
+  return t
+end
+
 local function report_bad_pattern(log_fn, syntax, pattern_idx, msg, ...)
   if not bad_patterns[syntax] then
     bad_patterns[syntax] = { }
