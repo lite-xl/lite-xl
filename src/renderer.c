@@ -51,7 +51,7 @@ typedef struct RenFont {
   ERenFontHinting hinting;
   unsigned char style;
   unsigned short underline_thickness;
-  char path[1];
+  char path[];
 } RenFont;
 
 static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
