@@ -2,8 +2,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <stdalign.h>
 #include <string.h>
+
+#ifdef _MSC_VER
+  #ifndef alignof
+    #define alignof _Alignof
+  #endif
+  /* max_align_t is a compiler defined type, but
+  ** MSVC doesn't provide it, so we'll have to improvise */
+  typedef long double max_align_t;
+#else
+  #include <stdalign.h>
+#endif
 
 #include <lauxlib.h>
 #include "rencache.h"
@@ -42,8 +52,8 @@ static int command_buf_idx;
 static RenRect screen_rect;
 static bool show_debug;
 
-static inline int min(int a, int b) { return a < b ? a : b; }
-static inline int max(int a, int b) { return a > b ? a : b; }
+static inline int rencache_min(int a, int b) { return a < b ? a : b; }
+static inline int rencache_max(int a, int b) { return a > b ? a : b; }
 
 
 /* 32bit fnv-1a hash */
@@ -69,19 +79,19 @@ static inline bool rects_overlap(RenRect a, RenRect b) {
 
 
 static RenRect intersect_rects(RenRect a, RenRect b) {
-  int x1 = max(a.x, b.x);
-  int y1 = max(a.y, b.y);
-  int x2 = min(a.x + a.width, b.x + b.width);
-  int y2 = min(a.y + a.height, b.y + b.height);
-  return (RenRect) { x1, y1, max(0, x2 - x1), max(0, y2 - y1) };
+  int x1 = rencache_max(a.x, b.x);
+  int y1 = rencache_max(a.y, b.y);
+  int x2 = rencache_min(a.x + a.width, b.x + b.width);
+  int y2 = rencache_min(a.y + a.height, b.y + b.height);
+  return (RenRect) { x1, y1, rencache_max(0, x2 - x1), rencache_max(0, y2 - y1) };
 }
 
 
 static RenRect merge_rects(RenRect a, RenRect b) {
-  int x1 = min(a.x, b.x);
-  int y1 = min(a.y, b.y);
-  int x2 = max(a.x + a.width, b.x + b.width);
-  int y2 = max(a.y + a.height, b.y + b.height);
+  int x1 = rencache_min(a.x, b.x);
+  int y1 = rencache_min(a.y, b.y);
+  int x2 = rencache_max(a.x + a.width, b.x + b.width);
+  int y2 = rencache_max(a.y + a.height, b.y + b.height);
   return (RenRect) { x1, y1, x2 - x1, y2 - y1 };
 }
 
