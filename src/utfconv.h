@@ -1,6 +1,12 @@
 #ifndef MBSEC_H
 #define MBSEC_H
 
+#ifdef __GNUC__
+#define UNUSED __attribute__((__unused__))
+#else
+#define UNUSED
+#endif
+
 #ifdef _WIN32
 
 #include <stdlib.h>
@@ -8,7 +14,7 @@
 
 #define UTFCONV_ERROR_INVALID_CONVERSION "Input contains invalid byte sequences."
 
-LPWSTR utfconv_utf8towc(const char *str) {
+static UNUSED LPWSTR utfconv_utf8towc(const char *str) {
   LPWSTR output;
   int len;
 
@@ -30,7 +36,7 @@ LPWSTR utfconv_utf8towc(const char *str) {
   return output;
 }
 
-char *utfconv_wctoutf8(LPCWSTR str) {
+static UNUSED char *utfconv_wctoutf8(LPCWSTR str) {
   char *output;
   int len;
 
