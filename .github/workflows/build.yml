@@ -151,4 +151,4 @@ jobs:
       - name: Configure
         run: meson setup --buildtype=release --wrap-mode=forcefallback build
       - name: Build
-        run: meson -C build
+        run: ninja -C build
