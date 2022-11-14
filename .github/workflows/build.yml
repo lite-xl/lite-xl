@@ -131,3 +131,24 @@ jobs:
       with:
         name: Windows Artifacts
         path: ${{ env.INSTALL_NAME }}.zip
+
+  build_windows_msvc:
+    name: Windows (MSVC)
+    runs-on: windows-2019
+    strategy:
+      matrix:
+        arch: [amd64, amd64_x86]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.x'
+      - name: Install meson and ninja
+        run: pip install meson ninja
+      - name: Configure
+        run: meson setup --buildtype=release --wrap-mode=forcefallback build
+      - name: Build
+        run: meson -C build
