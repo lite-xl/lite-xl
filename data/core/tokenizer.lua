@@ -136,7 +136,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     return { "normal", text }
   end
 
-  state = state or ""
+  state = state or string.char(0)
   -- incoming_syntax    : the parent syntax of the file.
   -- state              : a string of bytes representing syntax state (see above)
 
