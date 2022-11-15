@@ -65,5 +65,5 @@ executable('lite-xl',
     link_args: lite_link_args,
     install_dir: lite_bindir,
     install: true,
-    gui_app: true,
+    win_subsystem: 'windows',
 )
