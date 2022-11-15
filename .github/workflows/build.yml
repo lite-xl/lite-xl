@@ -148,7 +148,15 @@ jobs:
           python-version: '3.x'
       - name: Install meson and ninja
         run: pip install meson ninja
+      - name: Set up environment variables
+        run: |
+          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
       - name: Configure
-        run: meson setup --buildtype=release --wrap-mode=forcefallback build
+        run: meson setup --wrap-mode=forcefallback build
       - name: Build
-        run: ninja -C build
+        run: meson install -C build --destdir="../lite-xl"
+      - name: Package
+        run: |
+          Remove-Item -Recurse -Force -Path "lite-xl/lib" -Path "lite-xl/include"
+          Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
