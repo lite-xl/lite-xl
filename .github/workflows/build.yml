@@ -160,3 +160,8 @@ jobs:
         run: |
           Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
           Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: Windows Artifacts (MSVC)
+          path: ${{ env.INSTALL_NAME }}.zip
