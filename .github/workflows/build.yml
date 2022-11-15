@@ -158,5 +158,5 @@ jobs:
         run: meson install -C build --destdir="../lite-xl"
       - name: Package
         run: |
-          Remove-Item -Recurse -Force -Path "lite-xl/lib" -Path "lite-xl/include"
+          Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
           Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
