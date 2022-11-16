@@ -159,7 +159,7 @@ end
 function CommandView:submit()
   local suggestion = self.suggestions[self.suggestion_idx]
   local text = self:get_text()
-  if self.state.validate(text) then
+  if self.state.validate(text, suggestion) then
     local submit = self.state.submit
     self:exit(true)
     submit(text, suggestion)

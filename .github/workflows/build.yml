@@ -131,3 +131,40 @@ jobs:
       with:
         name: Windows Artifacts
         path: ${{ env.INSTALL_NAME }}.zip
+
+  build_windows_msvc:
+    name: Windows (MSVC)
+    runs-on: windows-2019
+    strategy:
+      matrix:
+        arch: [amd64, amd64_x86]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.x'
+      - name: Install meson and ninja
+        run: pip install meson ninja
+      - name: Set up environment variables
+        run: |
+          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
+          "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
+      - name: Configure
+        run: |
+          meson setup --wrap-mode=forcefallback build
+          Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
+      - name: Build
+        run: meson install -C build --destdir="../lite-xl"
+      - name: Package
+        run: |
+          Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
+          Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: Windows Artifacts (MSVC)
+          path: ${{ env.INSTALL_NAME }}.zip

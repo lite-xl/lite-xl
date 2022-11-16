@@ -4,11 +4,7 @@ local common = require "core.common"
 local config = require "core.config"
 local translate = require "core.doc.translate"
 local DocView = require "core.docview"
-
-
-local function dv()
-  return core.active_view
-end
+local tokenizer = require "core.tokenizer"
 
 
 local function doc()
@@ -433,15 +429,28 @@ local commands = {
   end,
 
   ["doc:toggle-block-comments"] = function(dv)
-    local comment = dv.doc.syntax.block_comment
-    if not comment then
-      if dv.doc.syntax.comment then
-        command.perform "doc:toggle-line-comments"
-      end
-      return
-    end
-
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      local current_syntax = dv.doc.syntax
+      if line1 > 1 then
+        -- Use the previous line state, as it will be the state
+        -- of the beginning of the current line
+        local state = dv.doc.highlighter:get_line(line1 - 1).state
+        local syntaxes = tokenizer.extract_subsyntaxes(dv.doc.syntax, state)
+        -- Go through all the syntaxes until the first with `block_comment` defined
+        for _, s in pairs(syntaxes) do
+          if s.block_comment then
+            current_syntax = s
+            break
+          end
+        end
+      end
+      local comment = current_syntax.block_comment
+      if not comment then
+        if dv.doc.syntax.comment then
+          command.perform "doc:toggle-line-comments"
+        end
+        return
+      end
       -- if nothing is selected, toggle the whole line
       if line1 == line2 and col1 == col2 then
         col1 = 1
@@ -452,9 +461,23 @@ local commands = {
   end,
 
   ["doc:toggle-line-comments"] = function(dv)
-    local comment = dv.doc.syntax.comment or dv.doc.syntax.block_comment
-    if comment then
-      for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      local current_syntax = dv.doc.syntax
+      if line1 > 1 then
+        -- Use the previous line state, as it will be the state
+        -- of the beginning of the current line
+        local state = dv.doc.highlighter:get_line(line1 - 1).state
+        local syntaxes = tokenizer.extract_subsyntaxes(dv.doc.syntax, state)
+        -- Go through all the syntaxes until the first with comments defined
+        for _, s in pairs(syntaxes) do
+          if s.comment or s.block_comment then
+            current_syntax = s
+            break
+          end
+        end
+      end
+      local comment = current_syntax.comment or current_syntax.block_comment
+      if comment then
         dv.doc:set_selections(idx, line_comment(comment, line1, col1, line2, col2))
       end
     end
