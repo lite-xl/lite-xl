@@ -152,8 +152,11 @@ jobs:
         run: |
           "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
+          "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
-        run: meson setup --wrap-mode=forcefallback build
+        run: |
+          meson setup --wrap-mode=forcefallback build
+          patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward < resources/windows/001-lua-unicode.diff
       - name: Build
         run: meson install -C build --destdir="../lite-xl"
       - name: Package
