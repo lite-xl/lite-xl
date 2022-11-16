@@ -1,22 +1,21 @@
-diff -ruN lua-5.4.3/meson.build newlua/meson.build
---- lua-5.4.3/meson.build	2022-05-29 21:04:17.850449500 +0800
-+++ newlua/meson.build	2022-06-10 19:23:55.685139800 +0800
-@@ -82,6 +82,7 @@
+diff -ruN lua-5.4.4/meson.build lua-5.4.4-mod/meson.build
+--- lua-5.4.4/meson.build	2022-11-16 10:33:38.424383300 +0800
++++ lua-5.4.4-mod/meson.build	2022-11-16 09:40:57.697918000 +0800
+@@ -85,6 +85,7 @@
    'src/lutf8lib.c',
    'src/lvm.c',
    'src/lzio.c',
 +  'src/utf8_wrappers.c',
    dependencies: lua_lib_deps,
-   override_options: project_options,
-   implicit_include_directories: false,
-Binary files lua-5.4.3/src/lua54.dll and newlua/src/lua54.dll differ
-diff -ruN lua-5.4.3/src/luaconf.h newlua/src/luaconf.h
---- lua-5.4.3/src/luaconf.h	2021-03-15 21:32:52.000000000 +0800
-+++ newlua/src/luaconf.h	2022-06-10 19:15:03.014745300 +0800
-@@ -786,5 +786,15 @@
-
-
-
+   version: meson.project_version(),
+   soversion: lua_versions[0] + '.' + lua_versions[1],
+diff -ruN lua-5.4.4/src/luaconf.h lua-5.4.4-mod/src/luaconf.h
+--- lua-5.4.4/src/luaconf.h	2022-01-13 19:24:43.000000000 +0800
++++ lua-5.4.4-mod/src/luaconf.h	2022-11-16 09:40:57.703926000 +0800
+@@ -782,5 +782,15 @@
+ 
+ 
+ 
 +#if defined(lua_c) || defined(luac_c) || (defined(LUA_LIB) && \
 +    (defined(lauxlib_c) || defined(liolib_c) || \
 +     defined(loadlib_c) || defined(loslib_c)))
@@ -28,23 +27,22 @@ diff -ruN lua-5.4.3/src/luaconf.h newlua/src/luaconf.h
 +
 +
  #endif
-
-diff -ruN lua-5.4.3/src/Makefile newlua/src/Makefile
---- lua-5.4.3/src/Makefile	2021-02-10 02:47:17.000000000 +0800
-+++ newlua/src/Makefile	2022-06-10 19:22:45.267931400 +0800
+ 
+diff -ruN lua-5.4.4/src/Makefile lua-5.4.4-mod/src/Makefile
+--- lua-5.4.4/src/Makefile	2021-07-15 22:01:52.000000000 +0800
++++ lua-5.4.4-mod/src/Makefile	2022-11-16 09:40:57.708921800 +0800
 @@ -33,7 +33,7 @@
  PLATS= guess aix bsd c89 freebsd generic linux linux-readline macosx mingw posix solaris
-
+ 
  LUA_A=	liblua.a
 -CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o
 +CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o utf8_wrappers.o
  LIB_O=	lauxlib.o lbaselib.o lcorolib.o ldblib.o liolib.o lmathlib.o loadlib.o loslib.o lstrlib.o ltablib.o lutf8lib.o linit.o
  BASE_O= $(CORE_O) $(LIB_O) $(MYOBJS)
-
-
-diff -ruN lua-5.4.3/src/utf8_wrappers.c newlua/src/utf8_wrappers.c
---- lua-5.4.3/src/utf8_wrappers.c	1970-01-01 07:30:00.000000000 +0730
-+++ newlua/src/utf8_wrappers.c	2022-06-10 19:13:11.904613300 +0800
+ 
+diff -ruN lua-5.4.4/src/utf8_wrappers.c lua-5.4.4-mod/src/utf8_wrappers.c
+--- lua-5.4.4/src/utf8_wrappers.c	1970-01-01 07:30:00.000000000 +0730
++++ lua-5.4.4-mod/src/utf8_wrappers.c	2022-11-16 10:09:04.583866600 +0800
 @@ -0,0 +1,101 @@
 +/**
 + * Wrappers to provide Unicode (UTF-8) support on Windows.
@@ -147,10 +145,10 @@ diff -ruN lua-5.4.3/src/utf8_wrappers.c newlua/src/utf8_wrappers.c
 +    return LoadLibraryExW(pathname_w, hFile, dwFlags);
 +}
 +#endif
-diff -ruN lua-5.4.3/src/utf8_wrappers.h newlua/src/utf8_wrappers.h
---- lua-5.4.3/src/utf8_wrappers.h	1970-01-01 07:30:00.000000000 +0730
-+++ newlua/src/utf8_wrappers.h	2022-06-10 19:22:53.554879400 +0800
-@@ -0,0 +1,42 @@
+diff -ruN lua-5.4.4/src/utf8_wrappers.h lua-5.4.4-mod/src/utf8_wrappers.h
+--- lua-5.4.4/src/utf8_wrappers.h	1970-01-01 07:30:00.000000000 +0730
++++ lua-5.4.4-mod/src/utf8_wrappers.h	2022-11-16 10:29:46.044102000 +0800
+@@ -0,0 +1,44 @@
 +/**
 + * Wrappers to provide Unicode (UTF-8) support on Windows.
 + *
@@ -167,6 +165,7 @@ diff -ruN lua-5.4.3/src/utf8_wrappers.h newlua/src/utf8_wrappers.h
 +#endif
 +
 +#ifdef lauxlib_c
++#include <stdio.h>
 +FILE *freopen_utf8(const char *pathname, const char *mode, FILE *stream);
 +#define freopen             freopen_utf8
 +#endif
@@ -177,6 +176,7 @@ diff -ruN lua-5.4.3/src/utf8_wrappers.h newlua/src/utf8_wrappers.h
 +#endif
 +
 +#ifdef loslib_c
++#include <stdio.h>
 +int remove_utf8(const char *pathname);
 +int rename_utf8(const char *oldpath, const char *newpath);
 +int system_utf8(const char *command);
