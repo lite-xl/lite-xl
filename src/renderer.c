@@ -8,6 +8,10 @@
 #include <freetype/ftoutln.h>
 #include FT_FREETYPE_H
 
+#ifdef _WIN32
+#include "utfconv.h"
+#endif
+
 #include "renderer.h"
 #include "renwindow.h"
 
@@ -51,7 +55,8 @@ typedef struct RenFont {
   ERenFontHinting hinting;
   unsigned char style;
   unsigned short underline_thickness;
-  char path[1];
+  unsigned char *file;
+  char path[];
 } RenFont;
 
 static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
@@ -206,9 +211,48 @@ static void font_clear_glyph_cache(RenFont* font) {
 }
 
 RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
-  FT_Face face;
-  if (FT_New_Face( library, path, 0, &face))
+  FT_Face face = NULL;
+
+#ifdef _WIN32
+
+  HANDLE file = INVALID_HANDLE_VALUE;
+  DWORD read;
+  int font_file_len = 0;
+  unsigned char *font_file = NULL;
+  wchar_t *wpath = NULL;
+
+  if ((wpath = utfconv_utf8towc(path)) == NULL)
     return NULL;
+
+  if ((file = CreateFileW(wpath,
+                          GENERIC_READ,
+                          0,
+                          NULL,
+                          OPEN_EXISTING,
+                          FILE_ATTRIBUTE_NORMAL,
+                          NULL)) == INVALID_HANDLE_VALUE)
+    goto failure;
+
+  if ((font_file_len = GetFileSize(file, NULL)) == INVALID_FILE_SIZE)
+    goto failure;
+
+  font_file = check_alloc(malloc(font_file_len * sizeof(unsigned char)));
+  if (!ReadFile(file, font_file, font_file_len, &read, NULL) || read != font_file_len)
+    goto failure;
+
+  CloseHandle(file);
+  free(wpath);
+
+  if (FT_New_Memory_Face(library, font_file, read, 0, &face))
+    goto failure;
+
+#else
+
+  if (FT_New_Face(library, path, 0, &face))
+    return NULL;
+
+#endif
+
   const int surface_scale = renwin_surface_scale(&window_renderer);
   if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
     goto failure;
@@ -223,6 +267,11 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->hinting = hinting;
   font->style = style;
 
+#ifdef _WIN32
+  // we need to keep this for freetype
+  font->file = font_file;
+#endif
+
   if(FT_IS_SCALABLE(face))
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
   if(!font->underline_thickness) font->underline_thickness = ceil((double) font->height / 14.0);
@@ -232,8 +281,15 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->space_advance = face->glyph->advance.x / 64.0f;
   font->tab_advance = font->space_advance * 2;
   return font;
-  failure:
-  FT_Done_Face(face);
+
+failure:
+#ifdef _WIN32
+  free(wpath);
+  free(font_file);
+  if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+#endif
+  if (face != NULL)
+    FT_Done_Face(face);
   return NULL;
 }
 
@@ -252,6 +308,9 @@ const char* ren_font_get_path(RenFont *font) {
 void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
   FT_Done_Face(font->face);
+#ifdef _WIN32
+  free(font->file);
+#endif
   free(font);
 }
 
