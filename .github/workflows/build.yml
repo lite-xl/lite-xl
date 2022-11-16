@@ -156,7 +156,7 @@ jobs:
       - name: Configure
         run: |
           meson setup --wrap-mode=forcefallback build
-          patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward < resources/windows/001-lua-unicode.diff
+          Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
       - name: Build
         run: meson install -C build --destdir="../lite-xl"
       - name: Package
