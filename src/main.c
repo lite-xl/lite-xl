@@ -90,13 +90,14 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 
 #ifndef LITE_ARCH_TUPLE
-  #if __x86_64__ || _WIN64 || __MINGW64__
+  // https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-140
+  #if defined(__x86_64__) || defined(_M_AMD64) || defined(__MINGW64__)
     #define ARCH_PROCESSOR "x86_64"
-  #elif __i386__
+  #elif defined(__i386__) || defined(_M_IX86) || defined(__MINGW32__)
     #define ARCH_PROCESSOR "x86"
-  #elif __aarch64__
+  #elif defined(__aarch64__) || defined(_M_ARM64) || defined (_M_ARM64EC)
     #define ARCH_PROCESSOR "aarch64"
-  #elif __arm__
+  #elif defined(__arm__) || defined(_M_ARM)
     #define ARCH_PROCESSOR "arm"
   #endif
 
