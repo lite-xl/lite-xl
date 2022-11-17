@@ -9,6 +9,7 @@
 #include FT_FREETYPE_H
 
 #ifdef _WIN32
+#include <windows.h>
 #include "utfconv.h"
 #endif
 
