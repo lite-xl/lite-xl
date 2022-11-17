@@ -56,7 +56,10 @@ typedef struct RenFont {
   ERenFontHinting hinting;
   unsigned char style;
   unsigned short underline_thickness;
+#ifdef _WIN32
   unsigned char *file;
+  HANDLE file_handle;
+#endif
   char path[];
 } RenFont;
 
@@ -227,7 +230,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
   if ((file = CreateFileW(wpath,
                           GENERIC_READ,
-                          0,
+                          FILE_SHARE_READ, // or else we can't copy fonts
                           NULL,
                           OPEN_EXISTING,
                           FILE_ATTRIBUTE_NORMAL,
@@ -241,7 +244,6 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   if (!ReadFile(file, font_file, font_file_len, &read, NULL) || read != font_file_len)
     goto failure;
 
-  CloseHandle(file);
   free(wpath);
 
   if (FT_New_Memory_Face(library, font_file, read, 0, &face))
@@ -271,6 +273,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 #ifdef _WIN32
   // we need to keep this for freetype
   font->file = font_file;
+  font->file_handle = file;
 #endif
 
   if(FT_IS_SCALABLE(face))
@@ -311,6 +314,7 @@ void ren_font_free(RenFont* font) {
   FT_Done_Face(font->face);
 #ifdef _WIN32
   free(font->file);
+  CloseHandle(font->file_handle);
 #endif
   free(font);
 }
