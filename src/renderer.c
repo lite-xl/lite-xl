@@ -245,6 +245,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
     goto failure;
 
   free(wpath);
+  wpath = NULL;
 
   if (FT_New_Memory_Face(library, font_file, read, 0, &face))
     goto failure;
