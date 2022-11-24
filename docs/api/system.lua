@@ -14,6 +14,7 @@ system = {}
 ---@field public modified number A timestamp in seconds.
 ---@field public size number Size in bytes.
 ---@field public type system.fileinfotype Type of file
+---@field public symlink boolean The directory is a symlink. This field is only set on Linux and on directories.
 system.fileinfo = {}
 
 ---
@@ -24,7 +25,7 @@ system.fileinfo = {}
 ---
 ---Window events:
 --- * "quit"
---- * "resized" -> width, height
+--- * "resized" -> width, height (in points)
 --- * "exposed"
 --- * "minimized"
 --- * "maximized"
@@ -38,12 +39,13 @@ system.fileinfo = {}
 --- * "keypressed" -> key_name
 --- * "keyreleased" -> key_name
 --- * "textinput" -> text
+--- * "textediting" -> text, start, length
 ---
 ---Mouse events:
 --- * "mousepressed" -> button_name, x, y, amount_of_clicks
 --- * "mousereleased" -> button_name, x, y
 --- * "mousemoved" -> x, y, relative_x, relative_y
---- * "mousewheel" -> y
+--- * "mousewheel" -> y, x
 ---
 ---@return string type
 ---@return any? arg1
@@ -103,7 +105,7 @@ function system.set_window_bordered(bordered) end
 ---for custom window management.
 ---
 ---@param title_height number
----@param controls_width number This is for minimize, maximize, close, etc...
+---@param controls_width number Width of window controls (maximize,minimize and close buttons, etc).
 ---@param resize_border number The amount of pixels reserved for resizing
 function system.set_window_hit_test(title_height, controls_width, resize_border) end
 
@@ -132,6 +134,25 @@ function system.set_window_size(width, height, x, y) end
 function system.window_has_focus() end
 
 ---
+---Gets the mode of the window.
+---
+---@return system.windowmode
+function system.get_window_mode() end
+
+---
+---Sets the position of the IME composition window.
+---
+---@param x number
+---@param y number
+---@param width number
+---@param height number
+function system.set_text_input_rect(x, y, width, height) end
+
+---
+---Clears any ongoing composition on the IME
+function system.clear_ime() end
+
+---
 ---Raise the main window and give it input focus.
 ---Note: may not always be obeyed by the users window manager.
 function system.raise_window() end
@@ -142,6 +163,14 @@ function system.raise_window() end
 ---@param title string
 ---@param message string
 function system.show_fatal_error(title, message) end
+
+---
+---Deletes an empty directory.
+---
+---@param path string
+---@return boolean success True if the operation suceeded, false otherwise
+---@return string? message An error message if the operation failed
+function system.rmdir(path) end
 
 ---
 ---Change the current directory path which affects relative file operations.
@@ -157,6 +186,7 @@ function system.chdir(path) end
 ---@param directory_path string
 ---
 ---@return boolean created True on success or false on failure.
+---@return string? message The error message if the operation failed.
 function system.mkdir(directory_path) end
 
 ---
@@ -173,7 +203,7 @@ function system.list_dir(path) end
 ---
 ---@param path string
 ---
----@return string
+---@return string? abspath
 function system.absolute_path(path) end
 
 ---
@@ -184,6 +214,28 @@ function system.absolute_path(path) end
 ---@return system.fileinfo|nil info Path details or nil if empty or error.
 ---@return string? message Error message in case of error.
 function system.get_file_info(path) end
+
+
+---@alias system.fstype
+---| "ext2/ext3"
+---| "nfs"
+---| "fuse"
+---| "smb"
+---| "smb2"
+---| "reiserfs"
+---| "tmpfs"
+---| "ramfs"
+---| "ntfs"
+
+---
+---Gets the filesystem type of a path.
+---Note: This only works on Linux.
+---
+---@param path string Can be path to a directory or a file
+---
+---@return system.fstype
+function system.get_fs_type(path) end
+
 
 ---
 ---Retrieve the text currently stored on the clipboard.
@@ -198,7 +250,7 @@ function system.get_clipboard() end
 function system.set_clipboard(text) end
 
 ---
----Get the process id of lite-xl it self.
+---Get the process id of lite-xl itself.
 ---
 ---@return integer
 function system.get_process_id() end
@@ -220,7 +272,9 @@ function system.sleep(seconds) end
 ---Similar to os.execute() but does not return the exit status of the
 ---executed command and executes the process in a non blocking way by
 ---forking it to the background.
+---Note: Do not use this function, use the Process API instead.
 ---
+---@deprecated
 ---@param command string The command to execute.
 function system.exec(command) end
 
@@ -242,4 +296,22 @@ function system.fuzzy_match(haystack, needle, file) end
 ---
 ---@param opacity number A value from 0.0 to 1.0, the lower the value
 ---the less visible the window will be.
+---@return boolean success True if the operation suceeded.
 function system.set_window_opacity(opacity) end
+
+---
+---Loads a lua native module using the default Lua API or lite-xl native plugin API.
+---Note: Never use this function directly.
+---
+---@param name string the name of the module
+---@param path string the path to the shared library file
+---@return number nargs the return value of the entrypoint
+function system.load_native_plugin(name, path) end
+
+---
+---Compares two paths in the order used by TreeView.
+---
+---@param path1 string
+---@param path2 string
+---@return boolean compare_result True if path1 < path2
+function system.path_compare(path1, path2) end
