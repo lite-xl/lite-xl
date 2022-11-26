@@ -386,7 +386,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
 
-  RenFont* last;
+  RenFont* last = NULL;
   float last_pen_x = x;
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
