@@ -1,5 +1,218 @@
 -- mod-version:3
+local common = require "core.common"
+local config = require "core.config"
 local syntax = require "core.syntax"
+
+-- Documentation for annotations:
+-- https://github.com/sumneko/lua-language-server/wiki/Annotations
+local annotations_syntax = {
+  patterns = {
+    -- look-aheads for table and function types
+    { regex = "@[\\w_]+()\\s+(?=(table\\s*<|fun\\s*\\())",
+      type = { "keyword", "comment" }
+    },
+    { regex = "@[\\w_]+\\s+()[\\w\\._]+()\\??()\\s*(?=(table\\s*<|fun\\s*\\())",
+      type = { "keyword", "symbol", "operator", "comment" }
+    },
+    { regex = "@field"
+        .. "()\\s+(protected|public|private|package)\\s+"
+        .. "()[\\w\\._]+"
+        .. "()\\??"
+        .. "()\\s*(?=(table\\s*<|fun\\s*\\())",
+      type = { "keyword", "keyword", "keyword", "symbol", "operator", "comment" }
+    },
+    -- table and function types
+    { pattern = "table%s*%b<>", type = "keyword2" },
+    { pattern = "fun%s*%b()%s*:%s*[^%s]+", type = "keyword2" },
+    { pattern = "fun%s*%b()", type = "keyword2" },
+    -- @alias with string type
+    { pattern = "@alias%s+()[%w%._]+()%s+%b''",
+      type = { "keyword", "symbol", "string" }
+    },
+    { pattern = "@alias%s+()[%w%._]+()%s+%b\"\"",
+      type = { "keyword", "symbol", "string" }
+    },
+    -- @alias with type
+    { pattern = "@alias%s+()[%w%._]+()%s+[^%s]+",
+      type = { "keyword", "symbol", "keyword2" }
+    },
+    -- @alias without type
+    { pattern = "@alias%s+()[%w%._]+", type = { "keyword", "symbol" } },
+    -- @cast with type
+    { pattern = "@cast%s+()[%w%._]+%s+()[%w%.%[%]_]+()%??",
+      type = { "keyword", "symbol", "keyword2", "operator" }
+    },
+    -- @cast without type
+    { pattern = "@cast%s+()[%w%._]+", type = { "keyword", "symbol" } },
+    -- @class with parent
+    { pattern = "@class%s+()[%w%._]+%s*():()%s*[^%s]+",
+      type = { "keyword", "symbol", "operator", "keyword2"}
+    },
+    -- @class without parent
+    { pattern = "@class%s+()[^%s]+", type = { "keyword", "symbol" } },
+    -- @diagnostic with state and diagnostic type
+    { pattern = "@diagnostic%s+()[^%s]+()%s*:%s*()[^%s]+",
+      type = { "keyword", "function", "operator", "string" }
+    },
+    -- @diagnostic with state only
+    { pattern = "@diagnostic%s+()[^%s]+", type = { "keyword", "function" } },
+    -- @enum doc type
+    { pattern = "@enum%s+()[^%s]+", type = { "keyword", "symbol" } },
+    -- @field with access specifier
+    { regex = "@field"
+        .. "()\\s+(protected|public|private|package)\\s+"
+        .. "()[\\w\\._]+"
+        .. "()\\??"
+        .. "()\\s*'[^']*'",
+      type = { "keyword", "keyword", "keyword", "symbol", "operator", "string" }
+    },
+    { regex = "@field"
+        .. "()\\s+(protected|public|private|package)\\s+"
+        .. "()[\\w\\._]+"
+        .. "()\\??"
+        .. "()\\s*\"[^\"]*\"",
+      type = { "keyword", "keyword", "keyword", "symbol", "operator", "string" }
+    },
+    { regex = "@field"
+        .. "()\\s+(protected|public|private|package)\\s+"
+        .. "()[\\w\\._]+"
+        .. "()\\??"
+        .. "()\\s*[\\w\\.\\[\\]_]+"
+        .. "()\\??",
+      type = {
+        "keyword", "keyword", "keyword", "symbol",
+        "operator", "keyword2", "operator"
+      }
+    },
+    -- @field with type
+    { pattern = "@field%s+()[%w%._]+()%??()%s+[%w%.%[%]_]+()%??",
+      type = { "keyword", "symbol", "operator", "keyword2", "operator" }
+    },
+    -- @field with string types
+    { pattern = "@field%s+()[%w%._]+()%??()%s+%b''",
+      type = { "keyword", "symbol", "operator", "string" }
+    },
+    { pattern = "@field%s+()[%w%._]+()%??()%s+%b\"\"",
+      type = { "keyword", "symbol", "operator", "string" }
+    },
+    -- @generic with single type
+    { pattern = "@generic%s+()[%w%._]+%s*():()%s*[%w%._]+",
+      type = { "keyword", "symbol", "operator", "keyword2" }
+    },
+    -- @generic without type
+    { pattern = "@generic%s+()[%w%._]+", type = { "keyword", "symbol" } },
+    -- @module doc type
+    { pattern = "@module%s+()%b''", type = { "keyword", "string" } },
+    { pattern = "@module%s+()%b\"\"", type = { "keyword", "string" } },
+    -- @operator doc type
+    { pattern = "@operator%s+()[%w_]+", type = { "keyword", "function" } },
+    -- @param doc type
+    { pattern = "@param%s+()[%w%._]+()%??()%s+%b''",
+      type = { "keyword", "symbol", "operator", "string" }
+    },
+    { pattern = "@param%s+()[%w%._]+()%??()%s+%b\"\"",
+      type = { "keyword", "symbol", "operator", "string" }
+    },
+    { pattern = "@param%s+()[%w%._]+()%??()%s+[%w%.%[%]_]+",
+      type = { "keyword", "symbol", "operator", "keyword2" }
+    },
+    -- @return with name
+    { pattern = "@return%s+()[%w%.%[%]_]+()%??()%s+[%w%.%[%]_]+",
+      type = { "keyword", "keyword2", "operator", "symbol" }
+    },
+    -- @return with string
+    { pattern = "@return%s+()%b''",   type = { "keyword", "string" } },
+    { pattern = "@return%s+()%b\"\"", type = { "keyword", "string" } },
+    -- @return without name
+    { pattern = "@return%s+()[%w%.%[%]_]+()%??",
+      type = { "keyword", "keyword2", "operator" }
+    },
+    -- type doc tag
+    { pattern = "@type%s+()%b''",     type = { "keyword", "string" } },
+    { pattern = "@type%s+()%b\"\"",   type = { "keyword", "string" } },
+    { pattern = "@type%s+()[%w%._%[%]]+()%??",
+      type = { "keyword", "keyword2", "operator" }
+    },
+    -- @vararg doc type (deprecated)
+    { pattern = "@vararg%s+()[%w%.%[%]_]+()%??",
+      type = { "keyword", "keyword2", "operator" }
+    },
+    -- match additional types
+    { pattern = "|>?%s*()%b``",       type = { "operator", "string" } },
+    { pattern = "|>?%s*()%b\"\"",     type = { "operator", "string" } },
+    { pattern = "|>?%s*()%b''",       type = { "operator", "string" } },
+    { pattern = "|%s*()table%s*%b<>", type = { "operator", "keyword2" } },
+    { pattern = "|%s*()fun%s*%b()%s*:%s*[^%s|]+",
+      type = { "operator", "keyword2" }
+    },
+    { pattern = "|%s*()fun%s*%b()",   type = { "operator", "keyword2" } },
+    { pattern = "|%s*()[^%s|?]+()%??",
+      type = { "operator", "keyword2", "operator" }
+    },
+    -- match doc tags syntax for symbols table to properly work
+    { pattern = "@[%a_]+%w*",         type = "comment" },
+    -- match everything else as normal comment
+    { pattern = "[%w%p]+",            type = "comment" },
+    -- just in case, prevent the subsyntax from getting outside
+    { pattern = "%f[\n]",             type = "comment" }
+  },
+  symbols = {
+    ["@alias"] = "keyword",
+    ["@async"] = "keyword",
+    ["@class"] = "keyword",
+    ["@cast"] = "keyword",
+    ["@deprecated"] = "keyword",
+    ["@diagnostic"] = "keyword",
+    ["@enum"] = "keyword",
+    ["@field"] = "keyword",
+    ["@generic"] = "keyword",
+    ["@meta"] = "keyword",
+    ["@module"] = "keyword",
+    ["@nodiscard"] = "keyword",
+    ["@operator"] = "keyword",
+    ["@overload"] = "keyword",
+    ["@package"] = "keyword",
+    ["@param"] = "keyword",
+    ["@private"] = "keyword",
+    ["@protected"] = "keyword",
+    ["@see"] = "keyword",
+    ["@source"] = "keyword",
+    ["@type"] = "keyword",
+    ["@vararg"] = "keyword",
+    ["@version"] = "keyword"
+  }
+}
+
+local annotations_pattern = {
+  pattern = { "%-%-%-%s*%f[@|]", "\n" },
+  syntax = annotations_syntax,
+  type = "comment"
+}
+
+config.plugins.language_lua = common.merge({
+  annotations = true,
+  -- The config specification used by the settings gui
+  config_spec = {
+    name = "Language Lua",
+    {
+      label = "Annotations",
+      description = "Toggle highlighting of annotation comments.",
+      path = "annotations",
+      type = "toggle",
+      default = true,
+      on_apply = function(enabled)
+        local syntax_lua = syntax.get("file.lua")
+        if enabled then
+          if not syntax_lua.patterns[4].syntax then
+            table.insert(syntax_lua.patterns, 4, annotations_pattern)
+          end
+        elseif syntax_lua.patterns[4].syntax then
+          table.remove(syntax_lua.patterns, 4)
+        end
+      end
+    }
+  }
+}, config.plugins.language_lua)
 
 syntax.add {
   name = "Lua",
@@ -126,4 +339,10 @@ syntax.add {
     ["nil"]      = "literal",
   },
 }
+
+-- insert annotations rule after "%[%[", "%]%]"
+if config.plugins.language_lua.annotations then
+  local syntax_lua = syntax.get("file.lua")
+  table.insert(syntax_lua.patterns, 4, annotations_pattern)
+end
 
