@@ -10,7 +10,7 @@ ARGS = {}
 ARCH = "Architecture-OperatingSystem"
 
 ---The current operating system.
----@type string | "'Windows'" | "'Mac OS X'" | "'Linux'" | "'iOS'" | "'Android'"
+---@type string | "Windows" | "Mac OS X" | "Linux" | "iOS" | "Android"
 PLATFORM = "Operating System"
 
 ---The current text or ui scale.

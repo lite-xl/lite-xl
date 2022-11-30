@@ -131,7 +131,7 @@ function utf8extra.next(s, charpos, index) end
 ---@param s string
 ---@param idx? integer
 ---@param substring string
----return string new_string
+---@return string new_string
 function utf8extra.insert(s, idx, substring) end
 
 ---Delete a substring in s. If neither start nor stop is given, delete the last
@@ -141,7 +141,7 @@ function utf8extra.insert(s, idx, substring) end
 ---@param s string
 ---@param start? integer
 ---@param stop? integer
----return string new_string
+---@return string new_string
 function utf8extra.remove(s, start, stop) end
 
 ---Calculate the width of UTF-8 string s. if ambi_is_double is given, the
@@ -174,14 +174,14 @@ function utf8extra.widthindex(s, location, ambi_is_double, default_width) end
 ---is a number, it's treat as a code point and return a convert code point
 ---(number). utf8.lower/utf8.pper has the same extension.
 ---@param s string
----return string new_string
+---@return string new_string
 function utf8extra.title(s) end
 
 ---Convert UTF-8 string s to folded case, used to compare by ignore case. if s
 ---is a number, it's treat as a code point and return a convert code point
 ---(number). utf8.lower/utf8.pper has the same extension.
 ---@param s string
----return string new_string
+---@return string new_string
 function utf8extra.fold(s) end
 
 ---Compare a and b without case, -1 means a < b, 0 means a == b and 1 means a > b.
@@ -189,3 +189,6 @@ function utf8extra.fold(s) end
 ---@param b string
 ---@return integer result
 function utf8extra.ncasecmp(a, b) end
+
+
+return utf8extra

@@ -31,9 +31,9 @@ regex.NOTEMPTY = 0x00000004
 regex.NOTEMPTY_ATSTART = 0x00000008
 
 ---@alias regex.modifiers
----|>'"i"'  # Case insesitive matching
----| '"m"'  # Multiline matching
----| '"s"'  # Match all characters with dot (.) metacharacter even new lines
+---| "i"  # Case insesitive matching
+---| "m"  # Multiline matching
+---| "s"  # Match all characters with dot (.) metacharacter even new lines
 
 ---
 ---Compiles a regular expression pattern that can be used to search in strings.
@@ -55,3 +55,6 @@ function regex.compile(pattern, options) end
 ---
 ---@return table<integer, integer> list List of offsets where a match was found.
 function regex:cmatch(subject, offset, options) end
+
+
+return regex

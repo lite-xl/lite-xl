@@ -14,19 +14,17 @@ renderer = {}
 ---@field public g number Green
 ---@field public b number Blue
 ---@field public a number Alpha
-renderer.color = {}
 
 ---
 ---Represent options that affect a font's rendering.
 ---@class renderer.fontoptions
----@field public antialiasing "'none'" | "'grayscale'" | "'subpixel'"
----@field public hinting "'slight'" | "'none'" | '"full"'
--- @field public bold boolean
--- @field public italic boolean
--- @field public underline boolean
--- @field public smoothing boolean
--- @field public strikethrough boolean
-renderer.fontoptions = {}
+---@field public antialiasing "none" | "grayscale" | "subpixel"
+---@field public hinting "slight" | "none" | "full"
+---@field public bold boolean
+---@field public italic boolean
+---@field public underline boolean
+---@field public smoothing boolean
+---@field public strikethrough boolean
 
 ---
 ---@class renderer.font
@@ -154,3 +152,6 @@ function renderer.draw_rect(x, y, width, height, color) end
 ---
 ---@return number x
 function renderer.draw_text(font, text, x, y, color) end
+
+
+return renderer

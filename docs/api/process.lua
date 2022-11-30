@@ -81,27 +81,27 @@ process.REDIRECT_DISCARD = 3
 process.REDIRECT_STDOUT = 4
 
 ---@alias process.errortype
----|>'process.ERROR_PIPE'
----| 'process.ERROR_WOULDBLOCK'
----| 'process.ERROR_TIMEDOUT'
----| 'process.ERROR_INVAL'
----| 'process.ERROR_NOMEM'
+---| `process.ERROR_PIPE`
+---| `process.ERROR_WOULDBLOCK`
+---| `process.ERROR_TIMEDOUT`
+---| `process.ERROR_INVAL`
+---| `process.ERROR_NOMEM`
 
 ---@alias process.streamtype
----|>'process.STREAM_STDIN'
----| 'process.STREAM_STDOUT'
----| 'process.STREAM_STDERR'
+---| `process.STREAM_STDIN`
+---| `process.STREAM_STDOUT`
+---| `process.STREAM_STDERR`
 
 ---@alias process.waittype
----|>'process.WAIT_INFINITE'
----| 'process.WAIT_DEADLINE'
+---| `process.WAIT_INFINITE`
+---| `process.WAIT_DEADLINE`
 
 ---@alias process.redirecttype
----|>'process.REDIRECT_DEFAULT'
----| 'process.REDIRECT_PIPE'
----| 'process.REDIRECT_PARENT'
----| 'process.REDIRECT_DISCARD'
----| 'process.REDIRECT_STDOUT'
+---| `process.REDIRECT_DEFAULT`
+---| `process.REDIRECT_PIPE`
+---| `process.REDIRECT_PARENT`
+---| `process.REDIRECT_DISCARD`
+---| `process.REDIRECT_STDOUT`
 
 ---
 --- Options that can be passed to process.start()
@@ -112,7 +112,6 @@ process.REDIRECT_STDOUT = 4
 ---@field public stdout process.redirecttype
 ---@field public stderr process.redirecttype
 ---@field public env table<string, string>
-process.options = {}
 
 ---
 ---Create and start a new process
@@ -233,3 +232,6 @@ function process:returncode() end
 ---
 ---@return boolean
 function process:running() end
+
+
+return process
