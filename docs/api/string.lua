@@ -101,14 +101,14 @@ function string.unext(s, charpos, index) end
 ---@param s string
 ---@param idx? integer
 ---@param substring string
----return string new_string
+---@return string new_string
 function string.uinsert(s, idx, substring) end
 
 ---Equivalent to utf8.remove()
 ---@param s string
 ---@param start? integer
 ---@param stop? integer
----return string new_string
+---@return string new_string
 function string.uremove(s, start, stop) end
 
 ---Equivalent to utf8.width()
@@ -130,12 +130,12 @@ function string.uwidthindex(s, location, ambi_is_double, default_width) end
 
 ---Equivalent to utf8.title()
 ---@param s string
----return string new_string
+---@return string new_string
 function string.utitle(s) end
 
 ---Equivalent to utf8.fold()
 ---@param s string
----return string new_string
+---@return string new_string
 function string.ufold(s) end
 
 ---Equivalent to utf8.ncasecmp()

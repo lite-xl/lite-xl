@@ -6,8 +6,8 @@
 system = {}
 
 ---@alias system.fileinfotype
----|>'"file"'  # It is a file.
----| '"dir"'   # It is a directory.
+---| "file"  # It is a file.
+---| "dir"   # It is a directory.
 
 ---
 ---@class system.fileinfo
@@ -15,7 +15,6 @@ system = {}
 ---@field public size number Size in bytes.
 ---@field public type system.fileinfotype Type of file
 ---@field public symlink boolean The directory is a symlink. This field is only set on Linux and on directories.
-system.fileinfo = {}
 
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
@@ -66,7 +65,7 @@ function system.wait_event(timeout) end
 ---
 ---Change the cursor type displayed on screen.
 ---
----@param type string | "'arrow'" | "'ibeam'" | "'sizeh'" | "'sizev'" | "'hand'"
+---@param type string | "arrow" | "ibeam" | "sizeh" | "sizev" | "hand"
 function system.set_cursor(type) end
 
 ---
@@ -76,10 +75,10 @@ function system.set_cursor(type) end
 function system.set_window_title(title) end
 
 ---@alias system.windowmode
----|>'"normal"'
----| '"minimized"'
----| '"maximized"'
----| '"fullscreen"'
+---| "normal"
+---| "minimized"
+---| "maximized"
+---| "fullscreen"
 
 ---
 ---Change the window mode.
@@ -315,3 +314,6 @@ function system.load_native_plugin(name, path) end
 ---@param path2 string
 ---@return boolean compare_result True if path1 < path2
 function system.path_compare(path1, path2) end
+
+
+return system
