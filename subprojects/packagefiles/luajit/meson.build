@@ -8,7 +8,11 @@ if host_machine.system() == 'darwin'
     build_command += 'MACOSX_DEPLOYMENT_TARGET=10.11'
 endif
 
-build_command += ['CFLAGS=-fPIC', 'BUILDMODE=static', '-l', '90', '-j']
+build_command += [
+    'CFLAGS=-fPIC',
+    'XCFLAGS=-DLUAJIT_ENABLE_LUA52COMPAT',
+    'BUILDMODE=static', '-l', '90', '-j'
+]
 
 run_command(build_command, check : true)
 
