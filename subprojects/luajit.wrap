@@ -1,8 +1,8 @@
 [wrap-file]
-directory = LuaJIT-6c4826f12c4d33b8b978004bc681eb1eef2be977
-source_url = https://github.com/LuaJIT/LuaJIT/archive/6c4826f12c4d33b8b978004bc681eb1eef2be977.zip
-source_filename = LuaJIT-6c4826f12c4d33b8b978004bc681eb1eef2be977.zip
-source_hash = 4a384b218557e650e6fbbe2e0f14aa7a7d08a3e1f31eedbfc54de1cc62583496
+directory = LuaJIT-564147f518af5a5d8985d9e09fc3a768231f4e75
+source_url = https://github.com/LuaJIT/LuaJIT/archive/564147f518af5a5d8985d9e09fc3a768231f4e75.zip
+source_filename = LuaJIT-564147f518af5a5d8985d9e09fc3a768231f4e75.zip
+source_hash = 0fa71173c3d44410969bf6dc542993046272521e9c46f65141139c316560c589
 patch_directory = luajit
 
 [provide]
