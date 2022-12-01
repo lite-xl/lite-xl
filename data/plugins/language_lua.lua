@@ -8,22 +8,22 @@ local syntax = require "core.syntax"
 local annotations_syntax = {
   patterns = {
     -- look-aheads for table and function types
-    { regex = "@[\\w_]+()\\s+(?=(table\\s*<|fun\\s*\\())",
+    { regex = [[@[\w_]+()\s+(?=(table\s*<|fun\s*\())]],
       type = { "keyword", "comment" }
     },
-    { regex = "@[\\w_]+\\s+()[\\w\\._]+()\\??()\\s*(?=(table\\s*<|fun\\s*\\())",
-      type = { "keyword", "symbol", "symbol", "operator", "comment" }
+    { regex = [[@[\w_]+\s+()[\w\._]+()\??()\s*(?=(table\s*<|fun\s*\())]],
+      type = { "keyword", "symbol", "operator", "comment" }
     },
     { regex = "@field"
-        .. "()\\s+(protected|public|private|package)\\s+"
-        .. "()[\\w\\._]+"
-        .. "()\\??"
-        .. "()\\s*(?=(table\\s*<|fun\\s*\\())",
-      type = { "keyword", "keyword", "keyword", "symbol", "operator", "comment" }
+        .. [[()\s+(?:protected|public|private|package)\s+]]
+        .. [[()[\w\._]+]]
+        .. [[()\??]]
+        .. [[()\s*(?=(table\s*<|fun\s*\())]],
+      type = { "keyword", "keyword", "symbol", "operator", "comment" }
     },
     -- table and function types
     { pattern = "table%s*%b<>", type = "keyword2" },
-    { pattern = "fun%s*%b()%s*:%s*[^%s]+", type = "keyword2" },
+    { pattern = "fun%s*%b()%s*:%s*[%S]+", type = "keyword2" },
     { pattern = "fun%s*%b()", type = "keyword2" },
     -- @alias with string type
     { pattern = "@alias%s+()[%w%._]+()%s+%b''",
@@ -33,7 +33,7 @@ local annotations_syntax = {
       type = { "keyword", "symbol", "string" }
     },
     -- @alias with type
-    { pattern = "@alias%s+()[%w%._]+()%s+[^%s]+",
+    { pattern = "@alias%s+()[%w%._]+()%s+[%S]+",
       type = { "keyword", "symbol", "keyword2" }
     },
     -- @alias without type
@@ -45,43 +45,42 @@ local annotations_syntax = {
     -- @cast without type
     { pattern = "@cast%s+()[%w%._]+", type = { "keyword", "symbol" } },
     -- @class with parent
-    { pattern = "@class%s+()[%w%._]+%s*():()%s*[^%s]+",
+    { pattern = "@class%s+()[%w%._]+%s*():()%s*[%S]+",
       type = { "keyword", "symbol", "operator", "keyword2"}
     },
     -- @class without parent
-    { pattern = "@class%s+()[^%s]+", type = { "keyword", "symbol" } },
+    { pattern = "@class%s+()[%S]+", type = { "keyword", "symbol" } },
     -- @diagnostic with state and diagnostic type
-    { pattern = "@diagnostic%s+()[^%s]+()%s*:%s*()[^%s]+",
+    { pattern = "@diagnostic%s+()[%S]+()%s*:%s*()[%S]+",
       type = { "keyword", "function", "operator", "string" }
     },
     -- @diagnostic with state only
-    { pattern = "@diagnostic%s+()[^%s]+", type = { "keyword", "function" } },
+    { pattern = "@diagnostic%s+()[%S]+", type = { "keyword", "function" } },
     -- @enum doc type
-    { pattern = "@enum%s+()[^%s]+", type = { "keyword", "symbol" } },
+    { pattern = "@enum%s+()[%S]+", type = { "keyword", "symbol" } },
     -- @field with access specifier
     { regex = "@field"
-        .. "()\\s+(protected|public|private|package)\\s+"
-        .. "()[\\w\\._]+"
-        .. "()\\??"
-        .. "()\\s*'[^']*'",
-      type = { "keyword", "keyword", "keyword", "symbol", "operator", "string" }
+        .. [[()\s+(?:protected|public|private|package)\s+]]
+        .. [[()[\w\._]+]]
+        .. [[()\??]]
+        .. [[()\s*'[^']*']],
+      type = { "keyword", "keyword", "symbol", "operator", "string" }
     },
     { regex = "@field"
-        .. "()\\s+(protected|public|private|package)\\s+"
-        .. "()[\\w\\._]+"
-        .. "()\\??"
-        .. "()\\s*\"[^\"]*\"",
-      type = { "keyword", "keyword", "keyword", "symbol", "operator", "string" }
+        .. [[()\s+(?:protected|public|private|package)\s+]]
+        .. [[()[\w\._]+]]
+        .. [[()\??]]
+        .. [[()\s*"[^"]*"]],
+      type = { "keyword", "keyword", "symbol", "operator", "string" }
     },
     { regex = "@field"
-        .. "()\\s+(protected|public|private|package)\\s+"
-        .. "()[\\w\\._]+"
-        .. "()\\??"
-        .. "()\\s*[\\w\\.\\[\\]_]+"
-        .. "()\\??",
+        .. [[()\s+(?:protected|public|private|package)\s+]]
+        .. [[()[\w\._]+]]
+        .. [[()\??]]
+        .. [[()\s*[\w\.\[\]_]+]]
+        .. [[()\??]],
       type = {
-        "keyword", "keyword", "keyword", "symbol",
-        "operator", "keyword2", "operator"
+        "keyword", "keyword", "symbol", "operator", "keyword2", "operator"
       }
     },
     -- @field with type
