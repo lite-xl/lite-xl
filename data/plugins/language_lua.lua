@@ -12,7 +12,7 @@ local annotations_syntax = {
       type = { "keyword", "comment" }
     },
     { regex = "@[\\w_]+\\s+()[\\w\\._]+()\\??()\\s*(?=(table\\s*<|fun\\s*\\())",
-      type = { "keyword", "symbol", "operator", "comment" }
+      type = { "keyword", "symbol", "symbol", "operator", "comment" }
     },
     { regex = "@field"
         .. "()\\s+(protected|public|private|package)\\s+"
@@ -175,6 +175,7 @@ local annotations_syntax = {
     ["@param"] = "keyword",
     ["@private"] = "keyword",
     ["@protected"] = "keyword",
+    ["@return"] = "keyword",
     ["@see"] = "keyword",
     ["@source"] = "keyword",
     ["@type"] = "keyword",
