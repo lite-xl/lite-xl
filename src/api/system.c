@@ -957,7 +957,7 @@ static int f_load_native_plugin(lua_State *L) {
   lua_newtable(L);
   lua_pushlightuserdata(L, library);
   lua_setfield(L, -2, "handle");
-  luaL_setmetatable(L, "NATIVE_PLUGIN");
+  luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN);
   lua_setfield(L, -2, name);
   lua_pop(L, 2);
 
