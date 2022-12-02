@@ -1079,7 +1079,7 @@ static const luaL_Reg lib[] = {
 
 
 int luaopen_system(lua_State *L) {
-  luaL_newmetatable(L, "NATIVE_PLUGIN"); 
+  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN); 
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);
