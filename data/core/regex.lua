@@ -39,10 +39,11 @@ end
 regex.gsub = function(pattern_string, str, replacement)
   local pattern = type(pattern_string) == "table" and
     pattern_string or regex.compile(pattern_string)
-  local result, indices = ""
+  local result, indices = {}
   local matches, replacements = {}, {}
+  local offset = 0
   repeat
-    indices = { regex.cmatch(pattern, str) }
+    indices = { regex.cmatch(pattern, str, offset) }
     if #indices > 0 then
       table.insert(matches, indices)
       local currentReplacement = replacement
@@ -58,14 +59,13 @@ regex.gsub = function(pattern_string, str, replacement)
       currentReplacement = string.gsub(currentReplacement, "\\%d", "")
       table.insert(replacements, { indices[1], #currentReplacement+indices[1] })
       if indices[1] > 1 then
-        result = result ..
-          str:sub(1, previous_character(str, indices[1])) .. currentReplacement
+        table.insert(result, str:sub(offset, previous_character(str, indices[1])) .. currentReplacement)
       else
-        result = result .. currentReplacement
+        table.insert(result, currentReplacement)
       end
-      str = str:sub(indices[2])
+      offset = indices[2]
     end
   until #indices == 0 or indices[1] == indices[2]
-  return result .. str, matches, replacements
+  return table.concat(result) .. str:sub(offset), matches, replacements
 end
 
