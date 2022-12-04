@@ -214,6 +214,10 @@ function StatusView:register_docview_items()
     alignment = StatusView.Item.LEFT,
     get_item = function()
       local dv = core.active_view
+      local nsel = #dv.doc.selections // 4
+      if nsel > 1 then
+        return { style.text, nsel, " selections" }
+      end
       local line, col = dv.doc:get_selection()
       local _, indent_size = dv.doc:get_indent_info()
       -- Calculating tabs when the doc is using the "hard" indent type.
