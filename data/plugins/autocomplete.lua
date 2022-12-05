@@ -647,12 +647,15 @@ command.add(predicate, {
     reset_suggestions()
   end,
 
-  ["autocomplete:previous"] = function()
-    suggestions_idx = math.max(suggestions_idx - 1, 1)
+  ["autocomplete:previous"] = function()    
+    suggestions_idx = suggestions_idx - 1
+    if suggestions_idx < 1 then
+      suggestions_idx = #suggestions
+    end
   end,
 
   ["autocomplete:next"] = function()
-    suggestions_idx = math.min(suggestions_idx + 1, #suggestions)
+    suggestions_idx = (suggestions_idx % #suggestions) + 1
   end,
 
   ["autocomplete:cycle"] = function()
