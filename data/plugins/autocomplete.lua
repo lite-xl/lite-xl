@@ -648,11 +648,11 @@ command.add(predicate, {
   end,
 
   ["autocomplete:previous"] = function()
-    suggestions_idx = math.max(suggestions_idx - 1, 1)
+    suggestions_idx = (suggestions_idx - 2) % #suggestions + 1
   end,
 
   ["autocomplete:next"] = function()
-    suggestions_idx = math.min(suggestions_idx + 1, #suggestions)
+    suggestions_idx = (suggestions_idx % #suggestions) + 1
   end,
 
   ["autocomplete:cycle"] = function()
