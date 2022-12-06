@@ -647,11 +647,8 @@ command.add(predicate, {
     reset_suggestions()
   end,
 
-  ["autocomplete:previous"] = function()    
-    suggestions_idx = suggestions_idx - 1
-    if suggestions_idx < 1 then
-      suggestions_idx = #suggestions
-    end
+  ["autocomplete:previous"] = function()
+    suggestions_idx = (suggestions_idx - 2) % #suggestions + 1
   end,
 
   ["autocomplete:next"] = function()
