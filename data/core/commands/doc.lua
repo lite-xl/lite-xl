@@ -3,6 +3,7 @@ local command = require "core.command"
 local common = require "core.common"
 local config = require "core.config"
 local translate = require "core.doc.translate"
+local style = require "core.style"
 local DocView = require "core.docview"
 local tokenizer = require "core.tokenizer"
 
@@ -36,9 +37,23 @@ local function save(filename)
     filename = core.normalize_to_project_dir(filename)
     abs_filename = core.project_absolute_path(filename)
   end
-  doc():save(filename, abs_filename)
-  local saved_filename = doc().filename
-  core.log("Saved \"%s\"", saved_filename)
+  local ok = pcall(doc().save, doc(), filename, abs_filename)
+  if ok then
+    local saved_filename = doc().filename
+    core.log("Saved \"%s\"", saved_filename)
+  else
+    core.nag_view:show("Saving failed", string.format("Could not save \"%s\" do you want to save to another location?", doc().filename), {
+      { font = style.font, text = "No", default_no = true },
+      { font = style.font, text = "Yes" , default_yes = true }
+    }, function(item)
+      if item.text == "Yes" then
+        core.root_view:defer_draw(function()
+          -- this seems hella dumb but it wouldnt work without the defer
+          command.perform("doc:save-as")
+        end)
+      end
+    end)
+  end
 end
 
 local function cut_or_copy(delete)
