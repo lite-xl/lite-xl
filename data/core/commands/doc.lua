@@ -47,8 +47,8 @@ local function save(filename)
       { font = style.font, text = "Yes" , default_yes = true }
     }, function(item)
       if item.text == "Yes" then
-        core.root_view:defer_draw(function()
-          -- this seems hella dumb but it wouldnt work without the defer
+        core.add_thread(function()
+          -- we need to run this in a thread because of the odd way the nagview is.
           command.perform("doc:save-as")
         end)
       end
