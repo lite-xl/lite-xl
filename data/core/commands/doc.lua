@@ -37,11 +37,12 @@ local function save(filename)
     filename = core.normalize_to_project_dir(filename)
     abs_filename = core.project_absolute_path(filename)
   end
-  local ok = pcall(doc().save, doc(), filename, abs_filename)
+  local ok, err = pcall(doc().save, doc(), filename, abs_filename)
   if ok then
     local saved_filename = doc().filename
     core.log("Saved \"%s\"", saved_filename)
   else
+    core.error(err)
     core.nag_view:show("Saving failed", string.format("Could not save \"%s\" do you want to save to another location?", doc().filename), {
       { font = style.font, text = "No", default_no = true },
       { font = style.font, text = "Yes" , default_yes = true }
