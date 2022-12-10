@@ -41,8 +41,8 @@ regex.NOTEMPTY_ATSTART = 0x00000008
 ---@param pattern string
 ---@param options? regex.modifiers A string of one or more pattern modifiers.
 ---
----@return regex|string regex Ready to use regular expression object or error
----message if compiling the pattern failed.
+---@return regex|nil regex Ready to use regular expression object or nil on error.
+---@return string? error The error message if compiling the pattern failed.
 function regex.compile(pattern, options) end
 
 ---
@@ -53,7 +53,7 @@ function regex.compile(pattern, options) end
 ---@param options? integer A bit field of matching options, eg:
 ---regex.NOTBOL | regex.NOTEMPTY
 ---
----@return table<integer, integer> list List of offsets where a match was found.
+---@return integer ... list List of offsets where a match was found.
 function regex:cmatch(subject, offset, options) end
 
 
