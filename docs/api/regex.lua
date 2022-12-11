@@ -53,8 +53,21 @@ function regex.compile(pattern, options) end
 ---@param options? integer A bit field of matching options, eg:
 ---regex.NOTBOL | regex.NOTEMPTY
 ---
----@return integer ... list List of offsets where a match was found.
+---@return integer? ... List of offsets where a match was found.
 function regex:cmatch(subject, offset, options) end
+
+---
+---Replaces the matched pattern globally on the subject with the given
+---replacement, also supports $[1-9]+ substitutions. Raises an error
+---when failing to compile the pattern or by a substitution mistake.
+---
+---@param pattern regex|string
+---@param subject string
+---@param replacement string
+---
+---@return string? replaced_subject
+---@return integer? total_replacements
+function regex.gsub(pattern, subject, replacement) end
 
 
 return regex

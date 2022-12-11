@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <pcre2.h>
+#include <stdbool.h>
 
 static int f_pcre_gc(lua_State* L) {
   lua_rawgeti(L, -1, 1);
@@ -93,9 +94,97 @@ static int f_pcre_match(lua_State *L) {
   return rc*2;
 }
 
+static int f_pcre_gsub(lua_State *L) {
+  size_t subject_len = 0, pattern_len = 0, replacement_len = 0;
+
+  pcre2_code* re;
+  bool regex_compiled = false;
+  if (lua_type(L, 1) == LUA_TTABLE) {
+    lua_rawgeti(L, 1, 1);
+    re = (pcre2_code*)lua_touserdata(L, -1);
+    lua_settop(L, -2);
+  } else {
+    int errornumber;
+    PCRE2_SIZE erroroffset;
+    const char* pattern = luaL_checklstring(L, 1, &pattern_len);
+
+    re = pcre2_compile(
+      (PCRE2_SPTR)pattern,
+      pattern_len, PCRE2_UTF,
+      &errornumber, &erroroffset, NULL
+    );
+
+    if (re == NULL) {
+      PCRE2_UCHAR errmsg[256];
+      pcre2_get_error_message(errornumber, errmsg, sizeof(errmsg));
+      return luaL_error(
+        L, "regex pattern error at offset %d: %s",
+        (int)erroroffset, errmsg
+      );
+    }
+
+    regex_compiled = true;
+  }
+
+  const char* subject = luaL_checklstring(L, 2, &subject_len);
+  const char* replacement = luaL_checklstring(L, 3, &replacement_len);
+
+  pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(re, NULL);
+
+  size_t buffer_size = 1024;
+  wchar_t *output = (wchar_t *)malloc(sizeof(wchar_t) * buffer_size);
+
+  int results_count = 0;
+  bool done = false;
+  while (!done) {
+    PCRE2_SIZE outlen = buffer_size;
+    results_count = pcre2_substitute(
+      re,
+      (PCRE2_SPTR)subject,
+      subject_len,
+      0,
+      PCRE2_SUBSTITUTE_OVERFLOW_LENGTH
+        | PCRE2_SUBSTITUTE_EXTENDED
+        | PCRE2_SUBSTITUTE_GLOBAL,
+      match_data, NULL,
+      (PCRE2_SPTR)replacement, replacement_len,
+      (PCRE2_UCHAR*)output, &outlen
+    );
+
+    if (results_count != PCRE2_ERROR_NOMEMORY || buffer_size >= outlen) {
+      done = true;
+    } else {
+      buffer_size = outlen;
+      output = (wchar_t *)realloc(output, sizeof(wchar_t) * buffer_size);
+    }
+  }
+
+  int return_count = 0;
+
+  if (results_count > 0) {
+    lua_pushstring(L, (const char*) output);
+    lua_pushnumber(L, results_count);
+    return_count = 2;
+  }
+
+  free(output);
+  pcre2_match_data_free(match_data);
+  if (regex_compiled)
+    pcre2_code_free(re);
+
+  if (results_count < 0) {
+    PCRE2_UCHAR errmsg[256];
+    pcre2_get_error_message(results_count, errmsg, sizeof(errmsg));
+    return luaL_error(L, "regex substitute error: %s", errmsg);
+  }
+
+  return return_count;
+}
+
 static const luaL_Reg lib[] = {
   { "compile",  f_pcre_compile },
   { "cmatch",   f_pcre_match },
+  { "gsub",     f_pcre_gsub },
   { "__gc",     f_pcre_gc },
   { NULL,       NULL }
 };
