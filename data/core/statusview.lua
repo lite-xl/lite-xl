@@ -203,7 +203,7 @@ function StatusView:register_docview_items()
       return {
         dv.doc:is_dirty() and style.accent or style.text, style.icon_font, "f",
         style.dim, style.font, self.separator2, style.text,
-        dv.doc.filename and style.text or style.dim, dv.doc:get_name()
+        dv.doc.filename and style.text or style.dim, common.home_encode(dv.doc:get_name())
       }
     end
   })

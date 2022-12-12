@@ -190,11 +190,11 @@ local function get_non_empty_lines(syntax, lines)
                 end
               else
                 if comment[3] then
-                  local start, ending = regex.match(
+                  local start, ending = regex.find_offsets(
                     comment[2], line, 1, regex.ANCHORED
                   )
                   if start then
-                    if not regex.match(
+                    if not regex.find_offsets(
                         comment[3], line, ending+1, regex.ANCHORED
                       )
                     then
@@ -204,7 +204,7 @@ local function get_non_empty_lines(syntax, lines)
                     end
                     break
                   end
-                elseif regex.match(comment[2], line, 1, regex.ANCHORED) then
+                elseif regex.find_offsets(comment[2], line, 1, regex.ANCHORED) then
                   is_comment = true
                   break
                 end
@@ -214,7 +214,7 @@ local function get_non_empty_lines(syntax, lines)
             is_comment = true
             inside_comment = false
             end_pattern = nil
-          elseif end_regex and regex.match(end_regex, line) then
+          elseif end_regex and regex.find_offsets(end_regex, line) then
             is_comment = true
             inside_comment = false
             end_regex = nil

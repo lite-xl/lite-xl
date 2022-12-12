@@ -214,23 +214,12 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         return
       end
       res = p.pattern and { text:ufind((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
-        or { regex.match(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
+        or { regex.find(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
       if p.regex and #res > 0 then -- set correct utf8 len for regex result
-        local char_pos_1 = string.ulen(text:sub(1, res[1]))
-        local char_pos_2 = char_pos_1 + string.ulen(text:sub(res[1], res[2])) - 1
-        -- `regex.match` returns group results as a series of `begin, end`
-        -- we only want `begin`s
-        if #res >= 3 then
-          res[3] = char_pos_1 + string.ulen(text:sub(res[1], res[3])) - 1
-        end
-        for i=1,(#res-3) do
-          local curr = i + 3
-          local from = i * 2 + 3
-          if from < #res then
-            res[curr] = char_pos_1 + string.ulen(text:sub(res[1], res[from])) - 1
-          else
-            res[curr] = nil
-          end
+        local char_pos_1 = res[1] > next and string.ulen(text:sub(1, res[1])) or next
+        local char_pos_2 = string.ulen(text:sub(1, res[2]))
+        for i=3,#res do
+          res[i] = string.ulen(text:sub(1, res[i] - 1)) + 1
         end
         res[1] = char_pos_1
         res[2] = char_pos_2
