@@ -6,7 +6,7 @@ local command = require "core.command"
 local style = require "core.style"
 local View = require "core.view"
 
-
+---@class plugins.projectsearch.resultsview : core.view
 local ResultsView = View:extend()
 
 ResultsView.context = "session"
@@ -219,6 +219,10 @@ function ResultsView:draw()
 end
 
 
+---@param path string
+---@param text string
+---@param fn fun(line_text:string):...
+---@return plugins.projectsearch.resultsview?
 local function begin_search(path, text, fn)
   if text == "" then
     core.error("Expected non-empty string")
@@ -226,6 +230,7 @@ local function begin_search(path, text, fn)
   end
   local rv = ResultsView(path, text, fn)
   core.root_view:get_active_node_default():add_view(rv)
+  return rv
 end
 
 
@@ -249,6 +254,59 @@ local function normalize_path(path)
   return path
 end
 
+---@class plugins.projectsearch
+local projectsearch = {}
+
+---@type plugins.projectsearch.resultsview
+projectsearch.ResultsView = ResultsView
+
+---@param text string
+---@param path string
+---@param insensitive? boolean
+---@return plugins.projectsearch.resultsview?
+function projectsearch.search_plain(text, path, insensitive)
+  if insensitive then text = text:lower() end
+  return begin_search(path, text, function(line_text)
+    if insensitive then
+      return line_text:lower():find(text, nil, true)
+    else
+      return line_text:find(text, nil, true)
+    end
+  end)
+end
+
+---@param text string
+---@param path string
+---@param insensitive? boolean
+---@return plugins.projectsearch.resultsview?
+function projectsearch.search_regex(text, path, insensitive)
+  local re, errmsg
+  if insensitive then
+    re, errmsg = regex.compile(text, "i")
+  else
+    re, errmsg = regex.compile(text)
+  end
+  if not re then core.log("%s", errmsg) return end
+  return begin_search(path, text, function(line_text)
+    return regex.cmatch(re, line_text)
+  end)
+end
+
+---@param text string
+---@param path string
+---@param insensitive? boolean
+---@return plugins.projectsearch.resultsview?
+function projectsearch.search_fuzzy(text, path, insensitive)
+  if insensitive then text = text:lower() end
+  return begin_search(path, text, function(line_text)
+    if insensitive then
+      return common.fuzzy_match(line_text:lower(), text) and 1
+    else
+      return common.fuzzy_match(line_text, text) and 1
+    end
+  end)
+end
+
 
 command.add(nil, {
   ["project-search:find"] = function(path)
@@ -256,10 +314,7 @@ command.add(nil, {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
-        text = text:lower()
-        begin_search(path, text, function(line_text)
-          return line_text:lower():find(text, nil, true)
-        end)
+        projectsearch.search_plain(text, path, true)
       end
     })
   end,
@@ -267,10 +322,7 @@ command.add(nil, {
   ["project-search:find-regex"] = function(path)
     core.command_view:enter("Find Regex In " .. (normalize_path(path) or "Project"), {
       submit = function(text)
-        local re = regex.compile(text, "i")
-        begin_search(path, text, function(line_text)
-          return regex.cmatch(re, line_text)
-        end)
+        projectsearch.search_regex(text, path, true)
       end
     })
   end,
@@ -280,9 +332,7 @@ command.add(nil, {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
-        begin_search(path, text, function(line_text)
-          return common.fuzzy_match(line_text, text) and 1
-        end)
+        projectsearch.search_fuzzy(text, path, true)
       end
     })
   end,
@@ -344,3 +394,6 @@ keymap.add {
   ["home"]               = "project-search:move-to-start-of-doc",
   ["end"]                = "project-search:move-to-end-of-doc"
 }
+
+
+return projectsearch
