@@ -41,7 +41,7 @@ regex.NOTEMPTY_ATSTART = 0x00000008
 ---@param pattern string
 ---@param options? regex.modifiers A string of one or more pattern modifiers.
 ---
----@return regex|nil regex Ready to use regular expression object or nil on error.
+---@return regex? regex Ready to use regular expression object or nil on error.
 ---@return string? error The error message if compiling the pattern failed.
 function regex.compile(pattern, options) end
 
@@ -55,6 +55,25 @@ function regex.compile(pattern, options) end
 ---
 ---@return integer? ... List of offsets where a match was found.
 function regex:cmatch(subject, offset, options) end
+
+---
+---Returns an iterator function that, each time it is called, returns the
+---next captures from `pattern` over the string subject.
+---
+---Example:
+---```lua
+---    s = "hello world hello world"
+---    for hello, world in regex.gmatch("(hello)\\s+(world)", s) do
+---        print(hello .. " " .. world)
+---    end
+---```
+---
+---@param pattern string
+---@param subject string
+---@param offset? integer
+---
+---@return fun():string, ...
+function regex.gmatch(pattern, subject, offset) end
 
 ---
 ---Replaces the matched pattern globally on the subject with the given
