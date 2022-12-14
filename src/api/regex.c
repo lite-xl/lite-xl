@@ -87,14 +87,14 @@ static int regex_gmatch_iterator(lua_State *L) {
         }
 
         int index = 0;
-        if (ovector_count*2 > 2) index = 2;
+        if (ovector_count > 1) index = 2;
 
         int total = 0;
         int total_results = ovector_count * 2;
         size_t last_offset = 0;
         for (int i = index; i < total_results; i+=2) {
           lua_pushlstring(L, state->subject+ovector[i], ovector[i+1] - ovector[i]);
-          last_offset = ovector[i+1]+1;
+          last_offset = ovector[i+1];
           total++;
         }
 
@@ -297,6 +297,10 @@ static int f_pcre_gsub(lua_State *L) {
   if (results_count > 0) {
     lua_pushstring(L, (const char*) output);
     lua_pushnumber(L, results_count);
+    return_count = 2;
+  } else if (results_count == 0) {
+    lua_pushstring(L, subject);
+    lua_pushnumber(L, 0);
     return_count = 2;
   }
 
