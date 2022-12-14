@@ -8,17 +8,17 @@ local syntax = require "core.syntax"
 local annotations_syntax = {
   patterns = {
     -- look-aheads for table and function types
-    { regex = [[@[\w_]+()\s+(?=(table\s*<|fun\s*\())]],
+    { regex = [[@[\w_]+()\s+(?=(?:table\s*<|fun\s*\())]],
       type = { "keyword", "comment" }
     },
-    { regex = [[@[\w_]+\s+()[\w\._]+()\??()\s*(?=(table\s*<|fun\s*\())]],
+    { regex = [[@[\w_]+\s+()[\w\._]+()\??()\s*(?=(?:table\s*<|fun\s*\())]],
       type = { "keyword", "symbol", "operator", "comment" }
     },
     { regex = "@field"
         .. [[()\s+(?:protected|public|private|package)\s+]]
         .. [[()[\w\._]+]]
         .. [[()\??]]
-        .. [[()\s*(?=(table\s*<|fun\s*\())]],
+        .. [[()\s*(?=(?:table\s*<|fun\s*\())]],
       type = { "keyword", "keyword", "symbol", "operator", "comment" }
     },
     -- table and function types
@@ -305,7 +305,7 @@ syntax.add {
     },
     -- Uppercase constants of at least 2 chars in len
     {
-        pattern = "%u[%u_][%u%d_]*%f[%s%+%*%-%.%(%)%?%^%%=/<>~|&:,~]",
+        pattern = "%u[%u_][%u%d_]*%f[%s%[%+%*%-%.%(%)%?%^%%=/<>~|&:,~]",
         type = "number"
     },
     -- Labels
