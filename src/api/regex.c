@@ -269,8 +269,8 @@ static int f_pcre_gsub(lua_State *L) {
 
   int results_count = 0;
   bool done = false;
+  PCRE2_SIZE outlen = buffer_size;
   while (!done) {
-    PCRE2_SIZE outlen = buffer_size;
     results_count = pcre2_substitute(
       re,
       (PCRE2_SPTR)subject,
@@ -295,11 +295,11 @@ static int f_pcre_gsub(lua_State *L) {
   int return_count = 0;
 
   if (results_count > 0) {
-    lua_pushstring(L, (const char*) output);
+    lua_pushlstring(L, (const char*) output, outlen);
     lua_pushnumber(L, results_count);
     return_count = 2;
   } else if (results_count == 0) {
-    lua_pushstring(L, subject);
+    lua_pushlstring(L, subject, subject_len);
     lua_pushnumber(L, 0);
     return_count = 2;
   }
