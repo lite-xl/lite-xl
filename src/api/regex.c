@@ -259,33 +259,66 @@ static int f_pcre_gsub(lua_State *L) {
   pcre2_code* re = regex_get_pattern(L, &regex_compiled);
   if (!re) return 0 ;
 
-  const char* subject = luaL_checklstring(L, 2, &subject_len);
+  char* subject = (char*) luaL_checklstring(L, 2, &subject_len);
   const char* replacement = luaL_checklstring(L, 3, &replacement_len);
+  const int limit = luaL_optinteger(L, 4, 0);
 
   pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(re, NULL);
 
   size_t buffer_size = 1024;
   char *output = (char *)malloc(buffer_size);
 
+  int options = PCRE2_SUBSTITUTE_OVERFLOW_LENGTH | PCRE2_SUBSTITUTE_EXTENDED;
+  if (limit == 0) options |= PCRE2_SUBSTITUTE_GLOBAL;
+
   int results_count = 0;
+  int limit_count = 0;
   bool done = false;
+  size_t offset = 0;
   PCRE2_SIZE outlen = buffer_size;
   while (!done) {
     results_count = pcre2_substitute(
       re,
-      (PCRE2_SPTR)subject,
-      subject_len,
-      0,
-      PCRE2_SUBSTITUTE_OVERFLOW_LENGTH
-        | PCRE2_SUBSTITUTE_EXTENDED
-        | PCRE2_SUBSTITUTE_GLOBAL,
+      (PCRE2_SPTR)subject, subject_len,
+      offset, options,
       match_data, NULL,
       (PCRE2_SPTR)replacement, replacement_len,
       (PCRE2_UCHAR*)output, &outlen
     );
 
     if (results_count != PCRE2_ERROR_NOMEMORY || buffer_size >= outlen) {
-      done = true;
+      /* PCRE2_SUBSTITUTE_GLOBAL code path (fastest) */
+      if(limit == 0) {
+        done = true;
+      /* non PCRE2_SUBSTITUTE_GLOBAL with limit code path (slower) */
+      } else {
+        size_t ovector_count = pcre2_get_ovector_count(match_data);
+        if (results_count > 0 && ovector_count > 0) {
+          limit_count++;
+          PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(match_data);
+          if (outlen > subject_len) {
+            offset = ovector[1] + (outlen - subject_len);
+          } else {
+            offset = ovector[1] - (subject_len - outlen);
+          }
+          if (limit_count > 1) free(subject);
+          if (limit_count == limit || offset-1 == outlen) {
+            done = true;
+            results_count = limit_count;
+          } else {
+            subject = output;
+            subject_len = outlen;
+            output = (char *)malloc(buffer_size);
+            outlen = buffer_size;
+          }
+        } else {
+          if (limit_count > 1) {
+            free(subject);
+          }
+          done = true;
+          results_count = limit_count;
+        }
+      }
     } else {
       buffer_size = outlen;
       output = (char *)realloc(output, buffer_size);
@@ -296,11 +329,11 @@ static int f_pcre_gsub(lua_State *L) {
 
   if (results_count > 0) {
     lua_pushlstring(L, (const char*) output, outlen);
-    lua_pushnumber(L, results_count);
+    lua_pushinteger(L, results_count);
     return_count = 2;
   } else if (results_count == 0) {
     lua_pushlstring(L, subject, subject_len);
-    lua_pushnumber(L, 0);
+    lua_pushinteger(L, 0);
     return_count = 2;
   }
 

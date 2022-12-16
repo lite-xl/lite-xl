@@ -77,16 +77,18 @@ function regex.gmatch(pattern, subject, offset) end
 
 ---
 ---Replaces the matched pattern globally on the subject with the given
----replacement, also supports $[1-9]+ substitutions. Raises an error
----when failing to compile the pattern or by a substitution mistake.
+---replacement, supports named captures ((?'name'<pattern>), ${name}) and
+---$[1-9]+ substitutions. Raises an error when failing to compile the
+---pattern or by a substitution mistake.
 ---
 ---@param pattern regex|string
 ---@param subject string
 ---@param replacement string
+---@param limit? integer
 ---
 ---@return string? replaced_subject
 ---@return integer? total_replacements
-function regex.gsub(pattern, subject, replacement) end
+function regex.gsub(pattern, subject, replacement, limit) end
 
 
 return regex
