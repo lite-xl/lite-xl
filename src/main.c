@@ -11,9 +11,9 @@
   #include <windows.h>
 #elif defined(__linux__)
   #include <unistd.h>
-#elif __APPLE__
+#elif defined(__APPLE__)
   #include <mach-o/dyld.h>
-#elif __FreeBSD__
+#elif defined(__FreeBSD__)
   #include <sys/sysctl.h>
 #endif
 
@@ -51,7 +51,7 @@ static void get_exe_filename(char *buf, int sz) {
   const int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
   sysctl(mib, 4, buf, &len, NULL, 0);
 #else
-  *buf = NULL;
+  *buf = 0;
 #endif
 }
 
