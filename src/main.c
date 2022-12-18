@@ -5,16 +5,16 @@
 #include "rencache.h"
 #include "renderer.h"
 
+#include <signal.h>
+
 #ifdef _WIN32
   #include <windows.h>
-#elif __linux__
+#elif defined(__linux__)
   #include <unistd.h>
-  #include <signal.h>
 #elif __APPLE__
   #include <mach-o/dyld.h>
 #elif __FreeBSD__
   #include <sys/sysctl.h>
-  #include <signal.h>
 #endif
 
 
