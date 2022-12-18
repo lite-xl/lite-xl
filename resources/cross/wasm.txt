@@ -7,7 +7,7 @@
 asyncify_ignores = '["SDL_BlitScaled","SDL_UpperBlitScaled","SDL_MapRGB*","SDL_FillRect","SDL_FreeSurface","SDL_CreateRGBSurface","SDL_GetWindowSurface","SDL_PollEvent","SDL_CreateSystemCursor","SDL_SetWindowTitle","SDL_SetCursor","SDL_GetWindowSize","SDL_GetWindowPosition","lua_push*","lua_rawget*","luaL_check*","pcre2*","FT_*","Bezier_*","g_*","FT_*","ft_*","TT_*","tt_*","__*","*printf","gray_*","fopen","fclose","fread","fflush","qsort","sift"]'
 
 # enable advising for optimizing the list above; disable this to prevent flooding logs
-asyncify_advise = '1'
+asyncify_advise = '0'
 
 # initial heap size in bytes; make sure it is not too low (around 64mb - 250mb)
 initial_heap = '104857600'
