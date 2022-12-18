@@ -18,3 +18,6 @@ This folder contains resources that is used for building or packaging the projec
 ### Development
 
 - `lite_xl_plugin_api.h`: Native plugin API header. See the contents of `lite_xl_plugin_api.h` for more details.
+
+
+[1]: https://mesonbuild.com/Cross-compilation.html
