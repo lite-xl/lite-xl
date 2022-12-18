@@ -14,13 +14,17 @@ initial_heap = '104857600'
 
 
 [binaries]
+c = 'emcc'
+cpp = 'em++'
+ar = 'emar'
+strip = 'emstrip'
+cmake = ['emmake', 'cmake']
+pkg-config = ['emconfigure', 'pkg-config']
+sdl2-config = ['emconfigure', 'sdl2-config']
 
-# modify these for your machine; this is based on Arch Linux's emscripten package
-c = '/usr/lib/emscripten/emcc'
-cpp = '/usr/lib/emscripten/em++'
-ar = '/usr/lib/emscripten/emar'
-strip = '/usr/lib/emscripten/emstrip'
-sdl2-config = '/usr/lib/emscripten/system/bin/sdl2-config'
+
+[properties]
+needs_exe_wrapper = true
 
 
 [built-in options]
