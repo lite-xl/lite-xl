@@ -9,6 +9,7 @@ local View = require "core.view"
 
 local border_width = 1
 local divider_width = 1
+local divider_padding = 5
 local DIVIDER = {}
 
 ---@class core.contextmenu : core.object
@@ -29,7 +30,7 @@ local function get_item_size(item)
   local lw, lh
   if item == DIVIDER then
     lw = 0
-    lh = divider_width
+    lh = divider_width + divider_padding * SCALE * 2
   else
     lw = style.font:get_width(item.text)
     if item.info then
@@ -224,7 +225,7 @@ function ContextMenu:draw_context_menu()
 
   for i, item, x, y, w, h in self:each_item() do
     if item == DIVIDER then
-      renderer.draw_rect(x, y, w, h, style.caret)
+      renderer.draw_rect(x, y + divider_padding * SCALE, w, divider_width, style.divider)
     else
       if i == self.selected then
         renderer.draw_rect(x, y, w, h, style.selection)
