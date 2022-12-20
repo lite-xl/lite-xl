@@ -41,7 +41,7 @@ regex.NOTEMPTY_ATSTART = 0x00000008
 ---@param pattern string
 ---@param options? regex.modifiers A string of one or more pattern modifiers.
 ---
----@return regex|nil regex Ready to use regular expression object or nil on error.
+---@return regex? regex Ready to use regular expression object or nil on error.
 ---@return string? error The error message if compiling the pattern failed.
 function regex.compile(pattern, options) end
 
@@ -53,8 +53,42 @@ function regex.compile(pattern, options) end
 ---@param options? integer A bit field of matching options, eg:
 ---regex.NOTBOL | regex.NOTEMPTY
 ---
----@return integer ... list List of offsets where a match was found.
+---@return integer? ... List of offsets where a match was found.
 function regex:cmatch(subject, offset, options) end
+
+---
+---Returns an iterator function that, each time it is called, returns the
+---next captures from `pattern` over the string subject.
+---
+---Example:
+---```lua
+---    s = "hello world hello world"
+---    for hello, world in regex.gmatch("(hello)\\s+(world)", s) do
+---        print(hello .. " " .. world)
+---    end
+---```
+---
+---@param pattern string
+---@param subject string
+---@param offset? integer
+---
+---@return fun():string, ...
+function regex.gmatch(pattern, subject, offset) end
+
+---
+---Replaces the matched pattern globally on the subject with the given
+---replacement, supports named captures ((?'name'<pattern>), ${name}) and
+---$[1-9][0-9]* substitutions. Raises an error when failing to compile the
+---pattern or by a substitution mistake.
+---
+---@param pattern regex|string
+---@param subject string
+---@param replacement string
+---@param limit? integer Limits the number of substitutions that will be done.
+---
+---@return string? replaced_subject
+---@return integer? total_replacements
+function regex.gsub(pattern, subject, replacement, limit) end
 
 
 return regex

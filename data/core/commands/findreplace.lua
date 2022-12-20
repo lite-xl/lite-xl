@@ -216,7 +216,7 @@ command.add("core.docview!", {
         return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
       end
       local result, matches = regex.gsub(regex.compile(old, "m"), text, new)
-      return result, #matches
+      return result, matches
     end)
   end,
 
