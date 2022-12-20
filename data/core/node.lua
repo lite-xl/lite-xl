@@ -565,13 +565,13 @@ function Node:draw_tabs()
   end
 
   if #self.views > tabs_number then
-    local xrb, yrb, wrb = self:get_scroll_button_rect(2)
-    local button_style = (self.hovered_scroll_button == 2 and #self.views > self.tab_offset + tabs_number - 1) and style.text or style.dim
-    common.draw_text(style.icon_font, button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
+    local xrb, yrb, _ = self:get_scroll_button_rect(1)
+    local left_button_style = (self.hovered_scroll_button == 1 and self.tab_offset > 1) and style.text or style.dim
+    common.draw_text(style.icon_font, left_button_style, "<", nil, xrb + scroll_padding, yrb, 0, h)
 
-    xrb, yrb, wrb = self:get_scroll_button_rect(2)
-    button_style = (self.hovered_scroll_button == 1 and self.tab_offset > 1) and style.text or style.dim
-    common.draw_text(style.icon_font, button_style, "<", nil, xrb + scroll_padding - wrb, yrb, 0, h)
+    xrb, yrb, _ = self:get_scroll_button_rect(2)
+    local right_button_style = (self.hovered_scroll_button == 2 and #self.views > self.tab_offset + tabs_number - 1) and style.text or style.dim
+    common.draw_text(style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
 
   core.pop_clip_rect()
