@@ -157,7 +157,11 @@ if not get_option('source-only')
         default_options: default_fallback_options + sdl_options
     )
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
+    sdl2_net = dependency('SDL2_net', fallback: ['sdl2_net', 'sdl2_net_dep'],
+        default_options: default_fallback_options + ['default_library=static']
+    )
+
+    lite_deps = [lua_dep, sdl_dep, sdl2_net, freetype_dep, pcre2_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration

@@ -9,6 +9,9 @@
 #define API_TYPE_PROCESS "Process"
 #define API_TYPE_DIRMONITOR "Dirmonitor"
 #define API_TYPE_NATIVE_PLUGIN "NativePlugin"
+#define API_TYPE_NET_TCP "NetTCP"
+#define API_TYPE_NET_UDP "NetUDP"
+#define API_TYPE_NET_SET "NetSet"
 
 #define API_CONSTANT_DEFINE(L, idx, key, n) (lua_pushnumber(L, n), lua_setfield(L, idx - 1, key))
 
