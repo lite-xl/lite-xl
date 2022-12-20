@@ -564,20 +564,14 @@ function Node:draw_tabs()
                   x, y, w, h)
   end
 
-  if #self.views > self.tab_offset + tabs_number - 1 then
+  if #self.views > tabs_number then
     local xrb, yrb, wrb = self:get_scroll_button_rect(2)
-    local button_style = self.hovered_scroll_button == 2 and style.text or style.dim
+    local button_style = (self.hovered_scroll_button == 2 and #self.views > self.tab_offset + tabs_number - 1) and style.text or style.dim
     common.draw_text(style.icon_font, button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
-  end
 
-  if self.tab_offset > 1 then
-    local xrb, yrb, wrb = self:get_scroll_button_rect(2)
-    local wsbr = wrb
-    -- move the arrow based on if there's tabs to scroll to the right?
-    --local wsbr = 0
-    --if #self.views > self.tab_offset + tabs_number - 1 then wsbr = wrb end
-    local button_style = self.hovered_scroll_button == 1 and style.text or style.dim
-    common.draw_text(style.icon_font, button_style, "<", nil, xrb + scroll_padding - wsbr, yrb, 0, h)
+    xrb, yrb, wrb = self:get_scroll_button_rect(2)
+    button_style = (self.hovered_scroll_button == 1 and self.tab_offset > 1) and style.text or style.dim
+    common.draw_text(style.icon_font, button_style, "<", nil, xrb + scroll_padding - wrb, yrb, 0, h)
   end
 
   core.pop_clip_rect()
