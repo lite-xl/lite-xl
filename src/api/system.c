@@ -500,19 +500,8 @@ static int f_show_fatal_error(lua_State *L) {
 
 #ifdef _WIN32
   MessageBox(0, msg, title, MB_OK | MB_ICONERROR);
-
 #else
-  SDL_MessageBoxButtonData buttons[] = {
-    { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Ok" },
-  };
-  SDL_MessageBoxData data = {
-    .title = title,
-    .message = msg,
-    .numbuttons = 1,
-    .buttons = buttons,
-  };
-  int buttonid;
-  SDL_ShowMessageBox(&data, &buttonid);
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, msg, NULL);
 #endif
   return 0;
 }
