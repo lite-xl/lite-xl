@@ -39,6 +39,11 @@ end
 
 function ToolbarView:toggle_visible()
   self.visible = not self.visible
+  if self.tooltip then
+    core.status_view:remove_tooltip()
+    self.tooltip = false
+  end
+  self.hovered_item = nil
 end
 
 function ToolbarView:get_icon_width()
@@ -73,6 +78,7 @@ end
 
 
 function ToolbarView:draw()
+  if not self.visible then return end
   self:draw_background(style.background2)
 
   for item, x, y, w, h in self:each_item() do
@@ -83,6 +89,7 @@ end
 
 
 function ToolbarView:on_mouse_pressed(button, x, y, clicks)
+  if not self.visible then return end
   local caught = ToolbarView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught then return caught end
   core.set_active_view(core.last_active_view)
@@ -94,6 +101,7 @@ end
 
 
 function ToolbarView:on_mouse_moved(px, py, ...)
+  if not self.visible then return end
   ToolbarView.super.on_mouse_moved(self, px, py, ...)
   self.hovered_item = nil
   local x_min, x_max, y_min, y_max = self.size.x, 0, self.size.y, 0
