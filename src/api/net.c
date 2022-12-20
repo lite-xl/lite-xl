@@ -176,9 +176,9 @@ static int f_resolve_ip(lua_State* L) {
 }
 
 static int f_get_local_addresses(lua_State* L) {
-  int max_amount = luaL_optinteger(L, 1, 10);
+  const int max_amount = luaL_optinteger(L, 1, 10);
 
-  IPaddress addresses[max_amount];
+  IPaddress* addresses = malloc(sizeof(IPaddress) * max_amount);
 
   int count = SDLNet_GetLocalAddresses(addresses, max_amount);
 
@@ -193,6 +193,8 @@ static int f_get_local_addresses(lua_State* L) {
   } else {
     lua_pushnil(L);
   }
+
+  free(addresses);
 
   return count > 0 ? 1 : 0;
 }
@@ -445,20 +447,24 @@ static int m_tcp_send(lua_State* L) {
 
 static int m_tcp_receive(lua_State* L) {
   Connection* self = (Connection*) luaL_checkudata(L, 1, API_TYPE_NET_TCP);
-  size_t max_len = luaL_checkinteger(L, 2);
+  const size_t max_len = luaL_checkinteger(L, 2);
 
-  char data[max_len];
+  char* data = malloc(max_len);
   size_t received = SDLNet_TCP_Recv(self->socket, data, max_len);
+
+  int return_count = 1;
 
   if (received > 0) {
     lua_pushlstring(L, data, received);
   } else {
     lua_pushnil(L);
     lua_pushstring(L, SDLNet_GetError());
-    return 2;
+    return_count = 2;
   }
 
-  return 1;
+  free(data);
+
+  return return_count;
 }
 
 static int m_tcp_ready(lua_State* L) {
