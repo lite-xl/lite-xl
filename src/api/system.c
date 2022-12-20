@@ -172,8 +172,9 @@ static void push_win32_error(lua_State *L, DWORD rc) {
 
 static int f_poll_event(lua_State *L) {
   char buf[16];
-  int mx, my;
+  int mx, my, w, h;
   SDL_Event e;
+  SDL_Event event_plus;
 
 top:
   if ( !SDL_PollEvent(&e) ) {
@@ -299,7 +300,6 @@ top:
 
     case SDL_MOUSEMOTION:
       SDL_PumpEvents();
-      SDL_Event event_plus;
       while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
         e.motion.x = event_plus.motion.x;
         e.motion.y = event_plus.motion.y;
@@ -324,6 +324,42 @@ top:
       lua_pushinteger(L, -e.wheel.x);
 #endif
       return 3;
+
+      case SDL_FINGERDOWN:
+      SDL_GetWindowSize(window, &w, &h);
+
+      lua_pushstring(L, "touchpressed");
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
+      lua_pushinteger(L, e.tfinger.fingerId);
+      return 4;
+
+    case SDL_FINGERUP:
+      SDL_GetWindowSize(window, &w, &h);
+
+      lua_pushstring(L, "touchreleased");
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
+      lua_pushinteger(L, e.tfinger.fingerId);
+      return 4;
+
+    case SDL_FINGERMOTION:
+      SDL_PumpEvents();
+      while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_FINGERMOTION, SDL_FINGERMOTION) > 0) {
+        e.tfinger.x = event_plus.tfinger.x;
+        e.tfinger.y = event_plus.tfinger.y;
+        e.tfinger.dx += event_plus.tfinger.dx;
+        e.tfinger.dy += event_plus.tfinger.dy;
+      }
+      SDL_GetWindowSize(window, &w, &h);
+
+      lua_pushstring(L, "touchmoved");
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.dx * w));
+      lua_pushinteger(L, (lua_Integer)(e.tfinger.dy * h));
+      lua_pushinteger(L, e.tfinger.fingerId);
+      return 6;
 
     default:
       goto top;

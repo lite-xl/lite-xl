@@ -46,6 +46,11 @@ system = {}
 --- * "mousemoved" -> x, y, relative_x, relative_y
 --- * "mousewheel" -> y, x
 ---
+---Touch events:
+--- * "touchpressed" -> x, y, finger_id
+--- * "touchreleased" -> x, y, finger_id
+--- * "touchmoved" -> x, y, distance_x, distance_y, finger_id
+---
 ---@return string type
 ---@return any? arg1
 ---@return any? arg2
