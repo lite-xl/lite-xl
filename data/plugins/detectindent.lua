@@ -122,15 +122,6 @@ local function get_comment_patterns(syntax)
           table.insert(comments, {"r", regex.compile(startp)})
         end
       end
-    elseif pattern.syntax then
-      local subsyntax = type(pattern.syntax) == 'table' and pattern.syntax
-        or core_syntax.get("file"..pattern.syntax, "")
-      local sub_comments = get_comment_patterns(subsyntax)
-      if sub_comments then
-        for s=1, #sub_comments do
-          table.insert(comments, sub_comments[s])
-        end
-      end
     end
   end
   if #comments == 0 then
