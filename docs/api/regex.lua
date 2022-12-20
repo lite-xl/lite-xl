@@ -84,7 +84,7 @@ function regex.gmatch(pattern, subject, offset) end
 ---@param pattern regex|string
 ---@param subject string
 ---@param replacement string
----@param limit? integer
+---@param limit? integer Limits the number of substitutions that will be done.
 ---
 ---@return string? replaced_subject
 ---@return integer? total_replacements
