@@ -261,7 +261,8 @@ static int f_pcre_gsub(lua_State *L) {
 
   char* subject = (char*) luaL_checklstring(L, 2, &subject_len);
   const char* replacement = luaL_checklstring(L, 3, &replacement_len);
-  const int limit = luaL_optinteger(L, 4, 0);
+  int limit = luaL_optinteger(L, 4, 0);
+  if (limit < 0 ) limit = 0;
 
   pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(re, NULL);
 
