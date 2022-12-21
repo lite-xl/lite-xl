@@ -329,8 +329,7 @@ end
 
 
 function Node:get_tab_rect(idx)
-  local sbw = get_scroll_button_width()
-  local maxw = self.size.x - 2 * sbw
+  local maxw = self.size.x
   local x0 = self.position.x
   local x1 = x0 + common.clamp(self.tab_width * (idx - 1) - self.tab_shift, 0, maxw)
   local x2 = x0 + common.clamp(self.tab_width * idx - self.tab_shift, 0, maxw)
@@ -468,8 +467,10 @@ end
 
 
 function Node:target_tab_width()
-  local n = self:get_visible_tabs_number()
-  local w = self.size.x - get_scroll_button_width() * 2
+  local w = self.size.x
+  if #self.views > self:get_visible_tabs_number() then
+    w = self.size.x - get_scroll_button_width() * 2
+  end
   return common.clamp(style.tab_width, w / config.max_tabs, w / n)
 end
 
@@ -565,11 +566,13 @@ function Node:draw_tabs()
   end
 
   if #self.views > tabs_number then
-    local xrb, yrb, _ = self:get_scroll_button_rect(1)
+    local _, pad = get_scroll_button_width()
+    local xrb, yrb, wrb, hrb = self:get_scroll_button_rect(1)
+    renderer.draw_rect(xrb + pad, yrb, wrb * 2, hrb, style.background2)
     local left_button_style = (self.hovered_scroll_button == 1 and self.tab_offset > 1) and style.text or style.dim
     common.draw_text(style.icon_font, left_button_style, "<", nil, xrb + scroll_padding, yrb, 0, h)
 
-    xrb, yrb, _ = self:get_scroll_button_rect(2)
+    xrb, yrb, wrb = self:get_scroll_button_rect(2)
     local right_button_style = (self.hovered_scroll_button == 2 and #self.views > self.tab_offset + tabs_number - 1) and style.text or style.dim
     common.draw_text(style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
