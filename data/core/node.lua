@@ -323,15 +323,14 @@ end
 function Node:get_scroll_button_rect(index)
   local w, pad = get_scroll_button_width()
   local h = style.font:get_height() + style.padding.y * 2
-  local x = self.position.x + (index == 1 and 0 or self.size.x - w)
+  local x = self.position.x + (index == 1 and self.size.x - w * 2 or self.size.x - w)
   return x, self.position.y, w, h, pad
 end
 
 
 function Node:get_tab_rect(idx)
-  local sbw = get_scroll_button_width()
-  local maxw = self.size.x - 2 * sbw
-  local x0 = self.position.x + sbw
+  local maxw = self.size.x
+  local x0 = self.position.x
   local x1 = x0 + common.clamp(self.tab_width * (idx - 1) - self.tab_shift, 0, maxw)
   local x2 = x0 + common.clamp(self.tab_width * idx - self.tab_shift, 0, maxw)
   local h = style.font:get_height() + style.padding.y * 2
@@ -469,7 +468,10 @@ end
 
 function Node:target_tab_width()
   local n = self:get_visible_tabs_number()
-  local w = self.size.x - get_scroll_button_width() * 2
+  local w = self.size.x
+  if #self.views > n then
+    w = self.size.x - get_scroll_button_width() * 2
+  end
   return common.clamp(style.tab_width, w / config.max_tabs, w / n)
 end
 
@@ -547,24 +549,14 @@ function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h
 end
 
 function Node:draw_tabs()
-  local x, y, w, h, scroll_padding = self:get_scroll_button_rect(1)
+  local _, y, w, h, scroll_padding = self:get_scroll_button_rect(1)
+  local x = self.position.x
   local ds = style.divider_size
   local dots_width = style.font:get_width("…")
   core.push_clip_rect(x, y, self.size.x, h)
   renderer.draw_rect(x, y, self.size.x, h, style.background2)
   renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
-
-  if self.tab_offset > 1 then
-    local button_style = self.hovered_scroll_button == 1 and style.text or style.dim
-    common.draw_text(style.icon_font, button_style, "<", nil, x + scroll_padding, y, 0, h)
-  end
-
   local tabs_number = self:get_visible_tabs_number()
-  if #self.views > self.tab_offset + tabs_number - 1 then
-    local xrb, yrb, wrb = self:get_scroll_button_rect(2)
-    local button_style = self.hovered_scroll_button == 2 and style.text or style.dim
-    common.draw_text(style.icon_font, button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
-  end
 
   for i = self.tab_offset, self.tab_offset + tabs_number - 1 do
     local view = self.views[i]
@@ -572,6 +564,18 @@ function Node:draw_tabs()
     self:draw_tab(view, view == self.active_view,
                   i == self.hovered_tab, i == self.hovered_close,
                   x, y, w, h)
+  end
+
+  if #self.views > tabs_number then
+    local _, pad = get_scroll_button_width()
+    local xrb, yrb, wrb, hrb = self:get_scroll_button_rect(1)
+    renderer.draw_rect(xrb + pad, yrb, wrb * 2, hrb, style.background2)
+    local left_button_style = (self.hovered_scroll_button == 1 and self.tab_offset > 1) and style.text or style.dim
+    common.draw_text(style.icon_font, left_button_style, "<", nil, xrb + scroll_padding, yrb, 0, h)
+
+    xrb, yrb, wrb = self:get_scroll_button_rect(2)
+    local right_button_style = (self.hovered_scroll_button == 2 and #self.views > self.tab_offset + tabs_number - 1) and style.text or style.dim
+    common.draw_text(style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
 
   core.pop_clip_rect()
