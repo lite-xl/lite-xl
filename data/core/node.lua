@@ -467,8 +467,9 @@ end
 
 
 function Node:target_tab_width()
+  local n = self:get_visible_tabs_number()
   local w = self.size.x
-  if #self.views > self:get_visible_tabs_number() then
+  if #self.views > n then
     w = self.size.x - get_scroll_button_width() * 2
   end
   return common.clamp(style.tab_width, w / config.max_tabs, w / n)
