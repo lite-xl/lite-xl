@@ -238,7 +238,7 @@ static int f_pcre_gmatch(lua_State *L) {
   lua_settop(L, 2);
 
   RegexState *state;
-  state = (RegexState*)lua_newuserdatauv(L, sizeof(RegexState), 0);
+  state = (RegexState*)lua_newuserdata(L, sizeof(RegexState));
 
   state->re = re;
   state->match_data = pcre2_match_data_create_from_pattern(re, NULL);
