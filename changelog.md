@@ -69,7 +69,7 @@
   ([#1180](https://github.com/lite-xl/lite-xl/pull/1180))
   
 * dirmonitor: fix win32 implementation name length to prevent ub
-  ([5ab8dc0](https://github.com/lite-xl/lite-xl/commit/5ab8dc027502146dd947b3d2c7544ba096a3881b)
+  ([5ab8dc0](https://github.com/lite-xl/lite-xl/commit/5ab8dc027502146dd947b3d2c7544ba096a3881b))
 
 * Make linewrapping plugin recompute breaks before scrolling
   ([#1190](https://github.com/lite-xl/lite-xl/pull/1190))
