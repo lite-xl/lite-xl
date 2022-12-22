@@ -1,5 +1,132 @@
 # Changes Log
 
+## [2.1.1] - XXXX-XX-XX
+
+### New Features
+
+* Add config.keep_newline_whitespace option
+  ([#1184](https://github.com/lite-xl/lite-xl/pull/1184))
+
+* Add regex.find_offsets, regex.find, improve regex.match
+  ([#1232](https://github.com/lite-xl/lite-xl/pull/1232))
+
+* Added regex.gmatch ([#1233](https://github.com/lite-xl/lite-xl/pull/1233))
+
+* add touch events ([#1245](https://github.com/lite-xl/lite-xl/pull/1245))
+
+### Performance Improvements
+
+* highlighter: autostop co-routine when not needed
+  ([#881](https://github.com/lite-xl/lite-xl/pull/881))
+
+* core: ported regex.gsub to faster native version
+  ([#1233](https://github.com/lite-xl/lite-xl/pull/1233))
+
+### Backward Incompatible Changes
+
+* For correctness, the behaviour of `regex.match` was changed to more closely
+  behave like `string.match`.
+
+* `regex.find_offsets` now provides the previous functionality of `regex.match`
+  with a more appropriate function name.
+
+* `regex.gsub` doesn't provides the indexes of matches and replacements anymore,
+  now it behaves more similar to `string.gsub` (the only known affected plugin
+  was `regexreplacepreview` which has already been adapted)
+
+### UI Enhancements
+
+* statusview: respect right padding of item tooltip
+  ([0373d29f](https://github.com/lite-xl/lite-xl/commit/0373d29f99f286b2fbdda5a6837ef3797c988b88))
+
+* feat: encode home in statusview file path
+  ([#1224](https://github.com/lite-xl/lite-xl/pull/1224))
+
+* autocomplete: wrap the autocomplete results around
+  ([#1223](https://github.com/lite-xl/lite-xl/pull/1223))
+
+* feat: alert user via nagview if file cannot be saved
+  ([#1230](https://github.com/lite-xl/lite-xl/pull/1230))
+
+* contextmenu: make divider less aggressive
+  ([#1228](https://github.com/lite-xl/lite-xl/pull/1228))
+
+* Improve IME location updates
+  ([#1170](https://github.com/lite-xl/lite-xl/pull/1170))
+
+* fix: move tab scroll buttons to remove spacing before 1st tab
+  ([#1231](https://github.com/lite-xl/lite-xl/pull/1231))
+
+### Fixes
+
+* Don't sort in Doc:get_selection_idx with an invalid index
+  ([b029f599](https://github.com/lite-xl/lite-xl/commit/b029f5993edb7dee5ccd2ba55faac1ec22e24609))
+
+* tokenizer: remove the limit of 3 subsyntaxes depth
+  ([#1186](https://github.com/lite-xl/lite-xl/pull/1186))
+
+* dirmonitor: give kevent a timeout so it doesn't lock forever
+  ([#1180](https://github.com/lite-xl/lite-xl/pull/1180))
+
+* Make linewrapping plugin recompute breaks before scrolling
+  ([#1190](https://github.com/lite-xl/lite-xl/pull/1190))
+
+* Add missing get_exe_filename() implementation for FreeBSD
+  ([#1198](https://github.com/lite-xl/lite-xl/pull/1198))
+
+* (Windows) Load fonts with UTF-8 filenames
+  ([#1201](https://github.com/lite-xl/lite-xl/pull/1201))
+
+* Use subsyntax info to toggle comments
+  ([#1202](https://github.com/lite-xl/lite-xl/pull/1202))
+
+* Pass the currently selected item to CommandView validation
+  ([#1203](https://github.com/lite-xl/lite-xl/pull/1203))
+
+* Windows font loading hotfix
+  ([#1205](https://github.com/lite-xl/lite-xl/pull/1205))
+
+* better error messages for checkcolor
+  ([#1211](https://github.com/lite-xl/lite-xl/pull/1211))
+
+* Fix native plugins not reloading upon core:restart
+  ([#1219](https://github.com/lite-xl/lite-xl/pull/1219))
+
+* Converted from bytes to characters, as this is what windows is expecting
+  ([5ab8dc02](https://github.com/lite-xl/lite-xl/commit/5ab8dc027502146dd947b3d2c7544ba096a3881b))
+
+* Fix some syntax errors ([#1243](https://github.com/lite-xl/lite-xl/pull/1243))
+
+* toolbarview: Remove tooltip when hidden
+  ([#1251](https://github.com/lite-xl/lite-xl/pull/1251))
+
+* detectindent: Limit subsyntax depth
+  ([#1253](https://github.com/lite-xl/lite-xl/pull/1253))
+
+### Other Changes
+
+* (Windows) MSVC Support ([#1199](https://github.com/lite-xl/lite-xl/pull/1199))
+
+* meson: updated all subproject wraps
+  ([#1214](https://github.com/lite-xl/lite-xl/pull/1214))
+
+* set arch tuple in meson ([#1254](https://github.com/lite-xl/lite-xl/pull/1254))
+
+* update documentation for system
+  ([#1210](https://github.com/lite-xl/lite-xl/pull/1210))
+
+* docs api: added dirmonitor
+  ([7bb86e16](https://github.com/lite-xl/lite-xl/commit/7bb86e16f291256a99d2e87beb77de890cfaf0fe))
+
+* trimwhitespace: expose functionality and extra features
+  ([#1238](https://github.com/lite-xl/lite-xl/pull/1238))
+
+* plugins projectsearch: expose its functionality
+  ([#1235](https://github.com/lite-xl/lite-xl/pull/1235))
+
+* Simplify SDL message boxes (#1249)
+  ([#1249](https://github.com/lite-xl/lite-xl/pull/1249))
+
 ## [2.1.0] - 2022-11-01
 
 ### New Features
@@ -844,6 +971,7 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
+[2.1.1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.1
 [2.1.0]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.0
 [2.0.5]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.5
 [2.0.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.0.4
