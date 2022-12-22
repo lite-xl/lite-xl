@@ -53,8 +53,12 @@ if get_option('renderer') or host_machine.system() == 'darwin'
     lite_cargs += '-DLITE_USE_SDL_RENDERER'
 endif
 if get_option('arch_tuple') != ''
-    lite_cargs += '-DLITE_ARCH_TUPLE="@0@"'.format(get_option('arch_tuple'))
+    arch_tuple = get_option('arch_tuple')
+else
+    arch_tuple = '@0@-@1@'.format(target_machine.cpu_family(), target_machine.system())
 endif
+lite_cargs += '-DLITE_ARCH_TUPLE="@0@"'.format(arch_tuple)
+
 #===============================================================================
 # Linker Settings
 #===============================================================================
