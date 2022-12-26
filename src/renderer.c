@@ -358,9 +358,9 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
-float ren_font_group_get_width(RenFont **fonts, const char *text) {
+float ren_font_group_get_width(RenFont **fonts, const char *text, size_t len) {
   float width = 0;
-  const char* end = text + strlen(text);
+  const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
   while (text < end) {
     unsigned int codepoint;
@@ -374,7 +374,7 @@ float ren_font_group_get_width(RenFont **fonts, const char *text) {
   return width / surface_scale;
 }
 
-float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor color) {
+float ren_draw_text(RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
   SDL_Surface *surface = renwin_get_surface(&window_renderer);
   const RenRect clip = window_renderer.clip;
 
@@ -382,7 +382,7 @@ float ren_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor 
   float pen_x = x * surface_scale;
   y *= surface_scale;
   int bytes_per_pixel = surface->format->BytesPerPixel;
-  const char* end = text + strlen(text);
+  const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
 

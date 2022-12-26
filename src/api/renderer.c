@@ -193,7 +193,10 @@ static int f_font_gc(lua_State *L) {
 
 static int f_font_get_width(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
-  lua_pushnumber(L, ren_font_group_get_width(fonts, luaL_checkstring(L, 2)));
+  size_t len;
+  const char *text = luaL_checklstring(L, 2, &len);
+
+  lua_pushnumber(L, ren_font_group_get_width(fonts, text, len));
   return 1;
 }
 
@@ -338,11 +341,12 @@ static int f_draw_text(lua_State *L) {
   }
   lua_pop(L, 1);
 
-  const char *text = luaL_checkstring(L, 2);
+  size_t len;
+  const char *text = luaL_checklstring(L, 2, &len);
   float x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(fonts, text, x, y, color);
+  x = rencache_draw_text(fonts, text, len, x, y, color);
   lua_pushnumber(L, x);
   return 1;
 }

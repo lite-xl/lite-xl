@@ -39,6 +39,7 @@ typedef struct {
   RenColor color;
   RenFont *fonts[FONT_FALLBACK_MAX];
   float text_x;
+  size_t len;
   char text[];
 } Command;
 
@@ -145,12 +146,12 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-float rencache_draw_text(RenFont **fonts, const char *text, float x, int y, RenColor color)
+float rencache_draw_text(RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color)
 {
-  float width = ren_font_group_get_width(fonts, text);
+  float width = ren_font_group_get_width(fonts, text, len);
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
   if (rects_overlap(screen_rect, rect)) {
-    int sz = strlen(text) + 1;
+    int sz = len + 1;
     Command *cmd = push_command(DRAW_TEXT, COMMAND_BARE_SIZE + sz);
     if (cmd) {
       memcpy(cmd->text, text, sz);
@@ -158,6 +159,7 @@ float rencache_draw_text(RenFont **fonts, const char *text, float x, int y, RenC
       memcpy(cmd->fonts, fonts, sizeof(RenFont*)*FONT_FALLBACK_MAX);
       cmd->rect = rect;
       cmd->text_x = x;
+      cmd->len = len;
       cmd->tab_size = ren_font_group_get_tab_size(fonts);
     }
   }
@@ -266,7 +268,7 @@ void rencache_end_frame() {
           break;
         case DRAW_TEXT:
           ren_font_group_set_tab_size(cmd->fonts, cmd->tab_size);
-          ren_draw_text(cmd->fonts, cmd->text, cmd->text_x, cmd->rect.y, cmd->color);
+          ren_draw_text(cmd->fonts, cmd->text, cmd->len, cmd->text_x, cmd->rect.y, cmd->color);
           break;
       }
     }
