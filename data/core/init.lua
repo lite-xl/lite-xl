@@ -533,13 +533,13 @@ local style = require "core.style"
 
 -- enable or disable plugin loading setting config entries:
 
--- enable plugins.trimwhitespace, otherwise it is disable by default:
+-- enable plugins.trimwhitespace, otherwise it is disabled by default:
 -- config.plugins.trimwhitespace = true
 --
 -- disable detectindent, otherwise it is enabled by default
 -- config.plugins.detectindent = false
 
----------------------------- Miscellanous --------------------------------------
+---------------------------- Miscellaneous -------------------------------------
 
 -- modify list of files to ignore when indexing the project:
 -- config.ignore_files = {
