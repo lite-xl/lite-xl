@@ -24,7 +24,7 @@ void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
 
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
-  struct timespec ts = { 0, 10 * 1000000 }; // 10 ms
+  struct timespec ts = { 0, 100 * 1000000 }; // 100 ms
 
   int nev = kevent(monitor->fd, NULL, 0, (struct kevent*)buffer, buffer_size / sizeof(kevent), &ts);
   if (nev == -1)
@@ -45,7 +45,7 @@ int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buff
 int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   int fd = open(path, O_RDONLY);
   struct kevent change;
-  
+
   // a timeout of zero should make kevent return immediately
   struct timespec ts = { 0, 0 }; // 0 s
 
