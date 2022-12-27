@@ -88,6 +88,7 @@ function ContextMenu:show(x, y)
     end
     if y + h >= core.root_view.size.y then
       y = y - h
+      if y < 0 then y = 0 end
     end
 
     self.position.x, self.position.y = x, y
