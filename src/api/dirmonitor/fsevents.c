@@ -108,6 +108,9 @@ int get_changes_dirmonitor(
   results = monitor->count;
   SDL_UnlockMutex(monitor->lock);
 
+  if (monitor->count <= 0)
+    SDL_Delay(100);
+
   return results;
 }
 
