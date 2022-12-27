@@ -495,6 +495,10 @@ local style = require "core.style"
 -- key binding:
 -- keymap.add { ["ctrl+escape"] = "core:quit" }
 
+-- pass 'true' for second parameter to overwrite an existing binding
+-- keymap.add({ ["ctrl+pageup"] = "root:switch-to-previous-tab" }, true)
+-- keymap.add({ ["ctrl+pagedown"] = "root:switch-to-next-tab" }, true)
+
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
