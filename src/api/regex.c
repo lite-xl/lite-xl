@@ -46,9 +46,7 @@ static pcre2_code* regex_get_pattern(lua_State *L, bool* should_free) {
       return NULL;
     }
 
-    if (pcre2_config(PCRE2_CONFIG_JIT, NULL) == 1) {
-      pcre2_jit_compile(re, PCRE2_JIT_COMPLETE);
-    }
+    pcre2_jit_compile(re, PCRE2_JIT_COMPLETE);
 
     *should_free = true;
   }
@@ -159,6 +157,7 @@ static int f_pcre_compile(lua_State *L) {
     NULL
   );
   if (re) {
+    pcre2_jit_compile(re, PCRE2_JIT_COMPLETE);
     lua_newtable(L);
     lua_pushlightuserdata(L, re);
     lua_rawseti(L, -2, 1);
