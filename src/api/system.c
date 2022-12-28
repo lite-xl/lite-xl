@@ -946,9 +946,14 @@ static void* api_require(const char* symbol) {
     P(iscfunction), P(yieldk),
     U(checkversion_), U(tolstring), U(len), U(getsubtable), U(prepbuffsize),
     U(pushresultsize), U(buffinitsize), U(checklstring), U(checkoption), U(gsub), U(loadbufferx),
-    U(loadfilex), U(optinteger), U(optlstring), U(requiref), U(traceback)
+    U(loadfilex), U(optinteger), U(optlstring), U(requiref), U(traceback),
     #else
-    P(objlen)
+    P(objlen),
+    #endif
+    #if LUA_VERSION_NUM >= 504
+    P(newuserdatauv), P(setiuservalue), P(getiuservalue)
+    #else
+    P(newuserdata), P(setuservalue), P(getuservalue)
     #endif
 
   };
