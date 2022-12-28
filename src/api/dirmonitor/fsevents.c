@@ -6,6 +6,7 @@ struct dirmonitor_internal {
   char** changes;
   size_t count;
   FSEventStreamRef stream;
+  int fds[2];
 };
 
 CFRunLoopRef main_run_loop;
@@ -39,6 +40,9 @@ static void stop_monitor_stream(struct dirmonitor_internal* monitor) {
     monitor->stream = NULL;
 
     SDL_LockMutex(monitor->lock);
+    write(monitor->fds[1], "", 1);
+    close(monitor->fds[0]);
+    close(monitor->fds[1]);
     if (monitor->count > 0) {
       for (size_t i = 0; i<monitor->count; i++) {
         free(monitor->changes[i]);
@@ -92,6 +96,9 @@ static void stream_callback(
     strcpy(monitor->changes[idx], path_list[pidx]);
   }
   monitor->count = total;
+
+  if (total > 0)
+    write(monitor->fds[1], "", 1);
   SDL_UnlockMutex(monitor->lock);
 }
 
@@ -101,15 +108,13 @@ int get_changes_dirmonitor(
   char* buffer,
   int buffer_size
 ) {
-  FSEventStreamFlushSync(monitor->stream);
+  char response[1];
+  read(monitor->fds[0], response, 1);
 
   size_t results = 0;
   SDL_LockMutex(monitor->lock);
   results = monitor->count;
   SDL_UnlockMutex(monitor->lock);
-
-  if (monitor->count <= 0)
-    SDL_Delay(100);
 
   return results;
 }
@@ -141,6 +146,7 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   stop_monitor_stream(monitor);
 
   monitor->lock = SDL_CreateMutex();
+  pipe(monitor->fds);
 
   FSEventStreamContext context = {
     .info = monitor,
@@ -160,7 +166,7 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
     &context,
     CFArrayCreate(NULL, (const void **)&paths, 1, NULL),
     kFSEventStreamEventIdSinceNow,
-    10000,
+    0,
     kFSEventStreamCreateFlagNone
       | kFSEventStreamCreateFlagWatchRoot
       | kFSEventStreamCreateFlagFileEvents
