@@ -83,12 +83,8 @@ function ContextMenu:show(x, y)
     local w, h = self.items.width, self.items.height
 
     -- by default the box is opened on the right and below
-    if x + w >= core.root_view.size.x then
-      x = x - w
-    end
-    if y + h >= core.root_view.size.y then
-      y = y - h
-    end
+    x = common.clamp(x, 0, core.root_view.size.x - w - style.padding.x)
+    y = common.clamp(y, 0, core.root_view.size.y - h)
 
     self.position.x, self.position.y = x, y
     self.show_context_menu = true
