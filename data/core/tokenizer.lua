@@ -283,13 +283,15 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     -- General end of syntax check. Applies in the case where
     -- we're ending early in the middle of a delimiter, or
     -- just normally, upon finding a token.
-    if subsyntax_info then
+    while subsyntax_info do
       local s, e = find_text(text, subsyntax_info, i, true, true)
       if s then
         push_token(res, subsyntax_info.type, text:usub(i, e))
         -- On finding unescaped delimiter, pop it.
         pop_subsyntax()
         i = e + 1
+      else
+        break
       end
     end
 
