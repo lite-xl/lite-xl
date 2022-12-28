@@ -131,10 +131,11 @@ COMPAT53_API int lua_compare (lua_State *L, int idx1, int idx2, int op);
 #define lua_copy COMPAT53_CONCAT(COMPAT53_PREFIX, _copy)
 COMPAT53_API void lua_copy (lua_State *L, int from, int to);
 
-#define lua_getuservalue(L, i) \
-  (lua_getfenv((L), (i)), lua_type((L), -1))
-#define lua_setuservalue(L, i) \
-  (luaL_checktype((L), -1, LUA_TTABLE), lua_setfenv((L), (i)))
+#define lua_getuservalue COMPAT53_CONCAT(COMPAT53_PREFIX, _getuservalue)
+COMPAT53_API void lua_getuservalue (lua_State *L, int i);
+
+#define lua_setuservalue COMPAT53_CONCAT(COMPAT53_PREFIX, _setuservalue)
+COMPAT53_API void lua_setuservalue (lua_State *L, int i);
 
 #define lua_len COMPAT53_CONCAT(COMPAT53_PREFIX, _len)
 COMPAT53_API void lua_len (lua_State *L, int i);
@@ -421,4 +422,3 @@ COMPAT53_API void luaL_requiref (lua_State *L, const char *modname,
 
 
 #endif /* COMPAT53_H_ */
-

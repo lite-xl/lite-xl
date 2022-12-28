@@ -170,6 +170,18 @@ COMPAT53_API void lua_copy (lua_State *L, int from, int to) {
 }
 
 
+COMPAT53_API void lua_getuservalue (lua_State *L, int i) {
+  lua_getfenv(L, i);
+  lua_type(L, -1);
+}
+
+
+COMPAT53_API void lua_setuservalue (lua_State *L, int i) {
+  luaL_checktype(L, -1, LUA_TTABLE);
+  lua_setfenv(L, i);
+}
+
+
 COMPAT53_API void lua_len (lua_State *L, int i) {
   switch (lua_type(L, i)) {
     case LUA_TSTRING:
@@ -968,4 +980,3 @@ COMPAT53_API void luaL_requiref (lua_State *L, const char *modname,
 * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *********************************************************************/
-
