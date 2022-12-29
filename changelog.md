@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.1] - XXXX-XX-XX
+## [2.1.1] - 2022-12-29
 
 ### New Features
 
@@ -57,6 +57,12 @@
 * fix: move tab scroll buttons to remove spacing before 1st tab
   ([#1231](https://github.com/lite-xl/lite-xl/pull/1231))
 
+* Allow TreeView file operation commands when focused
+  ([#1256](https://github.com/lite-xl/lite-xl/pull/1256))
+
+* contextmenu: adjust y positioning if less than zero
+  ([#1268](https://github.com/lite-xl/lite-xl/pull/1268))
+
 ### Fixes
 
 * Don't sort in Doc:get_selection_idx with an invalid index
@@ -67,7 +73,7 @@
 
 * dirmonitor: give kevent a timeout so it doesn't lock forever
   ([#1180](https://github.com/lite-xl/lite-xl/pull/1180))
-  
+
 * dirmonitor: fix win32 implementation name length to prevent ub
   ([5ab8dc0](https://github.com/lite-xl/lite-xl/commit/5ab8dc027502146dd947b3d2c7544ba096a3881b))
 
@@ -106,6 +112,22 @@
 * detectindent: Limit subsyntax depth
   ([#1253](https://github.com/lite-xl/lite-xl/pull/1253))
 
+* Use Lua string length instead of relying on strlen (#1262)
+  ([#1262](https://github.com/lite-xl/lite-xl/pull/1262))
+
+* dirmonitor: fix high cpu usage
+  ([#1271](https://github.com/lite-xl/lite-xl/pull/1271)),
+  ([#1274](https://github.com/lite-xl/lite-xl/pull/1274))
+
+* Fix popping subsyntaxes that end consecutively
+  ([#1246](https://github.com/lite-xl/lite-xl/pull/1246))
+
+* Fix userdata APIs for Lua 5.4 in native plugin interface
+  ([#1188](https://github.com/lite-xl/lite-xl/pull/1188))
+
+* Fix horizontal scroll with touchpad on MacOS
+  ([74349f8e](https://github.com/lite-xl/lite-xl/commit/74349f8e566ec31acd9a831a060b677d706ae4e8))
+
 ### Other Changes
 
 * (Windows) MSVC Support ([#1199](https://github.com/lite-xl/lite-xl/pull/1199))
@@ -127,8 +149,16 @@
 * plugins projectsearch: expose its functionality
   ([#1235](https://github.com/lite-xl/lite-xl/pull/1235))
 
-* Simplify SDL message boxes (#1249)
+* Simplify SDL message boxes
   ([#1249](https://github.com/lite-xl/lite-xl/pull/1249))
+
+* Add example settings to _overwrite_ an existing key binding
+  ([#1270](https://github.com/lite-xl/lite-xl/pull/1270))
+
+* Fix two typos in data/init.lua
+  ([#1272](https://github.com/lite-xl/lite-xl/pull/1272))
+
+* Updated meson wraps to latest (SDL v2.26, PCRE2 v10.42)
 
 ## [2.1.0] - 2022-11-01
 
