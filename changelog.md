@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.1] - 2022-12-28
+## [2.1.1] - 2022-12-29
 
 ### New Features
 
@@ -157,6 +157,8 @@
 
 * Fix two typos in data/init.lua
   ([#1272](https://github.com/lite-xl/lite-xl/pull/1272))
+
+* Updated meson wraps to latest (SDL v2.26, PCRE2 v10.42)
 
 ## [2.1.0] - 2022-11-01
 
