@@ -495,6 +495,10 @@ local style = require "core.style"
 -- key binding:
 -- keymap.add { ["ctrl+escape"] = "core:quit" }
 
+-- pass 'true' for second parameter to overwrite an existing binding
+-- keymap.add({ ["ctrl+pageup"] = "root:switch-to-previous-tab" }, true)
+-- keymap.add({ ["ctrl+pagedown"] = "root:switch-to-next-tab" }, true)
+
 ------------------------------- Fonts ----------------------------------------
 
 -- customize fonts:
@@ -529,13 +533,13 @@ local style = require "core.style"
 
 -- enable or disable plugin loading setting config entries:
 
--- enable plugins.trimwhitespace, otherwise it is disable by default:
+-- enable plugins.trimwhitespace, otherwise it is disabled by default:
 -- config.plugins.trimwhitespace = true
 --
 -- disable detectindent, otherwise it is enabled by default
 -- config.plugins.detectindent = false
 
----------------------------- Miscellanous --------------------------------------
+---------------------------- Miscellaneous -------------------------------------
 
 -- modify list of files to ignore when indexing the project:
 -- config.ignore_files = {

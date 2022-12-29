@@ -75,7 +75,9 @@ local function escape_comment_tokens(token)
 end
 
 
-local function get_comment_patterns(syntax)
+local function get_comment_patterns(syntax, _loop)
+  _loop = _loop or 1
+  if _loop > 5 then return end
   if comments_cache[syntax] then
     if #comments_cache[syntax] > 0 then
       return comments_cache[syntax]
@@ -125,7 +127,7 @@ local function get_comment_patterns(syntax)
     elseif pattern.syntax then
       local subsyntax = type(pattern.syntax) == 'table' and pattern.syntax
         or core_syntax.get("file"..pattern.syntax, "")
-      local sub_comments = get_comment_patterns(subsyntax)
+      local sub_comments = get_comment_patterns(subsyntax, _loop + 1)
       if sub_comments then
         for s=1, #sub_comments do
           table.insert(comments, sub_comments[s])
