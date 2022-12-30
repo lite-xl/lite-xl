@@ -594,7 +594,7 @@ local config = require "core.config"
 -- "^/build.*/" match any top level directory whose name begins with "build"
 -- "^/subprojects/.+/" match any directory inside a top-level folder named "subprojects".
 
--- You may activate some plugins on a pre-project base to override the user's settings.
+-- You may activate some plugins on a per-project basis to override the user's settings.
 -- config.plugins.trimwitespace = true
 ]])
   init_file:close()
