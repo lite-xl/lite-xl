@@ -559,11 +559,10 @@ static int f_rmdir(lua_State *L) {
     return 2;
   }
 #else
-  int deleted = remove(path);
-  if(deleted < 0) {
+  int deleted = rmdir(path);
+  if (deleted < 0) {
     lua_pushboolean(L, 0);
     lua_pushstring(L, strerror(errno));
-
     return 2;
   } else {
     lua_pushboolean(L, 1);
