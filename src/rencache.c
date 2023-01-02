@@ -26,7 +26,8 @@
 #define CELLS_X 80
 #define CELLS_Y 50
 #define CELL_SIZE 96
-#define COMMAND_BUF_SIZE (1024 * 512)
+#define CMD_BUF_RESIZE_RATE 1.2
+#define CMD_BUF_INIT_SIZE (1024 * 512)
 #define COMMAND_BARE_SIZE offsetof(Command, text)
 
 enum { SET_CLIP, DRAW_TEXT, DRAW_RECT };
@@ -48,7 +49,9 @@ static unsigned cells_buf2[CELLS_X * CELLS_Y];
 static unsigned *cells_prev = cells_buf1;
 static unsigned *cells = cells_buf2;
 static RenRect rect_buf[CELLS_X * CELLS_Y / 2];
-static char command_buf[COMMAND_BUF_SIZE];
+size_t command_buf_size = 0;
+uint8_t *command_buf = NULL;
+static bool resize_issue;
 static int command_buf_idx;
 static RenRect screen_rect;
 static bool show_debug;
@@ -96,16 +99,38 @@ static RenRect merge_rects(RenRect a, RenRect b) {
   return (RenRect) { x1, y1, x2 - x1, y2 - y1 };
 }
 
+static bool expand_command_buffer() {
+  size_t new_size = command_buf_size * CMD_BUF_RESIZE_RATE;
+  if (new_size == 0) {
+    new_size = CMD_BUF_INIT_SIZE;
+  }
+  uint8_t *new_command_buf = realloc(command_buf, new_size);
+  if (!new_command_buf) {
+    return false;
+  }
+  command_buf_size = new_size;
+  command_buf = new_command_buf;
+  return true;
+}
 
 static Command* push_command(int type, int size) {
-  size_t alignment = alignof(max_align_t) - 1;
-  size = (size + alignment) & ~alignment;
-  Command *cmd = (Command*) (command_buf + command_buf_idx);
-  int n = command_buf_idx + size;
-  if (n > COMMAND_BUF_SIZE) {
-    fprintf(stderr, "Warning: (" __FILE__ "): exhausted command buffer\n");
+  if (resize_issue) {
+    // Don't push new commands as we had problems resizing the command buffer.
+    // Let's wait for the next frame.
     return NULL;
   }
+  size_t alignment = alignof(max_align_t) - 1;
+  size = (size + alignment) & ~alignment;
+  int n = command_buf_idx + size;
+  while (n > command_buf_size) {
+    if (!expand_command_buffer()) {
+      fprintf(stderr, "Warning: (" __FILE__ "): unable to resize command buffer (%ld)\n",
+              (size_t)(command_buf_size * CMD_BUF_RESIZE_RATE));
+      resize_issue = true;
+      return NULL;
+    }
+  }
+  Command *cmd = (Command*) (command_buf + command_buf_idx);
   command_buf_idx = n;
   memset(cmd, 0, size);
   cmd->type = type;
@@ -175,6 +200,7 @@ void rencache_invalidate(void) {
 void rencache_begin_frame() {
   /* reset all cells if the screen width/height has changed */
   int w, h;
+  resize_issue = false;
   ren_get_size(&w, &h);
   if (screen_rect.width != w || h != screen_rect.height) {
     screen_rect.width = w;
