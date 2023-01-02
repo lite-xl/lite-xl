@@ -507,8 +507,13 @@ void ren_draw_rect(RenRect rect, RenColor color) {
 
 /*************** Window Management ****************/
 void ren_free_window_resources() {
+  extern uint8_t *command_buf;
+  extern size_t command_buf_size;
   renwin_free(&window_renderer);
   SDL_FreeSurface(draw_rect_surface);
+  free(command_buf);
+  command_buf = NULL;
+  command_buf_size = 0;
 }
 
 void ren_init(SDL_Window *win) {
