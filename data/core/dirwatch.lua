@@ -166,7 +166,7 @@ end
 
 
 local function compare_file(a, b)
-  return a.filename < b.filename
+  return system.path_compare(a.filename, a.type, b.filename, b.type)
 end
 
 
