@@ -377,7 +377,7 @@ static int Lutf8_codepoint (lua_State *L) {
   luaL_checkstack(L, n, "string slice too long");
   n = 0;  /* count the number of returns */
   se = s + pose;  /* string end */
-  for (n = 0, s += posi - 1; s < se;) {
+  for (s += posi - 1; s < se;) {
     utfint code = 0;
     s = utf8_safe_decode(L, s, &code);
     if (!lax && utf8_invalid(code))
