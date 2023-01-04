@@ -145,6 +145,8 @@ static int f_font_group(lua_State* L) {
   luaL_checktype(L, 1, LUA_TTABLE);
 
   table_size = lua_rawlen(L, 1);
+  if (table_size <= 0)
+    return luaL_error(L, "failed to create font group: table is empty");
   if (table_size > FONT_FALLBACK_MAX)
     return luaL_error(L, "failed to create font group: table size too large");
 
