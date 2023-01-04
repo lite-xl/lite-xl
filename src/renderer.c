@@ -281,8 +281,10 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
   if(!font->underline_thickness) font->underline_thickness = ceil((double) font->height / 14.0);
 
-  if (FT_Load_Char(face, ' ', font_set_load_options(font)))
+  if (FT_Load_Char(face, ' ', font_set_load_options(font))) {
+    free(font);
     goto failure;
+  }
   font->space_advance = face->glyph->advance.x / 64.0f;
   font->tab_advance = font->space_advance * 2;
   return font;
