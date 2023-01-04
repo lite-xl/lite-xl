@@ -173,10 +173,6 @@ static int process_start(lua_State* L) {
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
       if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT) {
-        for (size_t i = 0; i < env_len; ++i) {
-          free((char*)env_names[i]);
-          free((char*)env_values[i]);
-        }
         retval = luaL_error(L, "redirect to handles, FILE* and paths are not supported");
         goto cleanup;
       }
