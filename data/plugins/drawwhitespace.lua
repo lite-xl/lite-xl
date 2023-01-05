@@ -202,15 +202,16 @@ function DocView:draw_line_text(idx, x, y)
     return draw_line_text(self, idx, x, y)
   end
 
-  local doDraw
-  if self.doc:has_any_selection() then
-    for _, l1, c1, l2, c2 in self.doc:get_selections(true) do
+  if self.doc:has_any_selection() and config.plugin.drawwhitespace.show_selected_only then
+    local do_draw
+    for _, l1, _, l2, _ in self.doc:get_selections(true) do
       if idx >= l1 and idx <= l2 then
-        doDraw = true
+        do_draw = true
+        break
       end
     end
+    if not do_draw then return draw_line_text(self, idx, x, y) end
   end
-  if not doDraw and config.plugins.drawwhitespace.show_selected_only then return draw_line_text(self, idx, x, y) end
 
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
   local font_size = font:get_size()
