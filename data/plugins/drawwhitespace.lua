@@ -202,7 +202,7 @@ function DocView:draw_line_text(idx, x, y)
     return draw_line_text(self, idx, x, y)
   end
 
-  if self.doc:has_any_selection() and config.plugin.drawwhitespace.show_selected_only then
+  if config.plugins.drawwhitespace.show_selected_only and self.doc:has_any_selection() then
     local do_draw
     for _, l1, _, l2, _ in self.doc:get_selections(true) do
       if idx >= l1 and idx <= l2 then
@@ -210,6 +210,7 @@ function DocView:draw_line_text(idx, x, y)
         break
       end
     end
+
     if not do_draw then return draw_line_text(self, idx, x, y) end
   end
 
