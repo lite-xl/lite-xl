@@ -916,7 +916,7 @@ typedef struct lua_function_node {
 #define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
 #define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
 static void* api_require(const char* symbol) {
-  static lua_function_node nodes[] = {
+  static const lua_function_node nodes[] = {
     P(atpanic), P(checkstack),
     P(close), P(concat), P(copy), P(createtable), P(dump),
     P(error),  P(gc), P(getallocf),  P(getfield),
