@@ -11,6 +11,7 @@ config.plugins.drawwhitespace = common.merge({
   show_leading = true,
   show_trailing = true,
   show_middle = true,
+  show_selected_only = false,
 
   show_middle_min = 1,
 
@@ -63,6 +64,13 @@ config.plugins.drawwhitespace = common.merge({
       path = "show_trailing",
       type = "toggle",
       default = true,
+    },
+    {
+      label = "Show Selected Only",
+      description = "Only draw whitespaces if it is within a selection.",
+      path = "show_selected_only",
+      type = "toggle",
+      default = false,
     },
     {
       label = "Show Trailing as Error",
@@ -184,6 +192,13 @@ local function get_option(substitution, option)
   return substitution[option]
 end
 
+local function sort_positions(line1, col1, line2, col2)
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1, true
+  end
+  return line1, col1, line2, col2, false
+end
+
 local draw_line_text = DocView.draw_line_text
 function DocView:draw_line_text(idx, x, y)
   if
@@ -193,6 +208,17 @@ function DocView:draw_line_text(idx, x, y)
   then
     return draw_line_text(self, idx, x, y)
   end
+
+  local doDraw
+  if self.doc:has_any_selection() then
+    for _, l1, c1, l2, c2 in self.doc:get_selections() do
+      l1, _, l2, _ = sort_positions(l1, c1, l2, c2)
+      if idx >= l1 and idx <= l2 then
+        doDraw = true
+      end
+    end
+  end
+  if not doDraw and config.plugins.drawwhitespace.show_selected_only then return draw_line_text(self, idx, x, y) end
 
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
   local font_size = font:get_size()
