@@ -355,6 +355,12 @@ function DocView:get_scrollable_size()
   return self:get_line_height() * (get_total_wrapped_lines(self) - 1) + self.size.y
 end
 
+local old_get_h_scrollable_size = DocView.get_h_scrollable_size
+function DocView:get_h_scrollable_size(...)
+  if self.wrapping_enabled then return 0 end
+  return old_get_h_scrollable_size(self, ...)
+end
+
 local old_new = DocView.new
 function DocView:new(doc)
   old_new(self, doc)
