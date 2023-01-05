@@ -202,18 +202,6 @@ function DocView:draw_line_text(idx, x, y)
     return draw_line_text(self, idx, x, y)
   end
 
-  local do_draw = not config.plugins.drawwhitespace.show_selected_only
-  if config.plugins.drawwhitespace.show_selected_only and self.doc:has_any_selection() then
-    for _, l1, _, l2, _ in self.doc:get_selections(true) do
-      do_draw = false
-      if idx >= l1 and idx <= l2 then
-        do_draw = true
-        break
-      end
-    end
-  end
-  if not do_draw then return draw_line_text(self, idx, x, y) end
-
   local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
   local font_size = font:get_size()
   local _, indent_size = self.doc:get_indent_info()
@@ -312,12 +300,22 @@ function DocView:draw_line_text(idx, x, y)
   for i=1,#cache,4 do
     local tx = cache[i + 1] + x
     local tw = cache[i + 2]
-    if tx <= x2 then
-      local sub = cache[i]
-      local color = cache[i + 3]
-      if tx + tw >= x1 then
-        tx = renderer.draw_text(font, sub, tx, ty, color)
+    local sub = cache[i]
+    local color = cache[i + 3]
+    local do_draw = not config.plugins.drawwhitespace.show_selected_only
+    if config.plugins.drawwhitespace.show_selected_only and self.doc:has_any_selection() then
+      for _, l1, c1, l2, c2 in self.doc:get_selections(true) do
+        do_draw = false
+        if idx >= l1 and idx <= l2 and
+        cache[i + 1] >= self:get_col_x_offset(idx, c1) and
+        (cache[i + 1] + tw) <= self:get_col_x_offset(idx, c2) then
+          do_draw = true
+          break
+        end
       end
+    end
+    if do_draw then
+      tx = renderer.draw_text(font, sub, tx, ty, color)
     end
   end
 
