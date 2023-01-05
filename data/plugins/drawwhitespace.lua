@@ -192,13 +192,6 @@ local function get_option(substitution, option)
   return substitution[option]
 end
 
-local function sort_positions(line1, col1, line2, col2)
-  if line1 > line2 or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1, true
-  end
-  return line1, col1, line2, col2, false
-end
-
 local draw_line_text = DocView.draw_line_text
 function DocView:draw_line_text(idx, x, y)
   if
@@ -211,8 +204,7 @@ function DocView:draw_line_text(idx, x, y)
 
   local doDraw
   if self.doc:has_any_selection() then
-    for _, l1, c1, l2, c2 in self.doc:get_selections() do
-      l1, _, l2, _ = sort_positions(l1, c1, l2, c2)
+    for _, l1, c1, l2, c2 in self.doc:get_selections(true) do
       if idx >= l1 and idx <= l2 then
         doDraw = true
       end
