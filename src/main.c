@@ -36,8 +36,9 @@ static void get_exe_filename(char *buf, int sz) {
   buf[len] = '\0';
 #elif __linux__
   char path[] = "/proc/self/exe";
-  int len = readlink(path, buf, sz - 1);
-  buf[len] = '\0';
+  ssize_t len = readlink(path, buf, sz - 1);
+  if (len > 0)
+    buf[len] = '\0';
 #elif __APPLE__
   /* use realpath to resolve a symlink if the process was launched from one.
   ** This happens when Homebrew installs a cack and creates a symlink in
