@@ -9,7 +9,7 @@ local EmptyView = View:extend()
 local function draw_text(x, y, color)
   local th = style.big_font:get_height()
   local dh = 2 * th + style.padding.y * 2
-  local x1, y1 = x, y + (dh - th) / 2
+  local x1, y1 = x, y + ((dh - th) / 4)
   local xv = x1
   local title = "Lite XL"
   local version = "version " .. VERSION
