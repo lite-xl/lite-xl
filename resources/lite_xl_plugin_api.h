@@ -540,6 +540,7 @@ static	void *(*luaL_testudata)	(lua_State *L, int ud, const char *tname);
 static	void *(*luaL_checkudata)	(lua_State *L, int ud, const char *tname);
 static	void (*luaL_where)	(lua_State *L, int lvl);
 static	int (*luaL_error)	(lua_State *L, const char *fmt, ...);
+static  int (*luaL_typeerror)  (lua_State *L, int narg, const char *tname);
 static	int (*luaL_checkoption)	(lua_State *L, int narg, const char *def, const char *const lst[]);
 static	int (*luaL_fileresult)	(lua_State *L, int stat, const char *fname);
 static	int (*luaL_execresult)	(lua_State *L, int stat);
@@ -611,6 +612,7 @@ static	void *	__lite_xl_fallback_luaL_testudata	(lua_State *L, int ud, const cha
 static	void *	__lite_xl_fallback_luaL_checkudata	(lua_State *L, int ud, const char *tname) { fputs("warning: luaL_checkudata is a stub", stderr); }
 static	void 	__lite_xl_fallback_luaL_where	(lua_State *L, int lvl) { fputs("warning: luaL_where is a stub", stderr); }
 static	int 	__lite_xl_fallback_luaL_error	(lua_State *L, const char *fmt, ...) { fputs("warning: luaL_error is a stub", stderr); }
+static	int 	__lite_xl_fallback_luaL_typeerror	(lua_State *L, int narg, const char *tname) { fputs("warning: luaL_typeerror is a stub", stderr); }
 static	int 	__lite_xl_fallback_luaL_checkoption	(lua_State *L, int narg, const char *def, const char *const lst[]) { fputs("warning: luaL_checkoption is a stub", stderr); }
 static	int 	__lite_xl_fallback_luaL_fileresult	(lua_State *L, int stat, const char *fname) { fputs("warning: luaL_fileresult is a stub", stderr); }
 static	int 	__lite_xl_fallback_luaL_execresult	(lua_State *L, int stat) { fputs("warning: luaL_execresult is a stub", stderr); }
@@ -752,6 +754,7 @@ static void lite_xl_plugin_init(void *XL) {
 	IMPORT_SYMBOL(luaL_checkudata, void *, lua_State *L, int ud, const char *tname);
 	IMPORT_SYMBOL(luaL_where, void , lua_State *L, int lvl);
 	IMPORT_SYMBOL(luaL_error, int , lua_State *L, const char *fmt, ...);
+	IMPORT_SYMBOL(luaL_typeerror, int , lua_State *L, int narg, const char *tname);
 	IMPORT_SYMBOL(luaL_checkoption, int , lua_State *L, int narg, const char *def, const char *const lst[]);
 	IMPORT_SYMBOL(luaL_fileresult, int , lua_State *L, int stat, const char *fname);
 	IMPORT_SYMBOL(luaL_execresult, int , lua_State *L, int stat);
