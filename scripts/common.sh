@@ -27,7 +27,8 @@ addons_download() {
     -o "${build_dir}/lite-xl-widgets.zip"
 
   unzip "${build_dir}/lite-xl-widgets.zip" -d "${build_dir}"
-  mv "${build_dir}/lite-xl-widgets-master" "${build_dir}/third/data/widget"
+  mkdir -p "${build_dir}/third/data/libraries"
+  mv "${build_dir}/lite-xl-widgets-master" "${build_dir}/third/data/libraries/widget"
 
   # Downlaod thirdparty plugins
   curl --insecure \
@@ -45,7 +46,7 @@ addons_install() {
   local build_dir="$1"
   local data_dir="$2"
 
-  for module_name in colors widget; do
+  for module_name in colors libraries; do
     cp -r "${build_dir}/third/data/$module_name" "${data_dir}"
   done
 
