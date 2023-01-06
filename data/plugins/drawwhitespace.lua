@@ -1,5 +1,6 @@
 -- mod-version:3
 
+local core = require "core"
 local style = require "core.style"
 local DocView = require "core.docview"
 local common = require "core.common"
@@ -302,20 +303,40 @@ function DocView:draw_line_text(idx, x, y)
     local tw = cache[i + 2]
     local sub = cache[i]
     local color = cache[i + 3]
-    local do_draw = not config.plugins.drawwhitespace.show_selected_only
+    local partials = {}
     if config.plugins.drawwhitespace.show_selected_only and self.doc:has_any_selection() then
       for _, l1, c1, l2, c2 in self.doc:get_selections(true) do
-        do_draw = false
-        if idx >= l1 and idx <= l2 and
-        cache[i + 1] >= self:get_col_x_offset(idx, c1) and
-        (cache[i + 1] + tw) <= self:get_col_x_offset(idx, c2) then
-          do_draw = true
-          break
+        if idx > l1 and idx < l2 then
+          -- Between selection lines, so everything is selected
+          table.insert(partials, false)
+        elseif idx == l1 and idx == l2 then
+          -- Both ends of the selection are on the same line
+          local _x1 = math.max(cache[i + 1], self:get_col_x_offset(idx, c1))
+          local _x2 = math.min((cache[i + 1] + tw), self:get_col_x_offset(idx, c2))
+          if _x1 < _x2 then
+            table.insert(partials, {_x1 + x, 0, _x2 - _x1, math.huge})
+          end
+        elseif idx >= l1 and idx <= l2 then
+          -- On one of the selection ends
+          if idx == l1 then -- Start of the selection
+            local _x = math.max(cache[i + 1], self:get_col_x_offset(idx, c1))
+            table.insert(partials, {_x + x, 0, math.huge, math.huge})
+          else -- End of the selection
+            local _x = math.min((cache[i + 1] + tw), self:get_col_x_offset(idx, c2))
+            table.insert(partials, {0, 0, _x + x, math.huge})
+          end
         end
       end
     end
-    if do_draw then
-      tx = renderer.draw_text(font, sub, tx, ty, color)
+
+    if #partials == 0 and not config.plugins.drawwhitespace.show_selected_only then
+      renderer.draw_text(font, sub, tx, ty, color)
+    else
+      for _, p in pairs(partials) do
+        if p then core.push_clip_rect(table.unpack(p)) end
+        renderer.draw_text(font, sub, tx, ty, color)
+        if p then core.pop_clip_rect() end
+      end
     end
   end
 
