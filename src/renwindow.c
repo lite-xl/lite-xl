@@ -17,11 +17,12 @@ static int query_surface_scale(RenWindow *ren) {
 static void setup_renderer(RenWindow *ren, int w, int h) {
   /* Note that w and h here should always be in pixels and obtained from
      a call to SDL_GL_GetDrawableSize(). */
-  if (ren->renderer) {
-    SDL_DestroyTexture(ren->texture);
-    SDL_DestroyRenderer(ren->renderer);
+  if (!ren->renderer) {
+    ren->renderer = SDL_CreateRenderer(ren->window, -1, 0);
   }
-  ren->renderer = SDL_CreateRenderer(ren->window, -1, 0);
+  if (ren->texture) {
+    SDL_DestroyTexture(ren->texture);
+  }
   ren->texture = SDL_CreateTexture(ren->renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, w, h);
   ren->surface_scale = query_surface_scale(ren);
 }
