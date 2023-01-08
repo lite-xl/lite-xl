@@ -173,11 +173,8 @@ static int process_start(lua_State* L) {
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
       if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT) {
-        for (size_t i = 0; i < env_len; ++i) {
-          free((char*)env_names[i]);
-          free((char*)env_values[i]);
-        }
-        retval = luaL_error(L, "redirect to handles, FILE* and paths are not supported");
+        lua_pushfstring(L, "redirect to handles, FILE* and paths are not supported");
+        retval = -1;
         goto cleanup;
       }
     }
@@ -210,18 +207,21 @@ static int process_start(lua_State* L) {
             self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
               PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 0, NULL);
             if (self->child_pipes[i][0] == INVALID_HANDLE_VALUE) {
-              retval = luaL_error(L, "Error creating read pipe: %d.", GetLastError());
+              lua_pushfstring(L, "Error creating read pipe: %d.", GetLastError());
+              retval = -1;
               goto cleanup;
             }
             self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
             if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
               CloseHandle(self->child_pipes[i][0]);
-              retval = luaL_error(L, "Error creating write pipe: %d.", GetLastError());
+              lua_pushfstring(L, "Error creating write pipe: %d.", GetLastError());
+              retval = -1;
               goto cleanup;
             }
             if (!SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
                 !SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 0 : 1], HANDLE_FLAG_INHERIT, 1)) {
-                  retval = luaL_error(L, "Error inheriting pipes: %d.", GetLastError());
+                  lua_pushfstring(L, "Error inheriting pipes: %d.", GetLastError());
+                  retval = -1;
                   goto cleanup;
             }
           }
@@ -284,7 +284,8 @@ static int process_start(lua_State* L) {
     if (env_len > 0)
       MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
     if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information)) {
-      retval = luaL_error(L, "Error creating a process: %d.", GetLastError());
+      lua_pushfstring(L, "Error creating a process: %d.", GetLastError());
+      retval = -1;
       goto cleanup;
     }
     self->pid = (long)self->process_information.dwProcessId;
@@ -294,13 +295,15 @@ static int process_start(lua_State* L) {
   #else
     for (int i = 0; i < 3; ++i) { // Make only the parents fd's non-blocking. Children should block.
       if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][i == STDIN_FD ? 1 : 0], F_SETFL, O_NONBLOCK) == -1) {
-        retval = luaL_error(L, "Error creating pipes: %s", strerror(errno));
+        lua_pushfstring(L, "Error creating pipes: %s", strerror(errno));
+        retval = -1;
         goto cleanup;
       }
     }
     self->pid = (long)fork();
     if (self->pid < 0) {
-      retval = luaL_error(L, "Error running fork: %s.", strerror(errno));
+      lua_pushfstring(L, "Error running fork: %s.", strerror(errno));
+      retval = -1;
       goto cleanup;
     } else if (!self->pid) {
       if (!detach)
@@ -333,6 +336,9 @@ static int process_start(lua_State* L) {
       close_fd(pipe);
     }
   }
+  if (retval == -1)
+    return lua_error(L);
+
   self->running = true;
   return retval;
 }

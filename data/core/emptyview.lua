@@ -7,9 +7,15 @@ local View = require "core.view"
 local EmptyView = View:extend()
 
 local function draw_text(x, y, color)
+  local lines = {
+    { fmt = "%s to run a command", cmd = "core:find-command" },
+    { fmt = "%s to open a file from the project", cmd = "core:find-file" },
+    { fmt = "%s to change project folder", cmd = "core:change-project-folder" },
+    { fmt = "%s to open a project folder", cmd = "core:open-project-folder" },
+  }
   local th = style.big_font:get_height()
   local dh = 2 * th + style.padding.y * 2
-  local x1, y1 = x, y + (dh - th) / 2
+  local x1, y1 = x, y + ((dh - th) / #lines)
   local xv = x1
   local title = "Lite XL"
   local version = "version " .. VERSION
@@ -24,12 +30,6 @@ local function draw_text(x, y, color)
   renderer.draw_text(style.font, version, xv, y1 + th, color)
   x = x + style.padding.x
   renderer.draw_rect(x, y, math.ceil(1 * SCALE), dh, color)
-  local lines = {
-    { fmt = "%s to run a command", cmd = "core:find-command" },
-    { fmt = "%s to open a file from the project", cmd = "core:find-file" },
-    { fmt = "%s to change project folder", cmd = "core:change-project-folder" },
-    { fmt = "%s to open a project folder", cmd = "core:open-project-folder" },
-  }
   th = style.font:get_height()
   y = y + (dh - (th + style.padding.y) * #lines) / 2
   local w = 0
