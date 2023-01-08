@@ -32,12 +32,12 @@ addons_download() {
 
   # Downlaod thirdparty plugins
   curl --insecure \
-    -L "https://github.com/lite-xl/lite-xl-plugins/archive/2.1.zip" \
+    -L "https://github.com/lite-xl/lite-xl-plugins/archive/master.zip" \
     -o "${build_dir}/lite-xl-plugins.zip"
 
   unzip "${build_dir}/lite-xl-plugins.zip" -d "${build_dir}"
-  mv "${build_dir}/lite-xl-plugins-2.1/plugins" "${build_dir}/third/data"
-  rm -rf "${build_dir}/lite-xl-plugins-2.1"
+  mv "${build_dir}/lite-xl-plugins-master/plugins" "${build_dir}/third/data"
+  rm -rf "${build_dir}/lite-xl-plugins-master"
 }
 
 # Addons installation: some distributions forbid external downloads
