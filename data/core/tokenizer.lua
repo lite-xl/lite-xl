@@ -284,9 +284,10 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     -- we're ending early in the middle of a delimiter, or
     -- just normally, upon finding a token.
     while subsyntax_info do
-      local s, e = find_text(text, subsyntax_info, i, true, true)
+      local find_results = { find_text(text, subsyntax_info, i, true, true) }
+      local s, e = find_results[1], find_results[2]
       if s then
-        push_token(res, subsyntax_info.type, text:usub(i, e))
+        push_tokens(res, current_syntax, subsyntax_info, text, find_results)
         -- On finding unescaped delimiter, pop it.
         pop_subsyntax()
         i = e + 1
