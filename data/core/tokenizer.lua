@@ -5,6 +5,7 @@ local tokenizer = {}
 local bad_patterns = {}
 
 local function push_token(t, type, text)
+  if not text or #text == 0 then return end
   type = type or "normal"
   local prev_type = t[#t-1]
   local prev_text = t[#t]
@@ -37,8 +38,10 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
       local fin = find_results[i + 1] - 1
       local type = pattern.type[i - 2]
         -- ↑ (i - 2) to convert from [3; n] to [1; n]
-      local text = full_text:usub(start, fin)
-      push_token(t, syn.symbols[text] or type, text)
+      if fin >= start then
+        local text = full_text:usub(start, fin)
+        push_token(t, syn.symbols[text] or type, text)
+      end
     end
   else
     local start, fin = find_results[1], find_results[2]
