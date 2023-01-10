@@ -26,11 +26,8 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
     -- Each position spans characters from i_n to ((i_n+1) - 1), to form
     -- consecutive spans of text.
     --
-    -- If i_1 is not equal to start, start is automatically inserted at
-    -- that index.
-    if find_results[3] ~= find_results[1] then
-      table.insert(find_results, 3, find_results[1])
-    end
+    -- Insert the start index at i_1 to make iterating easier
+    table.insert(find_results, 3, find_results[1])
     -- Copy the ending index to the end of the table, so that an ending index
     -- always follows a starting index after position 3 in the table.
     table.insert(find_results, find_results[2] + 1)
