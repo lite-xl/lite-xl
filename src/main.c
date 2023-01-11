@@ -18,7 +18,7 @@
 #endif
 
 
-SDL_Window *window;
+static SDL_Window *window;
 
 static double get_scale(void) {
 #ifndef __APPLE__
