@@ -284,13 +284,13 @@ static int f_get_size(lua_State *L) {
 
 
 static int f_begin_frame(UNUSED lua_State *L) {
-  rencache_begin_frame();
+  rencache_begin_frame(&window_renderer);
   return 0;
 }
 
 
 static int f_end_frame(UNUSED lua_State *L) {
-  rencache_end_frame();
+  rencache_end_frame(&window_renderer);
   // clear the font reference table
   lua_newtable(L);
   lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
@@ -348,7 +348,7 @@ static int f_draw_text(lua_State *L) {
   float x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(fonts, text, len, x, y, color);
+  x = rencache_draw_text(&window_renderer, fonts, text, len, x, y, color);
   lua_pushnumber(L, x);
   return 1;
 }
