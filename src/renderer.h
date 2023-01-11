@@ -5,11 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifdef __GNUC__
-#define UNUSED __attribute__((__unused__))
-#else
-#define UNUSED
-#endif
+#include "defines.h"
 
 #define FONT_FALLBACK_MAX 10
 typedef struct RenFont RenFont;

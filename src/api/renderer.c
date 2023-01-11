@@ -2,6 +2,7 @@
 #include "api.h"
 #include "../renderer.h"
 #include "../rencache.h"
+#include "defines.h"
 #include "lua.h"
 
 // a reference index to a table that stores the fonts

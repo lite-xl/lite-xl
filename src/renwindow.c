@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "renwindow.h"
+#include "defines.h"
 
 #ifdef LITE_USE_SDL_RENDERER
 static int query_surface_scale(RenWindow *ren) {

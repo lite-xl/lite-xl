@@ -666,11 +666,6 @@ static int f_list_dir(lua_State *L) {
 #endif
 }
 
-
-#ifdef _WIN32
-  #define realpath(x, y) _wfullpath(y, x, MAX_PATH)
-#endif
-
 static int f_absolute_path(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 #ifdef _WIN32
