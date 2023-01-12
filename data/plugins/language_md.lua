@@ -147,6 +147,7 @@ syntax.add {
     { pattern = { "```go", "```" },         type = "string", syntax = ".go" },
     { pattern = { "```lobster", "```" },    type = "string", syntax = ".lobster" },
     { pattern = { "```liquid", "```" },     type = "string", syntax = ".liquid" },
+    { pattern = { "```nix", "```" },        type = "string", syntax = ".nix" },
     { pattern = { "```", "```" },           type = "string" },
     { pattern = { "``", "``" },             type = "string" },
     { pattern = { "%f[\\`]%`[%S]", "`" },   type = "string" },
