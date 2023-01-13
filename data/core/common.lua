@@ -82,6 +82,7 @@ end
 
 
 function common.splice(t, at, remove, insert)
+  assert(remove >= 0, "bad argument #3 to 'splice' (non-negative value expected)")
   insert = insert or {}
   local len = #insert
   if remove ~= len then table.move(t, at + remove, #t + remove, at + len) end
