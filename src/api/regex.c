@@ -91,7 +91,10 @@ static int regex_gmatch_iterator(lua_State *L) {
         int total_results = ovector_count * 2;
         size_t last_offset = 0;
         for (int i = index; i < total_results; i+=2) {
-          lua_pushlstring(L, state->subject+ovector[i], ovector[i+1] - ovector[i]);
+          if (ovector[i] == ovector[i+1])
+            lua_pushinteger(L, ovector[i] + 1);
+          else
+            lua_pushlstring(L, state->subject+ovector[i], ovector[i+1] - ovector[i]);
           last_offset = ovector[i+1];
           total++;
         }
