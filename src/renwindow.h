@@ -14,12 +14,12 @@ struct RenWindow {
 typedef struct RenWindow RenWindow;
 
 void renwin_init_surface(RenWindow *ren);
-int  renwin_surface_scale(RenWindow *ren);
+int  renwin_surface_scale(const RenWindow *ren);
 void renwin_clip_to_surface(RenWindow *ren);
 void renwin_set_clip_rect(RenWindow *ren, RenRect rect);
 void renwin_resize_surface(RenWindow *ren);
-void renwin_show_window(RenWindow *ren);
+void renwin_show_window(const RenWindow *ren);
 void renwin_update_rects(RenWindow *ren, RenRect *rects, int count);
 void renwin_free(RenWindow *ren);
-SDL_Surface *renwin_get_surface(RenWindow *ren);
+SDL_Surface *renwin_get_surface(const RenWindow *ren);
 

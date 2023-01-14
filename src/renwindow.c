@@ -3,7 +3,7 @@
 #include "renwindow.h"
 
 #ifdef LITE_USE_SDL_RENDERER
-static int query_surface_scale(RenWindow *ren) {
+static int query_surface_scale(const RenWindow *ren) {
   int w_pixels, h_pixels;
   int w_points, h_points;
   SDL_GL_GetDrawableSize(ren->window, &w_pixels, &h_pixels);
@@ -45,7 +45,7 @@ void renwin_init_surface(UNUSED RenWindow *ren) {
 #endif
 }
 
-int renwin_surface_scale(UNUSED RenWindow *ren) {
+int renwin_surface_scale(UNUSED const RenWindow *ren) {
 #ifdef LITE_USE_SDL_RENDERER
   return ren->surface_scale;
 #else
@@ -60,7 +60,7 @@ static RenRect scaled_rect(const RenRect rect, const int scale) {
 
 
 void renwin_clip_to_surface(RenWindow *ren) {
-  SDL_Surface *surface = renwin_get_surface(ren);
+  const SDL_Surface *surface = renwin_get_surface(ren);
   ren->clip = (RenRect) {0, 0, surface->w, surface->h};
 }
 
@@ -70,7 +70,7 @@ void renwin_set_clip_rect(RenWindow *ren, RenRect rect) {
 }
 
 
-SDL_Surface *renwin_get_surface(RenWindow *ren) {
+SDL_Surface *renwin_get_surface(const RenWindow *ren) {
 #ifdef LITE_USE_SDL_RENDERER
   return ren->surface;
 #else
@@ -96,7 +96,7 @@ void renwin_resize_surface(UNUSED RenWindow *ren) {
 #endif
 }
 
-void renwin_show_window(RenWindow *ren) {
+void renwin_show_window(const RenWindow *ren) {
   SDL_ShowWindow(ren->window);
 }
 
