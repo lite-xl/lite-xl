@@ -2,8 +2,13 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <uchardet.h>
+
+#ifdef _WIN32
+  #include <windows.h>
+#endif
 
 typedef struct {
   const char* charset;
@@ -295,7 +300,21 @@ const char* encoding_detect(const char* string, size_t string_len) {
 int f_detect(lua_State *L) {
   const char* file_name = luaL_checkstring(L, 1);
 
+#ifndef _WIN32
   FILE* file = fopen(file_name, "rb");
+#else
+  wchar_t utf16[1024];
+  memset(utf16, 0, sizeof(utf16));
+  MultiByteToWideChar(CP_UTF8, 0, file_name, strlen(file_name), utf16, 1024);
+  FILE* file = _wfopen(utf16, L"rb");
+#endif
+
+  if (!file) {
+    lua_pushnil(L);
+    lua_pushfstring(L, "unable to open file '%s', code=%d", file_name, errno);
+    return 2;
+  }
+
   fseek(file, 0, SEEK_END);
 
   size_t file_size = ftell(file);
