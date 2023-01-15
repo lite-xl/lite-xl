@@ -39,8 +39,6 @@
 #endif
 
 extern RenWindow window_renderer;
-extern float initial_scale;
-static bool got_initial_scale = false;
 
 static const char* button_name(int button) {
   switch (button) {
@@ -465,7 +463,7 @@ static float sdl_scale_factor() {
   */
 #ifndef LITE_USE_SDL_RENDERER
   SDL_DisplayMode dm;
-  SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &dm);
+  SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window_renderer.window), &dm);
 
   SDL_Window *windowHDPI = SDL_CreateWindow(
     "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
@@ -473,7 +471,7 @@ static float sdl_scale_factor() {
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN
   );
 #else
-  SDL_Window *windowHDPI = window;
+  SDL_Window *windowHDPI = window_renderer.window;
 #endif
 
   float scale = ren_get_scale_factor(windowHDPI);
@@ -503,7 +501,7 @@ static int f_get_scale(lua_State *L) {
   float system_scale = 0;
 #if _WIN32
   float dpi = 0;
-  int display_index = SDL_GetWindowDisplayIndex(window);
+  int display_index = SDL_GetWindowDisplayIndex(window_renderer.window);
 #endif
 
   if (

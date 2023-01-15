@@ -19,7 +19,6 @@
 
 
 static SDL_Window *window;
-float initial_scale = 1.0;
 
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
