@@ -8,6 +8,7 @@
 #include "api.h"
 #include "../rencache.h"
 #include "../renwindow.h"
+#include "../renderer.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
@@ -192,6 +193,11 @@ top:
         lua_pushinteger(L, e.window.data1);
         lua_pushinteger(L, e.window.data2);
         return 3;
+      } else if (e.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED ) {
+        lua_pushstring(L, "displaychanged");
+        /* The display index. */
+        lua_pushinteger(L, e.window.data1);
+        return 2;
       } else if (e.window.event == SDL_WINDOWEVENT_EXPOSED) {
         rencache_invalidate();
         lua_pushstring(L, "exposed");
@@ -425,6 +431,180 @@ static int f_set_cursor(lua_State *L) {
   return 0;
 }
 
+#ifdef X11_FOUND
+/* For reference, headers where the utilized functions and structs are found.
+ #include <X11/Xlib.h>
+ #include <X11/Xatom.h>
+ #include <X11/Xresource.h>
+*/
+
+typedef struct _XrmHashBucketRec* XrmDatabase;
+typedef char* XPointer;
+typedef struct { unsigned int size; XPointer addr; } XrmValue;
+typedef struct _XDisplay Display;
+
+static float x11_scale_factor() {
+  static bool initialized = false;
+  static bool libs_found = false;
+
+  static void (*XrmInitialize)(void);
+  static char* (*XResourceManagerString)(Display*);
+  static Display* (*XOpenDisplay)(const char*);
+  static XrmDatabase (*XrmGetStringDatabase)(const char*);
+  static int (*XrmGetResource)(XrmDatabase, const char*, const char*, char**, XrmValue*);
+  static void (*XrmDestroyDatabase)(XrmDatabase);
+
+  if (!initialized) {
+    const char x11_path[2][32] = {
+      "/usr/lib/libX11.so",
+      "/usr/local/lib/libX11.so"
+    };
+    const char xres_path[2][32] = {
+      "/usr/lib/libXRes.so",
+      "/usr/local/lib/libXRes.so"
+    };
+
+    void* libX11 = NULL;
+    void* libXRes = NULL;
+
+    for (int i=0; i<2; i++)
+      if((libX11 = SDL_LoadObject(x11_path[i])) != NULL)
+        break;
+
+    for (int i=0; i<2; i++)
+      if((libXRes = SDL_LoadObject(xres_path[i])) != NULL)
+        break;
+
+    if (libX11 && libXRes) {
+      XrmInitialize = SDL_LoadFunction(libX11, "XrmInitialize");
+      XResourceManagerString = SDL_LoadFunction(libX11, "XResourceManagerString");
+      XOpenDisplay = SDL_LoadFunction(libX11, "XOpenDisplay");
+      XrmGetStringDatabase = SDL_LoadFunction(libXRes, "XrmGetStringDatabase");
+      XrmGetResource = SDL_LoadFunction(libXRes, "XrmGetResource");
+      XrmDestroyDatabase = SDL_LoadFunction(libXRes, "XrmDestroyDatabase");
+
+      XrmInitialize();
+
+      libs_found = true;
+    }
+    initialized = true;
+  }
+
+  if (!libs_found) {
+    return 0.0;
+  }
+
+  float scale = 0.0;
+  char *resourceString = XResourceManagerString(XOpenDisplay(NULL));
+
+  if (resourceString) {
+    XrmDatabase db = XrmGetStringDatabase(resourceString);
+    XrmValue value;
+    char *type = NULL;
+    float dpi = 0.0;
+
+    if (XrmGetResource(db, "Xft.dpi", "String", &type, &value)) {
+      if (value.addr) {
+          dpi = atof(value.addr);
+          if (dpi > 0)
+            scale = roundf((dpi / 96) * 100) / 100;
+      }
+    }
+    XrmDestroyDatabase(db);
+    free(resourceString);
+  }
+
+  return scale;
+}
+#endif
+
+static float sdl_scale_factor() {
+  /* When not using the sdl renderer the SDL_WINDOW_ALLOW_HIGHDPI flag
+    causes the window to render the content pixelated, so we create
+    a separate window with the high dpi flag to retrieve the display
+    scale factor and then we destroy it.
+  */
+#ifndef LITE_USE_SDL_RENDERER
+  #if _WIN32
+    /* on Windows SDL_GetDisplayDPI is reliable so skip second HIDPI window */
+    return 1.0;
+  #endif
+  SDL_DisplayMode dm;
+  SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window_renderer.window), &dm);
+
+  SDL_Window *windowHDPI = SDL_CreateWindow(
+    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+    dm.w * 0.8, dm.h * 0.8,
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN
+  );
+#else
+  SDL_Window *windowHDPI = window_renderer.window;
+#endif
+
+  float scale = ren_get_scale_factor(windowHDPI);
+#ifndef LITE_USE_SDL_RENDERER
+  SDL_DestroyWindow(windowHDPI);
+#endif
+
+  return scale;
+}
+
+static int f_get_scale(lua_State *L) {
+  static bool got_initial_scale = false;
+
+  /* returns the startup scale factor on first call if not 100% */
+  if (!got_initial_scale) {
+    float initial_scale = sdl_scale_factor();
+    if (initial_scale != 1.0) {
+      got_initial_scale = true;
+      lua_pushnumber(L, initial_scale);
+      return 1;
+    }
+  }
+
+  float scale = 1.0;
+#ifndef __APPLE__
+  char* env_scale = NULL;
+  float system_scale = 0;
+#if _WIN32
+  float dpi = 0;
+  int display_index = SDL_GetWindowDisplayIndex(window_renderer.window);
+#endif
+
+  if (
+    (env_scale = getenv("GDK_SCALE")) != NULL
+    &&
+    (system_scale = strtod(env_scale, NULL)) > 0
+  ) {
+    scale = system_scale;
+  } else if (
+    (env_scale = getenv("QT_SCALE_FACTOR")) != NULL
+    &&
+    (system_scale = strtod(env_scale, NULL)) > 0
+  ) {
+    scale = system_scale;
+#ifdef X11_FOUND
+  } else if (
+    strstr(SDL_GetCurrentVideoDriver(), "x11")
+    &&
+    (system_scale = x11_scale_factor()) > 0
+  ) {
+    scale = system_scale;
+#endif
+#if _WIN32
+  } else if (SDL_GetDisplayDPI(display_index, NULL, &dpi, NULL) == 0) {
+    scale = dpi / 96.0;
+#endif
+  } else if (
+    got_initial_scale && (system_scale = sdl_scale_factor()) > 0
+  ) {
+    scale = system_scale;
+  }
+#endif /* __APPLE__ */
+  got_initial_scale = true;
+  lua_pushnumber(L, scale);
+  return 1;
+}
 
 static int f_set_window_title(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
@@ -1154,6 +1334,7 @@ static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
   { "set_cursor",          f_set_cursor          },
+  { "get_scale",           f_get_scale           },
   { "set_window_title",    f_set_window_title    },
   { "set_window_mode",     f_set_window_mode     },
   { "get_window_mode",     f_get_window_mode     },

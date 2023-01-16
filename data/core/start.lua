@@ -5,7 +5,8 @@ MOD_VERSION_MINOR = 0
 MOD_VERSION_PATCH = 0
 MOD_VERSION_STRING = string.format("%d.%d.%d", MOD_VERSION_MAJOR, MOD_VERSION_MINOR, MOD_VERSION_PATCH)
 
-SCALE = tonumber(os.getenv("LITE_SCALE") or os.getenv("GDK_SCALE") or os.getenv("QT_SCALE_FACTOR")) or SCALE
+DEFAULT_SCALE = system.get_scale()
+SCALE = tonumber(os.getenv("LITE_SCALE")) or DEFAULT_SCALE
 PATHSEP = package.config:sub(1, 1)
 
 EXEDIR = EXEFILE:match("^(.+)[/\\][^/\\]+$")

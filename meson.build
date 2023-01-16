@@ -159,6 +159,14 @@ if not get_option('source-only')
 
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
 endif
+
+#===============================================================================
+# Check for X11 existance to detect scale factor when video driver is x11
+#===============================================================================
+if cc.find_library('X11', required : false).found()
+    lite_cargs += '-DX11_FOUND'
+endif
+
 #===============================================================================
 # Install Configuration
 #===============================================================================

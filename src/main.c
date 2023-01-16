@@ -20,16 +20,6 @@
 
 static SDL_Window *window;
 
-static double get_scale(void) {
-#ifndef __APPLE__
-  float dpi;
-  if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0)
-    return dpi / 96.0;
-#endif
-  return 1.0;
-}
-
-
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
   int len;
@@ -170,12 +160,21 @@ int main(int argc, char **argv) {
   SDL_SetHint("SDL_MOUSE_DOUBLE_CLICK_RADIUS", "4");
 #endif
 
-  SDL_DisplayMode dm;
-  SDL_GetCurrentDisplayMode(0, &dm);
-
   window = SDL_CreateWindow(
-    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, dm.w * 0.8, dm.h * 0.8,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
+    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+    800, 450,
+    SDL_WINDOW_RESIZABLE
+    | SDL_WINDOW_HIDDEN
+#if LITE_USE_SDL_RENDERER
+    /* causes pixelated rendering when not using the sdl renderer and scaled */
+    | SDL_WINDOW_ALLOW_HIGHDPI
+#endif
+  );
+
+  SDL_DisplayMode dm;
+  SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &dm);
+  SDL_SetWindowSize(window, dm.w * 0.8, dm.h * 0.8);
+
   init_window_icon();
   if (!window) {
     fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
@@ -202,9 +201,6 @@ init_lua:
 
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
-
-  lua_pushnumber(L, get_scale());
-  lua_setglobal(L, "SCALE");
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
