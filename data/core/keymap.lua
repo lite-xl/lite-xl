@@ -49,6 +49,30 @@ local function key_to_stroke(key)
 end
 
 
+---Normalizes a stroke sequence to follow the modkeys table
+---@param stroke string
+---@return string
+local function normalize_stroke(stroke)
+  local function find_modkey(modkey)
+    for i, o in ipairs(modkeys) do
+      if o == modkey then return i end
+    end
+  end
+  local stroke_table = {}
+  for modkey in stroke:gmatch("(%w+)%+") do
+    table.insert(stroke_table, modkey)
+  end
+  if not next(stroke_table) then 
+    return stroke
+  end
+  table.sort(stroke_table, function(a, b)
+    return find_modkey(a) < find_modkey(b)
+  end)
+  local new_stroke = table.concat(stroke_table, "+") .. "+"
+  return new_stroke .. stroke:sub(new_stroke:len() + 1)
+end
+
+
 ---Remove the given value from an array associated to a key in a table.
 ---@param tbl table<string, string> The table containing the key
 ---@param k string The key containing the array
@@ -96,11 +120,12 @@ local function remove_duplicates(map)
   end
 end
 
-
 ---Add bindings by replacing commands that were previously assigned to a shortcut.
 ---@param map keymap.map
 function keymap.add_direct(map)
   for stroke, commands in pairs(map) do
+    stroke = normalize_stroke(stroke)
+  
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
@@ -128,6 +153,7 @@ function keymap.add(map, overwrite)
     if macos then
       stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
     end
+    stroke = normalize_stroke(stroke)
     if overwrite then
       if keymap.map[stroke] then
         for _, cmd in ipairs(keymap.map[stroke]) do
