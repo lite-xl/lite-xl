@@ -522,7 +522,7 @@ end
 local function treeitem() return view.hovered_item or view.selected_item end
 
 
-menu:register(function() return treeitem() end, {
+menu:register(function() return core.active_view:is(TreeView) and treeitem() end, {
   { text = "Open in System", command = "treeview:open-in-system" },
   ContextMenu.DIVIDER
 })
@@ -530,7 +530,7 @@ menu:register(function() return treeitem() end, {
 menu:register(
   function()
     local item = treeitem()
-    return item and not is_project_folder(item.abs_filename)
+    return core.active_view:is(TreeView) and item and not is_project_folder(item.abs_filename)
   end,
   {
     { text = "Rename", command = "treeview:rename" },
@@ -541,7 +541,7 @@ menu:register(
 menu:register(
   function()
     local item = treeitem()
-    return item and item.type == "dir"
+    return core.active_view:is(TreeView) and item and item.type == "dir"
   end,
   {
     { text = "New File", command = "treeview:new-file" },
@@ -552,7 +552,7 @@ menu:register(
 menu:register(
   function()
     local item = treeitem()
-    return item
+    return core.active_view:is(TreeView) and item
       and not is_primary_project_folder(item.abs_filename)
       and is_project_folder(item.abs_filename)
   end,
@@ -670,6 +670,7 @@ command.add(
   ["treeview-context:show"] = function()
     if view.hovered_item then
       menu:show(view.cursor_pos.x, view.cursor_pos.y)
+      return
     end
 
     local item = view.selected_item
@@ -683,7 +684,6 @@ command.add(
         break
       end
     end
-    core.log(tostring(x) .. " " .. tostring(y))
     menu:show(x, y)
   end
 })
