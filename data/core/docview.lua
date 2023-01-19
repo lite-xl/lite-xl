@@ -422,6 +422,7 @@ function DocView:draw_line_text(line, x, y)
     -- do not render newline, fixes issue #1164
     if tidx == last_token then text = text:sub(1, -2) end
     tx = renderer.draw_text(font, text, tx, ty, color)
+    if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()
 end
