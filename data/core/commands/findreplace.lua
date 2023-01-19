@@ -108,7 +108,8 @@ local function replace(kind, default, fn)
         text = old,
         select_text = true,
         show_suggestions = false,
-        submit = function(new)
+        submit = function(new_escaped)
+          local new = new_escaped:gsub("\\([nt])", {n="\n", t="\t"})
           core.status_view:remove_tooltip()
           insert_unique(core.previous_replace, new)
           local results = doc():replace(function(text)
@@ -118,7 +119,7 @@ local function replace(kind, default, fn)
           for _,v in pairs(results) do
             n = n + v
           end
-          core.log("Replaced %d instance(s) of %s %q with %q", n, kind, old, new)
+          core.log("Replaced %d instance(s) of %s %q with %q", n, kind, old, new_escaped)
         end,
         suggest = function() return core.previous_replace end,
         cancel = function()
