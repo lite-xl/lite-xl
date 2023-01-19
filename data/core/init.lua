@@ -1022,6 +1022,9 @@ function core.load_plugins()
         if not ok then
           no_errors = false
         end
+	if config.plugins[plugin.name].onload then
+	  core.try(config.plugins[plugin.name].onload, ok)
+	end
       end
     end
   end
