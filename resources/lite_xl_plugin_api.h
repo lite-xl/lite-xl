@@ -28,6 +28,7 @@ Go figure.
 
 #include <stdarg.h>
 #include <stdio.h> // for BUFSIZ? this is kinda weird
+#include <stdlib.h>
 
 #define SYMBOL_WRAP_DECL(ret, name, ...) \
   ret name(__VA_ARGS__)
