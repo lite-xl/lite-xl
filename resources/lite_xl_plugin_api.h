@@ -3,12 +3,18 @@
 /**
 The lite_xl plugin API is quite simple. Any shared library can be a plugin file, so long
 as it has an entrypoint that looks like the following, where xxxxx is the plugin name:
+
+#define LITE_XL_PLUGIN_ENTRYPOINT
 #include "lite_xl_plugin_api.h"
 int luaopen_lite_xl_xxxxx(lua_State* L, void* XL) {
   lite_xl_plugin_init(XL);
   ...
   return 1;
 }
+
+NOTE: `#define LITE_XL_PLUGIN_ENTRYPOINT` needs to be defined only on the
+source file where the lite_xl_plugin_init() initialization function is called.
+
 In linux, to compile this file, you'd do: 'gcc -o xxxxx.so -shared xxxxx.c'. Simple!
 Due to the way the API is structured, you *should not* link or include lua libraries.
 This file was automatically generated. DO NOT MODIFY DIRECTLY.
@@ -22,6 +28,28 @@ Go figure.
 
 #include <stdarg.h>
 #include <stdio.h> // for BUFSIZ? this is kinda weird
+
+#define SYMBOL_WRAP_DECL(ret, name, ...) \
+  ret name(__VA_ARGS__)
+
+#define SYMBOL_WRAP_CALL(name, ...) \
+  return __##name(__VA_ARGS__)
+
+#define SYMBOL_WRAP_CALL_FB(name, ...) \
+  return __lite_xl_fallback_##name(__VA_ARGS__)
+
+#ifdef LITE_XL_PLUGIN_ENTRYPOINT
+  #define SYMBOL_DECLARE(ret, name, ...) \
+    static ret (*__##name)  (__VA_ARGS__); \
+    SYMBOL_WRAP_DECL(ret, name, __VA_ARGS__); \
+    static ret __lite_xl_fallback_##name(__VA_ARGS__) { \
+      fputs("warning: " #name " is a stub", stderr); \
+      exit(1); \
+    }
+#else
+  #define SYMBOL_DECLARE(ret, name, ...) \
+    SYMBOL_WRAP_DECL(ret, name, __VA_ARGS__);
+#endif
 
 /** luaconf.h **/
 
@@ -227,101 +255,103 @@ struct lua_Debug {
   char short_src[LUA_IDSIZE];
   struct CallInfo *i_ci;
 };
-static	lua_State *(*lua_newstate)	(lua_Alloc f, void *ud);
-static	void (*lua_close)	(lua_State *L);
-static	lua_State *(*lua_newthread)	(lua_State *L);
-static	lua_CFunction (*lua_atpanic)	(lua_State *L, lua_CFunction panicf);
-static	const lua_Number *(*lua_version)	(lua_State *L);
-static	int (*lua_absindex)	(lua_State *L, int idx);
-static	int (*lua_gettop)	(lua_State *L);
-static	void (*lua_settop)	(lua_State *L, int idx);
-static	void (*lua_pushvalue)	(lua_State *L, int idx);
-static	void (*lua_copy)	(lua_State *L, int fromidx, int toidx);
-static	int (*lua_checkstack)	(lua_State *L, int sz);
-static	void (*lua_xmove)	(lua_State *from, lua_State *to, int n);
-static	int (*lua_isnumber)	(lua_State *L, int idx);
-static	int (*lua_isstring)	(lua_State *L, int idx);
-static	int (*lua_iscfunction)	(lua_State *L, int idx);
-static	int (*lua_isuserdata)	(lua_State *L, int idx);
-static	int (*lua_type)	(lua_State *L, int idx);
-static	const char *(*lua_typename)	(lua_State *L, int tp);
-static	lua_Number (*lua_tonumberx)	(lua_State *L, int idx, int *isnum);
-static	lua_Integer (*lua_tointegerx)	(lua_State *L, int idx, int *isnum);
-static	lua_Unsigned (*lua_tounsignedx)	(lua_State *L, int idx, int *isnum);
-static	int (*lua_toboolean)	(lua_State *L, int idx);
-static	const char *(*lua_tolstring)	(lua_State *L, int idx, size_t *len);
-static	size_t (*lua_rawlen)	(lua_State *L, int idx);
-static	lua_CFunction (*lua_tocfunction)	(lua_State *L, int idx);
-static	void *(*lua_touserdata)	(lua_State *L, int idx);
-static	lua_State *(*lua_tothread)	(lua_State *L, int idx);
-static	const void *(*lua_topointer)	(lua_State *L, int idx);
-static	void (*lua_arith)	(lua_State *L, int op);
-static	int (*lua_rawequal)	(lua_State *L, int idx1, int idx2);
-static	int (*lua_compare)	(lua_State *L, int idx1, int idx2, int op);
-static	void (*lua_pushnil)	(lua_State *L);
-static	void (*lua_pushnumber)	(lua_State *L, lua_Number n);
-static	void (*lua_pushinteger)	(lua_State *L, lua_Integer n);
-static	void (*lua_pushunsigned)	(lua_State *L, lua_Unsigned n);
-static	const char *(*lua_pushlstring)	(lua_State *L, const char *s, size_t l);
-static	const char *(*lua_pushstring)	(lua_State *L, const char *s);
-static	const char *(*lua_pushvfstring)	(lua_State *L, const char *fmt, va_list argp);
-static	const char *(*lua_pushfstring)	(lua_State *L, const char *fmt, ...);
-static	void (*lua_pushcclosure)	(lua_State *L, lua_CFunction fn, int n);
-static	void (*lua_pushboolean)	(lua_State *L, int b);
-static	void (*lua_pushlightuserdata)	(lua_State *L, void *p);
-static	int (*lua_pushthread)	(lua_State *L);
-static	void (*lua_getglobal)	(lua_State *L, const char *var);
-static	void (*lua_gettable)	(lua_State *L, int idx);
-static	void (*lua_getfield)	(lua_State *L, int idx, const char *k);
-static	void (*lua_rawget)	(lua_State *L, int idx);
-static	void (*lua_rawgeti)	(lua_State *L, int idx, int n);
-static	void (*lua_rawgetp)	(lua_State *L, int idx, const void *p);
-static	void (*lua_createtable)	(lua_State *L, int narr, int nrec);
-static	void *(*lua_newuserdata)	(lua_State *L, size_t sz);
-static	void *(*lua_newuserdatauv)	(lua_State *L, size_t sz, int nuvalue);
-static	int (*lua_getmetatable)	(lua_State *L, int objindex);
-static	void (*lua_getuservalue)	(lua_State *L, int idx);
-static	void (*lua_getiuservalue)	(lua_State *L, int idx, int n);
-static	void (*lua_setglobal)	(lua_State *L, const char *var);
-static	void (*lua_settable)	(lua_State *L, int idx);
-static	void (*lua_setfield)	(lua_State *L, int idx, const char *k);
-static	void (*lua_rawset)	(lua_State *L, int idx);
-static	void (*lua_rawseti)	(lua_State *L, int idx, int n);
-static	void (*lua_rawsetp)	(lua_State *L, int idx, const void *p);
-static	int (*lua_setmetatable)	(lua_State *L, int objindex);
-static	void (*lua_setuservalue)	(lua_State *L, int idx);
-static	void (*lua_setiuservalue)	(lua_State *L, int idx, int n);
-static	void (*lua_callk)	(lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k);
-static	int (*lua_getctx)	(lua_State *L, int *ctx);
-static	int (*lua_pcallk)	(lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
-static	int (*lua_load)	(lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode);
-static	int (*lua_dump)	(lua_State *L, lua_Writer writer, void *data, int strip);
-static	int (*lua_yieldk)	(lua_State *L, int nresults, int ctx, lua_CFunction k);
-static	int (*lua_resume)	(lua_State *L, lua_State *from, int narg);
-static	int (*lua_status)	(lua_State *L);
-static	int (*lua_gc)	(lua_State *L, int what, int data);
-static	int (*lua_error)	(lua_State *L);
-static	int (*lua_next)	(lua_State *L, int idx);
-static	void (*lua_concat)	(lua_State *L, int n);
-static	void (*lua_len)	(lua_State *L, int idx);
-static	lua_Alloc (*lua_getallocf)	(lua_State *L, void **ud);
-static	void (*lua_setallocf)	(lua_State *L, lua_Alloc f, void *ud);
-static	int (*lua_getstack)	(lua_State *L, int level, lua_Debug *ar);
-static	int (*lua_getinfo)	(lua_State *L, const char *what, lua_Debug *ar);
-static	const char *(*lua_getlocal)	(lua_State *L, const lua_Debug *ar, int n);
-static	const char *(*lua_setlocal)	(lua_State *L, const lua_Debug *ar, int n);
-static	const char *(*lua_getupvalue)	(lua_State *L, int funcindex, int n);
-static	const char *(*lua_setupvalue)	(lua_State *L, int funcindex, int n);
-static	void *(*lua_upvalueid)	(lua_State *L, int fidx, int n);
-static	void (*lua_upvaluejoin)	(lua_State *L, int fidx1, int n1, int fidx2, int n2);
-static	int (*lua_sethook)	(lua_State *L, lua_Hook func, int mask, int count);
-static	lua_Hook (*lua_gethook)	(lua_State *L);
-static	int (*lua_gethookmask)	(lua_State *L);
-static	int (*lua_gethookcount)	(lua_State *L);
+
+SYMBOL_DECLARE(lua_State *,        lua_newstate,          lua_Alloc f, void *ud)
+SYMBOL_DECLARE(void,               lua_close,             lua_State *L)
+SYMBOL_DECLARE(lua_State *,        lua_newthread,         lua_State *L)
+SYMBOL_DECLARE(lua_CFunction,      lua_atpanic,           lua_State *L, lua_CFunction panicf)
+SYMBOL_DECLARE(const lua_Number *, lua_version,           lua_State *L)
+SYMBOL_DECLARE(int,                lua_absindex,          lua_State *L, int idx)
+SYMBOL_DECLARE(int,                lua_gettop,            lua_State *L)
+SYMBOL_DECLARE(void,               lua_settop,            lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_pushvalue,         lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_copy,              lua_State *L, int fromidx, int toidx)
+SYMBOL_DECLARE(int,                lua_checkstack,        lua_State *L, int sz)
+SYMBOL_DECLARE(void,               lua_xmove,             lua_State *from, lua_State *to, int n)
+SYMBOL_DECLARE(int,                lua_isnumber,          lua_State *L, int idx)
+SYMBOL_DECLARE(int,                lua_isstring,          lua_State *L, int idx)
+SYMBOL_DECLARE(int,                lua_iscfunction,       lua_State *L, int idx)
+SYMBOL_DECLARE(int,                lua_isuserdata,        lua_State *L, int idx)
+SYMBOL_DECLARE(int,                lua_type,              lua_State *L, int idx)
+SYMBOL_DECLARE(const char *,       lua_typename,          lua_State *L, int tp)
+SYMBOL_DECLARE(lua_Number,         lua_tonumberx,         lua_State *L, int idx, int *isnum)
+SYMBOL_DECLARE(lua_Integer,        lua_tointegerx,        lua_State *L, int idx, int *isnum)
+SYMBOL_DECLARE(lua_Unsigned,       lua_tounsignedx,       lua_State *L, int idx, int *isnum)
+SYMBOL_DECLARE(int,                lua_toboolean,         lua_State *L, int idx)
+SYMBOL_DECLARE(const char *,       lua_tolstring,         lua_State *L, int idx, size_t *len)
+SYMBOL_DECLARE(size_t,             lua_rawlen,            lua_State *L, int idx)
+SYMBOL_DECLARE(lua_CFunction,      lua_tocfunction,       lua_State *L, int idx)
+SYMBOL_DECLARE(void *,             lua_touserdata,        lua_State *L, int idx)
+SYMBOL_DECLARE(lua_State *,        lua_tothread,          lua_State *L, int idx)
+SYMBOL_DECLARE(const void *,       lua_topointer,         lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_arith,             lua_State *L, int op)
+SYMBOL_DECLARE(int,                lua_rawequal,          lua_State *L, int idx1, int idx2)
+SYMBOL_DECLARE(int,                lua_compare,           lua_State *L, int idx1, int idx2, int op)
+SYMBOL_DECLARE(void,               lua_pushnil,           lua_State *L)
+SYMBOL_DECLARE(void,               lua_pushnumber,        lua_State *L, lua_Number n)
+SYMBOL_DECLARE(void,               lua_pushinteger,       lua_State *L, lua_Integer n)
+SYMBOL_DECLARE(void,               lua_pushunsigned,      lua_State *L, lua_Unsigned n)
+SYMBOL_DECLARE(const char *,       lua_pushlstring,       lua_State *L, const char *s, size_t l)
+SYMBOL_DECLARE(const char *,       lua_pushstring,        lua_State *L, const char *s)
+SYMBOL_DECLARE(const char *,       lua_pushvfstring,      lua_State *L, const char *fmt, va_list argp)
+SYMBOL_DECLARE(const char *,       lua_pushfstring,       lua_State *L, const char *fmt, ...)
+SYMBOL_DECLARE(void,               lua_pushcclosure,      lua_State *L, lua_CFunction fn, int n)
+SYMBOL_DECLARE(void,               lua_pushboolean,       lua_State *L, int b)
+SYMBOL_DECLARE(void,               lua_pushlightuserdata, lua_State *L, void *p)
+SYMBOL_DECLARE(int,                lua_pushthread,        lua_State *L)
+SYMBOL_DECLARE(void,               lua_getglobal,         lua_State *L, const char *var)
+SYMBOL_DECLARE(void,               lua_gettable,          lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_getfield,          lua_State *L, int idx, const char *k)
+SYMBOL_DECLARE(void,               lua_rawget,            lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_rawgeti,           lua_State *L, int idx, int n)
+SYMBOL_DECLARE(void,               lua_rawgetp,           lua_State *L, int idx, const void *p)
+SYMBOL_DECLARE(void,               lua_createtable,       lua_State *L, int narr, int nrec)
+SYMBOL_DECLARE(void *,             lua_newuserdata,       lua_State *L, size_t sz)
+SYMBOL_DECLARE(void *,             lua_newuserdatauv,     lua_State *L, size_t sz, int nuvalue)
+SYMBOL_DECLARE(int,                lua_getmetatable,      lua_State *L, int objindex)
+SYMBOL_DECLARE(void,               lua_getuservalue,      lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_getiuservalue,     lua_State *L, int idx, int n)
+SYMBOL_DECLARE(void,               lua_setglobal,         lua_State *L, const char *var)
+SYMBOL_DECLARE(void,               lua_settable,          lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_setfield,          lua_State *L, int idx, const char *k)
+SYMBOL_DECLARE(void,               lua_rawset,            lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_rawseti,           lua_State *L, int idx, int n)
+SYMBOL_DECLARE(void,               lua_rawsetp,           lua_State *L, int idx, const void *p)
+SYMBOL_DECLARE(int,                lua_setmetatable,      lua_State *L, int objindex)
+SYMBOL_DECLARE(void,               lua_setuservalue,      lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_setiuservalue,     lua_State *L, int idx, int n)
+SYMBOL_DECLARE(void,               lua_callk,             lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k)
+SYMBOL_DECLARE(int,                lua_getctx,            lua_State *L, int *ctx)
+SYMBOL_DECLARE(int,                lua_pcallk,            lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k)
+SYMBOL_DECLARE(int,                lua_load,              lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode)
+SYMBOL_DECLARE(int,                lua_dump,              lua_State *L, lua_Writer writer, void *data, int strip)
+SYMBOL_DECLARE(int,                lua_yieldk,            lua_State *L, int nresults, int ctx, lua_CFunction k)
+SYMBOL_DECLARE(int,                lua_resume,            lua_State *L, lua_State *from, int narg)
+SYMBOL_DECLARE(int,                lua_status,            lua_State *L)
+SYMBOL_DECLARE(int,                lua_gc,                lua_State *L, int what, int data)
+SYMBOL_DECLARE(int,                lua_error,             lua_State *L)
+SYMBOL_DECLARE(int,                lua_next,              lua_State *L, int idx)
+SYMBOL_DECLARE(void,               lua_concat,            lua_State *L, int n)
+SYMBOL_DECLARE(void,               lua_len,               lua_State *L, int idx)
+SYMBOL_DECLARE(lua_Alloc,          lua_getallocf,         lua_State *L, void **ud)
+SYMBOL_DECLARE(void,               lua_setallocf,         lua_State *L, lua_Alloc f, void *ud)
+SYMBOL_DECLARE(int,                lua_getstack,          lua_State *L, int level, lua_Debug *ar)
+SYMBOL_DECLARE(int,                lua_getinfo,           lua_State *L, const char *what, lua_Debug *ar)
+SYMBOL_DECLARE(const char *,       lua_getlocal,          lua_State *L, const lua_Debug *ar, int n)
+SYMBOL_DECLARE(const char *,       lua_setlocal,          lua_State *L, const lua_Debug *ar, int n)
+SYMBOL_DECLARE(const char *,       lua_getupvalue,        lua_State *L, int funcindex, int n)
+SYMBOL_DECLARE(const char *,       lua_setupvalue,        lua_State *L, int funcindex, int n)
+SYMBOL_DECLARE(void *,             lua_upvalueid,         lua_State *L, int fidx, int n)
+SYMBOL_DECLARE(void,               lua_upvaluejoin,       lua_State *L, int fidx1, int n1, int fidx2, int n2)
+SYMBOL_DECLARE(int,                lua_sethook,           lua_State *L, lua_Hook func, int mask, int count)
+SYMBOL_DECLARE(lua_Hook,           lua_gethook,           lua_State *L)
+SYMBOL_DECLARE(int,                lua_gethookmask,       lua_State *L)
+SYMBOL_DECLARE(int,                lua_gethookcount,      lua_State *L)
+
 #define lua_h
 #define LUA_VERSION_MAJOR "5"
-#define LUA_VERSION_MINOR "2"
-#define LUA_VERSION_NUM 502
+#define LUA_VERSION_MINOR "4"
+#define LUA_VERSION_NUM 504
 #define LUA_VERSION_RELEASE "4"
 #define LUA_VERSION "Lua " LUA_VERSION_MAJOR "." LUA_VERSION_MINOR
 #define LUA_RELEASE LUA_VERSION "." LUA_VERSION_RELEASE
@@ -408,98 +438,6 @@ static	int (*lua_gethookcount)	(lua_State *L);
 #define LUA_MASKRET (1 << LUA_HOOKRET)
 #define LUA_MASKLINE (1 << LUA_HOOKLINE)
 #define LUA_MASKCOUNT (1 << LUA_HOOKCOUNT)
-static	lua_State *	__lite_xl_fallback_lua_newstate	(lua_Alloc f, void *ud) { fputs("warning: lua_newstate is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_close	(lua_State *L) { fputs("warning: lua_close is a stub", stderr); }
-static	lua_State *	__lite_xl_fallback_lua_newthread	(lua_State *L) { fputs("warning: lua_newthread is a stub", stderr); }
-static	lua_CFunction 	__lite_xl_fallback_lua_atpanic	(lua_State *L, lua_CFunction panicf) { fputs("warning: lua_atpanic is a stub", stderr); }
-static	const lua_Number *	__lite_xl_fallback_lua_version	(lua_State *L) { fputs("warning: lua_version is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_absindex	(lua_State *L, int idx) { fputs("warning: lua_absindex is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_gettop	(lua_State *L) { fputs("warning: lua_gettop is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_settop	(lua_State *L, int idx) { fputs("warning: lua_settop is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushvalue	(lua_State *L, int idx) { fputs("warning: lua_pushvalue is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_copy	(lua_State *L, int fromidx, int toidx) { fputs("warning: lua_copy is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_checkstack	(lua_State *L, int sz) { fputs("warning: lua_checkstack is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_xmove	(lua_State *from, lua_State *to, int n) { fputs("warning: lua_xmove is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_isnumber	(lua_State *L, int idx) { fputs("warning: lua_isnumber is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_isstring	(lua_State *L, int idx) { fputs("warning: lua_isstring is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_iscfunction	(lua_State *L, int idx) { fputs("warning: lua_iscfunction is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_isuserdata	(lua_State *L, int idx) { fputs("warning: lua_isuserdata is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_type	(lua_State *L, int idx) { fputs("warning: lua_type is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_typename	(lua_State *L, int tp) { fputs("warning: lua_typename is a stub", stderr); }
-static	lua_Number 	__lite_xl_fallback_lua_tonumberx	(lua_State *L, int idx, int *isnum) { fputs("warning: lua_tonumberx is a stub", stderr); }
-static	lua_Integer 	__lite_xl_fallback_lua_tointegerx	(lua_State *L, int idx, int *isnum) { fputs("warning: lua_tointegerx is a stub", stderr); }
-static	lua_Unsigned 	__lite_xl_fallback_lua_tounsignedx	(lua_State *L, int idx, int *isnum) { fputs("warning: lua_tounsignedx is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_toboolean	(lua_State *L, int idx) { fputs("warning: lua_toboolean is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_tolstring	(lua_State *L, int idx, size_t *len) { fputs("warning: lua_tolstring is a stub", stderr); }
-static	size_t 	__lite_xl_fallback_lua_rawlen	(lua_State *L, int idx) { fputs("warning: lua_rawlen is a stub", stderr); }
-static	lua_CFunction 	__lite_xl_fallback_lua_tocfunction	(lua_State *L, int idx) { fputs("warning: lua_tocfunction is a stub", stderr); }
-static	void *	__lite_xl_fallback_lua_touserdata	(lua_State *L, int idx) { fputs("warning: lua_touserdata is a stub", stderr); }
-static	lua_State *	__lite_xl_fallback_lua_tothread	(lua_State *L, int idx) { fputs("warning: lua_tothread is a stub", stderr); }
-static	const void *	__lite_xl_fallback_lua_topointer	(lua_State *L, int idx) { fputs("warning: lua_topointer is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_arith	(lua_State *L, int op) { fputs("warning: lua_arith is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_rawequal	(lua_State *L, int idx1, int idx2) { fputs("warning: lua_rawequal is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_compare	(lua_State *L, int idx1, int idx2, int op) { fputs("warning: lua_compare is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushnil	(lua_State *L) { fputs("warning: lua_pushnil is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushnumber	(lua_State *L, lua_Number n) { fputs("warning: lua_pushnumber is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushinteger	(lua_State *L, lua_Integer n) { fputs("warning: lua_pushinteger is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushunsigned	(lua_State *L, lua_Unsigned n) { fputs("warning: lua_pushunsigned is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_pushlstring	(lua_State *L, const char *s, size_t l) { fputs("warning: lua_pushlstring is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_pushstring	(lua_State *L, const char *s) { fputs("warning: lua_pushstring is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_pushvfstring	(lua_State *L, const char *fmt, va_list argp) { fputs("warning: lua_pushvfstring is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_pushfstring	(lua_State *L, const char *fmt, ...) { fputs("warning: lua_pushfstring is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushcclosure	(lua_State *L, lua_CFunction fn, int n) { fputs("warning: lua_pushcclosure is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushboolean	(lua_State *L, int b) { fputs("warning: lua_pushboolean is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_pushlightuserdata	(lua_State *L, void *p) { fputs("warning: lua_pushlightuserdata is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_pushthread	(lua_State *L) { fputs("warning: lua_pushthread is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_getglobal	(lua_State *L, const char *var) { fputs("warning: lua_getglobal is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_gettable	(lua_State *L, int idx) { fputs("warning: lua_gettable is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_getfield	(lua_State *L, int idx, const char *k) { fputs("warning: lua_getfield is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_rawget	(lua_State *L, int idx) { fputs("warning: lua_rawget is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_rawgeti	(lua_State *L, int idx, int n) { fputs("warning: lua_rawgeti is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_rawgetp	(lua_State *L, int idx, const void *p) { fputs("warning: lua_rawgetp is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_createtable	(lua_State *L, int narr, int nrec) { fputs("warning: lua_createtable is a stub", stderr); }
-static	void *	__lite_xl_fallback_lua_newuserdata	(lua_State *L, size_t sz) { fputs("warning: lua_newuserdata is a stub", stderr); }
-static	void *	__lite_xl_fallback_lua_newuserdatauv	(lua_State *L, size_t sz, int nuvalue) { fputs("warning: lua_newuserdatauv is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_getmetatable	(lua_State *L, int objindex) { fputs("warning: lua_getmetatable is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_getuservalue	(lua_State *L, int idx) { fputs("warning: lua_getuservalue is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_getiuservalue	(lua_State *L, int idx, int n) { fputs("warning: lua_getiuservalue is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_setglobal	(lua_State *L, const char *var) { fputs("warning: lua_setglobal is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_settable	(lua_State *L, int idx) { fputs("warning: lua_settable is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_setfield	(lua_State *L, int idx, const char *k) { fputs("warning: lua_setfield is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_rawset	(lua_State *L, int idx) { fputs("warning: lua_rawset is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_rawseti	(lua_State *L, int idx, int n) { fputs("warning: lua_rawseti is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_rawsetp	(lua_State *L, int idx, const void *p) { fputs("warning: lua_rawsetp is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_setmetatable	(lua_State *L, int objindex) { fputs("warning: lua_setmetatable is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_setuservalue	(lua_State *L, int idx) { fputs("warning: lua_setuservalue is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_setiuservalue	(lua_State *L, int idx, int n) { fputs("warning: lua_setiuservalue is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_callk	(lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k) { fputs("warning: lua_callk is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_getctx	(lua_State *L, int *ctx) { fputs("warning: lua_getctx is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_pcallk	(lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k) { fputs("warning: lua_pcallk is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_load	(lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode) { fputs("warning: lua_load is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_dump	(lua_State *L, lua_Writer writer, void *data, int strip) { fputs("warning: lua_dump is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_yieldk	(lua_State *L, int nresults, int ctx, lua_CFunction k) { fputs("warning: lua_yieldk is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_resume	(lua_State *L, lua_State *from, int narg) { fputs("warning: lua_resume is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_status	(lua_State *L) { fputs("warning: lua_status is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_gc	(lua_State *L, int what, int data) { fputs("warning: lua_gc is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_error	(lua_State *L) { fputs("warning: lua_error is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_next	(lua_State *L, int idx) { fputs("warning: lua_next is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_concat	(lua_State *L, int n) { fputs("warning: lua_concat is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_len	(lua_State *L, int idx) { fputs("warning: lua_len is a stub", stderr); }
-static	lua_Alloc 	__lite_xl_fallback_lua_getallocf	(lua_State *L, void **ud) { fputs("warning: lua_getallocf is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_setallocf	(lua_State *L, lua_Alloc f, void *ud) { fputs("warning: lua_setallocf is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_getstack	(lua_State *L, int level, lua_Debug *ar) { fputs("warning: lua_getstack is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_getinfo	(lua_State *L, const char *what, lua_Debug *ar) { fputs("warning: lua_getinfo is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_getlocal	(lua_State *L, const lua_Debug *ar, int n) { fputs("warning: lua_getlocal is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_setlocal	(lua_State *L, const lua_Debug *ar, int n) { fputs("warning: lua_setlocal is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_getupvalue	(lua_State *L, int funcindex, int n) { fputs("warning: lua_getupvalue is a stub", stderr); }
-static	const char *	__lite_xl_fallback_lua_setupvalue	(lua_State *L, int funcindex, int n) { fputs("warning: lua_setupvalue is a stub", stderr); }
-static	void *	__lite_xl_fallback_lua_upvalueid	(lua_State *L, int fidx, int n) { fputs("warning: lua_upvalueid is a stub", stderr); }
-static	void 	__lite_xl_fallback_lua_upvaluejoin	(lua_State *L, int fidx1, int n1, int fidx2, int n2) { fputs("warning: lua_upvaluejoin is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_sethook	(lua_State *L, lua_Hook func, int mask, int count) { fputs("warning: lua_sethook is a stub", stderr); }
-static	lua_Hook 	__lite_xl_fallback_lua_gethook	(lua_State *L) { fputs("warning: lua_gethook is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_gethookmask	(lua_State *L) { fputs("warning: lua_gethookmask is a stub", stderr); }
-static	int 	__lite_xl_fallback_lua_gethookcount	(lua_State *L) { fputs("warning: lua_gethookcount is a stub", stderr); }
-
 
 /** lauxlib.h **/
 
@@ -518,53 +456,54 @@ typedef struct luaL_Stream {
   FILE *f;
   lua_CFunction closef;
 } luaL_Stream;
-static	void (*luaL_checkversion_)	(lua_State *L, lua_Number ver);
-static	int (*luaL_getmetafield)	(lua_State *L, int obj, const char *e);
-static	int (*luaL_callmeta)	(lua_State *L, int obj, const char *e);
-static	const char *(*luaL_tolstring)	(lua_State *L, int idx, size_t *len);
-static	int (*luaL_argerror)	(lua_State *L, int numarg, const char *extramsg);
-static	const char *(*luaL_checklstring)	(lua_State *L, int numArg, size_t *l);
-static	const char *(*luaL_optlstring)	(lua_State *L, int numArg, const char *def, size_t *l);
-static	lua_Number (*luaL_checknumber)	(lua_State *L, int numArg);
-static	lua_Number (*luaL_optnumber)	(lua_State *L, int nArg, lua_Number def);
-static	lua_Integer (*luaL_checkinteger)	(lua_State *L, int numArg);
-static	lua_Integer (*luaL_optinteger)	(lua_State *L, int nArg, lua_Integer def);
-static	lua_Unsigned (*luaL_checkunsigned)	(lua_State *L, int numArg);
-static	lua_Unsigned (*luaL_optunsigned)	(lua_State *L, int numArg, lua_Unsigned def);
-static	void (*luaL_checkstack)	(lua_State *L, int sz, const char *msg);
-static	void (*luaL_checktype)	(lua_State *L, int narg, int t);
-static	void (*luaL_checkany)	(lua_State *L, int narg);
-static	int (*luaL_newmetatable)	(lua_State *L, const char *tname);
-static	void (*luaL_setmetatable)	(lua_State *L, const char *tname);
-static	void *(*luaL_testudata)	(lua_State *L, int ud, const char *tname);
-static	void *(*luaL_checkudata)	(lua_State *L, int ud, const char *tname);
-static	void (*luaL_where)	(lua_State *L, int lvl);
-static	int (*luaL_error)	(lua_State *L, const char *fmt, ...);
-static  int (*luaL_typeerror)  (lua_State *L, int narg, const char *tname);
-static	int (*luaL_checkoption)	(lua_State *L, int narg, const char *def, const char *const lst[]);
-static	int (*luaL_fileresult)	(lua_State *L, int stat, const char *fname);
-static	int (*luaL_execresult)	(lua_State *L, int stat);
-static	int (*luaL_ref)	(lua_State *L, int t);
-static	void (*luaL_unref)	(lua_State *L, int t, int ref);
-static	int (*luaL_loadfilex)	(lua_State *L, const char *filename, const char *mode);
-static	int (*luaL_loadbufferx)	(lua_State *L, const char *buff, size_t sz, const char *name, const char *mode);
-static	int (*luaL_loadstring)	(lua_State *L, const char *s);
-static	lua_State *(*luaL_newstate)	(void);
-static	int (*luaL_len)	(lua_State *L, int idx);
-static	const char *(*luaL_gsub)	(lua_State *L, const char *s, const char *p, const char *r);
-static	void (*luaL_setfuncs)	(lua_State *L, const luaL_Reg *l, int nup);
-static	int (*luaL_getsubtable)	(lua_State *L, int idx, const char *fname);
-static	void (*luaL_traceback)	(lua_State *L, lua_State *L1, const char *msg, int level);
-static	void (*luaL_requiref)	(lua_State *L, const char *modname, lua_CFunction openf, int glb);
-static	void (*luaL_buffinit)	(lua_State *L, luaL_Buffer *B);
-static	char *(*luaL_prepbuffsize)	(luaL_Buffer *B, size_t sz);
-static	void (*luaL_addlstring)	(luaL_Buffer *B, const char *s, size_t l);
-static	void (*luaL_addstring)	(luaL_Buffer *B, const char *s);
-static	void (*luaL_addvalue)	(luaL_Buffer *B);
-static	void (*luaL_pushresult)	(luaL_Buffer *B);
-static	void (*luaL_pushresultsize)	(luaL_Buffer *B, size_t sz);
-static	char *(*luaL_buffinitsize)	(lua_State *L, luaL_Buffer *B, size_t sz);
-static  void (*luaL_openlibs)		(lua_State *L);
+
+SYMBOL_DECLARE(void,         luaL_checkversion_,  lua_State *L, lua_Number ver)
+SYMBOL_DECLARE(int,          luaL_getmetafield,   lua_State *L, int obj, const char *e)
+SYMBOL_DECLARE(int,          luaL_callmeta,       lua_State *L, int obj, const char *e)
+SYMBOL_DECLARE(const char *, luaL_tolstring,      lua_State *L, int idx, size_t *len)
+SYMBOL_DECLARE(int,          luaL_argerror,       lua_State *L, int numarg, const char *extramsg)
+SYMBOL_DECLARE(const char *, luaL_checklstring,   lua_State *L, int numArg, size_t *l)
+SYMBOL_DECLARE(const char *, luaL_optlstring,     lua_State *L, int numArg, const char *def, size_t *l)
+SYMBOL_DECLARE(lua_Number,   luaL_checknumber,    lua_State *L, int numArg)
+SYMBOL_DECLARE(lua_Number,   luaL_optnumber,      lua_State *L, int nArg, lua_Number def)
+SYMBOL_DECLARE(lua_Integer,  luaL_checkinteger,   lua_State *L, int numArg)
+SYMBOL_DECLARE(lua_Integer,  luaL_optinteger,     lua_State *L, int nArg, lua_Integer def)
+SYMBOL_DECLARE(lua_Unsigned, luaL_checkunsigned,  lua_State *L, int numArg)
+SYMBOL_DECLARE(lua_Unsigned, luaL_optunsigned,    lua_State *L, int numArg, lua_Unsigned def)
+SYMBOL_DECLARE(void,         luaL_checkstack,     lua_State *L, int sz, const char *msg)
+SYMBOL_DECLARE(void,         luaL_checktype,      lua_State *L, int narg, int t)
+SYMBOL_DECLARE(void,         luaL_checkany,       lua_State *L, int narg)
+SYMBOL_DECLARE(int,          luaL_newmetatable,   lua_State *L, const char *tname)
+SYMBOL_DECLARE(void,         luaL_setmetatable,   lua_State *L, const char *tname)
+SYMBOL_DECLARE(void *,       luaL_testudata,      lua_State *L, int ud, const char *tname)
+SYMBOL_DECLARE(void *,       luaL_checkudata,     lua_State *L, int ud, const char *tname)
+SYMBOL_DECLARE(void,         luaL_where,          lua_State *L, int lvl)
+SYMBOL_DECLARE(int,          luaL_error,          lua_State *L, const char *fmt, ...)
+SYMBOL_DECLARE(int,          luaL_checkoption,    lua_State *L, int narg, const char *def, const char *const lst[])
+SYMBOL_DECLARE(int,          luaL_fileresult,     lua_State *L, int stat, const char *fname)
+SYMBOL_DECLARE(int,          luaL_execresult,     lua_State *L, int stat)
+SYMBOL_DECLARE(int,          luaL_ref,            lua_State *L, int t)
+SYMBOL_DECLARE(void,         luaL_unref,          lua_State *L, int t, int ref)
+SYMBOL_DECLARE(int,          luaL_loadfilex,      lua_State *L, const char *filename, const char *mode)
+SYMBOL_DECLARE(int,          luaL_loadbufferx,    lua_State *L, const char *buff, size_t sz, const char *name, const char *mode)
+SYMBOL_DECLARE(int,          luaL_loadstring,     lua_State *L, const char *s)
+SYMBOL_DECLARE(lua_State *,  luaL_newstate,       void)
+SYMBOL_DECLARE(int,          luaL_len,            lua_State *L, int idx)
+SYMBOL_DECLARE(const char *, luaL_gsub,           lua_State *L, const char *s, const char *p, const char *r)
+SYMBOL_DECLARE(void,         luaL_setfuncs,       lua_State *L, const luaL_Reg *l, int nup)
+SYMBOL_DECLARE(int,          luaL_getsubtable,    lua_State *L, int idx, const char *fname)
+SYMBOL_DECLARE(void,         luaL_traceback,      lua_State *L, lua_State *L1, const char *msg, int level)
+SYMBOL_DECLARE(void,         luaL_requiref,       lua_State *L, const char *modname, lua_CFunction openf, int glb)
+SYMBOL_DECLARE(void,         luaL_buffinit,       lua_State *L, luaL_Buffer *B)
+SYMBOL_DECLARE(char *,       luaL_prepbuffsize,   luaL_Buffer *B, size_t sz)
+SYMBOL_DECLARE(void,         luaL_addlstring,     luaL_Buffer *B, const char *s, size_t l)
+SYMBOL_DECLARE(void,         luaL_addstring,      luaL_Buffer *B, const char *s)
+SYMBOL_DECLARE(void,         luaL_addvalue,       luaL_Buffer *B)
+SYMBOL_DECLARE(void,         luaL_pushresult,     luaL_Buffer *B)
+SYMBOL_DECLARE(void,         luaL_pushresultsize, luaL_Buffer *B, size_t sz)
+SYMBOL_DECLARE(char *,       luaL_buffinitsize,   lua_State *L, luaL_Buffer *B, size_t sz)
+SYMBOL_DECLARE(void,         luaL_openlibs,       lua_State *L)
+
 #define lauxlib_h
 #define LUA_ERRFILE (LUA_ERRERR+1)
 #define luaL_checkversion(L) luaL_checkversion_(L, LUA_VERSION_NUM)
@@ -590,194 +529,592 @@ static  void (*luaL_openlibs)		(lua_State *L);
 #define luaL_addsize(B,s) ((B)->n += (s))
 #define luaL_prepbuffer(B) luaL_prepbuffsize(B, LUAL_BUFFERSIZE)
 #define LUA_FILEHANDLE "FILE*"
-static	void 	__lite_xl_fallback_luaL_checkversion_	(lua_State *L, lua_Number ver) { fputs("warning: luaL_checkversion_ is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_getmetafield	(lua_State *L, int obj, const char *e) { fputs("warning: luaL_getmetafield is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_callmeta	(lua_State *L, int obj, const char *e) { fputs("warning: luaL_callmeta is a stub", stderr); }
-static	const char *	__lite_xl_fallback_luaL_tolstring	(lua_State *L, int idx, size_t *len) { fputs("warning: luaL_tolstring is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_argerror	(lua_State *L, int numarg, const char *extramsg) { fputs("warning: luaL_argerror is a stub", stderr); }
-static	const char *	__lite_xl_fallback_luaL_checklstring	(lua_State *L, int numArg, size_t *l) { fputs("warning: luaL_checklstring is a stub", stderr); }
-static	const char *	__lite_xl_fallback_luaL_optlstring	(lua_State *L, int numArg, const char *def, size_t *l) { fputs("warning: luaL_optlstring is a stub", stderr); }
-static	lua_Number 	__lite_xl_fallback_luaL_checknumber	(lua_State *L, int numArg) { fputs("warning: luaL_checknumber is a stub", stderr); }
-static	lua_Number 	__lite_xl_fallback_luaL_optnumber	(lua_State *L, int nArg, lua_Number def) { fputs("warning: luaL_optnumber is a stub", stderr); }
-static	lua_Integer 	__lite_xl_fallback_luaL_checkinteger	(lua_State *L, int numArg) { fputs("warning: luaL_checkinteger is a stub", stderr); }
-static	lua_Integer 	__lite_xl_fallback_luaL_optinteger	(lua_State *L, int nArg, lua_Integer def) { fputs("warning: luaL_optinteger is a stub", stderr); }
-static	lua_Unsigned 	__lite_xl_fallback_luaL_checkunsigned	(lua_State *L, int numArg) { fputs("warning: luaL_checkunsigned is a stub", stderr); }
-static	lua_Unsigned 	__lite_xl_fallback_luaL_optunsigned	(lua_State *L, int numArg, lua_Unsigned def) { fputs("warning: luaL_optunsigned is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_checkstack	(lua_State *L, int sz, const char *msg) { fputs("warning: luaL_checkstack is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_checktype	(lua_State *L, int narg, int t) { fputs("warning: luaL_checktype is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_checkany	(lua_State *L, int narg) { fputs("warning: luaL_checkany is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_newmetatable	(lua_State *L, const char *tname) { fputs("warning: luaL_newmetatable is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_setmetatable	(lua_State *L, const char *tname) { fputs("warning: luaL_setmetatable is a stub", stderr); }
-static	void *	__lite_xl_fallback_luaL_testudata	(lua_State *L, int ud, const char *tname) { fputs("warning: luaL_testudata is a stub", stderr); }
-static	void *	__lite_xl_fallback_luaL_checkudata	(lua_State *L, int ud, const char *tname) { fputs("warning: luaL_checkudata is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_where	(lua_State *L, int lvl) { fputs("warning: luaL_where is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_error	(lua_State *L, const char *fmt, ...) { fputs("warning: luaL_error is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_typeerror	(lua_State *L, int narg, const char *tname) { fputs("warning: luaL_typeerror is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_checkoption	(lua_State *L, int narg, const char *def, const char *const lst[]) { fputs("warning: luaL_checkoption is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_fileresult	(lua_State *L, int stat, const char *fname) { fputs("warning: luaL_fileresult is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_execresult	(lua_State *L, int stat) { fputs("warning: luaL_execresult is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_ref	(lua_State *L, int t) { fputs("warning: luaL_ref is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_unref	(lua_State *L, int t, int ref) { fputs("warning: luaL_unref is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_loadfilex	(lua_State *L, const char *filename, const char *mode) { fputs("warning: luaL_loadfilex is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_loadbufferx	(lua_State *L, const char *buff, size_t sz, const char *name, const char *mode) { fputs("warning: luaL_loadbufferx is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_loadstring	(lua_State *L, const char *s) { fputs("warning: luaL_loadstring is a stub", stderr); }
-static	lua_State *	__lite_xl_fallback_luaL_newstate	(void) { fputs("warning: luaL_newstate is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_len	(lua_State *L, int idx) { fputs("warning: luaL_len is a stub", stderr); }
-static	const char *	__lite_xl_fallback_luaL_gsub	(lua_State *L, const char *s, const char *p, const char *r) { fputs("warning: luaL_gsub is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_setfuncs	(lua_State *L, const luaL_Reg *l, int nup) { fputs("warning: luaL_setfuncs is a stub", stderr); }
-static	int 	__lite_xl_fallback_luaL_getsubtable	(lua_State *L, int idx, const char *fname) { fputs("warning: luaL_getsubtable is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_traceback	(lua_State *L, lua_State *L1, const char *msg, int level) { fputs("warning: luaL_traceback is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_requiref	(lua_State *L, const char *modname, lua_CFunction openf, int glb) { fputs("warning: luaL_requiref is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_buffinit	(lua_State *L, luaL_Buffer *B) { fputs("warning: luaL_buffinit is a stub", stderr); }
-static	char *	__lite_xl_fallback_luaL_prepbuffsize	(luaL_Buffer *B, size_t sz) { fputs("warning: luaL_prepbuffsize is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_addlstring	(luaL_Buffer *B, const char *s, size_t l) { fputs("warning: luaL_addlstring is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_addstring	(luaL_Buffer *B, const char *s) { fputs("warning: luaL_addstring is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_addvalue	(luaL_Buffer *B) { fputs("warning: luaL_addvalue is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_pushresult	(luaL_Buffer *B) { fputs("warning: luaL_pushresult is a stub", stderr); }
-static	void 	__lite_xl_fallback_luaL_pushresultsize	(luaL_Buffer *B, size_t sz) { fputs("warning: luaL_pushresultsize is a stub", stderr); }
-static	char *	__lite_xl_fallback_luaL_buffinitsize	(lua_State *L, luaL_Buffer *B, size_t sz) { fputs("warning: luaL_buffinitsize is a stub", stderr); }
-static  void    __lite_xl_fallback_luaL_openlibs        (lua_State *L) { fputs("warning: luaL_openlibs is a stub", stderr); }
 
-#define IMPORT_SYMBOL(name, ret, ...) name = (name = (ret (*) (__VA_ARGS__)) symbol(#name), name == NULL ? &__lite_xl_fallback_##name : name)
-static void lite_xl_plugin_init(void *XL) {
-	void* (*symbol)(const char *) = (void* (*) (const char *)) XL;
-	IMPORT_SYMBOL(lua_newstate, lua_State *, lua_Alloc f, void *ud);
-	IMPORT_SYMBOL(lua_close, void , lua_State *L);
-	IMPORT_SYMBOL(lua_newthread, lua_State *, lua_State *L);
-	IMPORT_SYMBOL(lua_atpanic, lua_CFunction , lua_State *L, lua_CFunction panicf);
-	IMPORT_SYMBOL(lua_version, const lua_Number *, lua_State *L);
-	IMPORT_SYMBOL(lua_absindex, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_gettop, int , lua_State *L);
-	IMPORT_SYMBOL(lua_settop, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_pushvalue, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_copy, void , lua_State *L, int fromidx, int toidx);
-	IMPORT_SYMBOL(lua_checkstack, int , lua_State *L, int sz);
-	IMPORT_SYMBOL(lua_xmove, void , lua_State *from, lua_State *to, int n);
-	IMPORT_SYMBOL(lua_isnumber, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_isstring, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_iscfunction, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_isuserdata, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_type, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_typename, const char *, lua_State *L, int tp);
-	IMPORT_SYMBOL(lua_tonumberx, lua_Number , lua_State *L, int idx, int *isnum);
-	IMPORT_SYMBOL(lua_tointegerx, lua_Integer , lua_State *L, int idx, int *isnum);
-	IMPORT_SYMBOL(lua_tounsignedx, lua_Unsigned , lua_State *L, int idx, int *isnum);
-	IMPORT_SYMBOL(lua_toboolean, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_tolstring, const char *, lua_State *L, int idx, size_t *len);
-	IMPORT_SYMBOL(lua_rawlen, size_t , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_tocfunction, lua_CFunction , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_touserdata, void *, lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_tothread, lua_State *, lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_topointer, const void *, lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_arith, void , lua_State *L, int op);
-	IMPORT_SYMBOL(lua_rawequal, int , lua_State *L, int idx1, int idx2);
-	IMPORT_SYMBOL(lua_compare, int , lua_State *L, int idx1, int idx2, int op);
-	IMPORT_SYMBOL(lua_pushnil, void , lua_State *L);
-	IMPORT_SYMBOL(lua_pushnumber, void , lua_State *L, lua_Number n);
-	IMPORT_SYMBOL(lua_pushinteger, void , lua_State *L, lua_Integer n);
-	IMPORT_SYMBOL(lua_pushunsigned, void , lua_State *L, lua_Unsigned n);
-	IMPORT_SYMBOL(lua_pushlstring, const char *, lua_State *L, const char *s, size_t l);
-	IMPORT_SYMBOL(lua_pushstring, const char *, lua_State *L, const char *s);
-	IMPORT_SYMBOL(lua_pushvfstring, const char *, lua_State *L, const char *fmt, va_list argp);
-	IMPORT_SYMBOL(lua_pushfstring, const char *, lua_State *L, const char *fmt, ...);
-	IMPORT_SYMBOL(lua_pushcclosure, void , lua_State *L, lua_CFunction fn, int n);
-	IMPORT_SYMBOL(lua_pushboolean, void , lua_State *L, int b);
-	IMPORT_SYMBOL(lua_pushlightuserdata, void , lua_State *L, void *p);
-	IMPORT_SYMBOL(lua_pushthread, int , lua_State *L);
-	IMPORT_SYMBOL(lua_getglobal, void , lua_State *L, const char *var);
-	IMPORT_SYMBOL(lua_gettable, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_getfield, void , lua_State *L, int idx, const char *k);
-	IMPORT_SYMBOL(lua_rawget, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_rawgeti, void , lua_State *L, int idx, int n);
-	IMPORT_SYMBOL(lua_rawgetp, void , lua_State *L, int idx, const void *p);
-	IMPORT_SYMBOL(lua_createtable, void , lua_State *L, int narr, int nrec);
-	IMPORT_SYMBOL(lua_newuserdata, void *, lua_State *L, size_t sz);
-	IMPORT_SYMBOL(lua_newuserdatauv, void *, lua_State *L, size_t sz, int nuvalue);
-	IMPORT_SYMBOL(lua_getmetatable, int , lua_State *L, int objindex);
-	IMPORT_SYMBOL(lua_getuservalue, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_getiuservalue, void , lua_State *L, int idx, int n);
-	IMPORT_SYMBOL(lua_setglobal, void , lua_State *L, const char *var);
-	IMPORT_SYMBOL(lua_settable, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_setfield, void , lua_State *L, int idx, const char *k);
-	IMPORT_SYMBOL(lua_rawset, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_rawseti, void , lua_State *L, int idx, int n);
-	IMPORT_SYMBOL(lua_rawsetp, void , lua_State *L, int idx, const void *p);
-	IMPORT_SYMBOL(lua_setmetatable, int , lua_State *L, int objindex);
-	IMPORT_SYMBOL(lua_setuservalue, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_setiuservalue, void , lua_State *L, int idx, int n);
-	IMPORT_SYMBOL(lua_callk, void , lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k);
-	IMPORT_SYMBOL(lua_getctx, int , lua_State *L, int *ctx);
-	IMPORT_SYMBOL(lua_pcallk, int , lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
-	IMPORT_SYMBOL(lua_load, int , lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode);
-	IMPORT_SYMBOL(lua_dump, int , lua_State *L, lua_Writer writer, void *data, int strip);
-	IMPORT_SYMBOL(lua_yieldk, int , lua_State *L, int nresults, int ctx, lua_CFunction k);
-	IMPORT_SYMBOL(lua_resume, int , lua_State *L, lua_State *from, int narg);
-	IMPORT_SYMBOL(lua_status, int , lua_State *L);
-	IMPORT_SYMBOL(lua_gc, int , lua_State *L, int what, int data);
-	IMPORT_SYMBOL(lua_error, int , lua_State *L);
-	IMPORT_SYMBOL(lua_next, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_concat, void , lua_State *L, int n);
-	IMPORT_SYMBOL(lua_len, void , lua_State *L, int idx);
-	IMPORT_SYMBOL(lua_getallocf, lua_Alloc , lua_State *L, void **ud);
-	IMPORT_SYMBOL(lua_setallocf, void , lua_State *L, lua_Alloc f, void *ud);
-	IMPORT_SYMBOL(lua_getstack, int , lua_State *L, int level, lua_Debug *ar);
-	IMPORT_SYMBOL(lua_getinfo, int , lua_State *L, const char *what, lua_Debug *ar);
-	IMPORT_SYMBOL(lua_getlocal, const char *, lua_State *L, const lua_Debug *ar, int n);
-	IMPORT_SYMBOL(lua_setlocal, const char *, lua_State *L, const lua_Debug *ar, int n);
-	IMPORT_SYMBOL(lua_getupvalue, const char *, lua_State *L, int funcindex, int n);
-	IMPORT_SYMBOL(lua_setupvalue, const char *, lua_State *L, int funcindex, int n);
-	IMPORT_SYMBOL(lua_upvalueid, void *, lua_State *L, int fidx, int n);
-	IMPORT_SYMBOL(lua_upvaluejoin, void , lua_State *L, int fidx1, int n1, int fidx2, int n2);
-	IMPORT_SYMBOL(lua_sethook, int , lua_State *L, lua_Hook func, int mask, int count);
-	IMPORT_SYMBOL(lua_gethook, lua_Hook , lua_State *L);
-	IMPORT_SYMBOL(lua_gethookmask, int , lua_State *L);
-	IMPORT_SYMBOL(lua_gethookcount, int , lua_State *L);
-	IMPORT_SYMBOL(luaL_checkversion_, void , lua_State *L, lua_Number ver);
-	IMPORT_SYMBOL(luaL_getmetafield, int , lua_State *L, int obj, const char *e);
-	IMPORT_SYMBOL(luaL_callmeta, int , lua_State *L, int obj, const char *e);
-	IMPORT_SYMBOL(luaL_tolstring, const char *, lua_State *L, int idx, size_t *len);
-	IMPORT_SYMBOL(luaL_argerror, int , lua_State *L, int numarg, const char *extramsg);
-	IMPORT_SYMBOL(luaL_checklstring, const char *, lua_State *L, int numArg, size_t *l);
-	IMPORT_SYMBOL(luaL_optlstring, const char *, lua_State *L, int numArg, const char *def, size_t *l);
-	IMPORT_SYMBOL(luaL_checknumber, lua_Number , lua_State *L, int numArg);
-	IMPORT_SYMBOL(luaL_optnumber, lua_Number , lua_State *L, int nArg, lua_Number def);
-	IMPORT_SYMBOL(luaL_checkinteger, lua_Integer , lua_State *L, int numArg);
-	IMPORT_SYMBOL(luaL_optinteger, lua_Integer , lua_State *L, int nArg, lua_Integer def);
-	IMPORT_SYMBOL(luaL_checkunsigned, lua_Unsigned , lua_State *L, int numArg);
-	IMPORT_SYMBOL(luaL_optunsigned, lua_Unsigned , lua_State *L, int numArg, lua_Unsigned def);
-	IMPORT_SYMBOL(luaL_checkstack, void , lua_State *L, int sz, const char *msg);
-	IMPORT_SYMBOL(luaL_checktype, void , lua_State *L, int narg, int t);
-	IMPORT_SYMBOL(luaL_checkany, void , lua_State *L, int narg);
-	IMPORT_SYMBOL(luaL_newmetatable, int , lua_State *L, const char *tname);
-	IMPORT_SYMBOL(luaL_setmetatable, void , lua_State *L, const char *tname);
-	IMPORT_SYMBOL(luaL_testudata, void *, lua_State *L, int ud, const char *tname);
-	IMPORT_SYMBOL(luaL_checkudata, void *, lua_State *L, int ud, const char *tname);
-	IMPORT_SYMBOL(luaL_where, void , lua_State *L, int lvl);
-	IMPORT_SYMBOL(luaL_error, int , lua_State *L, const char *fmt, ...);
-	IMPORT_SYMBOL(luaL_typeerror, int , lua_State *L, int narg, const char *tname);
-	IMPORT_SYMBOL(luaL_checkoption, int , lua_State *L, int narg, const char *def, const char *const lst[]);
-	IMPORT_SYMBOL(luaL_fileresult, int , lua_State *L, int stat, const char *fname);
-	IMPORT_SYMBOL(luaL_execresult, int , lua_State *L, int stat);
-	IMPORT_SYMBOL(luaL_ref, int , lua_State *L, int t);
-	IMPORT_SYMBOL(luaL_unref, void , lua_State *L, int t, int ref);
-	IMPORT_SYMBOL(luaL_loadfilex, int , lua_State *L, const char *filename, const char *mode);
-	IMPORT_SYMBOL(luaL_loadbufferx, int , lua_State *L, const char *buff, size_t sz, const char *name, const char *mode);
-	IMPORT_SYMBOL(luaL_loadstring, int , lua_State *L, const char *s);
-	IMPORT_SYMBOL(luaL_newstate, lua_State *, void);
-	IMPORT_SYMBOL(luaL_len, int , lua_State *L, int idx);
-	IMPORT_SYMBOL(luaL_gsub, const char *, lua_State *L, const char *s, const char *p, const char *r);
-	IMPORT_SYMBOL(luaL_setfuncs, void , lua_State *L, const luaL_Reg *l, int nup);
-	IMPORT_SYMBOL(luaL_getsubtable, int , lua_State *L, int idx, const char *fname);
-	IMPORT_SYMBOL(luaL_traceback, void , lua_State *L, lua_State *L1, const char *msg, int level);
-	IMPORT_SYMBOL(luaL_requiref, void , lua_State *L, const char *modname, lua_CFunction openf, int glb);
-	IMPORT_SYMBOL(luaL_buffinit, void , lua_State *L, luaL_Buffer *B);
-	IMPORT_SYMBOL(luaL_prepbuffsize, char *, luaL_Buffer *B, size_t sz);
-	IMPORT_SYMBOL(luaL_addlstring, void , luaL_Buffer *B, const char *s, size_t l);
-	IMPORT_SYMBOL(luaL_addstring, void , luaL_Buffer *B, const char *s);
-	IMPORT_SYMBOL(luaL_addvalue, void , luaL_Buffer *B);
-	IMPORT_SYMBOL(luaL_pushresult, void , luaL_Buffer *B);
-	IMPORT_SYMBOL(luaL_pushresultsize, void , luaL_Buffer *B, size_t sz);
-	IMPORT_SYMBOL(luaL_buffinitsize, char *, lua_State *L, luaL_Buffer *B, size_t sz);
-	IMPORT_SYMBOL(luaL_openlibs, void, lua_State* L);
+#ifdef LITE_XL_PLUGIN_ENTRYPOINT
+
+SYMBOL_WRAP_DECL(lua_State *, lua_newstate, lua_Alloc f, void *ud){
+  SYMBOL_WRAP_CALL(lua_newstate, f, ud);
 }
-#endif
+SYMBOL_WRAP_DECL(void, lua_close, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_close, L);
+}
+SYMBOL_WRAP_DECL(lua_State *, lua_newthread, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_newthread, L);
+}
+SYMBOL_WRAP_DECL(lua_CFunction, lua_atpanic, lua_State *L, lua_CFunction panicf){
+  SYMBOL_WRAP_CALL(lua_atpanic, L, panicf);
+}
+SYMBOL_WRAP_DECL(const lua_Number *, lua_version, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_version, L);
+}
+SYMBOL_WRAP_DECL(int, lua_absindex, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_absindex, L, idx);
+}
+SYMBOL_WRAP_DECL(int, lua_gettop, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_gettop, L);
+}
+SYMBOL_WRAP_DECL(void, lua_settop, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_settop, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_pushvalue, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_pushvalue, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_copy, lua_State *L, int fromidx, int toidx){
+  SYMBOL_WRAP_CALL(lua_copy, L, fromidx, toidx);
+}
+SYMBOL_WRAP_DECL(int, lua_checkstack, lua_State *L, int sz){
+  SYMBOL_WRAP_CALL(lua_checkstack, L, sz);
+}
+SYMBOL_WRAP_DECL(void, lua_xmove, lua_State *from, lua_State *to, int n){
+  SYMBOL_WRAP_CALL(lua_xmove, from, to, n);
+}
+SYMBOL_WRAP_DECL(int, lua_isnumber, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_isnumber, L, idx);
+}
+SYMBOL_WRAP_DECL(int, lua_isstring, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_isstring, L, idx);
+}
+SYMBOL_WRAP_DECL(int, lua_iscfunction, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_iscfunction, L, idx);
+}
+SYMBOL_WRAP_DECL(int, lua_isuserdata, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_isuserdata, L, idx);
+}
+SYMBOL_WRAP_DECL(int, lua_type, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_type, L, idx);
+}
+SYMBOL_WRAP_DECL(const char *, lua_typename, lua_State *L, int tp){
+  SYMBOL_WRAP_CALL(lua_typename, L, tp);
+}
+SYMBOL_WRAP_DECL(lua_Number, lua_tonumberx, lua_State *L, int idx, int *isnum){
+  SYMBOL_WRAP_CALL(lua_tonumberx, L, idx, isnum);
+}
+SYMBOL_WRAP_DECL(lua_Integer, lua_tointegerx, lua_State *L, int idx, int *isnum){
+  SYMBOL_WRAP_CALL(lua_tointegerx, L, idx, isnum);
+}
+SYMBOL_WRAP_DECL(lua_Unsigned, lua_tounsignedx, lua_State *L, int idx, int *isnum){
+  SYMBOL_WRAP_CALL(lua_tounsignedx, L, idx, isnum);
+}
+SYMBOL_WRAP_DECL(int, lua_toboolean, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_toboolean, L, idx);
+}
+SYMBOL_WRAP_DECL(const char *, lua_tolstring, lua_State *L, int idx, size_t *len){
+  SYMBOL_WRAP_CALL(lua_tolstring, L, idx, len);
+}
+SYMBOL_WRAP_DECL(size_t, lua_rawlen, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_rawlen, L, idx);
+}
+SYMBOL_WRAP_DECL(lua_CFunction, lua_tocfunction, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_tocfunction, L, idx);
+}
+SYMBOL_WRAP_DECL(void *, lua_touserdata, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_touserdata, L, idx);
+}
+SYMBOL_WRAP_DECL(lua_State *, lua_tothread, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_tothread, L, idx);
+}
+SYMBOL_WRAP_DECL(const void *, lua_topointer, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_topointer, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_arith, lua_State *L, int op){
+  SYMBOL_WRAP_CALL(lua_arith, L, op);
+}
+SYMBOL_WRAP_DECL(int, lua_rawequal, lua_State *L, int idx1, int idx2){
+  SYMBOL_WRAP_CALL(lua_rawequal, L, idx1, idx2);
+}
+SYMBOL_WRAP_DECL(int, lua_compare, lua_State *L, int idx1, int idx2, int op){
+  SYMBOL_WRAP_CALL(lua_compare, L, idx1, idx2, op);
+}
+SYMBOL_WRAP_DECL(void, lua_pushnil, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_pushnil, L);
+}
+SYMBOL_WRAP_DECL(void, lua_pushnumber, lua_State *L, lua_Number n){
+  SYMBOL_WRAP_CALL(lua_pushnumber, L, n);
+}
+SYMBOL_WRAP_DECL(void, lua_pushinteger, lua_State *L, lua_Integer n){
+  SYMBOL_WRAP_CALL(lua_pushinteger, L, n);
+}
+SYMBOL_WRAP_DECL(void, lua_pushunsigned, lua_State *L, lua_Unsigned n){
+  SYMBOL_WRAP_CALL(lua_pushunsigned, L, n);
+}
+SYMBOL_WRAP_DECL(const char *, lua_pushlstring, lua_State *L, const char *s, size_t l){
+  SYMBOL_WRAP_CALL(lua_pushlstring, L, s, l);
+}
+SYMBOL_WRAP_DECL(const char *, lua_pushstring, lua_State *L, const char *s){
+  SYMBOL_WRAP_CALL(lua_pushstring, L, s);
+}
+SYMBOL_WRAP_DECL(const char *, lua_pushvfstring, lua_State *L, const char *fmt, va_list argp){
+  SYMBOL_WRAP_CALL(lua_pushvfstring, L, fmt, argp);
+}
+SYMBOL_WRAP_DECL(const char *, lua_pushfstring, lua_State *L, const char *fmt, ...){
+  SYMBOL_WRAP_CALL(lua_pushfstring, L, fmt);
+}
+SYMBOL_WRAP_DECL(void, lua_pushcclosure, lua_State *L, lua_CFunction fn, int n){
+  SYMBOL_WRAP_CALL(lua_pushcclosure, L, fn, n);
+}
+SYMBOL_WRAP_DECL(void, lua_pushboolean, lua_State *L, int b){
+  SYMBOL_WRAP_CALL(lua_pushboolean, L, b);
+}
+SYMBOL_WRAP_DECL(void, lua_pushlightuserdata, lua_State *L, void *p){
+  SYMBOL_WRAP_CALL(lua_pushlightuserdata, L, p);
+}
+SYMBOL_WRAP_DECL(int, lua_pushthread, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_pushthread, L);
+}
+SYMBOL_WRAP_DECL(void, lua_getglobal, lua_State *L, const char *var){
+  SYMBOL_WRAP_CALL(lua_getglobal, L, var);
+}
+SYMBOL_WRAP_DECL(void, lua_gettable, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_gettable, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_getfield, lua_State *L, int idx, const char *k){
+  SYMBOL_WRAP_CALL(lua_getfield, L, idx, k);
+}
+SYMBOL_WRAP_DECL(void, lua_rawget, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_rawget, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_rawgeti, lua_State *L, int idx, int n){
+  SYMBOL_WRAP_CALL(lua_rawgeti, L, idx, n);
+}
+SYMBOL_WRAP_DECL(void, lua_rawgetp, lua_State *L, int idx, const void *p){
+  SYMBOL_WRAP_CALL(lua_rawgetp, L, idx, p);
+}
+SYMBOL_WRAP_DECL(void, lua_createtable, lua_State *L, int narr, int nrec){
+  SYMBOL_WRAP_CALL(lua_createtable, L, narr, nrec);
+}
+SYMBOL_WRAP_DECL(void *, lua_newuserdata, lua_State *L, size_t sz){
+  if (__lua_newuserdatauv != NULL) {
+    return lua_newuserdatauv(L, sz, 1);
+  } else if (__lua_newuserdata != NULL) {
+    SYMBOL_WRAP_CALL(lua_newuserdata, L, sz);
+  }
+  SYMBOL_WRAP_CALL_FB(lua_newuserdata, L, sz);
+}
+SYMBOL_WRAP_DECL(void *, lua_newuserdatauv, lua_State *L, size_t sz, int nuvalue){
+  SYMBOL_WRAP_CALL(lua_newuserdatauv, L, sz, nuvalue);
+}
+SYMBOL_WRAP_DECL(int, lua_getmetatable, lua_State *L, int objindex){
+  SYMBOL_WRAP_CALL(lua_getmetatable, L, objindex);
+}
+SYMBOL_WRAP_DECL(void, lua_getuservalue, lua_State *L, int idx){
+  if (__lua_getiuservalue != NULL) {
+    return lua_getiuservalue(L, idx, 1);
+  } else if (__lua_getuservalue != NULL) {
+    SYMBOL_WRAP_CALL(lua_getuservalue, L, idx);
+  }
+  SYMBOL_WRAP_CALL_FB(lua_getuservalue, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_getiuservalue, lua_State *L, int idx, int n){
+  SYMBOL_WRAP_CALL(lua_getiuservalue, L, idx, n);
+}
+SYMBOL_WRAP_DECL(void, lua_setglobal, lua_State *L, const char *var){
+  SYMBOL_WRAP_CALL(lua_setglobal, L, var);
+}
+SYMBOL_WRAP_DECL(void, lua_settable, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_settable, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_setfield, lua_State *L, int idx, const char *k){
+  SYMBOL_WRAP_CALL(lua_setfield, L, idx, k);
+}
+SYMBOL_WRAP_DECL(void, lua_rawset, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_rawset, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_rawseti, lua_State *L, int idx, int n){
+  SYMBOL_WRAP_CALL(lua_rawseti, L, idx, n);
+}
+SYMBOL_WRAP_DECL(void, lua_rawsetp, lua_State *L, int idx, const void *p){
+  SYMBOL_WRAP_CALL(lua_rawsetp, L, idx, p);
+}
+SYMBOL_WRAP_DECL(int, lua_setmetatable, lua_State *L, int objindex){
+  SYMBOL_WRAP_CALL(lua_setmetatable, L, objindex);
+}
+SYMBOL_WRAP_DECL(void, lua_setuservalue, lua_State *L, int idx){
+  if (__lua_setiuservalue != NULL) {
+    return lua_setiuservalue(L, idx, 1);
+  } else if (__lua_setuservalue != NULL) {
+    SYMBOL_WRAP_CALL(lua_setuservalue, L, idx);
+  }
+  SYMBOL_WRAP_CALL_FB(lua_setuservalue, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_setiuservalue, lua_State *L, int idx, int n){
+  SYMBOL_WRAP_CALL(lua_setiuservalue, L, idx, n);
+}
+SYMBOL_WRAP_DECL(void, lua_callk, lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k){
+  SYMBOL_WRAP_CALL(lua_callk, L, nargs, nresults, ctx, k);
+}
+SYMBOL_WRAP_DECL(int, lua_getctx, lua_State *L, int *ctx){
+  SYMBOL_WRAP_CALL(lua_getctx, L, ctx);
+}
+SYMBOL_WRAP_DECL(int, lua_pcallk, lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k){
+  SYMBOL_WRAP_CALL(lua_pcallk, L, nargs, nresults, errfunc, ctx, k);
+}
+SYMBOL_WRAP_DECL(int, lua_load, lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode){
+  SYMBOL_WRAP_CALL(lua_load, L, reader, dt, chunkname, mode);
+}
+SYMBOL_WRAP_DECL(int, lua_dump, lua_State *L, lua_Writer writer, void *data, int strip){
+  SYMBOL_WRAP_CALL(lua_dump, L, writer, data, strip);
+}
+SYMBOL_WRAP_DECL(int, lua_yieldk, lua_State *L, int nresults, int ctx, lua_CFunction k){
+  SYMBOL_WRAP_CALL(lua_yieldk, L, nresults, ctx, k);
+}
+SYMBOL_WRAP_DECL(int, lua_resume, lua_State *L, lua_State *from, int narg){
+  SYMBOL_WRAP_CALL(lua_resume, L, from, narg);
+}
+SYMBOL_WRAP_DECL(int, lua_status, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_status, L);
+}
+SYMBOL_WRAP_DECL(int, lua_gc, lua_State *L, int what, int data){
+  SYMBOL_WRAP_CALL(lua_gc, L, what, data);
+}
+SYMBOL_WRAP_DECL(int, lua_error, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_error, L);
+}
+SYMBOL_WRAP_DECL(int, lua_next, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_next, L, idx);
+}
+SYMBOL_WRAP_DECL(void, lua_concat, lua_State *L, int n){
+  SYMBOL_WRAP_CALL(lua_concat, L, n);
+}
+SYMBOL_WRAP_DECL(void, lua_len, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(lua_len, L, idx);
+}
+SYMBOL_WRAP_DECL(lua_Alloc, lua_getallocf, lua_State *L, void **ud){
+  SYMBOL_WRAP_CALL(lua_getallocf, L, ud);
+}
+SYMBOL_WRAP_DECL(void, lua_setallocf, lua_State *L, lua_Alloc f, void *ud){
+  SYMBOL_WRAP_CALL(lua_setallocf, L, f, ud);
+}
+SYMBOL_WRAP_DECL(int, lua_getstack, lua_State *L, int level, lua_Debug *ar){
+  SYMBOL_WRAP_CALL(lua_getstack, L, level, ar);
+}
+SYMBOL_WRAP_DECL(int, lua_getinfo, lua_State *L, const char *what, lua_Debug *ar){
+  SYMBOL_WRAP_CALL(lua_getinfo, L, what, ar);
+}
+SYMBOL_WRAP_DECL(const char *, lua_getlocal, lua_State *L, const lua_Debug *ar, int n){
+  SYMBOL_WRAP_CALL(lua_getlocal, L, ar, n);
+}
+SYMBOL_WRAP_DECL(const char *, lua_setlocal, lua_State *L, const lua_Debug *ar, int n){
+  SYMBOL_WRAP_CALL(lua_setlocal, L, ar, n);
+}
+SYMBOL_WRAP_DECL(const char *, lua_getupvalue, lua_State *L, int funcindex, int n){
+  SYMBOL_WRAP_CALL(lua_getupvalue, L, funcindex, n);
+}
+SYMBOL_WRAP_DECL(const char *, lua_setupvalue, lua_State *L, int funcindex, int n){
+  SYMBOL_WRAP_CALL(lua_setupvalue, L, funcindex, n);
+}
+SYMBOL_WRAP_DECL(void *, lua_upvalueid, lua_State *L, int fidx, int n){
+  SYMBOL_WRAP_CALL(lua_upvalueid, L, fidx, n);
+}
+SYMBOL_WRAP_DECL(void, lua_upvaluejoin, lua_State *L, int fidx1, int n1, int fidx2, int n2){
+  SYMBOL_WRAP_CALL(lua_upvaluejoin, L, fidx1, n1, fidx2, n2);
+}
+SYMBOL_WRAP_DECL(int, lua_sethook, lua_State *L, lua_Hook func, int mask, int count){
+  SYMBOL_WRAP_CALL(lua_sethook, L, func, mask, count);
+}
+SYMBOL_WRAP_DECL(lua_Hook, lua_gethook, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_gethook, L);
+}
+SYMBOL_WRAP_DECL(int, lua_gethookmask, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_gethookmask, L);
+}
+SYMBOL_WRAP_DECL(int, lua_gethookcount, lua_State *L){
+  SYMBOL_WRAP_CALL(lua_gethookcount, L);
+}
+SYMBOL_WRAP_DECL(void, luaL_checkversion_, lua_State *L, lua_Number ver){
+  SYMBOL_WRAP_CALL(luaL_checkversion_, L, ver);
+}
+SYMBOL_WRAP_DECL(int, luaL_getmetafield, lua_State *L, int obj, const char *e){
+  SYMBOL_WRAP_CALL(luaL_getmetafield, L, obj, e);
+}
+SYMBOL_WRAP_DECL(int, luaL_callmeta, lua_State *L, int obj, const char *e){
+  SYMBOL_WRAP_CALL(luaL_callmeta, L, obj, e);
+}
+SYMBOL_WRAP_DECL(const char *, luaL_tolstring, lua_State *L, int idx, size_t *len){
+  SYMBOL_WRAP_CALL(luaL_tolstring, L, idx, len);
+}
+SYMBOL_WRAP_DECL(int, luaL_argerror, lua_State *L, int numarg, const char *extramsg){
+  SYMBOL_WRAP_CALL(luaL_argerror, L, numarg, extramsg);
+}
+SYMBOL_WRAP_DECL(const char *, luaL_checklstring, lua_State *L, int numArg, size_t *l){
+  SYMBOL_WRAP_CALL(luaL_checklstring, L, numArg, l);
+}
+SYMBOL_WRAP_DECL(const char *, luaL_optlstring, lua_State *L, int numArg, const char *def, size_t *l){
+  SYMBOL_WRAP_CALL(luaL_optlstring, L, numArg, def, l);
+}
+SYMBOL_WRAP_DECL(lua_Number, luaL_checknumber, lua_State *L, int numArg){
+  SYMBOL_WRAP_CALL(luaL_checknumber, L, numArg);
+}
+SYMBOL_WRAP_DECL(lua_Number, luaL_optnumber, lua_State *L, int nArg, lua_Number def){
+  SYMBOL_WRAP_CALL(luaL_optnumber, L, nArg, def);
+}
+SYMBOL_WRAP_DECL(lua_Integer, luaL_checkinteger, lua_State *L, int numArg){
+  SYMBOL_WRAP_CALL(luaL_checkinteger, L, numArg);
+}
+SYMBOL_WRAP_DECL(lua_Integer, luaL_optinteger, lua_State *L, int nArg, lua_Integer def){
+  SYMBOL_WRAP_CALL(luaL_optinteger, L, nArg, def);
+}
+SYMBOL_WRAP_DECL(lua_Unsigned, luaL_checkunsigned, lua_State *L, int numArg){
+  SYMBOL_WRAP_CALL(luaL_checkunsigned, L, numArg);
+}
+SYMBOL_WRAP_DECL(lua_Unsigned, luaL_optunsigned, lua_State *L, int numArg, lua_Unsigned def){
+  SYMBOL_WRAP_CALL(luaL_optunsigned, L, numArg, def);
+}
+SYMBOL_WRAP_DECL(void, luaL_checkstack, lua_State *L, int sz, const char *msg){
+  SYMBOL_WRAP_CALL(luaL_checkstack, L, sz, msg);
+}
+SYMBOL_WRAP_DECL(void, luaL_checktype, lua_State *L, int narg, int t){
+  SYMBOL_WRAP_CALL(luaL_checktype, L, narg, t);
+}
+SYMBOL_WRAP_DECL(void, luaL_checkany, lua_State *L, int narg){
+  SYMBOL_WRAP_CALL(luaL_checkany, L, narg);
+}
+SYMBOL_WRAP_DECL(int, luaL_newmetatable, lua_State *L, const char *tname){
+  SYMBOL_WRAP_CALL(luaL_newmetatable, L, tname);
+}
+SYMBOL_WRAP_DECL(void, luaL_setmetatable, lua_State *L, const char *tname){
+  SYMBOL_WRAP_CALL(luaL_setmetatable, L, tname);
+}
+SYMBOL_WRAP_DECL(void *, luaL_testudata, lua_State *L, int ud, const char *tname){
+  SYMBOL_WRAP_CALL(luaL_testudata, L, ud, tname);
+}
+SYMBOL_WRAP_DECL(void *, luaL_checkudata, lua_State *L, int ud, const char *tname){
+  SYMBOL_WRAP_CALL(luaL_checkudata, L, ud, tname);
+}
+SYMBOL_WRAP_DECL(void, luaL_where, lua_State *L, int lvl){
+  SYMBOL_WRAP_CALL(luaL_where, L, lvl);
+}
+SYMBOL_WRAP_DECL(int, luaL_error, lua_State *L, const char *fmt, ...){
+  va_list argp;
+  va_start(argp, fmt);
+  luaL_where(L, 1);
+  lua_pushvfstring(L, fmt, argp);
+  va_end(argp);
+  lua_concat(L, 2);
+  return lua_error(L);
+}
+SYMBOL_WRAP_DECL(int, luaL_checkoption, lua_State *L, int narg, const char *def, const char *const lst[]){
+  SYMBOL_WRAP_CALL(luaL_checkoption, L, narg, def, lst);
+}
+SYMBOL_WRAP_DECL(int, luaL_fileresult, lua_State *L, int stat, const char *fname){
+  SYMBOL_WRAP_CALL(luaL_fileresult, L, stat, fname);
+}
+SYMBOL_WRAP_DECL(int, luaL_execresult, lua_State *L, int stat){
+  SYMBOL_WRAP_CALL(luaL_execresult, L, stat);
+}
+SYMBOL_WRAP_DECL(int, luaL_ref, lua_State *L, int t){
+  SYMBOL_WRAP_CALL(luaL_ref, L, t);
+}
+SYMBOL_WRAP_DECL(void, luaL_unref, lua_State *L, int t, int ref){
+  SYMBOL_WRAP_CALL(luaL_unref, L, t, ref);
+}
+SYMBOL_WRAP_DECL(int, luaL_loadfilex, lua_State *L, const char *filename, const char *mode){
+  SYMBOL_WRAP_CALL(luaL_loadfilex, L, filename, mode);
+}
+SYMBOL_WRAP_DECL(int, luaL_loadbufferx, lua_State *L, const char *buff, size_t sz, const char *name, const char *mode){
+  SYMBOL_WRAP_CALL(luaL_loadbufferx, L, buff, sz, name, mode);
+}
+SYMBOL_WRAP_DECL(int, luaL_loadstring, lua_State *L, const char *s){
+  SYMBOL_WRAP_CALL(luaL_loadstring, L, s);
+}
+SYMBOL_WRAP_DECL(lua_State *, luaL_newstate, void){
+ return __luaL_newstate();
+}
+SYMBOL_WRAP_DECL(int, luaL_len, lua_State *L, int idx){
+  SYMBOL_WRAP_CALL(luaL_len, L, idx);
+}
+SYMBOL_WRAP_DECL(const char *, luaL_gsub, lua_State *L, const char *s, const char *p, const char *r){
+  SYMBOL_WRAP_CALL(luaL_gsub, L, s, p, r);
+}
+SYMBOL_WRAP_DECL(void, luaL_setfuncs, lua_State *L, const luaL_Reg *l, int nup){
+  SYMBOL_WRAP_CALL(luaL_setfuncs, L, l, nup);
+}
+SYMBOL_WRAP_DECL(int, luaL_getsubtable, lua_State *L, int idx, const char *fname){
+  SYMBOL_WRAP_CALL(luaL_getsubtable, L, idx, fname);
+}
+SYMBOL_WRAP_DECL(void, luaL_traceback, lua_State *L, lua_State *L1, const char *msg, int level){
+  SYMBOL_WRAP_CALL(luaL_traceback, L, L1, msg, level);
+}
+SYMBOL_WRAP_DECL(void, luaL_requiref, lua_State *L, const char *modname, lua_CFunction openf, int glb){
+  SYMBOL_WRAP_CALL(luaL_requiref, L, modname, openf, glb);
+}
+SYMBOL_WRAP_DECL(void, luaL_buffinit, lua_State *L, luaL_Buffer *B){
+  SYMBOL_WRAP_CALL(luaL_buffinit, L, B);
+}
+SYMBOL_WRAP_DECL(char *, luaL_prepbuffsize, luaL_Buffer *B, size_t sz){
+  SYMBOL_WRAP_CALL(luaL_prepbuffsize, B, sz);
+}
+SYMBOL_WRAP_DECL(void, luaL_addlstring, luaL_Buffer *B, const char *s, size_t l){
+  SYMBOL_WRAP_CALL(luaL_addlstring, B, s, l);
+}
+SYMBOL_WRAP_DECL(void, luaL_addstring, luaL_Buffer *B, const char *s){
+  SYMBOL_WRAP_CALL(luaL_addstring, B, s);
+}
+SYMBOL_WRAP_DECL(void, luaL_addvalue, luaL_Buffer *B){
+  SYMBOL_WRAP_CALL(luaL_addvalue, B);
+}
+SYMBOL_WRAP_DECL(void, luaL_pushresult, luaL_Buffer *B){
+  SYMBOL_WRAP_CALL(luaL_pushresult, B);
+}
+SYMBOL_WRAP_DECL(void, luaL_pushresultsize, luaL_Buffer *B, size_t sz){
+  SYMBOL_WRAP_CALL(luaL_pushresultsize, B, sz);
+}
+SYMBOL_WRAP_DECL(char *, luaL_buffinitsize, lua_State *L, luaL_Buffer *B, size_t sz){
+  SYMBOL_WRAP_CALL(luaL_buffinitsize, L, B, sz);
+}
+SYMBOL_WRAP_DECL(void, luaL_openlibs, lua_State *L){
+  SYMBOL_WRAP_CALL(luaL_openlibs, L);
+}
+
+#define IMPORT_SYMBOL(name, ret, ...) \
+  __##name = (\
+    __##name = (ret (*) (__VA_ARGS__)) symbol(#name), \
+    __##name == NULL ? &__lite_xl_fallback_##name : __##name\
+  )
+
+#define IMPORT_SYMBOL_OPT(name, ret, ...) \
+  __##name = symbol(#name)
+
+static void lite_xl_plugin_init(void *XL) {
+  void* (*symbol)(const char *) = (void* (*) (const char *)) XL;
+  IMPORT_SYMBOL(lua_newstate, lua_State *, lua_Alloc f, void *ud);
+  IMPORT_SYMBOL(lua_close, void , lua_State *L);
+  IMPORT_SYMBOL(lua_newthread, lua_State *, lua_State *L);
+  IMPORT_SYMBOL(lua_atpanic, lua_CFunction , lua_State *L, lua_CFunction panicf);
+  IMPORT_SYMBOL(lua_version, const lua_Number *, lua_State *L);
+  IMPORT_SYMBOL(lua_absindex, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_gettop, int , lua_State *L);
+  IMPORT_SYMBOL(lua_settop, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_pushvalue, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_copy, void , lua_State *L, int fromidx, int toidx);
+  IMPORT_SYMBOL(lua_checkstack, int , lua_State *L, int sz);
+  IMPORT_SYMBOL(lua_xmove, void , lua_State *from, lua_State *to, int n);
+  IMPORT_SYMBOL(lua_isnumber, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_isstring, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_iscfunction, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_isuserdata, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_type, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_typename, const char *, lua_State *L, int tp);
+  IMPORT_SYMBOL(lua_tonumberx, lua_Number , lua_State *L, int idx, int *isnum);
+  IMPORT_SYMBOL(lua_tointegerx, lua_Integer , lua_State *L, int idx, int *isnum);
+  IMPORT_SYMBOL(lua_tounsignedx, lua_Unsigned , lua_State *L, int idx, int *isnum);
+  IMPORT_SYMBOL(lua_toboolean, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_tolstring, const char *, lua_State *L, int idx, size_t *len);
+  IMPORT_SYMBOL(lua_rawlen, size_t , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_tocfunction, lua_CFunction , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_touserdata, void *, lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_tothread, lua_State *, lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_topointer, const void *, lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_arith, void , lua_State *L, int op);
+  IMPORT_SYMBOL(lua_rawequal, int , lua_State *L, int idx1, int idx2);
+  IMPORT_SYMBOL(lua_compare, int , lua_State *L, int idx1, int idx2, int op);
+  IMPORT_SYMBOL(lua_pushnil, void , lua_State *L);
+  IMPORT_SYMBOL(lua_pushnumber, void , lua_State *L, lua_Number n);
+  IMPORT_SYMBOL(lua_pushinteger, void , lua_State *L, lua_Integer n);
+  IMPORT_SYMBOL(lua_pushunsigned, void , lua_State *L, lua_Unsigned n);
+  IMPORT_SYMBOL(lua_pushlstring, const char *, lua_State *L, const char *s, size_t l);
+  IMPORT_SYMBOL(lua_pushstring, const char *, lua_State *L, const char *s);
+  IMPORT_SYMBOL(lua_pushvfstring, const char *, lua_State *L, const char *fmt, va_list argp);
+  IMPORT_SYMBOL(lua_pushfstring, const char *, lua_State *L, const char *fmt, ...);
+  IMPORT_SYMBOL(lua_pushcclosure, void , lua_State *L, lua_CFunction fn, int n);
+  IMPORT_SYMBOL(lua_pushboolean, void , lua_State *L, int b);
+  IMPORT_SYMBOL(lua_pushlightuserdata, void , lua_State *L, void *p);
+  IMPORT_SYMBOL(lua_pushthread, int , lua_State *L);
+  IMPORT_SYMBOL(lua_getglobal, void , lua_State *L, const char *var);
+  IMPORT_SYMBOL(lua_gettable, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_getfield, void , lua_State *L, int idx, const char *k);
+  IMPORT_SYMBOL(lua_rawget, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_rawgeti, void , lua_State *L, int idx, int n);
+  IMPORT_SYMBOL(lua_rawgetp, void , lua_State *L, int idx, const void *p);
+  IMPORT_SYMBOL(lua_createtable, void , lua_State *L, int narr, int nrec);
+  IMPORT_SYMBOL_OPT(lua_newuserdata, void *, lua_State *L, size_t sz);
+  IMPORT_SYMBOL(lua_newuserdatauv, void *, lua_State *L, size_t sz, int nuvalue);
+  IMPORT_SYMBOL(lua_getmetatable, int , lua_State *L, int objindex);
+  IMPORT_SYMBOL_OPT(lua_getuservalue, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_getiuservalue, void , lua_State *L, int idx, int n);
+  IMPORT_SYMBOL(lua_setglobal, void , lua_State *L, const char *var);
+  IMPORT_SYMBOL(lua_settable, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_setfield, void , lua_State *L, int idx, const char *k);
+  IMPORT_SYMBOL(lua_rawset, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_rawseti, void , lua_State *L, int idx, int n);
+  IMPORT_SYMBOL(lua_rawsetp, void , lua_State *L, int idx, const void *p);
+  IMPORT_SYMBOL(lua_setmetatable, int , lua_State *L, int objindex);
+  IMPORT_SYMBOL_OPT(lua_setuservalue, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_setiuservalue, void , lua_State *L, int idx, int n);
+  IMPORT_SYMBOL(lua_callk, void , lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k);
+  IMPORT_SYMBOL(lua_getctx, int , lua_State *L, int *ctx);
+  IMPORT_SYMBOL(lua_pcallk, int , lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
+  IMPORT_SYMBOL(lua_load, int , lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode);
+  IMPORT_SYMBOL(lua_dump, int , lua_State *L, lua_Writer writer, void *data, int strip);
+  IMPORT_SYMBOL(lua_yieldk, int , lua_State *L, int nresults, int ctx, lua_CFunction k);
+  IMPORT_SYMBOL(lua_resume, int , lua_State *L, lua_State *from, int narg);
+  IMPORT_SYMBOL(lua_status, int , lua_State *L);
+  IMPORT_SYMBOL(lua_gc, int , lua_State *L, int what, int data);
+  IMPORT_SYMBOL(lua_error, int , lua_State *L);
+  IMPORT_SYMBOL(lua_next, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_concat, void , lua_State *L, int n);
+  IMPORT_SYMBOL(lua_len, void , lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_getallocf, lua_Alloc , lua_State *L, void **ud);
+  IMPORT_SYMBOL(lua_setallocf, void , lua_State *L, lua_Alloc f, void *ud);
+  IMPORT_SYMBOL(lua_getstack, int , lua_State *L, int level, lua_Debug *ar);
+  IMPORT_SYMBOL(lua_getinfo, int , lua_State *L, const char *what, lua_Debug *ar);
+  IMPORT_SYMBOL(lua_getlocal, const char *, lua_State *L, const lua_Debug *ar, int n);
+  IMPORT_SYMBOL(lua_setlocal, const char *, lua_State *L, const lua_Debug *ar, int n);
+  IMPORT_SYMBOL(lua_getupvalue, const char *, lua_State *L, int funcindex, int n);
+  IMPORT_SYMBOL(lua_setupvalue, const char *, lua_State *L, int funcindex, int n);
+  IMPORT_SYMBOL(lua_upvalueid, void *, lua_State *L, int fidx, int n);
+  IMPORT_SYMBOL(lua_upvaluejoin, void , lua_State *L, int fidx1, int n1, int fidx2, int n2);
+  IMPORT_SYMBOL(lua_sethook, int , lua_State *L, lua_Hook func, int mask, int count);
+  IMPORT_SYMBOL(lua_gethook, lua_Hook , lua_State *L);
+  IMPORT_SYMBOL(lua_gethookmask, int , lua_State *L);
+  IMPORT_SYMBOL(lua_gethookcount, int , lua_State *L);
+  IMPORT_SYMBOL(luaL_checkversion_, void , lua_State *L, lua_Number ver);
+  IMPORT_SYMBOL(luaL_getmetafield, int , lua_State *L, int obj, const char *e);
+  IMPORT_SYMBOL(luaL_callmeta, int , lua_State *L, int obj, const char *e);
+  IMPORT_SYMBOL(luaL_tolstring, const char *, lua_State *L, int idx, size_t *len);
+  IMPORT_SYMBOL(luaL_argerror, int , lua_State *L, int numarg, const char *extramsg);
+  IMPORT_SYMBOL(luaL_checklstring, const char *, lua_State *L, int numArg, size_t *l);
+  IMPORT_SYMBOL(luaL_optlstring, const char *, lua_State *L, int numArg, const char *def, size_t *l);
+  IMPORT_SYMBOL(luaL_checknumber, lua_Number , lua_State *L, int numArg);
+  IMPORT_SYMBOL(luaL_optnumber, lua_Number , lua_State *L, int nArg, lua_Number def);
+  IMPORT_SYMBOL(luaL_checkinteger, lua_Integer , lua_State *L, int numArg);
+  IMPORT_SYMBOL(luaL_optinteger, lua_Integer , lua_State *L, int nArg, lua_Integer def);
+  IMPORT_SYMBOL(luaL_checkunsigned, lua_Unsigned , lua_State *L, int numArg);
+  IMPORT_SYMBOL(luaL_optunsigned, lua_Unsigned , lua_State *L, int numArg, lua_Unsigned def);
+  IMPORT_SYMBOL(luaL_checkstack, void , lua_State *L, int sz, const char *msg);
+  IMPORT_SYMBOL(luaL_checktype, void , lua_State *L, int narg, int t);
+  IMPORT_SYMBOL(luaL_checkany, void , lua_State *L, int narg);
+  IMPORT_SYMBOL(luaL_newmetatable, int , lua_State *L, const char *tname);
+  IMPORT_SYMBOL(luaL_setmetatable, void , lua_State *L, const char *tname);
+  IMPORT_SYMBOL(luaL_testudata, void *, lua_State *L, int ud, const char *tname);
+  IMPORT_SYMBOL(luaL_checkudata, void *, lua_State *L, int ud, const char *tname);
+  IMPORT_SYMBOL(luaL_where, void , lua_State *L, int lvl);
+  IMPORT_SYMBOL(luaL_error, int , lua_State *L, const char *fmt, ...);
+  IMPORT_SYMBOL(luaL_checkoption, int , lua_State *L, int narg, const char *def, const char *const lst[]);
+  IMPORT_SYMBOL(luaL_fileresult, int , lua_State *L, int stat, const char *fname);
+  IMPORT_SYMBOL(luaL_execresult, int , lua_State *L, int stat);
+  IMPORT_SYMBOL(luaL_ref, int , lua_State *L, int t);
+  IMPORT_SYMBOL(luaL_unref, void , lua_State *L, int t, int ref);
+  IMPORT_SYMBOL(luaL_loadfilex, int , lua_State *L, const char *filename, const char *mode);
+  IMPORT_SYMBOL(luaL_loadbufferx, int , lua_State *L, const char *buff, size_t sz, const char *name, const char *mode);
+  IMPORT_SYMBOL(luaL_loadstring, int , lua_State *L, const char *s);
+  IMPORT_SYMBOL(luaL_newstate, lua_State *, void);
+  IMPORT_SYMBOL(luaL_len, int , lua_State *L, int idx);
+  IMPORT_SYMBOL(luaL_gsub, const char *, lua_State *L, const char *s, const char *p, const char *r);
+  IMPORT_SYMBOL(luaL_setfuncs, void , lua_State *L, const luaL_Reg *l, int nup);
+  IMPORT_SYMBOL(luaL_getsubtable, int , lua_State *L, int idx, const char *fname);
+  IMPORT_SYMBOL(luaL_traceback, void , lua_State *L, lua_State *L1, const char *msg, int level);
+  IMPORT_SYMBOL(luaL_requiref, void , lua_State *L, const char *modname, lua_CFunction openf, int glb);
+  IMPORT_SYMBOL(luaL_buffinit, void , lua_State *L, luaL_Buffer *B);
+  IMPORT_SYMBOL(luaL_prepbuffsize, char *, luaL_Buffer *B, size_t sz);
+  IMPORT_SYMBOL(luaL_addlstring, void , luaL_Buffer *B, const char *s, size_t l);
+  IMPORT_SYMBOL(luaL_addstring, void , luaL_Buffer *B, const char *s);
+  IMPORT_SYMBOL(luaL_addvalue, void , luaL_Buffer *B);
+  IMPORT_SYMBOL(luaL_pushresult, void , luaL_Buffer *B);
+  IMPORT_SYMBOL(luaL_pushresultsize, void , luaL_Buffer *B, size_t sz);
+  IMPORT_SYMBOL(luaL_buffinitsize, char *, lua_State *L, luaL_Buffer *B, size_t sz);
+  IMPORT_SYMBOL(luaL_openlibs, void, lua_State* L);
+}
+
+#endif /* LITE_XL_PLUGIN_ENTRYPOINT */
+
+#endif /* LITE_XL_PLUGIN_API */
