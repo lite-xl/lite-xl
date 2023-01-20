@@ -79,6 +79,17 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; 
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon; Check: not WizardIsTaskSelected('portablemode')
 ; Name: "{usersendto}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 
+[Registry]
+Root: "HKA"; Subkey: "Software\Classes\*\shell\{#MyAppName}"; ValueType: string; ValueName: ""; ValueData: "Open with {#MyAppName}"; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\*\shell\{#MyAppName}"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName}, 0"; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\*\shell\{#MyAppName}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExename}""  ""%1"""; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\directory\shell\{#MyAppName}"; ValueType: string; ValueName: ""; ValueData: "Open with {#MyAppName}"; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\directory\shell\{#MyAppName}"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName}, 0"; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\directory\shell\{#MyAppName}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExename}""  ""%1"""; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\directory\background\shell\{#MyAppName}"; ValueType: string; ValueName: ""; ValueData: "Open with {#MyAppName}"; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\directory\background\shell\{#MyAppName}"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName}, 0"; Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\directory\background\shell\{#MyAppName}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExename}""  ""%V"""; Flags: uninsdeletekey
+
 [Run]
 Filename: "{app}/{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
