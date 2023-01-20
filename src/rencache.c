@@ -54,6 +54,7 @@ uint8_t *command_buf = NULL;
 static bool resize_issue;
 static int command_buf_idx;
 static RenRect screen_rect;
+static RenRect last_clip_rect;
 static bool show_debug;
 
 static inline int rencache_min(int a, int b) { return a < b ? a : b; }
@@ -156,12 +157,15 @@ void rencache_show_debug(bool enable) {
 
 void rencache_set_clip_rect(RenRect rect) {
   Command *cmd = push_command(SET_CLIP, COMMAND_BARE_SIZE);
-  if (cmd) { cmd->rect = intersect_rects(rect, screen_rect); }
+  if (cmd) {
+    cmd->rect = intersect_rects(rect, screen_rect);
+    last_clip_rect = cmd->rect;
+  }
 }
 
 
 void rencache_draw_rect(RenRect rect, RenColor color) {
-  if (!rects_overlap(screen_rect, rect) || rect.width == 0 || rect.height == 0) {
+  if (rect.width == 0 || rect.height == 0 || !rects_overlap(last_clip_rect, rect)) {
     return;
   }
   Command *cmd = push_command(DRAW_RECT, COMMAND_BARE_SIZE);
@@ -175,7 +179,7 @@ float rencache_draw_text(RenFont **fonts, const char *text, size_t len, float x,
 {
   float width = ren_font_group_get_width(fonts, text, len);
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
-  if (rects_overlap(screen_rect, rect)) {
+  if (rects_overlap(last_clip_rect, rect)) {
     int sz = len + 1;
     Command *cmd = push_command(DRAW_TEXT, COMMAND_BARE_SIZE + sz);
     if (cmd) {
@@ -207,6 +211,7 @@ void rencache_begin_frame() {
     screen_rect.height = h;
     rencache_invalidate();
   }
+  last_clip_rect = screen_rect;
 }
 
 

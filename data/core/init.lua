@@ -1010,7 +1010,7 @@ function core.load_plugins()
         table.insert(list, plugin.file)
       elseif config.plugins[plugin.name] ~= false then
         local start = system.get_time()
-        local ok = core.try(require, "plugins." .. plugin.name)
+        local ok, loaded_plugin = core.try(require, "plugins." .. plugin.name)
         if ok then
           core.log_quiet(
             "Loaded plugin %q from %s in %.1fms",
@@ -1021,6 +1021,8 @@ function core.load_plugins()
         end
         if not ok then
           no_errors = false
+        elseif config.plugins[plugin.name].onload then
+          core.try(config.plugins[plugin.name].onload, loaded_plugin)
         end
       end
     end

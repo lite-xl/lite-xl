@@ -63,10 +63,6 @@ lite_cargs += '-DLITE_ARCH_TUPLE="@0@"'.format(arch_tuple)
 # Linker Settings
 #===============================================================================
 lite_link_args = []
-if cc.get_id() == 'gcc' and get_option('buildtype') == 'release'
-    lite_link_args += ['-static-libgcc']
-endif
-
 if host_machine.system() == 'darwin'
     lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
 endif
