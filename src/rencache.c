@@ -173,7 +173,7 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
 
 float rencache_draw_text(RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color)
 {
-  float width = ren_font_group_get_width(fonts, text, len);
+  float width = ren_font_group_get_width(&window_renderer, fonts, text, len);
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
   if (rects_overlap(screen_rect, rect)) {
     int sz = len + 1;
@@ -201,7 +201,7 @@ void rencache_begin_frame() {
   /* reset all cells if the screen width/height has changed */
   int w, h;
   resize_issue = false;
-  ren_get_size(&w, &h);
+  ren_get_size(&window_renderer, &w, &h);
   if (screen_rect.width != w || h != screen_rect.height) {
     screen_rect.width = w;
     screen_rect.height = h;
@@ -281,33 +281,33 @@ void rencache_end_frame() {
   for (int i = 0; i < rect_count; i++) {
     /* draw */
     RenRect r = rect_buf[i];
-    ren_set_clip_rect(r);
+    ren_set_clip_rect(&window_renderer, r);
 
     cmd = NULL;
     while (next_command(&cmd)) {
       switch (cmd->type) {
         case SET_CLIP:
-          ren_set_clip_rect(intersect_rects(cmd->rect, r));
+          ren_set_clip_rect(&window_renderer, intersect_rects(cmd->rect, r));
           break;
         case DRAW_RECT:
-          ren_draw_rect(cmd->rect, cmd->color);
+          ren_draw_rect(&window_renderer, cmd->rect, cmd->color);
           break;
         case DRAW_TEXT:
           ren_font_group_set_tab_size(cmd->fonts, cmd->tab_size);
-          ren_draw_text(cmd->fonts, cmd->text, cmd->len, cmd->text_x, cmd->rect.y, cmd->color);
+          ren_draw_text(&window_renderer, cmd->fonts, cmd->text, cmd->len, cmd->text_x, cmd->rect.y, cmd->color);
           break;
       }
     }
 
     if (show_debug) {
       RenColor color = { rand(), rand(), rand(), 50 };
-      ren_draw_rect(r, color);
+      ren_draw_rect(&window_renderer, r, color);
     }
   }
 
   /* update dirty rects */
   if (rect_count > 0) {
-    ren_update_rects(rect_buf, rect_count);
+    ren_update_rects(&window_renderer, rect_buf, rect_count);
   }
 
   /* swap cell buffer and reset */
