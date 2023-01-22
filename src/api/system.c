@@ -37,8 +37,6 @@
 #endif
 #endif
 
-extern RenWindow window_renderer;
-
 static const char* button_name(int button) {
   switch (button) {
     case SDL_BUTTON_LEFT   : return "left";
@@ -188,7 +186,7 @@ top:
 
     case SDL_WINDOWEVENT:
       if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
-        ren_resize_window();
+        ren_resize_window(&window_renderer);
         lua_pushstring(L, "resized");
         /* The size below will be in points. */
         lua_pushinteger(L, e.window.data1);
@@ -473,7 +471,7 @@ static int f_set_window_size(lua_State *L) {
   double y = luaL_checknumber(L, 4);
   SDL_SetWindowSize(window_renderer.window, w, h);
   SDL_SetWindowPosition(window_renderer.window, x, y);
-  ren_resize_window();
+  ren_resize_window(&window_renderer);
   return 0;
 }
 
