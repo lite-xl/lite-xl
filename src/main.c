@@ -260,7 +260,7 @@ init_lua:
   }
 
   lua_close(L);
-  ren_free_window_resources();
+  ren_free_window_resources(&window_renderer);
 
   return EXIT_SUCCESS;
 }
