@@ -111,7 +111,7 @@ main() {
     if [[ $platform == "macos" ]]; then
       macos_version_min=10.11
       if [[ $CROSS_ARCH == "arm64" ]]; then
-        cross_file="--cross-file resources/macos/macos_arm64.conf"
+        cross_file="--cross-file resources/cross/macos_arm64.txt"
         macos_version_min=11.0
       fi
       export MACOSX_DEPLOYMENT_TARGET=$macos_version_min
