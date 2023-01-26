@@ -250,6 +250,9 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     if current_pattern_idx > 0 then
       local p = current_syntax.patterns[current_pattern_idx]
       local s, e = find_text(text, p, i, false, true)
+      -- Use the first token type specified in the type table for the "middle"
+      -- part of the subsyntax.
+      local token_type = type(p.type) == "table" and p.type[1] or p.type
 
       local cont = true
       -- If we're in subsyntax mode, always check to see if we end our syntax
@@ -262,7 +265,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         -- treat the bit after as a token to be normally parsed
         -- (as it's the syntax delimiter).
         if ss and (s == nil or ss < s) then
-          push_token(res, p.type, text:usub(i, ss - 1))
+          push_token(res, token_type, text:usub(i, ss - 1))
           i = ss
           cont = false
         end
@@ -271,11 +274,11 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       -- continue on as normal.
       if cont then
         if s then
-          push_token(res, p.type, text:usub(i, e))
+          push_token(res, token_type, text:usub(i, e))
           set_subsyntax_pattern_idx(0)
           i = e + 1
         else
-          push_token(res, p.type, text:usub(i))
+          push_token(res, token_type, text:usub(i))
           break
         end
       end
