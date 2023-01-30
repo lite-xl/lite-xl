@@ -20,4 +20,5 @@ error.txt
 lite-xl*
 LiteXL*
 
-!resources/windows/*.diff
+!subprojects/packagefiles
+!subprojects/packagefiles/*.diff

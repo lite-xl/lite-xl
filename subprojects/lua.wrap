@@ -6,6 +6,7 @@ source_hash = 164c7849653b80ae67bec4b7473b884bf5cc8d2dca05653475ec2ed27b9ebf61
 patch_filename = lua_5.4.4-1_patch.zip
 patch_url = https://wrapdb.mesonbuild.com/v2/lua_5.4.4-1/get_patch
 patch_hash = e61cd965c629d6543176f41a9f1cb9050edfd1566cf00ce768ff211086e40bdc
+diff_files = 0001-lua-windows-unicode.diff
 
 [provide]
 lua-5.4 = lua_dep
