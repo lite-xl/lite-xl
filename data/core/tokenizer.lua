@@ -240,7 +240,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
           return
         end
       end
-    until not res[1] or not close or not target[3]
+    until at_start or not close or not target[3]
     return table.unpack(res)
   end
 
