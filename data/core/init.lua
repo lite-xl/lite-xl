@@ -18,13 +18,13 @@ local Doc
 local core = {}
 
 local function load_session()
-  local ok, t = pcall(dofile, USERDIR .. "/session.lua")
+  local ok, t = pcall(dofile, USERDIR .. PATHSEP .. "session.lua")
   return ok and t or {}
 end
 
 
 local function save_session()
-  local fp = io.open(USERDIR .. "/session.lua", "w")
+  local fp = io.open(USERDIR .. PATHSEP .. "session.lua", "w")
   if fp then
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size())),
@@ -607,7 +607,7 @@ function core.load_user_directory()
     if not stat_dir then
       create_user_directory()
     end
-    local init_filename = USERDIR .. "/init.lua"
+    local init_filename = USERDIR .. PATHSEP .. "init.lua"
     local stat_file = system.get_file_info(init_filename)
     if not stat_file then
       write_user_init_file(init_filename)
@@ -924,7 +924,7 @@ end
 local function get_plugin_details(filename)
   local info = system.get_file_info(filename)
   if info ~= nil and info.type == "dir" then
-    filename = filename .. "/init.lua"
+    filename = filename .. PATHSEP .. "init.lua"
     info = system.get_file_info(filename)
   end
   if not info or not filename:match("%.lua$") then return false end
@@ -963,7 +963,7 @@ function core.load_plugins()
   }
   local files, ordered = {}, {}
   for _, root_dir in ipairs {DATADIR, USERDIR} do
-    local plugin_dir = root_dir .. "/plugins"
+    local plugin_dir = root_dir .. PATHSEP .. "plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
       if not files[filename] then
         table.insert(
@@ -978,7 +978,7 @@ function core.load_plugins()
   for _, plugin in ipairs(ordered) do
     local dir = files[plugin.file]
     local name = plugin.file:match("(.-)%.lua$") or plugin.file
-    local is_lua_file, details = get_plugin_details(dir .. '/' .. plugin.file)
+    local is_lua_file, details = get_plugin_details(dir .. PATHSEP .. plugin.file)
 
     plugin.valid = is_lua_file
     plugin.name = name
@@ -1425,7 +1425,7 @@ end
 
 function core.on_error(err)
   -- write error to file
-  local fp = io.open(USERDIR .. "/error.txt", "wb")
+  local fp = io.open(USERDIR .. PATHSEP .. "error.txt", "wb")
   fp:write("Error: " .. tostring(err) .. "\n")
   fp:write(debug.traceback("", 4) .. "\n")
   fp:close()

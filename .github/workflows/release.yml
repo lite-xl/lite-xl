@@ -93,7 +93,7 @@ jobs:
             LiteXL-${{ env.INSTALL_REF }}-addons-x86_64.AppImage
 
   build_macos:
-    name: macOS (x86_64)
+    name: macOS
     needs: release
     runs-on: macos-11
     strategy:

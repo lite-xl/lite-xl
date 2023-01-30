@@ -441,6 +441,11 @@ function TreeView:toggle_expand(toggle)
 end
 
 
+function TreeView:open_doc(filename)
+  core.root_view:open_doc(core.open_doc(filename))
+end
+
+
 -- init
 local view = TreeView()
 local node = core.root_view:get_active_node()
@@ -619,8 +624,7 @@ command.add(
         if core.last_active_view and core.active_view == view then
           core.set_active_view(core.last_active_view)
         end
-        local doc_filename = core.normalize_to_project_dir(item.abs_filename)
-        core.root_view:open_doc(core.open_doc(doc_filename))
+        view:open_doc(core.normalize_to_project_dir(item.abs_filename))
       end)
     end
   end,
@@ -779,7 +783,7 @@ command.add(
         local file = io.open(doc_filename, "a+")
         file:write("")
         file:close()
-        core.root_view:open_doc(core.open_doc(doc_filename))
+        view:open_doc(doc_filename)
         core.log("Created %s", doc_filename)
       end,
       suggest = function(text)
@@ -822,8 +826,8 @@ if projectsearch then
   menu:register(function()
     local item = treeitem()
     return item and item.type == "dir"
-  end, { 
-    { text = "Find in directory", command = "treeview:search-in-directory" } 
+  end, {
+    { text = "Find in directory", command = "treeview:search-in-directory" }
   })
   command.add(function()
     return view.hovered_item and view.hovered_item.type == "dir"
