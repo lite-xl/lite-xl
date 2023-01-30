@@ -22,7 +22,6 @@ show_help() {
   echo "-B --bundle               Create an App bundle (macOS only)"
   echo "-P --portable             Create a portable binary package."
   echo "-O --pgo                  Use profile guided optimizations (pgo)."
-  echo "-U --windows-lua-utf      Use the UTF8 patch for Lua."
   echo "                          macOS: disabled when used with --bundle,"
   echo "                          Windows: Implicit being the only option."
   echo "-r --release              Compile in release mode."
@@ -39,9 +38,6 @@ main() {
   local bundle
   local portable
   local pgo
-  local patch_lua
-
-  local lua_subproject_path
 
   for i in "$@"; do
     case $i in
@@ -81,10 +77,6 @@ main() {
         ;;
       -O|--pgo)
         pgo="-Db_pgo=generate"
-        shift
-        ;;
-      -U|--windows-lua-utf)
-        patch_lua="true"
         shift
         ;;
       -r|--release)
@@ -133,11 +125,6 @@ main() {
     $portable \
     $pgo \
     "${build_dir}"
-
-  lua_subproject_path=$(echo subprojects/lua-*/)
-  if [[ $patch_lua == "true" ]] && [[ ! -z $force_fallback ]] && [[ -d $lua_subproject_path ]]; then
-    patch -d $lua_subproject_path -p1 --forward < resources/windows/001-lua-unicode.diff
-  fi
 
   meson compile -C "${build_dir}"
 
