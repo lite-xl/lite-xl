@@ -1,6 +1,5 @@
 #include "api.h"
 
-#include <lua.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
