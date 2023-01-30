@@ -224,6 +224,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         res[1] = char_pos_1
         res[2] = char_pos_2
       end
+      if not res[1] then return end
       if res[1] and target[3] then
         -- Check to see if the escaped character is there,
         -- and if it is not itself escaped.
@@ -235,9 +236,9 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         if count % 2 == 0 then
           -- The match is not escaped, so confirm it
           break
-        elseif not close then
-          -- The *open* match is escaped, so avoid it
-          return
+        else
+          -- The match is escaped, so avoid it
+          res[1] = false
         end
       end
     until at_start or not close or not target[3]
