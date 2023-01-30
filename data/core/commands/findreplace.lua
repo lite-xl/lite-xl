@@ -193,6 +193,23 @@ local function select_next(reverse)
   if l2 then doc():set_selection(l2, c2, l1, c1) end
 end
 
+---@param in_selection? boolean whether to replace in the selections only, or in the whole file.
+local function find_replace(in_selection)
+  local l1, c1, l2, c2 = doc():get_selection()
+  local selected_text = ""
+  if not in_selection then
+    selected_text = doc():get_text(l1, c1, l2, c2)
+    doc():set_selection(l2, c2, l2, c2)
+  end
+  replace("Text", l1 == l2 and selected_text or "", function(text, old, new)
+    if not find_regex then
+      return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
+    end
+    local result, matches = regex.gsub(regex.compile(old, "m"), text, new)
+    return result, matches
+  end)
+end
+
 command.add(has_unique_selection, {
   ["find-replace:select-next"] = select_next,
   ["find-replace:select-previous"] = function() select_next(true) end,
@@ -209,16 +226,11 @@ command.add("core.docview!", {
   end,
 
   ["find-replace:replace"] = function()
-    local l1, c1, l2, c2 = doc():get_selection()
-    local selected_text = doc():get_text(l1, c1, l2, c2)
-    doc():set_selection(l2, c2, l2, c2)
-    replace("Text", l1 == l2 and selected_text or "", function(text, old, new)
-      if not find_regex then
-        return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
-      end
-      local result, matches = regex.gsub(regex.compile(old, "m"), text, new)
-      return result, matches
-    end)
+    find_replace()
+  end,
+
+  ["find-replace:replace-in-selection"] = function()
+    find_replace(true)
   end,
 
   ["find-replace:replace-symbol"] = function()
