@@ -177,7 +177,7 @@ jobs:
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh -U --debug --forcefallback --release
+          bash scripts/build.sh --debug --forcefallback --release
       - name: Package
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
       - name: Build Installer
