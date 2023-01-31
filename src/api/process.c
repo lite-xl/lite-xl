@@ -293,6 +293,7 @@ static int process_start(lua_State* L) {
       CloseHandle(self->process_information.hProcess);
     CloseHandle(self->process_information.hThread);
   #else
+    int control_pipe[2] = { 0 };
     for (int i = 0; i < 3; ++i) { // Make only the parents fd's non-blocking. Children should block.
       if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][i == STDIN_FD ? 1 : 0], F_SETFL, O_NONBLOCK) == -1) {
         lua_pushfstring(L, "Error creating pipes: %s", strerror(errno));
@@ -300,12 +301,25 @@ static int process_start(lua_State* L) {
         goto cleanup;
       }
     }
+    // create a pipe to get the exit code of exec()
+    if (pipe(control_pipe) == -1) {
+      lua_pushfstring(L, "Error creating control pipe: %s", strerror(errno));
+      retval = -1;
+      goto cleanup;
+    }
+    if (fcntl(control_pipe[1], F_SETFD, FD_CLOEXEC) == -1) {
+      lua_pushfstring(L, "Error setting FD_CLOEXEC: %s", strerror(errno));
+      retval = -1;
+      goto cleanup;
+    }
+
     self->pid = (long)fork();
     if (self->pid < 0) {
       lua_pushfstring(L, "Error running fork: %s.", strerror(errno));
       retval = -1;
       goto cleanup;
     } else if (!self->pid) {
+      // child process
       if (!detach)
         setpgid(0,0);
       for (int stream = 0; stream < 3; ++stream) {
@@ -320,12 +334,39 @@ static int process_start(lua_State* L) {
       for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
       if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
         execvp(cmd[0], (char** const)cmd);
-      const char* msg = strerror(errno);
-      size_t result = write(STDERR_FD, msg, strlen(msg)+1);
-      _exit(result == strlen(msg)+1 ? -1 : -2);
+      write(control_pipe[1], &errno, sizeof(errno));
+      _exit(-1);
     }
+    // close our write side so we can read from child
+    close(control_pipe[1]);
+    control_pipe[1] = 0;
+
+    // wait for child process to respond
+    int sz, process_rc;
+    while ((sz = read(control_pipe[0], &process_rc, sizeof(int))) == -1) {
+      if (errno == EPIPE) break;
+      if (errno != EINTR) {
+        lua_pushfstring(L, "Error getting child process status: %s", strerror(errno));
+        retval = -1;
+        goto cleanup;
+      }
+    }
+
+    if (sz) {
+      // read something from pipe; exec failed
+      int status;
+      waitpid(self->pid, &status, 0);
+      lua_pushfstring(L, "Error creating child process: %s", strerror(process_rc));
+      retval = -1;
+      goto cleanup;
+    }
+
   #endif
   cleanup:
+  #ifndef _WIN32
+    if (control_pipe[0]) close(control_pipe[0]);
+    if (control_pipe[1]) close(control_pipe[1]);
+  #endif
   for (size_t i = 0; i < env_len; ++i) {
     free((char*)env_names[i]);
     free((char*)env_values[i]);
