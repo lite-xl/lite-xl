@@ -357,7 +357,7 @@ static int process_start(lua_State* L) {
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
       if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT) {
-        lua_pushfstring(L, "redirect to handles, FILE* and paths are not supported");
+        lua_pushfstring(L, "error: redirect to handles, FILE* and paths are not supported");
         retval = -1;
         goto cleanup;
       }
@@ -572,7 +572,7 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   long length = 0;
   if (stream != STDOUT_FD && stream != STDERR_FD)
-    return luaL_error(L, "redirect to handles, FILE* and paths are not supported");
+    return luaL_error(L, "error: redirect to handles, FILE* and paths are not supported");
   #if _WIN32
     int writable_stream_idx = stream - 1;
     if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], READ_BUF_SIZE, NULL, &self->overlapped[writable_stream_idx])) {
