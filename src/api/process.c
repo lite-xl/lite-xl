@@ -398,13 +398,13 @@ static int process_start(lua_State* L) {
             self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
             if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
               CloseHandle(self->child_pipes[i][0]);
-              lua_pushfstring(L, "Error creating write pipe: %d.", GetLastError());
+              push_error(L, NULL, GetLastError());
               retval = -1;
               goto cleanup;
             }
             if (!SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
                 !SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 0 : 1], HANDLE_FLAG_INHERIT, 1)) {
-                  lua_pushfstring(L, "Error inheriting pipes: %d.", GetLastError());
+                  push_error(L, NULL, GetLastError());
                   retval = -1;
                   goto cleanup;
             }
@@ -468,7 +468,7 @@ static int process_start(lua_State* L) {
     if (env_len > 0)
       MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
     if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information)) {
-      lua_pushfstring(L, "Error creating a process: %d.", GetLastError());
+      push_error(L, NULL, GetLastError());
       retval = -1;
       goto cleanup;
     }
@@ -480,7 +480,7 @@ static int process_start(lua_State* L) {
     int control_pipe[2] = { 0 };
     for (int i = 0; i < 3; ++i) { // Make only the parents fd's non-blocking. Children should block.
       if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][i == STDIN_FD ? 1 : 0], F_SETFL, O_NONBLOCK) == -1) {
-        lua_pushfstring(L, "Error creating pipes: %s", strerror(errno));
+        push_error(L, NULL, errno);
         retval = -1;
         goto cleanup;
       }
@@ -499,7 +499,7 @@ static int process_start(lua_State* L) {
 
     self->pid = (long)fork();
     if (self->pid < 0) {
-      lua_pushfstring(L, "Error running fork: %s.", strerror(errno));
+      push_error(L, NULL, errno);
       retval = -1;
       goto cleanup;
     } else if (!self->pid) {
@@ -620,9 +620,9 @@ static int f_write(lua_State* L) {
   #if _WIN32
     DWORD dwWritten;
     if (!WriteFile(self->child_pipes[STDIN_FD][1], data, data_size, &dwWritten, NULL)) {
-      int lastError = GetLastError();
+      push_error(L, NULL, GetLastError());
       signal_process(self, SIGNAL_TERM);
-      return luaL_error(L, "error writing to process: %d", lastError);
+      return lua_error(L);
     }
     length = dwWritten;
   #else
@@ -630,9 +630,9 @@ static int f_write(lua_State* L) {
     if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
       length = 0;
     else if (length < 0) {
-      const char* lastError = strerror(errno);
+      push_error(L, NULL, errno);
       signal_process(self, SIGNAL_TERM);
-      return luaL_error(L, "error writing to process: %s", lastError);
+      return lua_error(L);
     }
   #endif
   lua_pushinteger(L, length);
