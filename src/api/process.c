@@ -673,10 +673,7 @@ static int f_close_stream(lua_State* L) {
 
 // Generic stuff below here.
 static int process_strerror(lua_State* L) {
-  push_error(L, "", luaL_checknumber(L, 1));
-  // since push_error also pushed a ": ", we'll need to remove that
-  lua_pushstring(L, lua_tostring(L, -1) + 3);
-  return 1;
+  return push_error_string(L, luaL_checknumber(L, 1));
 }
 
 static int f_tostring(lua_State* L) {
