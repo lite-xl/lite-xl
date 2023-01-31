@@ -268,8 +268,7 @@ static int kill_list_worker(void *ud) {
 }
 
 
-static void push_error(lua_State *L, const char *extra, process_error_t err) {
-  extra = extra != NULL ? extra : "error";
+static int push_error_string(lua_State *L, process_error_t err) {
 #ifdef _WIN32
   char *msg = NULL;
   FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM
@@ -281,15 +280,23 @@ static void push_error(lua_State *L, const char *extra, process_error_t err) {
                 (char *) &msg,
                 0,
                 NULL);
-  if (msg) {
-    lua_pushfstring(L, "%s: %s", extra, msg);
-    LocalFree(msg); // this must be freed by LocalFree and not free!
-  } else {
-    lua_pushfstring(L, "%s: %d", extra, err);
-  }
+  if (!msg)
+    return 0;
+
+  lua_pushstring(L, msg);
+  LocalFree(msg);
 #else
-  lua_pushfstring(L, "%s: %s", extra, strerror(err));
+  lua_pushstring(L, strerror(err));
 #endif
+  return 1;
+}
+
+static void push_error(lua_State *L, const char *extra, process_error_t err) {
+  const char *msg;
+  push_error_string(L, err);
+  extra = extra != NULL ? extra : "error";
+  msg = luaL_optstring(L, -1, "unknown error");
+  lua_pushfstring(L, "%s: %s (%d)", extra, msg, err);
 }
 
 static bool poll_process(process_t* proc, int timeout) {
