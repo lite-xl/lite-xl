@@ -26,9 +26,11 @@
 #define PROCESS_TERM_DELAY 50
 
 #if _WIN32
+typedef DWORD process_error_t;
 typedef HANDLE process_stream_handle;
 typedef HANDLE process_handle;
 #else
+typedef int process_error_t;
 typedef int process_stream_handle;
 typedef pid_t process_handle;
 #endif
@@ -251,6 +253,27 @@ static int kill_list_worker(void *ud) {
   return 0;
 }
 
+
+static void push_error(lua_State *L, const char *extra, process_error_t err) {
+  extra = extra != NULL ? extra : "error";
+#ifdef _WIN32
+  char *msg = NULL;
+  FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM
+                | FORMAT_MESSAGE_ALLOCATE_BUFFER
+                | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL,
+                err,
+                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (char *) &msg,
+                0,
+                NULL);
+  lua_pushfstring(L, "%s: %s", extra != NULL ? extra : "error", msg);
+  if (msg)
+    LocalFree(msg); // this must be freed by LocalFree and not free!
+#else
+  lua_pushfstring(L, "%s: %s", extra, strerror(err));
+#endif
+}
 
 static bool poll_process(process_t* proc, int timeout) {
   uint32_t ticks;
