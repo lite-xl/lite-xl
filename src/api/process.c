@@ -292,10 +292,10 @@ static int push_error_string(lua_State *L, process_error_t err) {
 }
 
 static void push_error(lua_State *L, const char *extra, process_error_t err) {
-  const char *msg;
-  push_error_string(L, err);
+  const char *msg = "unknown error";
   extra = extra != NULL ? extra : "error";
-  msg = luaL_optstring(L, -1, "unknown error");
+  if (push_error_string(L, err))
+    msg = lua_tostring(L, -1);
   lua_pushfstring(L, "%s: %s (%d)", extra, msg, err);
 }
 
