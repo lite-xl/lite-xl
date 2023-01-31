@@ -26,13 +26,25 @@
 #define PROCESS_TERM_DELAY 50
 
 #if _WIN32
+
 typedef DWORD process_error_t;
 typedef HANDLE process_stream_handle;
 typedef HANDLE process_handle;
+
+#define HANDLE_INVALID (INVALID_HANDLE_VALUE)
+#define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
+
+static volatile long PipeSerialNumber;
+
 #else
+
 typedef int process_error_t;
 typedef int process_stream_handle;
 typedef pid_t process_handle;
+
+#define HANDLE_INVALID (0)
+#define PROCESS_GET_HANDLE(P) ((P)->pid)
+
 #endif
 
 typedef struct {
@@ -88,14 +100,16 @@ typedef enum {
 static process_kill_list_t kill_list = { 0 };
 static SDL_Thread *kill_list_thread = NULL;
 
+static void close_fd(process_handle *handle) {
+  if (*handle) {
 #ifdef _WIN32
-  static volatile long PipeSerialNumber;
-  static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = INVALID_HANDLE_VALUE; }
-  #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
+    CloseHandle(*handle);
 #else
-  static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
-  #define PROCESS_GET_HANDLE(P) ((P)->pid)
+    close(*handle);
 #endif
+    *handle = HANDLE_INVALID;
+  }
+}
 
 
 static void kill_list_free(process_kill_list_t *list) {
