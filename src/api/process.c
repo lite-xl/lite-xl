@@ -649,14 +649,9 @@ static int f_close_stream(lua_State* L) {
 
 // Generic stuff below here.
 static int process_strerror(lua_State* L) {
-  #if _WIN32
-    return 1;
-  #endif
-  int error_code = luaL_checknumber(L, 1);
-  if (error_code < 0)
-    lua_pushstring(L, strerror(error_code));
-  else
-    lua_pushnil(L);
+  push_error(L, "", luaL_checknumber(L, 1));
+  // since push_error also pushed a ": ", we'll need to remove that
+  lua_pushstring(L, lua_tostring(L, -1) + 3);
   return 1;
 }
 
