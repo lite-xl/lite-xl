@@ -281,9 +281,12 @@ static void push_error(lua_State *L, const char *extra, process_error_t err) {
                 (char *) &msg,
                 0,
                 NULL);
-  lua_pushfstring(L, "%s: %s", extra != NULL ? extra : "error", msg);
-  if (msg)
+  if (msg) {
+    lua_pushfstring(L, "%s: %s", extra, msg);
     LocalFree(msg); // this must be freed by LocalFree and not free!
+  } else {
+    lua_pushfstring(L, "%s: %d", extra, err);
+  }
 #else
   lua_pushfstring(L, "%s: %s", extra, strerror(err));
 #endif
