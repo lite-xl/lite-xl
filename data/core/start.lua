@@ -3,6 +3,7 @@ VERSION = "@PROJECT_VERSION@"
 MOD_VERSION_MAJOR = 3
 MOD_VERSION_MINOR = 0
 MOD_VERSION_PATCH = 0
+MOD_VERSION_STRING = string.format("%d.%d.%d", MOD_VERSION_MAJOR, MOD_VERSION_MINOR, MOD_VERSION_PATCH)
 
 SCALE = tonumber(os.getenv("LITE_SCALE") or os.getenv("GDK_SCALE") or os.getenv("QT_SCALE_FACTOR")) or SCALE
 PATHSEP = package.config:sub(1, 1)
