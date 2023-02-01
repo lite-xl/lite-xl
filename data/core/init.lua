@@ -937,21 +937,17 @@ local function get_plugin_details(filename)
 
   for line in f:lines() do
     if not version_match then
-      local _, _,
-        major_a, major_b,
-        minor_a, minor_b,
-        patch_a, patch_b = mod_version_regex:match(line)
-      local major, minor, patch
-      if major_a then
-        major = tonumber(line:sub(major_a, major_b))
+      local major, minor, patch = mod_version_regex:match(line)
+      if major then
+        major = tonumber(major)
         version_match = major == MOD_VERSION_MAJOR
       end
-      if version_match and minor_a then
-        minor = tonumber(line:sub(minor_a, minor_b))
+      if version_match and minor then
+        minor = tonumber(minor)
         version_match = (minor or 0) <= MOD_VERSION_MINOR
       end
-      if version_match and patch_a then
-        patch = tonumber(line:sub(patch_a, patch_b))
+      if version_match and patch then
+        patch = tonumber(patch)
         version_match = (patch or 0) <= MOD_VERSION_PATCH
       end
     end
