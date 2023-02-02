@@ -673,6 +673,9 @@ end
 
 
 function core.init()
+  core.log_items = {}
+  core.log_quiet("Lite XL version %s - mod-version %s", VERSION, MOD_VERSION_STRING)
+
   command = require "core.command"
   keymap = require "core.keymap"
   dirwatch = require "core.dirwatch"
@@ -726,7 +729,6 @@ function core.init()
 
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
-  core.log_items = {}
   core.docs = {}
   core.cursor_clipboard = {}
   core.cursor_clipboard_whole_line = {}
@@ -824,15 +826,19 @@ function core.init()
     local msg = {}
     for _, entry in pairs(plugins_refuse_list) do
       if #entry.plugins > 0 then
-        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(entry.plugins, "\n"))
+        local msg_list = {}
+        for _, p in pairs(entry.plugins) do
+          table.insert(msg_list, string.format("%s[%s]", p.file, p.version_string))
+        end
+        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(msg_list, "\n"))
       end
     end
     core.nag_view:show(
       "Refused Plugins",
       string.format(
-        "Some plugins are not loaded due to version mismatch.\n\n%s.\n\n" ..
+        "Some plugins are not loaded due to version mismatch. Expected version %s.\n\n%s.\n\n" ..
         "Please download a recent version from https://github.com/lite-xl/lite-xl-plugins.",
-        table.concat(msg, ".\n\n")),
+        MOD_VERSION_STRING, table.concat(msg, ".\n\n")),
       opt, function(item)
         if item.text == "Exit" then os.exit(1) end
       end)
@@ -921,6 +927,8 @@ function core.restart()
 end
 
 
+local mod_version_regex =
+  regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
 local function get_plugin_details(filename)
   local info = system.get_file_info(filename)
   if info ~= nil and info.type == "dir" then
@@ -932,17 +940,32 @@ local function get_plugin_details(filename)
   if not f then return false end
   local priority = false
   local version_match = false
+  local major, minor, patch
+
   for line in f:lines() do
     if not version_match then
-      local mod_version = line:match('%-%-.*%f[%a]mod%-version%s*:%s*(%d+)')
-      if mod_version then
-        version_match = (mod_version == MOD_VERSION)
+      local _major, _minor, _patch = mod_version_regex:match(line)
+      if _major then
+        _major = tonumber(_major) or 0
+        _minor = tonumber(_minor) or 0
+        _patch = tonumber(_patch) or 0
+        major, minor, patch = _major, _minor, _patch
+
+        version_match = major == MOD_VERSION_MAJOR
+        if version_match then
+          version_match = minor <= MOD_VERSION_MINOR
+        end
+        if version_match then
+          version_match = patch <= MOD_VERSION_PATCH
+        end
       end
     end
+
     if not priority then
       priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
       if priority then priority = tonumber(priority) end
     end
+
     if version_match then
       break
     end
@@ -950,6 +973,7 @@ local function get_plugin_details(filename)
   f:close()
   return true, {
     version_match = version_match,
+    version = major and {major, minor, patch} or {},
     priority = priority or 100
   }
 end
@@ -985,6 +1009,8 @@ function core.load_plugins()
     plugin.dir = dir
     plugin.priority = details and details.priority or 100
     plugin.version_match = details and details.version_match or false
+    plugin.version = details and details.version or {}
+    plugin.version_string = #plugin.version > 0 and table.concat(plugin.version, ".") or "unknown"
   end
 
   -- sort by priority or name for plugins that have same priority
@@ -1000,21 +1026,27 @@ function core.load_plugins()
     if plugin.valid then
       if not config.skip_plugins_version and not plugin.version_match then
         core.log_quiet(
-          "Version mismatch for plugin %q from %s",
+          "Version mismatch for plugin %q[%s] from %s",
           plugin.name,
+          plugin.version_string,
           plugin.dir
         )
         local rlist = plugin.dir:find(USERDIR, 1, true) == 1
           and 'userdir' or 'datadir'
         local list = refused_list[rlist].plugins
-        table.insert(list, plugin.file)
+        table.insert(list, plugin)
       elseif config.plugins[plugin.name] ~= false then
         local start = system.get_time()
         local ok, loaded_plugin = core.try(require, "plugins." .. plugin.name)
         if ok then
+          local plugin_version = ""
+          if plugin.version_string ~= MOD_VERSION_STRING then
+            plugin_version = "["..plugin.version_string.."]"
+          end
           core.log_quiet(
-            "Loaded plugin %q from %s in %.1fms",
+            "Loaded plugin %q%s from %s in %.1fms",
             plugin.name,
+            plugin_version,
             plugin.dir,
             (system.get_time() - start) * 1000
           )
