@@ -84,14 +84,6 @@ setmetatable(config.plugins, {
       return
     elseif plugins_config[k].enabled == false and v ~= false then
       plugins_config[k].enabled = true
-      -- prevent require looping when plugin enabled from itself
-      if
-        not debug.getinfo(2, "S").source:match(
-          PATHSEP .. "plugins" .. PATHSEP .. k .. "%.lua$"
-        )
-      then
-        require("plugins." .. k)
-      end
     end
     if v == false then
       plugins_config[k].enabled = false
