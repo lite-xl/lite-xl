@@ -67,7 +67,7 @@ config.plugins = {}
 setmetatable(config.plugins, {
   __index = function(_, k)
     if not plugins_config[k] then
-      plugins_config[k] = { loaded = false, enabled = true, config = {} }
+      plugins_config[k] = { enabled = true, config = {} }
     end
     if plugins_config[k].enabled ~= false then
       return plugins_config[k].config
@@ -76,9 +76,9 @@ setmetatable(config.plugins, {
   end,
   __newindex = function(_, k, v)
     if not plugins_config[k] then
-      plugins_config[k] = { loaded = false, enabled = nil, config = {} }
+      plugins_config[k] = { enabled = nil, config = {} }
     end
-    if v == false and plugins_config[k].loaded then
+    if v == false and package.loaded["plugins."..k] then
       local core = require "core"
       core.warn("[%s] is already enabled, restart the editor for the change to take effect", k)
       return
@@ -92,11 +92,6 @@ setmetatable(config.plugins, {
       then
         require("plugins." .. k)
       end
-      plugins_config[k].loaded = true
-      if type(v) == "table" then
-        plugins_config[k].config = common.merge(plugins_config[k].config, v)
-      end
-      return
     end
     if v == false then
       plugins_config[k].enabled = false
