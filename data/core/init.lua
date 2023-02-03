@@ -1418,31 +1418,36 @@ end)
 
 
 function core.run()
-  local idle_iterations = 0
+  local next_step
   while true do
     core.frame_start = system.get_time()
-    local minimal_time_to_wake = run_threads()
-    local did_redraw = core.step()
+    local time_to_wake = run_threads()
+    local did_redraw = false
+    if not next_step or system.get_time() >= next_step then
+      did_redraw = core.step()
+      next_step = nil
+    end
     if core.restart_request or core.quit_request then break end
-    if not did_redraw and minimal_time_to_wake > 0 then
-      idle_iterations = idle_iterations + 1
-      -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
-      -- and set "redraw" flag.
-      if idle_iterations > 1 then
-        if system.window_has_focus() then
-          -- keep running even with no events to make the cursor blinks, or for the next thread wake
+
+    if not did_redraw then
+      if system.window_has_focus() then
+        if not next_step then -- compute the time until the next blink
           local t = system.get_time() - core.blink_start
           local h = config.blink_period / 2
           local dt = math.ceil(t / h) * h - t
-          system.wait_event(math.min(dt + 1 / config.fps, minimal_time_to_wake))
-        else
-          system.wait_event()
+          local cursor_time_to_wake = dt + 1 / config.fps
+          next_step = system.get_time() + cursor_time_to_wake
         end
+        if time_to_wake > 0 and system.wait_event(math.min(next_step - system.get_time(), time_to_wake)) then
+          next_step = nil -- if we've recevied an event, perform a step
+        end
+      else
+        system.wait_event()
+        next_step = nil -- perform a step when we're not in focus if get we an event
       end
-    else
-      idle_iterations = 0
+    else -- if we redrew, then make sure we only draw at most FPS/sec
       local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.min(math.max(0, 1 / config.fps - elapsed), minimal_time_to_wake))
+      system.sleep(math.min(math.max(0, 1 / config.fps - elapsed), time_to_wake))
     end
   end
 end
