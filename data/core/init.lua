@@ -305,7 +305,7 @@ function core.add_project_directory(path)
         end
       end
       if project_dir_open then
-        coroutine.yield(changed and 0.05 or 0)
+        coroutine.yield(changed and 0 or 0.05)
       else
         return
       end
@@ -1384,7 +1384,7 @@ end
 local run_threads = coroutine.wrap(function()
   while true do
     local max_time = 1 / config.fps - 0.004
-    local need_more_work = false
+    local minimal_time_to_wake = math.huge
 
     for k, thread in pairs(core.threads) do
       -- run thread
@@ -1398,18 +1398,19 @@ local run_threads = coroutine.wrap(function()
           end
         elseif wait then
           thread.wake = system.get_time() + wait
+          minimal_time_to_wake = math.min(minimal_time_to_wake, wait)
         else
-          need_more_work = true
+          minimal_time_to_wake = max_time
         end
       end
 
       -- stop running threads if we're about to hit the end of frame
       if system.get_time() - core.frame_start > max_time then
-        coroutine.yield(true)
+        coroutine.yield(0)
       end
     end
 
-    if not need_more_work then coroutine.yield(false) end
+    coroutine.yield(minimal_time_to_wake)
   end
 end)
 
@@ -1418,20 +1419,20 @@ function core.run()
   local idle_iterations = 0
   while true do
     core.frame_start = system.get_time()
-    local need_more_work = run_threads()
+    local minimal_time_to_wake = run_threads()
     local did_redraw = core.step()
     if core.restart_request or core.quit_request then break end
-    if not did_redraw and not need_more_work then
+    if not did_redraw and minimal_time_to_wake > 0 then
       idle_iterations = idle_iterations + 1
       -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
       -- and set "redraw" flag.
       if idle_iterations > 1 then
         if system.window_has_focus() then
-          -- keep running even with no events to make the cursor blinks
+          -- keep running even with no events to make the cursor blinks, or for the next thread wake
           local t = system.get_time() - core.blink_start
           local h = config.blink_period / 2
           local dt = math.ceil(t / h) * h - t
-          system.wait_event(dt + 1 / config.fps)
+          system.wait_event(math.min(dt + 1 / config.fps, minimal_time_to_wake))
         else
           system.wait_event()
         end
