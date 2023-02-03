@@ -160,8 +160,8 @@ end
 function DocView:get_visible_line_range()
   local x, y, x2, y2 = self:get_content_bounds()
   local lh = self:get_line_height()
-  local minline = math.max(1, math.floor(y / lh))
-  local maxline = math.min(#self.doc.lines, math.floor(y2 / lh) + 1)
+  local minline = math.max(1, math.floor((y - style.padding.y) / lh) + 1)
+  local maxline = math.min(#self.doc.lines, math.floor((y2 - style.padding.y) / lh) + 1)
   return minline, maxline
 end
 
