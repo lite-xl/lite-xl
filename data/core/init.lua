@@ -1402,6 +1402,8 @@ local run_threads = coroutine.wrap(function()
         else
           minimal_time_to_wake = 0
         end
+      else
+        minimal_time_to_wake =  math.min(minimal_time_to_wake, thread.wake - system.get_time())
       end
 
       -- stop running threads if we're about to hit the end of frame
@@ -1440,7 +1442,7 @@ function core.run()
     else
       idle_iterations = 0
       local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.max(0, 1 / config.fps - elapsed))
+      system.sleep(math.min(math.max(0, 1 / config.fps - elapsed), minimal_time_to_wake))
     end
   end
 end
