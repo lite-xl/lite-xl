@@ -1447,7 +1447,9 @@ function core.run()
       end
     else -- if we redrew, then make sure we only draw at most FPS/sec
       local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.min(math.max(0, 1 / config.fps - elapsed), time_to_wake))
+      local next_frame = math.max(0, 1 / config.fps - elapsed)
+      next_step = next_step or (system.get_time() + next_frame)
+      system.sleep(math.min(next_frame, time_to_wake))
     end
   end
 end
