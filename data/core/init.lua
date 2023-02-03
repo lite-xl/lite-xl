@@ -1400,7 +1400,7 @@ local run_threads = coroutine.wrap(function()
           thread.wake = system.get_time() + wait
           minimal_time_to_wake = math.min(minimal_time_to_wake, wait)
         else
-          minimal_time_to_wake = max_time
+          minimal_time_to_wake = 0
         end
       end
 
