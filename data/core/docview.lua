@@ -176,7 +176,15 @@ function DocView:get_col_x_offset(line, col)
       if column == col then
         return xoffset
       end
-      xoffset = xoffset + font:get_width(char)
+      local w
+      if char ~= "\t" then
+        w = font:get_width(char)
+      else
+        local sz = self.doc.indent_info and self.doc.indent_info.size
+                   or config.indent_size
+        w = sz * font:get_width(" ")
+      end
+      xoffset = xoffset + w
       column = column + #char
     end
   end
@@ -193,7 +201,14 @@ function DocView:get_x_offset_col(line, x)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     for char in common.utf8_chars(text) do
-      local w = font:get_width(char)
+      local w
+      if char ~= "\t" then
+        w = font:get_width(char)
+      else
+        local sz = self.doc.indent_info and self.doc.indent_info.size
+                   or config.indent_size
+        w = sz * font:get_width(" ")
+      end
       if xoffset >= x then
         return (xoffset - x > w / 2) and last_i or i
       end
