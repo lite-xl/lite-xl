@@ -168,23 +168,18 @@ end
 
 function DocView:get_col_x_offset(line, col)
   local default_font = self:get_font()
+  local _, indent_size = self.doc:get_indent_info()
+  default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
+    if font ~= default_font then font:set_tab_size(indent_size) end
     for char in common.utf8_chars(text) do
       if column == col then
         return xoffset
       end
-      local w
-      if char ~= "\t" then
-        w = font:get_width(char)
-      else
-        local sz = self.doc.indent_info and self.doc.indent_info.size
-                   or config.indent_size
-        w = sz * font:get_width(" ")
-      end
-      xoffset = xoffset + w
+      xoffset = xoffset + font:get_width(char)
       column = column + #char
     end
   end
@@ -198,17 +193,13 @@ function DocView:get_x_offset_col(line, x)
 
   local xoffset, last_i, i = 0, 1, 1
   local default_font = self:get_font()
+  local _, indent_size = self.doc:get_indent_info()
+  default_font:set_tab_size(indent_size)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
+    if font ~= default_font then font:set_tab_size(indent_size) end
     for char in common.utf8_chars(text) do
-      local w
-      if char ~= "\t" then
-        w = font:get_width(char)
-      else
-        local sz = self.doc.indent_info and self.doc.indent_info.size
-                   or config.indent_size
-        w = sz * font:get_width(" ")
-      end
+      local w = font:get_width(char)
       if xoffset >= x then
         return (xoffset - x > w / 2) and last_i or i
       end
