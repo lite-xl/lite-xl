@@ -1431,14 +1431,15 @@ function core.run()
 
     if not did_redraw then
       if system.window_has_focus() then
+        local now = system.get_time()
         if not next_step then -- compute the time until the next blink
-          local t = system.get_time() - core.blink_start
+          local t = now - core.blink_start
           local h = config.blink_period / 2
           local dt = math.ceil(t / h) * h - t
           local cursor_time_to_wake = dt + 1 / config.fps
-          next_step = system.get_time() + cursor_time_to_wake
+          next_step = now + cursor_time_to_wake
         end
-        if time_to_wake > 0 and system.wait_event(math.min(next_step - system.get_time(), time_to_wake)) then
+        if time_to_wake > 0 and system.wait_event(math.min(next_step - now, time_to_wake)) then
           next_step = nil -- if we've recevied an event, perform a step
         end
       else
@@ -1446,9 +1447,10 @@ function core.run()
         next_step = nil -- perform a step when we're not in focus if get we an event
       end
     else -- if we redrew, then make sure we only draw at most FPS/sec
-      local elapsed = system.get_time() - core.frame_start
+      local now = system.get_time()
+      local elapsed = now - core.frame_start
       local next_frame = math.max(0, 1 / config.fps - elapsed)
-      next_step = next_step or (system.get_time() + next_frame)
+      next_step = next_step or (now + next_frame)
       system.sleep(math.min(next_frame, time_to_wake))
     end
   end
