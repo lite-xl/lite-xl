@@ -820,8 +820,8 @@ function core.init()
 
   if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
     local opt = {
-      { font = style.font, text = "Exit", default_no = true },
-      { font = style.font, text = "Continue" , default_yes = true }
+      { text = "Exit", default_no = true },
+      { text = "Continue", default_yes = true }
     }
     local msg = {}
     for _, entry in pairs(plugins_refuse_list) do
@@ -866,8 +866,8 @@ function core.confirm_close_docs(docs, close_fn, ...)
     end
     local args = {...}
     local opt = {
-      { font = style.font, text = "Yes", default_yes = true },
-      { font = style.font, text = "No" , default_no = true }
+      { text = "Yes", default_yes = true },
+      { text = "No", default_no = true }
     }
     core.nag_view:show("Unsaved Changes", text, opt, function(item)
       if item.text == "Yes" then close_fn(table.unpack(args)) end

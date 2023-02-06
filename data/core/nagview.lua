@@ -91,7 +91,7 @@ function NagView:each_option()
 
     for i = #self.options, 1, -1 do
       opt = self.options[i]
-      bw = opt.font:get_width(opt.text) + 2 * BORDER_WIDTH + style.padding.x
+      bw = style.font:get_width(opt.text) + 2 * BORDER_WIDTH + style.padding.x
 
       ox = ox - bw - style.padding.x
       coroutine.yield(i, opt, ox,oy,bw,bh)
@@ -230,7 +230,7 @@ local function draw_nagview_message(self)
       renderer.draw_rect(lx,ly,uw,UNDERLINE_WIDTH, style.nagbar_text)
     end
 
-    common.draw_text(opt.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
+    common.draw_text(style.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
   end
 
   self:draw_scrollbar()
@@ -243,6 +243,16 @@ function NagView:draw()
     return
   end
   core.root_view:defer_draw(draw_nagview_message, self)
+end
+
+function NagView:on_scale_change(new_scale, old_scale)
+  BORDER_WIDTH = common.round(1 * new_scale)
+  UNDERLINE_WIDTH = common.round(2 * new_scale)
+  UNDERLINE_MARGIN = common.round(1 * new_scale)
+  self.target_height = math.max(
+    self:get_message_height(),
+    self:get_buttons_height()
+  )
 end
 
 function NagView:get_message_height()
