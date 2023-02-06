@@ -39,12 +39,13 @@ local function set_scale(scale)
   if config.plugins.scale.mode == "ui" then
     SCALE = scale
 
-    style.padding.x      = style.padding.x      * s
-    style.padding.y      = style.padding.y      * s
-    style.divider_size   = style.divider_size   * s
-    style.scrollbar_size = style.scrollbar_size * s
-    style.caret_width    = style.caret_width    * s
-    style.tab_width      = style.tab_width      * s
+    style.padding.x               = style.padding.x               * s
+    style.padding.y               = style.padding.y               * s
+    style.divider_size            = style.divider_size            * s
+    style.scrollbar_size          = style.scrollbar_size          * s
+    style.expanded_scrollbar_size = style.expanded_scrollbar_size * s
+    style.caret_width             = style.caret_width             * s
+    style.tab_width               = style.tab_width               * s
 
     for _, name in ipairs {"font", "big_font", "icon_font", "icon_big_font", "code_font"} do
       style[name]:set_size(s * style[name]:get_size())
