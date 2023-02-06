@@ -326,15 +326,15 @@ end
 function RootView:on_mouse_wheel(dy, dx)
   local x, y = self.mouse.x, self.mouse.y
   local node = self.root_node:get_child_overlapping_point(x, y)
-  
+
   local idx = node:get_tab_overlapping_point(x, y)
   if idx then
     local delta = dx == 0.0 and dy or dx
-    local button = delta > 0 and 2 or 1
+    local button = delta < 0 and 2 or 1
     node:scroll_tabs(button)
     return true
   end
-  
+
   return node.active_view:on_mouse_wheel(dy, dx)
 end
 
