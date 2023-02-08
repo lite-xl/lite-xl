@@ -233,7 +233,6 @@ Go figure.
 
 typedef struct lua_State lua_State;
 typedef int (*lua_CFunction) (lua_State *L);
-typedef int (*lua_KFunction) (lua_State *L, int status, lua_KContext ctx);
 typedef const char * (*lua_Reader) (lua_State *L, void *ud, size_t *sz);
 typedef int (*lua_Writer) (lua_State *L, const void* p, size_t sz, void* ud);
 typedef void * (*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
@@ -242,6 +241,7 @@ typedef LUA_NUMBER lua_Number;
 typedef LUA_INTEGER lua_Integer;
 typedef LUA_UNSIGNED lua_Unsigned;
 typedef struct lua_Debug lua_Debug;
+typedef int (*lua_KFunction) (lua_State *L, int status, lua_KContext ctx);
 typedef void (*lua_Hook) (lua_State *L, lua_Debug *ar);
 struct lua_Debug {
   int event;
@@ -743,13 +743,13 @@ SYMBOL_WRAP_DECL(void, lua_setuservalue, lua_State *L, int idx){
 SYMBOL_WRAP_DECL(void, lua_setiuservalue, lua_State *L, int idx, int n){
   SYMBOL_WRAP_CALL(lua_setiuservalue, L, idx, n);
 }
-SYMBOL_WRAP_DECL(void, lua_callk, lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k){
+SYMBOL_WRAP_DECL(void, lua_callk, lua_State *L, int nargs, int nresults, lua_KContext ctx, lua_KFunction k){
   SYMBOL_WRAP_CALL(lua_callk, L, nargs, nresults, ctx, k);
 }
 SYMBOL_WRAP_DECL(int, lua_getctx, lua_State *L, int *ctx){
   SYMBOL_WRAP_CALL(lua_getctx, L, ctx);
 }
-SYMBOL_WRAP_DECL(int, lua_pcallk, lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k){
+SYMBOL_WRAP_DECL(int, lua_pcallk, lua_State *L, int nargs, int nresults, int errfunc, lua_KContext ctx, lua_KFunction k){
   SYMBOL_WRAP_CALL(lua_pcallk, L, nargs, nresults, errfunc, ctx, k);
 }
 SYMBOL_WRAP_DECL(int, lua_load, lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode){
@@ -758,7 +758,7 @@ SYMBOL_WRAP_DECL(int, lua_load, lua_State *L, lua_Reader reader, void *dt, const
 SYMBOL_WRAP_DECL(int, lua_dump, lua_State *L, lua_Writer writer, void *data, int strip){
   SYMBOL_WRAP_CALL(lua_dump, L, writer, data, strip);
 }
-SYMBOL_WRAP_DECL(int, lua_yieldk, lua_State *L, int nresults, int ctx, lua_CFunction k){
+SYMBOL_WRAP_DECL(int, lua_yieldk, lua_State *L, int nresults, lua_KContext ctx, lua_KFunction k){
   SYMBOL_WRAP_CALL(lua_yieldk, L, nresults, ctx, k);
 }
 SYMBOL_WRAP_DECL(int, lua_resume, lua_State *L, lua_State *from, int narg){
@@ -1044,12 +1044,12 @@ static void lite_xl_plugin_init(void *XL) {
   IMPORT_SYMBOL(lua_setmetatable, int , lua_State *L, int objindex);
   IMPORT_SYMBOL_OPT(lua_setuservalue, void , lua_State *L, int idx);
   IMPORT_SYMBOL(lua_setiuservalue, void , lua_State *L, int idx, int n);
-  IMPORT_SYMBOL(lua_callk, void , lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k);
+  IMPORT_SYMBOL(lua_callk, void , lua_State *L, int nargs, int nresults, lua_KContext ctx, lua_KFunction k);
   IMPORT_SYMBOL(lua_getctx, int , lua_State *L, int *ctx);
-  IMPORT_SYMBOL(lua_pcallk, int , lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k);
+  IMPORT_SYMBOL(lua_pcallk, int , lua_State *L, int nargs, int nresults, int errfunc, lua_KContext ctx, lua_KFunction k);
   IMPORT_SYMBOL(lua_load, int , lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode);
   IMPORT_SYMBOL(lua_dump, int , lua_State *L, lua_Writer writer, void *data, int strip);
-  IMPORT_SYMBOL(lua_yieldk, int , lua_State *L, int nresults, int ctx, lua_CFunction k);
+  IMPORT_SYMBOL(lua_yieldk, int , lua_State *L, int nresults, lua_KContext ctx, lua_KFunction k);
   IMPORT_SYMBOL(lua_resume, int , lua_State *L, lua_State *from, int narg);
   IMPORT_SYMBOL(lua_status, int , lua_State *L);
   IMPORT_SYMBOL(lua_gc, int , lua_State *L, int what, int data);
