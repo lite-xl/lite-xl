@@ -205,6 +205,7 @@ Go figure.
 #define luai_numisnan(L,a) (!luai_numeq((a), (a)))
 #endif
 #define LUA_INTEGER ptrdiff_t
+#define LUA_KCONTEXT ptrdiff_t
 #define LUA_UNSIGNED unsigned LUA_INT32
 #if defined(LUA_NUMBER_DOUBLE) && !defined(LUA_ANSI)
 #if defined(LUA_WIN) && defined(_MSC_VER) && defined(_M_IX86)
@@ -232,9 +233,11 @@ Go figure.
 
 typedef struct lua_State lua_State;
 typedef int (*lua_CFunction) (lua_State *L);
+typedef int (*lua_KFunction) (lua_State *L, int status, lua_KContext ctx);
 typedef const char * (*lua_Reader) (lua_State *L, void *ud, size_t *sz);
 typedef int (*lua_Writer) (lua_State *L, const void* p, size_t sz, void* ud);
 typedef void * (*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
+typedef LUA_KCONTEXT lua_KContext;
 typedef LUA_NUMBER lua_Number;
 typedef LUA_INTEGER lua_Integer;
 typedef LUA_UNSIGNED lua_Unsigned;
@@ -321,12 +324,12 @@ SYMBOL_DECLARE(void,               lua_rawsetp,           lua_State *L, int idx,
 SYMBOL_DECLARE(int,                lua_setmetatable,      lua_State *L, int objindex)
 SYMBOL_DECLARE(void,               lua_setuservalue,      lua_State *L, int idx)
 SYMBOL_DECLARE(void,               lua_setiuservalue,     lua_State *L, int idx, int n)
-SYMBOL_DECLARE(void,               lua_callk,             lua_State *L, int nargs, int nresults, int ctx, lua_CFunction k)
+SYMBOL_DECLARE(void,               lua_callk,             lua_State *L, int nargs, int nresults, lua_KContext ctx, lua_KFunction k)
 SYMBOL_DECLARE(int,                lua_getctx,            lua_State *L, int *ctx)
-SYMBOL_DECLARE(int,                lua_pcallk,            lua_State *L, int nargs, int nresults, int errfunc, int ctx, lua_CFunction k)
+SYMBOL_DECLARE(int,                lua_pcallk,            lua_State *L, int nargs, int nresults, int errfunc, lua_KContext ctx, lua_KFunction k)
 SYMBOL_DECLARE(int,                lua_load,              lua_State *L, lua_Reader reader, void *dt, const char *chunkname, const char *mode)
 SYMBOL_DECLARE(int,                lua_dump,              lua_State *L, lua_Writer writer, void *data, int strip)
-SYMBOL_DECLARE(int,                lua_yieldk,            lua_State *L, int nresults, int ctx, lua_CFunction k)
+SYMBOL_DECLARE(int,                lua_yieldk,            lua_State *L, int nresults, lua_KContext ctx, lua_KFunction k)
 SYMBOL_DECLARE(int,                lua_resume,            lua_State *L, lua_State *from, int narg)
 SYMBOL_DECLARE(int,                lua_status,            lua_State *L)
 SYMBOL_DECLARE(int,                lua_gc,                lua_State *L, int what, int data)
