@@ -27,6 +27,13 @@ function Object:is(T)
   return getmetatable(self) == T
 end
 
+---Check if the parameter is strictly of the object type.
+---@param T any
+---@return boolean
+function Object:is_class_of(T)
+  return getmetatable(T) == self
+end
+
 ---Check if the object inherits from the given type.
 ---@param T any
 ---@return boolean
@@ -37,6 +44,22 @@ function Object:extends(T)
       return true
     end
     mt = getmetatable(mt)
+  end
+  return false
+end
+
+---Check if the parameter inherits from the object.
+---@param T any
+---@return boolean
+function Object:is_extended_by(T)
+  local mt = getmetatable(T)
+  while mt do
+    if mt == self then
+      return true
+    end
+    local _mt = getmetatable(T)
+    if mt == _mt then break end
+    mt = _mt
   end
   return false
 end

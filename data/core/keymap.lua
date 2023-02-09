@@ -302,6 +302,8 @@ keymap.add_direct {
   ["wheel"] = "root:scroll",
   ["hwheel"] = "root:horizontal-scroll",
   ["shift+wheel"] = "root:horizontal-scroll",
+  ["wheelup"] = "root:scroll-hovered-tabs-backward",
+  ["wheeldown"] = "root:scroll-hovered-tabs-forward",
 
   ["ctrl+f"] = "find-replace:find",
   ["ctrl+r"] = "find-replace:replace",
