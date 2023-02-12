@@ -1069,6 +1069,15 @@ static int f_path_compare(lua_State *L) {
 }
 
 
+static int f_editing(lua_State* L) {
+  if (lua_toboolean(L, 1))
+    SDL_StartTextInput();
+  else
+    SDL_StopTextInput();
+  return 0;
+}
+
+
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
@@ -1102,6 +1111,7 @@ static const luaL_Reg lib[] = {
   { "load_native_plugin",  f_load_native_plugin  },
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
+  { "editing",             f_editing             },
   { NULL, NULL }
 };
 

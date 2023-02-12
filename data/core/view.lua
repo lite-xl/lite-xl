@@ -108,6 +108,10 @@ function View:get_h_scrollable_size()
 end
 
 
+function View:text_editing()
+  return false
+end
+
 ---@param x number
 ---@param y number
 ---@return boolean
