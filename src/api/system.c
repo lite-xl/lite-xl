@@ -966,7 +966,7 @@ static int f_library_gc(lua_State *L) {
   lua_getfield(L, 1, "handle");
   void* handle = lua_touserdata(L, -1);
   SDL_UnloadObject(handle);
-  
+
   return 0;
 }
 
@@ -1069,7 +1069,7 @@ static int f_path_compare(lua_State *L) {
 }
 
 
-static int f_editing(lua_State* L) {
+static int f_text_input(lua_State* L) {
   if (lua_toboolean(L, 1))
     SDL_StartTextInput();
   else
@@ -1111,13 +1111,13 @@ static const luaL_Reg lib[] = {
   { "load_native_plugin",  f_load_native_plugin  },
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
-  { "editing",             f_editing             },
+  { "text_input",          f_text_input          },
   { NULL, NULL }
 };
 
 
 int luaopen_system(lua_State *L) {
-  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN); 
+  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN);
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);

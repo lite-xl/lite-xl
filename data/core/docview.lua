@@ -235,7 +235,7 @@ function DocView:scroll_to_line(line, ignore_if_visible, instant)
 end
 
 
-function DocView:text_editing()
+function DocView:supports_text_input()
   return true
 end
 

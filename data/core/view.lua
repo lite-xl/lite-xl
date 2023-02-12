@@ -108,7 +108,7 @@ function View:get_h_scrollable_size()
 end
 
 
-function View:text_editing()
+function View:supports_text_input()
   return false
 end
 
