@@ -92,6 +92,7 @@ table.unpack = table.unpack or unpack
 bit32 = bit32 or require "core.bit"
 
 require "core.utf8string"
+require "core.utf8baselib"
 
 -- Because AppImages change the working directory before running the executable,
 -- we need to change it back to the original one.
