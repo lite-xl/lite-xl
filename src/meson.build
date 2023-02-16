@@ -45,6 +45,13 @@ lite_sources += [
     'api/dirmonitor/' + dirmonitor_backend + '.c',
 ]
 
+if host_machine.system() == 'windows'
+    lite_sources += [
+        'api/win32/utf8_io.c',
+        'api/win32/utf8_os.c'
+    ]
+endif
+
 
 lite_rc = []
 if host_machine.system() == 'windows'
