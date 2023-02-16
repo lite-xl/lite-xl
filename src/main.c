@@ -222,7 +222,7 @@ init_lua:
     "xpcall(function()\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
     "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
-    "  local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
+    "  local prefix = os.getenv('LITE_PREFIX') or exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
     "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
