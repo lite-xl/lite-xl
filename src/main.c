@@ -220,6 +220,8 @@ init_lua:
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
+    "  require('utf8_io').enable()"
+    "  require('utf8_os').enable()"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
     "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
     "  local prefix = os.getenv('LITE_PREFIX') or exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
