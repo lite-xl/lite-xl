@@ -978,7 +978,7 @@ static int f_load_native_plugin(lua_State *L) {
   const char *path = luaL_checkstring(L, 2);
   void *library = SDL_LoadObject(path);
   if (!library)
-    return (lua_pushstring(L, SDL_GetError()), lua_error(L));
+    return luaL_error(L, "%s", SDL_GetError());
 
   lua_getglobal(L, "package");
   lua_getfield(L, -1, "native_plugins");
