@@ -47,6 +47,7 @@ lite_sources += [
     'api/dirmonitor/' + dirmonitor_backend + '.c',
 ]
 
+
 lite_rc = []
 if host_machine.system() == 'windows'
     windows = import('windows')
