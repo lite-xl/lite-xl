@@ -5,6 +5,8 @@ lite_sources = [
     'api/system.c',
     'api/process.c',
     'api/utf8.c',
+    'api/utf8_io.c',
+    'api/utf8_os.c',
     'renderer.c',
     'renwindow.c',
     'rencache.c',
@@ -44,14 +46,6 @@ lite_sources += [
     'api/dirmonitor.c',
     'api/dirmonitor/' + dirmonitor_backend + '.c',
 ]
-
-if host_machine.system() == 'windows'
-    lite_sources += [
-        'api/win32/utf8_io.c',
-        'api/win32/utf8_os.c'
-    ]
-endif
-
 
 lite_rc = []
 if host_machine.system() == 'windows'

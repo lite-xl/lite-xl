@@ -1,5 +1,12 @@
-#include "../api.h"
-#include "../../utfconv.h"
+#include "api.h"
+
+#ifdef _WIN32
+
+#if (LUA_VERSION_NUM < 503)
+#error "This extension will not work with Lua below version 5.3 or LuaJIT."
+#endif
+
+#include "../utfconv.h"
 
 #include <stdio.h>
 #include <wchar.h>
@@ -90,11 +97,10 @@ static const luaL_Reg utf8_oslib[] = {
   { NULL, NULL }
 };
 
-static int utf8_os_enable(lua_State *L) {
-#if (LUA_VERSION_NUM < 503)
-#error "This extension will not work with Lua below version 5.3 or LuaJIT."
 #endif
 
+static int utf8_os_enable(lua_State *L) {
+#ifdef _WIN32
   // here we (attempt to) dynamically detect the version of lua.
   if (lua_version(L) < 503)
     return luaL_error(L, "unsupported runtime Lua version");
@@ -125,12 +131,14 @@ static int utf8_os_enable(lua_State *L) {
     lua_pushcfunction(L, utf8_oslib[i].func);
     lua_settable(L, -3);
   }
+#endif
 
   lua_pushboolean(L, 1);
   return 1;
 }
 
 static int utf8_os_disable(lua_State *L) {
+#ifdef _WIN32
   // check if we've patched the os library
   if (lua_getfield(L, LUA_REGISTRYINDEX, OS_PREFIX "patched") == LUA_TNIL) {
     lua_pushboolean(L, 0);
@@ -151,6 +159,7 @@ static int utf8_os_disable(lua_State *L) {
 
   lua_pushnil(L);
   lua_setfield(L, LUA_REGISTRYINDEX, OS_PREFIX "patched");
+#endif
 
   lua_pushboolean(L, 1);
   return 1;
