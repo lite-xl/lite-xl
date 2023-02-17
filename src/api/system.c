@@ -971,11 +971,12 @@ static int f_library_gc(lua_State *L) {
 }
 
 static int f_load_native_plugin(lua_State *L) {
-  char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
-  int result;
-
+  const char *entrypoint_name;
   const char *name = luaL_checkstring(L, 1);
   const char *path = luaL_checkstring(L, 2);
+
+  lua_settop(L, 2);
+
   void *library = SDL_LoadObject(path);
   if (!library)
     return luaL_error(L, "%s", SDL_GetError());
@@ -989,26 +990,42 @@ static int f_load_native_plugin(lua_State *L) {
   lua_setfield(L, -2, name);
   lua_pop(L, 2);
 
-  const char *basename = strrchr(name, '.');
-  basename = !basename ? name : basename + 1;
-  snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_lite_xl_%s", basename);
+  // create the correct function name
+  // if name has hypen, remove itself and everything after the hyphen
+  char *name_end = strchr(name, '-');
+  if (name_end != NULL) {
+    lua_pushlstring(L, name, name_end - name);
+    name = lua_tostring(L, -1);
+  }
+  // replace dot with _
+  name = luaL_gsub(L, name, ".", "_");
+
   int (*ext_entrypoint) (lua_State *L, void* (*)(const char*));
+  int (*entrypoint) (lua_State *L);
+
+  // load lite-xl own entrypoint first
+  lua_pushfstring(L, "luaopen_lite_xl_%s", name);
+  entrypoint_name = lua_tostring(L, -1);
   *(void**)(&ext_entrypoint) = SDL_LoadFunction(library, entrypoint_name);
-  if (!ext_entrypoint) {
-    snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_%s", basename);
-    int (*entrypoint)(lua_State *L);
-    *(void**)(&entrypoint) = SDL_LoadFunction(library, entrypoint_name);
-    if (!entrypoint)
-      return luaL_error(L, "Unable to load %s: Can't find %s(lua_State *L, void *XL)", name, entrypoint_name);
-    result = entrypoint(L);
-  } else {
-    result = ext_entrypoint(L, api_require);
+  if (ext_entrypoint) {
+    // clear the stack (leaving name and path) and call the function
+    // this seems to be what lua does
+    lua_settop(L, 2);
+    return ext_entrypoint(L, api_require);
   }
 
-  if (!result)
-    return luaL_error(L, "Unable to load %s: entrypoint must return a value", name);
+  // try to load lua's entrypoint
+  lua_pushfstring(L, "luaopen_%s", name);
+  entrypoint_name = lua_tostring(L, -1);
+  *(void**)(&entrypoint) = SDL_LoadFunction(library, entrypoint_name);
+  if (entrypoint) {
+    // clear the stack (leaving name and path) and call the function
+    // this seems to be what lua does
+    lua_settop(L, 2);
+    return entrypoint(L);
+  }
 
-  return result;
+  return luaL_error(L, "error loading %s: cannot find entrypoint luaopen_lite_xl_%s or luaopen_%s", path, name, name);
 }
 
 #ifdef _WIN32
