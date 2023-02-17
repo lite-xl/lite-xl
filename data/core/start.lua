@@ -36,7 +36,7 @@ package.cpath =
   DATADIR .. '/?.' .. suffix .. ";" ..
   DATADIR .. '/?/init.' .. suffix .. ";"
 
-local searchpath = require "core.utf8searcher"
+local searchpath = PLATFORM == "Windows" and require "core.utf8searcher" or package.searchpath
 package.native_plugins = {}
 package.searchers = { package.searchers[1], package.searchers[2], function(modname)
   local path, err = searchpath(modname, package.cpath)
