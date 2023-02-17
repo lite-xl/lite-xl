@@ -49,8 +49,10 @@ table.unpack = table.unpack or unpack
 
 bit32 = bit32 or require "core.bit"
 
+-- patch baselib for dofile() and loadfile() to support UTF-8
+if PLATFORM == "Windows" then require "core.utf8baselib" end
+-- patch string to support UTF-8 operations
 require "core.utf8string"
-require "core.utf8baselib"
 
 -- Because AppImages change the working directory before running the executable,
 -- we need to change it back to the original one.
