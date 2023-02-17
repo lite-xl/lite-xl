@@ -966,7 +966,7 @@ static int f_library_gc(lua_State *L) {
   lua_getfield(L, 1, "handle");
   void* handle = lua_touserdata(L, -1);
   SDL_UnloadObject(handle);
-  
+
   return 0;
 }
 
@@ -1124,7 +1124,7 @@ static const luaL_Reg lib[] = {
 
 
 int luaopen_system(lua_State *L) {
-  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN); 
+  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN);
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);
