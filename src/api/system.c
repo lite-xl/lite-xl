@@ -990,6 +990,12 @@ static int f_load_native_plugin(lua_State *L) {
   lua_setfield(L, -2, name);
   lua_pop(L, 2);
 
+  // only loading the library for symbols
+  if (strcmp(name, "*") == 0) {
+    lua_pushboolean(L, 1);
+    return 1;
+  }
+
   // create the correct function name
   // if name has hypen, remove itself and everything after the hyphen
   char *name_end = strchr(name, '-');
