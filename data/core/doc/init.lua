@@ -427,19 +427,20 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   local before = self.lines[line1]:sub(1, col1 - 1)
   local after = self.lines[line2]:sub(col2)
 
+  local line_removal = line2 - line1
+
   -- splice line into line array
-  common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
+  common.splice(self.lines, line1, line_removal + 1, { before .. after })
 
   -- move all cursors back if they share a line with the removed text
   for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
     if cline1 < line2 then break end
-    local line_removal = line2 - line1
-    local column_removal = line2 == cline2 and col2 < ccol1 and (line2 == line1 and col2 - col1 or col2) or 0
+    local column_removal = line2 == cline2 and col2 < ccol1 and col2 - col1 or 0
     self:set_selections(idx, cline1 - line_removal, ccol1 - column_removal, cline2 - line_removal, ccol2 - column_removal)
   end
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:remove_notify(line1, line2 - line1)
+  self.highlighter:remove_notify(line1, line_removal)
   self:sanitize_selection()
 end
 
