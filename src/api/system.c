@@ -1073,7 +1073,7 @@ static int f_load_native_plugin(lua_State *L) {
     lua_pushboolean(L, 0); // extended = true
     if (call_function(L, 3, LUA_MULTRET) != 1) {
       lua_pop(L, 1); // pop the last return result so we get the error message instead
-      return 1;
+      return lua_error(L);
     }
   }
 
