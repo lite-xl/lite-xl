@@ -36,10 +36,9 @@ package.cpath =
   DATADIR .. '/?.' .. suffix .. ";" ..
   DATADIR .. '/?/init.' .. suffix .. ";"
 
-local searchpath = PLATFORM == "Windows" and require "core.utf8searcher" or package.searchpath
 package.native_plugins = {}
 package.searchers = { package.searchers[1], package.searchers[2], function(modname)
-  local path, err = searchpath(modname, package.cpath)
+  local path, err = package.searchpath(modname, package.cpath)
   if not path then return err end
   return system.load_native_plugin, path
 end }
@@ -50,7 +49,10 @@ table.unpack = table.unpack or unpack
 bit32 = bit32 or require "core.bit"
 
 -- patch baselib for dofile() and loadfile() to support UTF-8
-if PLATFORM == "Windows" then require "core.utf8baselib" end
+if PLATFORM == "Windows" then
+  require "core.utf8package"
+  require "core.utf8baselib"
+end
 -- patch string to support UTF-8 operations
 require "core.utf8string"
 
