@@ -1041,45 +1041,46 @@ static int f_loadlib(lua_State *L) {
   return 1;
 }
 
+static int call_function(lua_State *L, int nargs, int nresult) {
+  int top = lua_gettop(L);
+  lua_call(L, nargs, nresult);
+  return lua_gettop(L) - (top - nargs - 1);
+}
+
 static int f_load_native_plugin(lua_State *L) {
-  char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
-  int result;
-
   const char *name = luaL_checkstring(L, 1);
-  const char *path = luaL_checkstring(L, 2);
-  void *library = SDL_LoadObject(path);
-  if (!library)
-    return (lua_pushstring(L, SDL_GetError()), lua_error(L));
+  luaL_checkstring(L, 2); // we'll not use path directly
+  lua_settop(L, 2);
 
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "native_plugins");
-  lua_newtable(L);
-  lua_pushlightuserdata(L, library);
-  lua_setfield(L, -2, "handle");
-  luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN);
-  lua_setfield(L, -2, name);
-  lua_pop(L, 2);
+  // create the correct package name
+  if (strchr(name, '-') != NULL)
+    // if name has a hypen do not include anything after the hyphen
+    name = (lua_pushlstring(L, name, strchr(name, '-') - name), lua_tostring(L, -1));
+  // replace all dots with underscores
+  name = luaL_gsub(L, name, ".", "_");
 
-  const char *basename = strrchr(name, '.');
-  basename = !basename ? name : basename + 1;
-  snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_lite_xl_%s", basename);
-  int (*ext_entrypoint) (lua_State *L, void* (*)(const char*));
-  *(void**)(&ext_entrypoint) = SDL_LoadFunction(library, entrypoint_name);
-  if (!ext_entrypoint) {
-    snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_%s", basename);
-    int (*entrypoint)(lua_State *L);
-    *(void**)(&entrypoint) = SDL_LoadFunction(library, entrypoint_name);
-    if (!entrypoint)
-      return luaL_error(L, "Unable to load %s: Can't find %s(lua_State *L, void *XL)", name, entrypoint_name);
-    result = entrypoint(L);
-  } else {
-    result = ext_entrypoint(L, api_require);
+  // attempt to load lite-xl's extended entrypoint
+  lua_pushcfunction(L, f_loadlib);
+  lua_pushvalue(L, 2); // path
+  lua_pushfstring(L, "luaopen_lite_xl_%s", name); // name
+  lua_pushboolean(L, 1); // extended = true
+  if (call_function(L, 3, LUA_MULTRET) != 1) {
+    lua_pop(L, 3); // pop previous error results
+    // get normal entrypoint
+    lua_pushcfunction(L, f_loadlib);
+    lua_pushvalue(L, 2); // path
+    lua_pushfstring(L, "luaopen_%s", name); // name
+    lua_pushboolean(L, 0); // extended = true
+    if (call_function(L, 3, LUA_MULTRET) != 1) {
+      lua_pop(L, 1); // pop the last return result so we get the error message instead
+      return 1;
+    }
   }
 
-  if (!result)
-    return luaL_error(L, "Unable to load %s: entrypoint must return a value", name);
-
-  return result;
+  // call the function
+  lua_insert(L, 1);
+  lua_settop(L, 3);
+  return call_function(L, 2, LUA_MULTRET);
 }
 
 #ifdef _WIN32
