@@ -970,6 +970,77 @@ static int f_library_gc(lua_State *L) {
   return 0;
 }
 
+#define CLIB_NAME "__LITE_XL_CLIB__"
+
+/** a thunk to call lite-xl extended functions */
+static int extended_fn_thunk(lua_State *L) {
+  int (*real_fn) (lua_State *L, void* (*)(const char*));
+  const char *name = luaL_checkstring(L, lua_upvalueindex(1));
+  real_fn = lua_touserdata(L, lua_upvalueindex(2));
+
+  if (!real_fn)
+    return luaL_error(L, "thunk to %s failed", name);
+
+  return real_fn(L, api_require); // run the real function
+}
+
+static int f_loadlib(lua_State *L) {
+  void *library;
+  const char *path = luaL_checkstring(L, 1);
+  const char *name = luaL_checkstring(L, 2);
+  int extended = lua_toboolean(L, 3);
+  lua_settop(L, 3);
+
+#define LOADLIB_ERROR(L, ERR, TYPE) \
+  (lua_pushnil((L)), lua_pushstring((L), (ERR)), lua_pushstring((L), (TYPE)), 3)
+
+  // try to grab an existing library
+  luaL_getsubtable(L, LUA_REGISTRYINDEX, CLIB_NAME);
+  if (luaL_getsubtable(L, -1, path)) {
+    // table exists and have the correct metatable
+    library = (lua_rawgeti(L, -1, 1), lua_touserdata(L, -1));
+    lua_pop(L, 1); // pop the userdata
+  } else {
+    // load the library
+    library = SDL_LoadObject(path);
+    if (!library)
+      return LOADLIB_ERROR(L, SDL_GetError(), "open");
+
+    // save it to the table
+    lua_pushlightuserdata(L, library);
+    lua_rawseti(L, -2, 1);
+    luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN); // since the table is new we need to set it again
+  }
+  lua_pop(L, 2); // pop library and clib table
+
+  if (strcmp(name, "*") == 0) {
+    // we only want the library for symbols
+    lua_pushboolean(L, 1);
+    return 1;
+  }
+
+  if (extended) {
+    int (*extended_fn) (lua_State *L, void* (*)(const char*));
+    extended_fn = SDL_LoadFunction(library, name);
+    if (!extended_fn)
+      return LOADLIB_ERROR(L, SDL_GetError(), "init");
+
+    lua_pushvalue(L, 2); // first upvalue is function name
+    lua_pushlightuserdata(L, (void *) extended_fn); // second upvalue is actual function
+    lua_pushcclosure(L, extended_fn_thunk, 2);
+  } else {
+    lua_CFunction fn;
+    *(void**)(&fn) = SDL_LoadFunction(library, name);
+    if (!fn)
+      return LOADLIB_ERROR(L, SDL_GetError(), "init");
+
+    lua_pushcfunction(L, fn);
+  }
+
+#undef LOADLIB_ERROR
+  return 1;
+}
+
 static int f_load_native_plugin(lua_State *L) {
   char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
   int result;
@@ -1099,6 +1170,7 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
+  { "loadlib",             f_loadlib             },
   { "load_native_plugin",  f_load_native_plugin  },
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
