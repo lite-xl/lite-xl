@@ -649,7 +649,7 @@ command.add(predicate, {
           local subline = line:sub(n - j, n)
           local subpartial = current_partial:sub(i, -1)
           if subpartial == subline then
-            doc:set_selections(idx, line1, col1, line2, n - j)
+            doc:remove(line1, col1, line2, n - j)
             break
           end
         end
