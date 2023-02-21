@@ -32,8 +32,12 @@ static double get_scale(void) {
 
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
-  int len = GetModuleFileName(NULL, buf, sz - 1);
-  buf[len] = '\0';
+  wchar_t buf_w[sz];
+  int len = GetModuleFileNameW(NULL, buf_w, sz - 1);
+  buf_w[len] = L'\0';
+  // if the conversion failed we'll empty the string
+  if (!WideCharToMultiByte(CP_UTF8, 0, buf_w, -1, buf, sz, NULL, NULL))
+    buf[0] = '\0';
 #elif __linux__
   char path[] = "/proc/self/exe";
   ssize_t len = readlink(path, buf, sz - 1);
