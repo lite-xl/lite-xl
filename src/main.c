@@ -224,9 +224,10 @@ init_lua:
   const char *init_lite_code = \
     "local core\n"
     "xpcall(function()\n"
+    "  local match = require('utf8extra').match\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
-    "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
-    "  local prefix = os.getenv('LITE_PREFIX') or exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
+    "  local exedir = match(EXEFILE, '^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
+    "  local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
     "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
