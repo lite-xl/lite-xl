@@ -253,34 +253,38 @@ command.add("core.docview!", {
 })
 
 local function valid_for_finding()
-  return core.active_view:is(DocView) or core.active_view:is(CommandView)
+  -- Allow using this while in the CommandView
+  if core.active_view:is(CommandView) and last_view then
+    return true, last_view
+  end
+  return core.active_view:is(DocView), core.active_view
 end
 
 command.add(valid_for_finding, {
-  ["find-replace:repeat-find"] = function()
+  ["find-replace:repeat-find"] = function(dv)
     if not last_fn then
       core.error("No find to continue from")
     else
-      local sl1, sc1, sl2, sc2 = doc():get_selection(true)
-      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc2, last_text, case_sensitive, find_regex, false)
+      local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
+      local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc2, last_text, case_sensitive, find_regex, false)
       if line1 then
-        doc():set_selection(line2, col2, line1, col1)
-        last_view:scroll_to_line(line2, true)
+        dv.doc:set_selection(line2, col2, line1, col1)
+        dv:scroll_to_line(line2, true)
       else
         core.error("Couldn't find %q", last_text)
       end
     end
   end,
 
-  ["find-replace:previous-find"] = function()
+  ["find-replace:previous-find"] = function(dv)
     if not last_fn then
       core.error("No find to continue from")
     else
-      local sl1, sc1, sl2, sc2 = doc():get_selection(true)
-      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc1, last_text, case_sensitive, find_regex, true)
+      local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
+      local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc1, last_text, case_sensitive, find_regex, true)
       if line1 then
-        doc():set_selection(line2, col2, line1, col1)
-        last_view:scroll_to_line(line2, true)
+        dv.doc:set_selection(line2, col2, line1, col1)
+        dv:scroll_to_line(line2, true)
       else
         core.error("Couldn't find %q", last_text)
       end
