@@ -334,6 +334,49 @@ function RootView:on_text_input(...)
   core.active_view:on_text_input(...)
 end
 
+function RootView:on_touch_pressed(x, y, ...)
+  self.touched_node = self.root_node:get_child_overlapping_point(x, y)
+end
+
+function RootView:on_touch_released(x, y, ...)
+  self.touched_node = nil
+end
+
+function RootView:on_touch_moved(x, y, dx, dy, ...)
+  if not self.touched_node then return end
+  if core.active_view == core.nag_view then
+    core.active_view:on_touch_moved(x, y, dx, dy, ...)
+    return
+  end
+
+  if self.dragged_divider then
+    local node = self.dragged_divider
+    if node.type == "hsplit" then
+      x = common.clamp(x, 0, self.root_node.size.x * 0.95)
+      resize_child_node(node, "x", x, dx)
+    elseif node.type == "vsplit" then
+      y = common.clamp(y, 0, self.root_node.size.y * 0.95)
+      resize_child_node(node, "y", y, dy)
+    end
+    node.divider = common.clamp(node.divider, 0.01, 0.99)
+    return
+  end
+
+  local dn = self.dragged_node
+  if dn and not dn.dragging then
+    -- start dragging only after enough movement
+    dn.dragging = common.distance(x, y, dn.drag_start_x, dn.drag_start_y) > style.tab_width * .05
+    if dn.dragging then
+      core.request_cursor("hand")
+    end
+  end
+
+  -- avoid sending on_touch_moved events when dragging tabs
+  if dn then return end
+
+  self.touched_node:on_touch_moved(x, y, dx, dy, ...)
+end
+
 function RootView:on_ime_text_editing(...)
   core.active_view:on_ime_text_editing(...)
 end
