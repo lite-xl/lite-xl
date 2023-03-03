@@ -3,7 +3,7 @@
   <assemblyIdentity
     type="win32"
     name="LiteXL.LiteXL.LiteXL"
-    version="2.1.0.0"
+    version="@PROJECT_ASSEMBLY_VERSION@"
   />  
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>

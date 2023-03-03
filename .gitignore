@@ -21,4 +21,4 @@ lite-xl*
 LiteXL*
 
 !resources/windows/*.diff
-!resources/windows/*exe.manifest
+!resources/windows/*.exe.manifest.in
