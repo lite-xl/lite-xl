@@ -105,7 +105,13 @@ static bool signal_process(process_t* proc, signal_e sig) {
   bool terminate = false;
   #if _WIN32
     switch(sig) {
-      case SIGNAL_TERM: terminate = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(proc->process_information.hProcess)); break;
+      case SIGNAL_TERM:
+        terminate = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(proc->process_information.hProcess));
+        // when GenerateConsoleCtrlEvent returns an error with ERROR_INVALID_HANDLE,
+        // this means that the process does not have a console.
+        // We can ONLY use TerminateProcess to end it.
+        if (terminate || GetLastError() != ERROR_INVALID_HANDLE)
+          break; // NOTE: INTENTIONAL FALL THROUGH!!!!
       case SIGNAL_KILL: terminate = TerminateProcess(proc->process_information.hProcess, -1); break;
       case SIGNAL_INTERRUPT: DebugBreakProcess(proc->process_information.hProcess); break;
     }
