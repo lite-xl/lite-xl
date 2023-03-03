@@ -1,0 +1,4 @@
+#define IDR_RT_MANIFEST1 1
+#define RT_MANIFEST 24
+
+IDR_RT_MANIFEST1 RT_MANIFEST "lite-xl.exe.manifest"
