@@ -36,6 +36,7 @@ conf_data = configuration_data()
 conf_data.set('PROJECT_BUILD_DIR', meson.current_build_dir())
 conf_data.set('PROJECT_SOURCE_DIR', meson.current_source_dir())
 conf_data.set('PROJECT_VERSION', version)
+conf_data.set('PROJECT_ASSEMBLY_VERSION', meson.project_version() + '.0')
 
 #===============================================================================
 # Compiler Settings
@@ -165,6 +166,11 @@ if get_option('portable') or host_machine.system() == 'windows'
     lite_bindir = '/'
     lite_docdir = '/doc'
     lite_datadir = '/data'
+    configure_file(
+        input: 'resources/windows/lite-xl.exe.manifest.in',
+        output: 'lite-xl.exe.manifest',
+        configuration: conf_data
+    )
 elif get_option('bundle') and host_machine.system() == 'darwin'
     lite_cargs += '-DMACOS_USE_BUNDLE'
     lite_bindir = 'Contents/MacOS'
