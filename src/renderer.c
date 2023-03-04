@@ -360,8 +360,8 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
-float ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
-  float width = 0;
+double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
+  double width = 0;
   const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
   while (text < end) {
@@ -376,12 +376,12 @@ float ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, cons
   return width / surface_scale;
 }
 
-float ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
+double ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
   SDL_Surface *surface = renwin_get_surface(window_renderer);
   const RenRect clip = window_renderer->clip;
 
   const int surface_scale = renwin_surface_scale(window_renderer);
-  float pen_x = x * surface_scale;
+  double pen_x = x * surface_scale;
   y *= surface_scale;
   int bytes_per_pixel = surface->format->BytesPerPixel;
   const char* end = text + len;
@@ -389,7 +389,7 @@ float ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *tex
   int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
 
   RenFont* last = NULL;
-  float last_pen_x = x;
+  double last_pen_x = x;
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
 
@@ -453,7 +453,7 @@ float ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *tex
 
     if(!last) last = font;
     else if(font != last || text == end) {
-      float local_pen_x = text == end ? pen_x + adv : pen_x;
+      double local_pen_x = text == end ? pen_x + adv : pen_x;
       if (underline)
         ren_draw_rect(window_renderer, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
       if (strikethrough)

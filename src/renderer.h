@@ -33,8 +33,8 @@ int ren_font_group_get_height(RenFont **font);
 float ren_font_group_get_size(RenFont **font);
 void ren_font_group_set_size(RenWindow *window_renderer, RenFont **font, float size);
 void ren_font_group_set_tab_size(RenFont **font, int n);
-float ren_font_group_get_width(RenWindow *window_renderer, RenFont **font, const char *text, size_t len);
-float ren_draw_text(RenWindow *window_renderer, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
+double ren_font_group_get_width(RenWindow *window_renderer, RenFont **font, const char *text, size_t len);
+double ren_draw_text(RenWindow *window_renderer, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
 
 void ren_draw_rect(RenWindow *window_renderer, RenRect rect, RenColor color);
 
