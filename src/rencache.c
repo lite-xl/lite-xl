@@ -28,21 +28,36 @@
 #define CELL_SIZE 96
 #define CMD_BUF_RESIZE_RATE 1.2
 #define CMD_BUF_INIT_SIZE (1024 * 512)
-#define COMMAND_BARE_SIZE offsetof(Command, text)
+#define COMMAND_BARE_SIZE offsetof(Command, command)
 
-enum { SET_CLIP, DRAW_TEXT, DRAW_RECT };
+enum CommandType { SET_CLIP, DRAW_TEXT, DRAW_RECT };
 
 typedef struct {
-  int8_t type;
-  int8_t tab_size;
-  int32_t size;
+  enum CommandType type;
+  uint32_t size;
+  /* Commands *must* always begin with a RenRect
+  ** This is done to ensure alignment */
+  RenRect command[];
+} Command;
+
+typedef struct {
+  RenRect rect;
+} SetClipCommand;
+
+typedef struct {
   RenRect rect;
   RenColor color;
   RenFont *fonts[FONT_FALLBACK_MAX];
   float text_x;
   size_t len;
+  int8_t tab_size;
   char text[];
-} Command;
+} DrawTextCommand;
+
+typedef struct {
+  RenRect rect;
+  RenColor color;
+} DrawRectCommand;
 
 static unsigned cells_buf1[CELLS_X * CELLS_Y];
 static unsigned cells_buf2[CELLS_X * CELLS_Y];
@@ -114,13 +129,14 @@ static bool expand_command_buffer() {
   return true;
 }
 
-static Command* push_command(int type, int size) {
+static void* push_command(enum CommandType type, int size) {
   if (resize_issue) {
     // Don't push new commands as we had problems resizing the command buffer.
     // Let's wait for the next frame.
     return NULL;
   }
   size_t alignment = alignof(max_align_t) - 1;
+  size += COMMAND_BARE_SIZE;
   size = (size + alignment) & ~alignment;
   int n = command_buf_idx + size;
   while (n > command_buf_size) {
@@ -136,7 +152,7 @@ static Command* push_command(int type, int size) {
   memset(cmd, 0, size);
   cmd->type = type;
   cmd->size = size;
-  return cmd;
+  return cmd->command;
 }
 
 
@@ -156,7 +172,7 @@ void rencache_show_debug(bool enable) {
 
 
 void rencache_set_clip_rect(RenRect rect) {
-  Command *cmd = push_command(SET_CLIP, COMMAND_BARE_SIZE);
+  SetClipCommand *cmd = push_command(SET_CLIP, sizeof(SetClipCommand));
   if (cmd) {
     cmd->rect = intersect_rects(rect, screen_rect);
     last_clip_rect = cmd->rect;
@@ -168,7 +184,7 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   if (rect.width == 0 || rect.height == 0 || !rects_overlap(last_clip_rect, rect)) {
     return;
   }
-  Command *cmd = push_command(DRAW_RECT, COMMAND_BARE_SIZE);
+  DrawRectCommand *cmd = push_command(DRAW_RECT, sizeof(DrawRectCommand));
   if (cmd) {
     cmd->rect = rect;
     cmd->color = color;
@@ -181,7 +197,7 @@ float rencache_draw_text(RenWindow *window_renderer, RenFont **fonts, const char
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
   if (rects_overlap(last_clip_rect, rect)) {
     int sz = len + 1;
-    Command *cmd = push_command(DRAW_TEXT, COMMAND_BARE_SIZE + sz);
+    DrawTextCommand *cmd = push_command(DRAW_TEXT, sizeof(DrawTextCommand) + sz);
     if (cmd) {
       memcpy(cmd->text, text, sz);
       cmd->color = color;
@@ -249,8 +265,9 @@ void rencache_end_frame(RenWindow *window_renderer) {
   Command *cmd = NULL;
   RenRect cr = screen_rect;
   while (next_command(&cmd)) {
-    if (cmd->type == SET_CLIP) { cr = cmd->rect; }
-    RenRect r = intersect_rects(cmd->rect, cr);
+    /* cmd->command[0] should always be the Command rect */
+    if (cmd->type == SET_CLIP) { cr = cmd->command[0]; }
+    RenRect r = intersect_rects(cmd->command[0], cr);
     if (r.width == 0 || r.height == 0) { continue; }
     unsigned h = HASH_INITIAL;
     hash(&h, cmd, cmd->size);
@@ -290,16 +307,19 @@ void rencache_end_frame(RenWindow *window_renderer) {
 
     cmd = NULL;
     while (next_command(&cmd)) {
+      SetClipCommand *ccmd = (SetClipCommand*)&cmd->command;
+      DrawRectCommand *rcmd = (DrawRectCommand*)&cmd->command;
+      DrawTextCommand *tcmd = (DrawTextCommand*)&cmd->command;
       switch (cmd->type) {
         case SET_CLIP:
-          ren_set_clip_rect(window_renderer, intersect_rects(cmd->rect, r));
+          ren_set_clip_rect(window_renderer, intersect_rects(ccmd->rect, r));
           break;
         case DRAW_RECT:
-          ren_draw_rect(window_renderer, cmd->rect, cmd->color);
+          ren_draw_rect(window_renderer, rcmd->rect, rcmd->color);
           break;
         case DRAW_TEXT:
-          ren_font_group_set_tab_size(cmd->fonts, cmd->tab_size);
-          ren_draw_text(window_renderer, cmd->fonts, cmd->text, cmd->len, cmd->text_x, cmd->rect.y, cmd->color);
+          ren_font_group_set_tab_size(tcmd->fonts, tcmd->tab_size);
+          ren_draw_text(window_renderer, tcmd->fonts, tcmd->text, tcmd->len, tcmd->text_x, tcmd->rect.y, tcmd->color);
           break;
       }
     }
