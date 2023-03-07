@@ -259,12 +259,15 @@ static int kill_list_worker(void *ud) {
 
 
 static bool poll_process(process_t* proc, int timeout) {
+  uint32_t ticks;
+
   if (!proc->running)
     return false;
-  uint32_t ticks = SDL_GetTicks();
+
   if (timeout == WAIT_DEADLINE)
     timeout = proc->deadline;
 
+  ticks = SDL_GetTicks();
   do {
     int status;
     if (!process_handle_is_running(PROCESS_GET_HANDLE(proc), &status)) {
@@ -273,7 +276,7 @@ static bool poll_process(process_t* proc, int timeout) {
       break;
     }
     if (timeout)
-      SDL_Delay(5);
+      SDL_Delay(timeout >= 5 ? 5 : 0);
   } while (timeout == WAIT_INFINITE || (int)SDL_GetTicks() - ticks < timeout);
 
   return proc->running;
