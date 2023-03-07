@@ -140,9 +140,8 @@ static void kill_list_push(process_kill_list_t *list, process_kill_t *task) {
 static void kill_list_wait_all(process_kill_list_t *list) {
   SDL_LockMutex(list->mutex);
   // wait until list is empty
-  while (list->head) {
+  while (list->head)
     SDL_CondWait(list->work_done, list->mutex);
-  }
   // tell the worker to stop
   list->stop = true;
   SDL_CondSignal(list->has_work);
