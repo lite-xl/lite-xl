@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <SDL.h>
+#include <SDL_thread.h>
 #include <assert.h>
 
 #if _WIN32
@@ -21,6 +22,9 @@
 #endif
 
 #define READ_BUF_SIZE 2048
+#define KILL_LIST_MIN_SIZE 16
+#define PROCESS_TERM_TRIES 3
+#define PROCESS_TERM_DELAY 50
 
 #if _WIN32
 typedef HANDLE process_stream_handle;
@@ -42,6 +46,21 @@ typedef struct {
   #endif
   process_stream_handle child_pipes[3][2];
 } process_t;
+
+typedef struct process_kill_s {
+  int tries;
+  uint32_t start_time;
+  process_handle handle;
+  struct process_kill_s *next;
+} process_kill_t;
+
+typedef struct {
+  bool stop;
+  SDL_mutex *mutex;
+  SDL_cond *has_work, *work_done;
+  process_kill_t *head;
+  process_kill_t *tail;
+} process_kill_list_t;
 
 typedef enum {
   SIGNAL_KILL,
@@ -65,6 +84,9 @@ typedef enum {
   REDIRECT_PARENT = -3,
 } filed_e;
 
+static process_kill_list_t kill_list = { 0 };
+static SDL_Thread *kill_list_thread = NULL;
+
 #ifdef _WIN32
   static volatile long PipeSerialNumber;
   static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = INVALID_HANDLE_VALUE; }
@@ -73,6 +95,59 @@ typedef enum {
   static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
   #define PROCESS_GET_HANDLE(P) ((P)->pid)
 #endif
+
+
+static void kill_list_free(process_kill_list_t *list) {
+  process_kill_t *node, *temp;
+  SDL_DestroyMutex(list->mutex);
+  SDL_DestroyCond(list->has_work);
+  SDL_DestroyCond(list->work_done);
+  node = list->head;
+  while (node) {
+    temp = node;
+    node = node->next;
+    free(temp);
+  }
+}
+
+
+static bool kill_list_init(process_kill_list_t *list) {
+  list->mutex = SDL_CreateMutex();
+  list->has_work = SDL_CreateCond();
+  list->work_done = SDL_CreateCond();
+  list->head = list->tail = NULL;
+  list->stop = false;
+  if (!list->mutex || !list->has_work || !list->work_done) {
+    kill_list_free(list);
+    return false;
+  }
+  return true;
+}
+
+
+static void kill_list_push(process_kill_list_t *list, process_kill_t *task) {
+  if (!list) return;
+  task->next = NULL;
+  if (list->tail) {
+    list->tail->next = task;
+    list->tail = task;
+  } else {
+    list->head = list->tail = task;
+  }
+}
+
+
+static void kill_list_wait_all(process_kill_list_t *list) {
+  SDL_LockMutex(list->mutex);
+  // wait until list is empty
+  while (list->head) {
+    SDL_CondWait(list->work_done, list->mutex);
+  }
+  // tell the worker to stop
+  list->stop = true;
+  SDL_CondSignal(list->has_work);
+  SDL_UnlockMutex(list->mutex);
+}
 
 
 static void process_handle_close(process_handle *handle) {
@@ -123,6 +198,64 @@ static bool process_handle_signal(process_handle handle, signal_e sig) {
   return false;
 }
 
+
+static int kill_list_worker(void *ud) {
+  process_kill_list_t *list = (process_kill_list_t *) ud;
+  process_kill_t *current_task, *last_task;
+
+  while (true) {
+    SDL_LockMutex(list->mutex);
+
+    // wait until we have work to do
+    while (!list->head && !list->stop)
+      SDL_CondWaitTimeout(list->has_work, list->mutex, PROCESS_TERM_DELAY); // LOCK MUTEX
+
+    if (list->stop) break;
+
+    // filter the linked list and remove stale tasks
+    current_task = list->head;
+    last_task = NULL;
+    while (current_task) {
+      process_kill_t *temp;
+
+      // do not check for completion if the timeout has not expired
+      if ((SDL_GetTicks() - current_task->start_time < PROCESS_TERM_DELAY)) {
+        last_task = current_task;
+        current_task = current_task->next;
+        continue;
+      }
+
+      if (process_handle_is_running(current_task->handle, NULL)) {
+        if (current_task->tries < PROCESS_TERM_TRIES)
+          process_handle_signal(current_task->handle, SIGNAL_TERM);
+        else if (current_task->tries == PROCESS_TERM_TRIES)
+          process_handle_signal(current_task->handle, SIGNAL_KILL);
+        else
+          goto remove_task;
+
+        current_task->tries++;
+        current_task->start_time = SDL_GetTicks();
+        last_task = current_task;
+        current_task = current_task->next;
+      } else {
+        remove_task:
+        if (!last_task)
+          list->head = current_task->next; // removing first task
+        else
+          last_task->next = current_task->next;
+        if (list->tail == current_task)
+          list->tail = last_task; // removing last task
+        temp = current_task;
+        current_task = current_task->next;
+        process_handle_close(&temp->handle);
+        free(temp);
+      }
+    }
+    SDL_UnlockMutex(list->mutex);
+  }
+  SDL_UnlockMutex(list->mutex);
+  return 0;
+}
 
 
 static bool poll_process(process_t* proc, int timeout) {
@@ -556,14 +689,37 @@ static int self_signal(lua_State* L, signal_e sig) {
 static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
+
 static int f_gc(lua_State* L) { 
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  if (!self->detached)
+
+  if (poll_process(self, 0) && !self->detached) {
+    // attempt to kill the process if not detached
+    process_kill_t *p;
+
     signal_process(self, SIGNAL_TERM);
+    p = malloc(sizeof(process_kill_t));
+    if (!p || !kill_list_thread) {
+      // if we can't allocate, we'll use the old method
+      poll_process(self, PROCESS_TERM_DELAY);
+      if (self->running) {
+        signal_process(self, SIGNAL_KILL);
+        poll_process(self, PROCESS_TERM_DELAY);
+      }
+    } else {
+      // send the handle to a queue for asynchronous waiting
+      p->handle = PROCESS_GET_HANDLE(self);
+      p->start_time = SDL_GetTicks();
+      p->tries = 1;
+      SDL_LockMutex(kill_list.mutex);
+      kill_list_push(&kill_list, p);
+      SDL_CondSignal(kill_list.has_work);
+      SDL_UnlockMutex(kill_list.mutex);
+    }
+  }
   close_fd(&self->child_pipes[STDIN_FD ][1]);
   close_fd(&self->child_pipes[STDOUT_FD][0]);
-  close_fd(&self->child_pipes[STDERR_FD][0]); 
-  poll_process(self, 10);
+  close_fd(&self->child_pipes[STDERR_FD][0]);
   return 0;
 }
 
@@ -573,11 +729,16 @@ static int f_running(lua_State* L) {
   return 1;
 }
 
-static const struct luaL_Reg lib[] = {
+static int process_gc(lua_State *L) {
+  kill_list_wait_all(&kill_list);
+  SDL_WaitThread(kill_list_thread, NULL);
+  kill_list_free(&kill_list);
+  return 0;
+}
+
+static const struct luaL_Reg process_metatable[] = {
   {"__gc", f_gc},
   {"__tostring", f_tostring},
-  {"start", process_start},
-  {"strerror", process_strerror},
   {"pid", f_pid},
   {"returncode", f_returncode},
   {"read", f_read},
@@ -593,11 +754,29 @@ static const struct luaL_Reg lib[] = {
   {NULL, NULL}
 };
 
+static const struct luaL_Reg lib[] = {
+  { "start", process_start },
+  { "strerror", process_strerror },
+  { NULL, NULL }
+};
+
 int luaopen_process(lua_State *L) {
+  setvbuf(stdout, NULL, _IONBF, 0);
+  if (kill_list_init(&kill_list))
+    kill_list_thread = SDL_CreateThread(kill_list_worker, "process_kill", &kill_list);
+
+  // create the process metatable
   luaL_newmetatable(L, API_TYPE_PROCESS);
-  luaL_setfuncs(L, lib, 0);
+  luaL_setfuncs(L, process_metatable, 0);
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
+
+  // create the process library
+  luaL_newlib(L, lib);
+  lua_newtable(L);
+  lua_pushcfunction(L, process_gc);
+  lua_setfield(L, -2, "__gc");
+  lua_setmetatable(L, -2);
 
   API_CONSTANT_DEFINE(L, -1, "WAIT_INFINITE", WAIT_INFINITE);
   API_CONSTANT_DEFINE(L, -1, "WAIT_DEADLINE", WAIT_DEADLINE);
