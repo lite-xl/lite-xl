@@ -218,7 +218,7 @@ static int kill_list_worker(void *ud) {
       process_kill_t *temp;
 
       // do not check for completion if the timeout has not expired
-      if ((SDL_GetTicks() - current_task->start_time < PROCESS_TERM_DELAY)) {
+      if ((SDL_GetTicks() - current_task->start_time) < PROCESS_TERM_DELAY) {
         last_task = current_task;
         current_task = current_task->next;
         continue;
