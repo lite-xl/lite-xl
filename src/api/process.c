@@ -68,9 +68,62 @@ typedef enum {
 #ifdef _WIN32
   static volatile long PipeSerialNumber;
   static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = INVALID_HANDLE_VALUE; }
+  #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
 #else
   static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
+  #define PROCESS_GET_HANDLE(P) ((P)->pid)
 #endif
+
+
+static void process_handle_close(process_handle *handle) {
+#ifdef _WIN32
+  if (*handle) {
+    CloseHandle(*handle);
+    *handle = NULL;
+  }
+#endif
+  (void) 0;
+}
+
+
+static bool process_handle_is_running(process_handle handle, int *status) {
+#ifdef _WIN32
+  DWORD s;
+  if (GetExitCodeProcess(handle, &s) && s != STILL_ACTIVE) {
+    if (status != NULL)
+      *status = s;
+    return false;
+  }
+#else
+  int s;
+  if (waitpid(handle, &s, WNOHANG) != 0) {
+    if (status != NULL)
+      *status = WEXITSTATUS(s);
+    return false;
+  }
+#endif
+  return true;
+}
+
+
+static bool process_handle_signal(process_handle handle, signal_e sig) {
+#if _WIN32
+  switch(sig) {
+    case SIGNAL_TERM: return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(handle));
+    case SIGNAL_KILL: return TerminateProcess(handle, -1);
+    case SIGNAL_INTERRUPT: return DebugBreakProcess(handle);
+  }
+#else
+  switch (sig) {
+    case SIGNAL_TERM: return kill(-handle, SIGTERM) == 0; break;
+    case SIGNAL_KILL: return kill(-handle, SIGKILL) == 0; break;
+    case SIGNAL_INTERRUPT: return kill(-handle, SIGINT) == 0; break;
+  }
+#endif
+  return false;
+}
+
+
 
 static bool poll_process(process_t* proc, int timeout) {
   if (!proc->running)
@@ -80,22 +133,12 @@ static bool poll_process(process_t* proc, int timeout) {
     timeout = proc->deadline;
 
   do {
-    #ifdef _WIN32
-      DWORD exit_code = -1;
-      if (!GetExitCodeProcess( proc->process_information.hProcess, &exit_code ) || exit_code != STILL_ACTIVE) {
-        proc->returncode = exit_code;
-        proc->running = false;
-        break;
-      }
-    #else
-      int status;
-      pid_t wait_response = waitpid(proc->pid, &status, WNOHANG);
-      if (wait_response != 0) {
-        proc->running = false;
-        proc->returncode = WEXITSTATUS(status);
-        break;
-      }
-    #endif
+    int status;
+    if (!process_handle_is_running(PROCESS_GET_HANDLE(proc), &status)) {
+      proc->running = false;
+      proc->returncode = status;
+      break;
+    }
     if (timeout)
       SDL_Delay(5);
   } while (timeout == WAIT_INFINITE || (int)SDL_GetTicks() - ticks < timeout);
@@ -104,21 +147,7 @@ static bool poll_process(process_t* proc, int timeout) {
 }
 
 static bool signal_process(process_t* proc, signal_e sig) {
-  bool terminate = false;
-  #if _WIN32
-    switch(sig) {
-      case SIGNAL_TERM: terminate = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(proc->process_information.hProcess)); break;
-      case SIGNAL_KILL: terminate = TerminateProcess(proc->process_information.hProcess, -1); break;
-      case SIGNAL_INTERRUPT: DebugBreakProcess(proc->process_information.hProcess); break;
-    }
-  #else
-    switch (sig) {
-      case SIGNAL_TERM: terminate = kill(-proc->pid, SIGTERM) == 1; break;
-      case SIGNAL_KILL: terminate = kill(-proc->pid, SIGKILL) == 1; break;
-      case SIGNAL_INTERRUPT: kill(-proc->pid, SIGINT); break;
-    }
-  #endif
-  if (terminate) 
+  if (process_handle_signal(PROCESS_GET_HANDLE(proc), sig))
     poll_process(proc, WAIT_NONE);
   return true;
 }
