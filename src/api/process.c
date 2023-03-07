@@ -23,9 +23,11 @@
 #define READ_BUF_SIZE 2048
 
 #if _WIN32
+typedef HANDLE process_stream_handle;
 typedef HANDLE process_handle;
 #else
-typedef int process_handle;
+typedef int process_stream_handle;
+typedef pid_t process_handle;
 #endif
 
 typedef struct {
@@ -38,7 +40,7 @@ typedef struct {
     bool reading[2];
     char buffer[2][READ_BUF_SIZE];
   #endif
-  process_handle child_pipes[3][2];
+  process_stream_handle child_pipes[3][2];
 } process_t;
 
 typedef enum {
@@ -372,7 +374,7 @@ static int process_start(lua_State* L) {
     free((char*)env_values[i]);
   }
   for (int stream = 0; stream < 3; ++stream) {
-    process_handle* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
+    process_stream_handle* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
     if (*pipe) {
       close_fd(pipe);
     }
