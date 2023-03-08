@@ -213,57 +213,48 @@ static bool process_handle_signal(process_handle handle, signal_e sig) {
 
 static int kill_list_worker(void *ud) {
   process_kill_list_t *list = (process_kill_list_t *) ud;
-  process_kill_t *current_task, *last_task;
+  process_kill_t *current_task;
 
   while (true) {
     SDL_LockMutex(list->mutex);
 
     // wait until we have work to do
     while (!list->head && !list->stop)
-      SDL_CondWaitTimeout(list->has_work, list->mutex, PROCESS_TERM_DELAY); // LOCK MUTEX
+      SDL_CondWait(list->has_work, list->mutex); // LOCK MUTEX
 
     if (list->stop) break;
 
-    // filter the linked list and remove stale tasks
-    current_task = list->head;
-    last_task = NULL;
-    while (current_task) {
-      process_kill_t *temp;
+    // if the first task didn't exceed the min delay, don't bother processing the rest
+    if ((SDL_GetTicks() - list->head->start_time) >= PROCESS_TERM_DELAY) {
+      for (int i = 0, size = list->size; i < size; i++) {
+        current_task = kill_list_pop(list);
+        if (process_handle_is_running(current_task->handle, NULL)) {
+          if (current_task->tries < PROCESS_TERM_TRIES)
+            process_handle_signal(current_task->handle, SIGNAL_TERM);
+          else if (current_task->tries == PROCESS_TERM_TRIES)
+            process_handle_signal(current_task->handle, SIGNAL_KILL);
+          else
+            goto free_task;
 
-      // do not check for completion if the timeout has not expired
-      if ((SDL_GetTicks() - current_task->start_time) < PROCESS_TERM_DELAY) {
-        last_task = current_task;
-        current_task = current_task->next;
-        continue;
+          // add the task back into the queue
+          current_task->tries++;
+          current_task->start_time = SDL_GetTicks();
+          kill_list_push(list, current_task);
+        } else {
+          free_task:
+          process_handle_close(&current_task->handle);
+          free(current_task);
+        }
       }
-
-      if (process_handle_is_running(current_task->handle, NULL)) {
-        if (current_task->tries < PROCESS_TERM_TRIES)
-          process_handle_signal(current_task->handle, SIGNAL_TERM);
-        else if (current_task->tries == PROCESS_TERM_TRIES)
-          process_handle_signal(current_task->handle, SIGNAL_KILL);
-        else
-          goto remove_task;
-
-        current_task->tries++;
-        current_task->start_time = SDL_GetTicks();
-        last_task = current_task;
-        current_task = current_task->next;
-      } else {
-        remove_task:
-        if (!last_task)
-          list->head = current_task->next; // removing first task
-        else
-          last_task->next = current_task->next;
-        if (list->tail == current_task)
-          list->tail = last_task; // removing last task
-        temp = current_task;
-        current_task = current_task->next;
-        process_handle_close(&temp->handle);
-        free(temp);
-      }
+      SDL_CondSignal(list->work_done);
     }
-    SDL_UnlockMutex(list->mutex);
+    // if the queue is empty, we can immediately wait for another task or to quit.
+    if (list->size) {
+      SDL_UnlockMutex(list->mutex);
+      SDL_Delay(PROCESS_TERM_DELAY);
+    } else {
+      SDL_UnlockMutex(list->mutex);
+    }
   }
   SDL_UnlockMutex(list->mutex);
   return 0;
