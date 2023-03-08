@@ -204,6 +204,7 @@ end
 function TreeView:set_selection_to_path(path, expand, scroll_to, instant)
   local to_select, to_select_y
   local let_it_finish, done
+  ::restart::
   for item, x,y,w,h in self:each_item() do
     if not done then
       if item.type == "dir" then
@@ -211,13 +212,18 @@ function TreeView:set_selection_to_path(path, expand, scroll_to, instant)
         if to and to == #item.abs_filename + #PATHSEP then
           to_select, to_select_y = item, y
           if expand and not item.expanded then
-            item.expanded = true
+            -- Use TreeView:toggle_expand to update the directory structure.
+            -- Directly using item.expanded doesn't update the cached tree.
+            self:toggle_expand(true, item)
             -- Because we altered the size of the TreeView
             -- and because TreeView:get_scrollable_size uses self.count_lines
             -- which gets updated only when TreeView:each_item finishes,
             -- we can't stop here or we risk that the scroll
             -- gets clamped by View:clamp_scroll_position.
             let_it_finish = true
+            -- We need to restart the process because if TreeView:toggle_expand
+            -- altered the cache, TreeView:each_item risks looping indefinitely.
+            goto restart
           end
         end
       else
@@ -494,8 +500,8 @@ function TreeView:get_previous(item)
 end
 
 
-function TreeView:toggle_expand(toggle)
-  local item = self.selected_item
+function TreeView:toggle_expand(toggle, item)
+  item = item or self.selected_item
 
   if not item then return end
 
