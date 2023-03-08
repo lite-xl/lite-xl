@@ -54,6 +54,7 @@ typedef struct process_kill_s {
 } process_kill_t;
 
 typedef struct {
+  int size;
   bool stop;
   SDL_mutex *mutex;
   SDL_cond *has_work, *work_done;
@@ -111,6 +112,7 @@ static void kill_list_free(process_kill_list_t *list) {
 
 
 static bool kill_list_init(process_kill_list_t *list) {
+  list->size = 0;
   list->mutex = SDL_CreateMutex();
   list->has_work = SDL_CreateCond();
   list->work_done = SDL_CreateCond();
@@ -133,13 +135,25 @@ static void kill_list_push(process_kill_list_t *list, process_kill_t *task) {
   } else {
     list->head = list->tail = task;
   }
+  list->size++;
+}
+
+
+static process_kill_t *kill_list_pop(process_kill_list_t *list) {
+  if (!list || !list->head) return NULL;
+  process_kill_t *head = list->head;
+  list->head = list->head->next;
+  if (!list->head) list->tail = NULL;
+  head->next = NULL;
+  list->size--;
+  return head;
 }
 
 
 static void kill_list_wait_all(process_kill_list_t *list) {
   SDL_LockMutex(list->mutex);
   // wait until list is empty
-  while (list->head)
+  while (list->size)
     SDL_CondWait(list->work_done, list->mutex);
   // tell the worker to stop
   list->stop = true;
