@@ -22,7 +22,6 @@
 #endif
 
 #define READ_BUF_SIZE 2048
-#define KILL_LIST_MIN_SIZE 16
 #define PROCESS_TERM_TRIES 3
 #define PROCESS_TERM_DELAY 50
 
