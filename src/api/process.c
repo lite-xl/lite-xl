@@ -763,7 +763,6 @@ static const struct luaL_Reg lib[] = {
 };
 
 int luaopen_process(lua_State *L) {
-  setvbuf(stdout, NULL, _IONBF, 0);
   if (kill_list_init(&kill_list))
     kill_list_thread = SDL_CreateThread(kill_list_worker, "process_kill", &kill_list);
 
