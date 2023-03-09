@@ -139,14 +139,13 @@ static void kill_list_push(process_kill_list_t *list, process_kill_t *task) {
 }
 
 
-static process_kill_t *kill_list_pop(process_kill_list_t *list) {
-  if (!list || !list->head) return NULL;
+static void kill_list_pop(process_kill_list_t *list) {
+  if (!list || !list->head) return;
   process_kill_t *head = list->head;
   list->head = list->head->next;
   if (!list->head) list->tail = NULL;
   head->next = NULL;
   list->size--;
-  return head;
 }
 
 
@@ -227,7 +226,10 @@ static int kill_list_worker(void *ud) {
     // if the first task didn't exceed the min delay, don't bother processing the rest
     if ((SDL_GetTicks() - list->head->start_time) >= PROCESS_TERM_DELAY) {
       for (int i = 0, size = list->size; i < size; i++) {
-        current_task = kill_list_pop(list);
+        current_task = list->head;
+        if ((SDL_GetTicks() - current_task->start_time) < PROCESS_TERM_DELAY)
+          break;
+        kill_list_pop(list);
         if (process_handle_is_running(current_task->handle, NULL)) {
           if (current_task->tries < PROCESS_TERM_TRIES)
             process_handle_signal(current_task->handle, SIGNAL_TERM);
