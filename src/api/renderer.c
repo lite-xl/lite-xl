@@ -345,7 +345,7 @@ static int f_draw_text(lua_State *L) {
 
   size_t len;
   const char *text = luaL_checklstring(L, 2, &len);
-  float x = luaL_checknumber(L, 3);
+  double x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
   x = rencache_draw_text(&window_renderer, fonts, text, len, x, y, color);
