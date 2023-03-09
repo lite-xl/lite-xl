@@ -5,6 +5,7 @@ local tokenizer = {}
 local bad_patterns = {}
 
 local function push_token(t, type, text)
+  if not text or #text == 0 then return end
   type = type or "normal"
   local prev_type = t[#t-1]
   local prev_text = t[#t]
@@ -26,11 +27,8 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
     -- Each position spans characters from i_n to ((i_n+1) - 1), to form
     -- consecutive spans of text.
     --
-    -- If i_1 is not equal to start, start is automatically inserted at
-    -- that index.
-    if find_results[3] ~= find_results[1] then
-      table.insert(find_results, 3, find_results[1])
-    end
+    -- Insert the start index at i_1 to make iterating easier
+    table.insert(find_results, 3, find_results[1])
     -- Copy the ending index to the end of the table, so that an ending index
     -- always follows a starting index after position 3 in the table.
     table.insert(find_results, find_results[2] + 1)
@@ -40,8 +38,10 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
       local fin = find_results[i + 1] - 1
       local type = pattern.type[i - 2]
         -- ↑ (i - 2) to convert from [3; n] to [1; n]
-      local text = full_text:usub(start, fin)
-      push_token(t, syn.symbols[text] or type, text)
+      if fin >= start then
+        local text = full_text:usub(start, fin)
+        push_token(t, syn.symbols[text] or type, text)
+      end
     end
   else
     local start, fin = find_results[1], find_results[2]
@@ -224,6 +224,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         res[1] = char_pos_1
         res[2] = char_pos_2
       end
+      if not res[1] then return end
       if res[1] and target[3] then
         -- Check to see if the escaped character is there,
         -- and if it is not itself escaped.
@@ -235,12 +236,12 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         if count % 2 == 0 then
           -- The match is not escaped, so confirm it
           break
-        elseif not close then
-          -- The *open* match is escaped, so avoid it
-          return
+        else
+          -- The match is escaped, so avoid it
+          res[1] = false
         end
       end
-    until not res[1] or not close or not target[3]
+    until at_start or not close or not target[3]
     return table.unpack(res)
   end
 
@@ -250,6 +251,9 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     if current_pattern_idx > 0 then
       local p = current_syntax.patterns[current_pattern_idx]
       local s, e = find_text(text, p, i, false, true)
+      -- Use the first token type specified in the type table for the "middle"
+      -- part of the subsyntax.
+      local token_type = type(p.type) == "table" and p.type[1] or p.type
 
       local cont = true
       -- If we're in subsyntax mode, always check to see if we end our syntax
@@ -262,7 +266,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         -- treat the bit after as a token to be normally parsed
         -- (as it's the syntax delimiter).
         if ss and (s == nil or ss < s) then
-          push_token(res, p.type, text:usub(i, ss - 1))
+          push_token(res, token_type, text:usub(i, ss - 1))
           i = ss
           cont = false
         end
@@ -271,11 +275,11 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       -- continue on as normal.
       if cont then
         if s then
-          push_token(res, p.type, text:usub(i, e))
+          push_token(res, token_type, text:usub(i, e))
           set_subsyntax_pattern_idx(0)
           i = e + 1
         else
-          push_token(res, p.type, text:usub(i))
+          push_token(res, token_type, text:usub(i))
           break
         end
       end
@@ -284,9 +288,10 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     -- we're ending early in the middle of a delimiter, or
     -- just normally, upon finding a token.
     while subsyntax_info do
-      local s, e = find_text(text, subsyntax_info, i, true, true)
+      local find_results = { find_text(text, subsyntax_info, i, true, true) }
+      local s, e = find_results[1], find_results[2]
       if s then
-        push_token(res, subsyntax_info.type, text:usub(i, e))
+        push_tokens(res, current_syntax, subsyntax_info, text, find_results)
         -- On finding unescaped delimiter, pop it.
         pop_subsyntax()
         i = e + 1

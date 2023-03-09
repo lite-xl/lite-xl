@@ -441,6 +441,11 @@ function TreeView:toggle_expand(toggle)
 end
 
 
+function TreeView:open_doc(filename)
+  core.root_view:open_doc(core.open_doc(filename))
+end
+
+
 -- init
 local view = TreeView()
 local node = core.root_view:get_active_node()
@@ -518,15 +523,19 @@ local function is_primary_project_folder(path)
   return core.project_dir == path
 end
 
-menu:register(function() return view.hovered_item end, {
+
+local function treeitem() return view.hovered_item or view.selected_item end
+
+
+menu:register(function() return core.active_view:is(TreeView) and treeitem() end, {
   { text = "Open in System", command = "treeview:open-in-system" },
   ContextMenu.DIVIDER
 })
 
 menu:register(
   function()
-    return view.hovered_item
-      and not is_project_folder(view.hovered_item.abs_filename)
+    local item = treeitem()
+    return core.active_view:is(TreeView) and item and not is_project_folder(item.abs_filename)
   end,
   {
     { text = "Rename", command = "treeview:rename" },
@@ -536,7 +545,8 @@ menu:register(
 
 menu:register(
   function()
-    return view.hovered_item and view.hovered_item.type == "dir"
+    local item = treeitem()
+    return core.active_view:is(TreeView) and item and item.type == "dir"
   end,
   {
     { text = "New File", command = "treeview:new-file" },
@@ -546,9 +556,10 @@ menu:register(
 
 menu:register(
   function()
-    return view.hovered_item
-      and not is_primary_project_folder(view.hovered_item.abs_filename)
-      and is_project_folder(view.hovered_item.abs_filename)
+    local item = treeitem()
+    return core.active_view:is(TreeView) and item
+      and not is_primary_project_folder(item.abs_filename)
+      and is_project_folder(item.abs_filename)
   end,
   {
     { text = "Remove directory", command = "treeview:remove-project-directory" },
@@ -589,7 +600,10 @@ command.add(nil, {
   end
 })
 
-command.add(TreeView, {
+command.add(
+  function()
+    return not menu.show_context_menu and core.active_view:extends(TreeView), TreeView
+  end, {
   ["treeview:next"] = function()
     local item, _, item_y = view:get_next(view.selected_item)
     view:set_selection(item, item_y)
@@ -610,8 +624,7 @@ command.add(TreeView, {
         if core.last_active_view and core.active_view == view then
           core.set_active_view(core.last_active_view)
         end
-        local doc_filename = core.normalize_to_project_dir(item.abs_filename)
-        core.root_view:open_doc(core.open_doc(doc_filename))
+        view:open_doc(core.normalize_to_project_dir(item.abs_filename))
       end)
     end
   end,
@@ -657,22 +670,33 @@ command.add(TreeView, {
       view:toggle_expand(true)
     end
   end,
+
+  ["treeview-context:show"] = function()
+    if view.hovered_item then
+      menu:show(view.cursor_pos.x, view.cursor_pos.y)
+      return
+    end
+
+    local item = view.selected_item
+    if not item then return end
+
+    local x, y
+    for _i, _x, _y, _w, _h in view:each_item() do
+      if _i == item then
+        x = _x + _w / 2
+        y = _y + _h / 2
+        break
+      end
+    end
+    menu:show(x, y)
+  end
 })
-
-
-local function treeitem() return view.hovered_item or view.selected_item end
 
 
 command.add(
   function()
     local item = treeitem()
-    return item ~= nil
-      and (
-        core.active_view == view or core.active_view == menu
-        or (view.toolbar and core.active_view == view.toolbar)
-        -- sometimes the context menu is shown on top of statusbar
-        or core.active_view == core.status_view
-      ), item
+    return item ~= nil and (core.active_view == view or menu.show_context_menu), item
   end, {
   ["treeview:delete"] = function(item)
     local filename = item.abs_filename
@@ -685,8 +709,8 @@ command.add(
     local file_type = file_info.type == "dir" and "Directory" or "File"
     -- Ask before deleting
     local opt = {
-      { font = style.font, text = "Yes", default_yes = true },
-      { font = style.font, text = "No" , default_no = true }
+      { text = "Yes", default_yes = true },
+      { text = "No", default_no = true }
     }
     core.nag_view:show(
       string.format("Delete %s", file_type),
@@ -759,7 +783,7 @@ command.add(
         local file = io.open(doc_filename, "a+")
         file:write("")
         file:close()
-        core.root_view:open_doc(core.open_doc(doc_filename))
+        view:open_doc(doc_filename)
         core.log("Created %s", doc_filename)
       end,
       suggest = function(text)
@@ -800,9 +824,10 @@ command.add(
 local projectsearch = pcall(require, "plugins.projectsearch")
 if projectsearch then
   menu:register(function()
-    return view.hovered_item and view.hovered_item.type == "dir"
-  end, { 
-    { text = "Find in directory", command = "treeview:search-in-directory" } 
+    local item = treeitem()
+    return item and item.type == "dir"
+  end, {
+    { text = "Find in directory", command = "treeview:search-in-directory" }
   })
   command.add(function()
     return view.hovered_item and view.hovered_item.type == "dir"
@@ -825,6 +850,25 @@ command.add(function()
 })
 
 
+command.add(
+  function()
+    return menu.show_context_menu == true and core.active_view:is(TreeView)
+  end, {
+  ["treeview-context:focus-previous"] = function()
+    menu:focus_previous()
+  end,
+  ["treeview-context:focus-next"] = function()
+    menu:focus_next()
+  end,
+  ["treeview-context:hide"] = function()
+    menu:hide()
+  end,
+  ["treeview-context:on-selected"] = function()
+    menu:call_selected_item()
+  end,
+})
+
+
 keymap.add {
   ["ctrl+\\"]     = "treeview:toggle",
   ["up"]          = "treeview:previous",
@@ -839,6 +883,15 @@ keymap.add {
   ["mclick"]      = "treeview:select",
   ["ctrl+lclick"] = "treeview:new-folder"
 }
+
+keymap.add {
+  ["menu"]   = "treeview-context:show",
+  ["return"] = "treeview-context:on-selected",
+  ["up"]     = "treeview-context:focus-previous",
+  ["down"]   = "treeview-context:focus-next",
+  ["escape"] = "treeview-context:hide"
+}
+
 
 -- The config specification used by gui generators
 config.plugins.treeview.config_spec = {

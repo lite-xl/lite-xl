@@ -4,6 +4,7 @@ local DocView = require "core.docview"
 local command = require "core.command"
 local common = require "core.common"
 local config = require "core.config"
+local Node = require "core.node"
 
 
 local t = {
@@ -27,20 +28,6 @@ local t = {
     local active_doc, docs = core.active_view and core.active_view.doc, {}
     for i, v in ipairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
     core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
-  end,
-
-  ["root:switch-to-previous-tab"] = function(node)
-    local idx = node:get_view_idx(core.active_view)
-    idx = idx - 1
-    if idx < 1 then idx = #node.views end
-    node:set_active_view(node.views[idx])
-  end,
-
-  ["root:switch-to-next-tab"] = function(node)
-    local idx = node:get_view_idx(core.active_view)
-    idx = idx + 1
-    if idx > #node.views then idx = 1 end
-    node:set_active_view(node.views[idx])
   end,
 
   ["root:move-tab-left"] = function(node)
@@ -133,3 +120,59 @@ command.add(nil, {
     return false
   end
 })
+
+command.add(function(node)
+    if not Node:is_extended_by(node) then node = nil end
+    -- No node was specified, use the active one
+    node = node or core.root_view:get_active_node()
+    if not node then return false end
+    return true, node
+  end,
+  {
+    ["root:switch-to-previous-tab"] = function(node)
+      local idx = node:get_view_idx(node.active_view)
+      idx = idx - 1
+      if idx < 1 then idx = #node.views end
+      node:set_active_view(node.views[idx])
+    end,
+
+    ["root:switch-to-next-tab"] = function(node)
+      local idx = node:get_view_idx(node.active_view)
+      idx = idx + 1
+      if idx > #node.views then idx = 1 end
+      node:set_active_view(node.views[idx])
+    end,
+
+    ["root:scroll-tabs-backward"] = function(node)
+      node:scroll_tabs(1)
+    end,
+
+    ["root:scroll-tabs-forward"] = function(node)
+      node:scroll_tabs(2)
+    end
+  }
+)
+
+command.add(function()
+    local node = core.root_view.overlapping_node
+    if not node then return false end
+    return (node.hovered_tab or node.hovered_scroll_button > 0) and true, node
+  end,
+  {
+    ["root:switch-to-hovered-previous-tab"] = function(node)
+      command.perform("root:switch-to-previous-tab", node)
+    end,
+
+    ["root:switch-to-hovered-next-tab"] = function(node)
+      command.perform("root:switch-to-next-tab", node)
+    end,
+
+    ["root:scroll-hovered-tabs-backward"] = function(node)
+      command.perform("root:scroll-tabs-backward", node)
+    end,
+
+    ["root:scroll-hovered-tabs-forward"] = function(node)
+      command.perform("root:scroll-tabs-forward", node)
+    end
+  }
+)

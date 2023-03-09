@@ -193,6 +193,23 @@ local function select_next(reverse)
   if l2 then doc():set_selection(l2, c2, l1, c1) end
 end
 
+---@param in_selection? boolean whether to replace in the selections only, or in the whole file.
+local function find_replace(in_selection)
+  local l1, c1, l2, c2 = doc():get_selection()
+  local selected_text = ""
+  if not in_selection then
+    selected_text = doc():get_text(l1, c1, l2, c2)
+    doc():set_selection(l2, c2, l2, c2)
+  end
+  replace("Text", l1 == l2 and selected_text or "", function(text, old, new)
+    if not find_regex then
+      return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
+    end
+    local result, matches = regex.gsub(regex.compile(old, "m"), text, new)
+    return result, matches
+  end)
+end
+
 command.add(has_unique_selection, {
   ["find-replace:select-next"] = select_next,
   ["find-replace:select-previous"] = function() select_next(true) end,
@@ -209,15 +226,11 @@ command.add("core.docview!", {
   end,
 
   ["find-replace:replace"] = function()
-    local l1, c1, l2, c2 = doc():get_selection()
-    local selected_text = doc():get_text(l1, c1, l2, c2)
-    replace("Text", l1 == l2 and selected_text or "", function(text, old, new)
-      if not find_regex then
-        return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
-      end
-      local result, matches = regex.gsub(regex.compile(old, "m"), text, new)
-      return result, matches
-    end)
+    find_replace()
+  end,
+
+  ["find-replace:replace-in-selection"] = function()
+    find_replace(true)
   end,
 
   ["find-replace:replace-symbol"] = function()
@@ -240,34 +253,38 @@ command.add("core.docview!", {
 })
 
 local function valid_for_finding()
-  return core.active_view:is(DocView) or core.active_view:is(CommandView)
+  -- Allow using this while in the CommandView
+  if core.active_view:is(CommandView) and last_view then
+    return true, last_view
+  end
+  return core.active_view:is(DocView), core.active_view
 end
 
 command.add(valid_for_finding, {
-  ["find-replace:repeat-find"] = function()
+  ["find-replace:repeat-find"] = function(dv)
     if not last_fn then
       core.error("No find to continue from")
     else
-      local sl1, sc1, sl2, sc2 = doc():get_selection(true)
-      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc2, last_text, case_sensitive, find_regex, false)
+      local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
+      local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc2, last_text, case_sensitive, find_regex, false)
       if line1 then
-        doc():set_selection(line2, col2, line1, col1)
-        last_view:scroll_to_line(line2, true)
+        dv.doc:set_selection(line2, col2, line1, col1)
+        dv:scroll_to_line(line2, true)
       else
         core.error("Couldn't find %q", last_text)
       end
     end
   end,
 
-  ["find-replace:previous-find"] = function()
+  ["find-replace:previous-find"] = function(dv)
     if not last_fn then
       core.error("No find to continue from")
     else
-      local sl1, sc1, sl2, sc2 = doc():get_selection(true)
-      local line1, col1, line2, col2 = last_fn(doc(), sl1, sc1, last_text, case_sensitive, find_regex, true)
+      local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
+      local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc1, last_text, case_sensitive, find_regex, true)
       if line1 then
-        doc():set_selection(line2, col2, line1, col1)
-        last_view:scroll_to_line(line2, true)
+        dv.doc:set_selection(line2, col2, line1, col1)
+        dv:scroll_to_line(line2, true)
       else
         core.error("Couldn't find %q", last_text)
       end

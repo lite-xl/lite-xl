@@ -160,18 +160,21 @@ end
 function DocView:get_visible_line_range()
   local x, y, x2, y2 = self:get_content_bounds()
   local lh = self:get_line_height()
-  local minline = math.max(1, math.floor(y / lh))
-  local maxline = math.min(#self.doc.lines, math.floor(y2 / lh) + 1)
+  local minline = math.max(1, math.floor((y - style.padding.y) / lh) + 1)
+  local maxline = math.min(#self.doc.lines, math.floor((y2 - style.padding.y) / lh) + 1)
   return minline, maxline
 end
 
 
 function DocView:get_col_x_offset(line, col)
   local default_font = self:get_font()
+  local _, indent_size = self.doc:get_indent_info()
+  default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
+    if font ~= default_font then font:set_tab_size(indent_size) end
     for char in common.utf8_chars(text) do
       if column == col then
         return xoffset
@@ -190,8 +193,11 @@ function DocView:get_x_offset_col(line, x)
 
   local xoffset, last_i, i = 0, 1, 1
   local default_font = self:get_font()
+  local _, indent_size = self.doc:get_indent_info()
+  default_font:set_tab_size(indent_size)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
+    if font ~= default_font then font:set_tab_size(indent_size) end
     for char in common.utf8_chars(text) do
       local w = font:get_width(char)
       if xoffset >= x then
