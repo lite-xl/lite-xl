@@ -120,11 +120,7 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 
 int main(int argc, char **argv) {
-#ifdef _WIN32
-  HINSTANCE lib = LoadLibrary("user32.dll");
-  int (*SetProcessDPIAware)() = (void*) GetProcAddress(lib, "SetProcessDPIAware");
-  SetProcessDPIAware();
-#else
+#ifndef _WIN32
   signal(SIGPIPE, SIG_IGN);
 #endif
 
