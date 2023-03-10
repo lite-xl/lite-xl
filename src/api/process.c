@@ -54,7 +54,6 @@ typedef struct process_kill_s {
 } process_kill_t;
 
 typedef struct {
-  int size;
   bool stop;
   SDL_mutex *mutex;
   SDL_cond *has_work, *work_done;
@@ -112,7 +111,6 @@ static void kill_list_free(process_kill_list_t *list) {
 
 
 static bool kill_list_init(process_kill_list_t *list) {
-  list->size = 0;
   list->mutex = SDL_CreateMutex();
   list->has_work = SDL_CreateCond();
   list->work_done = SDL_CreateCond();
@@ -135,7 +133,6 @@ static void kill_list_push(process_kill_list_t *list, process_kill_t *task) {
   } else {
     list->head = list->tail = task;
   }
-  list->size++;
 }
 
 
@@ -145,14 +142,13 @@ static void kill_list_pop(process_kill_list_t *list) {
   list->head = list->head->next;
   if (!list->head) list->tail = NULL;
   head->next = NULL;
-  list->size--;
 }
 
 
 static void kill_list_wait_all(process_kill_list_t *list) {
   SDL_LockMutex(list->mutex);
   // wait until list is empty
-  while (list->size)
+  while (list->head)
     SDL_CondWait(list->work_done, list->mutex);
   // tell the worker to stop
   list->stop = true;
@@ -213,7 +209,7 @@ static bool process_handle_signal(process_handle handle, signal_e sig) {
 static int kill_list_worker(void *ud) {
   process_kill_list_t *list = (process_kill_list_t *) ud;
   process_kill_t *current_task;
-  int i, size;
+  uint32_t delay;
 
   while (true) {
     SDL_LockMutex(list->mutex);
@@ -224,8 +220,7 @@ static int kill_list_worker(void *ud) {
 
     if (list->stop) break;
 
-    for (i = 0, size = list->size; i < size; i++) {
-      current_task = list->head;
+    while ((current_task = list->head)) {
       if ((SDL_GetTicks() - current_task->start_time) < PROCESS_TERM_DELAY)
         break;
       kill_list_pop(list);
@@ -243,19 +238,14 @@ static int kill_list_worker(void *ud) {
         kill_list_push(list, current_task);
       } else {
         free_task:
+        SDL_CondSignal(list->work_done);
         process_handle_close(&current_task->handle);
         free(current_task);
       }
     }
-    if (i > 0)
-      SDL_CondSignal(list->work_done); // only signal when we did something
-    // if the queue is empty, we can immediately wait for another task or to quit.
-    if (list->size) {
-      SDL_UnlockMutex(list->mutex);
-      SDL_Delay(PROCESS_TERM_DELAY);
-    } else {
-      SDL_UnlockMutex(list->mutex);
-    }
+    delay = list->head ? SDL_GetTicks() - list->head->start_time : 0;
+    SDL_UnlockMutex(list->mutex);
+    SDL_Delay(delay);
   }
   SDL_UnlockMutex(list->mutex);
   return 0;
