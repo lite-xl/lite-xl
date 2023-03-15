@@ -243,7 +243,7 @@ static int kill_list_worker(void *ud) {
         free(current_task);
       }
     }
-    delay = list->head ? SDL_GetTicks() - list->head->start_time : 0;
+    delay = list->head ? (list->head->start_time + PROCESS_TERM_DELAY) - SDL_GetTicks() : 0;
     SDL_UnlockMutex(list->mutex);
     SDL_Delay(delay);
   }
