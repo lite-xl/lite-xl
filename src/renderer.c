@@ -360,8 +360,8 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
-float ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
-  float width = 0;
+double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
+  double width = 0;
   const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
   while (text < end) {
@@ -376,20 +376,21 @@ float ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, cons
   return width / surface_scale;
 }
 
-float ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
+double ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
   SDL_Surface *surface = renwin_get_surface(window_renderer);
-  const RenRect clip = window_renderer->clip;
+  SDL_Rect clip;
+  SDL_GetClipRect(surface, &clip);
 
   const int surface_scale = renwin_surface_scale(window_renderer);
-  float pen_x = x * surface_scale;
+  double pen_x = x * surface_scale;
   y *= surface_scale;
   int bytes_per_pixel = surface->format->BytesPerPixel;
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
-  int clip_end_x = clip.x + clip.width, clip_end_y = clip.y + clip.height;
+  int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
   RenFont* last = NULL;
-  float last_pen_x = x;
+  double last_pen_x = x;
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
 
@@ -453,7 +454,7 @@ float ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *tex
 
     if(!last) last = font;
     else if(font != last || text == end) {
-      float local_pen_x = text == end ? pen_x + adv : pen_x;
+      double local_pen_x = text == end ? pen_x + adv : pen_x;
       if (underline)
         ren_draw_rect(window_renderer, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
       if (strikethrough)
@@ -479,28 +480,24 @@ static inline RenColor blend_pixel(RenColor dst, RenColor src) {
 void ren_draw_rect(RenWindow *window_renderer, RenRect rect, RenColor color) {
   if (color.a == 0) { return; }
 
+  SDL_Surface *surface = renwin_get_surface(window_renderer);
   const int surface_scale = renwin_surface_scale(window_renderer);
 
-  /* transforms coordinates in pixels. */
-  rect.x      *= surface_scale;
-  rect.y      *= surface_scale;
-  rect.width  *= surface_scale;
-  rect.height *= surface_scale;
+  SDL_Rect dest_rect = { rect.x * surface_scale,
+                         rect.y * surface_scale,
+                         rect.width * surface_scale,
+                         rect.height * surface_scale };
 
-  const RenRect clip = window_renderer->clip;
-  int x1 = rect.x < clip.x ? clip.x : rect.x;
-  int y1 = rect.y < clip.y ? clip.y : rect.y;
-  int x2 = rect.x + rect.width;
-  int y2 = rect.y + rect.height;
-  x2 = x2 > clip.x + clip.width ? clip.x + clip.width : x2;
-  y2 = y2 > clip.y + clip.height ? clip.y + clip.height : y2;
-
-  SDL_Surface *surface = renwin_get_surface(window_renderer);
-  SDL_Rect dest_rect = { x1, y1, x2 - x1, y2 - y1 };
   if (color.a == 0xff) {
     uint32_t translated = SDL_MapRGB(surface->format, color.r, color.g, color.b);
     SDL_FillRect(surface, &dest_rect, translated);
   } else {
+    // Seems like SDL doesn't handle clipping as we expect when using
+    // scaled blitting, so we "clip" manually.
+    SDL_Rect clip;
+    SDL_GetClipRect(surface, &clip);
+    if (!SDL_IntersectRect(&clip, &dest_rect, &dest_rect)) return;
+
     uint32_t *pixel = (uint32_t *)draw_rect_surface->pixels;
     *pixel = SDL_MapRGBA(draw_rect_surface->format, color.r, color.g, color.b, color.a);
     SDL_BlitScaled(draw_rect_surface, NULL, surface, &dest_rect);

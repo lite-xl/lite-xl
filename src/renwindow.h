@@ -3,7 +3,6 @@
 
 struct RenWindow {
   SDL_Window *window;
-  RenRect clip; /* Clipping rect in pixel coordinates. */
 #ifdef LITE_USE_SDL_RENDERER
   SDL_Renderer *renderer;
   SDL_Texture *texture;
