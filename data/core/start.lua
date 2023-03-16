@@ -38,9 +38,23 @@ package.cpath =
 
 package.native_plugins = {}
 package.searchers = { package.searchers[1], package.searchers[2], function(modname)
-  local path = package.searchpath(modname, package.cpath)
-  if not path then return nil end
-  return system.load_native_plugin, path
+  local root = modname:match("^[^%.]+")
+  if root then
+    local path, err = package.searchpath(root, package.cpath)
+    if not path then return err end
+
+    return function()
+      modname = modname:gsub("%.", "_"):match("^[^%-]+")
+      -- search for extended function prototype
+      local fn, err = xl_api.loadlib(path, "luaopen_lite_xl_" .. modname, true)
+      if not fn then
+        -- search for normal function prototype
+        fn, err = xl_api.loadlib(path, "luaopen_" .. modname)
+      end
+      if not fn then error(err) end
+      return fn(modname, path)
+    end
+  end
 end }
 
 table.pack = table.pack or pack or function(...) return {...} end
