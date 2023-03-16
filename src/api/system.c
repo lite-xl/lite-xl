@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "api.h"
-#include "lualib.h"
 #include "../rencache.h"
 #include "../renwindow.h"
 #ifdef _WIN32
@@ -905,113 +904,6 @@ static int f_set_window_opacity(lua_State *L) {
   return 1;
 }
 
-typedef void (*fptr)(void);
-
-typedef struct lua_function_node {
-  const char *symbol;
-  fptr address;
-} lua_function_node;
-
-#define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
-#define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
-static void* api_require(const char* symbol) {
-  static const lua_function_node nodes[] = {
-    P(atpanic), P(checkstack),
-    P(close), P(concat), P(copy), P(createtable), P(dump),
-    P(error),  P(gc), P(getallocf),  P(getfield),
-    P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
-    P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
-    P(isnumber), P(isstring), P(isuserdata),
-    P(load), P(newstate), P(newthread), P(next),
-    P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
-    P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber),
-    P(pushstring), P(pushthread),  P(pushvalue),
-    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti),
-    P(rawset), P(rawseti), P(resume),
-    P(setallocf), P(setfield), P(sethook), P(setlocal),
-    P(setmetatable), P(settable), P(settop), P(setupvalue),
-    P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
-    P(tonumberx), P(topointer), P(tothread),  P(touserdata),
-    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove),
-    U(getmetafield), U(callmeta), U(argerror), U(checknumber), U(optnumber),
-    U(checkinteger), U(checkstack), U(checktype), U(checkany),
-    U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
-    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring),
-    U(newstate), U(setfuncs), U(buffinit), U(addlstring), U(addstring),
-    U(addvalue), U(pushresult), U(openlibs), {"api_load_libs", (void*)(api_load_libs)},
-    #if LUA_VERSION_NUM >= 502
-    P(absindex), P(arith), P(callk), P(compare), P(getglobal),
-    P(len), P(pcallk), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
-    P(iscfunction), P(yieldk),
-    U(checkversion_), U(tolstring), U(len), U(getsubtable), U(prepbuffsize),
-    U(pushresultsize), U(buffinitsize), U(checklstring), U(checkoption), U(gsub), U(loadbufferx),
-    U(loadfilex), U(optinteger), U(optlstring), U(requiref), U(traceback),
-    #else
-    P(objlen),
-    #endif
-    #if LUA_VERSION_NUM >= 504
-    P(newuserdatauv), P(setiuservalue), P(getiuservalue)
-    #else
-    P(newuserdata), P(setuservalue), P(getuservalue)
-    #endif
-
-  };
-  for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
-    if (strcmp(nodes[i].symbol, symbol) == 0)
-      return *(void**)(&nodes[i].address);
-  }
-  return NULL;
-}
-
-static int f_library_gc(lua_State *L) {
-  lua_getfield(L, 1, "handle");
-  void* handle = lua_touserdata(L, -1);
-  SDL_UnloadObject(handle);
-  
-  return 0;
-}
-
-static int f_load_native_plugin(lua_State *L) {
-  char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
-  int result;
-
-  const char *name = luaL_checkstring(L, 1);
-  const char *path = luaL_checkstring(L, 2);
-  void *library = SDL_LoadObject(path);
-  if (!library)
-    return (lua_pushstring(L, SDL_GetError()), lua_error(L));
-
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "native_plugins");
-  lua_newtable(L);
-  lua_pushlightuserdata(L, library);
-  lua_setfield(L, -2, "handle");
-  luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN);
-  lua_setfield(L, -2, name);
-  lua_pop(L, 2);
-
-  const char *basename = strrchr(name, '.');
-  basename = !basename ? name : basename + 1;
-  snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_lite_xl_%s", basename);
-  int (*ext_entrypoint) (lua_State *L, void* (*)(const char*));
-  *(void**)(&ext_entrypoint) = SDL_LoadFunction(library, entrypoint_name);
-  if (!ext_entrypoint) {
-    snprintf(entrypoint_name, sizeof(entrypoint_name), "luaopen_%s", basename);
-    int (*entrypoint)(lua_State *L);
-    *(void**)(&entrypoint) = SDL_LoadFunction(library, entrypoint_name);
-    if (!entrypoint)
-      return luaL_error(L, "Unable to load %s: Can't find %s(lua_State *L, void *XL)", name, entrypoint_name);
-    result = entrypoint(L);
-  } else {
-    result = ext_entrypoint(L, api_require);
-  }
-
-  if (!result)
-    return luaL_error(L, "Unable to load %s: entrypoint must return a value", name);
-
-  return result;
-}
-
 #ifdef _WIN32
 #define PATHSEP '\\'
 #else
@@ -1100,7 +992,6 @@ static const luaL_Reg lib[] = {
   { "exec",                f_exec                },
   { "fuzzy_match",         f_fuzzy_match         },
   { "set_window_opacity",  f_set_window_opacity  },
-  { "load_native_plugin",  f_load_native_plugin  },
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
   { NULL, NULL }
@@ -1108,9 +999,6 @@ static const luaL_Reg lib[] = {
 
 
 int luaopen_system(lua_State *L) {
-  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN); 
-  lua_pushcfunction(L, f_library_gc);
-  lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);
   return 1;
 }
