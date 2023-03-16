@@ -3,7 +3,6 @@
 
 #include <lua.h>
 #include <lauxlib.h>
-#include <lualib.h>
 
 #define API_TYPE_FONT "Font"
 #define API_TYPE_PROCESS "Process"

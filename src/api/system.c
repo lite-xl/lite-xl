@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "api.h"
+#include "lualib.h"
 #include "../rencache.h"
 #include "../renwindow.h"
 #ifdef _WIN32
