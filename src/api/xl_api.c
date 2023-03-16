@@ -1,5 +1,5 @@
 #include "api.h"
-#include "lualib.h"
+#include <lualib.h>
 #include <SDL.h>
 
 #define CLIB "_LITE_XL_CLIB_"
