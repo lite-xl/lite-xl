@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL.h>
+#include <lualib.h>
 #include "api/api.h"
 #include "rencache.h"
 #include "renderer.h"
