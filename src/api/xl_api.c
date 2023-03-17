@@ -112,6 +112,13 @@ static int f_loadlib(lua_State *L) {
 
   if (!(lib = open_library(L, path)))
     return 3;
+
+  // only load the library and not a symbol
+  if (strcmp(funcname, "*") == 0) {
+    lua_pushboolean(L, 1);
+    return 1;
+  }
+
   if (!(fn = SDL_LoadFunction(lib, funcname))) {
     lua_pushnil(L);
     lua_pushstring(L, SDL_GetError());
