@@ -36,26 +36,32 @@ package.cpath =
   DATADIR .. '/?.' .. suffix .. ";" ..
   DATADIR .. '/?/init.' .. suffix .. ";"
 
-package.native_plugins = {}
-package.searchers = { package.searchers[1], package.searchers[2], function(modname)
-  local root = modname:match("^[^%.]+")
-  if root then
-    local path, err = package.searchpath(root, package.cpath)
-    if not path then return err end
+local function search_clib(root, modname)
+  local path, err = package.searchpath(root, package.cpath)
+  if not path then return err end
 
-    return function()
-      modname = modname:gsub("%.", "_"):match("^[^%-]+")
-      -- search for extended function prototype
-      local fn, err = xl_api.loadlib(path, "luaopen_lite_xl_" .. modname, true)
-      if not fn then
-        -- search for normal function prototype
-        fn, err = xl_api.loadlib(path, "luaopen_" .. modname)
-      end
-      if not fn then error(err) end
-      return fn(modname, path)
-    end
+  modname = modname:gsub("%.", "_"):match("[^%-]*")
+  local fn, err = xl_api.loadlib(path, "luaopen_lite_xl_" .. modname, true)
+  if not fn then
+    fn, err = xl_api.loadlib(path, "luaopen_" .. modname, false)
   end
-end }
+  if not fn then
+    return err
+  end
+  return fn, path
+end
+
+local function c_searcher(modname)
+  return search_clib(modname, modname)
+end
+
+local function croot_searcher(modname)
+  local root = modname:match("^[^%.]+")
+  if not root then return nil end
+  return search_clib(root, modname)
+end
+
+package.searchers = { package.searchers[1], package.searchers[2], c_searcher, croot_searcher }
 
 table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
