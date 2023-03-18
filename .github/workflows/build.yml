@@ -137,12 +137,14 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        arch: [amd64, amd64_x86]
+        arch:
+          - { msbuild: x86, name: i686 }
+          - { msbuild: x64, name: x86_64 }
     steps:
       - uses: actions/checkout@v3
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: microsoft/setup-msbuild@v1
         with:
-          arch: ${{ matrix.arch }}
+          arch: ${{ matrix.arch.msbuild }}
       - uses: actions/setup-python@v1
         with:
           python-version: '3.x'
@@ -150,7 +152,7 @@ jobs:
         run: pip install meson ninja
       - name: Set up environment variables
         run: |
-          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
