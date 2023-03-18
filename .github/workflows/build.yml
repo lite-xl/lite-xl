@@ -145,7 +145,7 @@ jobs:
       - uses: microsoft/setup-msbuild@v1
         with:
           msbuild-architecture: ${{ matrix.arch.msbuild }}
-      - uses: actions/setup-python@v1
+      - uses: actions/setup-python@v2
         with:
           python-version: '3.x'
       - name: Install meson and ninja
