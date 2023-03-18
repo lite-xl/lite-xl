@@ -159,10 +159,10 @@ jobs:
         run: |
           meson setup --wrap-mode=forcefallback --backend=vs build
           Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
-          # this is needed because the VS backend cannot reconfigure after the patch
-          meson setup --reconfigure --backend=vs build
       - name: Build
-        run: meson install -C build --destdir="../lite-xl"
+        run: |
+          meson compile -C build
+          meson install -C build --destdir="../lite-xl"
       - name: Package
         run: |
           Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
