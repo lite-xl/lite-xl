@@ -162,8 +162,9 @@ jobs:
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
         run: |
-          meson setup --wrap-mode=forcefallback build
+          meson subprojects download
           Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
+          meson setup --wrap-mode=forcefallback build
       - name: Build
         run: meson install -C build --destdir="../lite-xl"
       - name: Package
