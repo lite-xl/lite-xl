@@ -138,13 +138,13 @@ jobs:
     strategy:
       matrix:
         arch:
-          - { msbuild: x86, name: i686 }
-          - { msbuild: x64, name: x86_64 }
+          - { target: x86, name: i686 }
+          - { target: x64, name: x86_64 }
     steps:
       - uses: actions/checkout@v3
-      - uses: microsoft/setup-msbuild@v1
+      - uses: ilammy/msvc-dev-cmd@v1
         with:
-          msbuild-architecture: ${{ matrix.arch.msbuild }}
+          arch: ${{ matrix.arch.target }}
       - uses: actions/setup-python@v2
         with:
           python-version: '3.x'
@@ -157,11 +157,10 @@ jobs:
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
         run: |
-          meson setup --wrap-mode=forcefallback --backend=vs build
+          meson setup --wrap-mode=forcefallback build
           Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
       - name: Build
         run: |
-          meson compile -C build
           meson install -C build --destdir="../lite-xl"
       - name: Package
         run: |
