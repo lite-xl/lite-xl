@@ -20,6 +20,7 @@ typedef enum { FONT_STYLE_BOLD = 1, FONT_STYLE_ITALIC = 2, FONT_STYLE_UNDERLINE 
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 typedef struct { SDL_Surface *surface; int scale; } RenSurface;
+typedef struct { RenSurface rensurface; unsigned int change_counter; } RenCanvas;
 
 struct RenWindow;
 typedef struct RenWindow RenWindow;
@@ -38,6 +39,7 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **font, cons
 double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
+void ren_draw_surface(RenSurface *dst, RenSurface *src, RenRect dst_rect, RenRect src_rect, bool blend);
 
 void ren_init(SDL_Window *win);
 void ren_resize_window(RenWindow *window_renderer);

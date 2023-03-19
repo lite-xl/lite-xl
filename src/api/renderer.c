@@ -2,10 +2,13 @@
 #include "api.h"
 #include "../renderer.h"
 #include "../rencache.h"
+#include "../renwindow.h"
 #include "lua.h"
 
 // a reference index to a table that stores the fonts
 static int RENDERER_FONT_REF = LUA_NOREF;
+// a reference index to a table that stores the canvases sent to the renderer
+static int RENDERER_CANVAS_REF = LUA_NOREF;
 
 static int font_get_options(
   lua_State *L,
@@ -294,6 +297,9 @@ static int f_end_frame(UNUSED lua_State *L) {
   // clear the font reference table
   lua_newtable(L);
   lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
+  // clear the canvas reference table
+  lua_newtable(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
   return 0;
 }
 
@@ -353,6 +359,77 @@ static int f_draw_text(lua_State *L) {
   return 1;
 }
 
+static int f_create_canvas(lua_State *L) {
+  int w = luaL_checkinteger(L, 1);
+  int h = luaL_checkinteger(L, 2);
+  if (w <= 0) {
+    return luaL_error(L, "error in canvas options, width must be a positive integer");
+  }
+  if (h <= 0) {
+    return luaL_error(L, "error in canvas options, height must be a positive integer");
+  }
+
+  RenColor color = checkcolor(L, 3, 0); // defaults to black
+  // TODO: might be a good idea to match the window format
+  SDL_Surface *s = SDL_CreateRGBSurface(0, w, h, 32,
+    0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+  if (!s) {
+    return luaL_error(L, "unable to create canvas: %s", SDL_GetError);
+  }
+  SDL_FillRect(s, NULL, SDL_MapRGBA(s->format, color.r, color.g, color.b, color.a));
+
+  RenCanvas *canvas = lua_newuserdata(L, sizeof(RenCanvas));
+  RenSurface window_surface = renwin_get_surface(&window_renderer);
+  canvas->rensurface.surface = s;
+  canvas->rensurface.scale = window_surface.scale;
+  canvas->change_counter = 0;
+  luaL_setmetatable(L, API_TYPE_CANVAS);
+  return 1;
+}
+
+static int f_draw_canvas(lua_State *L) {
+  int nparms = lua_gettop(L);
+  if (nparms != 3 && nparms != 5 && nparms != 9) {
+    return luaL_error(L, "wrong number of parameters");
+  }
+  RenCanvas* canvas = (RenCanvas*) luaL_checkudata(L, 1, API_TYPE_CANVAS);
+
+  // stores a reference to this canvas to the reference table
+  lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
+  if (lua_istable(L, -1))
+  {
+    lua_pushvalue(L, 1);
+    lua_pushboolean(L, 1);
+    lua_rawset(L, -3);
+  } else {
+    fprintf(stderr, "warning: failed to reference count canvases\n");
+  }
+  lua_pop(L, 1);
+
+  if (!canvas->rensurface.surface) return 0;
+
+  lua_Number dst_x = luaL_checknumber(L, 2);
+  lua_Number dst_y = luaL_checknumber(L, 3);
+  lua_Number dst_w = luaL_optnumber(L, 4, canvas->rensurface.surface->w);
+  lua_Number dst_h = luaL_optnumber(L, 5, canvas->rensurface.surface->h);
+  lua_Number src_x = luaL_optinteger(L, 6, 0);
+  lua_Number src_y = luaL_optinteger(L, 7, 0);
+  lua_Number src_w = luaL_optinteger(L, 8, canvas->rensurface.surface->w);
+  lua_Number src_h = luaL_optinteger(L, 9, canvas->rensurface.surface->h);
+
+  RenRect dst_rect = rect_to_grid(dst_x, dst_y, dst_w, dst_h);
+  if (dst_rect.width <= 0 || dst_rect.height <= 0
+      || src_w <= 0 || src_h <= 0
+      || dst_rect.x + dst_rect.width < 0 || dst_rect.y + dst_rect.height < 0
+      || src_x + src_w < 0 || src_y + src_h < 0) {
+    return 0;
+  }
+  RenRect src_rect = { src_x, src_y, src_w, src_h };
+
+  rencache_draw_surface(dst_rect, src_rect, &canvas->rensurface, canvas->change_counter);
+  return 0;
+}
+
 static const luaL_Reg lib[] = {
   { "show_debug",         f_show_debug         },
   { "get_size",           f_get_size           },
@@ -361,6 +438,8 @@ static const luaL_Reg lib[] = {
   { "set_clip_rect",      f_set_clip_rect      },
   { "draw_rect",          f_draw_rect          },
   { "draw_text",          f_draw_text          },
+  { "create_canvas",      f_create_canvas      },
+  { "draw_canvas",        f_draw_canvas        },
   { NULL,                 NULL                 }
 };
 
@@ -382,6 +461,9 @@ int luaopen_renderer(lua_State *L) {
   // gets a reference on the registry to store font data
   lua_newtable(L);
   RENDERER_FONT_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+  // gets a reference on the registry to store canvases sent to the renderer
+  lua_newtable(L);
+  RENDERER_CANVAS_REF = luaL_ref(L, LUA_REGISTRYINDEX);
 
   luaL_newlib(L, lib);
   luaL_newmetatable(L, API_TYPE_FONT);

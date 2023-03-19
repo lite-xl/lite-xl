@@ -6,6 +6,7 @@
 #include <lualib.h>
 
 #define API_TYPE_FONT "Font"
+#define API_TYPE_CANVAS "Canvas"
 #define API_TYPE_PROCESS "Process"
 #define API_TYPE_DIRMONITOR "Dirmonitor"
 #define API_TYPE_NATIVE_PLUGIN "NativePlugin"

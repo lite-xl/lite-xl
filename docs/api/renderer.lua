@@ -153,5 +153,39 @@ function renderer.draw_rect(x, y, width, height, color) end
 ---@return number x
 function renderer.draw_text(font, text, x, y, color) end
 
+---
+---Return a new `canvas` with the specified dimensions and color.
+---
+---@param width integer
+---@param height integer
+---@param color renderer.color? #If not specified, defaults to black.
+---
+---@return canvas
+function renderer.create_canvas(width, height, color) end
+
+---
+---Draw the canvas.
+---
+---If only `dst_x` and `dst_y` are provided,
+---the entire canvas is drawn at that location.
+---
+---If `dst_width` and `dst_height` are provided,
+---the canvas is scaled to fit those dimensions.
+---
+---If the `src_*` parameters are provided,
+---only that part of the canvas is considered.
+---
+---@param canvas canvas
+---@param dst_x number
+---@param dst_y number
+---@param dst_width number
+---@param dst_height number
+---@param src_x integer
+---@param src_y integer
+---@param src_width integer
+---@param src_height integer
+---@overload fun(canvas: canvas, dst_x: number, dst_y: number)
+---@overload fun(canvas: canvas, dst_x: number, dst_y: number, dst_width: number, dst_height: number)
+function renderer.draw_canvas(canvas, dst_x, dst_y, dst_width, dst_height, src_x, src_y, src_width, src_height) end
 
 return renderer

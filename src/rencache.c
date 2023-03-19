@@ -31,7 +31,7 @@
 #define CMD_BUF_INIT_SIZE (1024 * 512)
 #define COMMAND_BARE_SIZE offsetof(Command, command)
 
-enum CommandType { SET_CLIP, DRAW_TEXT, DRAW_RECT };
+enum CommandType { SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_SURFACE };
 
 typedef struct {
   enum CommandType type;
@@ -59,6 +59,13 @@ typedef struct {
   RenRect rect;
   RenColor color;
 } DrawRectCommand;
+
+typedef struct {
+  RenRect rect;
+  RenRect src_rect;
+  RenSurface rensurface;
+  unsigned int change_counter;
+} DrawSurfaceCommand;
 
 static unsigned cells_buf1[CELLS_X * CELLS_Y];
 static unsigned cells_buf2[CELLS_X * CELLS_Y];
@@ -212,6 +219,20 @@ double rencache_draw_text(RenWindow *window_renderer, RenFont **fonts, const cha
   return x + width;
 }
 
+void rencache_draw_surface(RenRect rect, RenRect src_rect, RenSurface *rs, unsigned int change_counter) {
+  if (!rs->surface || rect.width == 0 || rect.height == 0
+      || src_rect.width == 0 || src_rect.height == 0 || !rects_overlap(last_clip_rect, rect)) {
+    return;
+  }
+  DrawSurfaceCommand *cmd = push_command(DRAW_SURFACE, sizeof(DrawSurfaceCommand));
+  if (cmd) {
+    cmd->rect = rect;
+    cmd->src_rect = src_rect;
+    cmd->rensurface = *rs;
+    cmd->change_counter = change_counter;
+  }
+}
+
 
 void rencache_invalidate(void) {
   memset(cells_prev, 0xff, sizeof(cells_buf1));
@@ -312,6 +333,7 @@ void rencache_end_frame(RenWindow *window_renderer) {
       SetClipCommand *ccmd = (SetClipCommand*)&cmd->command;
       DrawRectCommand *rcmd = (DrawRectCommand*)&cmd->command;
       DrawTextCommand *tcmd = (DrawTextCommand*)&cmd->command;
+      DrawSurfaceCommand *scmd = (DrawSurfaceCommand*)&cmd->command;
       switch (cmd->type) {
         case SET_CLIP:
           ren_set_clip_rect(window_renderer, intersect_rects(ccmd->rect, r));
@@ -322,6 +344,9 @@ void rencache_end_frame(RenWindow *window_renderer) {
         case DRAW_TEXT:
           ren_font_group_set_tab_size(tcmd->fonts, tcmd->tab_size);
           ren_draw_text(&rs, tcmd->fonts, tcmd->text, tcmd->len, tcmd->text_x, tcmd->rect.y, tcmd->color);
+          break;
+        case DRAW_SURFACE:
+          ren_draw_surface(&rs, &scmd->rensurface, scmd->rect, scmd->src_rect, true);
           break;
       }
     }

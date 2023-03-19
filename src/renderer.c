@@ -504,6 +504,28 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
   }
 }
 
+/******************* Surfaces **********************/
+void ren_draw_surface(RenSurface *dst, RenSurface *src, RenRect dst_rect, RenRect src_rect, bool blend) {
+  SDL_Rect dest_rect = { dst_rect.x * dst->scale,
+                         dst_rect.y * dst->scale,
+                         dst_rect.width * dst->scale,
+                         dst_rect.height * dst->scale };
+  SDL_Rect source_rect = { src_rect.x * src->scale,
+                           src_rect.y * src->scale,
+                           src_rect.width * src->scale,
+                           src_rect.height * src->scale };
+
+  if (blend) {
+    SDL_BlitScaled(src->surface, &source_rect, dst->surface, &dest_rect);
+  } else {
+    SDL_BlendMode orig_bm;
+    SDL_GetSurfaceBlendMode(src->surface, &orig_bm);
+    SDL_SetSurfaceBlendMode(src->surface, SDL_BLENDMODE_NONE);
+    SDL_BlitScaled(src->surface, &source_rect, dst->surface, &dest_rect);
+    SDL_SetSurfaceBlendMode(src->surface, orig_bm);
+  }
+}
+
 /*************** Window Management ****************/
 void ren_free_window_resources(RenWindow *window_renderer) {
   extern uint8_t *command_buf;
