@@ -162,6 +162,8 @@ jobs:
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
         run: |
+          # Download the subprojects first so we can patch it before configuring.
+          # This avoids reconfiguring the subprojects when compiling.
           meson subprojects download
           Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
           meson setup --wrap-mode=forcefallback build
