@@ -19,6 +19,7 @@ typedef enum { FONT_ANTIALIASING_NONE, FONT_ANTIALIASING_GRAYSCALE, FONT_ANTIALI
 typedef enum { FONT_STYLE_BOLD = 1, FONT_STYLE_ITALIC = 2, FONT_STYLE_UNDERLINE = 4, FONT_STYLE_SMOOTH = 8, FONT_STYLE_STRIKETHROUGH = 16 } ERenFontStyle;
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
+typedef struct { SDL_Surface *surface; int scale; } RenSurface;
 
 struct RenWindow;
 typedef struct RenWindow RenWindow;
@@ -34,9 +35,9 @@ float ren_font_group_get_size(RenFont **font);
 void ren_font_group_set_size(RenWindow *window_renderer, RenFont **font, float size);
 void ren_font_group_set_tab_size(RenFont **font, int n);
 double ren_font_group_get_width(RenWindow *window_renderer, RenFont **font, const char *text, size_t len);
-double ren_draw_text(RenWindow *window_renderer, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
+double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
 
-void ren_draw_rect(RenWindow *window_renderer, RenRect rect, RenColor color);
+void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
 
 void ren_init(SDL_Window *win);
 void ren_resize_window(RenWindow *window_renderer);
