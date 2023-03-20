@@ -949,6 +949,9 @@ static void* api_require(const char* symbol) {
 #else  /* LUA_VERSION_NUM >= 503 */
     U(checkunsigned), U(optunsigned), U(pushmodule), P(getctx),
 #endif /* LUA_VERSION_NUM >= 503 */
+#else  /* LUA_VERSION_NUM >= 502 */
+    U(findtable), U(loadbuffer), U(loadfile), U(prepbuffer), U(register),
+    P(call), P(cpcall), P(equal), P(getfenv), P(lessthan), P(objlen),
 #endif /* LUA_VERSION_NUM >= 502 */
   };
   for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
