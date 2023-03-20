@@ -913,47 +913,43 @@ typedef struct lua_function_node {
 
 #define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
 #define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
+#define S(FUNC) { #FUNC, (fptr)(FUNC) }
 static void* api_require(const char* symbol) {
   static const lua_function_node nodes[] = {
-    P(atpanic), P(checkstack),
-    P(close), P(concat), P(copy), P(createtable), P(dump),
-    P(error),  P(gc), P(getallocf),  P(getfield),
-    P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
+    U(addlstring), U(addstring), U(addvalue), U(argerror), U(buffinit),
+    U(checkany), U(checkinteger), U(checklstring), U(checknumber),
+    U(checkstack), U(checktype), U(checkudata), U(error), U(getmetafield),
+    U(loadstring), U(newmetatable), U(newstate), U(openlibs), U(optinteger),
+    U(optnumber), U(pushresult), U(ref), U(unref), U(where), P(atpanic),
+    P(close), P(concat), P(createtable), P(dump), P(error), P(gc),
+    P(getfield), P(gethook), P(gethookcount), P(gethookmask), P(getinfo),
     P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
-    P(isnumber), P(isstring), P(isuserdata),
-    P(load), P(newstate), P(newthread), P(next),
-    P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
-    P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber),
-    P(pushstring), P(pushthread),  P(pushvalue),
-    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti),
-    P(rawset), P(rawseti), P(resume),
-    P(setallocf), P(setfield), P(sethook), P(setlocal),
-    P(setmetatable), P(settable), P(settop), P(setupvalue),
-    P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
-    P(tonumberx), P(topointer), P(tothread),  P(touserdata),
-    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove),
-    U(getmetafield), U(callmeta), U(argerror), U(checknumber), U(optnumber),
-    U(checkinteger), U(checkstack), U(checktype), U(checkany),
-    U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
-    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring),
-    U(newstate), U(setfuncs), U(buffinit), U(addlstring), U(addstring),
-    U(addvalue), U(pushresult), U(openlibs), {"api_load_libs", (void*)(api_load_libs)},
-    #if LUA_VERSION_NUM >= 502
-    P(absindex), P(arith), P(callk), P(compare), P(getglobal),
-    P(len), P(pcallk), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
-    P(iscfunction), P(yieldk),
-    U(checkversion_), U(tolstring), U(len), U(getsubtable), U(prepbuffsize),
-    U(pushresultsize), U(buffinitsize), U(checklstring), U(checkoption), U(gsub), U(loadbufferx),
-    U(loadfilex), U(optinteger), U(optlstring), U(requiref), U(traceback),
-    #else
-    P(objlen),
-    #endif
-    #if LUA_VERSION_NUM >= 504
-    P(newuserdatauv), P(setiuservalue), P(getiuservalue)
-    #else
-    P(newuserdata), P(setuservalue), P(getuservalue)
-    #endif
-
+    P(isnumber), P(isstring), P(isuserdata), P(load), P(newstate),
+    P(next), P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
+    P(pushlstring), P(pushnil), P(pushnumber), P(pushstring), P(pushthread),
+    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti), P(rawset),
+    P(resume), P(setallocf), P(setfield), P(sethook), P(setlocal),
+    P(settable), P(settop), P(setupvalue), P(status), P(toboolean),
+    P(tolstring), P(topointer), P(tothread), P(touserdata), P(type),
+    P(xmove), S(luaopen_base), S(luaopen_debug), S(luaopen_io),
+    S(api_load_libs),
+#if LUA_VERSION_NUM >= 502
+    U(buffinitsize), U(checkversion_), U(execresult), U(fileresult),
+    U(len), U(loadbufferx), U(loadfilex), U(prepbuffsize), U(pushresultsize),
+    U(setfuncs), U(setmetatable), U(testudata), U(tolstring), U(traceback),
+    P(arith), P(callk), P(compare), P(copy), P(getglobal), P(len), P(pcallk),
+    P(rawlen), P(rawsetp), P(setglobal), P(tointegerx), P(tonumberx),
+#if LUA_VERSION_NUM >= 503
+    P(geti), P(isinteger), P(isyieldable), P(rotate), P(seti),
+#if LUA_VERSION_NUM >= 504
+    U(addgsub), U(typeerror), P(closeslot), P(getiuservalue),
+    P(resetthread), P(setcstacklimit), P(setiuservalue), P(setwarnf),
+#else  /* LUA_VERSION_NUM >= 504 */
+#endif /* LUA_VERSION_NUM >= 504 */
+#else  /* LUA_VERSION_NUM >= 503 */
+    U(checkunsigned), U(optunsigned), U(pushmodule), P(getctx),
+#endif /* LUA_VERSION_NUM >= 503 */
+#endif /* LUA_VERSION_NUM >= 502 */
   };
   for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
     if (strcmp(nodes[i].symbol, symbol) == 0)
