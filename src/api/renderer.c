@@ -8,7 +8,9 @@
 // a reference index to a table that stores the fonts
 static int RENDERER_FONT_REF = LUA_NOREF;
 // a reference index to a table that stores the canvases sent to the renderer
-static int RENDERER_CANVAS_REF = LUA_NOREF;
+int RENDERER_CANVAS_REF = LUA_NOREF;
+// a reference index to a table that stores the temporary canvases needed for COW
+int RENDERER_CANVAS_COW_REF = LUA_NOREF;
 
 static int font_get_options(
   lua_State *L,
@@ -300,6 +302,9 @@ static int f_end_frame(UNUSED lua_State *L) {
   // clear the canvas reference table
   lua_newtable(L);
   lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
+  // clear the canvas COW reference table
+  lua_newtable(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_COW_REF);
   return 0;
 }
 
@@ -399,7 +404,8 @@ static int f_draw_canvas(lua_State *L) {
   if (lua_istable(L, -1))
   {
     lua_pushvalue(L, 1);
-    lua_pushboolean(L, 1);
+    // Store the change counter to allow COW for canvas operations
+    lua_pushinteger(L, canvas->change_counter);
     lua_rawset(L, -3);
   } else {
     fprintf(stderr, "warning: failed to reference count canvases\n");
@@ -464,6 +470,9 @@ int luaopen_renderer(lua_State *L) {
   // gets a reference on the registry to store canvases sent to the renderer
   lua_newtable(L);
   RENDERER_CANVAS_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+  // gets a reference on the registry to store canvases needed for COW
+  lua_newtable(L);
+  RENDERER_CANVAS_COW_REF = luaL_ref(L, LUA_REGISTRYINDEX);
 
   luaL_newlib(L, lib);
   luaL_newmetatable(L, API_TYPE_FONT);
