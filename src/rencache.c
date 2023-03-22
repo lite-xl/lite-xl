@@ -228,7 +228,8 @@ void rencache_draw_surface(RenRect rect, RenRect src_rect, RenSurface *rs, unsig
   if (cmd) {
     cmd->rect = rect;
     cmd->src_rect = src_rect;
-    cmd->rensurface = *rs;
+    cmd->rensurface.surface = rs->surface;
+    cmd->rensurface.scale = rs->scale;
     cmd->change_counter = change_counter;
   }
 }
