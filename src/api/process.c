@@ -5,12 +5,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <SDL.h>
+#include <SDL_thread.h>
 #include <assert.h>
 
 #if _WIN32
   // https://stackoverflow.com/questions/60645/overlapped-i-o-on-anonymous-pipe
   // https://docs.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output
-  #include <windows.h> 
+  #include <windows.h>
 #else
   #include <errno.h>
   #include <unistd.h>
@@ -21,11 +22,15 @@
 #endif
 
 #define READ_BUF_SIZE 2048
+#define PROCESS_TERM_TRIES 3
+#define PROCESS_TERM_DELAY 50
 
 #if _WIN32
+typedef HANDLE process_stream_handle;
 typedef HANDLE process_handle;
 #else
-typedef int process_handle;
+typedef int process_stream_handle;
+typedef pid_t process_handle;
 #endif
 
 typedef struct {
@@ -38,8 +43,23 @@ typedef struct {
     bool reading[2];
     char buffer[2][READ_BUF_SIZE];
   #endif
-  process_handle child_pipes[3][2];
+  process_stream_handle child_pipes[3][2];
 } process_t;
+
+typedef struct process_kill_s {
+  int tries;
+  uint32_t start_time;
+  process_handle handle;
+  struct process_kill_s *next;
+} process_kill_t;
+
+typedef struct {
+  bool stop;
+  SDL_mutex *mutex;
+  SDL_cond *has_work, *work_done;
+  process_kill_t *head;
+  process_kill_t *tail;
+} process_kill_list_t;
 
 typedef enum {
   SIGNAL_KILL,
@@ -63,60 +83,201 @@ typedef enum {
   REDIRECT_PARENT = -3,
 } filed_e;
 
+static process_kill_list_t kill_list = { 0 };
+static SDL_Thread *kill_list_thread = NULL;
+
 #ifdef _WIN32
   static volatile long PipeSerialNumber;
   static void close_fd(HANDLE* handle) { if (*handle) CloseHandle(*handle); *handle = INVALID_HANDLE_VALUE; }
+  #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
 #else
   static void close_fd(int* fd) { if (*fd) close(*fd); *fd = 0; }
+  #define PROCESS_GET_HANDLE(P) ((P)->pid)
 #endif
 
+
+static void kill_list_free(process_kill_list_t *list) {
+  process_kill_t *node, *temp;
+  SDL_DestroyMutex(list->mutex);
+  SDL_DestroyCond(list->has_work);
+  SDL_DestroyCond(list->work_done);
+  node = list->head;
+  while (node) {
+    temp = node;
+    node = node->next;
+    free(temp);
+  }
+}
+
+
+static bool kill_list_init(process_kill_list_t *list) {
+  list->mutex = SDL_CreateMutex();
+  list->has_work = SDL_CreateCond();
+  list->work_done = SDL_CreateCond();
+  list->head = list->tail = NULL;
+  list->stop = false;
+  if (!list->mutex || !list->has_work || !list->work_done) {
+    kill_list_free(list);
+    return false;
+  }
+  return true;
+}
+
+
+static void kill_list_push(process_kill_list_t *list, process_kill_t *task) {
+  if (!list) return;
+  task->next = NULL;
+  if (list->tail) {
+    list->tail->next = task;
+    list->tail = task;
+  } else {
+    list->head = list->tail = task;
+  }
+}
+
+
+static void kill_list_pop(process_kill_list_t *list) {
+  if (!list || !list->head) return;
+  process_kill_t *head = list->head;
+  list->head = list->head->next;
+  if (!list->head) list->tail = NULL;
+  head->next = NULL;
+}
+
+
+static void kill_list_wait_all(process_kill_list_t *list) {
+  SDL_LockMutex(list->mutex);
+  // wait until list is empty
+  while (list->head)
+    SDL_CondWait(list->work_done, list->mutex);
+  // tell the worker to stop
+  list->stop = true;
+  SDL_CondSignal(list->has_work);
+  SDL_UnlockMutex(list->mutex);
+}
+
+
+static void process_handle_close(process_handle *handle) {
+#ifdef _WIN32
+  if (*handle) {
+    CloseHandle(*handle);
+    *handle = NULL;
+  }
+#endif
+  (void) 0;
+}
+
+
+static bool process_handle_is_running(process_handle handle, int *status) {
+#ifdef _WIN32
+  DWORD s;
+  if (GetExitCodeProcess(handle, &s) && s != STILL_ACTIVE) {
+    if (status != NULL)
+      *status = s;
+    return false;
+  }
+#else
+  int s;
+  if (waitpid(handle, &s, WNOHANG) != 0) {
+    if (status != NULL)
+      *status = WEXITSTATUS(s);
+    return false;
+  }
+#endif
+  return true;
+}
+
+
+static bool process_handle_signal(process_handle handle, signal_e sig) {
+#if _WIN32
+  switch(sig) {
+    case SIGNAL_TERM: return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(handle));
+    case SIGNAL_KILL: return TerminateProcess(handle, -1);
+    case SIGNAL_INTERRUPT: return DebugBreakProcess(handle);
+  }
+#else
+  switch (sig) {
+    case SIGNAL_TERM: return kill(-handle, SIGTERM) == 0; break;
+    case SIGNAL_KILL: return kill(-handle, SIGKILL) == 0; break;
+    case SIGNAL_INTERRUPT: return kill(-handle, SIGINT) == 0; break;
+  }
+#endif
+  return false;
+}
+
+
+static int kill_list_worker(void *ud) {
+  process_kill_list_t *list = (process_kill_list_t *) ud;
+  process_kill_t *current_task;
+  uint32_t delay;
+
+  while (true) {
+    SDL_LockMutex(list->mutex);
+
+    // wait until we have work to do
+    while (!list->head && !list->stop)
+      SDL_CondWait(list->has_work, list->mutex); // LOCK MUTEX
+
+    if (list->stop) break;
+
+    while ((current_task = list->head)) {
+      if ((SDL_GetTicks() - current_task->start_time) < PROCESS_TERM_DELAY)
+        break;
+      kill_list_pop(list);
+      if (process_handle_is_running(current_task->handle, NULL)) {
+        if (current_task->tries < PROCESS_TERM_TRIES)
+          process_handle_signal(current_task->handle, SIGNAL_TERM);
+        else if (current_task->tries == PROCESS_TERM_TRIES)
+          process_handle_signal(current_task->handle, SIGNAL_KILL);
+        else
+          goto free_task;
+
+        // add the task back into the queue
+        current_task->tries++;
+        current_task->start_time = SDL_GetTicks();
+        kill_list_push(list, current_task);
+      } else {
+        free_task:
+        SDL_CondSignal(list->work_done);
+        process_handle_close(&current_task->handle);
+        free(current_task);
+      }
+    }
+    delay = list->head ? (list->head->start_time + PROCESS_TERM_DELAY) - SDL_GetTicks() : 0;
+    SDL_UnlockMutex(list->mutex);
+    SDL_Delay(delay);
+  }
+  SDL_UnlockMutex(list->mutex);
+  return 0;
+}
+
+
 static bool poll_process(process_t* proc, int timeout) {
+  uint32_t ticks;
+
   if (!proc->running)
     return false;
-  uint32_t ticks = SDL_GetTicks();
+
   if (timeout == WAIT_DEADLINE)
     timeout = proc->deadline;
 
+  ticks = SDL_GetTicks();
   do {
-    #ifdef _WIN32
-      DWORD exit_code = -1;
-      if (!GetExitCodeProcess( proc->process_information.hProcess, &exit_code ) || exit_code != STILL_ACTIVE) {
-        proc->returncode = exit_code;
-        proc->running = false;
-        break;
-      }
-    #else
-      int status;
-      pid_t wait_response = waitpid(proc->pid, &status, WNOHANG);
-      if (wait_response != 0) {
-        proc->running = false;
-        proc->returncode = WEXITSTATUS(status);
-        break;
-      }
-    #endif
+    int status;
+    if (!process_handle_is_running(PROCESS_GET_HANDLE(proc), &status)) {
+      proc->running = false;
+      proc->returncode = status;
+      break;
+    }
     if (timeout)
-      SDL_Delay(5);
+      SDL_Delay(timeout >= 5 ? 5 : 0);
   } while (timeout == WAIT_INFINITE || (int)SDL_GetTicks() - ticks < timeout);
 
   return proc->running;
 }
 
 static bool signal_process(process_t* proc, signal_e sig) {
-  bool terminate = false;
-  #if _WIN32
-    switch(sig) {
-      case SIGNAL_TERM: terminate = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(proc->process_information.hProcess)); break;
-      case SIGNAL_KILL: terminate = TerminateProcess(proc->process_information.hProcess, -1); break;
-      case SIGNAL_INTERRUPT: DebugBreakProcess(proc->process_information.hProcess); break;
-    }
-  #else
-    switch (sig) {
-      case SIGNAL_TERM: terminate = kill(-proc->pid, SIGTERM) == 1; break;
-      case SIGNAL_KILL: terminate = kill(-proc->pid, SIGKILL) == 1; break;
-      case SIGNAL_INTERRUPT: kill(-proc->pid, SIGINT); break;
-    }
-  #endif
-  if (terminate) 
+  if (process_handle_signal(PROCESS_GET_HANDLE(proc), sig))
     poll_process(proc, WAIT_NONE);
   return true;
 }
@@ -152,7 +313,7 @@ static int process_start(lua_State* L) {
   if (arg_len > 1) {
     lua_getfield(L, 2, "env");
     if (!lua_isnil(L, -1)) {
-      lua_pushnil(L); 
+      lua_pushnil(L);
       while (lua_next(L, -2) != 0) {
         const char* key = luaL_checklstring(L, -2, &key_len);
         const char* val = luaL_checklstring(L, -1, &val_len);
@@ -179,7 +340,7 @@ static int process_start(lua_State* L) {
       }
     }
   }
-  
+
   process_t* self = lua_newuserdata(L, sizeof(process_t));
   memset(self, 0, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
@@ -196,9 +357,9 @@ static int process_start(lua_State* L) {
           }
           self->child_pipes[i][i == STDIN_FD ? 1 : 0] = INVALID_HANDLE_VALUE;
         break;
-        case REDIRECT_DISCARD: 
-          self->child_pipes[i][0] = INVALID_HANDLE_VALUE; 
-          self->child_pipes[i][1] = INVALID_HANDLE_VALUE; 
+        case REDIRECT_DISCARD:
+          self->child_pipes[i][0] = INVALID_HANDLE_VALUE;
+          self->child_pipes[i][1] = INVALID_HANDLE_VALUE;
         break;
         default: {
           if (new_fds[i] == i) {
@@ -289,7 +450,7 @@ static int process_start(lua_State* L) {
       goto cleanup;
     }
     self->pid = (long)self->process_information.dwProcessId;
-    if (detach) 
+    if (detach)
       CloseHandle(self->process_information.hProcess);
     CloseHandle(self->process_information.hThread);
   #else
@@ -372,7 +533,7 @@ static int process_start(lua_State* L) {
     free((char*)env_values[i]);
   }
   for (int stream = 0; stream < 3; ++stream) {
-    process_handle* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
+    process_stream_handle* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
     if (*pipe) {
       close_fd(pipe);
     }
@@ -467,7 +628,7 @@ static int f_close_stream(lua_State* L) {
 static int process_strerror(lua_State* L) {
   #if _WIN32
     return 1;
-  #endif 
+  #endif
   int error_code = luaL_checknumber(L, 1);
   if (error_code < 0)
     lua_pushstring(L, strerror(error_code));
@@ -525,14 +686,37 @@ static int self_signal(lua_State* L, signal_e sig) {
 static int f_terminate(lua_State* L) { return self_signal(L, SIGNAL_TERM); }
 static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
-static int f_gc(lua_State* L) { 
+
+static int f_gc(lua_State* L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  if (!self->detached)
+
+  if (poll_process(self, 0) && !self->detached) {
+    // attempt to kill the process if not detached
+    process_kill_t *p;
+
     signal_process(self, SIGNAL_TERM);
+    p = malloc(sizeof(process_kill_t));
+    if (!p || !kill_list_thread) {
+      // if we can't allocate, we'll use the old method
+      poll_process(self, PROCESS_TERM_DELAY);
+      if (self->running) {
+        signal_process(self, SIGNAL_KILL);
+        poll_process(self, PROCESS_TERM_DELAY);
+      }
+    } else {
+      // send the handle to a queue for asynchronous waiting
+      p->handle = PROCESS_GET_HANDLE(self);
+      p->start_time = SDL_GetTicks();
+      p->tries = 1;
+      SDL_LockMutex(kill_list.mutex);
+      kill_list_push(&kill_list, p);
+      SDL_CondSignal(kill_list.has_work);
+      SDL_UnlockMutex(kill_list.mutex);
+    }
+  }
   close_fd(&self->child_pipes[STDIN_FD ][1]);
   close_fd(&self->child_pipes[STDOUT_FD][0]);
-  close_fd(&self->child_pipes[STDERR_FD][0]); 
-  poll_process(self, 10);
+  close_fd(&self->child_pipes[STDERR_FD][0]);
   return 0;
 }
 
@@ -542,11 +726,16 @@ static int f_running(lua_State* L) {
   return 1;
 }
 
-static const struct luaL_Reg lib[] = {
+static int process_gc(lua_State *L) {
+  kill_list_wait_all(&kill_list);
+  SDL_WaitThread(kill_list_thread, NULL);
+  kill_list_free(&kill_list);
+  return 0;
+}
+
+static const struct luaL_Reg process_metatable[] = {
   {"__gc", f_gc},
   {"__tostring", f_tostring},
-  {"start", process_start},
-  {"strerror", process_strerror},
   {"pid", f_pid},
   {"returncode", f_returncode},
   {"read", f_read},
@@ -562,11 +751,28 @@ static const struct luaL_Reg lib[] = {
   {NULL, NULL}
 };
 
+static const struct luaL_Reg lib[] = {
+  { "start", process_start },
+  { "strerror", process_strerror },
+  { NULL, NULL }
+};
+
 int luaopen_process(lua_State *L) {
+  if (kill_list_init(&kill_list))
+    kill_list_thread = SDL_CreateThread(kill_list_worker, "process_kill", &kill_list);
+
+  // create the process metatable
   luaL_newmetatable(L, API_TYPE_PROCESS);
-  luaL_setfuncs(L, lib, 0);
+  luaL_setfuncs(L, process_metatable, 0);
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
+
+  // create the process library
+  luaL_newlib(L, lib);
+  lua_newtable(L);
+  lua_pushcfunction(L, process_gc);
+  lua_setfield(L, -2, "__gc");
+  lua_setmetatable(L, -2);
 
   API_CONSTANT_DEFINE(L, -1, "WAIT_INFINITE", WAIT_INFINITE);
   API_CONSTANT_DEFINE(L, -1, "WAIT_DEADLINE", WAIT_DEADLINE);
@@ -576,7 +782,7 @@ int luaopen_process(lua_State *L) {
   API_CONSTANT_DEFINE(L, -1, "STREAM_STDERR", STDERR_FD);
 
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_DEFAULT", REDIRECT_DEFAULT);
-  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", STDOUT_FD); 
+  API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDOUT", STDOUT_FD);
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_STDERR", STDERR_FD);
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_PARENT", REDIRECT_PARENT); // Redirects to parent's STDOUT/STDERR
   API_CONSTANT_DEFINE(L, -1, "REDIRECT_DISCARD", REDIRECT_DISCARD); // Closes the filehandle, discarding it.

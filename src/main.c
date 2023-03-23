@@ -274,8 +274,10 @@ init_lua:
     goto init_lua;
   }
 
-  lua_close(L);
+  // This allows the window to be destroyed before lite-xl is done with
+  // reaping child processes
   ren_free_window_resources(&window_renderer);
+  lua_close(L);
 
   return EXIT_SUCCESS;
 }

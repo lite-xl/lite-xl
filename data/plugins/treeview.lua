@@ -9,10 +9,15 @@ local View = require "core.view"
 local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
+local DocView = require "core.docview"
 
 config.plugins.treeview = common.merge({
   -- Default treeview width
-  size = 200 * SCALE
+  size = 200 * SCALE,
+  highlight_focused_file = true,
+  expand_dirs_to_focused_file = false,
+  scroll_to_focused_file = false,
+  animate_scroll_to_focused_file = true
 }, config.plugins.treeview)
 
 local tooltip_offset = style.font:get_height()
@@ -169,18 +174,71 @@ function TreeView:each_item()
 end
 
 
-function TreeView:set_selection(selection, selection_y)
+function TreeView:set_selection(selection, selection_y, center, instant)
   self.selected_item = selection
   if selection and selection_y
       and (selection_y <= 0 or selection_y >= self.size.y) then
-
     local lh = self:get_item_height()
-    if selection_y >= self.size.y - lh then
+    if not center and selection_y >= self.size.y - lh then
       selection_y = selection_y - self.size.y + lh
     end
+    if center then
+      selection_y = selection_y - (self.size.y - lh) / 2
+    end
     local _, y = self:get_content_offset()
-    self.scroll.to.y = selection and (selection_y - y)
+    self.scroll.to.y = selection_y - y
+    self.scroll.to.y = common.clamp(self.scroll.to.y, 0, self:get_scrollable_size() - self.size.y)
+    if instant then
+      self.scroll.y = self.scroll.to.y
+    end
   end
+end
+
+---Sets the selection to the file with the specified path.
+---
+---@param path string #Absolute path of item to select
+---@param expand boolean #Expand dirs leading to the item
+---@param scroll_to boolean #Scroll to make the item visible
+---@param instant boolean #Don't animate the scroll
+---@return table? #The selected item
+function TreeView:set_selection_to_path(path, expand, scroll_to, instant)
+  local to_select, to_select_y
+  local let_it_finish, done
+  ::restart::
+  for item, x,y,w,h in self:each_item() do
+    if not done then
+      if item.type == "dir" then
+        local _, to = string.find(path, item.abs_filename..PATHSEP, 1, true)
+        if to and to == #item.abs_filename + #PATHSEP then
+          to_select, to_select_y = item, y
+          if expand and not item.expanded then
+            -- Use TreeView:toggle_expand to update the directory structure.
+            -- Directly using item.expanded doesn't update the cached tree.
+            self:toggle_expand(true, item)
+            -- Because we altered the size of the TreeView
+            -- and because TreeView:get_scrollable_size uses self.count_lines
+            -- which gets updated only when TreeView:each_item finishes,
+            -- we can't stop here or we risk that the scroll
+            -- gets clamped by View:clamp_scroll_position.
+            let_it_finish = true
+            -- We need to restart the process because if TreeView:toggle_expand
+            -- altered the cache, TreeView:each_item risks looping indefinitely.
+            goto restart
+          end
+        end
+      else
+        if item.abs_filename == path then
+          to_select, to_select_y = item, y
+          done = true
+          if not let_it_finish then break end
+        end
+      end
+    end
+  end
+  if to_select then
+    self:set_selection(to_select, scroll_to and to_select_y, true, instant)
+  end
+  return to_select
 end
 
 
@@ -233,7 +291,7 @@ function TreeView:update()
     self:move_towards(self.size, "x", dest, nil, "treeview")
   end
 
-  if not self.visible then return end
+  if self.size.x == 0 or self.size.y == 0 or not self.visible then return end
 
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
@@ -250,6 +308,26 @@ function TreeView:update()
   local dy = math.abs(self.scroll.to.y - self.scroll.y)
   if self.scroll.to.y ~= 0 and dy < self:get_item_height() then
     self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, 0)
+  end
+
+  local config = config.plugins.treeview
+  if config.highlight_focused_file then
+    -- Try to only highlight when we actually change tabs
+    local current_node = core.root_view:get_active_node()
+    local current_active_view = core.active_view
+    if current_node and not current_node.locked
+     and current_active_view ~= self and current_active_view ~= self.last_active_view then
+      self.selected_item = nil
+      self.last_active_view = current_active_view
+      if DocView:is_extended_by(current_active_view) then
+        local abs_filename = current_active_view.doc
+                             and current_active_view.doc.abs_filename or ""
+        self:set_selection_to_path(abs_filename,
+                                   config.expand_dirs_to_focused_file,
+                                   config.scroll_to_focused_file,
+                                   not config.animate_scroll_to_focused_file)
+      end
+    end
   end
 
   TreeView.super.update(self)
@@ -422,8 +500,8 @@ function TreeView:get_previous(item)
 end
 
 
-function TreeView:toggle_expand(toggle)
-  local item = self.selected_item
+function TreeView:toggle_expand(toggle, item)
+  item = item or self.selected_item
 
   if not item then return end
 
