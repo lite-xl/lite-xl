@@ -957,8 +957,7 @@ static void* api_require(const char* symbol) {
     P(stringtonumber), S(luaopen_utf8),
     #endif
     #if LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503
-    U(openlib), U(pushmodule), P(getuservalue), P(setuservalue),
-    S(luaopen_bit32),
+    P(getuservalue), P(setuservalue), S(luaopen_bit32),
     #endif
     #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502
     P(insert), P(remove), P(replace),
@@ -973,10 +972,10 @@ static void* api_require(const char* symbol) {
     P(tounsignedx),
     #endif
     #if LUA_VERSION_NUM == 501
-    S(luaI_openlib), U(findtable), U(getn), U(loadbuffer), U(loadfile),
-    U(prepbuffer), U(register), U(setn), U(typerror), P(call), P(cpcall),
-    P(equal), P(getfenv), P(lessthan), P(objlen), P(pcall), P(setfenv),
-    P(setlevel), P(tointeger), P(tonumber), P(yield),
+    U(findtable), U(loadbuffer), U(loadfile), U(openlib), U(prepbuffer),
+    U(register), U(typerror), P(call), P(cpcall), P(equal), P(getfenv),
+    P(lessthan), P(objlen), P(pcall), P(setfenv), P(setlevel), P(tointeger),
+    P(tonumber), P(yield),
     #endif
   };
   for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
