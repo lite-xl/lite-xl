@@ -101,7 +101,7 @@ setmetatable(config.plugins, {
   end
 })
 
--- Disable these plugins by default
+-- Disable these plugins by default.
 config.plugins.trimwhitespace = false
 
 return config

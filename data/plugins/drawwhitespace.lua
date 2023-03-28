@@ -347,7 +347,7 @@ end
 
 command.add(nil, {
   ["draw-whitespace:toggle"]  = function()
-    config.plugins.drawwhitespace.enabled = not config.draw_whitespace.enabled
+    config.plugins.drawwhitespace.enabled = not config.drawwhitespace.enabled
   end,
 
   ["draw-whitespace:disable"] = function()
