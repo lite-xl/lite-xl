@@ -8,7 +8,7 @@ local Doc = require "core.doc"
 ---@field enabled boolean
 ---@field trim_empty_end_lines boolean
 config.plugins.trimwhitespace = common.merge({
-  enabled = true,
+  enabled = false,
   trim_empty_end_lines = false,
   config_spec = {
     name = "Trim Whitespace",
@@ -17,7 +17,7 @@ config.plugins.trimwhitespace = common.merge({
       description = "Disable or enable the trimming of white spaces by default.",
       path = "enabled",
       type = "toggle",
-      default = true
+      default = false
     },
     {
       label = "Trim Empty End Lines",
