@@ -240,6 +240,21 @@ function StatusView:register_docview_items()
     command = "doc:go-to-line",
     tooltip = "line : column"
   })
+  
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:selections",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
+      local dv = core.active_view
+      local nsel = #dv.doc.selections // 4
+      if nsel > 1 then
+        return { style.text, nsel, " selections" }
+      end
+
+      return {}
+    end
+  })
 
   self:add_item({
     predicate = predicate_docview,
