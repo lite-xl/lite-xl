@@ -1396,11 +1396,10 @@ local run_threads = coroutine.wrap(function()
           else
             core.threads[k] = nil
           end
-        elseif wait then
+        else
+          wait = wait or 0
           thread.wake = system.get_time() + wait
           minimal_time_to_wake = math.min(minimal_time_to_wake, wait)
-        else
-          minimal_time_to_wake = 0
         end
       else
         minimal_time_to_wake =  math.min(minimal_time_to_wake, thread.wake - system.get_time())
