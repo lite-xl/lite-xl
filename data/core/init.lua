@@ -531,12 +531,9 @@ local style = require "core.style"
 
 ------------------------------ Plugins ----------------------------------------
 
--- enable or disable plugin loading setting config entries:
+-- disable plugin loading setting config entries:
 
--- enable plugins.trimwhitespace, otherwise it is disabled by default:
--- config.plugins.trimwhitespace = true
---
--- disable detectindent, otherwise it is enabled by default
+-- disable plugin detectindent, otherwise it is enabled by default:
 -- config.plugins.detectindent = false
 
 ---------------------------- Miscellaneous -------------------------------------
