@@ -533,7 +533,7 @@ local style = require "core.style"
 
 -- disable plugin loading setting config entries:
 
--- disable plugins.detectindent, otherwise it is enabled by default:
+-- disable plugin detectindent, otherwise it is enabled by default:
 -- config.plugins.detectindent = false
 
 ---------------------------- Miscellaneous -------------------------------------
