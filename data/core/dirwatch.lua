@@ -100,7 +100,6 @@ function dirwatch:check(change_callback, scan_time, wait_time)
       end
       change_callback(path)
     elseif self.reverse_watched[id] then
-    local info = system.get_file_info(path)
       local path = self.reverse_watched[id]
       change_callback(path)
       local info = system.get_file_info(path)

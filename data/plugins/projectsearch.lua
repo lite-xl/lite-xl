@@ -172,7 +172,6 @@ function ResultsView:draw()
   -- status
   local ox, oy = self:get_content_offset()
   local x, y = ox + style.padding.x, oy + style.padding.y
-  local files_number = core.project_files_number()
   local per = common.clamp(1, 0, 1)
   local text
   if self.searching then
@@ -205,7 +204,7 @@ function ResultsView:draw()
       renderer.draw_rect(x, y, w, h, style.line_highlight)
     end
     x = x + style.padding.x
-    local text = string.format("%s at line %d (col %d): ", item.file, item.line, item.col)
+    local text = string.format("%s at line %d (col %d): ", core.projects[1]:normalize_path(item.file), item.line, item.col)
     x = common.draw_text(style.font, style.dim, text, "left", x, y, w, h)
     x = common.draw_text(style.code_font, color, item.text, "left", x, y, w, h)
   end
@@ -235,18 +234,6 @@ local function get_selected_text()
   if doc then
     return doc:get_text(table.unpack({ doc:get_selection() }))
   end
-end
-
-
-local function normalize_path(path)
-  if not path then return nil end
-  path = common.normalize_path(path)
-  for i, project_dir in ipairs(core.project_directories) do
-    if common.path_belongs_to(path, project_dir.name) then
-      return project_dir.item.filename .. PATHSEP .. common.relative_path(project_dir.name, path)
-    end
-  end
-  return path
 end
 
 ---@class plugins.projectsearch
