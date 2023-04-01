@@ -796,8 +796,9 @@ function core.pop_clip_rect()
 end
 
 -- legacy interface
-function core.normalize_to_project_dir(path) return core.projects[1]:normalize_path(path) end
-function core.project_absolute_path(path) return core.projects[1]:absolute_path(path) end
+function core.root_project() return core.projects[1] end
+function core.normalize_to_project_dir(path) return core.root_project():normalize_path(path) end
+function core.project_absolute_path(path) return core.root_project():absolute_path(path) end
 
 function core.open_doc(filename)
   local new_file = not filename or not system.get_file_info(filename)
@@ -805,8 +806,8 @@ function core.open_doc(filename)
   if filename then
     -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    filename = core.projects[1]:normalize_path(filename)
-    abs_filename = core.projects[1]:absolute_path(filename)
+    filename = core.root_project():normalize_path(filename)
+    abs_filename = core.root_project():absolute_path(filename)
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc

@@ -610,7 +610,7 @@ local function is_project_folder(path)
 end
 
 local function is_primary_project_folder(path)
-  return core.projects[1].path == path
+  return core.root_project().path == path
 end
 
 
@@ -801,7 +801,7 @@ command.add(
   ["treeview:delete"] = function(item)
     local filename = item.abs_filename
     local relfilename = item.filename
-    if item.project ~= core.projects[1] then
+    if item.project ~= core.root_project() then
       -- add secondary project dirs names to the file path to show
       relfilename = common.basename(item.dir_name) .. PATHSEP .. relfilename
     end
@@ -865,7 +865,7 @@ command.add(
         end
       end,
       suggest = function(text)
-        return common.path_suggest(text, core.projects[1].path)
+        return common.path_suggest(text)
       end
     })
   end,

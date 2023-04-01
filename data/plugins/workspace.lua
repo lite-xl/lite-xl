@@ -183,7 +183,7 @@ end
 
 
 local function save_directories()
-  local project_dir = core.projects[1].path
+  local project_dir = core.root_project().path
   local dir_list = {}
   for i = 2, #core.projects do
     dir_list[#dir_list + 1] = common.relative_path(project_dir, core.projects[i].path)
@@ -194,19 +194,19 @@ end
 
 local function save_workspace()
   local root = get_unlocked_root(core.root_view.root_node)
-  local workspace_filename = get_workspace_filename(core.projects[1].path)
+  local workspace_filename = get_workspace_filename(core.root_project().path)
   local fp = io.open(workspace_filename, "w")
   if fp then
     local node_text = common.serialize(save_node(root))
     local dir_text = common.serialize(save_directories())
-    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.projects[1].path, node_text, dir_text))
+    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.root_project().path, node_text, dir_text))
     fp:close()
   end
 end
 
 
 local function load_workspace()
-  local workspace = consume_workspace_file(core.projects[1].path)
+  local workspace = consume_workspace_file(core.root_project().path)
   if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
     local active_view = load_node(root, workspace.documents)

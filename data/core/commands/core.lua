@@ -10,9 +10,9 @@ local restore_title_view = false
 
 local function suggest_directory(text)
   text = common.home_expand(text)
-  local basedir = common.dirname(core.projects[1].path)
+  local basedir = common.dirname(core.root_project().path)
   return common.home_encode_list((basedir and text == basedir .. PATHSEP or text == "") and
-    core.recent_projects or common.dir_path_suggest(text, core.projects[1].path))
+    core.recent_projects or common.dir_path_suggest(text, core.root_project().path))
 end
 
 local function check_directory_path(path)
@@ -127,7 +127,7 @@ command.add(nil, {
       local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
       if dirname then
         dirname = core.normalize_to_project_dir(dirname)
-        text = dirname == core.projects[1].path and "" or common.home_encode(dirname) .. PATHSEP
+        text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
       end
     end
     core.command_view:enter("Open File", {
@@ -137,7 +137,7 @@ command.add(nil, {
         core.root_view:open_doc(core.open_doc(filename))
       end,
       suggest = function (text)
-          return common.home_encode_list(common.path_suggest(common.home_expand(text), core.projects[1].path))
+          return common.home_encode_list(common.path_suggest(common.home_expand(text)))
         end,
       validate = function(text)
           local filename = common.home_expand(text)
@@ -182,7 +182,7 @@ command.add(nil, {
   end,
 
   ["core:change-project-folder"] = function()
-    local dirname = common.dirname(core.projects[1].path)
+    local dirname = common.dirname(core.root_project().path)
     local text
     if dirname then
       text = common.home_encode(dirname) .. PATHSEP
@@ -196,7 +196,7 @@ command.add(nil, {
           core.error("Cannot open directory %q", path)
           return
         end
-        if abs_path == core.projects[1].path then return end
+        if abs_path == core.root_project().path then return end
         core.confirm_close_docs(core.docs, function(dirpath)
           core.open_project(dirpath)
         end, abs_path)
@@ -206,7 +206,7 @@ command.add(nil, {
   end,
 
   ["core:open-project-folder"] = function()
-    local dirname = common.dirname(core.projects[1].path)
+    local dirname = common.dirname(core.root_project().path)
     local text
     if dirname then
       text = common.home_encode(dirname) .. PATHSEP
@@ -220,7 +220,7 @@ command.add(nil, {
           core.error("Cannot open directory %q", path)
           return
         end
-        if abs_path == core.projects[1].path then
+        if abs_path == core.root_project().path then
           core.error("Directory %q is currently opened", abs_path)
           return
         end
