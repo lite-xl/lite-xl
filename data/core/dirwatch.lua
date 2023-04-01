@@ -100,7 +100,14 @@ function dirwatch:check(change_callback, scan_time, wait_time)
       end
       change_callback(path)
     elseif self.reverse_watched[id] then
-      change_callback(self.reverse_watched[id])
+    local info = system.get_file_info(path)
+      local path = self.reverse_watched[id]
+      change_callback(path)
+      local info = system.get_file_info(path)
+      if info and info.type == "file" then
+        self:unwatch(path)
+        self:watch(path)
+      end
     end
   end)
   local start_time = system.get_time()
@@ -121,116 +128,5 @@ function dirwatch:check(change_callback, scan_time, wait_time)
   end
   return had_change
 end
-
-
--- inspect config.ignore_files patterns and prepare ready to use entries.
-local function compile_ignore_files()
-  local ipatterns = config.ignore_files
-  local compiled = {}
-  -- config.ignore_files could be a simple string...
-  if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
-  for i, pattern in ipairs(ipatterns) do
-    -- we ignore malformed pattern that raise an error
-    if pcall(string.match, "a", pattern) then
-      table.insert(compiled, {
-        use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
-        -- An '/' or '/$' at the end means we want to match a directory.
-        match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
-        pattern = pattern -- get the actual pattern
-      })
-    end
-  end
-  return compiled
-end
-
-
-local function fileinfo_pass_filter(info, ignore_compiled)
-  if info.size >= config.file_size_limit * 1e6 then return false end
-  local basename = common.basename(info.filename)
-  -- replace '\' with '/' for Windows where PATHSEP = '\'
-  local fullname = "/" .. info.filename:gsub("\\", "/")
-  for _, compiled in ipairs(ignore_compiled) do
-    local test = compiled.use_path and fullname or basename
-    if compiled.match_dir then
-      if info.type == "dir" and string.match(test .. "/", compiled.pattern) then
-        return false
-      end
-    else
-      if string.match(test, compiled.pattern) then
-        return false
-      end
-    end
-  end
-  return true
-end
-
-
-local function compare_file(a, b)
-  return system.path_compare(a.filename, a.type, b.filename, b.type)
-end
-
-
--- compute a file's info entry completed with "filename" to be used
--- in project scan or falsy if it shouldn't appear in the list.
-local function get_project_file_info(root, file, ignore_compiled)
-  local info = system.get_file_info(root .. PATHSEP .. file)
-  -- info can be not nil but info.type may be nil if is neither a file neither
-  -- a directory, for example for /dev/* entries on linux.
-  if info and info.type then
-    info.filename = file
-    return fileinfo_pass_filter(info, ignore_compiled) and info
-  end
-end
-
-
--- "root" will by an absolute path without trailing '/'
--- "path" will be a path starting without '/' and without trailing '/'
---    or the empty string.
---    It will identifies a sub-path within "root.
--- The current path location will therefore always be: root .. path.
--- When recursing "root" will always be the same, only "path" will change.
--- Returns a list of file "items". In each item the "filename" will be the
--- complete file path relative to "root" *without* the trailing '/', and without the starting '/'.
-function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse_pred)
-  local t0 = system.get_time()
-  local t_elapsed = system.get_time() - t0
-  local dirs, files = {}, {}
-  local ignore_compiled = compile_ignore_files()
-
-
-  local all = system.list_dir(root .. PATHSEP .. path)
-  if not all then return nil end
-
-  for _, file in ipairs(all or {}) do
-    local info = get_project_file_info(root, (path ~= "" and (path .. PATHSEP) or "") .. file, ignore_compiled)
-    if info then
-      table.insert(info.type == "dir" and dirs or files, info)
-      entries_count = entries_count + 1
-    end
-  end
-
-  local recurse_complete = true
-  table.sort(dirs, compare_file)
-  for _, f in ipairs(dirs) do
-    table.insert(t, f)
-    if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
-      local _, complete, n = dirwatch.get_directory_files(dir, root, f.filename, t, entries_count, recurse_pred)
-      recurse_complete = recurse_complete and complete
-      if n ~= nil then
-        entries_count = n
-      end
-    else
-      recurse_complete = false
-    end
-  end
-
-  table.sort(files, compare_file)
-  for _, f in ipairs(files) do
-    table.insert(t, f)
-  end
-
-  return t, recurse_complete, entries_count
-end
-
 
 return dirwatch

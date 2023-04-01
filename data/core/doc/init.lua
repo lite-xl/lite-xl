@@ -24,7 +24,7 @@ function Doc:new(filename, abs_filename, new_file)
   if filename then
     self:set_filename(filename, abs_filename)
     if not new_file then
-      self:load(filename)
+      self:load(abs_filename)
     end
   end
 end
@@ -99,7 +99,7 @@ function Doc:save(filename, abs_filename)
   else
     assert(self.filename or abs_filename, "calling save on unnamed doc without absolute path")
   end
-  local fp = assert( io.open(filename, "wb") )
+  local fp = assert( io.open(abs_filename, "wb") )
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)

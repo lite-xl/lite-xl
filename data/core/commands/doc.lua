@@ -550,6 +550,7 @@ local commands = {
     elseif last_doc and last_doc.filename then
       local dirname, filename = core.last_active_view.doc.abs_filename:match("(.*)[/\\](.+)$")
       text = core.normalize_to_project_dir(dirname) .. PATHSEP
+      if text == core.projects[1].path then text = "" end
     end
     core.command_view:enter("Save As", {
       text = text,
@@ -557,7 +558,7 @@ local commands = {
         save(common.home_expand(filename))
       end,
       suggest = function (text)
-        return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+        return common.home_encode_list(common.path_suggest(common.home_expand(text), core.projects[1].path))
       end
     })
   end,

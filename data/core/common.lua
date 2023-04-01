@@ -137,8 +137,8 @@ end
 
 
 function common.path_suggest(text, root)
-  if root and root:sub(-1) ~= PATHSEP then
-    root = root .. PATHSEP
+  if root and root:sub(-1) == PATHSEP then
+    root = root:sub(1, #root - 1)
   end
   local path, name = text:match("^(.-)([^/\\]*)$")
   local clean_dotslash = false
@@ -148,8 +148,8 @@ function common.path_suggest(text, root)
     if path == "" then
       path = root or "."
       clean_dotslash = not root
-    else
-      path = (root or "") .. path
+    elseif root then
+      path = root .. PATHSEP .. path
     end
   end
 
@@ -171,7 +171,7 @@ function common.path_suggest(text, root)
         -- remove root part from file path
         local s, e = file:find(root, nil, true)
         if s == 1 then
-          file = file:sub(e + 1)
+          file = file:sub(e + 2)
         end
       elseif clean_dotslash then
         -- remove added dot slash
@@ -189,9 +189,9 @@ function common.path_suggest(text, root)
 end
 
 
-function common.dir_path_suggest(text)
+function common.dir_path_suggest(text, root)
   local path, name = text:match("^(.-)([^/\\]*)$")
-  local files = system.list_dir(path == "" and "." or path) or {}
+  local files = system.list_dir(path == "" and (root or ".") or path) or {}
   local res = {}
   for _, file in ipairs(files) do
     file = path .. file

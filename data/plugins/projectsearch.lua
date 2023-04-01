@@ -55,13 +55,14 @@ function ResultsView:begin_search(path, text, fn)
 
   core.add_thread(function()
     local i = 1
-    for dir_name, file in core.get_project_files() do
-      if file.type == "file" and (not path or (dir_name .. "/" .. file.filename):find(path, 1, true) == 1) then
-        local truncated_path = (dir_name == core.project_dir and "" or (dir_name .. PATHSEP))
-        find_all_matches_in_file(self.results, truncated_path .. file.filename, fn)
+    for k, project in ipairs(core.projects) do
+      for dir_name, file in project:files() do
+        if file.type == "file" and (not path or file.filename:find(path, 1, true) == 1) then
+          find_all_matches_in_file(self.results, file.filename, fn)
+        end
+        self.last_file_idx = i
+        i = i + 1
       end
-      self.last_file_idx = i
-      i = i + 1
     end
     self.searching = false
     self.brightness = 100
@@ -172,17 +173,11 @@ function ResultsView:draw()
   local ox, oy = self:get_content_offset()
   local x, y = ox + style.padding.x, oy + style.padding.y
   local files_number = core.project_files_number()
-  local per = common.clamp(files_number and self.last_file_idx / files_number or 1, 0, 1)
+  local per = common.clamp(1, 0, 1)
   local text
   if self.searching then
-    if files_number then
-      text = string.format("Searching %.f%% (%d of %d files, %d matches) for %q...",
-        per * 100, self.last_file_idx, files_number,
-        #self.results, self.query)
-    else
-      text = string.format("Searching (%d files, %d matches) for %q...",
-        self.last_file_idx, #self.results, self.query)
-    end
+    text = string.format("Searching (%d files, %d matches) for %q...",
+      self.last_file_idx, #self.results, self.query)
   else
     text = string.format("Found %d matches for %q",
       #self.results, self.query)
@@ -310,7 +305,7 @@ end
 
 command.add(nil, {
   ["project-search:find"] = function(path)
-    core.command_view:enter("Find Text In " .. (normalize_path(path) or "Project"), {
+    core.command_view:enter("Find Text In " .. (path or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
@@ -320,7 +315,7 @@ command.add(nil, {
   end,
 
   ["project-search:find-regex"] = function(path)
-    core.command_view:enter("Find Regex In " .. (normalize_path(path) or "Project"), {
+    core.command_view:enter("Find Regex In " .. (path or "Project"), {
       submit = function(text)
         projectsearch.search_regex(text, path, true)
       end
@@ -328,7 +323,7 @@ command.add(nil, {
   end,
 
   ["project-search:fuzzy-find"] = function(path)
-    core.command_view:enter("Fuzzy Find Text In " .. (normalize_path(path) or "Project"), {
+    core.command_view:enter("Fuzzy Find Text In " .. (path or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
