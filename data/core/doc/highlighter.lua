@@ -19,25 +19,34 @@ function Highlighter:start()
   if self.running then return end
   self.running = true
   core.add_thread(function()
-    while self.first_invalid_line < self.max_wanted_line do
+    while self.first_invalid_line <= self.max_wanted_line do
       local max = math.min(self.first_invalid_line + 40, self.max_wanted_line)
       local retokenized_from
       for i = self.first_invalid_line, max do
         local state = (i > 1) and self.lines[i - 1].state
         local line = self.lines[i]
-        if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
+        if line and line.resume and (line.init_state ~= state or line.text ~= self.doc.lines[i]) then
+          -- Reset the progress if no longer valid
+          line.resume = nil
+        end
+        if not (line and line.init_state == state and line.text == self.doc.lines[i] and not line.resume) then
           retokenized_from = retokenized_from or i
-          self.lines[i] = self:tokenize_line(i, state)
+          self.lines[i] = self:tokenize_line(i, state, line and line.resume)
+          if self.lines[i].resume then
+            self.first_invalid_line = i
+            goto yield
+          end
         elseif retokenized_from then
           self:update_notify(retokenized_from, i - retokenized_from - 1)
           retokenized_from = nil
         end
       end
+
+      self.first_invalid_line = max + 1
+      ::yield::
       if retokenized_from then
         self:update_notify(retokenized_from, max - retokenized_from)
       end
-
-      self.first_invalid_line = max + 1
       core.redraw = true
       coroutine.yield()
     end
@@ -48,7 +57,7 @@ end
 
 local function set_max_wanted_lines(self, amount)
   self.max_wanted_line = amount
-  if self.first_invalid_line < self.max_wanted_line then
+  if self.first_invalid_line <= self.max_wanted_line then
     self:start()
   end
 end
@@ -91,11 +100,11 @@ function Highlighter:update_notify(line, n)
 end
 
 
-function Highlighter:tokenize_line(idx, state)
+function Highlighter:tokenize_line(idx, state, resume)
   local res = {}
   res.init_state = state
   res.text = self.doc.lines[idx]
-  res.tokens, res.state = tokenizer.tokenize(self.doc.syntax, res.text, state)
+  res.tokens, res.state, res.resume = tokenizer.tokenize(self.doc.syntax, res.text, state, resume)
   return res
 end
 
