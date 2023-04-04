@@ -84,7 +84,6 @@ function TreeView:get_cached(project, path)
     if not self.watches[project] then self.watches[project] = Dirwatch.new() end
     local truncated = path:sub(#project.path + 2)
     local basename = common.basename(path)
-    print("BASEN", path, basename)
     local info
     if self.show_ignored then
       info = system.get_file_info(path)
