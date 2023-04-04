@@ -86,28 +86,6 @@ command.add(nil, {
     })
   end,
 
-  ["core:find-file"] = function()
-    if not core.project_files_number() then
-       return command.perform "core:open-file"
-    end
-    local files = {}
-    for dir, item in core.get_project_files() do
-      if item.type == "file" then
-        local path = (dir == core.project_dir and "" or dir .. PATHSEP)
-        table.insert(files, common.home_encode(path .. item.filename))
-      end
-    end
-    core.command_view:enter("Open File From Project", {
-      submit = function(text, item)
-        text = item and item.text or text
-        core.root_view:open_doc(core.open_doc(common.home_expand(text)))
-      end,
-      suggest = function(text)
-        return common.fuzzy_match_with_recents(files, core.visited_files, text)
-      end
-    })
-  end,
-
   ["core:new-doc"] = function()
     core.root_view:open_doc(core.open_doc())
   end,
