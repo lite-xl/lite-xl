@@ -110,17 +110,6 @@ function core.open_project(project)
 end
 
 
-function core.open_folder_project(dir_path_abs)
-  if core.set_project_dir(dir_path_abs, core.on_quit_project) then
-    core.root_view:close_all_docviews()
-    reload_customizations()
-    update_recents_project("add", dir_path_abs)
-    core.add_project_directory(dir_path_abs)
-    core.on_enter_project(dir_path_abs)
-  end
-end
-
-
 local function strip_trailing_slash(filename)
   if filename:match("[^:][/\\]$") then
     return filename:sub(1, -2)
