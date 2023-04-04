@@ -309,7 +309,7 @@ end
 function common.basename(path)
   -- a path should never end by / or \ except if it is '/' (unix root) or
   -- 'X:\' (windows drive)
-  return path:match("[^\\/]+$") or path
+  return path:match("[^" .. PATHSEP .. "]+$") or path
 end
 
 

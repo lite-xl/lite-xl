@@ -33,11 +33,14 @@ local tooltip_alpha_rate = 1
 local function get_depth(filename)
   if filename == "" then return 0 end
   local n = 1
-  for sep in filename:gmatch("[\\/]") do
-    n = n + 1
+  for sep in filename:gmatch("\\*" .. PATHSEP) do
+    if #sep % 2 == 1 then
+      n = n + 1
+    end
   end
   return n
 end
+
 
 local function replace_alpha(color, alpha)
   local r, g, b = table.unpack(color)
@@ -81,6 +84,7 @@ function TreeView:get_cached(project, path)
     if not self.watches[project] then self.watches[project] = Dirwatch.new() end
     local truncated = path:sub(#project.path + 2)
     local basename = common.basename(path)
+    print("BASEN", path, basename)
     local info
     if self.show_ignored then
       info = system.get_file_info(path)
