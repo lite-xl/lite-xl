@@ -63,8 +63,8 @@ function TreeView:new()
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
   self.cursor_pos = { x = 0, y = 0 }
 
-  self.item_icon_width = 0
-  self.item_text_spacing = 0
+  self.item_icon_width = style.icon_font:get_width("D")
+  self.item_text_spacing = style.icon_font:get_width("f") / 2
   self.watches = { }
 end
 
@@ -290,9 +290,6 @@ function TreeView:update()
   else
     self.tooltip.alpha = 0
   end
-
-  self.item_icon_width = style.icon_font:get_width("D")
-  self.item_text_spacing = style.icon_font:get_width("f") / 2
 
   -- this will make sure hovered_item is updated
   -- we don't want events when the thing is scrolling fast

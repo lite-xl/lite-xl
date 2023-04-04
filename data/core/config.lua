@@ -52,6 +52,7 @@ config.draw_whitespace = false
 config.borderless = false
 config.tab_close_button = true
 config.max_clicks = 3
+config.restart_on_config_change = true
 
 -- set as true to be able to test non supported plugins
 config.skip_plugins_version = false

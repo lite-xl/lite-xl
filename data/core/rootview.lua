@@ -356,7 +356,11 @@ end
 
 
 function RootView:update()
-  Node.copy_position_and_size(self.root_node, self)
+  if self.size.x ~= self.root_node.size.x or self.size.y ~= self.root_node.size.y or self.position.x ~= self.root_node.position.x or self.position.y ~= self.root_node.position.y then
+    Node.copy_position_and_size(self.root_node, self)
+    -- we call this before, to fix a chicken-and-the-egg problem on the first few frames
+    self.root_node:update_layout()
+  end
   self.root_node:update()
   self.root_node:update_layout()
 

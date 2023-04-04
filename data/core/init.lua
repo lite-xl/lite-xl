@@ -55,27 +55,6 @@ local function update_recents_project(action, dir_path_abs)
 end
 
 
-local function reload_customizations()
-  local user_error = not core.load_user_directory()
-  local project_error = not core.load_project_module()
-  if user_error or project_error then
-    -- Use core.add_thread to delay opening the LogView, as opening
-    -- it directly here disturbs the normal save operations.
-    core.add_thread(function()
-      local LogView = require "core.logview"
-      local rn = core.root_view.root_node
-      for _,v in pairs(core.root_view.root_node:get_children()) do
-        if v:is(LogView) then
-          rn:get_node_for_view(v):set_active_view(v)
-          return
-        end
-      end
-      command.perform("core:open-log")
-    end)
-  end
-end
-
-
 function core.add_project(project)
   project = type(project) == "string" and Project.new(common.normalize_volume(project)) or project
   table.insert(core.projects, project)
@@ -105,8 +84,8 @@ end
 function core.open_project(project)
   local project = core.set_project(project)
   core.root_view:close_all_docviews()
-  reload_customizations()
   update_recents_project("add", project.path)
+  core.restart()
 end
 
 
@@ -150,7 +129,7 @@ local style = require "core.style"
 ------------------------------ Themes ----------------------------------------
 
 -- light theme:
--- core.reload_module("colors.summer")
+-- require "colors.summer"
 
 --------------------------- Key bindings -------------------------------------
 
@@ -285,14 +264,15 @@ end
 
 local function add_config_files_hooks()
   -- auto-realod style when user's module is saved by overriding Doc:Save()
-  local doc_save = Doc.save
-  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  function Doc:save(filename, abs_filename)
-    local module_filename = system.absolute_path(".lite_project.lua")
-    doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename or self.abs_filename == module_filename then
-      reload_customizations()
-      core.configure_borderless_window()
+  if config.restart_on_config_change then
+    local doc_save = Doc.save
+    local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
+    function Doc:save(filename, abs_filename)
+      local module_filename = system.absolute_path(".lite_project.lua")
+      doc_save(self, filename, abs_filename)
+      if self.abs_filename == user_filename or self.abs_filename == module_filename then
+        core.restart()
+      end
     end
   end
 end
@@ -318,6 +298,7 @@ end
 
 
 function core.init()
+  print("RESTART")
   core.log_items = {}
   core.log_quiet("Lite XL version %s - mod-version %s", VERSION, MOD_VERSION_STRING)
 
@@ -437,13 +418,12 @@ function core.init()
       os.exit(1)
     end
   end
-
   -- Load core plugins after user ones to let the user override them
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %s", pname, pdir)
+    if not RESTARTED then core.log("Opening project %q from directory %s", pname, pdir) end
   end
 
   for _, filename in ipairs(files) do
@@ -539,7 +519,6 @@ end
 function core.exit(quit_fn, force)
   if force then
     core.delete_temp_files()
-    while #core.projects > 0 do core.remove_project(core.projects[#core.projects], true) end
     save_session()
     quit_fn()
   else
@@ -709,17 +688,6 @@ function core.load_project_module()
     end)
   end
   return true
-end
-
-
-function core.reload_module(name)
-  local old = package.loaded[name]
-  package.loaded[name] = nil
-  local new = require(name)
-  if type(old) == "table" then
-    for k, v in pairs(new) do old[k] = v end
-    package.loaded[name] = old
-  end
 end
 
 
@@ -957,7 +925,6 @@ function core.compose_window_title(title)
   return (title == "" or title == nil) and "Lite XL" or title .. " - Lite XL"
 end
 
-
 function core.step()
   -- handle events
   local did_keymap = false
@@ -1045,6 +1012,9 @@ end)
 
 function core.run()
   local next_step
+  -- For our initial load, we disable transitions, so that things snap into place.
+  local transitions = config.transitions
+  config.transitions = false
   while true do
     core.frame_start = system.get_time()
     local time_to_wake = run_threads()
@@ -1079,6 +1049,7 @@ function core.run()
       next_step = next_step or (now + next_frame)
       system.sleep(math.min(next_frame, time_to_wake))
     end
+    config.transitions = transitions
   end
 end
 

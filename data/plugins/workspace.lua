@@ -216,6 +216,7 @@ local function load_workspace()
     for i, dir_name in ipairs(workspace.directories) do
       core.add_project(system.absolute_path(dir_name))
     end
+    core.root_view:update()
   end
 end
 
