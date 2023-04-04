@@ -298,7 +298,6 @@ end
 
 
 function core.init()
-  print("RESTART")
   core.log_items = {}
   core.log_quiet("Lite XL version %s - mod-version %s", VERSION, MOD_VERSION_STRING)
 
