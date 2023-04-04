@@ -801,13 +801,14 @@ function core.normalize_to_project_dir(path) return core.root_project():normaliz
 function core.project_absolute_path(path) return core.root_project():absolute_path(path) end
 
 function core.open_doc(filename)
-  local new_file = not filename or not system.get_file_info(filename)
+  local new_file = true
   local abs_filename
   if filename then
     -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
     filename = core.root_project():normalize_path(filename)
     abs_filename = core.root_project():absolute_path(filename)
+    new_file = not system.get_file_info(abs_filename)
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
