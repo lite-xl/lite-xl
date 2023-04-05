@@ -92,7 +92,7 @@ jobs:
       - name: Upload DMG Image
         uses: actions/upload-artifact@v3
         with:
-          name: macOS DMG Images (x86_64 or arm64)
+          name: macOS DMG Images
           path: ${{ env.INSTALL_NAME }}.dmg
 
   build_windows_msys2:
