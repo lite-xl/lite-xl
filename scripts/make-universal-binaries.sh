@@ -22,7 +22,7 @@ for dmg_path in "$DMGDIR"/*.dmg; do
 	dmg="${dmg%%.*}"
 	hdiutil attach -mountpoint "/Volumes/$dmg" "$dmg_path"
 	if [[ ! -d "$WORKDIR/dmg" ]]; then
-		ditto "/Volumes/$dmg/Lite XL.app" .
+		ditto "/Volumes/$dmg/Lite XL.app" "Lite XL.app"
 	fi
 	cp "/Volumes/$dmg/Lite XL.app/Contents/MacOS/lite-xl" "$WORKDIR/$dmg-lite-xl"
 	hdiutil detach "/Volumes/$dmg"
