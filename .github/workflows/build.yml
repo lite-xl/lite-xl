@@ -54,11 +54,14 @@ jobs:
           path: ${{ env.INSTALL_NAME }}.tar.gz
 
   build_macos:
-    name: macOS (x86_64)
+    name: macOS
     runs-on: macos-11
     env:
       CC: clang
       CXX: clang++
+    strategy:
+      matrix:
+        arch: ['x86_64', 'arm64']
     steps:
       - name: System Information
         run: |
@@ -71,6 +74,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-$(uname -m)" >> "$GITHUB_ENV"
+          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
       - uses: actions/checkout@v3
       - name: Python Setup
         uses: actions/setup-python@v4
@@ -81,13 +85,13 @@ jobs:
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback
+          bash scripts/build.sh --bundle --debug --forcefallback $ARCH
       - name: Create DMG Image
-        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg
+        run: bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg
       - name: Upload DMG Image
         uses: actions/upload-artifact@v3
         with:
-          name: macOS DMG Image
+          name: macOS DMG Images (x86_64 / arm64)
           path: ${{ env.INSTALL_NAME }}.dmg
 
   build_windows_msys2:
