@@ -115,8 +115,6 @@ jobs:
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
-          echo "UNIVERSAL_INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-universal" >> "$GITHUB_ENV"
-          echo "UNIVERSAL_INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-universal" >> "$GITHUB_ENV"
           if [[ $(uname -m) != ${{ matrix.arch }} ]]; then
             echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"
           fi
