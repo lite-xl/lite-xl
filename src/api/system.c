@@ -1021,11 +1021,11 @@ static int f_load_native_plugin(lua_State *L) {
    order used in the TreeView view of the project's files. Returns true iff
    path1 < path2 in the TreeView order. */
 static int f_path_compare(lua_State *L) {
-  const char *path1 = luaL_checkstring(L, 1);
+  size_t len1, len2;
+  const char *path1 = luaL_checklstring(L, 1, &len1);
   const char *type1_s = luaL_checkstring(L, 2);
-  const char *path2 = luaL_checkstring(L, 3);
+  const char *path2 = luaL_checklstring(L, 3, &len2);
   const char *type2_s = luaL_checkstring(L, 4);
-  const int len1 = strlen(path1), len2 = strlen(path2);
   int type1 = strcmp(type1_s, "dir") != 0;
   int type2 = strcmp(type2_s, "dir") != 0;
   /* Find the index of the common part of the path. */
