@@ -17,8 +17,9 @@ fi
 rm -rf "$WORKDIR"
 mkdir -p "$WORKDIR"
 
-for dmg in "$DMGDIR"/*.dmg; do
-	dmg_path="$DMGDIR/$dmg"
+for dmg_path in "$DMGDIR"/*.dmg; do
+	dmg="${dmg_path##*/}"
+	dmg="${dmg%%.*}"
 	hdiutil attach -mountpoint "/Volumes/$dmg" "$dmg_path"
 	if [[ ! -d "$WORKDIR/dmg" ]]; then
 		ditto "/Volumes/$dmg/Lite XL.app" .
