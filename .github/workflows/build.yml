@@ -96,7 +96,7 @@ jobs:
           path: ${{ env.INSTALL_NAME }}.dmg
 
   build_macos_universal:
-    name: macOS
+    name: macOS (universal)
     runs-on: macos-11
     needs: build_macos
     steps:
