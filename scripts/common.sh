@@ -87,8 +87,8 @@ get_platform_arch() {
 }
 
 get_default_build_dir() {
-  platform=$(get_platform_name)
-  arch=$(get_platform_arch)
+  platform="${1:-$(get_platform_name)}"
+  arch="${2:-$(get_platform_arch)}"
   echo "build-$platform-$arch"
 }
 
