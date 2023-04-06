@@ -180,8 +180,8 @@ jobs:
       - name: Move files into correct folders
         run: |
           mkdir -p dmgs-addons dmgs-normal
-          mv -v "$INSTALL_BASE-x86_64.dmg" "$INSTALL_BASE-arm64.dmg" dmgs-normal
-          mv -v "$INSTALL_BASE_ADDONS-x86_64.dmg" "$INSTALL_BASE_ADDONS-amd64.dmg" dmgs-addons
+          mv -v "dmgs/$INSTALL_BASE-"{x86_64,arm64}.dmg dmgs-normal
+          mv -v "dmgs/$INSTALL_BASE_ADDONS-"{x86_64,arm64}.dmg dmgs-addons
       - name: Create Universal DMGs
         run: |
           bash --version
