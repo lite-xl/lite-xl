@@ -19,7 +19,7 @@ mkdir -p "$WORKDIR"
 
 for dmg_path in "$DMGDIR"/*.dmg; do
 	dmg="${dmg_path##*/}"
-	dmg="${dmg%%.*}"
+	dmg="${dmg%.dmg}"
 	hdiutil attach -mountpoint "/Volumes/$dmg" "$dmg_path"
 	if [[ ! -d "$WORKDIR/dmg" ]]; then
 		ditto "/Volumes/$dmg/Lite XL.app" "Lite XL.app"
