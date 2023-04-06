@@ -15,7 +15,7 @@ on:
 jobs:
   release:
     name: Create Release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.tag.outputs.version }}
@@ -49,7 +49,7 @@ jobs:
   build_linux:
     name: Linux
     needs: release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     env:
       CC: gcc
       CXX: g++
