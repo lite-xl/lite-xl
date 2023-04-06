@@ -116,7 +116,7 @@ jobs:
         id: download
         with:
           name: macOS DMG Images
-          path: original-dmg
+          path: dmgs-original
       - name: Install appdmg
         run: cd ~; npm i appdmg; cd -
       - name: Make universal bundles

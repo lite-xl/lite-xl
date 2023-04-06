@@ -115,9 +115,7 @@ jobs:
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
-          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then
-            echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"
-          fi
+          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
       - uses: actions/checkout@v3
       - name: Python Setup
         uses: actions/setup-python@v4
@@ -133,7 +131,7 @@ jobs:
         run: |
           bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg --release
           bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --addons --dmg --release
-      - name: Upload artifact for processing
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: macOS DMG Images
@@ -166,22 +164,23 @@ jobs:
           echo "INSTALL_BASE=lite-xl-${{ needs.release.outputs.version }}-macos" >> "$GITHUB_ENV"
           echo "INSTALL_BASE_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos" >> "$GITHUB_ENV"
       - uses: actions/checkout@v2
-      - name: Download x86_64 artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v3
+        id: download
         with:
           name: macOS DMG Images
-          path: dmgs
+          path: dmgs-original
       - name: Python Setup
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
       - name: Install Dependencies
         run: bash scripts/install-dependencies.sh --debug
-      - name: Move files into correct folders
+      - name: Prepare DMG Images
         run: |
           mkdir -p dmgs-addons dmgs-normal
-          mv -v "dmgs/$INSTALL_BASE-"{x86_64,arm64}.dmg dmgs-normal
-          mv -v "dmgs/$INSTALL_BASE_ADDONS-"{x86_64,arm64}.dmg dmgs-addons
+          mv -v "${{ steps.download.outputs.download-path }}/$INSTALL_BASE-"{x86_64,arm64}.dmg dmgs-normal
+          mv -v "${{ steps.download.outputs.download-path }}/$INSTALL_BASE_ADDONS-"{x86_64,arm64}.dmg dmgs-addons
       - name: Create Universal DMGs
         run: |
           bash --version
