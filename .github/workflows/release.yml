@@ -151,7 +151,7 @@ jobs:
 
   build_macos_universal:
     name: macOS
-    needs: build_macos
+    needs: [release, build_macos]
     runs-on: macos-11
     steps:
       - name: System Information
