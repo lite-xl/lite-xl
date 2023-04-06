@@ -150,7 +150,7 @@ jobs:
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
 
   build_macos_universal:
-    name: macOS
+    name: macOS (Universal)
     needs: [release, build_macos]
     runs-on: macos-11
     steps:
