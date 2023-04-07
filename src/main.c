@@ -247,7 +247,7 @@ init_lua:
     "    error_dir=system.absolute_path('.')\n"
     "    local fp = io.open('error.txt', 'wb')\n"
     "    fp:write('Error: ' .. tostring(err) .. '\\n')\n"
-    "    fp:write(debug.traceback(nil, 4)..'\\n')\n"
+    "    fp:write(debug.traceback(nil, 2)..'\\n')\n"
     "    fp:close()\n"
     "  end\n"
     "  system.show_fatal_error('Lite XL internal error',\n"
