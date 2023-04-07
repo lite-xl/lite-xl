@@ -323,7 +323,7 @@ local commands = {
   end,
 
   ["doc:delete"] = function(dv)
-    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections(true, true) do
       if line1 == line2 and col1 == col2 and dv.doc.lines[line1]:find("^%s*$", col1) then
         dv.doc:remove(line1, col1, line1, math.huge)
       end
@@ -333,7 +333,7 @@ local commands = {
 
   ["doc:backspace"] = function(dv)
     local _, indent_size = dv.doc:get_indent_info()
-    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections(true, true) do
       if line1 == line2 and col1 == col2 then
         local text = dv.doc:get_text(line1, 1, line1, col1)
         if #text >= indent_size and text:find("^ *$") then
