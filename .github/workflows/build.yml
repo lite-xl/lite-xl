@@ -95,7 +95,9 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        msystem: [MINGW32, MINGW64]
+        config:
+          - {msystem: MINGW32, arch: i686}
+          - {msystem: MINGW64, arch: x86_64}
     defaults:
       run:
         shell: msys2 {0}
@@ -103,12 +105,16 @@ jobs:
     - uses: actions/checkout@v3
     - uses: msys2/setup-msys2@v2
       with:
-        msystem: ${{ matrix.msystem }}
-        update: true
+        msystem: ${{ matrix.config.msystem }}
         install: >-
           base-devel
           git
           zip
+          mingw-w64-${{ matrix.config.arch }}-gcc
+          mingw-w64-${{ matrix.config.arch }}-meson
+          mingw-w64-${{ matrix.config.arch }}-ninja
+          mingw-w64-${{ matrix.config.arch }}-ca-certificates
+          mingw-w64-${{ matrix.config.arch }}-ntldd
     - name: Set Environment Variables
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -119,6 +125,7 @@ jobs:
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
         fi
     - name: Install Dependencies
+      if: false
       run: bash scripts/install-dependencies.sh --debug
     - name: Build
       run: |
@@ -157,8 +164,11 @@ jobs:
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
         run: |
-          meson setup --wrap-mode=forcefallback build
+          # Download the subprojects first so we can patch it before configuring.
+          # This avoids reconfiguring the subprojects when compiling.
+          meson subprojects download
           Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
+          meson setup --wrap-mode=forcefallback build
       - name: Build
         run: |
           meson install -C build --destdir="../lite-xl"
