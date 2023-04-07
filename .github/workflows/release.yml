@@ -61,6 +61,7 @@ jobs:
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - name: Python Setup
+        if: false
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
