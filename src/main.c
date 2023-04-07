@@ -239,7 +239,7 @@ init_lua:
     "end, function(err)\n"
     "  local error_dir\n"
     "  io.stdout:write('Error: '..tostring(err)..'\\n')\n"
-    "  io.stdout:write(debug.traceback(nil, 4)..'\\n')\n"
+    "  io.stdout:write(debug.traceback(nil, 2)..'\\n')\n"
     "  if core and core.on_error then\n"
     "    error_dir=USERDIR\n"
     "    pcall(core.on_error, err)\n"
