@@ -928,47 +928,70 @@ typedef struct lua_function_node {
 
 #define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
 #define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
+#define S(FUNC) { #FUNC, (fptr)(FUNC) }
 static void* api_require(const char* symbol) {
   static const lua_function_node nodes[] = {
-    P(atpanic), P(checkstack),
-    P(close), P(concat), P(copy), P(createtable), P(dump),
-    P(error),  P(gc), P(getallocf),  P(getfield),
-    P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
-    P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
-    P(isnumber), P(isstring), P(isuserdata),
-    P(load), P(newstate), P(newthread), P(next),
+    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    U(addlstring), U(addstring), U(addvalue), U(argerror), U(buffinit),
+    U(callmeta), U(checkany), U(checkinteger), U(checklstring),
+    U(checknumber), U(checkoption), U(checkstack), U(checktype),
+    U(checkudata), U(error), U(getmetafield), U(gsub), U(loadstring),
+    U(newmetatable), U(newstate), U(openlibs), U(optinteger), U(optlstring),
+    U(optnumber), U(pushresult), U(ref), U(unref), U(where), P(atpanic),
+    P(checkstack), P(close), P(concat), P(createtable), P(dump), P(error),
+    P(gc), P(getallocf), P(getfield), P(gethook), P(gethookcount),
+    P(gethookmask), P(getinfo), P(getlocal), P(getmetatable), P(getstack),
+    P(gettable), P(gettop), P(getupvalue), P(iscfunction), P(isnumber),
+    P(isstring), P(isuserdata), P(load), P(newstate), P(newthread), P(next),
     P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
     P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber),
-    P(pushstring), P(pushthread),  P(pushvalue),
-    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti),
-    P(rawset), P(rawseti), P(resume),
-    P(setallocf), P(setfield), P(sethook), P(setlocal),
-    P(setmetatable), P(settable), P(settop), P(setupvalue),
-    P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
-    P(tonumberx), P(topointer), P(tothread),  P(touserdata),
-    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove),
-    U(getmetafield), U(callmeta), U(argerror), U(checknumber), U(optnumber),
-    U(checkinteger), U(checkstack), U(checktype), U(checkany),
-    U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
-    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring),
-    U(newstate), U(setfuncs), U(buffinit), U(addlstring), U(addstring),
-    U(addvalue), U(pushresult), U(openlibs), {"api_load_libs", (void*)(api_load_libs)},
-    #if LUA_VERSION_NUM >= 502
-    P(absindex), P(arith), P(callk), P(compare), P(getglobal),
-    P(len), P(pcallk), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
-    P(iscfunction), P(yieldk),
-    U(checkversion_), U(tolstring), U(len), U(getsubtable), U(prepbuffsize),
-    U(pushresultsize), U(buffinitsize), U(checklstring), U(checkoption), U(gsub), U(loadbufferx),
-    U(loadfilex), U(optinteger), U(optlstring), U(requiref), U(traceback),
-    #else
-    P(objlen),
+    P(pushstring), P(pushthread), P(pushvalue), P(pushvfstring), P(rawequal),
+    P(rawget), P(rawgeti), P(rawset), P(rawseti), P(resume), P(setallocf),
+    P(setfield), P(sethook), P(setlocal), P(setmetatable), P(settable),
+    P(settop), P(setupvalue), P(status), P(toboolean), P(tocfunction),
+    P(tolstring), P(topointer), P(tothread), P(touserdata), P(type),
+    P(typename), P(xmove), S(luaopen_base), S(luaopen_debug), S(luaopen_io),
+    S(luaopen_math), S(luaopen_os), S(luaopen_package), S(luaopen_string),
+    S(luaopen_table), S(api_load_libs),
     #endif
-    #if LUA_VERSION_NUM >= 504
-    P(newuserdatauv), P(setiuservalue), P(getiuservalue)
-    #else
-    P(newuserdata), P(setuservalue), P(getuservalue)
+    #if LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    U(buffinitsize), U(checkversion_), U(execresult), U(fileresult),
+    U(getsubtable), U(len), U(loadbufferx), U(loadfilex), U(prepbuffsize),
+    U(pushresultsize), U(requiref), U(setfuncs), U(setmetatable),
+    U(testudata), U(tolstring), U(traceback), P(absindex), P(arith),
+    P(callk), P(compare), P(copy), P(getglobal), P(len), P(pcallk),
+    P(rawgetp), P(rawlen), P(rawsetp), P(setglobal), P(tointegerx),
+    P(tonumberx), P(upvalueid), P(upvaluejoin), P(version), P(yieldk),
+    S(luaopen_coroutine),
     #endif
-
+    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503
+    P(newuserdata),
+    #endif
+    #if LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    P(geti), P(isinteger), P(isyieldable), P(rotate), P(seti),
+    P(stringtonumber), S(luaopen_utf8),
+    #endif
+    #if LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503
+    P(getuservalue), P(setuservalue), S(luaopen_bit32),
+    #endif
+    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502
+    P(insert), P(remove), P(replace),
+    #endif
+    #if LUA_VERSION_NUM == 504
+    U(addgsub), U(typeerror), P(closeslot), P(getiuservalue),
+    P(newuserdatauv), P(resetthread), P(setcstacklimit), P(setiuservalue),
+    P(setwarnf), P(toclose), P(warning),
+    #endif
+    #if LUA_VERSION_NUM == 502
+    U(checkunsigned), U(optunsigned), P(getctx), P(pushunsigned),
+    P(tounsignedx),
+    #endif
+    #if LUA_VERSION_NUM == 501
+    U(findtable), U(loadbuffer), U(loadfile), U(openlib), U(prepbuffer),
+    U(register), U(typerror), P(call), P(cpcall), P(equal), P(getfenv),
+    P(lessthan), P(objlen), P(pcall), P(setfenv), P(setlevel), P(tointeger),
+    P(tonumber), P(yield),
+    #endif
   };
   for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
     if (strcmp(nodes[i].symbol, symbol) == 0)
