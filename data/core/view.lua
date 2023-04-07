@@ -248,6 +248,23 @@ function View:get_content_bounds()
   return x, y, x + self.size.x, y + self.size.y
 end
 
+---@param x number
+---@param y number
+---@param dx number
+---@param dy number
+---@param i number
+function View:on_touch_moved(x, y, dx, dy, i)
+  if not self.scrollable then return end
+  if self.dragging_scrollbar then
+    local delta = self:get_scrollable_size() / self.size.y * dy
+    self.scroll.to.y = self.scroll.to.y + delta
+  end
+  self.hovered_scrollbar = self:scrollbar_overlaps_point(x, y)
+
+  self.scroll.to.y = self.scroll.to.y + -dy
+  self.scroll.to.x = self.scroll.to.x + -dx
+end
+
 
 ---@return number x
 ---@return number y
