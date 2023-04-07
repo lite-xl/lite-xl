@@ -252,6 +252,11 @@ function DocView:scroll_to_line(line, ignore_if_visible, instant)
 end
 
 
+function DocView:supports_text_input()
+  return true
+end
+
+
 function DocView:scroll_to_make_visible(line, col)
   local ox, oy = self:get_content_offset()
   local _, ly = self:get_line_screen_position(line, col)

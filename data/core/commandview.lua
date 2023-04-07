@@ -84,6 +84,11 @@ function CommandView:get_line_screen_position(line, col)
 end
 
 
+function CommandView:supports_text_input()
+  return true
+end
+
+
 function CommandView:get_scrollable_size()
   return 0
 end

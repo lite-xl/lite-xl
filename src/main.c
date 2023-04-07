@@ -212,6 +212,8 @@ init_lua:
     set_macos_bundle_resources(L);
   #endif
 #endif
+  SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
+  SDL_EventState(SDL_TEXTEDITING, SDL_ENABLE);
 
   const char *init_lite_code = \
     "local core\n"
