@@ -50,6 +50,7 @@ jobs:
     name: Linux
     needs: release
     runs-on: ubuntu-latest
+    container: ghcr.io/lite-xl/lite-xl-build-box:latest
     env:
       CC: gcc
       CXX: g++
@@ -66,6 +67,7 @@ jobs:
       - name: Update Packages
         run: sudo apt-get update
       - name: Install Dependencies
+        if: false
         run: |
           bash scripts/install-dependencies.sh --debug
           sudo apt-get install -y ccache
