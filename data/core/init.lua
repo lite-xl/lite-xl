@@ -1338,6 +1338,11 @@ function core.step()
       did_keymap = false
     elseif type == "mousemoved" then
       core.try(core.on_event, type, a, b, c, d)
+    elseif type == "enteringforeground" then
+      -- to break our frame refresh in two if we get entering/entered at the same time.
+      -- required to avoid flashing and refresh issues on mobile
+      core.redraw = true
+      break
     else
       local _, res = core.try(core.on_event, type, a, b, c, d)
       did_keymap = res or did_keymap

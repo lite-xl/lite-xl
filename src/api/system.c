@@ -358,6 +358,21 @@ top:
       lua_pushinteger(L, (lua_Integer)(e.tfinger.dy * h));
       lua_pushinteger(L, e.tfinger.fingerId);
       return 6;
+    case SDL_APP_WILLENTERFOREGROUND:
+    case SDL_APP_DIDENTERFOREGROUND:
+      #ifdef LITE_USE_SDL_RENDERER
+        rencache_invalidate();
+      #else
+        SDL_UpdateWindowSurface(window_renderer.window);
+      #endif
+      lua_pushstring(L, e.type == SDL_APP_WILLENTERFOREGROUND ? "enteringforeground" : "enteredforeground");
+      return 1;
+    case SDL_APP_WILLENTERBACKGROUND:
+      lua_pushstring(L, "enteringbackground");
+      return 1;
+    case SDL_APP_DIDENTERBACKGROUND:
+      lua_pushstring(L, "enteredbackground");
+      return 1;
 
     default:
       goto top;
