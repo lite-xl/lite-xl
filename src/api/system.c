@@ -1059,11 +1059,11 @@ static int f_load_native_plugin(lua_State *L) {
    order used in the TreeView view of the project's files. Returns true iff
    path1 < path2 in the TreeView order. */
 static int f_path_compare(lua_State *L) {
-  const char *path1 = luaL_checkstring(L, 1);
+  size_t len1, len2;
+  const char *path1 = luaL_checklstring(L, 1, &len1);
   const char *type1_s = luaL_checkstring(L, 2);
-  const char *path2 = luaL_checkstring(L, 3);
+  const char *path2 = luaL_checklstring(L, 3, &len2);
   const char *type2_s = luaL_checkstring(L, 4);
-  const int len1 = strlen(path1), len2 = strlen(path2);
   int type1 = strcmp(type1_s, "dir") != 0;
   int type2 = strcmp(type2_s, "dir") != 0;
   /* Find the index of the common part of the path. */
@@ -1088,17 +1088,34 @@ static int f_path_compare(lua_State *L) {
     return 1;
   }
   /* If types are the same compare the files' path alphabetically. */
-  int cfr = 0;
+  int cfr = -1;
   int len_min = (len1 < len2 ? len1 : len2);
+  bool same_len = len1 == len2;
   for (int j = offset; j <= len_min; j++) {
-    if (path1[j] == path2[j]) continue;
     if (path1[j] == 0 || path2[j] == 0) {
-      cfr = (path1[j] == 0);
+      if (cfr < 0) cfr = 0; // The strings are equal
+      if (!same_len) {
+        cfr = (path1[j] == 0);
+      }
+    } else if (path1[j] == path2[j]) {
+      continue;
     } else if (path1[j] == PATHSEP || path2[j] == PATHSEP) {
       /* For comparison we treat PATHSEP as if it was the string terminator. */
       cfr = (path1[j] == PATHSEP);
     } else {
-      cfr = (path1[j] < path2[j]);
+      char a = path1[j], b = path2[j];
+      if (a >= 'A' && a <= 'Z') a += 32;
+      if (b >= 'A' && b <= 'Z') b += 32;
+      if (a == b) {
+        /* If the strings have the same length, we need
+           to keep the first case sensitive difference. */
+        if (same_len && cfr < 0) {
+          /* Give priority to lower-case characters */
+          cfr = (path1[j] > path2[j]);
+        }
+        continue;
+      }
+      cfr = (a < b);
     }
     break;
   }
