@@ -30,9 +30,9 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)-portable" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Python Setup
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Update Packages
@@ -47,7 +47,7 @@ jobs:
         if: ${{ matrix.config.cc == 'gcc' }}
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: ${{ matrix.config.cc == 'gcc' }}
         with:
           name: Linux Artifacts
@@ -71,9 +71,9 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-$(uname -m)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Python Setup
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Install Dependencies
@@ -85,7 +85,7 @@ jobs:
       - name: Create DMG Image
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg
       - name: Upload DMG Image
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: macOS DMG Image
           path: ${{ env.INSTALL_NAME }}.dmg
@@ -100,7 +100,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: msys2/setup-msys2@v2
       with:
         msystem: ${{ matrix.msystem }}
@@ -127,7 +127,7 @@ jobs:
     - name: Package
       run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Windows Artifacts
         path: ${{ env.INSTALL_NAME }}.zip
@@ -137,20 +137,22 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        arch: [amd64, amd64_x86]
+        arch:
+          - { target: x86, name: i686 }
+          - { target: x64, name: x86_64 }
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.arch }}
-      - uses: actions/setup-python@v1
+          arch: ${{ matrix.arch.target }}
+      - uses: actions/setup-python@v2
         with:
           python-version: '3.x'
       - name: Install meson and ninja
         run: pip install meson ninja
       - name: Set up environment variables
         run: |
-          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
@@ -158,13 +160,14 @@ jobs:
           meson setup --wrap-mode=forcefallback build
           Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
       - name: Build
-        run: meson install -C build --destdir="../lite-xl"
+        run: |
+          meson install -C build --destdir="../lite-xl"
       - name: Package
         run: |
           Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
           Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Windows Artifacts (MSVC)
           path: ${{ env.INSTALL_NAME }}.zip
