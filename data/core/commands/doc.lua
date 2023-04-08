@@ -62,10 +62,10 @@ local function cut_or_copy(delete)
   local text = ""
   core.cursor_clipboard = {}
   core.cursor_clipboard_whole_line = {}
-  for idx, line1, col1, line2, col2 in doc():get_selections() do
+  for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
     if line1 ~= line2 or col1 ~= col2 then
       text = doc():get_text(line1, col1, line2, col2)
-      full_text = full_text == "" and text or (full_text .. " " .. text)
+      full_text = full_text == "" and text or (text .. " " .. full_text)
       core.cursor_clipboard_whole_line[idx] = false
       if delete then
         doc():delete_to_cursor(idx, 0)
@@ -73,7 +73,7 @@ local function cut_or_copy(delete)
     else -- Cut/copy whole line
       -- Remove newline from the text. It will be added as needed on paste.
       text = string.sub(doc().lines[line1], 1, -2)
-      full_text = full_text == "" and text or (full_text .. text .. "\n")
+      full_text = full_text == "" and text or (text .. full_text .. "\n")
       core.cursor_clipboard_whole_line[idx] = true
       if delete then
         if line1 < #doc().lines then
@@ -84,6 +84,7 @@ local function cut_or_copy(delete)
           doc():remove(line1 - 1, math.huge, line1, math.huge)
         end
       end
+      doc():set_selections(idx, line1, col1, line2, col2)
     end
     core.cursor_clipboard[idx] = text
   end
