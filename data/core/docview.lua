@@ -175,12 +175,21 @@ function DocView:get_col_x_offset(line, col)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
-    for char in common.utf8_chars(text) do
-      if column == col then
+    local length = #text
+    if column + length <= col then
+      xoffset = xoffset + font:get_width(text)
+      column = column + length
+      if column >= col then
         return xoffset
       end
-      xoffset = xoffset + font:get_width(char)
-      column = column + #char
+    else
+      for char in common.utf8_chars(text) do
+        if column >= col then
+          return xoffset
+        end
+        xoffset = xoffset + font:get_width(char)
+        column = column + #char
+      end
     end
   end
 
@@ -198,14 +207,22 @@ function DocView:get_x_offset_col(line, x)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
-    for char in common.utf8_chars(text) do
-      local w = font:get_width(char)
-      if xoffset >= x then
-        return (xoffset - x > w / 2) and last_i or i
+    local width = font:get_width(text)
+    -- Don't take the shortcut if the width matches x,
+    -- because we need last_i which should be calculated using utf-8.
+    if xoffset + width < x then
+      xoffset = xoffset + width
+      i = i + #text
+    else
+      for char in common.utf8_chars(text) do
+        local w = font:get_width(char)
+        if xoffset >= x then
+          return (xoffset - x > w / 2) and last_i or i
+        end
+        xoffset = xoffset + w
+        last_i = i
+        i = i + #char
       end
-      xoffset = xoffset + w
-      last_i = i
-      i = i + #char
     end
   end
 
@@ -232,6 +249,11 @@ function DocView:scroll_to_line(line, ignore_if_visible, instant)
       self.scroll.y = self.scroll.to.y
     end
   end
+end
+
+
+function DocView:supports_text_input()
+  return true
 end
 
 

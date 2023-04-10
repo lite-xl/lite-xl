@@ -1,5 +1,6 @@
 local core = require "core"
 local syntax = require "core.syntax"
+local config = require "core.config"
 
 local tokenizer = {}
 local bad_patterns = {}
@@ -9,7 +10,7 @@ local function push_token(t, type, text)
   type = type or "normal"
   local prev_type = t[#t-1]
   local prev_text = t[#t]
-  if prev_type and (prev_type == type or prev_text:ufind("^%s*$")) then
+  if prev_type and (prev_type == type or (prev_text:ufind("^%s*$") and type ~= "incomplete")) then
     t[#t-1] = type
     t[#t] = prev_text .. text
   else
@@ -128,8 +129,8 @@ end
 ---@param incoming_syntax table
 ---@param text string
 ---@param state string
-function tokenizer.tokenize(incoming_syntax, text, state)
-  local res = {}
+function tokenizer.tokenize(incoming_syntax, text, state, resume)
+  local res
   local i = 1
 
   if #incoming_syntax.patterns == 0 then
@@ -137,6 +138,20 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
 
   state = state or string.char(0)
+
+  if resume then
+    res = resume.res
+    -- Remove "incomplete" tokens
+    while res[#res-1] == "incomplete" do
+      table.remove(res, #res)
+      table.remove(res, #res)
+    end
+    i = resume.i
+    state = resume.state
+  end
+
+  res = res or {}
+
   -- incoming_syntax    : the parent syntax of the file.
   -- state              : a string of bytes representing syntax state (see above)
 
@@ -246,7 +261,22 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
 
   local text_len = text:ulen()
+  local start_time = system.get_time()
+  local starting_i = i
   while i <= text_len do
+    -- Every 200 chars, check if we're out of time
+    if i - starting_i > 200 then
+      starting_i = i
+      if system.get_time() - start_time > 0.5 / config.fps then
+        -- We're out of time
+        push_token(res, "incomplete", string.usub(text, i))
+        return res, string.char(0), {
+          res = res,
+          i = i,
+          state = state
+        }
+      end
+    end
     -- continue trying to match the end pattern of a pair if we have a state set
     if current_pattern_idx > 0 then
       local p = current_syntax.patterns[current_pattern_idx]

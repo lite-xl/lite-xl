@@ -388,6 +388,21 @@ top:
       lua_pushinteger(L, (lua_Integer)(e.tfinger.dy * h));
       lua_pushinteger(L, e.tfinger.fingerId);
       return 6;
+    case SDL_APP_WILLENTERFOREGROUND:
+    case SDL_APP_DIDENTERFOREGROUND:
+      #ifdef LITE_USE_SDL_RENDERER
+        rencache_invalidate();
+      #else
+        SDL_UpdateWindowSurface(window_renderer.window);
+      #endif
+      lua_pushstring(L, e.type == SDL_APP_WILLENTERFOREGROUND ? "enteringforeground" : "enteredforeground");
+      return 1;
+    case SDL_APP_WILLENTERBACKGROUND:
+      lua_pushstring(L, "enteringbackground");
+      return 1;
+    case SDL_APP_DIDENTERBACKGROUND:
+      lua_pushstring(L, "enteredbackground");
+      return 1;
 
     default:
       goto top;
@@ -943,47 +958,70 @@ typedef struct lua_function_node {
 
 #define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
 #define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
+#define S(FUNC) { #FUNC, (fptr)(FUNC) }
 static void* api_require(const char* symbol) {
   static const lua_function_node nodes[] = {
-    P(atpanic), P(checkstack),
-    P(close), P(concat), P(copy), P(createtable), P(dump),
-    P(error),  P(gc), P(getallocf),  P(getfield),
-    P(gethook), P(gethookcount), P(gethookmask), P(getinfo), P(getlocal),
-    P(getmetatable), P(getstack), P(gettable), P(gettop), P(getupvalue),
-    P(isnumber), P(isstring), P(isuserdata),
-    P(load), P(newstate), P(newthread), P(next),
+    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    U(addlstring), U(addstring), U(addvalue), U(argerror), U(buffinit),
+    U(callmeta), U(checkany), U(checkinteger), U(checklstring),
+    U(checknumber), U(checkoption), U(checkstack), U(checktype),
+    U(checkudata), U(error), U(getmetafield), U(gsub), U(loadstring),
+    U(newmetatable), U(newstate), U(openlibs), U(optinteger), U(optlstring),
+    U(optnumber), U(pushresult), U(ref), U(unref), U(where), P(atpanic),
+    P(checkstack), P(close), P(concat), P(createtable), P(dump), P(error),
+    P(gc), P(getallocf), P(getfield), P(gethook), P(gethookcount),
+    P(gethookmask), P(getinfo), P(getlocal), P(getmetatable), P(getstack),
+    P(gettable), P(gettop), P(getupvalue), P(iscfunction), P(isnumber),
+    P(isstring), P(isuserdata), P(load), P(newstate), P(newthread), P(next),
     P(pushboolean), P(pushcclosure), P(pushfstring), P(pushinteger),
     P(pushlightuserdata), P(pushlstring), P(pushnil), P(pushnumber),
-    P(pushstring), P(pushthread),  P(pushvalue),
-    P(pushvfstring), P(rawequal), P(rawget), P(rawgeti),
-    P(rawset), P(rawseti), P(resume),
-    P(setallocf), P(setfield), P(sethook), P(setlocal),
-    P(setmetatable), P(settable), P(settop), P(setupvalue),
-    P(status), P(tocfunction), P(tointegerx), P(tolstring), P(toboolean),
-    P(tonumberx), P(topointer), P(tothread),  P(touserdata),
-    P(type), P(typename), P(upvalueid), P(upvaluejoin), P(version), P(xmove),
-    U(getmetafield), U(callmeta), U(argerror), U(checknumber), U(optnumber),
-    U(checkinteger), U(checkstack), U(checktype), U(checkany),
-    U(newmetatable), U(setmetatable), U(testudata), U(checkudata), U(where),
-    U(error), U(fileresult), U(execresult), U(ref), U(unref), U(loadstring),
-    U(newstate), U(setfuncs), U(buffinit), U(addlstring), U(addstring),
-    U(addvalue), U(pushresult), U(openlibs), {"api_load_libs", (void*)(api_load_libs)},
-    #if LUA_VERSION_NUM >= 502
-    P(absindex), P(arith), P(callk), P(compare), P(getglobal),
-    P(len), P(pcallk), P(rawgetp), P(rawlen), P(rawsetp), P(setglobal),
-    P(iscfunction), P(yieldk),
-    U(checkversion_), U(tolstring), U(len), U(getsubtable), U(prepbuffsize),
-    U(pushresultsize), U(buffinitsize), U(checklstring), U(checkoption), U(gsub), U(loadbufferx),
-    U(loadfilex), U(optinteger), U(optlstring), U(requiref), U(traceback),
-    #else
-    P(objlen),
+    P(pushstring), P(pushthread), P(pushvalue), P(pushvfstring), P(rawequal),
+    P(rawget), P(rawgeti), P(rawset), P(rawseti), P(resume), P(setallocf),
+    P(setfield), P(sethook), P(setlocal), P(setmetatable), P(settable),
+    P(settop), P(setupvalue), P(status), P(toboolean), P(tocfunction),
+    P(tolstring), P(topointer), P(tothread), P(touserdata), P(type),
+    P(typename), P(xmove), S(luaopen_base), S(luaopen_debug), S(luaopen_io),
+    S(luaopen_math), S(luaopen_os), S(luaopen_package), S(luaopen_string),
+    S(luaopen_table), S(api_load_libs),
     #endif
-    #if LUA_VERSION_NUM >= 504
-    P(newuserdatauv), P(setiuservalue), P(getiuservalue)
-    #else
-    P(newuserdata), P(setuservalue), P(getuservalue)
+    #if LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    U(buffinitsize), U(checkversion_), U(execresult), U(fileresult),
+    U(getsubtable), U(len), U(loadbufferx), U(loadfilex), U(prepbuffsize),
+    U(pushresultsize), U(requiref), U(setfuncs), U(setmetatable),
+    U(testudata), U(tolstring), U(traceback), P(absindex), P(arith),
+    P(callk), P(compare), P(copy), P(getglobal), P(len), P(pcallk),
+    P(rawgetp), P(rawlen), P(rawsetp), P(setglobal), P(tointegerx),
+    P(tonumberx), P(upvalueid), P(upvaluejoin), P(version), P(yieldk),
+    S(luaopen_coroutine),
     #endif
-
+    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503
+    P(newuserdata),
+    #endif
+    #if LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    P(geti), P(isinteger), P(isyieldable), P(rotate), P(seti),
+    P(stringtonumber), S(luaopen_utf8),
+    #endif
+    #if LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503
+    P(getuservalue), P(setuservalue), S(luaopen_bit32),
+    #endif
+    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502
+    P(insert), P(remove), P(replace),
+    #endif
+    #if LUA_VERSION_NUM == 504
+    U(addgsub), U(typeerror), P(closeslot), P(getiuservalue),
+    P(newuserdatauv), P(resetthread), P(setcstacklimit), P(setiuservalue),
+    P(setwarnf), P(toclose), P(warning),
+    #endif
+    #if LUA_VERSION_NUM == 502
+    U(checkunsigned), U(optunsigned), P(getctx), P(pushunsigned),
+    P(tounsignedx),
+    #endif
+    #if LUA_VERSION_NUM == 501
+    U(findtable), U(loadbuffer), U(loadfile), U(openlib), U(prepbuffer),
+    U(register), U(typerror), P(call), P(cpcall), P(equal), P(getfenv),
+    P(lessthan), P(objlen), P(pcall), P(setfenv), P(setlevel), P(tointeger),
+    P(tonumber), P(yield),
+    #endif
   };
   for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
     if (strcmp(nodes[i].symbol, symbol) == 0)
@@ -996,7 +1034,7 @@ static int f_library_gc(lua_State *L) {
   lua_getfield(L, 1, "handle");
   void* handle = lua_touserdata(L, -1);
   SDL_UnloadObject(handle);
-  
+
   return 0;
 }
 
@@ -1051,11 +1089,11 @@ static int f_load_native_plugin(lua_State *L) {
    order used in the TreeView view of the project's files. Returns true iff
    path1 < path2 in the TreeView order. */
 static int f_path_compare(lua_State *L) {
-  const char *path1 = luaL_checkstring(L, 1);
+  size_t len1, len2;
+  const char *path1 = luaL_checklstring(L, 1, &len1);
   const char *type1_s = luaL_checkstring(L, 2);
-  const char *path2 = luaL_checkstring(L, 3);
+  const char *path2 = luaL_checklstring(L, 3, &len2);
   const char *type2_s = luaL_checkstring(L, 4);
-  const int len1 = strlen(path1), len2 = strlen(path2);
   int type1 = strcmp(type1_s, "dir") != 0;
   int type2 = strcmp(type2_s, "dir") != 0;
   /* Find the index of the common part of the path. */
@@ -1080,22 +1118,48 @@ static int f_path_compare(lua_State *L) {
     return 1;
   }
   /* If types are the same compare the files' path alphabetically. */
-  int cfr = 0;
+  int cfr = -1;
   int len_min = (len1 < len2 ? len1 : len2);
+  bool same_len = len1 == len2;
   for (int j = offset; j <= len_min; j++) {
-    if (path1[j] == path2[j]) continue;
     if (path1[j] == 0 || path2[j] == 0) {
-      cfr = (path1[j] == 0);
+      if (cfr < 0) cfr = 0; // The strings are equal
+      if (!same_len) {
+        cfr = (path1[j] == 0);
+      }
+    } else if (path1[j] == path2[j]) {
+      continue;
     } else if (path1[j] == PATHSEP || path2[j] == PATHSEP) {
       /* For comparison we treat PATHSEP as if it was the string terminator. */
       cfr = (path1[j] == PATHSEP);
     } else {
-      cfr = (path1[j] < path2[j]);
+      char a = path1[j], b = path2[j];
+      if (a >= 'A' && a <= 'Z') a += 32;
+      if (b >= 'A' && b <= 'Z') b += 32;
+      if (a == b) {
+        /* If the strings have the same length, we need
+           to keep the first case sensitive difference. */
+        if (same_len && cfr < 0) {
+          /* Give priority to lower-case characters */
+          cfr = (path1[j] > path2[j]);
+        }
+        continue;
+      }
+      cfr = (a < b);
     }
     break;
   }
   lua_pushboolean(L, cfr);
   return 1;
+}
+
+
+static int f_text_input(lua_State* L) {
+  if (lua_toboolean(L, 1))
+    SDL_StartTextInput();
+  else
+    SDL_StopTextInput();
+  return 0;
 }
 
 
@@ -1132,12 +1196,13 @@ static const luaL_Reg lib[] = {
   { "load_native_plugin",  f_load_native_plugin  },
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
+  { "text_input",          f_text_input          },
   { NULL, NULL }
 };
 
 
 int luaopen_system(lua_State *L) {
-  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN); 
+  luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN);
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);

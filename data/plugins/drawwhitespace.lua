@@ -4,11 +4,12 @@ local core = require "core"
 local style = require "core.style"
 local DocView = require "core.docview"
 local common = require "core.common"
+local command = require "core.command"
 local config = require "core.config"
 local Highlighter = require "core.doc.highlighter"
 
 config.plugins.drawwhitespace = common.merge({
-  enabled = true,
+  enabled = false,
   show_leading = true,
   show_trailing = true,
   show_middle = true,
@@ -43,7 +44,7 @@ config.plugins.drawwhitespace = common.merge({
       description = "Disable or enable the drawing of white spaces.",
       path = "enabled",
       type = "toggle",
-      default = true
+      default = false
     },
     {
       label = "Show Leading",
@@ -342,3 +343,18 @@ function DocView:draw_line_text(idx, x, y)
 
   return draw_line_text(self, idx, x, y)
 end
+
+
+command.add(nil, {
+  ["draw-whitespace:toggle"]  = function()
+    config.plugins.drawwhitespace.enabled = not config.drawwhitespace.enabled
+  end,
+
+  ["draw-whitespace:disable"] = function()
+    config.plugins.drawwhitespace.enabled = false
+  end,
+
+  ["draw-whitespace:enable"]  = function()
+    config.plugins.drawwhitespace.enabled = true
+  end,
+})

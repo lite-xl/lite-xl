@@ -124,6 +124,16 @@ main() {
 
   rm -rf "${build_dir}"
 
+  if [[ $patch_lua == "true" ]] && [[ ! -z $force_fallback ]]; then
+    # download the subprojects so we can start patching before configure.
+    # this will prevent reconfiguring the project.
+    meson subprojects download
+    lua_subproject_path=$(echo subprojects/lua-*/)
+    if [[ -d $lua_subproject_path ]]; then
+      patch -d $lua_subproject_path -p1 --forward < resources/windows/001-lua-unicode.diff
+    fi
+  fi
+
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
     --buildtype=$build_type \
     --prefix "$prefix" \
@@ -133,11 +143,6 @@ main() {
     $portable \
     $pgo \
     "${build_dir}"
-
-  lua_subproject_path=$(echo subprojects/lua-*/)
-  if [[ $patch_lua == "true" ]] && [[ ! -z $force_fallback ]] && [[ -d $lua_subproject_path ]]; then
-    patch -d $lua_subproject_path -p1 --forward < resources/windows/001-lua-unicode.diff
-  fi
 
   meson compile -C "${build_dir}"
 

@@ -631,7 +631,6 @@ end
 command.add(predicate, {
   ["autocomplete:complete"] = function(dv)
     local doc = dv.doc
-    local line, col = doc:get_selection()
     local item = suggestions[suggestions_idx]
     local text = item.text
     local inserted = false
@@ -640,9 +639,23 @@ command.add(predicate, {
     end
     if not inserted then
       local current_partial = get_partial_symbol()
-      doc:insert(line, col, text)
-      doc:remove(line, col, line, col - #current_partial)
-      doc:set_selection(line, col + #text - #current_partial)
+      local sz = #current_partial
+
+      for idx, line1, col1, line2, col2 in doc:get_selections(true) do
+        local n = col1 - 1
+        local line = doc.lines[line1]
+        for i = 1, sz + 1 do
+          local j = sz - i
+          local subline = line:sub(n - j, n)
+          local subpartial = current_partial:sub(i, -1)
+          if subpartial == subline then
+            doc:remove(line1, col1, line2, n - j)
+            break
+          end
+        end
+      end
+
+      doc:text_input(item.text)
     end
     reset_suggestions()
   end,

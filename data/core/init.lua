@@ -305,7 +305,7 @@ function core.add_project_directory(path)
         end
       end
       if project_dir_open then
-        coroutine.yield(changed and 0.05 or 0)
+        coroutine.yield(changed and 0 or 0.05)
       else
         return
       end
@@ -531,12 +531,9 @@ local style = require "core.style"
 
 ------------------------------ Plugins ----------------------------------------
 
--- enable or disable plugin loading setting config entries:
+-- disable plugin loading setting config entries:
 
--- enable plugins.trimwhitespace, otherwise it is disabled by default:
--- config.plugins.trimwhitespace = true
---
--- disable detectindent, otherwise it is enabled by default
+-- disable plugin detectindent, otherwise it is enabled by default:
 -- config.plugins.detectindent = false
 
 ---------------------------- Miscellaneous -------------------------------------
@@ -1108,6 +1105,7 @@ function core.set_active_view(view)
   -- Reset the IME even if the focus didn't change
   ime.stop()
   if view ~= core.active_view then
+    system.text_input(view:supports_text_input())
     if core.active_view and core.active_view.force_focus then
       core.next_active_view = view
       return
@@ -1291,6 +1289,12 @@ function core.on_event(type, ...)
     if not core.root_view:on_mouse_wheel(...) then
       did_keymap = keymap.on_mouse_wheel(...)
     end
+  elseif type == "touchpressed" then
+    core.root_view:on_touch_pressed(...)
+  elseif type == "touchreleased" then
+    core.root_view:on_touch_released(...)
+  elseif type == "touchmoved" then
+    core.root_view:on_touch_moved(...)
   elseif type == "resized" then
     core.window_mode = system.get_window_mode()
   elseif type == "minimized" or type == "maximized" or type == "restored" then
@@ -1340,6 +1344,11 @@ function core.step()
       did_keymap = false
     elseif type == "mousemoved" then
       core.try(core.on_event, type, a, b, c, d)
+    elseif type == "enteringforeground" then
+      -- to break our frame refresh in two if we get entering/entered at the same time.
+      -- required to avoid flashing and refresh issues on mobile
+      core.redraw = true
+      break
     else
       local _, res = core.try(core.on_event, type, a, b, c, d)
       did_keymap = res or did_keymap
@@ -1384,7 +1393,7 @@ end
 local run_threads = coroutine.wrap(function()
   while true do
     local max_time = 1 / config.fps - 0.004
-    local need_more_work = false
+    local minimal_time_to_wake = math.huge
 
     for k, thread in pairs(core.threads) do
       -- run thread
@@ -1396,50 +1405,61 @@ local run_threads = coroutine.wrap(function()
           else
             core.threads[k] = nil
           end
-        elseif wait then
-          thread.wake = system.get_time() + wait
         else
-          need_more_work = true
+          wait = wait or (1/30)
+          thread.wake = system.get_time() + wait
+          minimal_time_to_wake = math.min(minimal_time_to_wake, wait)
         end
+      else
+        minimal_time_to_wake =  math.min(minimal_time_to_wake, thread.wake - system.get_time())
       end
 
       -- stop running threads if we're about to hit the end of frame
       if system.get_time() - core.frame_start > max_time then
-        coroutine.yield(true)
+        coroutine.yield(0)
       end
     end
 
-    if not need_more_work then coroutine.yield(false) end
+    coroutine.yield(minimal_time_to_wake)
   end
 end)
 
 
 function core.run()
-  local idle_iterations = 0
+  local next_step
   while true do
     core.frame_start = system.get_time()
-    local need_more_work = run_threads()
-    local did_redraw = core.step()
+    local time_to_wake = run_threads()
+    local did_redraw = false
+    if not next_step or system.get_time() >= next_step then
+      did_redraw = core.step()
+      next_step = nil
+    end
     if core.restart_request or core.quit_request then break end
-    if not did_redraw and not need_more_work then
-      idle_iterations = idle_iterations + 1
-      -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
-      -- and set "redraw" flag.
-      if idle_iterations > 1 then
-        if system.window_has_focus() then
-          -- keep running even with no events to make the cursor blinks
-          local t = system.get_time() - core.blink_start
+
+    if not did_redraw then
+      if system.window_has_focus() then
+        local now = system.get_time()
+        if not next_step then -- compute the time until the next blink
+          local t = now - core.blink_start
           local h = config.blink_period / 2
           local dt = math.ceil(t / h) * h - t
-          system.wait_event(dt + 1 / config.fps)
-        else
-          system.wait_event()
+          local cursor_time_to_wake = dt + 1 / config.fps
+          next_step = now + cursor_time_to_wake
         end
+        if time_to_wake > 0 and system.wait_event(math.min(next_step - now, time_to_wake)) then
+          next_step = nil -- if we've recevied an event, perform a step
+        end
+      else
+        system.wait_event()
+        next_step = nil -- perform a step when we're not in focus if get we an event
       end
-    else
-      idle_iterations = 0
-      local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.max(0, 1 / config.fps - elapsed))
+    else -- if we redrew, then make sure we only draw at most FPS/sec
+      local now = system.get_time()
+      local elapsed = now - core.frame_start
+      local next_frame = math.max(0, 1 / config.fps - elapsed)
+      next_step = next_step or (now + next_frame)
+      system.sleep(math.min(next_frame, time_to_wake))
     end
   end
 end
