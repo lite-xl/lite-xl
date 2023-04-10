@@ -73,7 +73,7 @@ local function cut_or_copy(delete)
     else -- Cut/copy whole line
       -- Remove newline from the text. It will be added as needed on paste.
       text = string.sub(doc().lines[line1], 1, -2)
-      full_text = full_text == "" and text or (text .. "\n" .. full_text)
+      full_text = full_text == "" and text .. "\n" or (text .. "\n" .. full_text)
       core.cursor_clipboard_whole_line[idx] = true
       if delete then
         if line1 < #doc().lines then
