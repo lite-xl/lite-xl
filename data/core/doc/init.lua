@@ -453,7 +453,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
       end
     end
 
-    if cline2 > line1 or (cline2 == line2 and ccol2 > col1) then
+    if cline2 > line1 or (cline2 == line1 and ccol2 > col1) then
       if cline2 > line2 then
         l2 = l2 - line_removal
       else
