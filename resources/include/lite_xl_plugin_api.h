@@ -39,6 +39,7 @@
 #define LITE_XL_PLUGIN_API
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #define SYMBOL_WRAP_DECL(ret, name, ...) \
   ret name(__VA_ARGS__)
