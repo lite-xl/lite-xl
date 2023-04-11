@@ -931,7 +931,7 @@ typedef struct lua_function_node {
 #define S(FUNC) { #FUNC, (fptr)(FUNC) }
 static void* api_require(const char* symbol) {
   static const lua_function_node nodes[] = {
-    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    #if LUA_VERSION_NUM == 501 || LUA_VERSION_NUM == 502 || LUA_VERSION_NUM == 503 || LUA_VERSION_NUM == 504
     U(addlstring), U(addstring), U(addvalue), U(argerror), U(buffinit),
     U(callmeta), U(checkany), U(checkinteger), U(checklstring),
     U(checknumber), U(checkoption), U(checkstack), U(checktype),
@@ -954,7 +954,7 @@ static void* api_require(const char* symbol) {
     S(luaopen_math), S(luaopen_os), S(luaopen_package), S(luaopen_string),
     S(luaopen_table), S(api_load_libs),
     #endif
-    #if LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    #if LUA_VERSION_NUM == 502 || LUA_VERSION_NUM == 503 || LUA_VERSION_NUM == 504
     U(buffinitsize), U(checkversion_), U(execresult), U(fileresult),
     U(getsubtable), U(len), U(loadbufferx), U(loadfilex), U(prepbuffsize),
     U(pushresultsize), U(requiref), U(setfuncs), U(setmetatable),
@@ -964,17 +964,17 @@ static void* api_require(const char* symbol) {
     P(tonumberx), P(upvalueid), P(upvaluejoin), P(version), P(yieldk),
     S(luaopen_coroutine),
     #endif
-    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503
+    #if LUA_VERSION_NUM == 501 || LUA_VERSION_NUM == 502 || LUA_VERSION_NUM == 503
     P(newuserdata),
     #endif
-    #if LUA_VERSION_NUM == 503 && LUA_VERSION_NUM == 504
+    #if LUA_VERSION_NUM == 503 || LUA_VERSION_NUM == 504
     P(geti), P(isinteger), P(isyieldable), P(rotate), P(seti),
     P(stringtonumber), S(luaopen_utf8),
     #endif
-    #if LUA_VERSION_NUM == 502 && LUA_VERSION_NUM == 503
+    #if LUA_VERSION_NUM == 502 || LUA_VERSION_NUM == 503
     P(getuservalue), P(setuservalue), S(luaopen_bit32),
     #endif
-    #if LUA_VERSION_NUM == 501 && LUA_VERSION_NUM == 502
+    #if LUA_VERSION_NUM == 501 || LUA_VERSION_NUM == 502
     P(insert), P(remove), P(replace),
     #endif
     #if LUA_VERSION_NUM == 504
