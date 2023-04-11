@@ -1837,7 +1837,12 @@ SYMBOL_WRAP_DECL(const char *, lua_pushvfstring, lua_State *L, const char *fmt, 
   return SYMBOL_WRAP_CALL(lua_pushvfstring, L, fmt, argp);
 }
 SYMBOL_WRAP_DECL(const char *, lua_pushfstring, lua_State *L, const char *fmt, ...) {
-  SYMBOL_WRAP_CALL(lua_pushfstring, L, fmt);
+  const char *res;
+  va_list argp;
+  va_start(argp, fmt);
+  res = lua_pushvfstring(L, fmt, argp);
+  va_end(argp);
+  return res;
 }
 SYMBOL_WRAP_DECL(void, lua_pushcclosure, lua_State *L, lua_CFunction fn, int n) {
   SYMBOL_WRAP_CALL(lua_pushcclosure, L, fn, n);
