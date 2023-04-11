@@ -75,22 +75,20 @@ get_platform_name() {
 
 get_platform_arch() {
   platform=$(get_platform_name)
-  arch=$(uname -m)
+  arch=${CROSS_ARCH:-$(uname -m)}
   if [[ $MSYSTEM != "" ]]; then
     if [[ $MSYSTEM == "MINGW64" ]]; then
       arch=x86_64
     else
       arch=i686
     fi
-  elif [[ $CROSS_ARCH != "" ]]; then
-    arch=$CROSS_ARCH
   fi
   echo "$arch"
 }
 
 get_default_build_dir() {
-  platform=$(get_platform_name)
-  arch=$(get_platform_arch)
+  platform="${1:-$(get_platform_name)}"
+  arch="${2:-$(get_platform_arch)}"
   echo "build-$platform-$arch"
 }
 
