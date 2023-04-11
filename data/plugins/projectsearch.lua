@@ -37,7 +37,7 @@ local function find_all_matches_in_file(t, filename, fn)
       table.insert(t, { file = filename, text = (start_index > 1 and "..." or "") .. line:sub(start_index, 256 + start_index), line = n, col = s })
       core.redraw = true
     end
-    if n % 100 == 0 then coroutine.yield() end
+    if n % 100 == 0 then coroutine.yield(0) end
     n = n + 1
     core.redraw = true
   end
