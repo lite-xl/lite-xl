@@ -2341,12 +2341,13 @@ SYMBOL_WRAP_DECL(void, luaL_openlibs, lua_State *L) {
 
 #define IMPORT_SYMBOL(name, ret, ...) \
   __##name = (\
-    __##name = (ret (*) (__VA_ARGS__)) symbol(#name), \
+    (*(void **) (&__##name) = symbol(#name)), \
     __##name == NULL ? ((ret (*) (__VA_ARGS__)) &__lite_xl_fallback_##name) : __##name\
   )
 
 void lite_xl_plugin_init(void *XL) {
-  void* (*symbol)(const char *) = (void* (*) (const char *)) XL;
+  void* (*symbol)(const char *);
+  *(void **) (&symbol) = XL;
   IMPORT_SYMBOL(lua_newstate, lua_State *, lua_Alloc f, void *ud);
   IMPORT_SYMBOL(lua_close, void, lua_State *L);
   IMPORT_SYMBOL(lua_newthread, lua_State *, lua_State *L);
