@@ -1786,7 +1786,7 @@ SYMBOL_WRAP_DECL(int, lua_toboolean, lua_State *L, int idx) {
 SYMBOL_WRAP_DECL(const char *, lua_tolstring, lua_State *L, int idx, size_t *len) {
   return SYMBOL_WRAP_CALL(lua_tolstring, L, idx, len);
 }
-SYMBOL_WRAP_DECL(size_t, lua_rawlen, lua_State *L, int idx) {
+SYMBOL_WRAP_DECL(lua_Unsigned, lua_rawlen, lua_State *L, int idx) {
   return SYMBOL_WRAP_CALL(lua_rawlen, L, idx);
 }
 SYMBOL_WRAP_DECL(lua_CFunction, lua_tocfunction, lua_State *L, int idx) {
@@ -2338,7 +2338,7 @@ void lite_xl_plugin_init(void *XL) {
   IMPORT_SYMBOL(lua_tointegerx, lua_Integer, lua_State *L, int idx, int *isnum);
   IMPORT_SYMBOL(lua_toboolean, int, lua_State *L, int idx);
   IMPORT_SYMBOL(lua_tolstring, const char *, lua_State *L, int idx, size_t *len);
-  IMPORT_SYMBOL(lua_rawlen, size_t, lua_State *L, int idx);
+  IMPORT_SYMBOL(lua_rawlen, lua_Unsigned, lua_State *L, int idx);
   IMPORT_SYMBOL(lua_tocfunction, lua_CFunction, lua_State *L, int idx);
   IMPORT_SYMBOL(lua_touserdata, void *, lua_State *L, int idx);
   IMPORT_SYMBOL(lua_tothread, lua_State *, lua_State *L, int idx);
