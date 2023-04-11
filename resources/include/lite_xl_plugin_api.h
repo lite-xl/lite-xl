@@ -41,6 +41,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __GNUC__
+#define UNUSED __attribute__((__unused__))
+#else
+#define UNUSED
+#endif
+
+/* FOR_EACH macro */
+#define CONCAT(arg1, arg2)   CONCAT1(arg1, arg2)
+#define CONCAT1(arg1, arg2)  CONCAT2(arg1, arg2)
+#define CONCAT2(arg1, arg2)  arg1##arg2
+#define FE_1(what, x) what x
+#define FE_2(what, x, ...) what x,FE_1(what, __VA_ARGS__)
+#define FE_3(what, x, ...) what x,FE_2(what, __VA_ARGS__)
+#define FE_4(what, x, ...) what x,FE_3(what,  __VA_ARGS__)
+#define FE_5(what, x, ...) what x,FE_4(what,  __VA_ARGS__)
+#define FE_6(what, x, ...) what x,FE_5(what,  __VA_ARGS__)
+#define FE_7(what, x, ...) what x,FE_6(what,  __VA_ARGS__)
+#define FE_8(what, x, ...) what x,FE_7(what,  __VA_ARGS__)
+#define FOR_EACH_NARG(...) FOR_EACH_NARG_(__VA_ARGS__, FOR_EACH_RSEQ_N())
+#define FOR_EACH_NARG_(...) FOR_EACH_ARG_N(__VA_ARGS__) 
+#define FOR_EACH_ARG_N(_1, _2, _3, _4, _5, _6, _7, _8, N, ...) N 
+#define FOR_EACH_RSEQ_N() 8, 7, 6, 5, 4, 3, 2, 1, 0
+#define FOR_EACH_(N, what, ...) CONCAT(FE_, N)(what, __VA_ARGS__)
+#define FOR_EACH(what, ...) FOR_EACH_(FOR_EACH_NARG(__VA_ARGS__), what, __VA_ARGS__)
+
 #define SYMBOL_WRAP_DECL(ret, name, ...) \
   ret name(__VA_ARGS__)
 
@@ -54,13 +79,22 @@
   #define SYMBOL_DECLARE(ret, name, ...) \
     static ret (*__##name)  (__VA_ARGS__); \
     SYMBOL_WRAP_DECL(ret, name, __VA_ARGS__); \
-    static ret __lite_xl_fallback_##name(...) { \
+    static ret __lite_xl_fallback_##name(FOR_EACH(UNUSED, __VA_ARGS__)) { \
+      fputs("warning: " #name " is a stub", stderr); \
+      exit(1); \
+    }
+  #define SYMBOL_DECLARE_VARARG(ret, name, ...) \
+    static ret (*__##name)  (__VA_ARGS__, ...); \
+    SYMBOL_WRAP_DECL(ret, name, __VA_ARGS__, ...); \
+    static ret __lite_xl_fallback_##name(FOR_EACH(UNUSED, __VA_ARGS__), ...) { \
       fputs("warning: " #name " is a stub", stderr); \
       exit(1); \
     }
 #else
   #define SYMBOL_DECLARE(ret, name, ...) \
     SYMBOL_WRAP_DECL(ret, name, __VA_ARGS__);
+  #define SYMBOL_DECLARE_VARARG(ret, name, ...) \
+    SYMBOL_WRAP_DECL(ret, name, __VA_ARGS__, ...);
 #endif
 
 
@@ -1078,7 +1112,7 @@ SYMBOL_DECLARE(const char *, lua_pushlstring, lua_State *L, const char *s, size_
 SYMBOL_DECLARE(const char *, lua_pushstring, lua_State *L, const char *s)
 SYMBOL_DECLARE(const char *, lua_pushvfstring, lua_State *L, const char *fmt,
                                                       va_list argp)
-SYMBOL_DECLARE(const char *, lua_pushfstring, lua_State *L, const char *fmt, ...)
+SYMBOL_DECLARE_VARARG(const char *, lua_pushfstring, lua_State *L, const char *fmt)
 SYMBOL_DECLARE(void  , lua_pushcclosure, lua_State *L, lua_CFunction fn, int n)
 SYMBOL_DECLARE(void  , lua_pushboolean, lua_State *L, int b)
 SYMBOL_DECLARE(void  , lua_pushlightuserdata, lua_State *L, void *p)
@@ -1169,7 +1203,7 @@ SYMBOL_DECLARE(void, lua_warning, lua_State *L, const char *msg, int tocont)
 #define LUA_GCGEN               10
 #define LUA_GCINC               11
 
-SYMBOL_DECLARE(int, lua_gc, lua_State *L, int what, ...)
+SYMBOL_DECLARE_VARARG(int, lua_gc, lua_State *L, int what)
 
 
 /*
@@ -1410,7 +1444,7 @@ SYMBOL_DECLARE(void *, luaL_testudata, lua_State *L, int ud, const char *tname)
 SYMBOL_DECLARE(void *, luaL_checkudata, lua_State *L, int ud, const char *tname)
 
 SYMBOL_DECLARE(void, luaL_where, lua_State *L, int lvl)
-SYMBOL_DECLARE(int, luaL_error, lua_State *L, const char *fmt, ...)
+SYMBOL_DECLARE_VARARG(int, luaL_error, lua_State *L, const char *fmt)
 
 SYMBOL_DECLARE(int, luaL_checkoption, lua_State *L, int arg, const char *def,
                                       const char *const lst[])
@@ -2482,6 +2516,25 @@ void lite_xl_plugin_init(void *XL);
 #undef SYMBOL_WRAP_CALL
 #undef SYMBOL_WRAP_CALL_FB
 #undef SYMBOL_DECLARE
+#undef SYMBOL_DECLARE_VARARG
+#undef UNUSED
+#undef CONCAT
+#undef CONCAT1
+#undef CONCAT2
+#undef FE_1
+#undef FE_2
+#undef FE_3
+#undef FE_4
+#undef FE_5
+#undef FE_6
+#undef FE_7
+#undef FE_8
+#undef FOR_EACH_NARG
+#undef FOR_EACH_NARG_
+#undef FOR_EACH_ARG_N
+#undef FOR_EACH_RSEQ_N
+#undef FOR_EACH_
+#undef FOR_EACH
 
 #endif /* LITE_XL_PLUGIN_API */
 
