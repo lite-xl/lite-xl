@@ -54,11 +54,14 @@ jobs:
           path: ${{ env.INSTALL_NAME }}.tar.gz
 
   build_macos:
-    name: macOS (x86_64)
+    name: macOS
     runs-on: macos-11
     env:
       CC: clang
       CXX: clang++
+    strategy:
+      matrix:
+        arch: ['x86_64', 'arm64']
     steps:
       - name: System Information
         run: |
@@ -70,24 +73,60 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-$(uname -m)" >> "$GITHUB_ENV"
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
+          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
       - uses: actions/checkout@v3
       - name: Python Setup
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh --debug
+             # --lhelper will eliminate a warning with arm64 and libusb
+        run: bash scripts/install-dependencies.sh --debug --lhelper
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback
+          bash scripts/build.sh --bundle --debug --forcefallback $ARCH
       - name: Create DMG Image
-        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg
+        run: bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg
       - name: Upload DMG Image
         uses: actions/upload-artifact@v3
         with:
-          name: macOS DMG Image
+          name: macOS DMG Images
+          path: ${{ env.INSTALL_NAME }}.dmg
+
+  build_macos_universal:
+    name: macOS (Universal)
+    runs-on: macos-11
+    needs: build_macos
+    steps:
+      - name: System Information
+        run: |
+          system_profiler SPSoftwareDataType
+          bash --version
+          gcc -v
+          xcodebuild -version
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-universal" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v2
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        id: download
+        with:
+          name: macOS DMG Images
+          path: dmgs-original
+      - name: Install appdmg
+        run: cd ~; npm i appdmg; cd -
+      - name: Make universal bundles
+        run: |
+          bash --version
+          bash scripts/make-universal-binaries.sh ${{ steps.download.outputs.download-path }} "${INSTALL_NAME}"
+      - name: Upload DMG Image
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS Universal DMG Images
           path: ${{ env.INSTALL_NAME }}.dmg
 
   build_windows_msys2:

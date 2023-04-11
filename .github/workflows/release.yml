@@ -15,7 +15,7 @@ on:
 jobs:
   release:
     name: Create Release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.tag.outputs.version }}
@@ -49,7 +49,7 @@ jobs:
   build_linux:
     name: Linux
     needs: release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     env:
       CC: gcc
       CXX: g++
@@ -115,6 +115,7 @@ jobs:
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
+          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
       - uses: actions/checkout@v3
       - name: Python Setup
         uses: actions/setup-python@v4
@@ -125,11 +126,18 @@ jobs:
       - name: Build
         run: |
           bash --version
-          CROSS_ARCH=${{ matrix.arch }} bash scripts/build.sh --bundle --debug --forcefallback --release
+          bash scripts/build.sh --bundle --debug --forcefallback --release $ARCH
       - name: Create DMG Image
         run: |
-          CROSS_ARCH=${{ matrix.arch }} bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg --release
-          CROSS_ARCH=${{ matrix.arch }} bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg --release
+          bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg --release
+          bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --addons --dmg --release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: macOS DMG Images
+          path: |
+            ${{ env.INSTALL_NAME }}.dmg
+            ${{ env.INSTALL_NAME_ADDONS }}.dmg
       - name: Upload Files
         uses: softprops/action-gh-release@v1
         with:
@@ -138,6 +146,54 @@ jobs:
           files: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
+
+  build_macos_universal:
+    name: macOS (Universal)
+    needs: [release, build_macos]
+    runs-on: macos-11
+    steps:
+      - name: System Information
+        run: |
+          system_profiler SPSoftwareDataType
+          bash --version
+          gcc -v
+          xcodebuild -version
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_BASE=lite-xl-${{ needs.release.outputs.version }}-macos" >> "$GITHUB_ENV"
+          echo "INSTALL_BASE_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v2
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        id: download
+        with:
+          name: macOS DMG Images
+          path: dmgs-original
+      - name: Python Setup
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install appdmg
+        run: cd ~; npm i appdmg; cd -
+      - name: Prepare DMG Images
+        run: |
+          mkdir -p dmgs-addons dmgs-normal
+          mv -v "${{ steps.download.outputs.download-path }}/$INSTALL_BASE-"{x86_64,arm64}.dmg dmgs-normal
+          mv -v "${{ steps.download.outputs.download-path }}/$INSTALL_BASE_ADDONS-"{x86_64,arm64}.dmg dmgs-addons
+      - name: Create Universal DMGs
+        run: |
+          bash --version
+          bash scripts/make-universal-binaries.sh dmgs-normal "$INSTALL_BASE-universal"
+          bash scripts/make-universal-binaries.sh dmgs-addons "$INSTALL_BASE_ADDONS-universal"
+      - name: Upload Files
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.release.outputs.version }}
+          draft: true
+          files: |
+            ${{ env.INSTALL_BASE }}-universal.dmg
+            ${{ env.INSTALL_BASE_ADDONS }}-universal.dmg
 
   build_windows_msys2:
     name: Windows
