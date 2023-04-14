@@ -700,6 +700,7 @@ commands["doc:move-to-previous-char"] = function(dv)
       dv.doc:move_to_cursor(idx, translate.previous_char)
     end
   end
+  dv.doc:merge_cursors()
 end
 
 commands["doc:move-to-next-char"] = function(dv)
@@ -710,6 +711,7 @@ commands["doc:move-to-next-char"] = function(dv)
       dv.doc:move_to_cursor(idx, translate.next_char)
     end
   end
+  dv.doc:merge_cursors()
 end
 
 command.add("core.docview", commands)
