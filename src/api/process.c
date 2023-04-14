@@ -727,9 +727,12 @@ static int f_running(lua_State* L) {
 }
 
 static int process_gc(lua_State *L) {
-  kill_list_wait_all(&kill_list);
-  SDL_WaitThread(kill_list_thread, NULL);
-  kill_list_free(&kill_list);
+  if (kill_list_thread) {
+    kill_list_wait_all(&kill_list);
+    SDL_WaitThread(kill_list_thread, NULL);
+    kill_list_thread = NULL;
+    kill_list_free(&kill_list);
+  }
   return 0;
 }
 
