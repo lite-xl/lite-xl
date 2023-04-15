@@ -7,6 +7,13 @@
 // a reference index to a table that stores the fonts
 static int RENDERER_FONT_REF = LUA_NOREF;
 
+RenWindow* lua_get_window(lua_State *L, size_t i)
+{
+  if (!lua_islightuserdata(L, i))
+    luaL_error(L, "argument is not a valid window");
+  return lua_touserdata(L, i);
+}
+
 static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
@@ -79,8 +86,9 @@ static int font_get_options(
 }
 
 static int f_font_load(lua_State *L) {
-  const char *filename  = luaL_checkstring(L, 1);
-  float size = luaL_checknumber(L, 2);
+  RenWindow* window_renderer = lua_get_window(L, 1);
+  const char *filename  = luaL_checkstring(L, 2);
+  float size = luaL_checknumber(L, 3);
   int style = 0;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
   ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
@@ -90,7 +98,7 @@ static int f_font_load(lua_State *L) {
     return ret_code;
 
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(&window_renderer, filename, size, antialiasing, hinting, style);
+  *font = ren_font_load(window_renderer, filename, size, antialiasing, hinting, style);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
@@ -115,7 +123,8 @@ static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
 static int f_font_copy(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
   bool table = font_retrieve(L, fonts, 1);
-  float size = lua_gettop(L) >= 2 ? luaL_checknumber(L, 2) : ren_font_group_get_height(fonts);
+  RenWindow* window_renderer = lua_get_window(L, 2);
+  float size = lua_gettop(L) >= 3 ? luaL_checknumber(L, 3) : ren_font_group_get_height(fonts);
   int style = -1;
   ERenFontHinting hinting = -1;
   ERenFontAntialiasing antialiasing = -1;
@@ -130,7 +139,7 @@ static int f_font_copy(lua_State *L) {
   }
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-    *font = ren_font_copy(&window_renderer, fonts[i], size, antialiasing, hinting, style);
+    *font = ren_font_copy(window_renderer, fonts[i], size, antialiasing, hinting, style);
     if (!*font)
       return luaL_error(L, "failed to copy font");
     luaL_setmetatable(L, API_TYPE_FONT);
@@ -195,10 +204,11 @@ static int f_font_gc(lua_State *L) {
 
 static int f_font_get_width(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
+  RenWindow* window_renderer = lua_get_window(L, 2);
   size_t len;
-  const char *text = luaL_checklstring(L, 2, &len);
+  const char *text = luaL_checklstring(L, 3, &len);
 
-  lua_pushnumber(L, ren_font_group_get_width(&window_renderer, fonts, text, len));
+  lua_pushnumber(L, ren_font_group_get_width(window_renderer, fonts, text, len));
   return 1;
 }
 
@@ -215,9 +225,10 @@ static int f_font_get_size(lua_State *L) {
 }
 
 static int f_font_set_size(lua_State *L) {
-  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
-  float size = luaL_checknumber(L, 2);
-  ren_font_group_set_size(&window_renderer, fonts, size);
+  RenWindow* window_renderer = lua_get_window(L, 1);
+  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 2);
+  float size = luaL_checknumber(L, 3);
+  ren_font_group_set_size(window_renderer, fonts, size);
   return 0;
 }
 
@@ -275,8 +286,9 @@ static int f_show_debug(lua_State *L) {
 
 
 static int f_get_size(lua_State *L) {
+  RenWindow* window_renderer = lua_get_window(L, 1);
   int w, h;
-  ren_get_size(&window_renderer, &w, &h);
+  ren_get_size(window_renderer, &w, &h);
   lua_pushnumber(L, w);
   lua_pushnumber(L, h);
   return 2;
@@ -284,13 +296,15 @@ static int f_get_size(lua_State *L) {
 
 
 static int f_begin_frame(UNUSED lua_State *L) {
-  rencache_begin_frame(&window_renderer);
+  RenWindow* window_renderer = lua_get_window(L, 1);
+  rencache_begin_frame(window_renderer);
   return 0;
 }
 
 
 static int f_end_frame(UNUSED lua_State *L) {
-  rencache_end_frame(&window_renderer);
+  RenWindow* window_renderer = lua_get_window(L, 1);
+  rencache_end_frame(window_renderer);
   // clear the font reference table
   lua_newtable(L);
   lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
@@ -329,7 +343,8 @@ static int f_draw_rect(lua_State *L) {
 
 static int f_draw_text(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
-  font_retrieve(L, fonts, 1);
+  RenWindow* window_renderer = lua_get_window(L, 1);
+  font_retrieve(L, fonts, 2);
 
   // stores a reference to this font to the reference table
   lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
@@ -344,11 +359,11 @@ static int f_draw_text(lua_State *L) {
   lua_pop(L, 1);
 
   size_t len;
-  const char *text = luaL_checklstring(L, 2, &len);
-  double x = luaL_checknumber(L, 3);
-  int y = luaL_checknumber(L, 4);
-  RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(&window_renderer, fonts, text, len, x, y, color);
+  const char *text = luaL_checklstring(L, 3, &len);
+  double x = luaL_checknumber(L, 4);
+  int y = luaL_checknumber(L, 5);
+  RenColor color = checkcolor(L, 6, 255);
+  x = rencache_draw_text(window_renderer, fonts, text, len, x, y, color);
   lua_pushnumber(L, x);
   return 1;
 }

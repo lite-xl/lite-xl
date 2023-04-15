@@ -2,6 +2,7 @@ require "core.strict"
 require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
+local window = require "core.window"
 local style = require "colors.default"
 local command
 local keymap
@@ -14,6 +15,7 @@ local CommandView
 local NagView
 local DocView
 local Doc
+local Window
 
 local core = {}
 
@@ -627,8 +629,8 @@ function core.remove_project_directory(path)
 end
 
 
-function core.configure_borderless_window()
-  system.set_window_bordered(not config.borderless)
+function core.configure_borderless_window(window)
+  system.set_window_bordered(window, not config.borderless)
   core.title_view:configure_hit_test(config.borderless)
   core.title_view.visible = config.borderless
 end
@@ -644,7 +646,7 @@ local function add_config_files_hooks()
     if self.abs_filename == user_filename or self.abs_filename == module_filename then
       reload_customizations()
       core.rescan_project_directories()
-      core.configure_borderless_window()
+      core.configure_borderless_window(window)
     end
   end
 end
@@ -684,6 +686,7 @@ function core.init()
   NagView = require "core.nagview"
   DocView = require "core.docview"
   Doc = require "core.doc"
+  Window = require "core.window"
 
   if PATHSEP == '\\' then
     USERDIR = common.normalize_volume(USERDIR)
@@ -694,9 +697,9 @@ function core.init()
   do
     local session = load_session()
     if session.window_mode == "normal" then
-      system.set_window_size(table.unpack(session.window))
+      system.set_window_size(window, table.unpack(session.window))
     elseif session.window_mode == "maximized" then
-      system.set_window_mode("maximized")
+      system.set_window_mode(window, "maximized")
     end
     core.recent_projects = session.recents or {}
     core.previous_find = session.previous_find or {}
@@ -737,6 +740,7 @@ function core.init()
   core.visited_files = {}
   core.restart_request = false
   core.quit_request = false
+  core.windows = {}
 
   -- We load core views before plugins that may need them.
   ---@type core.rootview
@@ -749,6 +753,8 @@ function core.init()
   core.nag_view = NagView()
   ---@type core.titleview
   core.title_view = TitleView()
+  ---@type core.window
+  table.insert(core.windows, 1, Window())
 
   -- Some plugins (eg: console) require the nodes to be initialized to defaults
   local cur_node = core.root_view.root_node
@@ -813,7 +819,7 @@ function core.init()
     command.perform("core:open-log")
   end
 
-  core.configure_borderless_window()
+  core.configure_borderless_window(window)
 
   if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
     local opt = {
@@ -1356,7 +1362,7 @@ function core.step()
     core.redraw = true
   end
 
-  local width, height = renderer.get_size()
+  local width, height = renderer.get_size(window)
 
   -- update
   core.root_view.size.x, core.root_view.size.y = width, height
@@ -1376,16 +1382,18 @@ function core.step()
   -- update window title
   local current_title = get_title_filename(core.active_view)
   if current_title ~= nil and current_title ~= core.window_title then
-    system.set_window_title(core.compose_window_title(current_title))
+    system.set_window_title(window, core.compose_window_title(current_title))
     core.window_title = current_title
   end
 
   -- draw
-  renderer.begin_frame()
-  core.clip_rect_stack[1] = { 0, 0, width, height }
-  renderer.set_clip_rect(table.unpack(core.clip_rect_stack[1]))
-  core.root_view:draw()
-  renderer.end_frame()
+  for _, window in ipairs(core.windows) do
+    renderer.begin_frame(window)
+    core.clip_rect_stack[1] = { 0, 0, width, height }
+    renderer.set_clip_rect(table.unpack(core.clip_rect_stack[1]))
+    core.root_view:draw()
+    renderer.end_frame(window)
+  end
   return true
 end
 

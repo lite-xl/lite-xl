@@ -1,5 +1,6 @@
 -- mod-version:3
 local core = require "core"
+local window = require "core.window"
 local common = require "core.common"
 local command = require "core.command"
 local config = require "core.config"
@@ -300,8 +301,8 @@ function TreeView:update()
     self.tooltip.alpha = 0
   end
 
-  self.item_icon_width = style.icon_font:get_width("D")
-  self.item_text_spacing = style.icon_font:get_width("f") / 2
+  self.item_icon_width = style.icon_font:get_width(window, "D")
+  self.item_text_spacing = style.icon_font:get_width(window, "f") / 2
 
   -- this will make sure hovered_item is updated
   -- we don't want events when the thing is scrolling fast

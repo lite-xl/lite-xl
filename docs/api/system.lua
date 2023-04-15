@@ -320,5 +320,22 @@ function system.load_native_plugin(name, path) end
 ---@return boolean compare_result True if path1 < path2
 function system.path_compare(path1, path2) end
 
+---
+---Get width and height of the current display
+---
+---@param index number
+---@return number
+function system.get_current_display_mode(index) end
+
+---
+---Get width and height of the current display
+---
+---@param x number
+---@param y number
+---@param w number
+---@param h number
+---@param flags number map to SDL_WindowFlags
+---@return number
+function system.create_window(x, y, w, h, flags) end
 
 return system

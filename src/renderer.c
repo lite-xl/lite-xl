@@ -20,11 +20,7 @@
 #define MAX_LOADABLE_GLYPHSETS 1024
 #define SUBPIXEL_BITMAPS_CACHED 3
 
-RenWindow window_renderer = {0};
 static FT_Library library;
-
-// draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
-static SDL_Surface *draw_rect_surface;
 
 static void* check_alloc(void *ptr) {
   if (!ptr) {
@@ -376,12 +372,13 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
   return width / surface_scale;
 }
 
-double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
-  SDL_Surface *surface = rs->surface;
+double ren_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
+  RenSurface rs = renwin_get_surface(window_renderer);
+  SDL_Surface *surface = rs.surface;
   SDL_Rect clip;
   SDL_GetClipRect(surface, &clip);
 
-  const int surface_scale = rs->scale;
+  const int surface_scale = rs.scale;
   double pen_x = x * surface_scale;
   y *= surface_scale;
   int bytes_per_pixel = surface->format->BytesPerPixel;
@@ -405,7 +402,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
     if (!metric->loaded && codepoint > 0xFF)
-      ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
+      ren_draw_rect(window_renderer, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
@@ -456,9 +453,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     else if(font != last || text == end) {
       double local_pen_x = text == end ? pen_x + adv : pen_x;
       if (underline)
-        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+        ren_draw_rect(window_renderer, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
       if (strikethrough)
-        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height / 2, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+        ren_draw_rect(window_renderer, (RenRect){last_pen_x, y / surface_scale + last->height / 2, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
       last = font;
       last_pen_x = pen_x;
     }
@@ -477,11 +474,12 @@ static inline RenColor blend_pixel(RenColor dst, RenColor src) {
   return dst;
 }
 
-void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
+void ren_draw_rect(RenWindow *window_renderer, RenRect rect, RenColor color) {
   if (color.a == 0) { return; }
 
-  SDL_Surface *surface = rs->surface;
-  const int surface_scale = rs->scale;
+  RenSurface rs = renwin_get_surface(window_renderer);
+  SDL_Surface *surface = rs.surface;
+  const int surface_scale = rs.scale;
 
   SDL_Rect dest_rect = { rect.x * surface_scale,
                          rect.y * surface_scale,
@@ -498,38 +496,77 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
     SDL_GetClipRect(surface, &clip);
     if (!SDL_IntersectRect(&clip, &dest_rect, &dest_rect)) return;
 
-    uint32_t *pixel = (uint32_t *)draw_rect_surface->pixels;
-    *pixel = SDL_MapRGBA(draw_rect_surface->format, color.r, color.g, color.b, color.a);
-    SDL_BlitScaled(draw_rect_surface, NULL, surface, &dest_rect);
+    uint32_t *pixel = (uint32_t *)window_renderer->draw_rect_surface->pixels;
+    *pixel = SDL_MapRGBA(window_renderer->draw_rect_surface->format, color.r, color.g, color.b, color.a);
+    SDL_BlitScaled(window_renderer->draw_rect_surface, NULL, surface, &dest_rect);
   }
 }
+
+#define MAX_WINDOW_COUNT 255
+RenWindow* window_list[MAX_WINDOW_COUNT] = {0};
+size_t window_index = 0;
 
 /*************** Window Management ****************/
 void ren_free_window_resources(RenWindow *window_renderer) {
   extern uint8_t *command_buf;
   extern size_t command_buf_size;
   renwin_free(window_renderer);
-  SDL_FreeSurface(draw_rect_surface);
+  SDL_FreeSurface(window_renderer->draw_rect_surface);
   free(command_buf);
   command_buf = NULL;
   command_buf_size = 0;
 }
 
-// TODO remove global and return RenWindow*
-void ren_init(SDL_Window *win) {
+void ren_free_all_window_resources()
+{
+  for (size_t i = 0; i < window_index; ++i)
+  {
+    ren_free_window_resources(window_list[i]);
+  }
+}
+
+RenWindow* ren_init(SDL_Window *win) {
   assert(win);
   int error = FT_Init_FreeType( &library );
   if ( error ) {
     fprintf(stderr, "internal font error when starting the application\n");
-    return;
+    return NULL;
   }
-  window_renderer.window = win;
-  renwin_init_surface(&window_renderer);
-  renwin_clip_to_surface(&window_renderer);
-  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
+  RenWindow* window_renderer = malloc(sizeof(window_renderer));
+  window_renderer->window = win;
+  renwin_init_surface(window_renderer);
+  renwin_clip_to_surface(window_renderer);
+  window_renderer->draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
                        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+
+  window_list[window_index++] = window_renderer;
+
+  return window_renderer;
 }
 
+RenWindow* ren_get_window_from_index(size_t index)
+{
+  if (index >= window_index)
+    return NULL;
+
+  return window_list[index];
+}
+
+RenWindow* ren_get_window_from_sdl_window(SDL_Window* window)
+{
+  if (!window)
+    return NULL;
+
+  for (size_t i = 0; i < MAX_WINDOW_COUNT; ++i)
+  {
+    if (window_list[i]->window == window)
+    {
+      return window_list[i];
+    }
+  }
+
+  return NULL;
+}
 
 void ren_resize_window(RenWindow *window_renderer) {
   renwin_resize_surface(window_renderer);

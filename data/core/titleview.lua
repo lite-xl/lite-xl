@@ -1,4 +1,5 @@
 local core = require "core"
+local window = require "core.window"
 local common = require "core.common"
 local style = require "core.style"
 local View = require "core.view"
@@ -44,10 +45,10 @@ function TitleView:configure_hit_test(borderless)
     local icon_w = style.icon_font:get_width("_")
     local icon_spacing = icon_w
     local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
-    system.set_window_hit_test(title_height, controls_width, icon_spacing)
+    system.set_window_hit_test(window, title_height, controls_width, icon_spacing)
     -- core.hit_test_title_height = title_height
   else
-    system.set_window_hit_test()
+    system.set_window_hit_test(window)
   end
 end
 

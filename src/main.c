@@ -17,9 +17,6 @@
   #include <sys/sysctl.h>
 #endif
 
-
-static SDL_Window *window;
-
 static double get_scale(void) {
 #ifndef __APPLE__
   float dpi;
@@ -28,7 +25,6 @@ static double get_scale(void) {
 #endif
   return 1.0;
 }
-
 
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
@@ -63,23 +59,6 @@ static void get_exe_filename(char *buf, int sz) {
   sysctl(mib, 4, buf, &len, NULL, 0);
 #else
   *buf = 0;
-#endif
-}
-
-
-static void init_window_icon(void) {
-#if !defined(_WIN32) && !defined(__APPLE__)
-  #include "../resources/icons/icon.inl"
-  (void) icon_rgba_len; /* unused */
-  SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(
-    icon_rgba, 64, 64,
-    32, 64 * 4,
-    0x000000ff,
-    0x0000ff00,
-    0x00ff0000,
-    0xff000000);
-  SDL_SetWindowIcon(window, surf);
-  SDL_FreeSurface(surf);
 #endif
 }
 
@@ -170,19 +149,6 @@ int main(int argc, char **argv) {
   SDL_SetHint("SDL_MOUSE_DOUBLE_CLICK_RADIUS", "4");
 #endif
 
-  SDL_DisplayMode dm;
-  SDL_GetCurrentDisplayMode(0, &dm);
-
-  window = SDL_CreateWindow(
-    "", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, dm.w * 0.8, dm.h * 0.8,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
-  init_window_icon();
-  if (!window) {
-    fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
-    exit(1);
-  }
-  ren_init(window);
-
   lua_State *L;
 init_lua:
   L = luaL_newstate();
@@ -269,9 +235,6 @@ init_lua:
     goto init_lua;
   }
 
-  // This allows the window to be destroyed before lite-xl is done with
-  // reaping child processes
-  ren_free_window_resources(&window_renderer);
   lua_close(L);
 
   return EXIT_SUCCESS;

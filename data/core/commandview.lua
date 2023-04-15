@@ -1,4 +1,5 @@
 local core = require "core"
+local window = require "core.window"
 local common = require "core.common"
 local style = require "core.style"
 local Doc = require "core.doc"
@@ -291,7 +292,7 @@ function CommandView:update()
   self:move_towards("gutter_text_brightness", 0, 0.1, "commandview")
 
   -- update gutter width
-  local dest = self:get_font():get_width(self.label) + style.padding.x
+  local dest = self:get_font():get_width(window, self.label) + style.padding.x
   if self.size.y <= 0 then
     self.gutter_width = dest
   else

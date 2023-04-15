@@ -229,7 +229,7 @@ end
 
 
 function common.draw_text(font, color, text, align, x,y,w,h)
-  local tw, th = font:get_width(text), font:get_height(text)
+  local tw, th = font:get_width(window, text), font:get_height(text)
   if align == "center" then
     x = x + (w - tw) / 2
   elseif align == "right" then
