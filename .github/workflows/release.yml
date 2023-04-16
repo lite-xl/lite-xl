@@ -73,7 +73,7 @@ jobs:
         if: false
         run: sudo apt-get update
 
-      # disabled if the dependencies are already installed
+      # disabled as the dependencies are already installed
       - name: Install Dependencies
         if: false
         run: |
