@@ -344,6 +344,8 @@ static int process_start(lua_State* L) {
     #endif
     cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
     if (!cmd_len)
+      // we have not allocated anything here yet, so we can skip cleanup code
+      // don't do this anywhere else!
       return luaL_argerror(L, 1,"table cannot be empty");
     for (size_t i = 1; i <= cmd_len; ++i) {
       lua_pushinteger(L, i);
@@ -414,20 +416,22 @@ static int process_start(lua_State* L) {
             self->child_pipes[i][0] = CreateNamedPipeA(pipeNameBuffer, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
               PIPE_TYPE_BYTE | PIPE_WAIT, 1, READ_BUF_SIZE, READ_BUF_SIZE, 0, NULL);
             if (self->child_pipes[i][0] == INVALID_HANDLE_VALUE) {
-              lua_pushfstring(L, "Error creating read pipe: %d.", GetLastError());
+              push_error(L, "cannot create pipe", GetLastError());
               retval = -1;
               goto cleanup;
             }
             self->child_pipes[i][1] = CreateFileA(pipeNameBuffer, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
             if (self->child_pipes[i][1] == INVALID_HANDLE_VALUE) {
+              // prevent CloseHandle from messing up error codes
+              DWORD err = GetLastError();
               CloseHandle(self->child_pipes[i][0]);
-              push_error(L, NULL, GetLastError());
+              push_error(L, "cannot open pipe", err);
               retval = -1;
               goto cleanup;
             }
             if (!SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 1 : 0], HANDLE_FLAG_INHERIT, 0) ||
                 !SetHandleInformation(self->child_pipes[i][i == STDIN_FD ? 0 : 1], HANDLE_FLAG_INHERIT, 1)) {
-                  push_error(L, NULL, GetLastError());
+                  push_error(L, "cannot set pipe permission", GetLastError());
                   retval = -1;
                   goto cleanup;
             }
