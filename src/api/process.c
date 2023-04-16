@@ -57,7 +57,7 @@ typedef struct {
     bool reading[2];
     char buffer[2][READ_BUF_SIZE];
   #endif
-  process_handle_t child_pipes[3][2];
+  process_stream_t child_pipes[3][2];
 } process_t;
 
 typedef struct process_kill_s {
@@ -100,7 +100,7 @@ typedef enum {
 static process_kill_list_t kill_list = { 0 };
 static SDL_Thread *kill_list_thread = NULL;
 
-static void close_fd(process_handle_t *handle) {
+static void close_fd(process_stream_t *handle) {
   if (*handle) {
 #ifdef _WIN32
     CloseHandle(*handle);
@@ -583,7 +583,7 @@ static int process_start(lua_State* L) {
     free((char*)env_values[i]);
   }
   for (int stream = 0; stream < 3; ++stream) {
-    process_handle_t* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
+    process_stream_t* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
     if (*pipe) {
       close_fd(pipe);
     }
