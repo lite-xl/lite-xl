@@ -504,7 +504,7 @@ static int process_start(lua_State* L) {
     int control_pipe[2] = { 0 };
     for (int i = 0; i < 3; ++i) { // Make only the parents fd's non-blocking. Children should block.
       if (pipe(self->child_pipes[i]) || fcntl(self->child_pipes[i][i == STDIN_FD ? 1 : 0], F_SETFL, O_NONBLOCK) == -1) {
-        push_error(L, NULL, errno);
+        push_error(L, "cannot create pipe", errno);
         retval = -1;
         goto cleanup;
       }
@@ -523,7 +523,7 @@ static int process_start(lua_State* L) {
 
     self->pid = (long)fork();
     if (self->pid < 0) {
-      push_error(L, NULL, errno);
+      push_error(L, "cannot create child process", errno);
       retval = -1;
       goto cleanup;
     } else if (!self->pid) {
@@ -654,7 +654,7 @@ static int f_write(lua_State* L) {
     if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
       length = 0;
     else if (length < 0) {
-      push_error(L, NULL, errno);
+      push_error(L, "cannot write to child process", errno);
       signal_process(self, SIGNAL_TERM);
       return lua_error(L);
     }
