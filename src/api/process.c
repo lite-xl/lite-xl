@@ -343,6 +343,8 @@ static int process_start(lua_State* L) {
       lua_pushinteger(L, (int)lua_objlen(L, 1));
     #endif
     cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
+    if (!cmd_len)
+      return luaL_argerror(L, 1,"table cannot be empty");
     for (size_t i = 1; i <= cmd_len; ++i) {
       lua_pushinteger(L, i);
       lua_rawget(L, 1);
@@ -353,9 +355,6 @@ static int process_start(lua_State* L) {
     cmd[0] = luaL_checkstring(L, 1);
     cmd_len = 1;
   }
-  // this should never trip
-  // but if it does we are in deep trouble
-  assert(cmd[0]);
 
   if (arg_len > 1) {
     lua_getfield(L, 2, "env");
