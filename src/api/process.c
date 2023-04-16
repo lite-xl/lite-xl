@@ -28,7 +28,7 @@
 #if _WIN32
 
 typedef DWORD process_error_t;
-typedef HANDLE process_stream_handle;
+typedef HANDLE process_stream_t;
 typedef HANDLE process_handle_t;
 
 #define HANDLE_INVALID (INVALID_HANDLE_VALUE)
@@ -39,7 +39,7 @@ static volatile long PipeSerialNumber;
 #else
 
 typedef int process_error_t;
-typedef int process_stream_handle;
+typedef int process_stream_t;
 typedef pid_t process_handle_t;
 
 #define HANDLE_INVALID (0)
