@@ -63,7 +63,7 @@ typedef struct {
 typedef struct process_kill_s {
   int tries;
   uint32_t start_time;
-  process_handle handle;
+  process_handle_t handle;
   struct process_kill_s *next;
 } process_kill_t;
 
@@ -173,7 +173,7 @@ static void kill_list_wait_all(process_kill_list_t *list) {
 }
 
 
-static void process_handle_close(process_handle *handle) {
+static void process_handle_close(process_handle_t *handle) {
 #ifdef _WIN32
   if (*handle) {
     CloseHandle(*handle);
@@ -184,7 +184,7 @@ static void process_handle_close(process_handle *handle) {
 }
 
 
-static bool process_handle_is_running(process_handle handle, int *status) {
+static bool process_handle_is_running(process_handle_t handle, int *status) {
 #ifdef _WIN32
   DWORD s;
   if (GetExitCodeProcess(handle, &s) && s != STILL_ACTIVE) {
@@ -204,7 +204,7 @@ static bool process_handle_is_running(process_handle handle, int *status) {
 }
 
 
-static bool process_handle_signal(process_handle handle, signal_e sig) {
+static bool process_handle_signal(process_handle_t handle, signal_e sig) {
 #if _WIN32
   switch(sig) {
     case SIGNAL_TERM: return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, GetProcessId(handle));
