@@ -93,7 +93,6 @@ function TreeView:get_cached(project, path)
     if not info then return nil end
     t = {
       filename = basename,
-      expanded = (info.type == "dir" and #truncated <= 1) or self.expanded[path],
       depth = get_depth(truncated),
       abs_filename = path,
       project = project,
@@ -101,6 +100,7 @@ function TreeView:get_cached(project, path)
       type = info.type,
       project = project
     }
+    if self.expanded[path] ~= nil then t.expanded = self.expanded[path] else t.expanded = (info.type == "dir" and #truncated <= 1) end
     if t.expanded then self.watches[project]:watch(path) end
     self.cache[path] = t
   end
@@ -504,11 +504,7 @@ function TreeView:toggle_expand(toggle, item)
     end
     self.expanded[item.abs_filename] = item.expanded
     if self.watches[item.project] then
-      if item.expanded then
-        self.watches[item.project]:watch(item.abs_filename)
-      else
-        self.watches[item.project]:unwatch(item.abs_filename)
-      end
+      self.watches[item.project]:watch(item.abs_filename, item.expanded)
     end
   end
 end
