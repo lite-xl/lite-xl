@@ -171,6 +171,9 @@ COMPAT53_API lua_Number lua_tonumberx (lua_State *L, int i, int *isnum);
 #define luaL_checkversion COMPAT53_CONCAT(COMPAT53_PREFIX, L_checkversion)
 COMPAT53_API void luaL_checkversion (lua_State *L);
 
+#define luaL_checkversion_ COMPAT53_CONCAT(COMPAT53_PREFIX, L_checkversion_)
+COMPAT53_API void luaL_checkversion_ (lua_State *L, lua_Number ver, size_t sz);
+
 #define lua_load COMPAT53_CONCAT(COMPAT53_PREFIX, _load_53)
 COMPAT53_API int lua_load (lua_State *L, lua_Reader reader, void *data, const char* source, const char* mode);
 
@@ -338,6 +341,13 @@ COMPAT53_API void luaL_requiref (lua_State *L, const char *modname,
                                  lua_CFunction openf, int glb );
 
 #endif /* Lua 5.1 and Lua 5.2 */
+
+
+
+/* LuaJIT missing implementations */
+#if LUA_JIT
+#define lua_setlevel COMPAT53_CONCAT(COMPAT53_PREFIX, _setlevel)
+#endif
 
 
 

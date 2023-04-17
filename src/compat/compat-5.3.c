@@ -232,6 +232,18 @@ COMPAT53_API void luaL_checkversion (lua_State *L) {
 }
 
 
+COMPAT53_API void luaL_checkversion_ (lua_State *L, lua_Number ver, size_t sz) {
+  const lua_Number *v = lua_version(L);
+  if (sz != (sizeof(lua_Integer)*16 + sizeof(lua_Number)))  /* check numeric types */
+    luaL_error(L, "core and library have incompatible numeric types");
+  if (v != lua_version(NULL))
+    luaL_error(L, "multiple Lua VMs detected");
+  else if (*v != ver)
+    luaL_error(L, "version mismatch: app. needs %f, Lua core provides %f",
+                  (LUAI_UACNUMBER)ver, (LUAI_UACNUMBER)*v);
+}
+
+
 COMPAT53_API void luaL_checkstack (lua_State *L, int sp, const char *msg) {
   if (!lua_checkstack(L, sp+LUA_MINSTACK)) {
     if (msg != NULL)
@@ -951,6 +963,12 @@ COMPAT53_API void luaL_requiref (lua_State *L, const char *modname,
 
 
 #endif /* Lua 5.1 and 5.2 */
+
+
+/* LuaJIT missing implementations */
+#if LUA_JIT
+COMPAT53_API void lua_setlevel (lua_State *from, lua_State *to) {}
+#endif
 
 
 #endif /* COMPAT53_C_ */
