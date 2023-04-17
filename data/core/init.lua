@@ -335,19 +335,21 @@ function core.init()
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
   local files = {}
-  for i = 2, #ARGS do
-    local arg_filename = strip_trailing_slash(ARGS[i])
-    local info = system.get_file_info(arg_filename) or {}
-    if info.type == "dir" then
-      project_dir = arg_filename
-      project_dir_explicit = true
-    else
-      -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
-      if not ARGS[i]:match("^-psn") then
-        local file_abs = system.absolute_path(".") .. PATHSEP .. common.normalize_path(arg_filename)
-        if file_abs then
-          table.insert(files, file_abs)
-          project_dir = file_abs:match("^(.+)[/\\].+$")
+  if not RESTARTED then
+    for i = 2, #ARGS do
+      local arg_filename = strip_trailing_slash(ARGS[i])
+      local info = system.get_file_info(arg_filename) or {}
+      if info.type == "dir" then
+        project_dir = arg_filename
+        project_dir_explicit = true
+      else
+        -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
+        if not ARGS[i]:match("^-psn") then
+          local file_abs = system.absolute_path(".") .. PATHSEP .. common.normalize_path(arg_filename)
+          if file_abs then
+            table.insert(files, file_abs)
+            project_dir = file_abs:match("^(.+)[/\\].+$")
+          end
         end
       end
     end
