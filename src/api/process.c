@@ -71,6 +71,7 @@ typedef struct {
   bool stop;
   SDL_mutex *mutex;
   SDL_cond *has_work, *work_done;
+  SDL_Thread *worker_thread;
   process_kill_t *head;
   process_kill_t *tail;
 } process_kill_list_t;
@@ -98,7 +99,6 @@ typedef enum {
 } filed_e;
 
 static process_kill_list_t kill_list = { 0 };
-static SDL_Thread *kill_list_thread = NULL;
 
 static void close_fd(process_stream_t *handle) {
   if (*handle) {
@@ -112,8 +112,12 @@ static void close_fd(process_stream_t *handle) {
 }
 
 
+static int kill_list_worker(void *ud);
+
+
 static void kill_list_free(process_kill_list_t *list) {
   process_kill_t *node, *temp;
+  SDL_WaitThread(list->worker_thread, NULL);
   SDL_DestroyMutex(list->mutex);
   SDL_DestroyCond(list->has_work);
   SDL_DestroyCond(list->work_done);
@@ -123,16 +127,23 @@ static void kill_list_free(process_kill_list_t *list) {
     node = node->next;
     free(temp);
   }
+  memset(list, 0, sizeof(process_kill_list_t));
 }
 
 
 static bool kill_list_init(process_kill_list_t *list) {
+  memset(list, 0, sizeof(process_kill_list_t));
   list->mutex = SDL_CreateMutex();
   list->has_work = SDL_CreateCond();
   list->work_done = SDL_CreateCond();
   list->head = list->tail = NULL;
   list->stop = false;
   if (!list->mutex || !list->has_work || !list->work_done) {
+    kill_list_free(list);
+    return false;
+  }
+  list->worker_thread = SDL_CreateThread(kill_list_worker, "process_kill", list);
+  if (!list->worker_thread) {
     kill_list_free(list);
     return false;
   }
@@ -738,7 +749,7 @@ static int f_gc(lua_State* L) {
 
     signal_process(self, SIGNAL_TERM);
     p = malloc(sizeof(process_kill_t));
-    if (!p || !kill_list_thread) {
+    if (!p || !kill_list.worker_thread) {
       // if we can't allocate, we'll use the old method
       poll_process(self, PROCESS_TERM_DELAY);
       if (self->running) {
@@ -770,7 +781,6 @@ static int f_running(lua_State* L) {
 
 static int process_gc(lua_State *L) {
   kill_list_wait_all(&kill_list);
-  SDL_WaitThread(kill_list_thread, NULL);
   kill_list_free(&kill_list);
   return 0;
 }
@@ -800,8 +810,7 @@ static const struct luaL_Reg lib[] = {
 };
 
 int luaopen_process(lua_State *L) {
-  if (kill_list_init(&kill_list))
-    kill_list_thread = SDL_CreateThread(kill_list_worker, "process_kill", &kill_list);
+  kill_list_init(&kill_list);
 
   // create the process metatable
   luaL_newmetatable(L, API_TYPE_PROCESS);
