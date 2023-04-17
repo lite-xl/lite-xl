@@ -24,6 +24,7 @@
 #define READ_BUF_SIZE 2048
 #define PROCESS_TERM_TRIES 3
 #define PROCESS_TERM_DELAY 50
+#define PROCESS_KILL_LIST_NAME "__process_kill_list__"
 
 #if _WIN32
 
@@ -97,8 +98,6 @@ typedef enum {
   REDIRECT_DISCARD = -2,
   REDIRECT_PARENT = -3,
 } filed_e;
-
-static process_kill_list_t kill_list = { 0 };
 
 static void close_fd(process_stream_t *handle) {
   if (*handle) {
@@ -741,30 +740,32 @@ static int f_kill(lua_State* L) { return self_signal(L, SIGNAL_KILL); }
 static int f_interrupt(lua_State* L) { return self_signal(L, SIGNAL_INTERRUPT); }
 
 static int f_gc(lua_State* L) {
+  process_kill_list_t *list = NULL;
+  process_kill_t *p = NULL;
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
 
-  if (poll_process(self, 0) && !self->detached) {
-    // attempt to kill the process if not detached
-    process_kill_t *p;
+  // get the kill_list for the lua_State
+  if (lua_getfield(L, LUA_REGISTRYINDEX, PROCESS_KILL_LIST_NAME) == LUA_TUSERDATA)
+    list = (process_kill_list_t *) lua_touserdata(L, -1);
 
+  if (poll_process(self, 0) && !self->detached) {
+    // attempt to kill the process if still running and not detached
     signal_process(self, SIGNAL_TERM);
-    p = malloc(sizeof(process_kill_t));
-    if (!p || !kill_list.worker_thread) {
-      // if we can't allocate, we'll use the old method
-      poll_process(self, PROCESS_TERM_DELAY);
-      if (self->running) {
+    if (!list || !list->worker_thread || !(p = malloc(sizeof(process_kill_t)))) {
+      // use synchronous waiting
+      if (poll_process(self, PROCESS_TERM_DELAY)) {
         signal_process(self, SIGNAL_KILL);
         poll_process(self, PROCESS_TERM_DELAY);
       }
     } else {
-      // send the handle to a queue for asynchronous waiting
+      // put the handle into a queue for asynchronous waiting
       p->handle = PROCESS_GET_HANDLE(self);
       p->start_time = SDL_GetTicks();
       p->tries = 1;
-      SDL_LockMutex(kill_list.mutex);
-      kill_list_push(&kill_list, p);
-      SDL_CondSignal(kill_list.has_work);
-      SDL_UnlockMutex(kill_list.mutex);
+      SDL_LockMutex(list->mutex);
+      kill_list_push(list, p);
+      SDL_CondSignal(list->has_work);
+      SDL_UnlockMutex(list->mutex);
     }
   }
   close_fd(&self->child_pipes[STDIN_FD ][1]);
@@ -780,8 +781,13 @@ static int f_running(lua_State* L) {
 }
 
 static int process_gc(lua_State *L) {
-  kill_list_wait_all(&kill_list);
-  kill_list_free(&kill_list);
+  process_kill_list_t *list = NULL;
+  // get the kill_list for the lua_State
+  if (lua_getfield(L, LUA_REGISTRYINDEX, PROCESS_KILL_LIST_NAME) == LUA_TUSERDATA) {
+    list = (process_kill_list_t *) lua_touserdata(L, -1);
+    kill_list_wait_all(list);
+    kill_list_free(list);
+  }
   return 0;
 }
 
@@ -810,7 +816,11 @@ static const struct luaL_Reg lib[] = {
 };
 
 int luaopen_process(lua_State *L) {
-  kill_list_init(&kill_list);
+  process_kill_list_t *list = lua_newuserdata(L, sizeof(process_kill_list_t));
+  if (kill_list_init(list))
+    lua_setfield(L, LUA_REGISTRYINDEX, PROCESS_KILL_LIST_NAME);
+  else
+    lua_pop(L, 1); // discard the list
 
   // create the process metatable
   luaL_newmetatable(L, API_TYPE_PROCESS);
