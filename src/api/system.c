@@ -1067,9 +1067,10 @@ static int f_path_compare(lua_State *L) {
   int type1 = strcmp(type1_s, "dir") != 0;
   int type2 = strcmp(type2_s, "dir") != 0;
   /* Find the index of the common part of the path. */
-  int offset = 0, i;
+  size_t offset = 0, i, j;
   for (i = 0; i < len1 && i < len2; i++) {
     if (path1[i] != path2[i]) break;
+    if (isdigit(path1[i])) break;
     if (path1[i] == PATHSEP) {
       offset = i + 1;
     }
@@ -1089,21 +1090,37 @@ static int f_path_compare(lua_State *L) {
   }
   /* If types are the same compare the files' path alphabetically. */
   int cfr = -1;
-  int len_min = (len1 < len2 ? len1 : len2);
   bool same_len = len1 == len2;
-  for (int j = offset; j <= len_min; j++) {
-    if (path1[j] == 0 || path2[j] == 0) {
+  for (i = offset, j = offset; i <= len1 && j <= len2; i++, j++) {
+    if (path1[i] == 0 || path2[j] == 0) {
       if (cfr < 0) cfr = 0; // The strings are equal
       if (!same_len) {
-        cfr = (path1[j] == 0);
+        cfr = (path1[i] == 0);
       }
-    } else if (path1[j] == path2[j]) {
+    } else if (isdigit(path1[i]) && isdigit(path2[j])) {
+      size_t ii = 0, ij = 0;
+      while (isdigit(path1[i+ii])) { ii++; }
+      while (isdigit(path2[j+ij])) { ij++; }
+
+      size_t di = 0, dj = 0;
+      for (size_t ai = 0; ai < ii; ++ai) {
+        di = di * 10 + (path1[i+ai] - '0');
+      }
+      for (size_t aj = 0; aj < ij; ++aj) {
+        dj = dj * 10 + (path2[j+aj] - '0');
+      }
+
+      if (di == dj) {
+        continue;
+      }
+      cfr = (di < dj);
+    } else if (path1[i] == path2[j]) {
       continue;
-    } else if (path1[j] == PATHSEP || path2[j] == PATHSEP) {
+    } else if (path1[i] == PATHSEP || path2[j] == PATHSEP) {
       /* For comparison we treat PATHSEP as if it was the string terminator. */
-      cfr = (path1[j] == PATHSEP);
+      cfr = (path1[i] == PATHSEP);
     } else {
-      char a = path1[j], b = path2[j];
+      char a = path1[i], b = path2[j];
       if (a >= 'A' && a <= 'Z') a += 32;
       if (b >= 'A' && b <= 'Z') b += 32;
       if (a == b) {
@@ -1111,7 +1128,7 @@ static int f_path_compare(lua_State *L) {
            to keep the first case sensitive difference. */
         if (same_len && cfr < 0) {
           /* Give priority to lower-case characters */
-          cfr = (path1[j] > path2[j]);
+          cfr = (path1[i] > path2[j]);
         }
         continue;
       }
