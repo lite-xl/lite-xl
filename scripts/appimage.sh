@@ -181,7 +181,7 @@ generate_appimage() {
     version="${version}-addons"
   fi
 
-  ./appimagetool LiteXL.AppDir LiteXL${version}-${ARCH}.AppImage
+  ./appimagetool --appimage-extract-and-run LiteXL.AppDir LiteXL${version}-${ARCH}.AppImage
 }
 
 setup_appimagetool
