@@ -100,7 +100,7 @@ typedef enum {
 } filed_e;
 
 static void close_fd(process_stream_t *handle) {
-  if (*handle) {
+  if (*handle && *handle != HANDLE_INVALID) {
 #ifdef _WIN32
     CloseHandle(*handle);
 #else
