@@ -339,13 +339,21 @@ static bool signal_process(process_t* proc, signal_e sig) {
   return true;
 }
 
+
+static char *xstrdup(const char *str) {
+  char *result = str ? malloc(strlen(str) + 1) : NULL;
+  if (result) strcpy(result, str);
+  return result;
+}
+
+
 static int process_start(lua_State* L) {
   int retval = 1;
-  size_t env_len = 0, key_len, val_len;
-  const char *cmd[256] = { NULL }, *env_names[256] = { NULL }, *env_values[256] = { NULL }, *cwd = NULL;
+  size_t env_len = 0, cmd_len = 0;
+  const char **cmd = NULL, **env_names = NULL, **env_values = NULL, *cwd = NULL;
   bool detach = false, literal = false;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
-  size_t arg_len = lua_gettop(L), cmd_len;
+
   if (lua_type(L, 1) == LUA_TTABLE) {
     #if LUA_VERSION_NUM > 501
       lua_len(L, 1);
@@ -354,36 +362,20 @@ static int process_start(lua_State* L) {
     #endif
     cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
     if (!cmd_len)
-      // we have not allocated anything here yet, so we can skip cleanup code
-      // don't do this anywhere else!
-      return luaL_argerror(L, 1,"table cannot be empty");
+      return luaL_argerror(L, 1, "table cannot be empty");
+    // check if each arguments is a string
     for (size_t i = 1; i <= cmd_len; ++i) {
-      lua_pushinteger(L, i);
-      lua_rawget(L, 1);
-      cmd[i-1] = luaL_checkstring(L, -1);
+      lua_rawgeti(L, 1, i);
+      luaL_checkstring(L, -1);
+      lua_pop(L, 1);
     }
   } else {
     literal = true;
-    cmd[0] = luaL_checkstring(L, 1);
     cmd_len = 1;
+    luaL_checkstring(L, 1);
   }
 
-  if (arg_len > 1) {
-    lua_getfield(L, 2, "env");
-    if (!lua_isnil(L, -1)) {
-      lua_pushnil(L);
-      while (lua_next(L, -2) != 0) {
-        const char* key = luaL_checklstring(L, -2, &key_len);
-        const char* val = luaL_checklstring(L, -1, &val_len);
-        env_names[env_len] = malloc(key_len+1);
-        strcpy((char*)env_names[env_len], key);
-        env_values[env_len] = malloc(val_len+1);
-        strcpy((char*)env_values[env_len], val);
-        lua_pop(L, 1);
-        ++env_len;
-      }
-    } else
-      lua_pop(L, 1);
+  if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "detach");  detach = lua_toboolean(L, -1);
     lua_getfield(L, 2, "timeout"); deadline = luaL_optnumber(L, -1, deadline);
     lua_getfield(L, 2, "cwd");     cwd = luaL_optstring(L, -1, NULL);
@@ -391,12 +383,68 @@ static int process_start(lua_State* L) {
     lua_getfield(L, 2, "stdout");  new_fds[STDOUT_FD] = luaL_optnumber(L, -1, STDOUT_FD);
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
-      if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT) {
-        lua_pushfstring(L, "error: redirect to handles, FILE* and paths are not supported");
+      if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT)
+        return luaL_error(L, "error: redirect to handles, FILE* and paths are not supported");
+    }
+    lua_pop(L, 6); // pop all the values above
+
+    luaL_getsubtable(L, 2, "env");
+    // count environment variobles
+    lua_pushnil(L);
+    while (lua_next(L, -2) != 0) {
+      luaL_checkstring(L, -2);
+      luaL_checkstring(L, -1);
+      lua_pop(L, 1);
+      env_len++;
+    }
+
+    if (env_len) {
+      // allocate and copy the environment variables
+      env_names = calloc(sizeof(char *), env_len);
+      env_values = calloc(sizeof(char *), env_len);
+      if (!env_names || !env_values) {
         retval = -1;
+        lua_pushliteral(L, "cannot allocate memory");
         goto cleanup;
       }
+
+      env_len = 0;
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        env_names[env_len] = xstrdup(lua_tostring(L, -2));
+        env_values[env_len] = xstrdup(lua_tostring(L, -1));
+        if (!env_names[env_len] || !env_values[env_len]) {
+          retval = -1;
+          lua_pushliteral(L, "cannot allocate memory");
+          goto cleanup;
+        }
+        lua_pop(L, 1);
+        env_len++;
+      }
     }
+  }
+
+  // allocate and copy commands
+  cmd = calloc(sizeof(char *), (literal ? 1 : cmd_len) + 1);
+  if (!cmd) {
+    retval = -1;
+    lua_pushliteral(L, "cannot allocate memory");
+    goto cleanup;
+  }
+  if (!literal) {
+    for (size_t i = 1; i <= cmd_len; i++) {
+      lua_rawgeti(L, 1, i);
+      cmd[i-1] = xstrdup(lua_tostring(L, -1));
+      if (!cmd[i-1]) break;
+      lua_pop(L, 1);
+    }
+  } else {
+    cmd[0] = xstrdup(lua_tostring(L, 1));
+  }
+  if (!cmd[cmd_len-1]) {
+    retval = -1;
+    lua_pushliteral(L, "cannot allocate memory");
+    goto cleanup;
   }
 
   process_t* self = lua_newuserdata(L, sizeof(process_t));
@@ -588,16 +636,28 @@ static int process_start(lua_State* L) {
     if (control_pipe[0]) close(control_pipe[0]);
     if (control_pipe[1]) close(control_pipe[1]);
   #endif
-  for (size_t i = 0; i < env_len; ++i) {
-    free((char*)env_names[i]);
-    free((char*)env_values[i]);
-  }
   for (int stream = 0; stream < 3; ++stream) {
     process_stream_t* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
     if (*pipe) {
       close_fd(pipe);
     }
   }
+  if (cmd) {
+    for (size_t i = 0; cmd[i]; i++)
+      free((char *) cmd[i]);
+  }
+  if (env_names) {
+    for (size_t i = 0; env_names[i]; i++)
+      free((char *) env_names[i]);
+  }
+  if (env_values) {
+    for (size_t i = 0; env_values[i]; i++)
+      free((char *) env_values[i]);
+  }
+  free(cmd);
+  free(env_names);
+  free(env_values);
+
   if (retval == -1)
     return lua_error(L);
 
