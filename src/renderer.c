@@ -370,7 +370,7 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
     RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
     if (!metric)
       break;
-    width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
+    width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->size;
   }
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   return width / surface_scale;
@@ -404,8 +404,19 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
-    if (!metric->loaded && codepoint > 0xFF)
-      ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
+    if (!metric->loaded && codepoint > 0xFF) {
+      int rect_size = (int) font->size * 0.7;
+      rect_size = font->space_advance < rect_size ? rect_size : font->space_advance;
+      // draw he fallback character
+      ren_draw_rect(rs,
+                    (RenRect) {
+                      start_x + (int)(font->size / 2) - (rect_size / 2),
+                      y + (int)(ren_font_group_get_height(fonts) / 2) - (rect_size / 2),
+                      rect_size,
+                      rect_size
+                    },
+                    color);
+    }
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
@@ -450,7 +461,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       }
     }
 
-    float adv = metric->xadvance ? metric->xadvance : font->space_advance;
+    float adv = metric->xadvance ? metric->xadvance : font->size;
 
     if(!last) last = font;
     else if(font != last || text == end) {
