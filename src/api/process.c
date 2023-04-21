@@ -31,6 +31,7 @@
 typedef DWORD process_error_t;
 typedef HANDLE process_stream_t;
 typedef HANDLE process_handle_t;
+typedef wchar_t process_arglist_t[32767];
 
 #define HANDLE_INVALID (INVALID_HANDLE_VALUE)
 #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
@@ -42,6 +43,7 @@ static volatile long PipeSerialNumber;
 typedef int process_error_t;
 typedef int process_stream_t;
 typedef pid_t process_handle_t;
+typedef char **process_arglist_t;
 
 #define HANDLE_INVALID (0)
 #define PROCESS_GET_HANDLE(P) ((P)->pid)
@@ -347,32 +349,127 @@ static char *xstrdup(const char *str) {
 }
 
 
+static int process_arglist_init(process_arglist_t *list, size_t *list_len, size_t nargs) {
+  *list_len = 0;
+#ifdef _WIN32
+  memset(*list, 0, sizeof(process_arglist_t));
+#else
+  *list = calloc(sizeof(char *), nargs + 1);
+  if (!*list) return ENOMEM;
+#endif
+  return 0;
+}
+
+
+static int process_arglist_add(process_arglist_t *list, size_t *list_len, const char *arg, bool escape) {
+  size_t len = *list_len;
+#ifdef _WIN32
+  int arg_len;
+  wchar_t *cmdline = *list;
+  wchar_t arg_w[32767];
+  // this length includes the null terminator!
+  if (!(arg_len = MultiByteToWideChar(CP_UTF8, 0, arg, -1, arg_w, 32767)))
+    return GetLastError();
+  if (arg_len + len > 32767)
+    return ERROR_NOT_ENOUGH_MEMORY;
+
+  if (!escape) {
+    // replace the current null terminator with a space
+    if (len > 0) cmdline[len-1] = ' ';
+    memcpy(cmdline + len, arg_w, arg_len * sizeof(wchar_t));
+    len += arg_len;
+  } else {
+    // if the string contains spaces, then we must quote it
+    bool quote = wcspbrk(arg_w, L" \t\v\r\n");
+    int backslash = 0, escaped_len = quote ? 2 : 0;
+    for (int i = 0; i < arg_len; i++) {
+      if (arg_w[i] == L'\\') {
+        backslash++;
+      } else if (arg_w[i] == L'"') {
+        escaped_len += backslash + 1;
+        backslash = 0;
+      } else {
+        backslash = 0;
+      }
+      escaped_len++;
+    }
+    // escape_len contains NUL terminator
+    if (escaped_len + len > 32767)
+      return ERROR_NOT_ENOUGH_MEMORY;
+    // replace our previous NUL terminator with space
+    if (len > 0) cmdline[len-1] = L' ';
+    if (quote) cmdline[len++] = L'"';
+    // we are not going to iterate over NUL terminator
+    for (int i = 0;arg_w[i]; i++) {
+      if (arg_w[i] == L'\\') {
+        backslash++;
+      } else if (arg_w[i] == L'"') {
+        // add backslash + 1 backslashes
+        for (int j = 0; j < backslash; j++)
+          cmdline[len++] = L'\\';
+        cmdline[len++] = L'\\';
+        backslash = 0;
+      } else {
+        backslash = 0;
+      }
+      cmdline[len++] = arg_w[i];
+    }
+    if (quote) cmdline[len++] = L'"';
+    cmdline[len++] = L'\0';
+  }
+#else
+  const char **cmd = *list;
+  cmd[len] = xstrdup(cmd);
+  if (!cmd[len]) return ENOMEM;
+  len++;
+#endif
+  *list_len = len;
+  return 0;
+}
+
+
+static void process_arglist_free(process_arglist_t *list) {
+#ifndef _WIN32
+  char **cmd = *list;
+  for (int i = 0; cmd[i]; i++)
+    free(cmd[i]);
+  free(cmd);
+  *list = NULL;
+#endif
+}
+
+
 static int process_start(lua_State* L) {
   int retval = 1;
-  size_t env_len = 0, cmd_len = 0;
-  const char **cmd = NULL, **env_names = NULL, **env_values = NULL, *cwd = NULL;
-  bool detach = false, literal = false;
+  size_t env_len = 0, cmd_len = 0, arglist_len = 0;
+  process_arglist_t arglist;
+  const char **env_names = NULL, **env_values = NULL, *cwd = NULL;
+  bool detach = false, escape = true;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
 
-  if (lua_type(L, 1) == LUA_TTABLE) {
-    #if LUA_VERSION_NUM > 501
-      lua_len(L, 1);
-    #else
-      lua_pushinteger(L, (int)lua_objlen(L, 1));
-    #endif
-    cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
-    if (!cmd_len)
-      return luaL_argerror(L, 1, "table cannot be empty");
-    // check if each arguments is a string
-    for (size_t i = 1; i <= cmd_len; ++i) {
-      lua_rawgeti(L, 1, i);
-      luaL_checkstring(L, -1);
-      lua_pop(L, 1);
-    }
-  } else {
-    literal = true;
-    cmd_len = 1;
-    luaL_checkstring(L, 1);
+  if (lua_isstring(L, 1)) {
+    escape = false;
+    // create a table that contains the string as the value
+    lua_createtable(L, 1, 0);
+    lua_pushvalue(L, 1);
+    lua_rawseti(L, -2, 1);
+    lua_replace(L, 1);
+  }
+
+  luaL_checktype(L, 1, LUA_TTABLE);
+  #if LUA_VERSION_NUM > 501
+    lua_len(L, 1);
+  #else
+    lua_pushinteger(L, (int)lua_objlen(L, 1));
+  #endif
+  cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
+  if (!cmd_len)
+    return luaL_argerror(L, 1, "table cannot be empty");
+  // check if each arguments is a string
+  for (size_t i = 1; i <= cmd_len; ++i) {
+    lua_rawgeti(L, 1, i);
+    luaL_checkstring(L, -1);
+    lua_pop(L, 1);
   }
 
   if (lua_istable(L, 2)) {
@@ -425,26 +522,19 @@ static int process_start(lua_State* L) {
   }
 
   // allocate and copy commands
-  cmd = calloc(sizeof(char *), (literal ? 1 : cmd_len) + 1);
-  if (!cmd) {
+  if ((retval = process_arglist_init(&arglist, &arglist_len, cmd_len)) != 0) {
+    push_error(L, "cannot create argument list", retval);
     retval = -1;
-    lua_pushliteral(L, "cannot allocate memory");
     goto cleanup;
   }
-  if (!literal) {
-    for (size_t i = 1; i <= cmd_len; i++) {
-      lua_rawgeti(L, 1, i);
-      cmd[i-1] = xstrdup(lua_tostring(L, -1));
-      if (!cmd[i-1]) break;
-      lua_pop(L, 1);
+  for (size_t i = 1; i <= cmd_len; i++) {
+    lua_rawgeti(L, 1, i);
+    if ((retval = process_arglist_add(&arglist, &arglist_len, lua_tostring(L, -1), escape)) != 0) {
+      push_error(L, "cannot add argument", retval);
+      retval = -1;
+      goto cleanup;
     }
-  } else {
-    cmd[0] = xstrdup(lua_tostring(L, 1));
-  }
-  if (!cmd[cmd_len-1]) {
-    retval = -1;
-    lua_pushliteral(L, "cannot allocate memory");
-    goto cleanup;
+    lua_pop(L, 1);
   }
 
   process_t* self = lua_newuserdata(L, sizeof(process_t));
@@ -503,7 +593,7 @@ static int process_start(lua_State* L) {
         self->child_pipes[i][1] = self->child_pipes[new_fds[i]][1];
       }
     }
-    STARTUPINFO siStartInfo;
+    STARTUPINFOW siStartInfo;
     memset(&self->process_information, 0, sizeof(self->process_information));
     memset(&siStartInfo, 0, sizeof(siStartInfo));
     siStartInfo.cb = sizeof(siStartInfo);
@@ -511,37 +601,11 @@ static int process_start(lua_State* L) {
     siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
-    char commandLine[32767] = { 0 }, environmentBlock[32767], wideEnvironmentBlock[32767*2];
-    int offset = 0;
-    if (!literal) {
-      for (size_t i = 0; i < cmd_len; ++i) {
-        size_t len = strlen(cmd[i]);
-        if (offset + len + 2 >= sizeof(commandLine)) break;
-        if (i > 0)
-          commandLine[offset++] = ' ';
-        commandLine[offset++] = '"';
-        int backslashCount = 0; // Yes, this is necessary.
-        for (size_t j = 0; j < len && offset + 2 + backslashCount < sizeof(commandLine); ++j) {
-          if (cmd[i][j] == '\\')
-            ++backslashCount;
-          else if (cmd[i][j] == '"') {
-            for (size_t k = 0; k < backslashCount; ++k)
-              commandLine[offset++] = '\\';
-            commandLine[offset++] = '\\';
-            backslashCount = 0;
-          } else
-            backslashCount = 0;
-          commandLine[offset++] = cmd[i][j];
-        }
-        if (offset + 1 + backslashCount >= sizeof(commandLine)) break;
-        for (size_t k = 0; k < backslashCount; ++k)
-          commandLine[offset++] = '\\';
-        commandLine[offset++] = '"';
-      }
-      commandLine[offset] = 0;
-    } else {
-      strncpy(commandLine, cmd[0], sizeof(commandLine));
-    }
+    wchar_t cwd_w[MAX_PATH];
+    char environmentBlock[32767], wideEnvironmentBlock[32767*2];
+    int offset;
+    if (cwd) // TODO: error handling
+      MultiByteToWideChar(CP_UTF8, 0, cwd, -1, cwd_w, MAX_PATH);
     offset = 0;
     for (size_t i = 0; i < env_len; ++i) {
       if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
@@ -552,7 +616,7 @@ static int process_start(lua_State* L) {
     environmentBlock[offset++] = 0;
     if (env_len > 0)
       MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information)) {
+    if (!CreateProcessW(NULL, arglist, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd ? cwd_w : NULL, &siStartInfo, &self->process_information)) {
       push_error(L, NULL, GetLastError());
       retval = -1;
       goto cleanup;
@@ -602,7 +666,7 @@ static int process_start(lua_State* L) {
       size_t set;
       for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
       if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
-        execvp(cmd[0], (char** const)cmd);
+        execvp(arglist[0], (char** const)arglist);
       write(control_pipe[1], &errno, sizeof(errno));
       _exit(-1);
     }
@@ -642,10 +706,7 @@ static int process_start(lua_State* L) {
       close_fd(pipe);
     }
   }
-  if (cmd) {
-    for (size_t i = 0; cmd[i]; i++)
-      free((char *) cmd[i]);
-  }
+  process_arglist_free(&arglist);
   if (env_names) {
     for (size_t i = 0; env_names[i]; i++)
       free((char *) env_names[i]);
@@ -654,7 +715,6 @@ static int process_start(lua_State* L) {
     for (size_t i = 0; env_values[i]; i++)
       free((char *) env_values[i]);
   }
-  free(cmd);
   free(env_names);
   free(env_values);
 
