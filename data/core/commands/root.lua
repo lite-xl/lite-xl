@@ -179,17 +179,18 @@ command.add(function()
 
 -- double clicking the tab bar, or on the emptyview should open a new doc
 command.add(function(x, y)
-    local node = core.root_view.overlapping_node
-    if not node or not node:should_show_tabs() then return false end
-    local _, y, w, h, scroll_padding = node:get_scroll_button_rect(1)
-    return ((not node.hovered_tab and node.hovered_scroll_button == 0) and y < h)
+  if not x or not y then return false end
+  local node = core.root_view.root_node:get_child_overlapping_point(x, y)
+  if not node or not node:should_show_tabs() then return false end
+  local _, ty, _, th, scroll_padding = node:get_scroll_button_rect(1)
+  return ((not node.hovered_tab and node.hovered_scroll_button == 0) and y >= ty and y < ty + th)
 end, {
-  ["root:new-doc"] = function() 
+  ["root:new-doc"] = function()
     command.perform("core:new-doc")
   end
 })
 command.add("core.emptyview", {
-  ["emptyview:new-doc"] = function() 
+  ["emptyview:new-doc"] = function()
     command.perform("core:new-doc")
   end
 })
