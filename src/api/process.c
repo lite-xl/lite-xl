@@ -786,7 +786,7 @@ static int process_start(lua_State* L) {
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
       size_t set;
-      for (set = 0; set < env_vars_len && setenv(env_vars[set], env_vars[set+1], 1); set += 2);
+      for (set = 0; set < env_vars_len && setenv(env_vars[set], env_vars[set+1], 1) == 0; set += 2);
       if (set == env_vars_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
         execvp(arglist[0], (char** const)arglist);
       write(control_pipe[1], &errno, sizeof(errno));
