@@ -308,7 +308,7 @@ function Node:tab_hovered_update(px, py)
     if px >= cx and px < cx + cw and py >= y and py < y + h and config.tab_close_button then
       self.hovered_close = tab_index
     end
-  else
+  elseif #self.views > self:get_visible_tabs_number() then
     self.hovered_scroll_button = self:get_scroll_button_index(px, py) or 0
   end
 end
