@@ -616,6 +616,7 @@ end
 
 
 function Node:is_in_tab_area(x, y)
+  if not self:should_show_tabs() then return false end
   local _, ty, _, th = self:get_scroll_button_rect(1)
   return y >= ty and y < ty + th
 end
