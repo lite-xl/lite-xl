@@ -32,6 +32,7 @@ typedef DWORD process_error_t;
 typedef HANDLE process_stream_t;
 typedef HANDLE process_handle_t;
 typedef wchar_t process_arglist_t[32767];
+typedef wchar_t *process_env_t;
 
 #define HANDLE_INVALID (INVALID_HANDLE_VALUE)
 #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
@@ -44,6 +45,7 @@ typedef int process_error_t;
 typedef int process_stream_t;
 typedef pid_t process_handle_t;
 typedef char **process_arglist_t;
+typedef char **process_env_t;
 
 #define HANDLE_INVALID (0)
 #define PROCESS_GET_HANDLE(P) ((P)->pid)
@@ -445,11 +447,135 @@ static void process_arglist_free(process_arglist_t *list) {
 }
 
 
+static int process_env_init(process_env_t *env_list, size_t *env_len, size_t nenv) {
+  *env_len = 0;
+#ifdef _WIN32
+  *env_list = NULL;
+#else
+  *env_list = calloc(sizeof(char *), nenv * 2);
+  if (!*env_list) return ENOMEM;
+#endif
+  return 0;
+}
+
+
+#ifdef _WIN32
+static int cmp_name(wchar_t *a, wchar_t *b) {
+  wchar_t _A[32767], _B[32767], *A = _A, *B = _B, *a_eq, *b_eq;
+  int na, nb, r;
+  a_eq = wcschr(a, L'=');
+  b_eq = wcschr(b, L'=');
+  assert(a_eq);
+  assert(b_eq);
+  na = a_eq - a;
+  nb = b_eq - b;
+  r = LCMapStringW(LOCALE_INVARIANT, LCMAP_UPPERCASE, a, na, A, na);
+  assert(r == na);
+  A[na] = L'\0';
+  r = LCMapStringW(LOCALE_INVARIANT, LCMAP_UPPERCASE, b, nb, B, nb);
+  assert(r == nb);
+  B[nb] = L'\0';
+
+  for (;;) {
+    wchar_t AA = *A++, BB = *B++;
+    if (AA > BB)
+      return 1;
+    else if (AA < BB)
+      return -1;
+    else if (!AA && !BB)
+      return 0;
+  }
+}
+
+
+static int process_env_add_variable(process_env_t *env_list, size_t *env_list_len, wchar_t *var, size_t var_len) {
+  wchar_t *list, *list_p;
+  size_t block_var_len, list_len;
+  list = list_p = *env_list;
+  list_len = *env_list_len;
+  if (list_len) {
+    // check if it is already in the block
+    while ((block_var_len = wcslen(list_p))) {
+      if (cmp_name(list_p, var) == 0)
+        return -1; // already installed
+      list_p += block_var_len + 1;
+    }
+  }
+  // allocate list + 1 characters for the block terminator
+  list = realloc(list, (list_len + var_len + 1) * sizeof(wchar_t));
+  if (!list) return ERROR_NOT_ENOUGH_MEMORY;
+  // copy the env variable to the block
+  memcpy(list + list_len, var, var_len * sizeof(wchar_t));
+  // terminate the block again
+  list[list_len + var_len] = L'\0';
+  *env_list = list;
+  *env_list_len = (list_len + var_len);
+  return 0;
+}
+
+
+static int process_env_add_system(process_env_t *env_list, size_t *env_list_len) {
+  int retval = 0;
+  wchar_t *proc_env_block, *proc_env_block_p;
+  int proc_env_len;
+
+  proc_env_block = proc_env_block_p = GetEnvironmentStringsW();
+  while ((proc_env_len = wcslen(proc_env_block_p))) {
+    // try to add it to the list
+    if ((retval = process_env_add_variable(env_list, env_list_len, proc_env_block_p, proc_env_len + 1)) > 0)
+      goto cleanup;
+    proc_env_block_p += proc_env_len + 1;
+  }
+
+cleanup:
+  if (proc_env_block) FreeEnvironmentStringsW(proc_env_block);
+  return retval;
+}
+#endif
+
+
+static int process_env_add(process_env_t *env_list, size_t *env_len, const char *key, const char *value) {
+#ifdef _WIN32
+  wchar_t env_var[32767];
+  int r, var_len = 0;
+  if (!(r = MultiByteToWideChar(CP_UTF8, 0, key, -1, env_var, 32767)))
+    return GetLastError();
+  var_len += r;
+  env_var[var_len-1] = L'=';
+  if (!(r = MultiByteToWideChar(CP_UTF8, 0, value, -1, env_var + var_len, 32767 - var_len)))
+    return GetLastError();
+  var_len += r;
+  return process_env_add_variable(env_list, env_len, env_var, var_len);
+#else
+  *env_list[*env_len] = xstrdup(key);
+  if (!*env_list[*env_len])
+    return ENOMEM;
+  *env_list[*env_len + 1] = xstrdup(value);
+  if (!*env_list[*env_len + 1])
+    return ENOMEM;
+  *env_len += 2;
+#endif
+  return 0;
+}
+
+
+static void process_env_free(process_env_t *list) {
+#ifdef _WIN32
+  free(*list);
+#else
+  for (size_t i = 0; *list[i]; i++) free(*list[i]);
+  free(*list);
+#endif
+  *list = NULL;
+}
+
+
 static int process_start(lua_State* L) {
-  int retval = 1;
-  size_t env_len = 0, cmd_len = 0, arglist_len = 0;
+  int r, retval = 1;
+  size_t env_len = 0, cmd_len = 0, arglist_len = 0, env_vars_len = 0;
   process_arglist_t arglist;
-  const char **env_names = NULL, **env_values = NULL, *cwd = NULL;
+  process_env_t env_vars;
+  const char *cwd = NULL;
   bool detach = false, escape = true;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
 
@@ -502,23 +628,17 @@ static int process_start(lua_State* L) {
     }
 
     if (env_len) {
-      // allocate and copy the environment variables
-      env_names = calloc(sizeof(char *), env_len);
-      env_values = calloc(sizeof(char *), env_len);
-      if (!env_names || !env_values) {
+      if ((r = process_env_init(&env_vars, &env_vars_len, env_len)) != 0) {
         retval = -1;
-        lua_pushliteral(L, "cannot allocate memory");
+        push_error(L, "cannot allocate environment list", r);
         goto cleanup;
       }
 
-      env_len = 0;
       lua_pushnil(L);
       while (lua_next(L, -2) != 0) {
-        env_names[env_len] = xstrdup(lua_tostring(L, -2));
-        env_values[env_len] = xstrdup(lua_tostring(L, -1));
-        if (!env_names[env_len] || !env_values[env_len]) {
+        if ((r = process_env_add(&env_vars, &env_vars_len, lua_tostring(L, -2), lua_tostring(L, -1))) != 0) {
           retval = -1;
-          lua_pushliteral(L, "cannot allocate memory");
+          push_error(L, "cannot copy environment variable", r);
           goto cleanup;
         }
         lua_pop(L, 1);
@@ -528,16 +648,16 @@ static int process_start(lua_State* L) {
   }
 
   // allocate and copy commands
-  if ((retval = process_arglist_init(&arglist, &arglist_len, cmd_len)) != 0) {
-    push_error(L, "cannot create argument list", retval);
+  if ((r = process_arglist_init(&arglist, &arglist_len, cmd_len)) != 0) {
     retval = -1;
+    push_error(L, "cannot create argument list", r);
     goto cleanup;
   }
   for (size_t i = 1; i <= cmd_len; i++) {
     lua_rawgeti(L, 1, i);
-    if ((retval = process_arglist_add(&arglist, &arglist_len, lua_tostring(L, -1), escape)) != 0) {
-      push_error(L, "cannot add argument", retval);
+    if ((r = process_arglist_add(&arglist, &arglist_len, lua_tostring(L, -1), escape)) != 0) {
       retval = -1;
+      push_error(L, "cannot add argument", r);
       goto cleanup;
     }
     lua_pop(L, 1);
@@ -549,6 +669,13 @@ static int process_start(lua_State* L) {
   self->deadline = deadline;
   self->detached = detach;
   #if _WIN32
+    if (env_vars) {
+      if ((r = process_env_add_system(&env_vars, &env_vars_len)) != 0) {
+        retval = -1;
+        push_error(L, "cannot add environment variable", r);
+        goto cleanup;
+      }
+    }
     for (int i = 0; i < 3; ++i) {
       switch (new_fds[i]) {
         case REDIRECT_PARENT:
@@ -608,21 +735,9 @@ static int process_start(lua_State* L) {
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
     wchar_t cwd_w[MAX_PATH];
-    char environmentBlock[32767], wideEnvironmentBlock[32767*2];
-    int offset;
     if (cwd) // TODO: error handling
       MultiByteToWideChar(CP_UTF8, 0, cwd, -1, cwd_w, MAX_PATH);
-    offset = 0;
-    for (size_t i = 0; i < env_len; ++i) {
-      if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
-        break;
-      offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env_names[i], env_values[i]);
-      environmentBlock[offset++] = 0;
-    }
-    environmentBlock[offset++] = 0;
-    if (env_len > 0)
-      MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
-    if (!CreateProcessW(NULL, arglist, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd ? cwd_w : NULL, &siStartInfo, &self->process_information)) {
+    if (!CreateProcessW(NULL, arglist, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_vars, cwd ? cwd_w : NULL, &siStartInfo, &self->process_information)) {
       push_error(L, NULL, GetLastError());
       retval = -1;
       goto cleanup;
@@ -670,8 +785,8 @@ static int process_start(lua_State* L) {
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
       size_t set;
-      for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
-      if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
+      for (set = 0; set < env_vars_len && setenv(env_vars[set], env_vars[set+1], 1); set += 2);
+      if (set == env_vars_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
         execvp(arglist[0], (char** const)arglist);
       write(control_pipe[1], &errno, sizeof(errno));
       _exit(-1);
@@ -713,16 +828,7 @@ static int process_start(lua_State* L) {
     }
   }
   process_arglist_free(&arglist);
-  if (env_names) {
-    for (size_t i = 0; env_names[i]; i++)
-      free((char *) env_names[i]);
-  }
-  if (env_values) {
-    for (size_t i = 0; env_values[i]; i++)
-      free((char *) env_values[i]);
-  }
-  free(env_names);
-  free(env_values);
+  process_env_free(&env_vars);
 
   if (retval == -1)
     return lua_error(L);
