@@ -418,8 +418,8 @@ static int process_arglist_add(process_arglist_t *list, size_t *list_len, const 
     cmdline[len++] = L'\0';
   }
 #else
-  const char **cmd = *list;
-  cmd[len] = xstrdup(cmd);
+  char **cmd = *list;
+  cmd[len] = xstrdup(arg);
   if (!cmd[len]) return ENOMEM;
   len++;
 #endif
