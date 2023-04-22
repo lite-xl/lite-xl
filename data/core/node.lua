@@ -615,6 +615,12 @@ function Node:is_empty()
 end
 
 
+function Node:is_in_tab_area(x, y)
+  local _, ty, _, th = self:get_scroll_button_rect(1)
+  return y >= ty and y < ty + th
+end
+
+
 function Node:close_all_docviews(keep_active)
   local node_active_view = self.active_view
   local lost_active_view = false

@@ -181,9 +181,7 @@ command.add(function()
 command.add(function(x, y)
   if not x or not y then return false end
   local node = core.root_view.root_node:get_child_overlapping_point(x, y)
-  if not node or not node:should_show_tabs() then return false end
-  local _, ty, _, th, scroll_padding = node:get_scroll_button_rect(1)
-  return ((not node.hovered_tab and node.hovered_scroll_button == 0) and y >= ty and y < ty + th)
+  return node and node:should_show_tabs() and node:is_in_tab_area(x, y)
 end, {
   ["tabbar:new-doc"] = function()
     command.perform("core:new-doc")
