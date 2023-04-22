@@ -547,11 +547,11 @@ static int process_env_add(process_env_t *env_list, size_t *env_len, const char 
   var_len += r;
   return process_env_add_variable(env_list, env_len, env_var, var_len);
 #else
-  *env_list[*env_len] = xstrdup(key);
-  if (!*env_list[*env_len])
+  (*env_list)[*env_len] = xstrdup(key);
+  if (!(*env_list)[*env_len])
     return ENOMEM;
-  *env_list[*env_len + 1] = xstrdup(value);
-  if (!*env_list[*env_len + 1])
+  (*env_list)[*env_len + 1] = xstrdup(value);
+  if (!(*env_list)[*env_len + 1])
     return ENOMEM;
   *env_len += 2;
 #endif
@@ -560,10 +560,11 @@ static int process_env_add(process_env_t *env_list, size_t *env_len, const char 
 
 
 static void process_env_free(process_env_t *list) {
+  if (!*list) return;
 #ifdef _WIN32
   free(*list);
 #else
-  for (size_t i = 0; *list[i]; i++) free(*list[i]);
+  for (size_t i = 0; (*list)[i]; i++) free((*list)[i]);
   free(*list);
 #endif
   *list = NULL;
