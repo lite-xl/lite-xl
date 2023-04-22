@@ -185,7 +185,7 @@ command.add(function(x, y)
   local _, ty, _, th, scroll_padding = node:get_scroll_button_rect(1)
   return ((not node.hovered_tab and node.hovered_scroll_button == 0) and y >= ty and y < ty + th)
 end, {
-  ["root:new-doc"] = function()
+  ["tabbar:new-doc"] = function()
     command.perform("core:new-doc")
   end
 })
