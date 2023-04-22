@@ -50,6 +50,12 @@ typedef char **process_arglist_t;
 
 #endif
 
+#ifdef __GNUC__
+#define UNUSED __attribute__((__unused__))
+#else
+#define UNUSED
+#endif
+
 typedef struct {
   bool running, detached;
   int returncode, deadline;
@@ -342,7 +348,7 @@ static bool signal_process(process_t* proc, signal_e sig) {
 }
 
 
-static char *xstrdup(const char *str) {
+static UNUSED char *xstrdup(const char *str) {
   char *result = str ? malloc(strlen(str) + 1) : NULL;
   if (result) strcpy(result, str);
   return result;
