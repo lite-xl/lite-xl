@@ -574,8 +574,8 @@ static void process_env_free(process_env_t *list) {
 static int process_start(lua_State* L) {
   int r, retval = 1;
   size_t env_len = 0, cmd_len = 0, arglist_len = 0, env_vars_len = 0;
-  process_arglist_t arglist;
-  process_env_t env_vars;
+  process_arglist_t arglist = NULL;
+  process_env_t env_vars = NULL;
   const char *cwd = NULL;
   bool detach = false, escape = true;
   int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
