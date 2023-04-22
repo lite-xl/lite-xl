@@ -293,12 +293,12 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   end
 
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  local tab_index = self.overlapping_node and self.overlapping_node:get_tab_overlapping_point(x, y)
+  local tab_height = self.overlapping_node and self.overlapping_node:should_show_tabs() and select(4, self.overlapping_node:get_scroll_button_rect(1))
   if self.overlapping_node and self.overlapping_node:get_scroll_button_index(x, y) then
     core.request_cursor("arrow")
   elseif div and (self.overlapping_node and not self.overlapping_node.active_view:scrollbar_overlaps_point(x, y)) then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
-  elseif tab_index then
+  elseif tab_height and y < tab_height then
     core.request_cursor("arrow")
   elseif self.overlapping_node then
     core.request_cursor(self.overlapping_node.active_view.cursor)
