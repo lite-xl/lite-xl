@@ -615,7 +615,7 @@ static int g_read(lua_State *L, int stream, size_t size) {
   if (!self->reading[overlapped_idx]) {
     if (!ReadFile(self->child_pipes[stream][0],
                   self->buffer[overlapped_idx],
-                  read_szie > READ_BUF_SIZE ? READ_BUF_SIZE : read_size,
+                  size> READ_BUF_SIZE ? READ_BUF_SIZE : size,
                   NULL,
                   &self->overlapped[overlapped_idx])
         && (err = GetLastError()) != ERROR_IO_PENDING) {
