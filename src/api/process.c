@@ -605,47 +605,71 @@ static int process_start(lua_State* L) {
   return retval;
 }
 
-static int g_read(lua_State* L, int stream, unsigned long read_size) {
+static int g_read(lua_State *L, int stream, size_t size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  long length = 0;
-  if (stream != STDOUT_FD && stream != STDERR_FD)
-    return luaL_error(L, "error: redirect to handles, FILE* and paths are not supported");
-  #if _WIN32
-    int writable_stream_idx = stream - 1;
-    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], READ_BUF_SIZE, NULL, &self->overlapped[writable_stream_idx])) {
-      if (self->reading[writable_stream_idx] || GetLastError() == ERROR_IO_PENDING) {
-        self->reading[writable_stream_idx] = true;
-        DWORD bytesTransferred = 0;
-        if (GetOverlappedResult(self->child_pipes[stream][0], &self->overlapped[writable_stream_idx], &bytesTransferred, false)) {
-          self->reading[writable_stream_idx] = false;
-          length = bytesTransferred;
-          memset(&self->overlapped[writable_stream_idx], 0, sizeof(self->overlapped[writable_stream_idx]));
-        }
-      } else {
-        signal_process(self, SIGNAL_TERM);
-        return 0;
-      }
-    } else {
-      length = self->overlapped[writable_stream_idx].InternalHigh;
-      memset(&self->overlapped[writable_stream_idx], 0, sizeof(self->overlapped[writable_stream_idx]));
+  process_error_t err;
+#ifdef _WIN32
+  DWORD read;
+  int overlapped_idx = stream - 1;
+  // start an overlapped read if we're idle
+  if (!self->reading[overlapped_idx]) {
+    if (!ReadFile(self->child_pipes[stream][0],
+                  self->buffer[overlapped_idx],
+                  read_szie > READ_BUF_SIZE ? READ_BUF_SIZE : read_size,
+                  NULL,
+                  &self->overlapped[overlapped_idx])
+        && (err = GetLastError()) != ERROR_IO_PENDING) {
+      lua_pushnil(L);
+      push_error(L, "cannot read from stream", err);
+      lua_pushinteger(L, err);
+      return 3;
     }
-    lua_pushlstring(L, self->buffer[writable_stream_idx], length);
-  #else
-    luaL_Buffer b;
-    luaL_buffinit(L, &b);
-    uint8_t* buffer = (uint8_t*)luaL_prepbuffsize(&b, READ_BUF_SIZE);
-    length = read(self->child_pipes[stream][0], buffer, read_size > READ_BUF_SIZE ? READ_BUF_SIZE : read_size);
-    if (length == 0 && !poll_process(self, WAIT_NONE))
-      return 0;
-    else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-      length = 0;
-    if (length < 0) {
-      signal_process(self, SIGNAL_TERM);
-      return 0;
+    self->reading[overlapped_idx] = true;
+  }
+  // check the result of our pending read
+  if (GetOverlappedResult(self->child_pipes[stream][0],
+                          &self->overlapped[overlapped_idx],
+                          &read,
+                          FALSE)
+      || (err = GetLastError()) != ERROR_IO_INCOMPLETE) {
+    // clear the overlapped structure for next read
+    self->reading[overlapped_idx] = false;
+    memset(&self->overlapped[overlapped_idx], 0, sizeof(self->overlapped[overlapped_idx]));
+    if (read == 0) { // EOF
+      lua_pushnil(L);
+      lua_pushliteral(L, "end-of-file has been reached");
+      lua_pushinteger(L, -1);
+      return 3;
+    } else if (err != ERROR_IO_INCOMPLETE) { // other errors
+      lua_pushnil(L);
+      push_error(L, "cannot read from stream", err);
+      lua_pushinteger(L, err);
+      return 3;
     }
-    luaL_addsize(&b, length);
-    luaL_pushresult(&b);
-  #endif
+  }
+  lua_pushlstring(L, self->buffer[overlapped_idx], read);
+#else
+  luaL_Buffer b;
+  ssize_t length;
+  char *buffer = luaL_buffinitsize(L, &b, READ_BUF_SIZE);
+  length = read(self->child_pipes[stream][0], buffer, size > READ_BUF_SIZE ? READ_BUF_SIZE : size);
+  if (length == 0) { // EOF
+    lua_pushnil(L);
+    lua_pushliteral(L, "end-of-file has been reached");
+    lua_pushinteger(L, -1);
+    return 3;
+  } else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) { // no data
+    // no data available yet
+    length = 0;
+  } else if (length < 0) { // other errors
+    err = errno;
+    lua_pushnil(L);
+    push_error(L, "cannot read from stream", err);
+    lua_pushinteger(L, err);
+    return 3;
+  }
+  luaL_pushresultsize(&b, length);
+#endif
   return 1;
 }
 
@@ -719,7 +743,10 @@ static int f_read_stderr(lua_State* L) {
 }
 
 static int f_read(lua_State* L) {
-  return g_read(L, luaL_checknumber(L, 2), luaL_optinteger(L, 3, READ_BUF_SIZE));
+  int stream = luaL_checknumber(L, 2);
+  if (stream != STDOUT_FD && stream != STDERR_FD)
+    return luaL_error(L, "error: redirect to handles, FILE* and paths are not supported");
+  return g_read(L, stream, luaL_optinteger(L, 3, READ_BUF_SIZE));
 }
 
 static int f_wait(lua_State* L) {
