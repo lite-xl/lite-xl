@@ -651,29 +651,31 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
 
 static int f_write(lua_State* L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  size_t data_size = 0;
-  const char* data = luaL_checklstring(L, 2, &data_size);
-  long length;
-  #if _WIN32
-    DWORD dwWritten;
-    if (!WriteFile(self->child_pipes[STDIN_FD][1], data, data_size, &dwWritten, NULL)) {
-      push_error(L, NULL, GetLastError());
-      signal_process(self, SIGNAL_TERM);
-      return lua_error(L);
-    }
-    length = dwWritten;
-  #else
-    length = write(self->child_pipes[STDIN_FD][1], data, data_size);
-    if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-      length = 0;
-    else if (length < 0) {
-      push_error(L, "cannot write to child process", errno);
-      signal_process(self, SIGNAL_TERM);
-      return lua_error(L);
-    }
-  #endif
-  lua_pushinteger(L, length);
-  return 1;
+  size_t size = 0;
+  ssize_t length = 0;
+  process_error_t err = 0;
+  const char* data = luaL_checklstring(L, 2, &size);
+#if _WIN32
+  DWORD _length = 0;
+  if (!WriteFile(self->child_pipes[STDIN_FD][1], data, size, &_length, NULL))
+    err = GetLastError();
+  length = _length;
+#else
+  length = write(self->child_pipes[STDIN_FD][1], data, size);
+  if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+    length = 0;
+  else if (length < 0)
+    err = errno;
+#endif
+  if (err) {
+    lua_pushnil(L);
+    push_error(L, "cannot write to child process", err);
+    lua_pushinteger(L, err);
+    return 3;
+  } else {
+    lua_pushinteger(L, length);
+    return 1;
+  }
 }
 
 static int f_close_stream(lua_State* L) {
