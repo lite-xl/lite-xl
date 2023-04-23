@@ -676,30 +676,28 @@ static int g_read(lua_State *L, int stream, size_t size) {
 static int f_write(lua_State* L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   size_t size = 0;
-  ssize_t length = 0;
   process_error_t err = 0;
   const char* data = luaL_checklstring(L, 2, &size);
 #if _WIN32
-  DWORD _length = 0;
-  if (!WriteFile(self->child_pipes[STDIN_FD][1], data, size, &_length, NULL))
+  DWORD length = 0;
+  if (!WriteFile(self->child_pipes[STDIN_FD][1], data, size, &length, NULL))
     err = GetLastError();
-  length = _length;
+  lua_pushinteger(L, length);
 #else
-  length = write(self->child_pipes[STDIN_FD][1], data, size);
+  ssize_t length = write(self->child_pipes[STDIN_FD][1], data, size);
   if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
     length = 0;
   else if (length < 0)
     err = errno;
+  lua_pushinteger(L, length);
 #endif
   if (err) {
     lua_pushnil(L);
     push_error(L, "cannot write to child process", err);
     lua_pushinteger(L, err);
     return 3;
-  } else {
-    lua_pushinteger(L, length);
-    return 1;
   }
+  return 1;
 }
 
 static int f_close_stream(lua_State* L) {
