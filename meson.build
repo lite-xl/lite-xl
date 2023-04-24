@@ -4,8 +4,7 @@ project('lite-xl',
     license : 'MIT',
     meson_version : '>= 0.56',
     default_options : [
-        'c_std=gnu11',
-        'wrap_mode=nofallback'
+        'c_std=gnu11'
     ]
 )
 
@@ -84,23 +83,27 @@ if not get_option('source-only')
         'lua',    # Fedora
     ]
 
-    foreach lua : lua_names
-        last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
-        lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : false,
-            version: '>= 5.4',
+    if get_option('use_system_lua')
+        foreach lua : lua_names
+            last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
+            lua_dep = dependency(lua, required : false,
+            )
+            if lua_dep.found()
+                break
+            endif
+
+            if last_lua
+                # If we could not find lua on the system and fallbacks are disabled
+                # try the compiler as a last ditch effort, since Lua has no official
+                # pkg-config support.
+                lua_dep = cc.find_library('lua', required : true)
+            endif
+        endforeach
+    else
+        lua_dep = dependency('', fallback: ['lua', 'lua_dep'], required : true,
             default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
         )
-        if lua_dep.found()
-            break
-        endif
-
-        if last_lua
-            # If we could not find lua on the system and fallbacks are disabled
-            # try the compiler as a last ditch effort, since Lua has no official
-            # pkg-config support.
-            lua_dep = cc.find_library('lua', required : true)
-        endif
-    endforeach
+    endif
 
     pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
         default_options: default_fallback_options + ['default_library=static', 'grep=false', 'test=false']
