@@ -1150,6 +1150,18 @@ static int f_text_input(lua_State* L) {
 }
 
 
+static int f_cache(lua_State* L) {
+  const char* key = luaL_checkstring(L, 1);
+  lua_getfield(L, LUA_REGISTRYINDEX, "cache");
+  if (lua_gettop(L) >= 3) {
+    lua_pushvalue(L, 2);
+    lua_setfield(L, -2, key);
+  }
+  lua_getfield(L, -1, key);
+  return 1;
+}
+
+
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
   { "wait_event",          f_wait_event          },
@@ -1184,6 +1196,7 @@ static const luaL_Reg lib[] = {
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
   { "text_input",          f_text_input          },
+  { "cache",               f_cache               },
   { NULL, NULL }
 };
 
@@ -1193,5 +1206,11 @@ int luaopen_system(lua_State *L) {
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);
+  lua_getfield(L, LUA_REGISTRYINDEX, "cache");
+  if (lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, "cache");
+  }
+  lua_pop(L, 1);
   return 1;
 }

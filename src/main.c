@@ -184,8 +184,8 @@ int main(int argc, char **argv) {
   ren_init(window);
 
   lua_State *L;
-init_lua:
   L = luaL_newstate();
+init_lua:
   luaL_openlibs(L);
   api_load_libs(L);
 
@@ -264,7 +264,11 @@ init_lua:
   }
   lua_pcall(L, 0, 1, 0);
   if (lua_toboolean(L, -1)) {
-    lua_close(L);
+    lua_newtable(L);
+    lua_rawseti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
+    lua_newtable(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
+    lua_gc(L, LUA_GCCOLLECT, 0);
     rencache_invalidate();
     goto init_lua;
   }

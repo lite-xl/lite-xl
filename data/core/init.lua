@@ -2,7 +2,7 @@ require "core.strict"
 require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
-local style = require "colors.default"
+local style
 local command
 local keymap
 local dirwatch
@@ -673,17 +673,7 @@ function core.init()
   core.log_items = {}
   core.log_quiet("Lite XL version %s - mod-version %s", VERSION, MOD_VERSION_STRING)
 
-  command = require "core.command"
-  keymap = require "core.keymap"
-  dirwatch = require "core.dirwatch"
-  ime = require "core.ime"
-  RootView = require "core.rootview"
-  StatusView = require "core.statusview"
-  TitleView = require "core.titleview"
-  CommandView = require "core.commandview"
-  NagView = require "core.nagview"
-  DocView = require "core.docview"
-  Doc = require "core.doc"
+
 
   if PATHSEP == '\\' then
     USERDIR = common.normalize_volume(USERDIR)
@@ -738,6 +728,23 @@ function core.init()
   core.restart_request = false
   core.quit_request = false
 
+  local load_start = system.get_time()
+  local plugin_list = core.parse_plugins()
+  local plugins_success, plugins_refuse_list = core.load_plugins(plugin_list, 1000, math.huge)
+
+  style = require "colors.default"
+  command = require "core.command"
+  keymap = require "core.keymap"
+  dirwatch = require "core.dirwatch"
+  ime = require "core.ime"
+  RootView = require "core.rootview"
+  StatusView = require "core.statusview"
+  TitleView = require "core.titleview"
+  CommandView = require "core.commandview"
+  NagView = require "core.nagview"
+  DocView = require "core.docview"
+  Doc = require "core.doc"
+
   -- We load core views before plugins that may need them.
   ---@type core.rootview
   core.root_view = RootView()
@@ -789,7 +796,12 @@ function core.init()
   end
 
   -- Load core plugins after user ones to let the user override them
-  local plugins_success, plugins_refuse_list = core.load_plugins()
+  plugins_success, plugins_refuse_list = core.load_plugins(plugin_list, -math.huge, 1000)
+
+  core.log_quiet(
+    "Loaded all plugins in %.1fms",
+    (system.get_time() - load_start) * 1000
+  )
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
@@ -975,13 +987,7 @@ local function get_plugin_details(filename)
   }
 end
 
-
-function core.load_plugins()
-  local no_errors = true
-  local refused_list = {
-    userdir = {dir = USERDIR, plugins = {}},
-    datadir = {dir = DATADIR, plugins = {}},
-  }
+function core.parse_plugins()
   local files, ordered = {}, {}
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
@@ -1017,10 +1023,17 @@ function core.load_plugins()
     end
     return a.name < b.name
   end)
+  return ordered
+end
 
-  local load_start = system.get_time()
-  for _, plugin in ipairs(ordered) do
-    if plugin.valid then
+function core.load_plugins(plugin_list, min_priority, max_priority)
+  local no_errors = true
+  local refused_list = {
+    userdir = {dir = USERDIR, plugins = {}},
+    datadir = {dir = DATADIR, plugins = {}},
+  }
+  for _, plugin in ipairs(plugin_list) do
+    if plugin.valid and plugin.priority >= min_priority and plugin.priority < max_priority then
       if not config.skip_plugins_version and not plugin.version_match then
         core.log_quiet(
           "Version mismatch for plugin %q[%s] from %s",
@@ -1056,10 +1069,6 @@ function core.load_plugins()
       end
     end
   end
-  core.log_quiet(
-    "Loaded all plugins in %.1fms",
-    (system.get_time() - load_start) * 1000
-  )
   return no_errors, refused_list
 end
 
