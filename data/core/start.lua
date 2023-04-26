@@ -38,8 +38,8 @@ package.cpath =
 
 package.native_plugins = {}
 package.searchers = { package.searchers[1], package.searchers[2], function(modname)
-  local path = package.searchpath(modname, package.cpath)
-  if not path then return nil end
+  local path, err = package.searchpath(modname, package.cpath)
+  if not path then return err end
   return system.load_native_plugin, path
 end }
 
