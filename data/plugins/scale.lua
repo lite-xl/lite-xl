@@ -34,7 +34,7 @@ local function set_scale(scale)
     end
     local hn = view:get_h_scrollable_size()
     if hn ~= math.huge and hn > view.size.x then
-      h_scrolls[view] = view.scroll.x / hn
+      h_scrolls[view] = view.scroll.x / (hn - view.size.x)
     end
   end
 
@@ -67,7 +67,7 @@ local function set_scale(scale)
     view.scroll.to.y = view.scroll.y
   end
   for view, hn in pairs(h_scrolls) do
-    view.scroll.x = hn * view:get_h_scrollable_size()
+    view.scroll.x = hn * (view:get_h_scrollable_size() - view.size.x)
     view.scroll.to.x = view.scroll.x
   end
 
