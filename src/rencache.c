@@ -142,7 +142,7 @@ static void* push_command(enum CommandType type, int size) {
   int n = command_buf_idx + size;
   while (n > command_buf_size) {
     if (!expand_command_buffer()) {
-      fprintf(stderr, "Warning: (" __FILE__ "): unable to resize command buffer (%ld)\n",
+      fprintf(stderr, "Warning: (" __FILE__ "): unable to resize command buffer (%zu)\n",
               (size_t)(command_buf_size * CMD_BUF_RESIZE_RATE));
       resize_issue = true;
       return NULL;
