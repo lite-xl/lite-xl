@@ -55,5 +55,11 @@ function shmem:size() end
 ---@return integer
 function shmem:capacity(name, value) end
 
+---
+---Implements the pair metamethods for easy traversal of elements.
+---
+---@return function
+function shmem:__pairs(t) end
+
 
 return shmem
