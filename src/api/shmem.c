@@ -290,7 +290,7 @@ char* shmem_container_ns_entries_get_by_position(
   size_t name_len = strlen(name);
   size_t size = container->namespace->entries[position].size;
 
-  if (name_len <= 0 || size <= 0)
+  if (name_len <= 0 || size <= 0 || position >= container->namespace->size)
     return NULL;
 
   char* ns_name = malloc(strlen(container->handle->name) + name_len + 1);
@@ -540,10 +540,21 @@ static int m_shmem_set(lua_State* L) {
 
 static int m_shmem_get(lua_State* L) {
   shmem_container* self = L_SHMEM_SELF(L, 1);
-  const char* name = luaL_checkstring(L, 2);
 
+  char* data = NULL;
   size_t data_len;
-  char* data = shmem_container_ns_entries_get(self, name, &data_len);
+
+  if (lua_type(L, 2) == LUA_TSTRING) {
+    const char* name = luaL_checkstring(L, 2);
+    data = shmem_container_ns_entries_get(self, name, &data_len);
+  } else if (lua_type(L, 2) == LUA_TNUMBER) {
+    char name[256];
+    size_t position = luaL_checkinteger(L, 2);
+    position = position - 1 < 0 ? 0 : position - 1;
+    data = shmem_container_ns_entries_get_by_position(self, position, name, &data_len);
+  } else {
+    return luaL_typeerror(L, 2, "string or integer");
+  }
 
   if (data) {
     lua_pushlstring(L, data, data_len);

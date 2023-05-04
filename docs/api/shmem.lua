@@ -25,12 +25,12 @@ function shmem.open(namespace, capacity) end
 function shmem:set(name, value) end
 
 ---
----Retrieve the data associated to the named element on the shared memory container.
+---Retrieve the element data from the shared memory container.
 ---
----@param name string
+---@param name_or_index string|integer
 ---
 ---@return string? data
-function shmem:get(name) end
+function shmem:get(name_or_index) end
 
 ---
 ---Removes the specified element from the shared memory container.
