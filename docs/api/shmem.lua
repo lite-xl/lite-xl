@@ -56,7 +56,9 @@ function shmem:size() end
 function shmem:capacity(name, value) end
 
 ---
----Implements the pair metamethods for easy traversal of elements.
+---Implements the pairs metamethod for easy traversal of elements.
+---
+---@param t shmem
 ---
 ---@return function
 function shmem:__pairs(t) end
