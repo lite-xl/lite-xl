@@ -470,10 +470,8 @@ static int l_shmem_pairs_iterator(lua_State *L) {
       char name[SHMEM_NAME_LEN];
       size_t data_len;
       char* data = shmem_container_ns_entries_get_by_position(
-        state->container,
-        state->position,
-        name,
-        &data_len
+        state->container, i,
+        name, &data_len
       );
 
       if (data) {
