@@ -53,7 +53,7 @@ function shmem:size() end
 ---Maximum amount of elements the shared memory container can store.
 ---
 ---@return integer
-function shmem:capacity(name, value) end
+function shmem:capacity() end
 
 ---
 ---Implements the pairs metamethod for easy traversal of elements.
