@@ -228,8 +228,9 @@ init_lua:
   const char *init_lite_code = \
     "local core\n"
     "local os_exit = os.exit\n"
-    "os.exit = function(code)\n"
-    "  os_exit(code, true)\n"
+    "os.exit = function(code, close)\n"
+    "  if type(close) ~= 'boolean' then close = true end\n"
+    "  os_exit(code, close)\n"
     "end\n"
     "xpcall(function()\n"
     "  local match = require('utf8extra').match\n"
