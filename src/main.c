@@ -227,7 +227,10 @@ init_lua:
 
   const char *init_lite_code = \
     "local core\n"
-    "local return_error\n"
+    "local os_exit = os.exit\n"
+    "os.exit = function(code)\n"
+    "  os_exit(code, true)\n"
+    "end\n"
     "xpcall(function()\n"
     "  local match = require('utf8extra').match\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
@@ -255,24 +258,19 @@ init_lua:
     "    'An internal error occurred in a critical part of the application.\\n\\n'..\n"
     "    'Error: '..tostring(err)..'\\n\\n'..\n"
     "    'Details can be found in \\\"'..error_path..'\\\"')\n"
-    "  return_error = true\n"
+    "  os.exit(1)\n"
     "end)\n"
-    "return core and core.restart_request, return_error\n";
+    "return core and core.restart_request\n";
 
   if (luaL_loadstring(L, init_lite_code)) {
     fprintf(stderr, "internal error when starting the application\n");
     exit(1);
   }
-  lua_pcall(L, 0, 2, 0);
-  if (lua_toboolean(L, -2)) {
+  lua_pcall(L, 0, 1, 0);
+  if (lua_toboolean(L, -1)) {
     lua_close(L);
     rencache_invalidate();
     goto init_lua;
-  }
-
-  int return_code = EXIT_SUCCESS;
-  if (lua_toboolean(L, -1)) {
-    return_code = EXIT_FAILURE;
   }
 
   // This allows the window to be destroyed before lite-xl is done with
@@ -280,5 +278,5 @@ init_lua:
   ren_free_window_resources(&window_renderer);
   lua_close(L);
 
-  return return_code;
+  return EXIT_SUCCESS;
 }
