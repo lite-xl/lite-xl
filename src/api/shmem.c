@@ -1,3 +1,16 @@
+/*
+ * Crossplatform implementation of shared memory objects.
+ *
+ * References:
+ *
+ * POSIX Naming conventions:
+ *   1. man shm_open
+ *   2. man 7 sem_overview
+ *
+ * Windows Naming conventions:
+ *   1. https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createfilemappinga
+ */
+
 #include "api.h"
 #include <stdlib.h>
 #include <string.h>
@@ -19,8 +32,8 @@
   typedef sem_t* shmem_mutex;
 #endif
 
-#define SHMEM_NAME_LEN 256
-#define SHMEM_NS_LEN 513
+#define SHMEM_NAME_LEN 124
+#define SHMEM_NS_LEN 251
 
 typedef struct {
   shmem_handle handle;
@@ -48,9 +61,31 @@ typedef struct {
 } shmem_container;
 
 static inline void shmem_ns_name(
+  char* ns_name, const char* name
+) {
+  if (name[0] != '/')
+    sprintf(ns_name, "/%s", name);
+  else
+    sprintf(ns_name, "%s", name);
+}
+
+static inline void shmem_ns_entry_name(
   char* ns_name, shmem_container* container, const char* entry_name
 ) {
-  sprintf(ns_name, "%s|%s", container->handle->name, entry_name);
+  sprintf(ns_name, "%s.%s", container->handle->name, entry_name);
+}
+
+static inline bool shmem_name_valid(const char* name) {
+  if(
+    strlen(name) > SHMEM_NAME_LEN
+    ||
+    strstr(name, "/") != NULL
+    ||
+    strstr(name, "\\") != NULL
+  )
+    return false;
+
+  return true;
 }
 
 shmem_object* shmem_open(const char* name, size_t size) {
@@ -59,7 +94,7 @@ shmem_object* shmem_open(const char* name, size_t size) {
   object->size = size;
 
 #ifdef _WIN32
-  object->handle = CreateFileMapping(
+  object->handle = CreateFileMappingA(
     INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, size, name
   );
 
@@ -115,11 +150,11 @@ void shmem_close(shmem_object* object, bool unregister) {
   free(object);
 }
 
-shmem_mutex shmem_mutex_new(const char* name) {
+shmem_mutex shmem_mutex_open(const char* name) {
   shmem_mutex mutex;
 
 #ifdef _WIN32
-  mutex = CreateMutex(NULL, FALSE, name);
+  mutex = CreateMutexA(NULL, FALSE, name);
   if (mutex == NULL) return NULL;
 #else
   mutex = sem_open(name, O_CREAT, 0666, 1);
@@ -145,7 +180,7 @@ void shmem_mutex_unlock(shmem_mutex mutex) {
 #endif
 }
 
-void shmem_mutex_delete(shmem_mutex mutex, const char* name) {
+void shmem_mutex_close(shmem_mutex mutex, const char* name) {
 #ifdef _WIN32
   CloseHandle(mutex);
 #else
@@ -181,7 +216,7 @@ bool shmem_container_ns_entries_add(
   bool added = false;
 
   char ns_name[SHMEM_NS_LEN];
-  shmem_ns_name(ns_name, container, name);
+  shmem_ns_entry_name(ns_name, container, name);
 
   shmem_mutex_lock(container->mutex);
   size_t pos = container->namespace->size;
@@ -214,7 +249,7 @@ bool shmem_container_ns_entries_set(
   shmem_mutex_lock(container->mutex);
 
   char ns_name[SHMEM_NS_LEN];
-  shmem_ns_name(ns_name, container, name);
+  shmem_ns_entry_name(ns_name, container, name);
 
   bool found = false;
   if (pos == -1) {
@@ -253,7 +288,7 @@ char* shmem_container_ns_entries_get(
   *data_len = 0;
 
   char ns_name[SHMEM_NS_LEN];
-  shmem_ns_name(ns_name, container, name);
+  shmem_ns_entry_name(ns_name, container, name);
 
   shmem_mutex_lock(container->mutex);
   for (size_t i=0; i<container->namespace->size; i++) {
@@ -295,7 +330,7 @@ char* shmem_container_ns_entries_get_by_position(
     goto shmem_container_ns_size_end;
 
   char ns_name[SHMEM_NS_LEN];
-  shmem_ns_name(ns_name, container, name);
+  shmem_ns_entry_name(ns_name, container, name);
 
   shmem_object* object = shmem_open(ns_name, size);
 
@@ -321,7 +356,7 @@ void shmem_container_ns_entries_remove(
     shmem_mutex_lock(container->mutex);
 
     char ns_name[SHMEM_NS_LEN];
-    shmem_ns_name(ns_name, container, name);
+    shmem_ns_entry_name(ns_name, container, name);
 
     shmem_object* object = shmem_open(
       ns_name, container->namespace->entries[pos].size
@@ -330,11 +365,11 @@ void shmem_container_ns_entries_remove(
     if (object)
       shmem_close(object, true);
 
-    if ((pos + 1) !=  container->namespace->size) {
+    if ((pos + 1) != container->namespace->size) {
       memmove(
         container->namespace->entries+pos,
         container->namespace->entries+pos+1,
-        sizeof(shmem_entry)
+        sizeof(shmem_entry) * (container->namespace->size - (pos+1))
       );
     }
 
@@ -349,7 +384,7 @@ void shmem_container_ns_entries_clear(shmem_container* container) {
   if (container->namespace->size > 0) {
     for (size_t i=0; i<container->namespace->size; i++) {
       char ns_name[SHMEM_NS_LEN];
-      shmem_ns_name(ns_name, container, container->namespace->entries[i].name);
+      shmem_ns_entry_name(ns_name, container, container->namespace->entries[i].name);
 
       shmem_object* object = shmem_open(
         ns_name, container->namespace->entries[i].size
@@ -384,14 +419,20 @@ shmem_container* shmem_container_open(const char* namespace, size_t capacity) {
   shmem_container* container = malloc(sizeof(shmem_container));
   size_t ns_size = sizeof(shmem_namespace) + (capacity * sizeof(shmem_entry));
 
-  shmem_object* object = shmem_open(namespace, ns_size);
+  char ns_name[SHMEM_NAME_LEN];
+  shmem_ns_name(ns_name, namespace);
+
+  char mutex_name[SHMEM_NS_LEN];
+  sprintf(mutex_name, "%s_%s", ns_name, "mutex");
+
+  shmem_object* object = shmem_open(ns_name, ns_size);
 
   if (!object)
     goto shmem_container_open_error;
 
   container->handle = object;
   container->namespace = object->map;
-  container->mutex = shmem_mutex_new(namespace);
+  container->mutex = shmem_mutex_open(mutex_name);
 
   if (!container->mutex) {
     shmem_close(object, false);
@@ -432,10 +473,10 @@ void shmem_container_close(shmem_container* container) {
   if(unregister) {
     shmem_container_ns_entries_clear(container);
     shmem_mutex_unlock(container->mutex);
-    shmem_mutex_delete(container->mutex, namespace);
+    shmem_mutex_close(container->mutex, namespace);
   } else {
     shmem_mutex_unlock(container->mutex);
-    shmem_mutex_delete(container->mutex, NULL);
+    shmem_mutex_close(container->mutex, NULL);
   }
 
   free(container);
@@ -488,9 +529,17 @@ static int l_shmem_pairs_iterator(lua_State *L) {
   return 0;
 }
 
+
 static int f_shmem_open(lua_State* L) {
   const char* namespace = luaL_checkstring(L, 1);
   size_t capacity = luaL_checkinteger(L, 2);
+
+  if (!shmem_name_valid(namespace))
+    return luaL_error(
+      L,
+      "namespace can not be longer than %d characters or contain any '/' or '\\'",
+      SHMEM_NAME_LEN
+    );
 
   shmem_container* container = shmem_container_open(namespace, capacity);
   if(!container) {
@@ -512,6 +561,13 @@ static int m_shmem_set(lua_State* L) {
   const char* name = luaL_checkstring(L, 2);
   size_t value_len;
   const char* value = luaL_checklstring(L, 3, &value_len);
+
+  if (!shmem_name_valid(name))
+    return luaL_error(
+      L,
+      "name can not be longer than %d characters or contain any '/' or '\\'",
+      SHMEM_NAME_LEN
+    );
 
   lua_pushboolean(
     L,
