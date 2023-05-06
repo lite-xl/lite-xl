@@ -1,5 +1,6 @@
 local Object = require "core.object"
 local Highlighter = require "core.doc.highlighter"
+local translate = require "core.doc.translate"
 local core = require "core"
 local syntax = require "core.syntax"
 local config = require "core.config"
@@ -38,6 +39,7 @@ function Doc:reset()
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
   self.highlighter = Highlighter(self)
+  self.overwrite = false
   self:reset_syntax()
 end
 
@@ -509,6 +511,14 @@ function Doc:text_input(text, idx)
     if line1 ~= line2 or col1 ~= col2 then
       self:delete_to_cursor(sidx)
     end
+
+    if self.overwrite
+    and col1 ~= #self.lines[line1]
+    and #text:gsub('\n', '') ~= 0 then
+      local _, next_col = translate.next_char(self, line1, col1)
+      self:remove(line1, col1, line1, next_col)
+    end
+
     self:insert(line1, col1, text)
     self:move_to_cursor(sidx, #text)
   end

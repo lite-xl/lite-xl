@@ -320,6 +320,7 @@ keymap.add_direct {
   ["ctrl+x"] = "doc:cut",
   ["ctrl+c"] = "doc:copy",
   ["ctrl+v"] = "doc:paste",
+  ["insert"] = "doc:toggle-overwrite",
   ["ctrl+insert"] = "doc:copy",
   ["shift+insert"] = "doc:paste",
   ["escape"] = { "command:escape", "doc:select-none", "dialog:select-no" },

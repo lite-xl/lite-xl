@@ -544,6 +544,10 @@ local commands = {
     dv.doc.crlf = not dv.doc.crlf
   end,
 
+  ["doc:toggle-overwrite"] = function(dv)
+    dv.doc.overwrite = not dv.doc.overwrite
+  end,
+
   ["doc:save-as"] = function(dv)
     local last_doc = core.last_active_view and core.last_active_view.doc
     local text
