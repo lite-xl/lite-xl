@@ -58,6 +58,8 @@ typedef struct {
   shmem_object* handle;
   shmem_mutex mutex;
   shmem_namespace* namespace;
+  size_t entry_handles_loaded;
+  shmem_object* entry_handles[];
 } shmem_container;
 
 static inline void shmem_ns_name(
@@ -76,7 +78,7 @@ static inline void shmem_ns_entry_name(
 }
 
 static inline bool shmem_name_valid(const char* name) {
-  if(
+  if (
     strlen(name) > SHMEM_NAME_LEN
     ||
     strstr(name, "/") != NULL
@@ -150,6 +152,17 @@ void shmem_close(shmem_object* object, bool unregister) {
   free(object);
 }
 
+shmem_object* shmem_resize(shmem_object** object, size_t new_size) {
+  char name[SHMEM_NS_LEN];
+  strcpy(name, (*object)->name);
+
+  shmem_close((*object), false);
+
+  *object = shmem_open(name, new_size);
+
+  return *object;
+}
+
 shmem_mutex shmem_mutex_open(const char* name) {
   shmem_mutex mutex;
 
@@ -189,6 +202,132 @@ void shmem_mutex_close(shmem_mutex mutex, const char* name) {
 #endif
 }
 
+void shmem_container_entry_clear(shmem_container* container, bool unregister) {
+  for (size_t i=0; i < container->entry_handles_loaded; i++) {
+    if (container->entry_handles[i] != NULL) {
+      shmem_close(container->entry_handles[i], unregister);
+      container->entry_handles[i] = NULL;
+    }
+  }
+  container->entry_handles_loaded = 0;
+}
+
+void shmem_container_entry_remove(
+  shmem_container* container, const char* name, bool unregister
+)
+{
+  if (container->entry_handles_loaded > 0) {
+    for (size_t pos=0; pos < container->entry_handles_loaded; pos++) {
+      if (strcmp(container->entry_handles[pos]->name, name) == 0) {
+        shmem_close(container->entry_handles[pos], unregister);
+        container->entry_handles[pos] = NULL;
+
+        if ((pos + 1) != container->entry_handles_loaded) {
+          memmove(
+            container->entry_handles+pos,
+            container->entry_handles+pos+1,
+            sizeof(shmem_object*) * (container->entry_handles_loaded - (pos+1))
+          );
+        }
+
+        container->entry_handles_loaded--;
+        break;
+      }
+    }
+  }
+}
+
+shmem_object* shmem_container_entry_get(
+  shmem_container* container, size_t position, const char* name, size_t size
+)
+{
+  shmem_object* object = NULL;
+  size_t assigned_position = position;
+
+  if (container->entry_handles_loaded > 0) {
+    if (
+      container->entry_handles[position]
+      &&
+      strcmp(container->entry_handles[position]->name, name) == 0
+    ) {
+      object = container->entry_handles[position];
+    } else {
+      for (size_t i=0; i<container->entry_handles_loaded; i++) {
+        if (strcmp(container->entry_handles[i]->name, name) == 0) {
+          object = container->entry_handles[i];
+          assigned_position = i;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!object) {
+    assigned_position = container->entry_handles_loaded;
+    object = shmem_open(name, size);
+    container->entry_handles[assigned_position] = object;
+    container->entry_handles_loaded++;
+  }
+
+  if (object->size != size)
+    container->entry_handles[assigned_position] = shmem_resize(&object, size);
+
+  return object;
+}
+
+void shmem_container_entry_gc(
+  shmem_container* container
+)
+{
+  shmem_mutex_lock(container->mutex);
+
+  if (container->entry_handles_loaded > container->namespace->size) {
+    if (container->namespace->size <= 0) {
+      shmem_container_entry_clear(container, true);
+    } else {
+      char ns_name[SHMEM_NS_LEN];
+
+      for (size_t i=0; i < container->entry_handles_loaded; i++) {
+        if (container->entry_handles[i] == NULL)
+          continue;
+
+        bool found = false;
+
+        for (size_t y=0; y < container->namespace->size; y++) {
+          shmem_ns_entry_name(
+            ns_name, container, container->namespace->entries[y].name
+          );
+
+          if (strcmp(ns_name, container->entry_handles[i]->name) == 0) {
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          shmem_close(container->entry_handles[i], true);
+          container->entry_handles[i] = NULL;
+
+          if ((i + 1) != container->entry_handles_loaded) {
+            memmove(
+              container->entry_handles+i,
+              container->entry_handles+i+1,
+              sizeof(shmem_object*) * (container->entry_handles_loaded - (i+1))
+            );
+          }
+
+          container->entry_handles_loaded--;
+
+          if (container->entry_handles_loaded == 0)
+            break;
+        }
+      }
+    }
+  }
+
+  shmem_mutex_unlock(container->mutex);
+}
+
 long int shmem_container_ns_entries_find(
   shmem_container* container,
   const char* name
@@ -207,35 +346,6 @@ long int shmem_container_ns_entries_find(
   return position;
 }
 
-bool shmem_container_ns_entries_add(
-  shmem_container* container,
-  const char* name,
-  const char* value,
-  size_t value_size
-) {
-  bool added = false;
-
-  char ns_name[SHMEM_NS_LEN];
-  shmem_ns_entry_name(ns_name, container, name);
-
-  shmem_mutex_lock(container->mutex);
-  size_t pos = container->namespace->size;
-  if (pos < container->namespace->capacity) {
-    shmem_object* object = shmem_open(ns_name, value_size);
-    if (object) {
-      strcpy(container->namespace->entries[pos].name, name);
-      container->namespace->entries[pos].size = value_size;
-      memcpy(object->map, value, value_size);
-      container->namespace->size++;
-      shmem_close(object, false);
-      added = true;
-    }
-  }
-  shmem_mutex_unlock(container->mutex);
-
-  return added;
-}
-
 bool shmem_container_ns_entries_set(
   shmem_container* container,
   const char* name,
@@ -245,6 +355,8 @@ bool shmem_container_ns_entries_set(
   bool updated = false;
   shmem_object* object = NULL;
   long int pos = shmem_container_ns_entries_find(container, name);
+
+  shmem_container_entry_gc(container);
 
   shmem_mutex_lock(container->mutex);
 
@@ -256,10 +368,14 @@ bool shmem_container_ns_entries_set(
     pos = container->namespace->size;
 
     if (pos < container->namespace->capacity) {
-      object = shmem_open(ns_name, value_size);
+      object = shmem_container_entry_get(
+        container, pos, ns_name, value_size
+      );
     }
   } else {
-    object = shmem_open(ns_name, value_size);
+    object = shmem_container_entry_get(
+      container, pos, ns_name, value_size
+    );
     found = true;
   }
 
@@ -267,7 +383,6 @@ bool shmem_container_ns_entries_set(
     strcpy(container->namespace->entries[pos].name, name);
     container->namespace->entries[pos].size = value_size;
     memcpy(object->map, value, value_size);
-    shmem_close(object, false);
     updated = true;
 
     if (!found)
@@ -293,15 +408,14 @@ char* shmem_container_ns_entries_get(
   shmem_mutex_lock(container->mutex);
   for (size_t i=0; i<container->namespace->size; i++) {
     if (strcmp(container->namespace->entries[i].name, name) == 0) {
-      shmem_object* object = shmem_open(
-        ns_name, container->namespace->entries[i].size
+      shmem_object* object = shmem_container_entry_get(
+        container, i, ns_name, container->namespace->entries[i].size
       );
 
       if (object && container->namespace->entries[i].size > 0) {
         data = malloc(container->namespace->entries[i].size);
         memcpy(data, object->map, container->namespace->entries[i].size);
         *data_len = container->namespace->entries[i].size;
-        shmem_close(object, false);
       }
 
       break;
@@ -332,13 +446,14 @@ char* shmem_container_ns_entries_get_by_position(
   char ns_name[SHMEM_NS_LEN];
   shmem_ns_entry_name(ns_name, container, name);
 
-  shmem_object* object = shmem_open(ns_name, size);
+  shmem_object* object = shmem_container_entry_get(
+    container, position, ns_name, size
+  );
 
   if (object) {
     data = malloc(size);
     memcpy(data, object->map, size);
     *data_len = size;
-    shmem_close(object, false);
   }
 
 shmem_container_ns_size_end:
@@ -355,16 +470,6 @@ void shmem_container_ns_entries_remove(
   if (pos != -1) {
     shmem_mutex_lock(container->mutex);
 
-    char ns_name[SHMEM_NS_LEN];
-    shmem_ns_entry_name(ns_name, container, name);
-
-    shmem_object* object = shmem_open(
-      ns_name, container->namespace->entries[pos].size
-    );
-
-    if (object)
-      shmem_close(object, true);
-
     if ((pos + 1) != container->namespace->size) {
       memmove(
         container->namespace->entries+pos,
@@ -377,27 +482,26 @@ void shmem_container_ns_entries_remove(
 
     shmem_mutex_unlock(container->mutex);
   }
+
+  char ns_name[SHMEM_NS_LEN];
+  shmem_ns_entry_name(ns_name, container, name);
+
+  shmem_container_entry_remove(container, ns_name, true);
 }
 
-void shmem_container_ns_entries_clear(shmem_container* container) {
+void shmem_container_ns_entries_clear(shmem_container* container, bool unregister) {
   shmem_mutex_lock(container->mutex);
   if (container->namespace->size > 0) {
     for (size_t i=0; i<container->namespace->size; i++) {
       char ns_name[SHMEM_NS_LEN];
       shmem_ns_entry_name(ns_name, container, container->namespace->entries[i].name);
 
-      shmem_object* object = shmem_open(
-        ns_name, container->namespace->entries[i].size
-      );
-
-      if (object) {
-        shmem_close(object, true);
-        strcpy(container->namespace->entries[i].name, "");
-        container->namespace->entries[i].size = 0;
-      }
+      strcpy(container->namespace->entries[i].name, "");
+      container->namespace->entries[i].size = 0;
     }
     container->namespace->size = 0;
   }
+  shmem_container_entry_clear(container, unregister);
   shmem_mutex_unlock(container->mutex);
 }
 
@@ -416,7 +520,12 @@ size_t shmem_container_ns_get_capacity(shmem_container* container) {
 }
 
 shmem_container* shmem_container_open(const char* namespace, size_t capacity) {
-  shmem_container* container = malloc(sizeof(shmem_container));
+  shmem_container* container = malloc(
+    sizeof(shmem_container)
+    +
+    (capacity * sizeof(shmem_object*))
+  );
+
   size_t ns_size = sizeof(shmem_namespace) + (capacity * sizeof(shmem_entry));
 
   char ns_name[SHMEM_NAME_LEN];
@@ -433,6 +542,8 @@ shmem_container* shmem_container_open(const char* namespace, size_t capacity) {
   container->handle = object;
   container->namespace = object->map;
   container->mutex = shmem_mutex_open(mutex_name);
+  container->entry_handles_loaded = 0;
+  memset(container->entry_handles, 0, capacity * sizeof(shmem_object*));
 
   if (!container->mutex) {
     shmem_close(object, false);
@@ -460,24 +571,18 @@ shmem_container_open_error:
 
 void shmem_container_close(shmem_container* container) {
   shmem_mutex_lock(container->mutex);
-
   int refcount = container->namespace->refcount--;
+  shmem_mutex_unlock(container->mutex);
+
+  bool unregister = refcount <= 0;
 
   char namespace[SHMEM_NAME_LEN];
   strcpy(namespace, container->handle->name);
 
-  bool unregister = refcount <= 0;
+  shmem_container_ns_entries_clear(container, unregister);
+  shmem_mutex_close(container->mutex, unregister ? namespace : NULL);
 
   shmem_close(container->handle, unregister);
-
-  if(unregister) {
-    shmem_container_ns_entries_clear(container);
-    shmem_mutex_unlock(container->mutex);
-    shmem_mutex_close(container->mutex, namespace);
-  } else {
-    shmem_mutex_unlock(container->mutex);
-    shmem_mutex_close(container->mutex, NULL);
-  }
 
   free(container);
 }
@@ -542,7 +647,7 @@ static int f_shmem_open(lua_State* L) {
     );
 
   shmem_container* container = shmem_container_open(namespace, capacity);
-  if(!container) {
+  if (!container) {
     lua_pushnil(L);
     lua_pushstring(L, "error initializing the shared memory container");
     return 2;
@@ -617,7 +722,7 @@ static int m_shmem_remove(lua_State* L) {
 
 static int m_shmem_clear(lua_State* L) {
   shmem_container* self = L_SHMEM_SELF(L, 1);
-  shmem_container_ns_entries_clear(self);
+  shmem_container_ns_entries_clear(self, true);
   return 0;
 }
 
