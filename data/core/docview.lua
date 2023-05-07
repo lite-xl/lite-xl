@@ -559,6 +559,7 @@ function DocView:draw_overlay()
         else
           if config.disable_blink
           or (core.blink_timer - core.blink_start) % T < T / 2 then
+            local x, y = self:get_line_screen_position(line1, col1)
             self:draw_caret(x, y, line1, col1)
           end
         end
