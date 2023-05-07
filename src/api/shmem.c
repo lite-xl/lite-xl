@@ -20,7 +20,7 @@
   #include <windows.h>
 
   typedef HANDLE shmem_handle;
-  typedef HANDLE shmem_mutex;
+  typedef HANDLE shmem_mutex_handle;
 #else
   #include <unistd.h>
   #include <sys/mman.h>
@@ -29,7 +29,7 @@
   #include <semaphore.h>
 
   typedef int shmem_handle;
-  typedef sem_t* shmem_mutex;
+  typedef sem_t* shmem_mutex_handle;
 #endif
 
 #define SHMEM_NAME_LEN 124
@@ -37,10 +37,15 @@
 
 typedef struct {
   shmem_handle handle;
-  char name[SHMEM_NAME_LEN];
+  char name[SHMEM_NS_LEN];
   size_t size;
   void* map;
 } shmem_object;
+
+typedef struct {
+  shmem_mutex_handle handle;
+  char name[SHMEM_NS_LEN];
+} shmem_mutex;
 
 typedef struct {
   char name[SHMEM_NAME_LEN];
@@ -56,7 +61,7 @@ typedef struct {
 
 typedef struct {
   shmem_object* handle;
-  shmem_mutex mutex;
+  shmem_mutex* mutex;
   shmem_namespace* namespace;
   size_t entry_handles_loaded;
   shmem_object* entry_handles[];
@@ -163,43 +168,50 @@ shmem_object* shmem_resize(shmem_object** object, size_t new_size) {
   return *object;
 }
 
-shmem_mutex shmem_mutex_open(const char* name) {
-  shmem_mutex mutex;
+shmem_mutex* shmem_mutex_open(const char* name) {
+  shmem_mutex* mutex = malloc(sizeof(shmem_mutex));
 
 #ifdef _WIN32
-  mutex = CreateMutexA(NULL, FALSE, name);
-  if (mutex == NULL) return NULL;
+  mutex->handle = CreateMutexA(NULL, FALSE, name);
+  if (mutex->handle == NULL) goto shmem_mutex_open_error;
 #else
-  mutex = sem_open(name, O_CREAT, 0666, 1);
-  if (mutex == SEM_FAILED) return NULL;
+  mutex->handle = sem_open(name, O_CREAT, 0666, 1);
+  if (mutex->handle == SEM_FAILED) goto shmem_mutex_open_error;
 #endif
+
+  strcpy(mutex->name, name);
 
   return mutex;
+
+shmem_mutex_open_error:
+  free(mutex);
+  return NULL;
 }
 
-void shmem_mutex_lock(shmem_mutex mutex) {
+void shmem_mutex_lock(shmem_mutex* mutex) {
 #ifdef _WIN32
-  WaitForSingleObject(mutex, INFINITE);
+  WaitForSingleObject(mutex->handle, INFINITE);
 #else
-  sem_wait(mutex);
+  sem_wait(mutex->handle);
 #endif
 }
 
-void shmem_mutex_unlock(shmem_mutex mutex) {
+void shmem_mutex_unlock(shmem_mutex* mutex) {
 #ifdef _WIN32
-  ReleaseMutex(mutex);
+  ReleaseMutex(mutex->handle);
 #else
-  sem_post(mutex);
+  sem_post(mutex->handle);
 #endif
 }
 
-void shmem_mutex_close(shmem_mutex mutex, const char* name) {
+void shmem_mutex_close(shmem_mutex* mutex, bool unregister) {
 #ifdef _WIN32
-  CloseHandle(mutex);
+  CloseHandle(mutex->handle);
 #else
-  sem_close(mutex);
-  if (name != NULL) sem_unlink(name);
+  sem_close(mutex->handle);
+  if (unregister) sem_unlink(mutex->name);
 #endif
+  free(mutex);
 }
 
 void shmem_container_entry_clear(shmem_container* container, bool unregister) {
@@ -531,24 +543,26 @@ shmem_container* shmem_container_open(const char* namespace, size_t capacity) {
   char ns_name[SHMEM_NAME_LEN];
   shmem_ns_name(ns_name, namespace);
 
-  char mutex_name[SHMEM_NS_LEN];
-  sprintf(mutex_name, "%s_%s", ns_name, "mutex");
-
   shmem_object* object = shmem_open(ns_name, ns_size);
 
   if (!object)
     goto shmem_container_open_error;
 
-  container->handle = object;
-  container->namespace = object->map;
-  container->mutex = shmem_mutex_open(mutex_name);
-  container->entry_handles_loaded = 0;
-  memset(container->entry_handles, 0, capacity * sizeof(shmem_object*));
+  char mutex_name[SHMEM_NS_LEN];
+  sprintf(mutex_name, "%s_%s", ns_name, "mutex");
 
-  if (!container->mutex) {
-    shmem_close(object, false);
+  shmem_mutex* mutex = shmem_mutex_open(mutex_name);
+
+  if (!mutex) {
+    shmem_close(object, true);
     goto shmem_container_open_error;
   }
+
+  container->handle = object;
+  container->namespace = object->map;
+  container->mutex = mutex;
+  container->entry_handles_loaded = 0;
+  memset(container->entry_handles, 0, capacity * sizeof(shmem_object*));
 
   shmem_namespace* ns = container->namespace;
 
@@ -576,11 +590,8 @@ void shmem_container_close(shmem_container* container) {
 
   bool unregister = refcount <= 0;
 
-  char namespace[SHMEM_NAME_LEN];
-  strcpy(namespace, container->handle->name);
-
   shmem_container_ns_entries_clear(container, unregister);
-  shmem_mutex_close(container->mutex, unregister ? namespace : NULL);
+  shmem_mutex_close(container->mutex, unregister);
 
   shmem_close(container->handle, unregister);
 
