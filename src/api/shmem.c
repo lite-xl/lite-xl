@@ -491,7 +491,7 @@ void shmem_container_ns_entries_remove(
 
 void shmem_container_ns_entries_clear(shmem_container* container, bool unregister) {
   shmem_mutex_lock(container->mutex);
-  if (container->namespace->size > 0) {
+  if (unregister && container->namespace->size > 0) {
     for (size_t i=0; i<container->namespace->size; i++) {
       char ns_name[SHMEM_NS_LEN];
       shmem_ns_entry_name(ns_name, container, container->namespace->entries[i].name);
