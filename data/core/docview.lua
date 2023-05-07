@@ -66,7 +66,6 @@ function DocView:new(doc)
   self.hovering_gutter = false
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
   self.h_scrollbar:set_forced_status(config.force_scrollbar_status)
-  self.current_caret = 1
 end
 
 
@@ -456,16 +455,14 @@ function DocView:draw_line_text(line, x, y)
   return self:get_line_height()
 end
 
-function DocView:draw_caret(x, y)
+function DocView:draw_caret(x, y, line, col)
   local lh = self:get_line_height()
-  if self.doc.overwrite then
-    local line, col = self.doc:get_selection_idx(self.current_caret)
-    local charw = self:get_font():get_width(self.doc:get_char(line, col))
-    renderer.draw_rect(x, y + lh, charw, style.caret_width * 2, style.caret)
+  if self.overwrite then
+    local w = self:get_font():get_width(self.doc.get_char(line, col))
+    renderer.draw_rect(x, y + lh, w, style.caret_width * 2, style.caret)
   else
     renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
   end
-  self.current_caret = self.current_caret + 1
 end
 
 function DocView:draw_line_body(line, x, y)
@@ -562,7 +559,13 @@ function DocView:draw_overlay()
         else
           if config.disable_blink
           or (core.blink_timer - core.blink_start) % T < T / 2 then
-            self:draw_caret(self:get_line_screen_position(line1, col1))
+            local x, y = self:get_line_screen_position(line1, col1)
+            local w = self:get_font():get_width(self.doc:get_char(line1, col1))
+            if self.overwrite then
+              self:draw_overtype_caret(x, y, w)
+            else
+              self:draw_caret(x, y)
+            end
           end
         end
       end
@@ -571,7 +574,6 @@ function DocView:draw_overlay()
 end
 
 function DocView:draw()
-  self.current_caret = 1
   self:draw_background(style.background)
   local _, indent_size = self.doc:get_indent_info()
   self:get_font():set_tab_size(indent_size)
