@@ -457,7 +457,7 @@ end
 
 function DocView:draw_caret(x, y, line, col)
   local lh = self:get_line_height()
-  if self.overwrite then
+  if self.doc.overwrite then
     local w = self:get_font():get_width(self.doc.get_char(line, col))
     renderer.draw_rect(x, y + lh, w, style.caret_width * 2, style.caret)
   else
@@ -542,7 +542,7 @@ function DocView:draw_ime_decoration(line1, col1, line2, col2)
     line_size = style.caret_width
     renderer.draw_rect(x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.caret)
   end
-  self:draw_caret(x + x1, y)
+  self:draw_caret(x + x1, y, line1, col)
 end
 
 
@@ -559,13 +559,7 @@ function DocView:draw_overlay()
         else
           if config.disable_blink
           or (core.blink_timer - core.blink_start) % T < T / 2 then
-            local x, y = self:get_line_screen_position(line1, col1)
-            local w = self:get_font():get_width(self.doc:get_char(line1, col1))
-            if self.overwrite then
-              self:draw_overtype_caret(x, y, w)
-            else
-              self:draw_caret(x, y)
-            end
+            self:draw_caret(x, y, line1, col1)
           end
         end
       end

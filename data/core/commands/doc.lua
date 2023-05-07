@@ -546,6 +546,7 @@ local commands = {
 
   ["doc:toggle-overwrite"] = function(dv)
     dv.doc.overwrite = not dv.doc.overwrite
+    core.blink_reset() -- to show the cursor has changed edit modes
   end,
 
   ["doc:save-as"] = function(dv)
