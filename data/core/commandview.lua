@@ -4,6 +4,7 @@ local style = require "core.style"
 local Doc = require "core.doc"
 local DocView = require "core.docview"
 local View = require "core.view"
+local RootView = require "core.rootview"
 
 
 ---@class core.commandview.input : core.doc
@@ -61,6 +62,7 @@ function CommandView:new()
   self.font = "font"
   self.size.y = 0
   self.label = ""
+  self.mouse_position = {x = 0, y = 0}
 end
 
 
@@ -333,6 +335,22 @@ function CommandView:draw_line_gutter(idx, x, y)
 end
 
 
+---Check if the mouse is hovering the suggestions box.
+---@return boolean mouse_on_top
+function CommandView:is_mouse_on_suggestions()
+  if self.state.show_suggestions and #self.suggestions > 0 then
+    local mx, my = self.mouse_position.x, self.mouse_position.y
+    local dh = style.divider_size
+    local sh = math.ceil(self.suggestions_height)
+    local x, y, w, h = self.position.x, self.position.y - sh - dh, self.size.x, sh
+    if mx >= x and mx <= x+w and my >= y and my <= y+h then
+      return true
+    end
+  end
+  return false
+end
+
+
 local function draw_suggestions_box(self)
   local lh = self:get_suggestion_line_height()
   local dh = style.divider_size
@@ -373,6 +391,101 @@ function CommandView:draw()
   if self.state.show_suggestions then
     core.root_view:defer_draw(draw_suggestions_box, self)
   end
+end
+
+
+function CommandView:on_mouse_moved(x, y)
+  self.mouse_position.x = x
+  self.mouse_position.y = y
+  if self:is_mouse_on_suggestions() then
+    core.request_cursor("arrow")
+    return true
+  end
+  return false
+end
+
+
+function CommandView:on_mouse_wheel(y)
+  if self:is_mouse_on_suggestions() then
+    if y < 0 then
+      self:move_suggestion_idx(-1)
+    else
+      self:move_suggestion_idx(1)
+    end
+    return true
+  end
+  return false
+end
+
+
+function CommandView:on_mouse_pressed(button, x, y, clicks)
+  if self:is_mouse_on_suggestions() then
+    if button == "left" then
+      local lh = self:get_suggestion_line_height()
+      local dh = style.divider_size
+      local offset = math.max(self.suggestion_idx - max_suggestions, 0)
+      local last = math.min(offset + max_suggestions, #self.suggestions)
+      local first = 1 + offset
+
+      for i=first, last do
+        local sy = self.position.y - (i - offset) * lh - dh
+        if y >= sy then
+          self.suggestion_idx=i
+          self:complete()
+          self.last_change_id = self.doc:get_change_id()
+          if clicks == 2 then self:submit() end
+          break
+        end
+      end
+    end
+    return true
+  end
+  return false
+end
+
+
+function CommandView:on_mouse_released()
+  if self:is_mouse_on_suggestions() then
+    return true
+  end
+  return false
+end
+
+
+--------------------------------------------------------------------------------
+-- Transmit mouse events to the suggestions box
+--------------------------------------------------------------------------------
+local root_view_on_mouse_moved = RootView.on_mouse_moved
+local root_view_on_mouse_wheel = RootView.on_mouse_wheel
+local root_view_on_mouse_pressed = RootView.on_mouse_pressed
+local root_view_on_mouse_released = RootView.on_mouse_released
+
+function RootView:on_mouse_moved(...)
+  if core.active_view:is(CommandView) then
+    if core.active_view:on_mouse_moved(...) then return true end
+  end
+  return root_view_on_mouse_moved(self, ...)
+end
+
+function RootView:on_mouse_wheel(...)
+  if core.active_view:is(CommandView) then
+    if core.active_view:on_mouse_wheel(...) then return true end
+  end
+  return root_view_on_mouse_wheel(self, ...)
+end
+
+function RootView:on_mouse_pressed(...)
+  if core.active_view:is(CommandView) then
+    if core.active_view:on_mouse_pressed(...) then return true end
+  end
+  return root_view_on_mouse_pressed(self, ...)
+end
+
+function RootView:on_mouse_released(...)
+  if core.active_view:is(CommandView) then
+    if core.active_view:on_mouse_released(...) then return true end
+  end
+  return root_view_on_mouse_released(self, ...)
 end
 
 
