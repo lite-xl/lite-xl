@@ -53,6 +53,9 @@ function CommandView:new()
   self.suggestion_idx = 1
   self.suggestions = {}
   self.suggestions_height = 0
+  self.suggestions_offset = 0
+  self.suggestions_first = 1
+  self.suggestions_last = 0
   self.last_change_id = 0
   self.last_text = ""
   self.gutter_width = 0
@@ -358,31 +361,44 @@ local function draw_suggestions_box(self)
   local h = math.ceil(self.suggestions_height)
   local rx, ry, rw, rh = self.position.x, self.position.y - h - dh, self.size.x, h
 
-  -- draw suggestions background
   if #self.suggestions > 0 then
+    -- draw suggestions background
     renderer.draw_rect(rx, ry, rw, rh, style.background3)
     renderer.draw_rect(rx, ry - dh, rw, dh, style.divider)
-    local y = self.position.y - self.selection_offset - dh
-    renderer.draw_rect(rx, y, rw, lh, style.line_highlight)
-  end
 
-  -- draw suggestion text
-  local offset = math.max(self.suggestion_idx - max_suggestions, 0)
-  local last = math.min(offset + max_suggestions, #self.suggestions)
-  core.push_clip_rect(rx, ry, rw, rh)
-  local first = 1 + offset
-  for i=first, last do
-    local item = self.suggestions[i]
-    local color = (i == self.suggestion_idx) and style.accent or style.text
-    local y = self.position.y - (i - offset) * lh - dh
-    common.draw_text(self:get_font(), color, item.text, nil, x, y, 0, lh)
-
-    if item.info then
-      local w = self.size.x - x - style.padding.x
-      common.draw_text(self:get_font(), style.dim, item.info, "right", x, y, w, lh)
+    -- draw suggestion text
+    local current = self.suggestion_idx
+    local offset = math.max(current - max_suggestions, 0)
+    if self.suggestions_first-1 == current then
+      offset = math.max(self.suggestions_first - 2, 0)
     end
+    local first = 1 + offset
+    local last = math.min(offset + max_suggestions, #self.suggestions)
+    if current < self.suggestions_first or current > self.suggestions_last then
+      self.suggestions_first = first
+      self.suggestions_last = last
+      self.suggestions_offset = offset
+    else
+      offset = self.suggestions_offset
+      first = self.suggestions_first
+      last = math.min(self.suggestions_last, #self.suggestions)
+    end
+    core.push_clip_rect(rx, ry, rw, rh)
+    for i=first, last do
+      local item = self.suggestions[i]
+      local color = (i == current) and style.accent or style.text
+      local y = self.position.y - (i - offset) * lh - dh
+      if i == current then
+        renderer.draw_rect(rx, y, rw, lh, style.line_highlight)
+      end
+      common.draw_text(self:get_font(), color, item.text, nil, x, y, 0, lh)
+      if item.info then
+        local w = self.size.x - x - style.padding.x
+        common.draw_text(self:get_font(), style.dim, item.info, "right", x, y, w, lh)
+      end
+    end
+    core.pop_clip_rect()
   end
-  core.pop_clip_rect()
 end
 
 
@@ -399,6 +415,22 @@ function CommandView:on_mouse_moved(x, y)
   self.mouse_position.y = y
   if self:is_mouse_on_suggestions() then
     core.request_cursor("arrow")
+
+    local lh = self:get_suggestion_line_height()
+    local dh = style.divider_size
+    local offset = self.suggestions_offset
+    local first = self.suggestions_first
+    local last = self.suggestions_last
+
+    for i=first, last do
+      local sy = self.position.y - (i - offset) * lh - dh
+      if y >= sy then
+        self.suggestion_idx=i
+        self:complete()
+        self.last_change_id = self.doc:get_change_id()
+        break
+      end
+    end
     return true
   end
   return false
@@ -421,22 +453,7 @@ end
 function CommandView:on_mouse_pressed(button, x, y, clicks)
   if self:is_mouse_on_suggestions() then
     if button == "left" then
-      local lh = self:get_suggestion_line_height()
-      local dh = style.divider_size
-      local offset = math.max(self.suggestion_idx - max_suggestions, 0)
-      local last = math.min(offset + max_suggestions, #self.suggestions)
-      local first = 1 + offset
-
-      for i=first, last do
-        local sy = self.position.y - (i - offset) * lh - dh
-        if y >= sy then
-          self.suggestion_idx=i
-          self:complete()
-          self.last_change_id = self.doc:get_change_id()
-          if clicks == 2 then self:submit() end
-          break
-        end
-      end
+      self:submit()
     end
     return true
   end
@@ -454,6 +471,7 @@ end
 
 --------------------------------------------------------------------------------
 -- Transmit mouse events to the suggestions box
+-- TODO: Remove these overrides once FloatingView is implemented
 --------------------------------------------------------------------------------
 local root_view_on_mouse_moved = RootView.on_mouse_moved
 local root_view_on_mouse_wheel = RootView.on_mouse_wheel
