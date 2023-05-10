@@ -79,8 +79,6 @@ end
 
 local draw_overlay = DocView.draw_overlay
 function DocView:draw_overlay(...)
-  draw_overlay(self, ...)
-
   if
     type(config.plugins.lineguide) == "table"
     and
@@ -106,6 +104,8 @@ function DocView:draw_overlay(...)
       end
     end
   end
+  -- everything else like the cursor above the line guides
+  draw_overlay(self, ...)
 end
 
 command.add(nil, {
