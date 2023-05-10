@@ -34,9 +34,8 @@ end
 
 ---@deprecated
 function Node:on_mouse_moved(x, y, ...)
-  assert(false)
+  core.deprecation_log("Node:on_mouse_moved")
   if self.type == "leaf" then
-    self.hovered.x, self.hovered.y = x, y
     self.active_view:on_mouse_moved(x, y, ...)
   else
     self:propagate("on_mouse_moved", x, y, ...)
@@ -46,7 +45,7 @@ end
 
 ---@deprecated
 function Node:on_mouse_released(...)
-  assert(false)
+  core.deprecation_log("Node:on_mouse_released")
   if self.type == "leaf" then
     self.active_view:on_mouse_released(...)
   else
@@ -57,7 +56,7 @@ end
 
 ---@deprecated
 function Node:on_mouse_left()
-  assert(false)
+  core.deprecation_log("Node:on_mouse_left")
   if self.type == "leaf" then
     self.active_view:on_mouse_left()
   else
@@ -65,13 +64,17 @@ function Node:on_mouse_left()
   end
 end
 
+
+---@deprecated
 function Node:on_touch_moved(...)
+  core.deprecation_log("Node:on_touch_moved")
   if self.type == "leaf" then
     self.active_view:on_touch_moved(...)
   else
     self:propagate("on_touch_moved", ...)
   end
 end
+
 
 function Node:consume(node)
   for k, _ in pairs(self) do self[k] = nil end
