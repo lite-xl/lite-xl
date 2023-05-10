@@ -352,7 +352,7 @@ end
 ---@return number x_advance The X coordinate after drawing the text.
 ---@return number y_advance The Y coordinate after drawing the text.
 function common.draw_text(font, color, text, align, x,y,w,h)
-  local tw, th = font:get_width(text), font:get_height(text)
+  local tw, th = font:get_width(text), font:get_height()
   if align == "center" then
     x = x + (w - tw) / 2
   elseif align == "right" then
