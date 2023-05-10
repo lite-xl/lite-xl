@@ -24,6 +24,9 @@ function RootView:new()
                             base_color = style.drag_overlay_tab,
                             color = { table.unpack(style.drag_overlay_tab) } }
   self.drag_overlay_tab.to = { x = 0, y = 0, w = 0, h = 0 }
+  self.grab = nil -- = {view = nil, button = nil}
+  self.overlapping_view = nil
+  self.touched_view = nil
 end
 
 
@@ -116,6 +119,31 @@ function RootView:close_all_docviews(keep_active)
 end
 
 
+---Obtain mouse grab.
+---
+---This means that mouse movements will be sent to the specified view, even when
+---those occur outside of it.
+---There can't be multiple mouse grabs, even for different buttons.
+---@see RootView:ungrab_mouse
+---@param button core.view.mousebutton
+---@param view core.view
+function RootView:grab_mouse(button, view)
+  assert(self.grab == nil)
+  self.grab = {view = view, button = button}
+end
+
+
+---Release mouse grab.
+---
+---The specified button *must* be the last button that grabbed the mouse.
+---@see RootView:grab_mouse
+---@param button core.view.mousebutton
+function RootView:ungrab_mouse(button)
+  assert(self.grab and self.grab.button == button)
+  self.grab = nil
+end
+
+
 ---Function to intercept mouse pressed events on the active view.
 ---Do nothing by default.
 ---@param button core.view.mousebutton
@@ -132,6 +160,10 @@ end
 ---@param clicks integer
 ---@return boolean
 function RootView:on_mouse_pressed(button, x, y, clicks)
+  -- If there is a grab, release it first
+  if self.grab then
+    self:on_mouse_released(self.grab.button, x, y)
+  end
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local node = self.root_node:get_child_overlapping_point(x, y)
   if div and (node and not node.active_view:scrollbar_overlaps_point(x, y)) then
@@ -156,6 +188,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
     core.set_active_view(node.active_view)
+    self:grab_mouse(button, node.active_view)
     return self.on_view_mouse_pressed(button, x, y, clicks) or node.active_view:on_mouse_pressed(button, x, y, clicks)
   end
 end
@@ -188,6 +221,21 @@ end
 ---@param x number
 ---@param y number
 function RootView:on_mouse_released(button, x, y, ...)
+  if self.grab then
+    if self.grab.button == button then
+      local grabbed_view = self.grab.view
+      grabbed_view:on_mouse_released(button, x, y, ...)
+      self:ungrab_mouse(button)
+
+      -- If the mouse was released over a different view, send it the mouse position
+      local hovered_view = self.root_node:get_child_overlapping_point(x, y)
+      if grabbed_view ~= hovered_view then
+        self:on_mouse_moved(x, y, 0, 0)
+      end
+    end
+    return
+  end
+
   if self.dragged_divider then
     self.dragged_divider = nil
   end
@@ -228,8 +276,6 @@ function RootView:on_mouse_released(button, x, y, ...)
       end
       self.dragged_node = nil
     end
-  else -- avoid sending on_mouse_released events when dragging tabs
-    self.root_node:on_mouse_released(button, x, y, ...)
   end
 end
 
@@ -250,6 +296,14 @@ end
 ---@param dx number
 ---@param dy number
 function RootView:on_mouse_moved(x, y, dx, dy)
+  self.mouse.x, self.mouse.y = x, y
+
+  if self.grab then
+    self.grab.view:on_mouse_moved(x, y, dx, dy)
+    core.request_cursor(self.grab.view.cursor)
+    return
+  end
+
   if core.active_view == core.nag_view then
     core.request_cursor("arrow")
     core.active_view:on_mouse_moved(x, y, dx, dy)
@@ -269,8 +323,6 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     return
   end
 
-  self.mouse.x, self.mouse.y = x, y
-
   local dn = self.dragged_node
   if dn and not dn.dragging then
     -- start dragging only after enough movement
@@ -283,30 +335,33 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   -- avoid sending on_mouse_moved events when dragging tabs
   if dn then return end
 
-  self.root_node:on_mouse_moved(x, y, dx, dy)
+  local last_overlapping_view = self.overlapping_view
+  local overlapping_node = self.root_node:get_child_overlapping_point(x, y)
+  self.overlapping_view = overlapping_node and overlapping_node.active_view
 
-  local last_overlapping_node = self.overlapping_node
-  self.overlapping_node = self.root_node:get_child_overlapping_point(x, y)
-
-  if last_overlapping_node and last_overlapping_node ~= self.overlapping_node then
-    last_overlapping_node:on_mouse_left()
+  if last_overlapping_view and last_overlapping_view ~= self.overlapping_view then
+    last_overlapping_view:on_mouse_left()
   end
-  if not self.overlapping_node then return end
+
+  if not self.overlapping_view then return end
+
+  self.overlapping_view:on_mouse_moved(x, y, dx, dy)
+  core.request_cursor(self.overlapping_view.cursor)
+
+  if not overlapping_node then return end
 
   local div = self.root_node:get_divider_overlapping_point(x, y)
-  if self.overlapping_node:get_scroll_button_index(x, y) or self.overlapping_node:is_in_tab_area(x, y) then
+  if overlapping_node:get_scroll_button_index(x, y) or overlapping_node:is_in_tab_area(x, y) then
     core.request_cursor("arrow")
-  elseif div and not self.overlapping_node.active_view:scrollbar_overlaps_point(x, y) then
+  elseif div and not self.overlapping_view:scrollbar_overlaps_point(x, y) then
     core.request_cursor(div.type == "hsplit" and "sizeh" or "sizev")
-  else
-    core.request_cursor(self.overlapping_node.active_view.cursor)
   end
 end
 
 
 function RootView:on_mouse_left()
-  if self.overlapping_node then
-    self.overlapping_node:on_mouse_left()
+  if self.overlapping_view then
+    self.overlapping_view:on_mouse_left()
   end
 end
 
@@ -333,15 +388,16 @@ function RootView:on_text_input(...)
 end
 
 function RootView:on_touch_pressed(x, y, ...)
-  self.touched_node = self.root_node:get_child_overlapping_point(x, y)
+  local touched_node = self.root_node:get_child_overlapping_point(x, y)
+  self.touched_view = touched_node and touched_node.active_view
 end
 
 function RootView:on_touch_released(x, y, ...)
-  self.touched_node = nil
+  self.touched_view = nil
 end
 
 function RootView:on_touch_moved(x, y, dx, dy, ...)
-  if not self.touched_node then return end
+  if not self.touched_view then return end
   if core.active_view == core.nag_view then
     core.active_view:on_touch_moved(x, y, dx, dy, ...)
     return
@@ -372,7 +428,7 @@ function RootView:on_touch_moved(x, y, dx, dy, ...)
   -- avoid sending on_touch_moved events when dragging tabs
   if dn then return end
 
-  self.touched_node:on_touch_moved(x, y, dx, dy, ...)
+  self.touched_view:on_touch_moved(x, y, dx, dy, ...)
 end
 
 function RootView:on_ime_text_editing(...)

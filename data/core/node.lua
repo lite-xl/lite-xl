@@ -18,7 +18,6 @@ function Node:new(type)
   if self.type == "leaf" then
     self:add_view(EmptyView())
   end
-  self.hovered = {x = -1, y = -1 }
   self.hovered_close = 0
   self.tab_shift = 0
   self.tab_offset = 1
@@ -33,7 +32,9 @@ function Node:propagate(fn, ...)
 end
 
 
+---@deprecated
 function Node:on_mouse_moved(x, y, ...)
+  assert(false)
   if self.type == "leaf" then
     self.hovered.x, self.hovered.y = x, y
     self.active_view:on_mouse_moved(x, y, ...)
@@ -43,7 +44,9 @@ function Node:on_mouse_moved(x, y, ...)
 end
 
 
+---@deprecated
 function Node:on_mouse_released(...)
+  assert(false)
   if self.type == "leaf" then
     self.active_view:on_mouse_released(...)
   else
@@ -52,7 +55,9 @@ function Node:on_mouse_released(...)
 end
 
 
+---@deprecated
 function Node:on_mouse_left()
+  assert(false)
   if self.type == "leaf" then
     self.active_view:on_mouse_left()
   else
@@ -489,7 +494,7 @@ function Node:update()
     for _, view in ipairs(self.views) do
       view:update()
     end
-    self:tab_hovered_update(self.hovered.x, self.hovered.y)
+    self:tab_hovered_update(core.root_view.mouse.x, core.root_view.mouse.y)
     local tab_width = self:target_tab_width()
     self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
     self:move_towards("tab_width", tab_width, nil, "tabs")
