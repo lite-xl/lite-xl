@@ -35,7 +35,6 @@ config.mouse_wheel_scroll = 50 * SCALE
 ---
 ---Defaults to false.
 ---@type boolean
-
 config.animate_drag_scroll = false
 
 ---Enables/disables scrolling past the end of a document.
