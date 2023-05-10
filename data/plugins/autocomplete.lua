@@ -493,7 +493,6 @@ local function draw_suggestions_box(av)
   local show_count = #suggestions <= ah and #suggestions or ah
   local start_index = suggestions_idx > ah and (suggestions_idx-(ah-1)) or 1
   local hide_info = config.plugins.autocomplete.hide_info
-  local hide_icons = config.plugins.autocomplete.hide_icons
 
   for i=start_index, start_index+show_count-1, 1 do
     if not suggestions[i] then
@@ -503,7 +502,7 @@ local function draw_suggestions_box(av)
 
     local icon_l_padding, icon_r_padding = 0, 0
 
-    if not hide_icons and has_icons then
+    if has_icons then
       local icon = s.icon or s.info
       if icon and autocomplete.icons[icon] then
         local ifont = autocomplete.icons[icon].font
