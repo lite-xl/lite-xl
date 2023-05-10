@@ -21,6 +21,12 @@ config.plugins.autocomplete = common.merge({
   max_symbols = 4000,
   -- Font size of the description box
   desc_font_size = 12,
+  -- Do not show the icons associated to the suggestions
+  hide_icons = false,
+  -- Position where icons will be displayed on the suggestions list
+  icon_position = "left",
+  -- Do not show the additional information related to a suggestion
+  hide_info = false,
   -- The config specification used by gui generators
   config_spec = {
     name = "Autocomplete",
@@ -67,6 +73,31 @@ config.plugins.autocomplete = common.merge({
       type = "number",
       default = 12,
       min = 8
+    },
+    {
+      label = "Hide Icons",
+      description = "Do not show icons on the suggestions list.",
+      path = "hide_icons",
+      type = "toggle",
+      default = false
+    },
+    {
+      label = "Icons Position",
+      description = "Position to display icons on the suggestions list.",
+      path = "icon_position",
+      type = "selection",
+      default = "left",
+      values = {
+        {"Left", "left"},
+        {"Right", "Right"}
+      }
+    },
+    {
+      label = "Hide Items Info",
+      description = "Do not show the additional info related to each suggestion.",
+      path = "hide_info",
+      type = "toggle",
+      default = false
     }
   }
 }, config.plugins.autocomplete)
@@ -76,6 +107,7 @@ local autocomplete = {}
 autocomplete.map = {}
 autocomplete.map_manually = {}
 autocomplete.on_close = nil
+autocomplete.icons = {}
 
 -- Flag that indicates if the autocomplete box was manually triggered
 -- with the autocomplete.complete() function to prevent the suggestions
@@ -95,6 +127,7 @@ function autocomplete.add(t, manually_triggered)
           {
             text = text,
             info = info.info,
+            icon = info.icon,          -- Name of icon to show
             desc = info.desc,          -- Description shown on item selected
             onhover = info.onhover,    -- A callback called once when item is hovered
             onselect = info.onselect,  -- A callback called when item is selected
@@ -286,12 +319,22 @@ local function get_suggestions_rect(av)
   y = y + av:get_line_height() + style.padding.y
   local font = av:get_font()
   local th = font:get_height()
+  local has_icons = false
+  local hide_info = config.plugins.autocomplete.hide_info
+  local hide_icons = config.plugins.autocomplete.hide_icons
 
   local max_width = 0
   for _, s in ipairs(suggestions) do
     local w = font:get_width(s.text)
-    if s.info then
+    if s.info and not hide_info then
       w = w + style.font:get_width(s.info) + style.padding.x
+    end
+    local icon = s.icon or s.info
+    if not hide_icons and icon and autocomplete.icons[icon] then
+      w = w + autocomplete.icons[icon].font:get_width(
+        autocomplete.icons[icon].char
+      ) + (style.padding.x / 2)
+      has_icons = true
     end
     max_width = math.max(max_width, w)
   end
@@ -319,7 +362,8 @@ local function get_suggestions_rect(av)
     x - style.padding.x,
     y - style.padding.y,
     max_width + style.padding.x * 2,
-    max_items * (th + style.padding.y) + style.padding.y
+    max_items * (th + style.padding.y) + style.padding.y,
+    has_icons
 end
 
 local function wrap_line(line, max_chars)
@@ -439,7 +483,7 @@ local function draw_suggestions_box(av)
   local ah = config.plugins.autocomplete.max_height
 
   -- draw background rect
-  local rx, ry, rw, rh = get_suggestions_rect(av)
+  local rx, ry, rw, rh, has_icons = get_suggestions_rect(av)
   renderer.draw_rect(rx, ry, rw, rh, style.background3)
 
   -- draw text
@@ -448,17 +492,49 @@ local function draw_suggestions_box(av)
   local y = ry + style.padding.y / 2
   local show_count = #suggestions <= ah and #suggestions or ah
   local start_index = suggestions_idx > ah and (suggestions_idx-(ah-1)) or 1
+  local hide_info = config.plugins.autocomplete.hide_info
+  local hide_icons = config.plugins.autocomplete.hide_icons
 
   for i=start_index, start_index+show_count-1, 1 do
     if not suggestions[i] then
       break
     end
     local s = suggestions[i]
+
+    local icon_l_padding, icon_r_padding = 0, 0
+
+    if not hide_icons and has_icons then
+      local icon = s.icon or s.info
+      if icon and autocomplete.icons[icon] then
+        local ifont = autocomplete.icons[icon].font
+        local itext = autocomplete.icons[icon].char
+        local icolor = (i == suggestions_idx) and style.accent
+          or style.syntax[autocomplete.icons[icon].color]
+        if config.plugins.autocomplete.icon_position == "left" then
+          common.draw_text(
+            ifont, icolor, itext, "left", rx + style.padding.x, y, rw, lh
+          )
+          icon_l_padding = ifont:get_width(itext) + (style.padding.x / 2)
+        else
+          common.draw_text(
+            ifont, icolor, itext, "right", rx, y, rw - style.padding.x, lh
+          )
+          icon_r_padding = ifont:get_width(itext) + (style.padding.x / 2)
+        end
+      end
+    end
+
     local color = (i == suggestions_idx) and style.accent or style.text
-    common.draw_text(font, color, s.text, "left", rx + style.padding.x, y, rw, lh)
-    if s.info then
+    common.draw_text(
+      font, color, s.text, "left",
+      rx + icon_l_padding + style.padding.x, y, rw, lh
+    )
+    if s.info and not hide_info then
       color = (i == suggestions_idx) and style.text or style.dim
-      common.draw_text(style.font, color, s.info, "right", rx, y, rw - style.padding.x, lh)
+      common.draw_text(
+        style.font, color, s.info, "right",
+        rx, y, rw - icon_r_padding - style.padding.x, lh
+      )
     end
     y = y + lh
     if suggestions_idx == i then
@@ -617,6 +693,19 @@ function autocomplete.can_complete()
     return true
   end
   return false
+end
+
+---Register a font icon that can be assigned to completion items.
+---@param name string
+---@param character string
+---@param font? renderer.font
+---@param color? string One of the color names from style.syntax
+function autocomplete.add_icon(name, character, font, color)
+  autocomplete.icons[name] = {
+    char = character,
+    font = font or style.code_font,
+    color = color or "keyword"
+  }
 end
 
 
