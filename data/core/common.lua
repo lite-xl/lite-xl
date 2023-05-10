@@ -44,7 +44,7 @@ function common.clamp(n, lo, hi)
 end
 
 
----Merges the content of table b into table a and creates a new table.
+---Returns a table containing the contents of b merged into a.
 ---@param a table
 ---@param b table
 ---@return table
@@ -146,7 +146,7 @@ end
 
 
 ---Splices a numerically indexed table.
----Mutates the original table.
+---This function mutates the original table.
 ---@param t any[]
 ---@param at number Index at which to start splicing.
 ---@param remove number Number of elements to remove.
