@@ -9,12 +9,8 @@ local common = {}
 ---@class common.serializeoptions
 ---@field pretty boolean Enables pretty printing.
 ---@field indent_str string The indentation character to use. Defaults to `"  "`.
----Uses normal escape characters (`"\r"`, `"\n"`)
----instead of decimal escape codes (`"\13"`, `"\10"`).
----@field escape boolean
----Limits the depth of the table when serializing nested tables.
----Defaults to `math.huge`.
----@field limit number
+---@field escape boolean Uses normal escape characters ("\n") instead of decimal escape sequences ("\10").
+---@field limit number Limits the depth when serializing nested tables. Defaults to `math.huge`.
 ---@field sort boolean Sorts the output if it is a sortable table.
 ---@field initial_indent number The initial indentation level. Defaults to 0.
 
@@ -22,8 +18,7 @@ local common = {}
 ---Checks if the byte at offset is a UTF-8 continuation byte.
 ---A UTF-8 continuation byte is any byte where the first two bits are 10.
 ---@param s string
----@param offset number The offset of the string to start searching.
----Defaults to 1.
+---@param offset number The offset of the string to start searching. Defaults to 1.
 ---@return boolean
 function common.is_utf8_cont(s, offset, test)
   local byte = s:byte(offset or 1)
@@ -190,8 +185,7 @@ end
 ---@param needle string
 ---@param files boolean If true, the matching process will be performed
 ---in reverse, which is better suited for matching file paths.
----@return number|string[] # If the haystack is a string, a score ranging
----from to 1 is returned.
+---@return number|string[] # If the haystack is a string, a score ranging from to 1 is returned.
 ---If the haystack is a table, a table containing the haystack sorted in
 ---ascending order of similarity is returned.
 function common.fuzzy_match(haystack, needle, files)
@@ -230,8 +224,7 @@ end
 
 ---Returns a list of paths that are related to an input path.
 ---@param text string The input path
----@param root? string The root directory.
----The function will not suggest anything beyond this root directory.
+---@param root? string The root directory. The function will not suggest anything beyond this root directory.
 ---@return string[]
 function common.path_suggest(text, root)
   if root and root:sub(-1) ~= PATHSEP then
