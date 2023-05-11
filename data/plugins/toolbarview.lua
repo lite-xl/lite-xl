@@ -100,6 +100,16 @@ function ToolbarView:on_mouse_pressed(button, x, y, clicks)
 end
 
 
+function ToolbarView:on_mouse_left()
+  ToolbarView.super.on_mouse_left(self)
+  if self.tooltip then
+    core.status_view:remove_tooltip()
+    self.tooltip = false
+  end
+  self.hovered_item = nil
+end
+
+
 function ToolbarView:on_mouse_moved(px, py, ...)
   if not self.visible then return end
   ToolbarView.super.on_mouse_moved(self, px, py, ...)

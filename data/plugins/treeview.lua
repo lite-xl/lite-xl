@@ -281,6 +281,12 @@ function TreeView:on_mouse_moved(px, py, ...)
 end
 
 
+function TreeView:on_mouse_left()
+  TreeView.super.on_mouse_left(self)
+  self.hovered_item = nil
+end
+
+
 function TreeView:update()
   -- update width
   local dest = self.visible and self.target_size or 0
