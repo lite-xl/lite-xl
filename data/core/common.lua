@@ -18,7 +18,7 @@ local common = {}
 ---Checks if the byte at offset is a UTF-8 continuation byte.
 ---A UTF-8 continuation byte is any byte where the first two bits are 10.
 ---@param s string
----@param offset number The offset of the string to start searching. Defaults to 1.
+---@param offset integer The offset of the string to start searching. Defaults to 1.
 ---@return boolean
 function common.is_utf8_cont(s, offset, test)
   local byte = s:byte(offset or 1)
