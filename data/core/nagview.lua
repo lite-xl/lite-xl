@@ -23,7 +23,7 @@ function NagView:new()
   self.queue = {}
   self.scrollable = true
   self.target_height = 0
-  self.on_mouse_pressed_root = nil
+  self.cursor = "arrow"
 end
 
 function NagView:get_title()
@@ -61,15 +61,6 @@ function NagView:get_scrollable_size()
     self.size.y = 0
   end
   return 0
-end
-
-function NagView:dim_window_content()
-  local ox, oy = self:get_content_offset()
-  oy = oy + self.show_height
-  local w, h = core.root_view.size.x, core.root_view.size.y - oy
-  core.root_view:defer_draw(function()
-    renderer.draw_rect(ox, oy, w, h, style.nagbar_dim)
-  end)
 end
 
 function NagView:change_hovered(i)
@@ -111,41 +102,6 @@ function NagView:on_mouse_moved(mx, my, ...)
   end
 end
 
-local function register_mouse_pressed(self)
-  if self.on_mouse_pressed_root then return end
-  -- RootView is loaded locally to avoid NagView and RootView being
-  -- mutually recursive
-  local RootView = require "core.rootview"
-  self.on_mouse_pressed_root = RootView.on_mouse_pressed
-  local this = self
-  function RootView:on_mouse_pressed(button, x, y, clicks)
-    if
-      not this:on_mouse_pressed(button, x, y, clicks)
-    then
-      return this.on_mouse_pressed_root(self, button, x, y, clicks)
-    else
-      return true
-    end
-  end
-  self.new_on_mouse_pressed_root = RootView.on_mouse_pressed
-end
-
-local function unregister_mouse_pressed(self)
-  local RootView = require "core.rootview"
-  if
-    self.on_mouse_pressed_root
-    and
-    -- just in case prevent overwriting what something else may
-    -- have overwrote after us, but after testing with various
-    -- plugins this doesn't seems to happen, but just in case
-    self.new_on_mouse_pressed_root == RootView.on_mouse_pressed
-  then
-    RootView.on_mouse_pressed = self.on_mouse_pressed_root
-    self.on_mouse_pressed_root = nil
-    self.new_on_mouse_pressed_root = nil
-  end
-end
-
 function NagView:on_mouse_pressed(button, mx, my, clicks)
   if not self.visible then return false end
   if NagView.super.on_mouse_pressed(self, button, mx, my, clicks) then return true end
@@ -181,12 +137,23 @@ function NagView:update()
       self.message = nil
       self.options = nil
       self.on_selected = nil
+      core.root_view:remove_floating_view(self)
     end
   end
+
+  -- We need to avoid covering the titlebar when in borderless mode
+  self.position.x = 0
+  self.position.y = core.title_view.size.y
+  self.size.x = core.root_view.size.x
+  self.size.y = core.root_view.size.y - core.title_view.size.y
 end
 
-local function draw_nagview_message(self)
-  self:dim_window_content()
+function NagView:draw()
+  if (not self.visible and self.show_height <= 0) or not self.title then
+    return
+  end
+
+  self:draw_background(style.nagbar_dim)
 
   -- draw message's background
   local ox, oy = self:get_content_offset()
@@ -238,13 +205,6 @@ local function draw_nagview_message(self)
   core.pop_clip_rect()
 end
 
-function NagView:draw()
-  if (not self.visible and self.show_height <= 0) or not self.title then
-    return
-  end
-  core.root_view:defer_draw(draw_nagview_message, self)
-end
-
 function NagView:on_scale_change(new_scale, old_scale)
   BORDER_WIDTH = common.round(1 * new_scale)
   UNDERLINE_WIDTH = common.round(2 * new_scale)
@@ -266,6 +226,9 @@ end
 function NagView:next()
   local opts = table.remove(self.queue, 1) or {}
   if opts.title and opts.message and opts.options then
+    if not self.visible then
+      core.root_view:add_floating_view(self, "top")
+    end
     self.visible = true
     self.title = opts.title
     self.message = opts.message and opts.message .. "\n"
@@ -280,13 +243,10 @@ function NagView:next()
 
     self.force_focus = true
     core.set_active_view(self)
-    -- We add a hook to manage all the mouse_pressed events.
-    register_mouse_pressed(self)
   else
     self.force_focus = false
     core.set_active_view(core.next_active_view or core.last_active_view)
     self.visible = false
-    unregister_mouse_pressed(self)
   end
 end
 

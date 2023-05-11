@@ -755,8 +755,6 @@ function core.init()
   cur_node.is_primary_node = true
   cur_node:split("up", core.title_view, {y = true})
   cur_node = cur_node.b
-  cur_node:split("up", core.nag_view, {y = true})
-  cur_node = cur_node.b
   cur_node = cur_node:split("down", core.command_view, {y = true})
   cur_node = cur_node:split("down", core.status_view, {y = true})
 

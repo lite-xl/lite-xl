@@ -316,12 +316,6 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     return
   end
 
-  if core.active_view == core.nag_view then
-    core.request_cursor("arrow")
-    core.active_view:on_mouse_moved(x, y, dx, dy)
-    return
-  end
-
   if self.dragged_divider then
     local node = self.dragged_divider
     if node.type == "hsplit" then
@@ -431,10 +425,6 @@ end
 
 function RootView:on_touch_moved(x, y, dx, dy, ...)
   if not self.touched_view then return end
-  if core.active_view == core.nag_view then
-    core.active_view:on_touch_moved(x, y, dx, dy, ...)
-    return
-  end
 
   if self.dragged_divider then
     local node = self.dragged_divider
