@@ -11,6 +11,8 @@ local DocView = require "core.docview"
 ---@field mouse core.view.position
 local RootView = View:extend()
 
+RootView.levels_order = {"top", "normal", "bottom"}
+
 function RootView:new()
   RootView.super.new(self)
   self.root_node = Node()
@@ -27,6 +29,7 @@ function RootView:new()
   self.grab = nil -- = {view = nil, button = nil}
   self.overlapping_view = nil
   self.touched_view = nil
+  self.floating_views = {top = {}, normal = {}, bottom = {}}
 end
 
 
@@ -164,6 +167,15 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   if self.grab then
     self:on_mouse_released(self.grab.button, x, y)
   end
+
+  local floating_view, level = self:get_floating_view_overlapping_point(x, y)
+  if floating_view then
+    core.set_active_view(floating_view)
+    self:grab_mouse(button, floating_view)
+    self:set_floating_view_position(floating_view, level, 1)
+    return self.on_view_mouse_pressed(button, x, y, clicks) or floating_view:on_mouse_pressed(button, x, y, clicks)
+  end
+
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local node = self.root_node:get_child_overlapping_point(x, y)
   if div and (node and not node.active_view:scrollbar_overlaps_point(x, y)) then
@@ -336,8 +348,14 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   if dn then return end
 
   local last_overlapping_view = self.overlapping_view
-  local overlapping_node = self.root_node:get_child_overlapping_point(x, y)
-  self.overlapping_view = overlapping_node and overlapping_node.active_view
+  local floating_view, overlapping_node
+  floating_view = self:get_floating_view_overlapping_point(x, y)
+  if floating_view then
+    self.overlapping_view = floating_view
+  else
+    overlapping_node = self.root_node:get_child_overlapping_point(x, y)
+    self.overlapping_view = (overlapping_node and overlapping_node.active_view)
+  end
 
   if last_overlapping_view and last_overlapping_view ~= self.overlapping_view then
     last_overlapping_view:on_mouse_left()
@@ -349,6 +367,9 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   core.request_cursor(self.overlapping_view.cursor)
 
   if not overlapping_node then return end
+
+  if not overlapping_node then return end
+
 
   local div = self.root_node:get_divider_overlapping_point(x, y)
   if overlapping_node:get_scroll_button_index(x, y) or overlapping_node:is_in_tab_area(x, y) then
@@ -377,9 +398,21 @@ end
 
 
 function RootView:on_mouse_wheel(...)
+  if self.grab then
+    return self.grab.view:on_mouse_wheel(...)
+  end
+
   local x, y = self.mouse.x, self.mouse.y
+
+  local floating_view = self:get_floating_view_overlapping_point(x, y)
+  if floating_view then
+    return floating_view:on_mouse_wheel(...)
+  end
+
   local node = self.root_node:get_child_overlapping_point(x, y)
-  return node.active_view:on_mouse_wheel(...)
+  if node and node.active_view then
+    return node.active_view:on_mouse_wheel(...)
+  end
 end
 
 
@@ -451,6 +484,13 @@ function RootView:interpolate_drag_overlay(overlay)
   overlay.color[4] = overlay.base_color[4] * overlay.opacity / 100
 end
 
+function RootView:update_floating_views()
+  for _,level in ipairs(self.levels_order) do
+    for _,view in ipairs(self.floating_views[level]) do
+      view:update()
+    end
+  end
+end
 
 function RootView:update()
   Node.copy_position_and_size(self.root_node, self)
@@ -460,6 +500,7 @@ function RootView:update()
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
   self:interpolate_drag_overlay(self.drag_overlay_tab)
+  self:update_floating_views()
 end
 
 
@@ -559,9 +600,109 @@ function RootView:draw()
   if self.dragged_node and self.dragged_node.dragging then
     self:draw_grabbed_tab()
   end
+
+  -- Draw floating views from bottom to top
+  for i=#self.levels_order,1,-1 do
+    local level = self.levels_order[i]
+    local views = self.floating_views[level]
+    -- Draw from last to first
+    for j=#views,1,-1 do
+      local view = views[j]
+      core.push_clip_rect(view.position.x, view.position.y, view.size.x, view.size.y)
+      views[j]:draw()
+      core.pop_clip_rect()
+    end
+  end
+
   if core.cursor_change_req then
     system.set_cursor(core.cursor_change_req)
     core.cursor_change_req = nil
+  end
+end
+
+
+---@alias core.rootview.floating_level
+---| "top"
+---| "normal"
+---| "bottom"
+
+---Add view to the specified floating view level.
+---
+---Adding the same view multiple times will lead to issues.
+---
+---@param view core.view
+---@param level core.rootview.floating_level
+function RootView:add_floating_view(view, level)
+  assert(self.floating_views[level])
+  table.insert(self.floating_views[level], 1, view)
+end
+
+
+---Remove the view from the list of floating views.
+---
+---If the view isn't present it asserts.
+---
+---@param view core.view
+---@return core.view? view #The removed view, or nil if the view wasn't found
+---@return core.rootview.floating_level? level #The level the view was in
+---@return number? index #The index of the view in the level
+function RootView:remove_floating_view(view)
+  local level, index = self:get_floating_view_position(view)
+  assert(level, "The specified view was not found")
+  return table.remove(self.floating_views[level], index), level, index
+end
+
+
+---Returns the view position for an existing view.
+---
+---@param view core.view
+---@return core.rootview.floating_level? level #The level the view is in
+---@return number? index #The index of the view in the level
+function RootView:get_floating_view_position(view)
+  for _,level in ipairs(self.levels_order) do
+    for i,v in ipairs(self.floating_views[level]) do
+      if v == view then
+        return level, i
+      end
+    end
+  end
+end
+
+
+---Changes view position for an existing view.
+---
+---If the view isn't present it asserts.
+---
+---@param view core.view
+---@param new_level core.rootview.floating_level
+---@param new_index integer #1 is the top-most view for the level
+---@return core.rootview.floating_level old_level
+---@return number old_index
+function RootView:set_floating_view_position(view, new_level, new_index)
+  assert(self.floating_views[new_level])
+  local v, old_level, old_index = self:remove_floating_view(view)
+  assert(v, "The specified view was not found")
+  ---@cast old_level core.rootview.floating_level
+  ---@cast old_index number
+  table.insert(self.floating_views[new_level], new_index, view)
+  return old_level, old_index
+end
+
+
+---Returns the top-most floating view visible in the specified coordinates.
+---
+---@param x number
+---@param y number
+---@return core.view? #nil if no floating view is present in the specified coordinates
+---@return core.rootview.floating_level? level #The level the view is in
+---@return number? index #The index of the view in the level
+function RootView:get_floating_view_overlapping_point(x, y)
+  for _,level in ipairs(self.levels_order) do
+    for index,view in ipairs(self.floating_views[level]) do
+      if common.point_in_rect(x, y, view.position.x, view.position.y, view.size.x, view.size.y) then
+        return view, level, index
+      end
+    end
   end
 end
 
