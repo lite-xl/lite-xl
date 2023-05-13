@@ -45,6 +45,10 @@ local function title_view_height()
   return style.font:get_height() + style.padding.y * 2
 end
 
+local function button_width()
+  return style.icon_font:get_width("_") * 3.2;
+end
+
 function TitleView:new()
   TitleView.super.new(self)
   self.visible = true
@@ -53,10 +57,10 @@ end
 function TitleView:configure_hit_test(borderless)
   if borderless then
     local title_height = title_view_height()
-    local icon_w = style.icon_font:get_width("_")
-    local icon_spacing = icon_w
-    local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
-    system.set_window_hit_test(title_height, controls_width, icon_spacing)
+    local button_w = button_width()
+    local resize_border = style.icon_font:get_width("_")
+    local controls_width = button_w * #title_commands + resize_border
+    system.set_window_hit_test(title_height, controls_width, resize_border)
     -- core.hit_test_title_height = title_height
   else
     system.set_window_hit_test()
@@ -89,17 +93,15 @@ function TitleView:draw_window_title()
 end
 
 function TitleView:each_control_item()
-  local icon_h, icon_w = style.icon_font:get_height(), style.icon_font:get_width("_")
-  local icon_spacing = icon_w
+  local button_h, button_w = title_view_height(), button_width()
   local ox, oy = self:get_content_offset()
   ox = ox + self.size.x
   local i, n = 0, #title_commands
   local iter = function()
     i = i + 1
     if i <= n then
-      local dx = - (icon_w + icon_spacing) * (n - i + 1)
-      local dy = style.padding.y
-      return title_commands[i], ox + dx, oy + dy, icon_w, icon_h
+      local dx = button_w * (n - i  + 1)
+      return title_commands[i], ox - dx, oy, button_w, button_h
     end
   end
   return iter
@@ -108,8 +110,11 @@ end
 
 function TitleView:draw_window_controls()
   for item, x, y, w, h in self:each_control_item() do
-    local color = item == self.hovered_item and style.text or style.dim
-    common.draw_text(style.icon_font, color, item.symbol, nil, x, y, 0, h)
+    -- draw an accented background for a hovered item
+    if item  == self.hovered_item then
+      renderer.draw_rect(x, y, w, h, item.accent)
+    end
+    common.draw_text(style.icon_font, style.text, item.symbol, "center", x, y, w, h)
   end
 end
 
