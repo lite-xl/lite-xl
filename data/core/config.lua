@@ -56,6 +56,7 @@ config.scroll_past_end = true
 config.force_scrollbar_status = false
 
 ---The file size limit, in megabytes.
+---Files larger than this size will not be shown in the file picker.
 ---
 ---Defaults to 10.
 ---@type number
