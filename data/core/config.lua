@@ -81,8 +81,8 @@ config.ignore_files = {
 ---Lua pattern used to find symbols when advanced syntax highlighting
 ---is not available.
 ---
----The default pattern matches an alphanumeric character followed by
----other alphabetic characters.
+---The default pattern matches all letters, followed by any number
+---of letters and digits.
 ---@type string
 config.symbol_pattern = "[%a_][%w_]*"
 
