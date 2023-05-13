@@ -52,7 +52,7 @@ config.scroll_past_end = true
 ---This option does not affect other View's scrollbars.
 ---
 ---Defaults to false.
----@type config.scrollbartype 
+---@type config.scrollbartype
 config.force_scrollbar_status = false
 
 ---The file size limit, in megabytes.
