@@ -220,10 +220,13 @@ config.disable_blink = false
 config.draw_whitespace = false
 
 ---Disables system-drawn window borders.
+---
 ---Note that on some Wayland platforms that doesn't have server-side
 ---decorations, window borders may still be drawn if Lite XL is compiled
 ---with libdecor support.
----It can be disabled by setting this option to true.
+---
+---In that case, this option can be safely disabled.
+---Otherwise, no window decoration will be shown.
 ---
 ---Defaults to false.
 ---@type boolean
