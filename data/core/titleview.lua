@@ -133,10 +133,7 @@ function TitleView:on_mouse_moved(px, py, ...)
   if self.size.y == 0 then return end
   TitleView.super.on_mouse_moved(self, px, py, ...)
   self.hovered_item = nil
-  local x_min, x_max, y_min, y_max = self.size.x, 0, self.size.y, 0
   for item, x, y, w, h in self:each_control_item() do
-    x_min, x_max = math.min(x, x_min), math.max(x + w, x_max)
-    y_min, y_max = y, y + h
     if px > x and py > y and px <= x + w and py <= y + h then
       self.hovered_item = item
       return
