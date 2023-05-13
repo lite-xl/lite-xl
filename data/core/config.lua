@@ -46,7 +46,7 @@ config.scroll_past_end = true
 ---@alias config.scrollbartype
 ---| "expanded" # A thicker scrollbar is shown at all times.
 ---| "contracted" # A thinner scrollbar is shown at all times.
----|false # The scrollbar expands when the cursor hovers over it.
+---| false # The scrollbar expands when the cursor hovers over it.
 
 ---Controls whether the DocView scrollbar is always shown or hidden.
 ---This option does not affect other View's scrollbars.
