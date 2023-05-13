@@ -162,8 +162,7 @@ config.line_limit = 80
 ---Maximum number of project files to keep track of.
 ---If the number of files in the project exceeds this number,
 ---Lite XL will not be able to keep track of them.
----It will not show in the file picker and any changes will not be reflected
----in the editor immediately.
+---They will be not be searched when searching for files or text.
 ---
 ---Defaults to 2000.
 ---@type number
