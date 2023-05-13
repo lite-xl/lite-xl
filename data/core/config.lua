@@ -177,21 +177,21 @@ config.transitions = true
 ---Enable/disable individual transitions.
 ---These values are overriden by `config.transitions`.
 config.disabled_transitions = {
-  ---Enable/disables scrolling transitions.
+  ---Disables scrolling transitions.
   scroll = false,
-  ---Enables/disables transitions for CommandView's suggestion list.
+  ---Disables transitions for CommandView's suggestions list.
   commandview = false,
-  ---Enables/disables transitions for showing/hiding the context menu.
+  ---Disables transitions for showing/hiding the context menu.
   contextmenu = false,
-  ---Enables/disables transitions when clicking on log items in LogView.
+  ---Disables transitions when clicking on log items in LogView.
   logview = false,
-  ---Enables/disables transitions for showing/hiding the Nagbar.
+  ---Disables transitions for showing/hiding the Nagbar.
   nagbar = false,
-  ---Enables/disables transitions when scrolling the tab bar.
+  ---Disables transitions when scrolling the tab bar.
   tabs = false,
-  ---Enables/disables transitions when a tab is being dragged.
+  ---Disables transitions when a tab is being dragged.
   tab_drag = false,
-  ---Enables/disables transitions when a notification is shown.
+  ---Disables transitions when a notification is shown.
   statusbar = false,
 }
 
