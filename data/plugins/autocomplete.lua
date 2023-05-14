@@ -507,8 +507,12 @@ local function draw_suggestions_box(av)
       if icon and autocomplete.icons[icon] then
         local ifont = autocomplete.icons[icon].font
         local itext = autocomplete.icons[icon].char
-        local icolor = (i == suggestions_idx) and style.accent
-          or style.syntax[autocomplete.icons[icon].color]
+        local icolor = autocomplete.icons[icon].color
+        if i == suggestions_idx then
+          icolor = style.accent
+        elseif type(icolor) == "string" then
+          icolor = style.syntax[icolor]
+        end
         if config.plugins.autocomplete.icon_position == "left" then
           common.draw_text(
             ifont, icolor, itext, "left", rx + style.padding.x, y, rw, lh
@@ -698,8 +702,13 @@ end
 ---@param name string
 ---@param character string
 ---@param font? renderer.font
----@param color? string One of the color names from style.syntax
+---@param color? string | renderer.color A style.syntax[] name or specific color
 function autocomplete.add_icon(name, character, font, color)
+  local color_type = type(color)
+  assert(
+    not color or color_type == "table" or color_type == "string",
+    "invalid icon color given"
+  )
   autocomplete.icons[name] = {
     char = character,
     font = font or style.code_font,
