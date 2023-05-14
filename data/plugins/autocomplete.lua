@@ -706,7 +706,8 @@ end
 function autocomplete.add_icon(name, character, font, color)
   local color_type = type(color)
   assert(
-    not color or color_type == "table" or color_type == "string",
+    not color or color_type == "table"
+      or (color_type == "string" and style.syntax[color]),
     "invalid icon color given"
   )
   autocomplete.icons[name] = {
