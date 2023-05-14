@@ -10,6 +10,10 @@ local RootView = require "core.rootview"
 local DocView = require "core.docview"
 local Doc = require "core.doc"
 
+---Symbols cache of all open documents
+---@type table<core.doc, table>
+local cache = setmetatable({}, { __mode = "k" })
+
 config.plugins.autocomplete = common.merge({
   -- Amount of characters that need to be written for autocomplete
   min_len = 3,
@@ -19,6 +23,8 @@ config.plugins.autocomplete = common.merge({
   max_suggestions = 100,
   -- Maximum amount of symbols to cache per document
   max_symbols = 4000,
+  -- Which symbols to show on the suggestions list: global, local, related, none
+  suggestions_scope = "global",
   -- Font size of the description box
   desc_font_size = 12,
   -- Do not show the icons associated to the suggestions
@@ -65,6 +71,26 @@ config.plugins.autocomplete = common.merge({
       default = 4000,
       min = 1000,
       max = 10000
+    },
+    {
+      label = "Suggestions Scope",
+      description = "Which symbols to show on the suggestions list.",
+      path = "suggestions_scope",
+      type = "selection",
+      default = "global",
+      values = {
+        {"All Documents", "global"},
+        {"Current Document", "local"},
+        {"Related Documents", "related"},
+        {"Known Symbols", "none"}
+      },
+      on_apply = function(value)
+        if value == "global" then
+          for _, doc in ipairs(core.docs) do
+            if cache[doc] then cache[doc] = nil end
+          end
+        end
+      end
     },
     {
       label = "Description Font Size",
@@ -152,28 +178,35 @@ end
 --
 -- Thread that scans open document symbols and cache them
 --
-local max_symbols = config.plugins.autocomplete.max_symbols
+local global_symbols = {}
 
 core.add_thread(function()
-  local cache = setmetatable({}, { __mode = "k" })
-
-  local function get_syntax_symbols(symbols, doc)
-    if doc.syntax then
-      for sym in pairs(doc.syntax.symbols) do
-        symbols[sym] = true
+  local function load_syntax_symbols(doc)
+    if doc.syntax and not autocomplete.map["language_"..doc.syntax.name] then
+      local symbols = {
+        name = "language_"..doc.syntax.name,
+        files = doc.syntax.files,
+        items = {}
+      }
+      for name, type in pairs(doc.syntax.symbols) do
+        symbols.items[name] = type
       end
+      autocomplete.add(symbols)
+      return symbols.items
     end
+    return {}
   end
 
   local function get_symbols(doc)
     local s = {}
-    get_syntax_symbols(s, doc)
+    local syntax_symbols = load_syntax_symbols(doc)
+    local max_symbols = config.plugins.autocomplete.max_symbols
     if doc.disable_symbols then return s end
     local i = 1
     local symbols_count = 0
     while i <= #doc.lines do
       for sym in doc.lines[i]:gmatch(config.symbol_pattern) do
-        if not s[sym] then
+        if not s[sym] and not syntax_symbols[sym] then
           symbols_count = symbols_count + 1
           if symbols_count > max_symbols then
             s = nil
@@ -219,14 +252,18 @@ core.add_thread(function()
         }
       end
       -- update symbol set with doc's symbol set
-      for sym in pairs(cache[doc].symbols) do
-        symbols[sym] = true
+      if config.plugins.autocomplete.suggestions_scope == "global" then
+        for sym in pairs(cache[doc].symbols) do
+          symbols[sym] = true
+        end
       end
       coroutine.yield()
     end
 
-    -- update symbols list
-    autocomplete.add { name = "open-docs", items = symbols }
+    -- update global symbols list
+    if config.plugins.autocomplete.suggestions_scope == "global" then
+      global_symbols = symbols
+    end
 
     -- wait for next scan
     local valid = true
@@ -273,12 +310,50 @@ local function update_suggestions()
     map = autocomplete.map_manually
   end
 
+  local assigned_sym = {}
+
   -- get all relevant suggestions for given filename
   local items = {}
   for _, v in pairs(map) do
     if common.match_pattern(filename, v.files) then
       for _, item in pairs(v.items) do
         table.insert(items, item)
+        assigned_sym[item.text] = true
+      end
+    end
+  end
+
+  -- Append the global, local or related text symbols if applicable
+  local scope = config.plugins.autocomplete.suggestions_scope
+
+  if not triggered_manually then
+    local text_symbols = nil
+
+    if scope == "global" then
+      text_symbols = global_symbols
+    elseif scope == "local" and cache[doc] and cache[doc].symbols then
+      text_symbols = cache[doc].symbols
+    elseif scope == "related" then
+      for _, d in ipairs(core.docs) do
+        if doc.syntax == d.syntax then
+          if cache[d].symbols then
+            for name in pairs(cache[d].symbols) do
+              if not assigned_sym[name] then
+                table.insert(items, setmetatable(
+                  {text = name, info = "normal"}, mt
+                ))
+              end
+            end
+          end
+        end
+      end
+    end
+
+    if text_symbols then
+      for name in pairs(text_symbols) do
+        if not assigned_sym[name] then
+          table.insert(items, setmetatable({text = name, info = "normal"}, mt))
+        end
       end
     end
   end
@@ -717,6 +792,12 @@ function autocomplete.add_icon(name, character, font, color)
   }
 end
 
+--
+-- Register built-in syntax symbol types icon
+--
+for name, _ in pairs(style.syntax) do
+  autocomplete.add_icon(name, "M", style.icon_font, name)
+end
 
 --
 -- Commands
@@ -730,7 +811,6 @@ command.add(predicate, {
   ["autocomplete:complete"] = function(dv)
     local doc = dv.doc
     local item = suggestions[suggestions_idx]
-    local text = item.text
     local inserted = false
     if item.onselect then
       inserted = item.onselect(suggestions_idx, item)
