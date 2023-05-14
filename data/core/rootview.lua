@@ -38,10 +38,13 @@ function RootView:defer_draw(fn, ...)
 end
 
 
+---Returns the active node, or the primary one if no node is active.
+---
+---@param no_fallback boolean #If true, this doesn't return the primary node if no node is active.
 ---@return core.node
-function RootView:get_active_node()
+function RootView:get_active_node(no_fallback)
   local node = self.root_node:get_node_for_view(core.active_view)
-  if not node then node = self:get_primary_node() end
+  if not no_fallback and not node then node = self:get_primary_node() end
   return node
 end
 
