@@ -97,7 +97,8 @@ for _, dir in ipairs { "left", "right", "up", "down" } do
 end
 
 command.add(function()
-  local node = core.root_view:get_active_node()
+  local node = core.root_view:get_active_node(true)
+  if not node then return false end
   local sx, sy = node:get_locked_size()
   return not sx and not sy, node
 end, t)
@@ -124,7 +125,7 @@ command.add(nil, {
 command.add(function(node)
     if not Node:is_extended_by(node) then node = nil end
     -- No node was specified, use the active one
-    node = node or core.root_view:get_active_node()
+    node = node or core.root_view:get_active_node(true)
     if not node then return false end
     return true, node
   end,
