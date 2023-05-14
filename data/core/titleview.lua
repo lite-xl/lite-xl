@@ -13,26 +13,22 @@ local icon_colors = {
 
 local restore_command = {
   symbol = "w",
-  accent = style.accent,
   action = function() system.set_window_mode("normal") end
 }
 
 local maximize_command = {
   symbol = "W",
-  accent = style.accent,
   action = function() system.set_window_mode("maximized") end
 }
 
 local title_commands = {
   {
     symbol = "_",
-    accent = style.accent,
     action = function() system.set_window_mode("minimized") end
   },
   maximize_command,
   {
     symbol = "X",
-    accent = style.error,
     action = function() core.quit() end
   },
 }
@@ -112,7 +108,7 @@ function TitleView:draw_window_controls()
   for item, x, y, w, h in self:each_control_item() do
     -- draw an accented background for a hovered item
     if item  == self.hovered_item then
-      renderer.draw_rect(x, y, w, h, item.accent)
+      renderer.draw_rect(x, y, w, h, style.dim)
     end
     common.draw_text(style.icon_font, style.text, item.symbol, "center", x, y, w, h)
   end
