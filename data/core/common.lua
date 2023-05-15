@@ -152,8 +152,9 @@ end
 function common.lighten_color(rgba, percent)
   local hsva = common.rgb_to_hsv(rgba)
   if hsva[3] < 1 then
-    local brightness = 100 / percent
+    local brightness = percent / 100
     hsva[3] = common.clamp(hsva[3]+brightness, 0, 1)
+    hsva[2] = common.clamp(hsva[2]-(brightness/4), 0, 1)
   elseif hsva[2] > 0 then
     local saturation = 100 / percent
     hsva[2] = common.clamp(hsva[2]-saturation, 0, 1)
@@ -171,6 +172,7 @@ function common.darken_color(rgba, percent)
   if hsva[3] > 0 then
     local brightness = percent / 100
     hsva[3] = common.clamp(hsva[3]-brightness, 0, 1)
+    hsva[2] = common.clamp(hsva[2]+(brightness/2), 0, 1)
   elseif hsva[2] < 1 then
     local saturation = 100 / percent
     hsva[2] = common.clamp(hsva[2]+saturation, 0, 1)

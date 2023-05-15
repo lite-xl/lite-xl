@@ -1081,13 +1081,13 @@ end
 ---Additional syntax symbols that may not be defined by all color schemes
 local symbols_map = {
   -- symbols related to doc comments
-  ["annotation"]            = { alt = "keyword",  dec=25 },
-  ["annotation.string"]     = { alt = "string",   dec=25 },
-  ["annotation.param"]      = { alt = "symbol",   dec=25 },
-  ["annotation.type"]       = { alt = "keyword2", dec=25 },
-  ["annotation.operator"]   = { alt = "operator", dec=25 },
-  ["annotation.function"]   = { alt = "function", dec=25 },
-  ["attribute"]             = { alt = "keyword",  dec=25 },
+  ["annotation"]            = { alt = "keyword",  dec=30 },
+  ["annotation.string"]     = { alt = "string",   dec=30 },
+  ["annotation.param"]      = { alt = "symbol",   dec=30 },
+  ["annotation.type"]       = { alt = "keyword2", dec=30 },
+  ["annotation.operator"]   = { alt = "operator", dec=30 },
+  ["annotation.function"]   = { alt = "function", dec=30 },
+  ["attribute"]             = { alt = "keyword",  dec=30 },
   -- Keywords like: true or false
   ["boolean"]               = { alt = "literal"   },
   -- Single quote sequences like: 'a'
