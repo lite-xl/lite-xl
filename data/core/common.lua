@@ -81,6 +81,104 @@ function common.color(str)
 end
 
 
+---Converts an RGB color value to HSV. Conversion formula
+---adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+---Assumes r, g, and b are contained in the set [0, 255] and
+---returns h, s, and v in the set [0, 1].
+---@param rgba renderer.color
+---@return table hsva The HSV representation
+function common.rgb_to_hsv(rgba)
+  local r, g, b, a = rgba[1], rgba[2], rgba[3], rgba[4]
+  r, g, b, a = r / 255, g / 255, b / 255, a / 255
+  local max, min = math.max(r, g, b), math.min(r, g, b)
+  local h, s, v
+  v = max
+
+  local d = max - min
+  if max == 0 then s = 0 else s = d / max end
+
+  if max == min then
+    h = 0 -- achromatic
+  else
+    if max == r then
+    h = (g - b) / d
+    if g < b then h = h + 6 end
+    elseif max == g then h = (b - r) / d + 2
+    elseif max == b then h = (r - g) / d + 4
+    end
+    h = h / 6
+  end
+
+  return {h, s, v, a}
+end
+
+
+---Converts an HSV color value to RGB. Conversion formula
+---adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+---Assumes h, s, and v are contained in the set [0, 1] and
+---returns r, g, and b in the set [0, 255].
+---@param h number The hue
+---@param s number The saturation
+---@param v number The brightness
+---@param a number The alpha
+---@return renderer.color rgba The RGB representation
+function common.hsv_to_rgb(h, s, v, a)
+  local r, g, b
+
+  local i = math.floor(h * 6);
+  local f = h * 6 - i;
+  local p = v * (1 - s);
+  local q = v * (1 - f * s);
+  local t = v * (1 - (1 - f) * s);
+
+  i = i % 6
+
+  if i == 0 then r, g, b = v, t, p
+  elseif i == 1 then r, g, b = q, v, p
+  elseif i == 2 then r, g, b = p, v, t
+  elseif i == 3 then r, g, b = p, q, v
+  elseif i == 4 then r, g, b = t, p, v
+  elseif i == 5 then r, g, b = v, p, q
+  end
+
+  return {math.ceil(r * 255), math.ceil(g * 255), math.ceil(b * 255), math.ceil(a * 255)}
+end
+
+
+---Makes a color brighter by the given percentage.
+---@param rgba renderer.color
+---@param percent integer
+---@return renderer.color
+function common.lighten_color(rgba, percent)
+  local hsva = common.rgb_to_hsv(rgba)
+  if hsva[3] < 1 then
+    local brightness = 100 / percent
+    hsva[3] = common.clamp(hsva[3]+brightness, 0, 1)
+  elseif hsva[2] > 0 then
+    local saturation = 100 / percent
+    hsva[2] = common.clamp(hsva[2]-saturation, 0, 1)
+  end
+  return common.hsv_to_rgb(table.unpack(hsva))
+end
+
+
+---Makes a color darker by the given percentage.
+---@param rgba renderer.color
+---@param percent integer
+---@return renderer.color
+function common.darken_color(rgba, percent)
+  local hsva = common.rgb_to_hsv(rgba)
+  if hsva[3] > 0 then
+    local brightness = percent / 100
+    hsva[3] = common.clamp(hsva[3]-brightness, 0, 1)
+  elseif hsva[2] < 1 then
+    local saturation = 100 / percent
+    hsva[2] = common.clamp(hsva[2]+saturation, 0, 1)
+  end
+  return common.hsv_to_rgb(table.unpack(hsva))
+end
+
+
 function common.splice(t, at, remove, insert)
   assert(remove >= 0, "bad argument #3 to 'splice' (non-negative value expected)")
   insert = insert or {}
