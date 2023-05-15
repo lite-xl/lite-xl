@@ -1198,6 +1198,9 @@ local function map_missing_syntax_colors()
   end
 end
 
+-- apply to default color scheme
+map_missing_syntax_colors()
+
 
 function core.reload_module(name)
   local old = package.loaded[name]
