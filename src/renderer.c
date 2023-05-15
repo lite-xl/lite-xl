@@ -360,7 +360,17 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
-double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
+static double get_tab_stop_width(RenFont* font, int character_offset) {
+  if (character_offset == -1)
+    return font->tab_advance;
+  int spaces_per_tab = font->tab_advance / font->space_advance;
+  int spaces_to_fill = (character_offset++) % spaces_per_tab;
+  if (spaces_to_fill == 0)
+    spaces_to_fill = spaces_per_tab;
+  return font->space_advance * spaces_to_fill;
+}
+
+double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, int character_offset) {
   double width = 0;
   const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
@@ -370,13 +380,16 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
     RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
     if (!metric)
       break;
-    width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
+    if (text[0] == '\t') {
+      width += get_tab_stop_width(font, character_offset++);
+    } else
+      width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
   }
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   return width / surface_scale;
 }
 
-double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
+double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color, int character_offset) {
   SDL_Surface *surface = rs->surface;
   SDL_Rect clip;
   SDL_GetClipRect(surface, &clip);
@@ -451,6 +464,13 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     }
 
     float adv = metric->xadvance ? metric->xadvance : font->space_advance;
+    if (codepoint == '\t') {
+      int spaces_per_tab = font->tab_advance / font->space_advance;
+      int spaces_to_fill = (character_offset++) % spaces_per_tab;
+      if (spaces_to_fill == 0)
+        spaces_to_fill = spaces_per_tab;
+      adv = font->space_advance * spaces_to_fill;
+    }
 
     if(!last) last = font;
     else if(font != last || text == end) {

@@ -444,12 +444,14 @@ function DocView:draw_line_text(line, x, y)
   if string.sub(tokens[tokens_count], -1) == "\n" then
     last_token = tokens_count - 1
   end
+  local offset = 0
   for tidx, type, text in self.doc.highlighter:each_token(line) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
     -- do not render newline, fixes issue #1164
+    offset = offset + #text
     if tidx == last_token then text = text:sub(1, -2) end
-    tx = renderer.draw_text(font, text, tx, ty, color)
+    tx = renderer.draw_text(font, text, tx, ty, color, offset)
     if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()
