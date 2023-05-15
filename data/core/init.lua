@@ -1078,98 +1078,98 @@ function core.load_project_module()
 end
 
 
----Additional syntax symbols that may not be defined by all color schemes
-local symbols_map = {
-  -- symbols related to doc comments
-  ["annotation"]            = { alt = "keyword",  dec=30 },
-  ["annotation.string"]     = { alt = "string",   dec=30 },
-  ["annotation.param"]      = { alt = "symbol",   dec=30 },
-  ["annotation.type"]       = { alt = "keyword2", dec=30 },
-  ["annotation.operator"]   = { alt = "operator", dec=30 },
-  ["annotation.function"]   = { alt = "function", dec=30 },
-  ["attribute"]             = { alt = "keyword",  dec=30 },
-  -- Keywords like: true or false
-  ["boolean"]               = { alt = "literal"   },
-  -- Single quote sequences like: 'a'
-  ["character"]             = { alt = "string"    },
-  -- can be escape sequences like: \t, \r, \n
-  ["character.special"]     = {                   },
-  -- Keywords like: if, else, elseif
-  ["conditional" ]          = { alt = "keyword"   },
-  -- conditional ternary as: condition ? value1 : value2
-  ["conditional.ternary"]   = { alt = "operator"  },
-  -- keywords like: nil, null
-  ["constant"]              = { alt = "number"    },
-  ["constant.builtin"]      = {                   },
-  -- a macro constant as in: #define MYVAL 1
-  ["constant.macro"]        = {                   },
-  -- constructor declarations as in: __constructor() or myclass::myclass()
-  ["constructor"]           = { alt = "function"  },
-  ["debug"]                 = { alt = "comment"   },
-  ["define"]                = { alt = "keyword"   },
-  ["error"]                 = { alt = "keyword"   },
-  -- keywords like: try, catch, finally
-  ["exception"]             = { alt = "keyword"   },
-  -- class or table fields
-  ["field"]                 = { alt = "normal"    },
-  -- a numerical constant that holds a float
-  ["float"]                 = { alt = "number"    },
-  -- function name in a call
-  ["function.call"]         = {                   },
-  -- a function call that was declared as a macro like in: #define myfunc()
-  ["function.macro"]        = {                   },
-  -- keywords like: include, import, require
-  ["include"]               = { alt = "keyword"   },
-  -- keywords like: return
-  ["keyword.return"]        = {                   },
-  -- keywords like: func, function
-  ["keyword.function"]      = {                   },
-  -- keywords like: and, or
-  ["keyword.operator"]      = {                   },
-  -- a goto label name like in: label: or ::label::
-  ["label"]                 = { alt = "function"  },
-  -- class method declaration
-  ["method"]                = { alt = "function"  },
-  -- class method call
-  ["method.call"]           = {                   },
-  -- namespace name like in namespace::subelement or namespace\subelement
-  ["namespace"]             = { alt = "literal"   },
-  -- parameters in a function declaration
-  ["parameter"]             = { alt = "operator"  },
-  -- keywords like: #if, #elif, #endif
-  ["preproc"]               = { alt = "keyword"   },
-  -- any type of punctuation
-  ["punctuation"]           = { alt = "normal"    },
-  -- punctuation like: (), {}, []
-  ["punctuation.brackets"]  = {                   },
-  -- punctuation like: , or :
-  ["punctuation.delimiter"] = { alt = "operator"  },
-  -- puctuation like: # or @
-  ["punctuation.special"]   = { alt = "operator"  },
-  -- keywords like: while, for
-  ["repeat"]                = { alt = "keyword"   },
-  -- keywords like: static, const, constexpr
-  ["storageclass"]          = { alt = "keyword"   },
-  ["storageclass.lifetime"] = {                   },
-  -- additions on diff or patch
-  ["text.diff.add"]         = { alt = style.good  },
-  -- deletions on diff or patch
-  ["text.diff.delete"]      = { alt = style.error },
-  -- a language standard library support types
-  ["type"]                  = { alt = "keyword2"  },
-  -- a language builtin types like: char, double, int
-  ["type.builtin"]          = {                   },
-  -- a custom type defininition like ssize_t on typedef long int ssize_t
-  ["type.definition"]       = {                   },
-  -- keywords like: private, public
-  ["type.qualifier"]        = {                   },
-  -- any variable defined or accessed on the code
-  ["variable"]              = { alt = "normal"    },
-  -- keywords like: this, self, parent
-  ["variable.builtin"]      = { alt = "keyword2"  },
-}
-
 local function map_missing_syntax_colors()
+  ---Additional syntax symbols that may not be defined by all color schemes
+  local symbols_map = {
+    -- symbols related to doc comments
+    ["annotation"]            = { alt = "keyword",  dec=30 },
+    ["annotation.string"]     = { alt = "string",   dec=30 },
+    ["annotation.param"]      = { alt = "symbol",   dec=30 },
+    ["annotation.type"]       = { alt = "keyword2", dec=30 },
+    ["annotation.operator"]   = { alt = "operator", dec=30 },
+    ["annotation.function"]   = { alt = "function", dec=30 },
+    ["attribute"]             = { alt = "keyword",  dec=30 },
+    -- Keywords like: true or false
+    ["boolean"]               = { alt = "literal"   },
+    -- Single quote sequences like: 'a'
+    ["character"]             = { alt = "string"    },
+    -- can be escape sequences like: \t, \r, \n
+    ["character.special"]     = {                   },
+    -- Keywords like: if, else, elseif
+    ["conditional" ]          = { alt = "keyword"   },
+    -- conditional ternary as: condition ? value1 : value2
+    ["conditional.ternary"]   = { alt = "operator"  },
+    -- keywords like: nil, null
+    ["constant"]              = { alt = "number"    },
+    ["constant.builtin"]      = {                   },
+    -- a macro constant as in: #define MYVAL 1
+    ["constant.macro"]        = {                   },
+    -- constructor declarations as in: __constructor() or myclass::myclass()
+    ["constructor"]           = { alt = "function"  },
+    ["debug"]                 = { alt = "comment"   },
+    ["define"]                = { alt = "keyword"   },
+    ["error"]                 = { alt = "keyword"   },
+    -- keywords like: try, catch, finally
+    ["exception"]             = { alt = "keyword"   },
+    -- class or table fields
+    ["field"]                 = { alt = "normal"    },
+    -- a numerical constant that holds a float
+    ["float"]                 = { alt = "number"    },
+    -- function name in a call
+    ["function.call"]         = {                   },
+    -- a function call that was declared as a macro like in: #define myfunc()
+    ["function.macro"]        = {                   },
+    -- keywords like: include, import, require
+    ["include"]               = { alt = "keyword"   },
+    -- keywords like: return
+    ["keyword.return"]        = {                   },
+    -- keywords like: func, function
+    ["keyword.function"]      = {                   },
+    -- keywords like: and, or
+    ["keyword.operator"]      = {                   },
+    -- a goto label name like in: label: or ::label::
+    ["label"]                 = { alt = "function"  },
+    -- class method declaration
+    ["method"]                = { alt = "function"  },
+    -- class method call
+    ["method.call"]           = {                   },
+    -- namespace name like in namespace::subelement or namespace\subelement
+    ["namespace"]             = { alt = "literal"   },
+    -- parameters in a function declaration
+    ["parameter"]             = { alt = "operator"  },
+    -- keywords like: #if, #elif, #endif
+    ["preproc"]               = { alt = "keyword"   },
+    -- any type of punctuation
+    ["punctuation"]           = { alt = "normal"    },
+    -- punctuation like: (), {}, []
+    ["punctuation.brackets"]  = {                   },
+    -- punctuation like: , or :
+    ["punctuation.delimiter"] = { alt = "operator"  },
+    -- puctuation like: # or @
+    ["punctuation.special"]   = { alt = "operator"  },
+    -- keywords like: while, for
+    ["repeat"]                = { alt = "keyword"   },
+    -- keywords like: static, const, constexpr
+    ["storageclass"]          = { alt = "keyword"   },
+    ["storageclass.lifetime"] = {                   },
+    -- additions on diff or patch
+    ["text.diff.add"]         = { alt = style.good  },
+    -- deletions on diff or patch
+    ["text.diff.delete"]      = { alt = style.error },
+    -- a language standard library support types
+    ["type"]                  = { alt = "keyword2"  },
+    -- a language builtin types like: char, double, int
+    ["type.builtin"]          = {                   },
+    -- a custom type defininition like ssize_t on typedef long int ssize_t
+    ["type.definition"]       = {                   },
+    -- keywords like: private, public
+    ["type.qualifier"]        = {                   },
+    -- any variable defined or accessed on the code
+    ["variable"]              = { alt = "normal"    },
+    -- keywords like: this, self, parent
+    ["variable.builtin"]      = { alt = "keyword2"  },
+  }
+
   --- map symbols not defined on syntax
   for symbol_name in pairs(symbols_map) do
     if not style.syntax[symbol_name] then
@@ -1196,6 +1196,34 @@ local function map_missing_syntax_colors()
       end
     end
   end
+
+  -- metatable to automatically map custom symbol types to the nearest parent
+  setmetatable(style.syntax, {
+    __index = function(syntax, type_name)
+      if type(type_name) ~= "string" then
+        return rawget(syntax, type_name)
+      end
+      if not rawget(syntax, type_name) and type(type_name) == "string" then
+        local sections = {};
+        for match in (type_name.."."):gmatch("(.-)%.") do
+          table.insert(sections, match);
+        end
+        if #sections > 1 then
+          for i=#sections, 1, -1 do
+            local section = table.concat(sections, ".", 1, i)
+            local parent = rawget(syntax, section)
+            if parent then
+              -- copy the color
+              local color = table.pack(table.unpack(parent))
+              rawset(syntax, type_name, color)
+              return color
+            end
+          end
+        end
+      end
+      return rawget(syntax, type_name)
+    end
+  })
 end
 
 -- apply to default color scheme
@@ -1206,9 +1234,9 @@ function core.reload_module(name)
   local old = package.loaded[name]
   local is_color_scheme = name:match("^colors%..*")
   package.loaded[name] = nil
-  -- clear previous color scheme symbols
+  -- clear previous color scheme syntax symbols
   if is_color_scheme then
-    for symbol in pairs(symbols_map) do
+    for symbol in pairs(style.syntax) do
       style.syntax[symbol] = nil
     end
   end
@@ -1217,7 +1245,7 @@ function core.reload_module(name)
     for k, v in pairs(new) do old[k] = v end
     package.loaded[name] = old
   end
-  -- map colors that may be missing on the theme
+  -- map colors that may be missing on the new color scheme
   if is_color_scheme then
     map_missing_syntax_colors()
   end
