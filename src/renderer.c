@@ -203,7 +203,7 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
 
 static void font_clear_glyph_cache(RenFont* font) {
   for (int i = 0; i < SUBPIXEL_BITMAPS_CACHED; ++i) {
-    for (int j = 0; j < MAX_GLYPHSET; ++j) {
+    for (int j = 0; j < MAX_LOADABLE_GLYPHSETS; ++j) {
       if (font->sets[i][j]) {
         if (font->sets[i][j]->surface)
           SDL_FreeSurface(font->sets[i][j]->surface);
