@@ -248,7 +248,7 @@ end
 
 
 ---
----Returns a list of paths that is relative to the input path.
+---Returns a list of paths that are relative to the input path.
 ---
 ---@param text string The input path
 ---@param root? string The root directory.
