@@ -15,6 +15,8 @@ config.plugins.lineguide = common.merge({
     -- 120,
     config.line_limit
   },
+  use_custom_color = false,
+  custom_color = style.selection,
   -- The config specification used by gui generators
   config_spec = {
     name = "Line Guide",
@@ -63,7 +65,21 @@ config.plugins.lineguide = common.merge({
         end
         return new_rulers
       end
-    }
+    },
+    {
+      label = "Use Custom Color",
+      description = "Enable the utilization of a custom line color.",
+      path = "use_custom_color",
+      type = "toggle",
+      default = false
+    },
+    {
+      label = "Custom Color",
+      description = "Applied when the above toggle is enabled.",
+      path = "custom_color",
+      type = "color",
+      default = style.selection
+    },
   }
 }, config.plugins.lineguide)
 
@@ -79,8 +95,6 @@ end
 
 local draw_overlay = DocView.draw_overlay
 function DocView:draw_overlay(...)
-  draw_overlay(self, ...)
-
   if
     type(config.plugins.lineguide) == "table"
     and
@@ -88,10 +102,12 @@ function DocView:draw_overlay(...)
     and
     self:is(DocView)
   then
+    local conf = config.plugins.lineguide
     local line_x = self:get_line_screen_position(1)
     local character_width = self:get_font():get_width("n")
     local ruler_width = config.plugins.lineguide.width
-    local ruler_color = style.guide or style.selection
+    local ruler_color = conf.use_custom_color and conf.custom_color
+      or (style.guide or style.selection)
 
     for k,v in ipairs(config.plugins.lineguide.rulers) do
       local ruler = get_ruler(v)
@@ -106,6 +122,8 @@ function DocView:draw_overlay(...)
       end
     end
   end
+  -- everything else like the cursor above the line guides
+  draw_overlay(self, ...)
 end
 
 command.add(nil, {
