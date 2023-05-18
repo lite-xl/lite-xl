@@ -1236,6 +1236,7 @@ function core.reload_module(name)
   package.loaded[name] = nil
   -- clear previous color scheme syntax symbols
   if is_color_scheme then
+    setmetatable(style.syntax, nil)
     for symbol in pairs(style.syntax) do
       style.syntax[symbol] = nil
     end
