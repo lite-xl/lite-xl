@@ -145,21 +145,26 @@ function common.hsv_to_rgb(h, s, v, a)
 end
 
 
+---Combine two colors to create a new color based on their transparency.
+---@param dst renderer.color
+---@param src renderer.color
+---@return renderer.color blended_color
+function common.blend_colors(dst, src)
+  local ia = 0xff - src[4]
+  local blended = {}
+  blended[1] = math.floor((src[1] * src[4] + dst[1] * ia) / 255)
+  blended[2] = math.floor((src[2] * src[4] + dst[2] * ia) / 255)
+  blended[3] = math.floor((src[3] * src[4] + dst[3] * ia) / 255)
+  return blended
+end
+
+
 ---Makes a color brighter by the given percentage.
 ---@param rgba renderer.color
 ---@param percent integer
 ---@return renderer.color
 function common.lighten_color(rgba, percent)
-  local hsva = common.rgb_to_hsv(rgba)
-  if hsva[3] < 1 then
-    local brightness = percent / 100
-    hsva[3] = common.clamp(hsva[3]+brightness, 0, 1)
-    hsva[2] = common.clamp(hsva[2]-(brightness/4), 0, 1)
-  elseif hsva[2] > 0 then
-    local saturation = 100 / percent
-    hsva[2] = common.clamp(hsva[2]-saturation, 0, 1)
-  end
-  return common.hsv_to_rgb(table.unpack(hsva))
+  return common.blend_colors(rgba, {255, 255, 255, 255 * (percent / 100)})
 end
 
 
@@ -168,16 +173,7 @@ end
 ---@param percent integer
 ---@return renderer.color
 function common.darken_color(rgba, percent)
-  local hsva = common.rgb_to_hsv(rgba)
-  if hsva[3] > 0 then
-    local brightness = percent / 100
-    hsva[3] = common.clamp(hsva[3]-brightness, 0, 1)
-    hsva[2] = common.clamp(hsva[2]+(brightness/2), 0, 1)
-  elseif hsva[2] < 1 then
-    local saturation = 100 / percent
-    hsva[2] = common.clamp(hsva[2]+saturation, 0, 1)
-  end
-  return common.hsv_to_rgb(table.unpack(hsva))
+  return common.blend_colors(rgba, {0, 0, 0, 255 * (percent / 100)})
 end
 
 
