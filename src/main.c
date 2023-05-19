@@ -227,6 +227,10 @@ init_lua:
 
   const char *init_lite_code = \
     "local core\n"
+    "local os_exit = os.exit\n"
+    "os.exit = function(code, close)\n"
+    "  os_exit(code, close == nil and true or close)\n"
+    "end\n"
     "xpcall(function()\n"
     "  local match = require('utf8extra').match\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
