@@ -989,6 +989,12 @@ function StatusView:on_mouse_pressed(button, x, y, clicks)
 end
 
 
+function StatusView:on_mouse_left()
+  StatusView.super.on_mouse_left(self)
+  self.hovered_item = {}
+end
+
+
 function StatusView:on_mouse_moved(x, y, dx, dy)
   if not self.visible then return end
   StatusView.super.on_mouse_moved(self, x, y, dx, dy)

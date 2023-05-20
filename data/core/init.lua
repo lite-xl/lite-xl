@@ -1490,4 +1490,15 @@ function core.on_error(err)
 end
 
 
+local alerted_deprecations = {}
+---Show deprecation notice once per `kind`.
+---
+---@param kind string
+function core.deprecation_log(kind)
+  if alerted_deprecations[kind] then return end
+  alerted_deprecations[kind] = true
+  core.warn("Used deprecated functionality [%s]. Check if your plugins are up to date.", kind)
+end
+
+
 return core

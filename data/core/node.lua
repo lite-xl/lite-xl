@@ -18,7 +18,6 @@ function Node:new(type)
   if self.type == "leaf" then
     self:add_view(EmptyView())
   end
-  self.hovered = {x = -1, y = -1 }
   self.hovered_close = 0
   self.tab_shift = 0
   self.tab_offset = 1
@@ -33,9 +32,10 @@ function Node:propagate(fn, ...)
 end
 
 
+---@deprecated
 function Node:on_mouse_moved(x, y, ...)
+  core.deprecation_log("Node:on_mouse_moved")
   if self.type == "leaf" then
-    self.hovered.x, self.hovered.y = x, y
     self.active_view:on_mouse_moved(x, y, ...)
   else
     self:propagate("on_mouse_moved", x, y, ...)
@@ -43,7 +43,9 @@ function Node:on_mouse_moved(x, y, ...)
 end
 
 
+---@deprecated
 function Node:on_mouse_released(...)
+  core.deprecation_log("Node:on_mouse_released")
   if self.type == "leaf" then
     self.active_view:on_mouse_released(...)
   else
@@ -52,7 +54,9 @@ function Node:on_mouse_released(...)
 end
 
 
+---@deprecated
 function Node:on_mouse_left()
+  core.deprecation_log("Node:on_mouse_left")
   if self.type == "leaf" then
     self.active_view:on_mouse_left()
   else
@@ -60,13 +64,17 @@ function Node:on_mouse_left()
   end
 end
 
+
+---@deprecated
 function Node:on_touch_moved(...)
+  core.deprecation_log("Node:on_touch_moved")
   if self.type == "leaf" then
     self.active_view:on_touch_moved(...)
   else
     self:propagate("on_touch_moved", ...)
   end
 end
+
 
 function Node:consume(node)
   for k, _ in pairs(self) do self[k] = nil end
@@ -489,7 +497,7 @@ function Node:update()
     for _, view in ipairs(self.views) do
       view:update()
     end
-    self:tab_hovered_update(self.hovered.x, self.hovered.y)
+    self:tab_hovered_update(core.root_view.mouse.x, core.root_view.mouse.y)
     local tab_width = self:target_tab_width()
     self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
     self:move_towards("tab_width", tab_width, nil, "tabs")
