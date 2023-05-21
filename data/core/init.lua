@@ -1078,8 +1078,10 @@ function core.load_project_module()
 end
 
 
-local function map_missing_syntax_colors()
-  ---Additional syntax symbols that may not be defined by all color schemes
+---Map newly introduced syntax symbols when missing from current color scheme.
+---@param clear_new? boolean Only perform removal of new syntax symbols
+local function map_new_syntax_colors(clear_new)
+  ---New syntax symbols that may not be defined by all color schemes
   local symbols_map = {
     -- symbols related to doc comments
     ["annotation"]            = { alt = "keyword",  dec=30 },
@@ -1170,6 +1172,15 @@ local function map_missing_syntax_colors()
     ["variable.builtin"]      = { alt = "keyword2"  },
   }
 
+  if clear_new then
+    for symbol_name in pairs(symbols_map) do
+      if style.syntax[symbol_name] then
+        style.syntax[symbol_name] = nil
+      end
+    end
+    return
+  end
+
   --- map symbols not defined on syntax
   for symbol_name in pairs(symbols_map) do
     if not style.syntax[symbol_name] then
@@ -1227,7 +1238,7 @@ local function map_missing_syntax_colors()
 end
 
 -- apply to default color scheme
-map_missing_syntax_colors()
+map_new_syntax_colors()
 
 
 function core.reload_module(name)
@@ -1237,9 +1248,7 @@ function core.reload_module(name)
   -- clear previous color scheme syntax symbols
   if is_color_scheme then
     setmetatable(style.syntax, nil)
-    for symbol in pairs(style.syntax) do
-      style.syntax[symbol] = nil
-    end
+    map_new_syntax_colors(true)
   end
   local new = require(name)
   if type(old) == "table" then
@@ -1248,7 +1257,7 @@ function core.reload_module(name)
   end
   -- map colors that may be missing on the new color scheme
   if is_color_scheme then
-    map_missing_syntax_colors()
+    map_new_syntax_colors()
   end
 end
 
