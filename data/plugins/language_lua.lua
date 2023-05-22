@@ -4,74 +4,104 @@ local config = require "core.config"
 local syntax = require "core.syntax"
 
 -- Documentation for annotations:
--- https://github.com/sumneko/lua-language-server/wiki/Annotations
+-- https://github.com/LuaLS/lua-language-server/wiki/Annotations
 local annotations_syntax = {
   patterns = {
     -- look-aheads for table and function types
     { regex = [[@[\w_]+()\s+(?=(?:table\s*<|fun\s*\())]],
-      type = { "keyword", "comment" }
+      type = { "annotation", "comment" }
     },
     { regex = [[@[\w_]+\s+()[\w\._]+()\??()\s*(?=(?:table\s*<|fun\s*\())]],
-      type = { "keyword", "symbol", "operator", "comment" }
+      type = {
+        "annotation", "annotation.param", "annotation.operator", "comment"
+      }
     },
     { regex = "@field"
         .. [[()\s+(?:protected|public|private|package)\s+]]
         .. [[()[\w\._]+]]
         .. [[()\??]]
         .. [[()\s*(?=(?:table\s*<|fun\s*\())]],
-      type = { "keyword", "keyword", "symbol", "operator", "comment" }
+      type = {
+        "annotation", "annotation", "annotation.param",
+        "annotation.operator", "comment"
+      }
     },
     -- table and function types
-    { pattern = "table%s*%b<>", type = "keyword2" },
-    { pattern = "fun%s*%b()%s*:%s*[%S]+", type = "keyword2" },
-    { pattern = "fun%s*%b()", type = "keyword2" },
+    { pattern = "table%s*%b<>", type = "annotation.type" },
+    { pattern = "fun%s*%b()%s*:%s*[%S]+", type = "annotation.type" },
+    { pattern = "fun%s*%b()", type = "annotation.type" },
     -- @alias with string type
     { pattern = "@alias%s+()[%w%._]+()%s+%b''",
-      type = { "keyword", "symbol", "string" }
+      type = { "annotation", "annotation.param", "annotation.string" }
     },
     { pattern = "@alias%s+()[%w%._]+()%s+%b\"\"",
-      type = { "keyword", "symbol", "string" }
+      type = { "annotation", "annotation.param", "annotation.string" }
     },
     -- @alias with type
     { pattern = "@alias%s+()[%w%._]+()%s+[%S]+",
-      type = { "keyword", "symbol", "keyword2" }
+      type = { "annotation", "annotation.param", "annotation.type" }
     },
     -- @alias without type
-    { pattern = "@alias%s+()[%w%._]+", type = { "keyword", "symbol" } },
+    { pattern = "@alias%s+()[%w%._]+",
+      type = { "annotation", "annotation.param" }
+    },
     -- @cast with type
     { pattern = "@cast%s+()[%w%._]+%s+()[%w%.%[%]_]+()%??",
-      type = { "keyword", "symbol", "keyword2", "operator" }
+      type = {
+        "annotation", "annotation.param",
+        "annotation.type", "annotation.operator"
+      }
     },
     -- @cast without type
-    { pattern = "@cast%s+()[%w%._]+", type = { "keyword", "symbol" } },
+    { pattern = "@cast%s+()[%w%._]+",
+      type = { "annotation", "annotation.param" }
+    },
     -- @class with parent
     { pattern = "@class%s+()[%w%._]+%s*():()%s*[%S]+",
-      type = { "keyword", "symbol", "operator", "keyword2"}
+      type = {
+        "annotation", "annotation.param",
+        "annotation.operator", "annotation.type"
+      }
     },
     -- @class without parent
-    { pattern = "@class%s+()[%S]+", type = { "keyword", "symbol" } },
+    { pattern = "@class%s+()[%S]+",
+      type = { "annotation", "annotation.param" }
+    },
     -- @diagnostic with state and diagnostic type
     { pattern = "@diagnostic%s+()[%S]+()%s*:%s*()[%S]+",
-      type = { "keyword", "function", "operator", "string" }
+      type = {
+        "annotation", "annotation.function",
+        "annotation.operator", "annotation.string"
+      }
     },
     -- @diagnostic with state only
-    { pattern = "@diagnostic%s+()[%S]+", type = { "keyword", "function" } },
+    { pattern = "@diagnostic%s+()[%S]+",
+      type = { "annotation", "annotation.function" }
+    },
     -- @enum doc type
-    { pattern = "@enum%s+()[%S]+", type = { "keyword", "symbol" } },
+    { pattern = "@enum%s+()[%S]+",
+      type = { "annotation", "annotation.param" }
+    },
     -- @field with access specifier
     { regex = "@field"
         .. [[()\s+(?:protected|public|private|package)\s+]]
         .. [[()[\w\._]+]]
         .. [[()\??]]
         .. [[()\s*'[^']*']],
-      type = { "keyword", "keyword", "symbol", "operator", "string" }
+      type = {
+        "annotation", "annotation", "annotation.param",
+        "annotation.operator", "annotation.string"
+      }
     },
     { regex = "@field"
         .. [[()\s+(?:protected|public|private|package)\s+]]
         .. [[()[\w\._]+]]
         .. [[()\??]]
         .. [[()\s*"[^"]*"]],
-      type = { "keyword", "keyword", "symbol", "operator", "string" }
+      type = {
+        "annotation", "annotation", "annotation.param",
+        "annotation.operator", "annotation.string"
+      }
     },
     { regex = "@field"
         .. [[()\s+(?:protected|public|private|package)\s+]]
@@ -80,73 +110,124 @@ local annotations_syntax = {
         .. [[()\s*[\w\.\[\]_]+]]
         .. [[()\??]],
       type = {
-        "keyword", "keyword", "symbol", "operator", "keyword2", "operator"
+        "annotation", "annotation", "annotation.param",
+        "annotation.operator", "annotation.type", "annotation.operator"
       }
     },
     -- @field with type
     { pattern = "@field%s+()[%w%._]+()%??()%s+[%w%.%[%]_]+()%??",
-      type = { "keyword", "symbol", "operator", "keyword2", "operator" }
+      type = {
+        "annotation", "annotation.param", "annotation.operator",
+        "annotation.type", "annotation.operator"
+      }
     },
     -- @field with string types
     { pattern = "@field%s+()[%w%._]+()%??()%s+%b''",
-      type = { "keyword", "symbol", "operator", "string" }
+      type = {
+        "annotation", "annotation.param",
+        "annotation.operator", "annotation.string"
+      }
     },
     { pattern = "@field%s+()[%w%._]+()%??()%s+%b\"\"",
-      type = { "keyword", "symbol", "operator", "string" }
+      type = {
+        "annotation", "annotation.param",
+        "annotation.operator", "annotation.string"
+      }
     },
     -- @generic with single type
     { pattern = "@generic%s+()[%w%._]+%s*():()%s*[%w%._]+",
-      type = { "keyword", "symbol", "operator", "keyword2" }
+      type = {
+        "annotation", "annotation.param",
+        "annotation.operator", "annotation.type"
+      }
     },
     -- @generic without type
-    { pattern = "@generic%s+()[%w%._]+", type = { "keyword", "symbol" } },
+    { pattern = "@generic%s+()[%w%._]+",
+      type = { "annotation", "annotation.param" }
+    },
     -- @module doc type
-    { pattern = "@module%s+()%b''", type = { "keyword", "string" } },
-    { pattern = "@module%s+()%b\"\"", type = { "keyword", "string" } },
+    { pattern = "@module%s+()%b''",
+      type = { "annotation", "annotation.string" }
+    },
+    { pattern = "@module%s+()%b\"\"",
+      type = { "annotation", "annotation.string" }
+    },
     -- @operator doc type
-    { pattern = "@operator%s+()[%w_]+", type = { "keyword", "function" } },
+    { pattern = "@operator%s+()[%w_]+",
+      type = { "annotation", "annotation.function" }
+    },
     -- @param doc type
     { pattern = "@param%s+()[%w%._]+()%??()%s+%b''",
-      type = { "keyword", "symbol", "operator", "string" }
+      type = {
+        "annotation", "annotation.param",
+        "annotation.operator", "annotation.string"
+      }
     },
     { pattern = "@param%s+()[%w%._]+()%??()%s+%b\"\"",
-      type = { "keyword", "symbol", "operator", "string" }
+      type = {
+        "annotation", "annotation.param",
+        "annotation.operator", "annotation.string"
+      }
     },
     { pattern = "@param%s+()[%w%._]+()%??()%s+[%w%.%[%]_]+",
-      type = { "keyword", "symbol", "operator", "keyword2" }
+      type = {
+        "annotation", "annotation.param",
+        "annotation.operator", "annotation.type"
+      }
     },
     -- @return with name
     { pattern = "@return%s+()[%w%.%[%]_]+()%??()%s+[%w%.%[%]_]+",
-      type = { "keyword", "keyword2", "operator", "symbol" }
+      type = {
+        "annotation", "annotation.type",
+        "annotation.operator", "annotation.param"
+      }
     },
     -- @return with string
-    { pattern = "@return%s+()%b''",   type = { "keyword", "string" } },
-    { pattern = "@return%s+()%b\"\"", type = { "keyword", "string" } },
+    { pattern = "@return%s+()%b''",
+      type = { "annotation", "annotation.string" }
+    },
+    { pattern = "@return%s+()%b\"\"",
+      type = { "annotation", "annotation.string" }
+    },
     -- @return without name
     { pattern = "@return%s+()[%w%.%[%]_]+()%??",
-      type = { "keyword", "keyword2", "operator" }
+      type = { "annotation", "annotation.type", "annotation.operator" }
     },
     -- type doc tag
-    { pattern = "@type%s+()%b''",     type = { "keyword", "string" } },
-    { pattern = "@type%s+()%b\"\"",   type = { "keyword", "string" } },
+    { pattern = "@type%s+()%b''",
+      type = { "annotation", "annotation.string" }
+    },
+    { pattern = "@type%s+()%b\"\"",
+      type = { "annotation", "annotation.string" }
+    },
     { pattern = "@type%s+()[%w%._%[%]]+()%??",
-      type = { "keyword", "keyword2", "operator" }
+      type = { "annotation", "annotation.type", "annotation.operator" }
     },
     -- @vararg doc type (deprecated)
     { pattern = "@vararg%s+()[%w%.%[%]_]+()%??",
-      type = { "keyword", "keyword2", "operator" }
+      type = { "annotation", "annotation.type", "annotation.operator" }
     },
     -- match additional types
-    { pattern = "|>?%s*()%b``",       type = { "operator", "string" } },
-    { pattern = "|>?%s*()%b\"\"",     type = { "operator", "string" } },
-    { pattern = "|>?%s*()%b''",       type = { "operator", "string" } },
-    { pattern = "|%s*()table%s*%b<>", type = { "operator", "keyword2" } },
-    { pattern = "|%s*()fun%s*%b()%s*:%s*[^%s|]+",
-      type = { "operator", "keyword2" }
+    { pattern = "|>?%s*()%b``",
+      type = { "annotation.operator", "annotation.string" }
     },
-    { pattern = "|%s*()fun%s*%b()",   type = { "operator", "keyword2" } },
+    { pattern = "|>?%s*()%b\"\"",
+      type = { "annotation.operator", "annotation.string" }
+    },
+    { pattern = "|>?%s*()%b''",
+      type = { "annotation.operator", "annotation.string" }
+    },
+    { pattern = "|%s*()table%s*%b<>",
+      type = { "annotation.operator", "annotation.type" }
+    },
+    { pattern = "|%s*()fun%s*%b()%s*:%s*[^%s|]+",
+      type = { "annotation.operator", "annotation.type" }
+    },
+    { pattern = "|%s*()fun%s*%b()",
+      type = { "annotation.operator", "annotation.type" }
+    },
     { pattern = "|%s*()[^%s|?]+()%??",
-      type = { "operator", "keyword2", "operator" }
+      type = { "annotation.operator", "annotation.type", "annotation.operator" }
     },
     -- match doc tags syntax for symbols table to properly work
     { pattern = "@[%a_]+%w*",         type = "comment" },
@@ -156,30 +237,30 @@ local annotations_syntax = {
     { pattern = "%f[\n]",             type = "comment" }
   },
   symbols = {
-    ["@alias"] = "keyword",
-    ["@async"] = "keyword",
-    ["@class"] = "keyword",
-    ["@cast"] = "keyword",
-    ["@deprecated"] = "keyword",
-    ["@diagnostic"] = "keyword",
-    ["@enum"] = "keyword",
-    ["@field"] = "keyword",
-    ["@generic"] = "keyword",
-    ["@meta"] = "keyword",
-    ["@module"] = "keyword",
-    ["@nodiscard"] = "keyword",
-    ["@operator"] = "keyword",
-    ["@overload"] = "keyword",
-    ["@package"] = "keyword",
-    ["@param"] = "keyword",
-    ["@private"] = "keyword",
-    ["@protected"] = "keyword",
-    ["@return"] = "keyword",
-    ["@see"] = "keyword",
-    ["@source"] = "keyword",
-    ["@type"] = "keyword",
-    ["@vararg"] = "keyword",
-    ["@version"] = "keyword"
+    ["@alias"] = "annotation",
+    ["@async"] = "annotation",
+    ["@class"] = "annotation",
+    ["@cast"] = "annotation",
+    ["@deprecated"] = "annotation",
+    ["@diagnostic"] = "annotation",
+    ["@enum"] = "annotation",
+    ["@field"] = "annotation",
+    ["@generic"] = "annotation",
+    ["@meta"] = "annotation",
+    ["@module"] = "annotation",
+    ["@nodiscard"] = "annotation",
+    ["@operator"] = "annotation",
+    ["@overload"] = "annotation",
+    ["@package"] = "annotation",
+    ["@param"] = "annotation",
+    ["@private"] = "annotation",
+    ["@protected"] = "annotation",
+    ["@return"] = "annotation",
+    ["@see"] = "annotation",
+    ["@source"] = "annotation",
+    ["@type"] = "annotation",
+    ["@vararg"] = "annotation",
+    ["@version"] = "annotation"
   }
 }
 
@@ -345,4 +426,3 @@ if config.plugins.language_lua.annotations then
   local syntax_lua = syntax.get("file.lua")
   table.insert(syntax_lua.patterns, 4, annotations_pattern)
 end
-
