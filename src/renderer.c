@@ -17,7 +17,7 @@
 #include "renwindow.h"
 
 #define MAX_GLYPHSET 256
-#define MAX_LOADABLE_GLYPHSETS 1024
+#define MAX_LOADABLE_GLYPHSETS 4096
 #define SUBPIXEL_BITMAPS_CACHED 3
 
 RenWindow window_renderer = {0};
