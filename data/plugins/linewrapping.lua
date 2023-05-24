@@ -310,7 +310,7 @@ local function get_line_col_from_index_and_x(docview, idx, x)
 end
 
 
-local open_files = {}
+local open_files = setmetatable({ }, { __mode = "k" })
 
 local old_doc_insert = Doc.raw_insert
 function Doc:raw_insert(line, col, text, undo_stack, time)
