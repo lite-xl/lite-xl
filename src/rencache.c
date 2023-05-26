@@ -49,7 +49,7 @@ typedef struct {
   RenRect rect;
   RenColor color;
   RenFont *fonts[FONT_FALLBACK_MAX];
-  float text_x;
+  double text_x;
   size_t len;
   int8_t tab_size;
   char text[];
@@ -192,7 +192,7 @@ void rencache_draw_rect(RenRect rect, RenColor color) {
   }
 }
 
-double rencache_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, double x, int y, RenColor color)
+double rencache_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, double x, double y, RenColor color)
 {
   double width = ren_font_group_get_width(window_renderer, fonts, text, len);
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
@@ -343,4 +343,3 @@ void rencache_end_frame(RenWindow *window_renderer) {
   cells_prev = tmp;
   command_buf_idx = 0;
 }
-
