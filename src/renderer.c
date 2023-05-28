@@ -278,6 +278,9 @@ static inline bool font_get_whitespace_width(RenFont *font, uint32_t codepoint, 
     case '\v':
     case '\f':
     case '\r':
+    case 0x200C: // zero-width non-joiner
+    case 0x200D: // zero-width joiner
+    case 0x2060: // word joiner
       *xadvance = 0.0f;
       return true;
     case 0x2000:
