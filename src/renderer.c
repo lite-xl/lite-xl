@@ -193,7 +193,7 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
     *metric = &(*set)->metrics[codepoint % 256];
-    if ((*metric)->loaded || codepoint < 0xFF)
+    if ((*metric)->loaded)
       return fonts[i];
   }
   if (*metric && !(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
