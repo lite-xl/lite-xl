@@ -18,6 +18,7 @@
 
 #define MAX_GLYPHSET 256
 #define MAX_LOADABLE_GLYPHSETS 1024
+#define MAX_FALLBACK_SEARCH_CHARS (2 * MAX_GLYPHSET)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
 RenWindow window_renderer = {0};
@@ -214,6 +215,94 @@ static void font_clear_glyph_cache(RenFont* font) {
   }
 }
 
+static float font_get_missing_glyph_rect(RenFont **fonts, int bitmap_index, RenRect *rect) {
+  RenFont *font = NULL;
+  GlyphSet *set = NULL;
+  GlyphMetric *metric = NULL;
+
+  // use 'W' as the fallback character
+  font = font_group_get_glyph(&set, &metric, fonts, 'W', bitmap_index);
+  if (!metric->loaded) {
+    FT_ULong codepoint;
+    FT_UInt glyph_index;
+
+    // iterate all the fonts to find a non-zero width glyph, and use that as reference
+    for (int j = 0; fonts[j] && j < FONT_FALLBACK_MAX; j++) {
+      font = fonts[j];
+      codepoint = FT_Get_First_Char(font->face, &glyph_index);
+
+      for (int i = 0; glyph_index && i < MAX_FALLBACK_SEARCH_CHARS; i++) {
+        set = font_get_glyphset(font, codepoint, bitmap_index);
+        metric = &set->metrics[codepoint % MAX_GLYPHSET];
+
+        if (metric->loaded && metric->xadvance > 0)
+          goto found_metric;
+
+        codepoint = FT_Get_Next_Char(font->face, codepoint, &glyph_index);
+      }
+    }
+
+    metric = NULL;
+  }
+
+found_metric:
+  if (metric && metric->loaded) {
+    if (rect) {
+      rect->width = metric->xadvance * 0.8;
+      rect->height = (metric->y1 - metric->y0);
+      rect->x = (metric->xadvance - rect->width) / 2;
+      rect->y = (font->height - rect->height) / 2;
+    }
+    return metric->xadvance;
+  } else {
+    if (rect) {
+      rect->width = fonts[0]->size * 0.8;
+      rect->height = fonts[0]->height * 0.8;
+      rect->x = fonts[0]->size * 0.1;
+      rect->y = fonts[0]->height * 0.1;
+    }
+    return fonts[0]->size;
+  }
+}
+
+static inline bool font_get_whitespace_width(RenFont *font, uint32_t codepoint, float *xadvance) {
+  switch(codepoint) {
+    case ' ':
+    case 0x00A0: // non-breaking space
+      *xadvance = font->space_advance;
+      return true;
+    case '\t':
+      *xadvance = font->tab_advance;
+      return true;
+    case '\n':
+    case '\v':
+    case '\f':
+    case '\r':
+      *xadvance = 0.0f;
+      return true;
+    case 0x2000:
+    case 0x2002: // EN spaces
+      *xadvance = font->face->size->metrics.x_ppem / 2.0f;
+      return true;
+    case 0x2001:
+    case 0x2003: // EM spaces
+      *xadvance = font->face->size->metrics.x_ppem;
+      return true;
+    case 0x2004: // 3-per-EM square
+      *xadvance = font->face->size->metrics.x_ppem / 3.0f;
+      return true;
+    case 0x2005: // 4-per-EM square
+      *xadvance = font->face->size->metrics.x_ppem / 4.0f;
+      return true;
+    case 0x2006: // 6-per-EM square
+    case 0x2009: // thin space
+      *xadvance = font->face->size->metrics.x_ppem / 6.0f;
+      return true;
+    // TODO: support more?
+  }
+  return false;
+}
+
 RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   FT_Face face = NULL;
 
@@ -370,7 +459,17 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
     RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
     if (!metric)
       break;
-    width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->size;
+
+    float adv = 0.0f;
+    if (!metric->loaded) {
+      // if the missing glyph isn't whitespace, use fallback
+      if (!font_get_whitespace_width(font, codepoint, &adv))
+        adv = font_get_missing_glyph_rect(fonts, 0, NULL);
+    } else {
+      adv = metric->xadvance ? metric->xadvance : fonts[0]->space_advance;
+    }
+
+    width += adv;
   }
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   return width / surface_scale;
@@ -395,30 +494,36 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
 
   while (text < end) {
+    RenFont *font = NULL;
+    GlyphSet *set = NULL;
+    GlyphMetric *metric = NULL;
     unsigned int codepoint, r, g, b;
+    float adv = 0;
+
     text = utf8_to_codepoint(text, &codepoint);
-    GlyphSet* set = NULL; GlyphMetric* metric = NULL;
-    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
-    if (!metric)
-      break;
+    font = font_group_get_glyph(&set, &metric, fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
+
+    if (!metric) break;
+
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
-    if (!metric->loaded && codepoint > 0xFF) {
-      int rect_size = (int) font->size * 0.7;
-      rect_size = font->space_advance < rect_size ? rect_size : font->space_advance;
-      // draw he fallback character
-      ren_draw_rect(rs,
-                    (RenRect) {
-                      start_x + (int)(font->size / 2) - (rect_size / 2),
-                      y + (int)(ren_font_group_get_height(fonts) / 2) - (rect_size / 2),
-                      rect_size,
-                      rect_size
-                    },
-                    color);
-    }
-    if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
+
+    if (!metric->loaded) {
+      if (!font_get_whitespace_width(fonts[0], codepoint, &adv)) {
+        // draw the fallback character if it is not whitespace
+        RenRect rect = { 0 };
+
+        adv = font_get_missing_glyph_rect(fonts, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &rect);
+        rect.x += floor(pen_x);
+        rect.y += y;
+
+        // draw the fallback character
+        ren_draw_rect(rs, rect, color);
+      }
+    } else if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = set->surface->pixels;
+
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line + y - metric->bitmap_top + font->baseline * surface_scale;
         if (target_y < clip.y)
@@ -461,7 +566,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       }
     }
 
-    float adv = metric->xadvance ? metric->xadvance : font->size;
+    // NOTE: might be problematic
+    if (adv == 0)
+      adv = metric->xadvance ? metric->xadvance : font->space_advance;
 
     if(!last) last = font;
     else if(font != last || text == end) {
