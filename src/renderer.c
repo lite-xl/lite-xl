@@ -28,13 +28,17 @@ static FT_Library library;
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
 static SDL_Surface *draw_rect_surface;
 
-static void* check_alloc(void *ptr) {
+static void* __check_alloc(void *ptr, const char *src) {
   if (!ptr) {
-    fprintf(stderr, "Fatal error: memory allocation failed\n");
+    fprintf(stderr, "Fatal error (%s): memory allocation failed\n", src);
     exit(EXIT_FAILURE);
   }
   return ptr;
 }
+
+#define stringize(x) stringize2(x)
+#define stringize2(x) #x
+#define check_alloc(ptr) __check_alloc(ptr, __FILE__ ":" stringize(__LINE__))
 
 /************************* Fonts *************************/
 
