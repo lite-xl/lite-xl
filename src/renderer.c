@@ -250,7 +250,11 @@ static void font_load_glyphset(RenFont* font, int idx) {
         switch (slot->bitmap.pixel_mode) {
           case FT_PIXEL_MODE_MONO: pixel_mode = SDL_PIXELFORMAT_INDEX1MSB; bits_per_pixel = 1; break;
           case FT_PIXEL_MODE_GRAY: pixel_mode = SDL_PIXELFORMAT_INDEX8;    bits_per_pixel = 8; break;
+#ifdef SDL_LIL_ENDIAN
+          case FT_PIXEL_MODE_BGRA: pixel_mode = SDL_PIXELFORMAT_ARGB8888;  bits_per_pixel = 32; break;
+#else
           case FT_PIXEL_MODE_BGRA: pixel_mode = SDL_PIXELFORMAT_BGRA8888;  bits_per_pixel = 32; break;
+#endif
         }
         // for BGRA surfaces we need to convert it to a surface in case we need to perform a scaled blit
         SDL_Surface *glyph_surface = check_alloc(SDL_CreateRGBSurfaceWithFormatFrom(slot->bitmap.buffer,
