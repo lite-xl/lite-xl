@@ -113,7 +113,7 @@ static int font_get_load_options(RenFont* font) {
 
   hinting = font->hinting == FONT_HINTING_NONE ? FT_LOAD_NO_HINTING : FT_LOAD_FORCE_AUTOHINT;
 
-  return load_target | hinting;
+  return load_target | hinting | FT_LOAD_COLOR;
 }
 
 static int font_set_render_options(RenFont* font) {
