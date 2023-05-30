@@ -223,7 +223,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       bits_per_pixel = max(bits_per_pixel, 24);
 
     set->surface = check_alloc(SDL_CreateRGBSurface(0,
-                                                    pen_x / font->bitmap_scale, font->max_height / font->bitmap_scale,
+                                                    pen_x, font->max_height,
                                                     bits_per_pixel,
                                                     0, 0, 0, 0));
 
