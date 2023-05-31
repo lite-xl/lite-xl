@@ -163,7 +163,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
   int bitmaps_cached = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1;
 
   // we will derive this later when rendering
-  unsigned int bits_per_pixel = 1;
+  unsigned int bytes_per_pixel = 0;
 
   for (int j = 0, pen_x = 0; j < bitmaps_cached; ++j) {
     GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
@@ -184,11 +184,11 @@ static void font_load_glyphset(RenFont* font, int idx) {
 
       switch (slot->bitmap.pixel_mode) {
         // we are not going to deal with 1-bit packed surfaces when rendering
-        case FT_PIXEL_MODE_MONO: bits_per_pixel = max(bits_per_pixel, 8); break;
-        case FT_PIXEL_MODE_GRAY: bits_per_pixel = max(bits_per_pixel, 8); break;
+        case FT_PIXEL_MODE_MONO:
+        case FT_PIXEL_MODE_GRAY: bytes_per_pixel = max(bytes_per_pixel, 1); break;
         // the LCD bitmap is 3 times larger due to subpixels
-        case FT_PIXEL_MODE_LCD:  bits_per_pixel = max(bits_per_pixel, 24); glyph_width /= 3; break;
-        case FT_PIXEL_MODE_BGRA: bits_per_pixel = max(bits_per_pixel, 32); break;
+        case FT_PIXEL_MODE_LCD:  bytes_per_pixel = max(bytes_per_pixel, 3); glyph_width /= 3; break;
+        case FT_PIXEL_MODE_BGRA: bytes_per_pixel = max(bytes_per_pixel, 4); break;
       }
 
       // scale glyph width accordingly
@@ -220,26 +220,22 @@ static void font_load_glyphset(RenFont* font, int idx) {
 
     // scale blit on a 8bpp bitmap is impossible in SDL2. This probably because of SIMD.
     if (font->bitmap_scale != 1.0f)
-      bits_per_pixel = max(bits_per_pixel, 32);
+      bytes_per_pixel = max(bytes_per_pixel, 4);
 
+    // we're passing a pixel mode instead of bpp because we need the exact surface format for faster blitting without conversion.
     unsigned int pixel_mode;
-    switch (bits_per_pixel) {
-      case 8: pixel_mode = SDL_PIXELFORMAT_INDEX8; break;
-      // the mode isn't relevant for 24bpp images since we're not blitting with SDL
-      case 24: pixel_mode = SDL_PIXELFORMAT_RGB24; break;
-      // by fixing the mode here we ensure that we can use SDL_SoftStretchLinear directly
+    switch (bytes_per_pixel) {
+      case 1: pixel_mode = SDL_PIXELFORMAT_INDEX8; break;
+      case 3: pixel_mode = SDL_PIXELFORMAT_RGB24; break;
+      // this ensures SDL_SoftStretchLinear runs correctly later on
 #ifdef SDL_LIL_ENDIAN
-      case 32: pixel_mode = SDL_PIXELFORMAT_ARGB8888; break;
+      case 4: pixel_mode = SDL_PIXELFORMAT_ARGB8888; break;
 #else
-      case 32: pixel_mode = SDL_PIXELFORMAT_BGRA8888; break;
+      case 4: pixel_mode = SDL_PIXELFORMAT_BGRA8888; break;
 #endif
     }
 
-    set->surface = check_alloc(SDL_CreateRGBSurfaceWithFormat(0, pen_x, font->max_height, bits_per_pixel, pixel_mode));
-    // required for grayscale blitting
-    if (bits_per_pixel == 8)
-      SDL_SetPaletteColors(set->surface->format->palette, grayscale_palette, 0, array_sizeof(grayscale_palette));
-
+    set->surface = check_alloc(SDL_CreateRGBSurfaceWithFormat(0, pen_x, font->max_height, bytes_per_pixel * 8, pixel_mode));
     uint8_t *pixels = set->surface->pixels;
 
     for (int i = 0; i < GLYPHSET_SIZE; ++i) {
@@ -254,23 +250,26 @@ static void font_load_glyphset(RenFont* font, int idx) {
 
       if (!slot->bitmap.width || !slot->bitmap.rows) continue;
 
-      if (slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD) {
+      if (font->bitmap_scale != 1.0f) {
+        // there shouldn't be subpixel bitmaps that needs to be scaled!
+        assert(slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD);
+      
+        // ensure that the pixel mode matches what FT actually provides
         unsigned int pixel_mode;
         switch (slot->bitmap.pixel_mode) {
-          case FT_PIXEL_MODE_MONO: pixel_mode = SDL_PIXELFORMAT_INDEX1MSB; bits_per_pixel = 1; break;
-          case FT_PIXEL_MODE_GRAY: pixel_mode = SDL_PIXELFORMAT_INDEX8;    bits_per_pixel = 8; break;
+          case FT_PIXEL_MODE_MONO: pixel_mode = SDL_PIXELFORMAT_INDEX1MSB; bytes_per_pixel = 1; break;
+          case FT_PIXEL_MODE_GRAY: pixel_mode = SDL_PIXELFORMAT_INDEX8;    bytes_per_pixel = 1; break;
 #ifdef SDL_LIL_ENDIAN
-          case FT_PIXEL_MODE_BGRA: pixel_mode = SDL_PIXELFORMAT_ARGB8888;  bits_per_pixel = 32; break;
+          case FT_PIXEL_MODE_BGRA: pixel_mode = SDL_PIXELFORMAT_ARGB8888;  bytes_per_pixel = 4; break;
 #else
-          case FT_PIXEL_MODE_BGRA: pixel_mode = SDL_PIXELFORMAT_BGRA8888;  bits_per_pixel = 32; break;
+          case FT_PIXEL_MODE_BGRA: pixel_mode = SDL_PIXELFORMAT_BGRA8888;  bits_per_pixel = 4; break;
 #endif
         }
-        // for BGRA surfaces we need to convert it to a surface in case we need to perform a scaled blit
         SDL_Surface *glyph_surface = check_alloc(SDL_CreateRGBSurfaceWithFormatFrom(slot->bitmap.buffer,
                                                                                     slot->bitmap.width, slot->bitmap.rows,
-                                                                                    bits_per_pixel, slot->bitmap.pitch,
+                                                                                    bytes_per_pixel, slot->bitmap.pitch,
                                                                                     pixel_mode));
-
+        
         // set palettes for the indexed color modes
         if (pixel_mode == SDL_PIXELFORMAT_INDEX1MSB)
           SDL_SetPaletteColors(glyph_surface->format->palette, monochrome_palette, 0, array_sizeof(monochrome_palette));
@@ -280,28 +279,36 @@ static void font_load_glyphset(RenFont* font, int idx) {
         SDL_Rect src = { .x = 0, .y = 0, .w = slot->bitmap.width, .h = slot->bitmap.rows };
         SDL_Rect dst = { .x = set->metrics[i].x0, .y = 0, .w = slot->bitmap.width / font->bitmap_scale, .h = slot->bitmap.rows / font->bitmap_scale };
 
-        // perform a scaled blit if necessary
-        if (font->bitmap_scale != 1.0f) {
-          if (bits_per_pixel != 32) {
-            // a scaled blit requires a 32bpp surface
-            SDL_Surface *temp = check_alloc(SDL_ConvertSurface(glyph_surface, set->surface->format, 0));
-            SDL_FreeSurface(glyph_surface);
-            glyph_surface = temp;
-          }
-
-          SDL_SoftStretchLinear(glyph_surface, &src, set->surface, &dst);
-        } else {
-          SDL_BlitSurface(glyph_surface, &src, set->surface, &dst);
+        if (bytes_per_pixel != 4) {
+          // a scaled blit requires a 32bpp surface
+          SDL_Surface *temp = check_alloc(SDL_ConvertSurface(glyph_surface, set->surface->format, 0));
+          SDL_FreeSurface(glyph_surface);
+          glyph_surface = temp;
         }
-
+        SDL_SoftStretchLinear(glyph_surface, &src, set->surface, &dst);
         SDL_FreeSurface(glyph_surface);
       } else {
         // copy the pixels over for custom blending later
         for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
-          int target_offset = line * set->surface->pitch + set->metrics[i].x0 * 3;
+          int target_offset = line * set->surface->pitch + set->metrics[i].x0 * set->surface->format->BytesPerPixel;
           int source_offset = line * slot->bitmap.pitch;
-          // copy the entire row
-          memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
+
+          if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_LCD) {
+            // copy the entire row
+            memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
+          } else if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) {
+            // copy each pixel individually
+            for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
+              int current_source_offset = source_offset + (column / 8);
+              int source_pixel = slot->bitmap.buffer[current_source_offset];
+
+              memset(pixels + target_offset, ((source_pixel >> (7 - (column % 8))) & 0x1) * 255, set->surface->format->BytesPerPixel);
+              target_offset += set->surface->format->BytesPerPixel;
+            }
+          } else {
+            // copy the entire row at correct bpp
+            memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width * set->surface->format->BytesPerPixel);
+          }
         }
       }
     }
