@@ -290,7 +290,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       } else {
         // copy the pixels over for custom blending later
         for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
-          int target_offset = line * set->surface->pitch + set->metrics[i].x0 * set->surface->format->BytesPerPixel;
+          int target_offset = line * set->surface->pitch + set->metrics[i].x0 * bytes_per_pixel;
           int source_offset = line * slot->bitmap.pitch;
 
           if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_LCD) {
@@ -302,12 +302,12 @@ static void font_load_glyphset(RenFont* font, int idx) {
               int current_source_offset = source_offset + (column / 8);
               int source_pixel = slot->bitmap.buffer[current_source_offset];
 
-              memset(pixels + target_offset, ((source_pixel >> (7 - (column % 8))) & 0x1) * 255, set->surface->format->BytesPerPixel);
-              target_offset += set->surface->format->BytesPerPixel;
+              memset(pixels + target_offset, ((source_pixel >> (7 - (column % 8))) & 0x1) * 255, bytes_per_pixel);
+              target_offset += bytes_per_pixel;
             }
           } else {
             // copy the entire row at correct bpp
-            memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width * set->surface->format->BytesPerPixel);
+            memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width * bytes_per_pixel);
           }
         }
       }
