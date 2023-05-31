@@ -220,13 +220,22 @@ static void font_load_glyphset(RenFont* font, int idx) {
 
     // scale blit on a 8bpp bitmap is impossible in SDL2. This probably because of SIMD.
     if (font->bitmap_scale != 1.0f)
-      bits_per_pixel = max(bits_per_pixel, 24);
+      bits_per_pixel = max(bits_per_pixel, 32);
 
-    set->surface = check_alloc(SDL_CreateRGBSurface(0,
-                                                    pen_x, font->max_height,
-                                                    bits_per_pixel,
-                                                    0, 0, 0, 0));
+    unsigned int pixel_mode;
+    switch (bits_per_pixel) {
+      case 8: pixel_mode = SDL_PIXELFORMAT_INDEX8; break;
+      // the mode isn't relevant for 24bpp images since we're not blitting with SDL
+      case 24: pixel_mode = SDL_PIXELFORMAT_RGB24; break;
+      // by fixing the mode here we ensure that we can use SDL_SoftStretchLinear directly
+#ifdef SDL_LIL_ENDIAN
+      case 32: pixel_mode = SDL_PIXELFORMAT_ARGB8888; break;
+#else
+      case 32: pixel_mode = SDL_PIXELFORMAT_BGRA8888; break;
+#endif
+    }
 
+    set->surface = check_alloc(SDL_CreateRGBSurfaceWithFormat(0, pen_x, font->max_height, bits_per_pixel, pixel_mode));
     // required for grayscale blitting
     if (bits_per_pixel == 8)
       SDL_SetPaletteColors(set->surface->format->palette, grayscale_palette, 0, array_sizeof(grayscale_palette));
@@ -280,7 +289,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
             glyph_surface = temp;
           }
 
-          SDL_BlitScaled(glyph_surface, &src, set->surface, &dst);
+          SDL_SoftStretchLinear(glyph_surface, &src, set->surface, &dst);
         } else {
           SDL_BlitSurface(glyph_surface, &src, set->surface, &dst);
         }
