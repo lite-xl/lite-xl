@@ -60,8 +60,15 @@ static void* __check_alloc(void *ptr, const char *src) {
 
 /************************* Fonts *************************/
 
+enum GlyphMetricFlags {
+  GLYPH_METRIC_NOT_LOADED = 0,
+  GLYPH_METRIC_LOADED = (1 << 0),
+  GLYPH_METRIC_BLEND_ALPHA = (1 << 1),
+  GLYPH_METRIC_BLEND_DUAL_SOURCE = (1 << 2),
+};
+
 typedef struct {
-  unsigned int x0, x1, y0, y1, loaded;
+  unsigned int x0, x1, y0, y1, loaded_flags;
   int bitmap_left, bitmap_top;
   float xadvance;
 } GlyphMetric;
@@ -195,7 +202,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       glyph_width /= font->bitmap_scale;
 
       set->metrics[i] = (GlyphMetric) {
-        .loaded = true,
+        .loaded_flags = GLYPH_METRIC_LOADED | (slot->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA ? GLYPH_METRIC_BLEND_ALPHA : GLYPH_METRIC_BLEND_DUAL_SOURCE),
         .x0 = pen_x,   .x1 = pen_x + glyph_width,
         .y0 = 0,       .y1 = slot->bitmap.rows / font->bitmap_scale,
         .bitmap_left = slot->bitmap_left / font->bitmap_scale,
@@ -253,7 +260,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       if (font->bitmap_scale != 1.0f) {
         // there shouldn't be subpixel bitmaps that needs to be scaled!
         assert(slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD);
-      
+
         // ensure that the pixel mode matches what FT actually provides
         unsigned int pixel_mode;
         switch (slot->bitmap.pixel_mode) {
@@ -269,7 +276,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
                                                                                     slot->bitmap.width, slot->bitmap.rows,
                                                                                     bytes_per_pixel, slot->bitmap.pitch,
                                                                                     pixel_mode));
-        
+
         // set palettes for the indexed color modes
         if (pixel_mode == SDL_PIXELFORMAT_INDEX1MSB)
           SDL_SetPaletteColors(glyph_surface->format->palette, monochrome_palette, 0, array_sizeof(monochrome_palette));
@@ -331,10 +338,10 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
     *metric = &(*set)->metrics[codepoint % GLYPHSET_SIZE];
-    if ((*metric)->loaded || codepoint < 0xFF)
+    if ((*metric)->loaded_flags || codepoint < 0xFF)
       return fonts[i];
   }
-  if (*metric && !(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
+  if (*metric && !(*metric)->loaded_flags && codepoint > 0xFF && codepoint != 0x25A1)
     return font_group_get_glyph(set, metric, fonts, 0x25A1, bitmap_index);
   return fonts[0];
 }
@@ -582,7 +589,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = (metric->x1 - metric->x0) + start_x;
     int glyph_end = metric->x1, glyph_start = metric->x0;
-    if (!metric->loaded && codepoint > 0xFF)
+    if (!metric->loaded_flags && codepoint > 0xFF)
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = set->surface->pixels;
@@ -636,9 +643,17 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
             break;
           }
 
-          r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
-          g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
-          b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
+          if (metric->loaded_flags & GLYPH_METRIC_BLEND_DUAL_SOURCE) {
+            r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
+            g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
+            b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
+          } else if (metric->loaded_flags & GLYPH_METRIC_BLEND_ALPHA) {
+            int ia = 0xFF - src.a;
+            r = ((src.r * src.a) + (dst.r * ia)) >> 8;
+            g = ((src.g * src.a) + (dst.g * ia)) >> 8;
+            b = ((src.b * src.a) + (dst.b * ia)) >> 8;
+          }
+
           // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
           *destination_pixel++ = dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
         }
