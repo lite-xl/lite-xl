@@ -298,25 +298,6 @@ local function add_config_files_hooks()
 end
 
 
--- The function below works like system.absolute_path except it
--- doesn't fail if the file does not exist. We consider that the
--- current dir is core.project_dir so relative filename are considered
--- to be in core.project_dir.
--- Please note that .. or . in the filename are not taken into account.
--- This function should get only filenames normalized using
--- common.normalize_path function.
-function core.project_absolute_path(filename)
-  if common.is_absolute_path(filename) then
-    return common.normalize_path(filename)
-  elseif not core.project_dir then
-    local cwd = system.absolute_path(".")
-    return cwd .. PATHSEP .. common.normalize_path(filename)
-  else
-    return core.project_dir .. PATHSEP .. filename
-  end
-end
-
-
 function core.init()
   core.log_items = {}
   core.log_quiet("Lite XL version %s - mod-version %s", VERSION, MOD_VERSION_STRING)
