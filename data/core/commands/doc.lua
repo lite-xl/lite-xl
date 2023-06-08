@@ -44,8 +44,8 @@ local function save(filename)
   else
     core.error(err)
     core.nag_view:show("Saving failed", string.format("Could not save \"%s\" do you want to save to another location?", doc().filename), {
-      { font = style.font, text = "No", default_no = true },
-      { font = style.font, text = "Yes" , default_yes = true }
+      { text = "No", default_no = true },
+      { text = "Yes", default_yes = true }
     }, function(item)
       if item.text == "Yes" then
         core.add_thread(function()
@@ -62,10 +62,10 @@ local function cut_or_copy(delete)
   local text = ""
   core.cursor_clipboard = {}
   core.cursor_clipboard_whole_line = {}
-  for idx, line1, col1, line2, col2 in doc():get_selections() do
+  for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
     if line1 ~= line2 or col1 ~= col2 then
       text = doc():get_text(line1, col1, line2, col2)
-      full_text = full_text == "" and text or (full_text .. " " .. text)
+      full_text = full_text == "" and text or (text .. " " .. full_text)
       core.cursor_clipboard_whole_line[idx] = false
       if delete then
         doc():delete_to_cursor(idx, 0)
@@ -73,7 +73,7 @@ local function cut_or_copy(delete)
     else -- Cut/copy whole line
       -- Remove newline from the text. It will be added as needed on paste.
       text = string.sub(doc().lines[line1], 1, -2)
-      full_text = full_text == "" and text or (full_text .. text .. "\n")
+      full_text = full_text == "" and text .. "\n" or (text .. "\n" .. full_text)
       core.cursor_clipboard_whole_line[idx] = true
       if delete then
         if line1 < #doc().lines then
@@ -83,10 +83,12 @@ local function cut_or_copy(delete)
         else
           doc():remove(line1 - 1, math.huge, line1, math.huge)
         end
+        doc():set_selections(idx, line1, col1, line2, col2)
       end
     end
     core.cursor_clipboard[idx] = text
   end
+  if delete then doc():merge_cursors() end
   core.cursor_clipboard["full"] = full_text
   system.set_clipboard(full_text)
 end
@@ -323,7 +325,7 @@ local commands = {
   end,
 
   ["doc:delete"] = function(dv)
-    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections(true, true) do
       if line1 == line2 and col1 == col2 and dv.doc.lines[line1]:find("^%s*$", col1) then
         dv.doc:remove(line1, col1, line1, math.huge)
       end
@@ -333,7 +335,7 @@ local commands = {
 
   ["doc:backspace"] = function(dv)
     local _, indent_size = dv.doc:get_indent_info()
-    for idx, line1, col1, line2, col2 in dv.doc:get_selections() do
+    for idx, line1, col1, line2, col2 in dv.doc:get_selections(true, true) do
       if line1 == line2 and col1 == col2 then
         local text = dv.doc:get_text(line1, 1, line1, col1)
         if #text >= indent_size and text:find("^ *$") then
@@ -698,6 +700,7 @@ commands["doc:move-to-previous-char"] = function(dv)
       dv.doc:move_to_cursor(idx, translate.previous_char)
     end
   end
+  dv.doc:merge_cursors()
 end
 
 commands["doc:move-to-next-char"] = function(dv)
@@ -708,6 +711,7 @@ commands["doc:move-to-next-char"] = function(dv)
       dv.doc:move_to_cursor(idx, translate.next_char)
     end
   end
+  dv.doc:merge_cursors()
 end
 
 command.add("core.docview", commands)

@@ -160,24 +160,36 @@ end
 function DocView:get_visible_line_range()
   local x, y, x2, y2 = self:get_content_bounds()
   local lh = self:get_line_height()
-  local minline = math.max(1, math.floor(y / lh))
-  local maxline = math.min(#self.doc.lines, math.floor(y2 / lh) + 1)
+  local minline = math.max(1, math.floor((y - style.padding.y) / lh) + 1)
+  local maxline = math.min(#self.doc.lines, math.floor((y2 - style.padding.y) / lh) + 1)
   return minline, maxline
 end
 
 
 function DocView:get_col_x_offset(line, col)
   local default_font = self:get_font()
+  local _, indent_size = self.doc:get_indent_info()
+  default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
-    for char in common.utf8_chars(text) do
-      if column == col then
+    if font ~= default_font then font:set_tab_size(indent_size) end
+    local length = #text
+    if column + length <= col then
+      xoffset = xoffset + font:get_width(text)
+      column = column + length
+      if column >= col then
         return xoffset
       end
-      xoffset = xoffset + font:get_width(char)
-      column = column + #char
+    else
+      for char in common.utf8_chars(text) do
+        if column >= col then
+          return xoffset
+        end
+        xoffset = xoffset + font:get_width(char)
+        column = column + #char
+      end
     end
   end
 
@@ -190,16 +202,27 @@ function DocView:get_x_offset_col(line, x)
 
   local xoffset, last_i, i = 0, 1, 1
   local default_font = self:get_font()
+  local _, indent_size = self.doc:get_indent_info()
+  default_font:set_tab_size(indent_size)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
-    for char in common.utf8_chars(text) do
-      local w = font:get_width(char)
-      if xoffset >= x then
-        return (xoffset - x > w / 2) and last_i or i
+    if font ~= default_font then font:set_tab_size(indent_size) end
+    local width = font:get_width(text)
+    -- Don't take the shortcut if the width matches x,
+    -- because we need last_i which should be calculated using utf-8.
+    if xoffset + width < x then
+      xoffset = xoffset + width
+      i = i + #text
+    else
+      for char in common.utf8_chars(text) do
+        local w = font:get_width(char)
+        if xoffset >= x then
+          return (xoffset - x > w / 2) and last_i or i
+        end
+        xoffset = xoffset + w
+        last_i = i
+        i = i + #char
       end
-      xoffset = xoffset + w
-      last_i = i
-      i = i + #char
     end
   end
 
@@ -226,6 +249,11 @@ function DocView:scroll_to_line(line, ignore_if_visible, instant)
       self.scroll.y = self.scroll.to.y
     end
   end
+end
+
+
+function DocView:supports_text_input()
+  return true
 end
 
 
@@ -422,6 +450,7 @@ function DocView:draw_line_text(line, x, y)
     -- do not render newline, fixes issue #1164
     if tidx == last_token then text = text:sub(1, -2) end
     tx = renderer.draw_text(font, text, tx, ty, color)
+    if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()
 end

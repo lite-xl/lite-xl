@@ -243,6 +243,21 @@ function StatusView:register_docview_items()
 
   self:add_item({
     predicate = predicate_docview,
+    name = "doc:selections",
+    alignment = StatusView.Item.LEFT,
+    get_item = function()
+      local dv = core.active_view
+      local nsel = math.floor(#dv.doc.selections / 4)
+      if nsel > 1 then
+        return { style.text, nsel, " selections" }
+      end
+
+      return {}
+    end
+  })
+
+  self:add_item({
+    predicate = predicate_docview,
     name = "doc:indentation",
     alignment = StatusView.Item.RIGHT,
     get_item = function()
@@ -971,6 +986,12 @@ function StatusView:on_mouse_pressed(button, x, y, clicks)
     end
   end
   return true
+end
+
+
+function StatusView:on_mouse_left()
+  StatusView.super.on_mouse_left(self)
+  self.hovered_item = {}
 end
 
 

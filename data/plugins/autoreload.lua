@@ -46,8 +46,8 @@ end
 local function check_prompt_reload(doc)
   if doc and doc.deferred_reload then
     core.nag_view:show("File Changed", doc.filename .. " has changed. Reload this file?", {
-      { font = style.font, text = "Yes", default_yes = true },
-      { font = style.font, text = "No" , default_no = true }
+      { text = "Yes", default_yes = true },
+      { text = "No", default_no = true }
     }, function(item)
       if item.text == "Yes" then reload_doc(doc) end
       doc.deferred_reload = false

@@ -18,13 +18,13 @@ local Doc
 local core = {}
 
 local function load_session()
-  local ok, t = pcall(dofile, USERDIR .. "/session.lua")
+  local ok, t = pcall(dofile, USERDIR .. PATHSEP .. "session.lua")
   return ok and t or {}
 end
 
 
 local function save_session()
-  local fp = io.open(USERDIR .. "/session.lua", "w")
+  local fp = io.open(USERDIR .. PATHSEP .. "session.lua", "w")
   if fp then
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size())),
@@ -305,7 +305,7 @@ function core.add_project_directory(path)
         end
       end
       if project_dir_open then
-        coroutine.yield(changed and 0.05 or 0)
+        coroutine.yield(changed and 0 or 0.05)
       else
         return
       end
@@ -531,12 +531,9 @@ local style = require "core.style"
 
 ------------------------------ Plugins ----------------------------------------
 
--- enable or disable plugin loading setting config entries:
+-- disable plugin loading setting config entries:
 
--- enable plugins.trimwhitespace, otherwise it is disabled by default:
--- config.plugins.trimwhitespace = true
---
--- disable detectindent, otherwise it is enabled by default
+-- disable plugin detectindent, otherwise it is enabled by default:
 -- config.plugins.detectindent = false
 
 ---------------------------- Miscellaneous -------------------------------------
@@ -607,7 +604,7 @@ function core.load_user_directory()
     if not stat_dir then
       create_user_directory()
     end
-    local init_filename = USERDIR .. "/init.lua"
+    local init_filename = USERDIR .. PATHSEP .. "init.lua"
     local stat_file = system.get_file_info(init_filename)
     if not stat_file then
       write_user_init_file(init_filename)
@@ -673,6 +670,9 @@ end
 
 
 function core.init()
+  core.log_items = {}
+  core.log_quiet("Lite XL version %s - mod-version %s", VERSION, MOD_VERSION_STRING)
+
   command = require "core.command"
   keymap = require "core.keymap"
   dirwatch = require "core.dirwatch"
@@ -726,7 +726,6 @@ function core.init()
 
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
-  core.log_items = {}
   core.docs = {}
   core.cursor_clipboard = {}
   core.cursor_clipboard_whole_line = {}
@@ -818,21 +817,25 @@ function core.init()
 
   if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
     local opt = {
-      { font = style.font, text = "Exit", default_no = true },
-      { font = style.font, text = "Continue" , default_yes = true }
+      { text = "Exit", default_no = true },
+      { text = "Continue", default_yes = true }
     }
     local msg = {}
     for _, entry in pairs(plugins_refuse_list) do
       if #entry.plugins > 0 then
-        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(entry.plugins, "\n"))
+        local msg_list = {}
+        for _, p in pairs(entry.plugins) do
+          table.insert(msg_list, string.format("%s[%s]", p.file, p.version_string))
+        end
+        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(msg_list, "\n"))
       end
     end
     core.nag_view:show(
       "Refused Plugins",
       string.format(
-        "Some plugins are not loaded due to version mismatch.\n\n%s.\n\n" ..
+        "Some plugins are not loaded due to version mismatch. Expected version %s.\n\n%s.\n\n" ..
         "Please download a recent version from https://github.com/lite-xl/lite-xl-plugins.",
-        table.concat(msg, ".\n\n")),
+        MOD_VERSION_STRING, table.concat(msg, ".\n\n")),
       opt, function(item)
         if item.text == "Exit" then os.exit(1) end
       end)
@@ -860,8 +863,8 @@ function core.confirm_close_docs(docs, close_fn, ...)
     end
     local args = {...}
     local opt = {
-      { font = style.font, text = "Yes", default_yes = true },
-      { font = style.font, text = "No" , default_no = true }
+      { text = "Yes", default_yes = true },
+      { text = "No", default_no = true }
     }
     core.nag_view:show("Unsaved Changes", text, opt, function(item)
       if item.text == "Yes" then close_fn(table.unpack(args)) end
@@ -921,10 +924,12 @@ function core.restart()
 end
 
 
+local mod_version_regex =
+  regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
 local function get_plugin_details(filename)
   local info = system.get_file_info(filename)
   if info ~= nil and info.type == "dir" then
-    filename = filename .. "/init.lua"
+    filename = filename .. PATHSEP .. "init.lua"
     info = system.get_file_info(filename)
   end
   if not info or not filename:match("%.lua$") then return false end
@@ -932,17 +937,32 @@ local function get_plugin_details(filename)
   if not f then return false end
   local priority = false
   local version_match = false
+  local major, minor, patch
+
   for line in f:lines() do
     if not version_match then
-      local mod_version = line:match('%-%-.*%f[%a]mod%-version%s*:%s*(%d+)')
-      if mod_version then
-        version_match = (mod_version == MOD_VERSION)
+      local _major, _minor, _patch = mod_version_regex:match(line)
+      if _major then
+        _major = tonumber(_major) or 0
+        _minor = tonumber(_minor) or 0
+        _patch = tonumber(_patch) or 0
+        major, minor, patch = _major, _minor, _patch
+
+        version_match = major == MOD_VERSION_MAJOR
+        if version_match then
+          version_match = minor <= MOD_VERSION_MINOR
+        end
+        if version_match then
+          version_match = patch <= MOD_VERSION_PATCH
+        end
       end
     end
+
     if not priority then
       priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
       if priority then priority = tonumber(priority) end
     end
+
     if version_match then
       break
     end
@@ -950,6 +970,7 @@ local function get_plugin_details(filename)
   f:close()
   return true, {
     version_match = version_match,
+    version = major and {major, minor, patch} or {},
     priority = priority or 100
   }
 end
@@ -963,7 +984,7 @@ function core.load_plugins()
   }
   local files, ordered = {}, {}
   for _, root_dir in ipairs {DATADIR, USERDIR} do
-    local plugin_dir = root_dir .. "/plugins"
+    local plugin_dir = root_dir .. PATHSEP .. "plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
       if not files[filename] then
         table.insert(
@@ -978,13 +999,15 @@ function core.load_plugins()
   for _, plugin in ipairs(ordered) do
     local dir = files[plugin.file]
     local name = plugin.file:match("(.-)%.lua$") or plugin.file
-    local is_lua_file, details = get_plugin_details(dir .. '/' .. plugin.file)
+    local is_lua_file, details = get_plugin_details(dir .. PATHSEP .. plugin.file)
 
     plugin.valid = is_lua_file
     plugin.name = name
     plugin.dir = dir
     plugin.priority = details and details.priority or 100
     plugin.version_match = details and details.version_match or false
+    plugin.version = details and details.version or {}
+    plugin.version_string = #plugin.version > 0 and table.concat(plugin.version, ".") or "unknown"
   end
 
   -- sort by priority or name for plugins that have same priority
@@ -1000,27 +1023,35 @@ function core.load_plugins()
     if plugin.valid then
       if not config.skip_plugins_version and not plugin.version_match then
         core.log_quiet(
-          "Version mismatch for plugin %q from %s",
+          "Version mismatch for plugin %q[%s] from %s",
           plugin.name,
+          plugin.version_string,
           plugin.dir
         )
         local rlist = plugin.dir:find(USERDIR, 1, true) == 1
           and 'userdir' or 'datadir'
         local list = refused_list[rlist].plugins
-        table.insert(list, plugin.file)
+        table.insert(list, plugin)
       elseif config.plugins[plugin.name] ~= false then
         local start = system.get_time()
-        local ok = core.try(require, "plugins." .. plugin.name)
+        local ok, loaded_plugin = core.try(require, "plugins." .. plugin.name)
         if ok then
+          local plugin_version = ""
+          if plugin.version_string ~= MOD_VERSION_STRING then
+            plugin_version = "["..plugin.version_string.."]"
+          end
           core.log_quiet(
-            "Loaded plugin %q from %s in %.1fms",
+            "Loaded plugin %q%s from %s in %.1fms",
             plugin.name,
+            plugin_version,
             plugin.dir,
             (system.get_time() - start) * 1000
           )
         end
         if not ok then
           no_errors = false
+        elseif config.plugins[plugin.name].onload then
+          core.try(config.plugins[plugin.name].onload, loaded_plugin)
         end
       end
     end
@@ -1074,6 +1105,7 @@ function core.set_active_view(view)
   -- Reset the IME even if the focus didn't change
   ime.stop()
   if view ~= core.active_view then
+    system.text_input(view:supports_text_input())
     if core.active_view and core.active_view.force_focus then
       core.next_active_view = view
       return
@@ -1257,6 +1289,12 @@ function core.on_event(type, ...)
     if not core.root_view:on_mouse_wheel(...) then
       did_keymap = keymap.on_mouse_wheel(...)
     end
+  elseif type == "touchpressed" then
+    core.root_view:on_touch_pressed(...)
+  elseif type == "touchreleased" then
+    core.root_view:on_touch_released(...)
+  elseif type == "touchmoved" then
+    core.root_view:on_touch_moved(...)
   elseif type == "resized" then
     core.window_mode = system.get_window_mode()
   elseif type == "minimized" or type == "maximized" or type == "restored" then
@@ -1306,6 +1344,11 @@ function core.step()
       did_keymap = false
     elseif type == "mousemoved" then
       core.try(core.on_event, type, a, b, c, d)
+    elseif type == "enteringforeground" then
+      -- to break our frame refresh in two if we get entering/entered at the same time.
+      -- required to avoid flashing and refresh issues on mobile
+      core.redraw = true
+      break
     else
       local _, res = core.try(core.on_event, type, a, b, c, d)
       did_keymap = res or did_keymap
@@ -1350,7 +1393,7 @@ end
 local run_threads = coroutine.wrap(function()
   while true do
     local max_time = 1 / config.fps - 0.004
-    local need_more_work = false
+    local minimal_time_to_wake = math.huge
 
     for k, thread in pairs(core.threads) do
       -- run thread
@@ -1362,50 +1405,61 @@ local run_threads = coroutine.wrap(function()
           else
             core.threads[k] = nil
           end
-        elseif wait then
-          thread.wake = system.get_time() + wait
         else
-          need_more_work = true
+          wait = wait or (1/30)
+          thread.wake = system.get_time() + wait
+          minimal_time_to_wake = math.min(minimal_time_to_wake, wait)
         end
+      else
+        minimal_time_to_wake =  math.min(minimal_time_to_wake, thread.wake - system.get_time())
       end
 
       -- stop running threads if we're about to hit the end of frame
       if system.get_time() - core.frame_start > max_time then
-        coroutine.yield(true)
+        coroutine.yield(0)
       end
     end
 
-    if not need_more_work then coroutine.yield(false) end
+    coroutine.yield(minimal_time_to_wake)
   end
 end)
 
 
 function core.run()
-  local idle_iterations = 0
+  local next_step
   while true do
     core.frame_start = system.get_time()
-    local need_more_work = run_threads()
-    local did_redraw = core.step()
+    local time_to_wake = run_threads()
+    local did_redraw = false
+    if not next_step or system.get_time() >= next_step then
+      did_redraw = core.step()
+      next_step = nil
+    end
     if core.restart_request or core.quit_request then break end
-    if not did_redraw and not need_more_work then
-      idle_iterations = idle_iterations + 1
-      -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
-      -- and set "redraw" flag.
-      if idle_iterations > 1 then
-        if system.window_has_focus() then
-          -- keep running even with no events to make the cursor blinks
-          local t = system.get_time() - core.blink_start
+
+    if not did_redraw then
+      if system.window_has_focus() then
+        local now = system.get_time()
+        if not next_step then -- compute the time until the next blink
+          local t = now - core.blink_start
           local h = config.blink_period / 2
           local dt = math.ceil(t / h) * h - t
-          system.wait_event(dt + 1 / config.fps)
-        else
-          system.wait_event()
+          local cursor_time_to_wake = dt + 1 / config.fps
+          next_step = now + cursor_time_to_wake
         end
+        if time_to_wake > 0 and system.wait_event(math.min(next_step - now, time_to_wake)) then
+          next_step = nil -- if we've recevied an event, perform a step
+        end
+      else
+        system.wait_event()
+        next_step = nil -- perform a step when we're not in focus if get we an event
       end
-    else
-      idle_iterations = 0
-      local elapsed = system.get_time() - core.frame_start
-      system.sleep(math.max(0, 1 / config.fps - elapsed))
+    else -- if we redrew, then make sure we only draw at most FPS/sec
+      local now = system.get_time()
+      local elapsed = now - core.frame_start
+      local next_frame = math.max(0, 1 / config.fps - elapsed)
+      next_step = next_step or (now + next_frame)
+      system.sleep(math.min(next_frame, time_to_wake))
     end
   end
 end
@@ -1423,7 +1477,7 @@ end
 
 function core.on_error(err)
   -- write error to file
-  local fp = io.open(USERDIR .. "/error.txt", "wb")
+  local fp = io.open(USERDIR .. PATHSEP .. "error.txt", "wb")
   fp:write("Error: " .. tostring(err) .. "\n")
   fp:write(debug.traceback("", 4) .. "\n")
   fp:close()
@@ -1433,6 +1487,17 @@ function core.on_error(err)
       doc:save(doc.filename .. "~")
     end
   end
+end
+
+
+local alerted_deprecations = {}
+---Show deprecation notice once per `kind`.
+---
+---@param kind string
+function core.deprecation_log(kind)
+  if alerted_deprecations[kind] then return end
+  alerted_deprecations[kind] = true
+  core.warn("Used deprecated functionality [%s]. Check if your plugins are up to date.", kind)
 end
 
 

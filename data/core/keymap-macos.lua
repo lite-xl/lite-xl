@@ -36,6 +36,8 @@ local function keymap_macos(keymap)
     ["wheel"] = "root:scroll",
     ["hwheel"] = "root:horizontal-scroll",
     ["shift+hwheel"] = "root:horizontal-scroll",
+    ["wheelup"] = "root:scroll-hovered-tabs-backward",
+    ["wheeldown"] = "root:scroll-hovered-tabs-forward",
 
     ["cmd+f"] = "find-replace:find",
     ["cmd+r"] = "find-replace:replace",

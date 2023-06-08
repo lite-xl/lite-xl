@@ -1,14 +1,16 @@
 local core = require "core"
 local syntax = require "core.syntax"
+local config = require "core.config"
 
 local tokenizer = {}
 local bad_patterns = {}
 
 local function push_token(t, type, text)
+  if not text or #text == 0 then return end
   type = type or "normal"
   local prev_type = t[#t-1]
   local prev_text = t[#t]
-  if prev_type and (prev_type == type or prev_text:ufind("^%s*$")) then
+  if prev_type and (prev_type == type or (prev_text:ufind("^%s*$") and type ~= "incomplete")) then
     t[#t-1] = type
     t[#t] = prev_text .. text
   else
@@ -26,11 +28,8 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
     -- Each position spans characters from i_n to ((i_n+1) - 1), to form
     -- consecutive spans of text.
     --
-    -- If i_1 is not equal to start, start is automatically inserted at
-    -- that index.
-    if find_results[3] ~= find_results[1] then
-      table.insert(find_results, 3, find_results[1])
-    end
+    -- Insert the start index at i_1 to make iterating easier
+    table.insert(find_results, 3, find_results[1])
     -- Copy the ending index to the end of the table, so that an ending index
     -- always follows a starting index after position 3 in the table.
     table.insert(find_results, find_results[2] + 1)
@@ -40,8 +39,10 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
       local fin = find_results[i + 1] - 1
       local type = pattern.type[i - 2]
         -- ↑ (i - 2) to convert from [3; n] to [1; n]
-      local text = full_text:usub(start, fin)
-      push_token(t, syn.symbols[text] or type, text)
+      if fin >= start then
+        local text = full_text:usub(start, fin)
+        push_token(t, syn.symbols[text] or type, text)
+      end
     end
   else
     local start, fin = find_results[1], find_results[2]
@@ -128,8 +129,8 @@ end
 ---@param incoming_syntax table
 ---@param text string
 ---@param state string
-function tokenizer.tokenize(incoming_syntax, text, state)
-  local res = {}
+function tokenizer.tokenize(incoming_syntax, text, state, resume)
+  local res
   local i = 1
 
   if #incoming_syntax.patterns == 0 then
@@ -137,6 +138,20 @@ function tokenizer.tokenize(incoming_syntax, text, state)
   end
 
   state = state or string.char(0)
+
+  if resume then
+    res = resume.res
+    -- Remove "incomplete" tokens
+    while res[#res-1] == "incomplete" do
+      table.remove(res, #res)
+      table.remove(res, #res)
+    end
+    i = resume.i
+    state = resume.state
+  end
+
+  res = res or {}
+
   -- incoming_syntax    : the parent syntax of the file.
   -- state              : a string of bytes representing syntax state (see above)
 
@@ -224,6 +239,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         res[1] = char_pos_1
         res[2] = char_pos_2
       end
+      if not res[1] then return end
       if res[1] and target[3] then
         -- Check to see if the escaped character is there,
         -- and if it is not itself escaped.
@@ -235,21 +251,39 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         if count % 2 == 0 then
           -- The match is not escaped, so confirm it
           break
-        elseif not close then
-          -- The *open* match is escaped, so avoid it
-          return
+        else
+          -- The match is escaped, so avoid it
+          res[1] = false
         end
       end
-    until not res[1] or not close or not target[3]
+    until at_start or not close or not target[3]
     return table.unpack(res)
   end
 
   local text_len = text:ulen()
+  local start_time = system.get_time()
+  local starting_i = i
   while i <= text_len do
+    -- Every 200 chars, check if we're out of time
+    if i - starting_i > 200 then
+      starting_i = i
+      if system.get_time() - start_time > 0.5 / config.fps then
+        -- We're out of time
+        push_token(res, "incomplete", string.usub(text, i))
+        return res, string.char(0), {
+          res = res,
+          i = i,
+          state = state
+        }
+      end
+    end
     -- continue trying to match the end pattern of a pair if we have a state set
     if current_pattern_idx > 0 then
       local p = current_syntax.patterns[current_pattern_idx]
       local s, e = find_text(text, p, i, false, true)
+      -- Use the first token type specified in the type table for the "middle"
+      -- part of the subsyntax.
+      local token_type = type(p.type) == "table" and p.type[1] or p.type
 
       local cont = true
       -- If we're in subsyntax mode, always check to see if we end our syntax
@@ -262,7 +296,7 @@ function tokenizer.tokenize(incoming_syntax, text, state)
         -- treat the bit after as a token to be normally parsed
         -- (as it's the syntax delimiter).
         if ss and (s == nil or ss < s) then
-          push_token(res, p.type, text:usub(i, ss - 1))
+          push_token(res, token_type, text:usub(i, ss - 1))
           i = ss
           cont = false
         end
@@ -271,11 +305,11 @@ function tokenizer.tokenize(incoming_syntax, text, state)
       -- continue on as normal.
       if cont then
         if s then
-          push_token(res, p.type, text:usub(i, e))
+          push_token(res, token_type, text:usub(i, e))
           set_subsyntax_pattern_idx(0)
           i = e + 1
         else
-          push_token(res, p.type, text:usub(i))
+          push_token(res, token_type, text:usub(i))
           break
         end
       end
@@ -284,9 +318,10 @@ function tokenizer.tokenize(incoming_syntax, text, state)
     -- we're ending early in the middle of a delimiter, or
     -- just normally, upon finding a token.
     while subsyntax_info do
-      local s, e = find_text(text, subsyntax_info, i, true, true)
+      local find_results = { find_text(text, subsyntax_info, i, true, true) }
+      local s, e = find_results[1], find_results[2]
       if s then
-        push_token(res, subsyntax_info.type, text:usub(i, e))
+        push_tokens(res, current_syntax, subsyntax_info, text, find_results)
         -- On finding unescaped delimiter, pop it.
         pop_subsyntax()
         i = e + 1

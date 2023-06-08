@@ -30,9 +30,9 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)-portable" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Python Setup
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Update Packages
@@ -47,18 +47,21 @@ jobs:
         if: ${{ matrix.config.cc == 'gcc' }}
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: ${{ matrix.config.cc == 'gcc' }}
         with:
           name: Linux Artifacts
           path: ${{ env.INSTALL_NAME }}.tar.gz
 
   build_macos:
-    name: macOS (x86_64)
+    name: macOS
     runs-on: macos-11
     env:
       CC: clang
       CXX: clang++
+    strategy:
+      matrix:
+        arch: ['x86_64', 'arm64']
     steps:
       - name: System Information
         run: |
@@ -70,24 +73,60 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-$(uname -m)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v2
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
+          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
+      - uses: actions/checkout@v3
       - name: Python Setup
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh --debug
+             # --lhelper will eliminate a warning with arm64 and libusb
+        run: bash scripts/install-dependencies.sh --debug --lhelper
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback
+          bash scripts/build.sh --bundle --debug --forcefallback $ARCH
       - name: Create DMG Image
-        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg
+        run: bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg
       - name: Upload DMG Image
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
-          name: macOS DMG Image
+          name: macOS DMG Images
+          path: ${{ env.INSTALL_NAME }}.dmg
+
+  build_macos_universal:
+    name: macOS (Universal)
+    runs-on: macos-11
+    needs: build_macos
+    steps:
+      - name: System Information
+        run: |
+          system_profiler SPSoftwareDataType
+          bash --version
+          gcc -v
+          xcodebuild -version
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-universal" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v3
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        id: download
+        with:
+          name: macOS DMG Images
+          path: dmgs-original
+      - name: Install appdmg
+        run: cd ~; npm i appdmg; cd -
+      - name: Make universal bundles
+        run: |
+          bash --version
+          bash scripts/make-universal-binaries.sh ${{ steps.download.outputs.download-path }} "${INSTALL_NAME}"
+      - name: Upload DMG Image
+        uses: actions/upload-artifact@v3
+        with:
+          name: macOS Universal DMG Images
           path: ${{ env.INSTALL_NAME }}.dmg
 
   build_windows_msys2:
@@ -95,20 +134,26 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        msystem: [MINGW32, MINGW64]
+        config:
+          - {msystem: MINGW32, arch: i686}
+          - {msystem: MINGW64, arch: x86_64}
     defaults:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: msys2/setup-msys2@v2
       with:
-        msystem: ${{ matrix.msystem }}
-        update: true
+        msystem: ${{ matrix.config.msystem }}
         install: >-
           base-devel
           git
           zip
+          mingw-w64-${{ matrix.config.arch }}-gcc
+          mingw-w64-${{ matrix.config.arch }}-meson
+          mingw-w64-${{ matrix.config.arch }}-ninja
+          mingw-w64-${{ matrix.config.arch }}-ca-certificates
+          mingw-w64-${{ matrix.config.arch }}-ntldd
     - name: Set Environment Variables
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -119,6 +164,7 @@ jobs:
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
         fi
     - name: Install Dependencies
+      if: false
       run: bash scripts/install-dependencies.sh --debug
     - name: Build
       run: |
@@ -127,7 +173,7 @@ jobs:
     - name: Package
       run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Windows Artifacts
         path: ${{ env.INSTALL_NAME }}.zip
@@ -137,34 +183,40 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        arch: [amd64, amd64_x86]
+        arch:
+          - { target: x86, name: i686 }
+          - { target: x64, name: x86_64 }
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.arch }}
-      - uses: actions/setup-python@v1
+          arch: ${{ matrix.arch.target }}
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
       - name: Install meson and ninja
         run: pip install meson ninja
       - name: Set up environment variables
         run: |
-          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch }}" >> $env:GITHUB_ENV
+          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
       - name: Configure
         run: |
-          meson setup --wrap-mode=forcefallback build
+          # Download the subprojects first so we can patch it before configuring.
+          # This avoids reconfiguring the subprojects when compiling.
+          meson subprojects download
           Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
+          meson setup --wrap-mode=forcefallback build
       - name: Build
-        run: meson install -C build --destdir="../lite-xl"
+        run: |
+          meson install -C build --destdir="../lite-xl"
       - name: Package
         run: |
           Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
           Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Windows Artifacts (MSVC)
           path: ${{ env.INSTALL_NAME }}.zip

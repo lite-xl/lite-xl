@@ -427,19 +427,51 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   local before = self.lines[line1]:sub(1, col1 - 1)
   local after = self.lines[line2]:sub(col2)
 
-  -- splice line into line array
-  common.splice(self.lines, line1, line2 - line1 + 1, { before .. after })
+  local line_removal = line2 - line1
+  local col_removal = col2 - col1
 
-  -- move all cursors back if they share a line with the removed text
+  -- splice line into line array
+  common.splice(self.lines, line1, line_removal + 1, { before .. after })
+
+  local merge = false
+
+  -- keep selections in correct positions: each pair (line, col)
+  -- * remains unchanged if before the deleted text
+  -- * is set to (line1, col1) if in the deleted text
+  -- * is set to (line1, col - col_removal) if on line2 but out of the deleted text
+  -- * is set to (line - line_removal, col) if after line2
   for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
-    if cline1 < line2 then break end
-    local line_removal = line2 - line1
-    local column_removal = line2 == cline2 and col2 < ccol1 and (line2 == line1 and col2 - col1 or col2) or 0
-    self:set_selections(idx, cline1 - line_removal, ccol1 - column_removal, cline2 - line_removal, ccol2 - column_removal)
+    if cline2 < line1 then break end
+    local l1, c1, l2, c2 = cline1, ccol1, cline2, ccol2
+
+    if cline1 > line1 or (cline1 == line1 and ccol1 > col1) then
+      if cline1 > line2 then
+        l1 = l1 - line_removal
+      else
+        l1 = line1
+        c1 = (cline1 == line2 and ccol1 > col2) and c1 - col_removal or col1
+      end
+    end
+
+    if cline2 > line1 or (cline2 == line1 and ccol2 > col1) then
+      if cline2 > line2 then
+        l2 = l2 - line_removal
+      else
+        l2 = line1
+        c2 = (cline2 == line2 and ccol2 > col2) and c2 - col_removal or col1
+      end
+    end
+
+    if l1 == line1 and c1 == col1 then merge = true end
+    self:set_selections(idx, l1, c1, l2, c2)
+  end
+
+  if merge then
+    self:merge_cursors()
   end
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:remove_notify(line1, line2 - line1)
+  self.highlighter:remove_notify(line1, line_removal)
   self:sanitize_selection()
 end
 

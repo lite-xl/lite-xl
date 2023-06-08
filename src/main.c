@@ -32,8 +32,18 @@ static double get_scale(void) {
 
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
-  int len = GetModuleFileName(NULL, buf, sz - 1);
-  buf[len] = '\0';
+  int len;
+  wchar_t *buf_w = malloc(sizeof(wchar_t) * sz);
+  if (buf_w) {
+    len = GetModuleFileNameW(NULL, buf_w, sz - 1);
+    buf_w[len] = L'\0';
+    // if the conversion failed we'll empty the string
+    if (!WideCharToMultiByte(CP_UTF8, 0, buf_w, -1, buf, sz, NULL, NULL))
+      buf[0] = '\0';
+    free(buf_w);
+  } else {
+    buf[0] = '\0';
+  }
 #elif __linux__
   char path[] = "/proc/self/exe";
   ssize_t len = readlink(path, buf, sz - 1);
@@ -120,11 +130,7 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 
 int main(int argc, char **argv) {
-#ifdef _WIN32
-  HINSTANCE lib = LoadLibrary("user32.dll");
-  int (*SetProcessDPIAware)() = (void*) GetProcAddress(lib, "SetProcessDPIAware");
-  SetProcessDPIAware();
-#else
+#ifndef _WIN32
   signal(SIGPIPE, SIG_IGN);
 #endif
 
@@ -216,34 +222,42 @@ init_lua:
     set_macos_bundle_resources(L);
   #endif
 #endif
+  SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
+  SDL_EventState(SDL_TEXTEDITING, SDL_ENABLE);
 
   const char *init_lite_code = \
     "local core\n"
+    "local os_exit = os.exit\n"
+    "os.exit = function(code, close)\n"
+    "  os_exit(code, close == nil and true or close)\n"
+    "end\n"
     "xpcall(function()\n"
+    "  local match = require('utf8extra').match\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
-    "  local exedir = EXEFILE:match('^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
-    "  local prefix = exedir:match('^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
+    "  local exedir = match(EXEFILE, '^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
+    "  local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
     "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
     "  core.run()\n"
     "end, function(err)\n"
-    "  local error_dir\n"
+    "  local error_path = 'error.txt'\n"
     "  io.stdout:write('Error: '..tostring(err)..'\\n')\n"
-    "  io.stdout:write(debug.traceback(nil, 4)..'\\n')\n"
+    "  io.stdout:write(debug.traceback(nil, 2)..'\\n')\n"
     "  if core and core.on_error then\n"
-    "    error_dir=USERDIR\n"
+    "    error_path = USERDIR .. PATHSEP .. error_path\n"
     "    pcall(core.on_error, err)\n"
     "  else\n"
-    "    error_dir=system.absolute_path('.')\n"
-    "    local fp = io.open('error.txt', 'wb')\n"
+    "    local fp = io.open(error_path, 'wb')\n"
     "    fp:write('Error: ' .. tostring(err) .. '\\n')\n"
-    "    fp:write(debug.traceback(nil, 4)..'\\n')\n"
+    "    fp:write(debug.traceback(nil, 2)..'\\n')\n"
     "    fp:close()\n"
+    "    error_path = system.absolute_path(error_path)\n"
     "  end\n"
     "  system.show_fatal_error('Lite XL internal error',\n"
     "    'An internal error occurred in a critical part of the application.\\n\\n'..\n"
-    "    'Please verify the file \\\"error.txt\\\" in the directory '..error_dir)\n"
+    "    'Error: '..tostring(err)..'\\n\\n'..\n"
+    "    'Details can be found in \\\"'..error_path..'\\\"')\n"
     "  os.exit(1)\n"
     "end)\n"
     "return core and core.restart_request\n";
@@ -259,8 +273,10 @@ init_lua:
     goto init_lua;
   }
 
+  // This allows the window to be destroyed before lite-xl is done with
+  // reaping child processes
+  ren_free_window_resources(&window_renderer);
   lua_close(L);
-  ren_free_window_resources();
 
   return EXIT_SUCCESS;
 }
