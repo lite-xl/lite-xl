@@ -35,6 +35,23 @@ local modkey_map = modkeys_os.map
 local modkeys = modkeys_os.keys
 
 
+---Normalizes a stroke sequence to follow the modkeys table
+---@param stroke string
+---@return string
+local function normalize_stroke(stroke)
+  local stroke_table = {}
+  for modkey in stroke:gmatch("(%w+)%+") do
+    table.insert(stroke_table, modkey)
+  end
+  if not next(stroke_table) then
+    return stroke
+  end
+  table.sort(stroke_table)
+  local new_stroke = table.concat(stroke_table, "+") .. "+"
+  return new_stroke .. stroke:sub(new_stroke:len() + 1)
+end
+
+
 ---Generates a stroke sequence including currently pressed mod keys.
 ---@param key string
 ---@return string
@@ -45,33 +62,8 @@ local function key_to_stroke(key)
       stroke = stroke .. mk .. "+"
     end
   end
-  return stroke .. key
+  return normalize_stroke(stroke) .. key
 end
-
-
----Normalizes a stroke sequence to follow the modkeys table
----@param stroke string
----@return string
-local function normalize_stroke(stroke)
-  local function find_modkey(modkey)
-    for i, o in ipairs(modkeys) do
-      if o == modkey then return i end
-    end
-  end
-  local stroke_table = {}
-  for modkey in stroke:gmatch("(%w+)%+") do
-    table.insert(stroke_table, modkey)
-  end
-  if not next(stroke_table) then 
-    return stroke
-  end
-  table.sort(stroke_table, function(a, b)
-    return find_modkey(a) < find_modkey(b)
-  end)
-  local new_stroke = table.concat(stroke_table, "+") .. "+"
-  return new_stroke .. stroke:sub(new_stroke:len() + 1)
-end
-
 
 ---Remove the given value from an array associated to a key in a table.
 ---@param tbl table<string, string> The table containing the key
@@ -98,6 +90,7 @@ end
 ---@param map keymap.map
 local function remove_duplicates(map)
   for stroke, commands in pairs(map) do
+    stroke = normalize_stroke(stroke)
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
@@ -179,7 +172,7 @@ end
 ---@param shortcut string
 ---@param cmd string
 function keymap.unbind(shortcut, cmd)
-  remove_only(keymap.map, shortcut, cmd)
+  remove_only(keymap.map, normalize_stroke(shortcut), cmd)
   remove_only(keymap.reverse_map, cmd, shortcut)
 end
 
