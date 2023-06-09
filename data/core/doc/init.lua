@@ -281,9 +281,13 @@ end
 -- End of cursor seciton.
 
 function Doc:sanitize_position(line, col)
-  line = common.clamp(line, 1, #self.lines)
-  col = common.clamp(col, 1, #self.lines[line])
-  return line, col
+  local nlines = #self.lines
+  if line > nlines then
+    return nlines, #self.lines[nlines]
+  elseif line < 1 then
+    return 1, 1
+  end
+  return line, common.clamp(col, 1, #self.lines[line])
 end
 
 
