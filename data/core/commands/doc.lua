@@ -359,7 +359,7 @@ local commands = {
   ["doc:select-lines"] = function(dv)
     for idx, line1, _, line2 in dv.doc:get_selections(true) do
       append_line_if_last_line(line2)
-      dv.doc:set_selections(idx, line1, 1, line2 + 1, 1)
+      dv.doc:set_selections(idx, line2 + 1, 1, line1, 1)
     end
   end,
 
