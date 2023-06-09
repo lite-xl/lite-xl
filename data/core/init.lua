@@ -1197,7 +1197,9 @@ function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
     local s = style.log[level]
-    core.status_view:show_message(s.icon, s.color, text)
+    if core.status_view then
+      core.status_view:show_message(s.icon, s.color, text)
+    end
   end
 
   local info = debug.getinfo(2, "Sl")
