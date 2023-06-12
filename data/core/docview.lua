@@ -458,7 +458,7 @@ end
 function DocView:draw_caret(x, y, line, col)
   local lh = self:get_line_height()
   if self.doc.overwrite then
-    local w = self:get_font():get_width(self.doc.get_char(line, col))
+    local w = self:get_font():get_width(self.doc:get_char(line, col))
     renderer.draw_rect(x, y + lh, w, style.caret_width * 2, style.caret)
   else
     renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
