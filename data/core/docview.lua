@@ -317,7 +317,7 @@ function DocView:mouse_selection(doc, snap_type, line1, col1, line2, col2)
     line1, col1 = translate.start_of_word(doc, line1, col1)
     line2, col2 = translate.end_of_word(doc, line2, col2)
   elseif snap_type == "lines" then
-    col1, col2 = 1, math.huge
+    col1, col2, line2 = 1, 1, line2 + 1
   end
   if swap then
     return line2, col2, line1, col1

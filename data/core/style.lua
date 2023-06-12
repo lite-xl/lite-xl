@@ -1,12 +1,22 @@
 local common = require "core.common"
 local style = {}
 
-style.padding = { x = common.round(14 * SCALE), y = common.round(7 * SCALE) }
 style.divider_size = common.round(1 * SCALE)
 style.scrollbar_size = common.round(4 * SCALE)
 style.expanded_scrollbar_size = common.round(12 * SCALE)
 style.caret_width = common.round(2 * SCALE)
 style.tab_width = common.round(170 * SCALE)
+
+style.padding = {
+  x = common.round(14 * SCALE),
+  y = common.round(7 * SCALE),
+}
+
+style.margin = {
+  tab = {
+    top = common.round(-style.divider_size * SCALE)
+  }
+}
 
 -- The function renderer.font.load can accept an option table as a second optional argument.
 -- It shoud be like the following:

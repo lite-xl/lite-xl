@@ -37,7 +37,11 @@ local function optimal_indent_from_stat(stat)
       elseif
         indent > stat[y]
         and
-        indent_occurrences_more_than_once(stat, y)
+        (
+          indent_occurrences_more_than_once(stat, y)
+          or
+          (y == count and stat[y] > 1)
+        )
       then
         score = 0
         break
@@ -118,10 +122,10 @@ local function get_comment_patterns(syntax, _loop)
         end
         if type(pattern.regex) == "table" then
           table.insert(comments, {
-            "r", regex.compile(startp), regex.compile(pattern.regex[2])
+            "r", regex.compile(startp), regex.compile(pattern.regex[2]), r=startp
           })
         elseif not_is_string then
-          table.insert(comments, {"r", regex.compile(startp)})
+          table.insert(comments, {"r", regex.compile(startp), r=startp})
         end
       end
     elseif pattern.syntax then
@@ -152,6 +156,25 @@ local function get_comment_patterns(syntax, _loop)
       table.insert(comments, {"p", "^%s*" .. block_comment[1], block_comment[2]})
     end
   end
+  -- Put comments first and strings last
+  table.sort(comments, function(c1, c2)
+    local comment1, comment2 = false, false
+    if
+      (c1[1] == "p" and string.find(c1[2], "^%s*", 1, true))
+      or
+      (c1[1] == "r" and string.find(c1["r"], "^\\s*", 1, true))
+    then
+      comment1 = true
+    end
+    if
+      (c2[1] == "p" and string.find(c2[2], "^%s*", 1, true))
+      or
+      (c2[1] == "r" and string.find(c2["r"], "^\\s*", 1, true))
+    then
+      comment2 = true
+    end
+    return comment1 and not comment2
+  end)
   comments_cache[syntax] = comments
   if #comments > 0 then
     return comments
