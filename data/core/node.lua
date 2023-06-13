@@ -18,7 +18,6 @@ function Node:new(type)
   if self.type == "leaf" then
     self:add_view(EmptyView())
   end
-  self.hovered = {x = -1, y = -1 }
   self.hovered_close = 0
   self.tab_shift = 0
   self.tab_offset = 1
@@ -33,9 +32,10 @@ function Node:propagate(fn, ...)
 end
 
 
+---@deprecated
 function Node:on_mouse_moved(x, y, ...)
+  core.deprecation_log("Node:on_mouse_moved")
   if self.type == "leaf" then
-    self.hovered.x, self.hovered.y = x, y
     self.active_view:on_mouse_moved(x, y, ...)
   else
     self:propagate("on_mouse_moved", x, y, ...)
@@ -43,7 +43,9 @@ function Node:on_mouse_moved(x, y, ...)
 end
 
 
+---@deprecated
 function Node:on_mouse_released(...)
+  core.deprecation_log("Node:on_mouse_released")
   if self.type == "leaf" then
     self.active_view:on_mouse_released(...)
   else
@@ -52,7 +54,9 @@ function Node:on_mouse_released(...)
 end
 
 
+---@deprecated
 function Node:on_mouse_left()
+  core.deprecation_log("Node:on_mouse_left")
   if self.type == "leaf" then
     self.active_view:on_mouse_left()
   else
@@ -60,13 +64,17 @@ function Node:on_mouse_left()
   end
 end
 
+
+---@deprecated
 function Node:on_touch_moved(...)
+  core.deprecation_log("Node:on_touch_moved")
   if self.type == "leaf" then
     self.active_view:on_touch_moved(...)
   else
     self:propagate("on_touch_moved", ...)
   end
 end
+
 
 function Node:consume(node)
   for k, _ in pairs(self) do self[k] = nil end
@@ -326,10 +334,17 @@ function Node:get_child_overlapping_point(x, y)
   return child:get_child_overlapping_point(x, y)
 end
 
+-- returns: total height, text padding, top margin
+local function get_tab_y_sizes()
+  local height = style.font:get_height()
+  local padding = style.padding.y
+  local margin = style.margin.tab.top
+  return height + (padding * 2) + margin, padding, margin
+end
 
 function Node:get_scroll_button_rect(index)
   local w, pad = get_scroll_button_width()
-  local h = style.font:get_height() + style.padding.y * 2
+  local h = get_tab_y_sizes()
   local x = self.position.x + (index == 1 and self.size.x - w * 2 or self.size.x - w)
   return x, self.position.y, w, h, pad
 end
@@ -340,8 +355,8 @@ function Node:get_tab_rect(idx)
   local x0 = self.position.x
   local x1 = x0 + common.clamp(self.tab_width * (idx - 1) - self.tab_shift, 0, maxw)
   local x2 = x0 + common.clamp(self.tab_width * idx - self.tab_shift, 0, maxw)
-  local h = style.font:get_height() + style.padding.y * 2
-  return x1, self.position.y, x2 - x1, h
+  local h, pad_y, margin_y = get_tab_y_sizes()
+  return x1, self.position.y, x2 - x1, h, margin_y
 end
 
 
@@ -489,7 +504,7 @@ function Node:update()
     for _, view in ipairs(self.views) do
       view:update()
     end
-    self:tab_hovered_update(self.hovered.x, self.hovered.y)
+    self:tab_hovered_update(core.root_view.mouse.x, core.root_view.mouse.y)
     local tab_width = self:target_tab_width()
     self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
     self:move_towards("tab_width", tab_width, nil, "tabs")
@@ -532,6 +547,7 @@ function Node:draw_tab_borders(view, is_active, is_hovered, x, y, w, h, standalo
   if is_active then
     color = style.text
     renderer.draw_rect(x, y, w, h, style.background)
+    renderer.draw_rect(x, y, w, ds, style.divider)
     renderer.draw_rect(x + w, y, ds, h, style.divider)
     renderer.draw_rect(x - ds, y, ds, h, style.divider)
   end
@@ -539,7 +555,8 @@ function Node:draw_tab_borders(view, is_active, is_hovered, x, y, w, h, standalo
 end
 
 function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h, standalone)
-  x, y, w, h = self:draw_tab_borders(view, is_active, is_hovered, x, y, w, h, standalone)
+  local _, padding_y, margin_y = get_tab_y_sizes()
+  x, y, w, h = self:draw_tab_borders(view, is_active, is_hovered, x, y + margin_y, w, h - margin_y, standalone)
   -- Close button
   local cx, cw, cpad = close_button_location(x, w)
   local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
@@ -760,7 +777,7 @@ function Node:get_drag_overlay_tab_position(x, y, dragged_node, dragged_index)
       tab_index = self:get_visible_tabs_number() + (self.tab_offset - 1 or 0)
     end
   end
-  local tab_x, tab_y, tab_w, tab_h = self:get_tab_rect(tab_index)
+  local tab_x, tab_y, tab_w, tab_h, margin_y = self:get_tab_rect(tab_index)
   if x > tab_x + tab_w / 2 and tab_index <= #self.views then
     -- use next tab
     tab_x = tab_x + tab_w
@@ -771,7 +788,7 @@ function Node:get_drag_overlay_tab_position(x, y, dragged_node, dragged_index)
     tab_index = tab_index - 1
     tab_x = tab_x - tab_w
   end
-  return tab_index, tab_x, tab_y, tab_w, tab_h
+  return tab_index, tab_x, tab_y + margin_y, tab_w, tab_h - margin_y
 end
 
 return Node

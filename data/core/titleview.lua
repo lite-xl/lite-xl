@@ -112,6 +112,12 @@ function TitleView:on_mouse_pressed(button, x, y, clicks)
 end
 
 
+function TitleView:on_mouse_left()
+  TitleView.super.on_mouse_left(self)
+  self.hovered_item = nil
+end
+
+
 function TitleView:on_mouse_moved(px, py, ...)
   if self.size.y == 0 then return end
   TitleView.super.on_mouse_moved(self, px, py, ...)

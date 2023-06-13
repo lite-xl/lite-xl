@@ -51,7 +51,7 @@ function TreeView:new()
   self.target_size = config.plugins.treeview.size
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
-  self.cursor_pos = { x = 0, y = 0 }
+  self.last_scroll_y = 0
 
   self.item_icon_width = 0
   self.item_text_spacing = 0
@@ -251,10 +251,9 @@ function TreeView:get_text_bounding_box(item, x, y, w, h)
 end
 
 
+
 function TreeView:on_mouse_moved(px, py, ...)
   if not self.visible then return end
-  self.cursor_pos.x = px
-  self.cursor_pos.y = py
   if TreeView.super.on_mouse_moved(self, px, py, ...) then
     -- mouse movement handled by the View (scrollbar)
     self.hovered_item = nil
@@ -281,6 +280,12 @@ function TreeView:on_mouse_moved(px, py, ...)
 end
 
 
+function TreeView:on_mouse_left()
+  TreeView.super.on_mouse_left(self)
+  self.hovered_item = nil
+end
+
+
 function TreeView:update()
   -- update width
   local dest = self.visible and self.target_size or 0
@@ -304,10 +309,10 @@ function TreeView:update()
   self.item_text_spacing = style.icon_font:get_width("f") / 2
 
   -- this will make sure hovered_item is updated
-  -- we don't want events when the thing is scrolling fast
-  local dy = math.abs(self.scroll.to.y - self.scroll.y)
-  if self.scroll.to.y ~= 0 and dy < self:get_item_height() then
-    self:on_mouse_moved(self.cursor_pos.x, self.cursor_pos.y, 0, 0)
+  local dy = math.abs(self.last_scroll_y - self.scroll.y)
+  if dy > 0 then
+    self:on_mouse_moved(core.root_view.mouse.x, core.root_view.mouse.y, 0, 0)
+    self.last_scroll_y = self.scroll.y
   end
 
   local config = config.plugins.treeview
@@ -751,7 +756,7 @@ command.add(
 
   ["treeview-context:show"] = function()
     if view.hovered_item then
-      menu:show(view.cursor_pos.x, view.cursor_pos.y)
+      menu:show(core.root_view.mouse.x, core.root_view.mouse.y)
       return
     end
 

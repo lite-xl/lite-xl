@@ -44,7 +44,12 @@ end
 
 function Doc:reset_syntax()
   local header = self:get_text(1, 1, self:position_offset(1, 1, 128))
-  local syn = syntax.get(self.filename or "", header)
+  local path = self.abs_filename
+  if not path and self.filename then
+    path = core.project_dir .. PATHSEP .. self.filename
+  end
+  if path then path = common.normalize_path(path) end
+  local syn = syntax.get(path or "", header)
   if self.syntax ~= syn then
     self.syntax = syn
     self.highlighter:soft_reset()
@@ -276,9 +281,13 @@ end
 -- End of cursor seciton.
 
 function Doc:sanitize_position(line, col)
-  line = common.clamp(line, 1, #self.lines)
-  col = common.clamp(col, 1, #self.lines[line])
-  return line, col
+  local nlines = #self.lines
+  if line > nlines then
+    return nlines, #self.lines[nlines]
+  elseif line < 1 then
+    return 1, 1
+  end
+  return line, common.clamp(col, 1, #self.lines[line])
 end
 
 
