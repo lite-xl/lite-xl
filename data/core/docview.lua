@@ -165,6 +165,10 @@ function DocView:get_visible_line_range()
   return minline, maxline
 end
 
+local function count_characters_since_last_tab(str)
+  local res = str:gsub(".*\t", "")
+  return #res
+end
 
 function DocView:get_col_x_offset(line, col)
   local default_font = self:get_font()
@@ -172,23 +176,30 @@ function DocView:get_col_x_offset(line, col)
   default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
+  local offset = 0
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
     local length = #text
     if column + length <= col then
-      xoffset = xoffset + font:get_width(text)
+      xoffset = xoffset + font:get_width(text, offset)
       column = column + length
       if column >= col then
         return xoffset
       end
+      offset = offset + count_characters_since_last_tab(text)
     else
       for char in common.utf8_chars(text) do
         if column >= col then
           return xoffset
         end
-        xoffset = xoffset + font:get_width(char)
+        xoffset = xoffset + font:get_width(char, offset)
         column = column + #char
+        if char == '\t' then
+          offset = 0
+        else
+          offset = offset + 1
+        end
       end
     end
   end
@@ -438,18 +449,21 @@ end
 function DocView:draw_line_text(line, x, y)
   local default_font = self:get_font()
   local tx, ty = x, y + self:get_line_text_y_offset()
+  local _, indent_size = self.doc:get_indent_info()
   local last_token = nil
   local tokens = self.doc.highlighter:get_line(line).tokens
   local tokens_count = #tokens
   if string.sub(tokens[tokens_count], -1) == "\n" then
     last_token = tokens_count - 1
   end
+  local offset = 0
   for tidx, type, text in self.doc.highlighter:each_token(line) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
     -- do not render newline, fixes issue #1164
     if tidx == last_token then text = text:sub(1, -2) end
-    tx = renderer.draw_text(font, text, tx, ty, color)
+    tx = renderer.draw_text(font, text, tx, ty, color, offset)
+    offset = offset + count_characters_since_last_tab(text)
     if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()
