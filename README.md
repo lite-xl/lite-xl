@@ -122,8 +122,8 @@ To uninstall just run:
 ```sh
 rm -f $HOME/.local/bin/lite-xl
 rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
-          $HOME/.local/share/applications/org.lite_xl.lite_xl.desktop \
-          $HOME/.local/share/metainfo/org.lite_xl.lite_xl.appdata.xml \
+          $HOME/.local/share/applications/com.lite_xl.LiteXL.desktop \
+          $HOME/.local/share/metainfo/com.lite_xl.LiteXL.appdata.xml \
           $HOME/.local/share/lite-xl
 ```
 

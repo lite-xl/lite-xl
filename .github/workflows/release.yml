@@ -50,6 +50,7 @@ jobs:
     name: Linux
     needs: release
     runs-on: ubuntu-latest
+    container: ghcr.io/takase1121/lite-xl-build-box:latest
     env:
       CC: gcc
       CXX: g++
@@ -59,16 +60,26 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
+
+      # disabled because this will break our own Python install
       - name: Python Setup
+        if: false
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
+
+      # disabled because the container has up-to-date packages
       - name: Update Packages
+        if: false
         run: sudo apt-get update
+
+      # disabled as the dependencies are already installed
       - name: Install Dependencies
+        if: false
         run: |
           bash scripts/install-dependencies.sh --debug
           sudo apt-get install -y ccache
+
       - name: Build Portable
         run: |
           bash --version

@@ -247,7 +247,7 @@ function StatusView:register_docview_items()
     alignment = StatusView.Item.LEFT,
     get_item = function()
       local dv = core.active_view
-      local nsel = #dv.doc.selections // 4
+      local nsel = math.floor(#dv.doc.selections / 4)
       if nsel > 1 then
         return { style.text, nsel, " selections" }
       end
@@ -986,6 +986,12 @@ function StatusView:on_mouse_pressed(button, x, y, clicks)
     end
   end
   return true
+end
+
+
+function StatusView:on_mouse_left()
+  StatusView.super.on_mouse_left(self)
+  self.hovered_item = {}
 end
 
 

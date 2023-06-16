@@ -25,11 +25,16 @@ local function set_scale(scale)
   scale = common.clamp(scale, 0.2, 6)
 
   -- save scroll positions
-  local scrolls = {}
+  local v_scrolls = {}
+  local h_scrolls = {}
   for _, view in ipairs(core.root_view.root_node:get_children()) do
     local n = view:get_scrollable_size()
-    if n ~= math.huge and not view:is(CommandView) and n > view.size.y then
-      scrolls[view] = view.scroll.y / (n - view.size.y)
+    if n ~= math.huge and n > view.size.y then
+      v_scrolls[view] = view.scroll.y / (n - view.size.y)
+    end
+    local hn = view:get_h_scrollable_size()
+    if hn ~= math.huge and hn > view.size.x then
+      h_scrolls[view] = view.scroll.x / (hn - view.size.x)
     end
   end
 
@@ -59,9 +64,13 @@ local function set_scale(scale)
   end
 
   -- restore scroll positions
-  for view, n in pairs(scrolls) do
+  for view, n in pairs(v_scrolls) do
     view.scroll.y = n * (view:get_scrollable_size() - view.size.y)
     view.scroll.to.y = view.scroll.y
+  end
+  for view, hn in pairs(h_scrolls) do
+    view.scroll.x = hn * (view:get_h_scrollable_size() - view.size.x)
+    view.scroll.to.x = view.scroll.x
   end
 
   core.redraw = true

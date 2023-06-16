@@ -48,7 +48,7 @@ end
 
 function ToolbarView:get_icon_width()
   local max_width = 0
-  for i,v in ipairs(self.toolbar_commands) do max_width = math.max(max_width, self.toolbar_font:get_width(v.symbol)) end
+  for i,v in ipairs(self.toolbar_commands) do max_width = math.max(max_width, (v.font or self.toolbar_font):get_width(v.symbol)) end
   return max_width
 end
 
@@ -83,7 +83,7 @@ function ToolbarView:draw()
 
   for item, x, y, w, h in self:each_item() do
     local color = item == self.hovered_item and command.is_valid(item.command) and style.text or style.dim
-    common.draw_text(self.toolbar_font, color, item.symbol, nil, x, y, 0, h)
+    common.draw_text(item.font or self.toolbar_font, color, item.symbol, nil, x, y, 0, h)
   end
 end
 
@@ -97,6 +97,16 @@ function ToolbarView:on_mouse_pressed(button, x, y, clicks)
     command.perform(self.hovered_item.command)
   end
   return true
+end
+
+
+function ToolbarView:on_mouse_left()
+  ToolbarView.super.on_mouse_left(self)
+  if self.tooltip then
+    core.status_view:remove_tooltip()
+    self.tooltip = false
+  end
+  self.hovered_item = nil
 end
 
 

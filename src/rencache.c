@@ -139,7 +139,7 @@ static void* push_command(RenWindow *window_renderer, enum CommandType type, int
   int n = window_renderer->command_buf_idx + size;
   while (n > window_renderer->command_buf_size) {
     if (!expand_command_buffer(window_renderer)) {
-      fprintf(stderr, "Warning: (" __FILE__ "): unable to resize command buffer (%ld)\n",
+      fprintf(stderr, "Warning: (" __FILE__ "): unable to resize command buffer (%zu)\n",
               (size_t)(window_renderer->command_buf_size * CMD_BUF_RESIZE_RATE));
       resize_issue = true;
       return NULL;
