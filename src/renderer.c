@@ -506,13 +506,11 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 
 /*************** Window Management ****************/
 void ren_free_window_resources(RenWindow *window_renderer) {
-  extern uint8_t *command_buf;
-  extern size_t command_buf_size;
   renwin_free(window_renderer);
   SDL_FreeSurface(draw_rect_surface);
-  free(command_buf);
-  command_buf = NULL;
-  command_buf_size = 0;
+  free(window_renderer->command_buf);
+  window_renderer->command_buf = NULL;
+  window_renderer->command_buf_size = 0;
 }
 
 // TODO remove global and return RenWindow*
@@ -525,6 +523,7 @@ void ren_init(SDL_Window *win) {
   }
   window_renderer.window = win;
   renwin_init_surface(&window_renderer);
+  renwin_init_command_buf(&window_renderer);
   renwin_clip_to_surface(&window_renderer);
   draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
                        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);

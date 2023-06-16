@@ -311,7 +311,7 @@ static int f_set_clip_rect(lua_State *L) {
   lua_Number w = luaL_checknumber(L, 3);
   lua_Number h = luaL_checknumber(L, 4);
   RenRect rect = rect_to_grid(x, y, w, h);
-  rencache_set_clip_rect(rect);
+  rencache_set_clip_rect(&window_renderer, rect);
   return 0;
 }
 
@@ -323,7 +323,7 @@ static int f_draw_rect(lua_State *L) {
   lua_Number h = luaL_checknumber(L, 4);
   RenRect rect = rect_to_grid(x, y, w, h);
   RenColor color = checkcolor(L, 5, 255);
-  rencache_draw_rect(rect, color);
+  rencache_draw_rect(&window_renderer, rect, color);
   return 0;
 }
 

@@ -3,6 +3,9 @@
 
 struct RenWindow {
   SDL_Window *window;
+  uint8_t *command_buf;
+  size_t command_buf_idx;
+  size_t command_buf_size;
 #ifdef LITE_USE_SDL_RENDERER
   SDL_Renderer *renderer;
   SDL_Texture *texture;
@@ -12,6 +15,7 @@ struct RenWindow {
 typedef struct RenWindow RenWindow;
 
 void renwin_init_surface(RenWindow *ren);
+void renwin_init_command_buf(RenWindow *ren);
 void renwin_clip_to_surface(RenWindow *ren);
 void renwin_set_clip_rect(RenWindow *ren, RenRect rect);
 void renwin_resize_surface(RenWindow *ren);
