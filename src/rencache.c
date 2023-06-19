@@ -65,10 +65,7 @@ static unsigned cells_buf2[CELLS_X * CELLS_Y];
 static unsigned *cells_prev = cells_buf1;
 static unsigned *cells = cells_buf2;
 static RenRect rect_buf[CELLS_X * CELLS_Y / 2];
-size_t command_buf_size = 0;
-uint8_t *command_buf = NULL;
 static bool resize_issue;
-static int command_buf_idx;
 static RenRect screen_rect;
 static RenRect last_clip_rect;
 static bool show_debug;
@@ -116,21 +113,21 @@ static RenRect merge_rects(RenRect a, RenRect b) {
   return (RenRect) { x1, y1, x2 - x1, y2 - y1 };
 }
 
-static bool expand_command_buffer() {
-  size_t new_size = command_buf_size * CMD_BUF_RESIZE_RATE;
+static bool expand_command_buffer(RenWindow *window_renderer) {
+  size_t new_size = window_renderer->command_buf_size * CMD_BUF_RESIZE_RATE;
   if (new_size == 0) {
     new_size = CMD_BUF_INIT_SIZE;
   }
-  uint8_t *new_command_buf = realloc(command_buf, new_size);
+  uint8_t *new_command_buf = realloc(window_renderer->command_buf, new_size);
   if (!new_command_buf) {
     return false;
   }
-  command_buf_size = new_size;
-  command_buf = new_command_buf;
+  window_renderer->command_buf_size = new_size;
+  window_renderer->command_buf = new_command_buf;
   return true;
 }
 
-static void* push_command(enum CommandType type, int size) {
+static void* push_command(RenWindow *window_renderer, enum CommandType type, int size) {
   if (resize_issue) {
     // Don't push new commands as we had problems resizing the command buffer.
     // Let's wait for the next frame.
@@ -139,17 +136,17 @@ static void* push_command(enum CommandType type, int size) {
   size_t alignment = alignof(max_align_t) - 1;
   size += COMMAND_BARE_SIZE;
   size = (size + alignment) & ~alignment;
-  int n = command_buf_idx + size;
-  while (n > command_buf_size) {
-    if (!expand_command_buffer()) {
+  int n = window_renderer->command_buf_idx + size;
+  while (n > window_renderer->command_buf_size) {
+    if (!expand_command_buffer(window_renderer)) {
       fprintf(stderr, "Warning: (" __FILE__ "): unable to resize command buffer (%zu)\n",
-              (size_t)(command_buf_size * CMD_BUF_RESIZE_RATE));
+              (size_t)(window_renderer->command_buf_size * CMD_BUF_RESIZE_RATE));
       resize_issue = true;
       return NULL;
     }
   }
-  Command *cmd = (Command*) (command_buf + command_buf_idx);
-  command_buf_idx = n;
+  Command *cmd = (Command*) (window_renderer->command_buf + window_renderer->command_buf_idx);
+  window_renderer->command_buf_idx = n;
   memset(cmd, 0, size);
   cmd->type = type;
   cmd->size = size;
@@ -157,13 +154,13 @@ static void* push_command(enum CommandType type, int size) {
 }
 
 
-static bool next_command(Command **prev) {
+static bool next_command(RenWindow *window_renderer, Command **prev) {
   if (*prev == NULL) {
-    *prev = (Command*) command_buf;
+    *prev = (Command*) window_renderer->command_buf;
   } else {
     *prev = (Command*) (((char*) *prev) + (*prev)->size);
   }
-  return *prev != ((Command*) (command_buf + command_buf_idx));
+  return *prev != ((Command*) (window_renderer->command_buf + window_renderer->command_buf_idx));
 }
 
 
@@ -172,8 +169,8 @@ void rencache_show_debug(bool enable) {
 }
 
 
-void rencache_set_clip_rect(RenRect rect) {
-  SetClipCommand *cmd = push_command(SET_CLIP, sizeof(SetClipCommand));
+void rencache_set_clip_rect(RenWindow *window_renderer, RenRect rect) {
+  SetClipCommand *cmd = push_command(window_renderer, SET_CLIP, sizeof(SetClipCommand));
   if (cmd) {
     cmd->rect = intersect_rects(rect, screen_rect);
     last_clip_rect = cmd->rect;
@@ -181,11 +178,11 @@ void rencache_set_clip_rect(RenRect rect) {
 }
 
 
-void rencache_draw_rect(RenRect rect, RenColor color) {
+void rencache_draw_rect(RenWindow *window_renderer, RenRect rect, RenColor color) {
   if (rect.width == 0 || rect.height == 0 || !rects_overlap(last_clip_rect, rect)) {
     return;
   }
-  DrawRectCommand *cmd = push_command(DRAW_RECT, sizeof(DrawRectCommand));
+  DrawRectCommand *cmd = push_command(window_renderer, DRAW_RECT, sizeof(DrawRectCommand));
   if (cmd) {
     cmd->rect = rect;
     cmd->color = color;
@@ -198,7 +195,7 @@ double rencache_draw_text(RenWindow *window_renderer, RenFont **fonts, const cha
   RenRect rect = { x, y, (int)width, ren_font_group_get_height(fonts) };
   if (rects_overlap(last_clip_rect, rect)) {
     int sz = len + 1;
-    DrawTextCommand *cmd = push_command(DRAW_TEXT, sizeof(DrawTextCommand) + sz);
+    DrawTextCommand *cmd = push_command(window_renderer, DRAW_TEXT, sizeof(DrawTextCommand) + sz);
     if (cmd) {
       memcpy(cmd->text, text, sz);
       cmd->color = color;
@@ -265,7 +262,7 @@ void rencache_end_frame(RenWindow *window_renderer) {
   /* update cells from commands */
   Command *cmd = NULL;
   RenRect cr = screen_rect;
-  while (next_command(&cmd)) {
+  while (next_command(window_renderer, &cmd)) {
     /* cmd->command[0] should always be the Command rect */
     if (cmd->type == SET_CLIP) { cr = cmd->command[0]; }
     RenRect r = intersect_rects(cmd->command[0], cr);
@@ -308,7 +305,7 @@ void rencache_end_frame(RenWindow *window_renderer) {
     ren_set_clip_rect(window_renderer, r);
 
     cmd = NULL;
-    while (next_command(&cmd)) {
+    while (next_command(window_renderer, &cmd)) {
       SetClipCommand *ccmd = (SetClipCommand*)&cmd->command;
       DrawRectCommand *rcmd = (DrawRectCommand*)&cmd->command;
       DrawTextCommand *tcmd = (DrawTextCommand*)&cmd->command;
@@ -341,6 +338,6 @@ void rencache_end_frame(RenWindow *window_renderer) {
   unsigned *tmp = cells;
   cells = cells_prev;
   cells_prev = tmp;
-  command_buf_idx = 0;
+  window_renderer->command_buf_idx = 0;
 }
 
