@@ -228,7 +228,7 @@ function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse
   for _, f in ipairs(files) do
     table.insert(t, f)
   end
-
+  table.sort(t, compare_file)
   return t, recurse_complete, entries_count
 end
 
