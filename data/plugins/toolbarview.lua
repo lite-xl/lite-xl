@@ -131,6 +131,8 @@ function ToolbarView:on_mouse_moved(px, py, ...)
   end
 end
 
+function ToolbarView:__tostring() return "ToolbarView" end
+
 -- The toolbarview pane is not plugged here but it is added in the
 -- treeview plugin.
 

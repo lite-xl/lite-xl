@@ -152,6 +152,8 @@ function StatusViewItem:set_predicate(predicate)
   self.predicate = command.generate_predicate(predicate)
 end
 
+function StatusViewItem:__tostring() return "StatusViewItem" end
+
 ---@type core.statusview.item
 StatusView.Item = StatusViewItem
 
@@ -1189,5 +1191,7 @@ function StatusView:draw()
     end
   end
 end
+
+function StatusView:__tostring() return "StatusView" end
 
 return StatusView

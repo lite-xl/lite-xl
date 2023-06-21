@@ -338,5 +338,6 @@ function Scrollbar:draw()
   self:draw_thumb()
 end
 
+function Scrollbar:__tostring() return "Scrollbar" end
 
 return Scrollbar

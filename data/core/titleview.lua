@@ -140,4 +140,6 @@ function TitleView:draw()
   self:draw_window_controls()
 end
 
+function TitleView:__tostring() return "TitleView" end
+
 return TitleView

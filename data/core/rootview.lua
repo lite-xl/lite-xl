@@ -565,5 +565,6 @@ function RootView:draw()
   end
 end
 
+function RootView:__tostring() return "RootView" end
 
 return RootView

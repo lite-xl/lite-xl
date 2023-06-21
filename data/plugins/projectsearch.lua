@@ -218,6 +218,7 @@ function ResultsView:draw()
   self:draw_scrollbar()
 end
 
+function ResultsView:__tostring() return "ResultsView" end
 
 ---@param path string
 ---@param text string

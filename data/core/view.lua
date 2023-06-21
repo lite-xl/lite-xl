@@ -328,5 +328,6 @@ end
 function View:draw()
 end
 
+function View:__tostring() return "View" end
 
 return View

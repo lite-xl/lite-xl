@@ -33,7 +33,6 @@ local function get_item_height(item)
   return h
 end
 
-
 local LogView = View:extend()
 
 LogView.context = "session"
@@ -212,5 +211,6 @@ function LogView:draw()
   LogView.super.draw_scrollbar(self)
 end
 
+function LogView:__tostring() return "LogView" end
 
 return LogView

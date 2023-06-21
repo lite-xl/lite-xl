@@ -14,6 +14,8 @@ function SingleLineDoc:insert(line, col, text)
   SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
 end
 
+function SingleLineDoc:__tostring() return "SingleLineDoc" end
+
 ---@class core.commandview : core.docview
 ---@field super core.docview
 local CommandView = DocView:extend()
@@ -375,5 +377,6 @@ function CommandView:draw()
   end
 end
 
+function CommandView:__tostring() return "CommandView" end
 
 return CommandView

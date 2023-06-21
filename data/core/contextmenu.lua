@@ -235,4 +235,6 @@ function ContextMenu:draw_context_menu()
   end
 end
 
+function ContextMenu:__tostring() return "ContextMenu" end
+
 return ContextMenu

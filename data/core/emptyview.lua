@@ -49,4 +49,6 @@ function EmptyView:draw()
   draw_text(x, y, style.dim)
 end
 
+function EmptyView:__tostring() return "EmptyView" end
+
 return EmptyView

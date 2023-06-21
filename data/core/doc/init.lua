@@ -669,5 +669,6 @@ function Doc:on_close()
   core.log_quiet("Closed doc \"%s\"", self:get_name())
 end
 
+function Doc:__tostring() return "Doc" end
 
 return Doc

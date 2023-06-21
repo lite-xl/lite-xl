@@ -791,4 +791,6 @@ function Node:get_drag_overlay_tab_position(x, y, dragged_node, dragged_index)
   return tab_index, tab_x, tab_y + margin_y, tab_w, tab_h - margin_y
 end
 
+function Node:__tostring() return "Node" end
+
 return Node

@@ -590,5 +590,6 @@ function DocView:draw()
   self:draw_scrollbar()
 end
 
+function DocView:__tostring() return "DocView" end
 
 return DocView

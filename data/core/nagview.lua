@@ -300,4 +300,6 @@ function NagView:show(title, message, options, on_select)
   self:next()
 end
 
+function NagView:__tostring() return "NagView" end
+
 return NagView

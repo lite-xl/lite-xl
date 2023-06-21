@@ -126,5 +126,6 @@ function Highlighter:each_token(idx)
   return tokenizer.each_token(self:get_line(idx).tokens)
 end
 
+function Highlighter:__tostring() return "Highlighter" end
 
 return Highlighter

@@ -528,6 +528,7 @@ function TreeView:open_doc(filename)
   core.root_view:open_doc(core.open_doc(filename))
 end
 
+function TreeView:__tostring() return "TreeView" end
 
 -- init
 local view = TreeView()
