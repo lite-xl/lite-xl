@@ -145,13 +145,13 @@ static FT_Error font_load_glyph_metric(RenFont* font,
 
   if ((err = FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)))
     return err;
-  
+
   if (font->face->glyph->format == FT_GLYPH_FORMAT_OUTLINE)
     font_set_style(&font->face->glyph->outline, bitmap_index * (64 / SUBPIXEL_BITMAPS_CACHED), font->style);
-  
+
   if ((err = FT_Render_Glyph(font->face->glyph, render_option)))
     return err;
-  
+
   slot = font->face->glyph;
   glyph_width = slot->bitmap.width;
   if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
@@ -173,13 +173,13 @@ static FT_Error font_load_glyph_metric(RenFont* font,
   // use the unhinted xadvance instead of calculating it from lsb_delta and rsb_delta
   if ((err = FT_Load_Glyph(font->face, glyph_index, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)))
     return err;
-  
+
   if (font->face->glyph->format == FT_GLYPH_FORMAT_OUTLINE)
     font_set_style(&font->face->glyph->outline, bitmap_index * (64 / SUBPIXEL_BITMAPS_CACHED), font->style);
-  
+
   if ((err = FT_Render_Glyph(font->face->glyph, render_option)))
     return err;
-  
+
   metric->xadvance = slot->advance.x / 64.0f;
 
   return err;
@@ -198,10 +198,10 @@ static FT_Error font_render_glyph(RenFont* font,
 
   if ((err = FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)))
     return err;
-  
+
   if (font->face->glyph->format == FT_GLYPH_FORMAT_OUTLINE)
     font_set_style(&font->face->glyph->outline, bitmap_index * (64 / SUBPIXEL_BITMAPS_CACHED), font->style);
-  
+
   if ((err = FT_Render_Glyph(font->face->glyph, render_option)))
     return err;
 
@@ -241,7 +241,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       set->metrics[i].x0 = pen_x;
       if (font_load_glyph_metric(font, glyph_index, load_option, render_option, j, &set->metrics[i]))
         continue;
-      pen_x = set->metrics[i].x1;      
+      pen_x = set->metrics[i].x1;
     }
 
     if (pen_x == 0)
@@ -256,7 +256,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
       unsigned int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
       if (!glyph_index)
         continue;
-      
+
       if (font_render_glyph(font, glyph_index, load_option, render_option, j, &set->metrics[i], set->surface))
         continue;
     }
@@ -374,7 +374,7 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   // load the missing glyph
   int bitmaps_cached = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1;
   unsigned int load_option = font_set_load_options(font);
-  unsigned int render_option = font_set_render_options(font);  
+  unsigned int render_option = font_set_render_options(font);
   for (int i = 0; i < bitmaps_cached; ++i) {
     if (font_load_glyph_metric(font, 0, load_option, render_option, i, &font->missing_glyph_metric[i])) {
       font->missing_glyph_metric[i].xadvance = font->space_advance;
@@ -512,7 +512,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
     if (!metric)
       break;
-    
+
     glyph_surface = set->surface;
     if (!metric->loaded) {
       int bitmap_idx = (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED);
