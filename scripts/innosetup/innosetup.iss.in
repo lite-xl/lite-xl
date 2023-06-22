@@ -71,7 +71,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 Name: "portablemode"; Description: "Portable Mode"; Flags: unchecked
-Name: "envPath"; Description: "Add to PATH variable"
+Name: "envPath"; Description: "Add lite-xl to the PATH variable, allowing it to be run from a command line."
 
 [Files]
 Source: "{#SourceDir}/lite-xl/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
