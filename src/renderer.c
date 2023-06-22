@@ -292,8 +292,12 @@ static void font_clear_glyph_cache(RenFont* font) {
         font->sets[i][j] = NULL;
       }
     }
-    if (font->missing_glyph_surface[i])
+
+    memset(&font->missing_glyph_metric[i], 0, sizeof(GlyphMetric));
+    if (font->missing_glyph_surface[i]) {
       SDL_FreeSurface(font->missing_glyph_surface[i]);
+      font->missing_glyph_surface[i] = NULL;
+    }
   }
 }
 
