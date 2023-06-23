@@ -8,6 +8,7 @@ local common = require "core.common"
 ---@class core.doc : core.object
 local Doc = Object:extend()
 
+function Doc:__tostring() return "Doc" end
 
 local function split_lines(text)
   local res = {}
@@ -668,7 +669,5 @@ end
 function Doc:on_close()
   core.log_quiet("Closed doc \"%s\"", self:get_name())
 end
-
-function Doc:__tostring() return "Doc" end
 
 return Doc

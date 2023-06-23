@@ -15,6 +15,8 @@ local noop = function() end
 ---@field super core.view
 local NagView = View:extend()
 
+function NagView:__tostring() return "NagView" end
+
 function NagView:new()
   NagView.super.new(self)
   self.size.y = 0
@@ -299,7 +301,5 @@ function NagView:show(title, message, options, on_select)
   table.insert(self.queue, opts)
   self:next()
 end
-
-function NagView:__tostring() return "NagView" end
 
 return NagView

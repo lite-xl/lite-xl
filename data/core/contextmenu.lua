@@ -15,6 +15,8 @@ local DIVIDER = {}
 ---@class core.contextmenu : core.object
 local ContextMenu = Object:extend()
 
+function ContextMenu:__tostring() return "ContextMenu" end
+
 ContextMenu.DIVIDER = DIVIDER
 
 function ContextMenu:new()
@@ -234,7 +236,5 @@ function ContextMenu:draw_context_menu()
     end
   end
 end
-
-function ContextMenu:__tostring() return "ContextMenu" end
 
 return ContextMenu

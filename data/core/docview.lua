@@ -11,6 +11,8 @@ local View = require "core.view"
 ---@field super core.view
 local DocView = View:extend()
 
+function DocView:__tostring() return "DocView" end
+
 DocView.context = "session"
 
 local function move_to_line_offset(dv, line, col, offset)
@@ -589,7 +591,5 @@ function DocView:draw()
 
   self:draw_scrollbar()
 end
-
-function DocView:__tostring() return "DocView" end
 
 return DocView

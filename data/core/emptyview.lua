@@ -6,6 +6,8 @@ local View = require "core.view"
 ---@field super core.view
 local EmptyView = View:extend()
 
+function EmptyView:__tostring() return "EmptyView" end
+
 local function draw_text(x, y, color)
   local lines = {
     { fmt = "%s to run a command", cmd = "core:find-command" },
@@ -48,7 +50,5 @@ function EmptyView:draw()
   local y = self.position.y + (self.size.y - h) / 2
   draw_text(x, y, style.dim)
 end
-
-function EmptyView:__tostring() return "EmptyView" end
 
 return EmptyView

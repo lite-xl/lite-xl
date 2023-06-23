@@ -10,15 +10,17 @@ local View = require "core.view"
 ---@field super core.doc
 local SingleLineDoc = Doc:extend()
 
+function SingleLineDoc:__tostring() return "SingleLineDoc" end
+
 function SingleLineDoc:insert(line, col, text)
   SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
 end
 
-function SingleLineDoc:__tostring() return "SingleLineDoc" end
-
 ---@class core.commandview : core.docview
 ---@field super core.docview
 local CommandView = DocView:extend()
+
+function CommandView:__tostring() return "CommandView" end
 
 CommandView.context = "application"
 
@@ -376,7 +378,5 @@ function CommandView:draw()
     core.root_view:defer_draw(draw_suggestions_box, self)
   end
 end
-
-function CommandView:__tostring() return "CommandView" end
 
 return CommandView

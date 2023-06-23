@@ -9,6 +9,8 @@ local View = require "core.view"
 ---@class core.node : core.object
 local Node = Object:extend()
 
+function Node:__tostring() return "Node" end
+
 function Node:new(type)
   self.type = type or "leaf"
   self.position = { x = 0, y = 0 }
@@ -790,7 +792,5 @@ function Node:get_drag_overlay_tab_position(x, y, dragged_node, dragged_index)
   end
   return tab_index, tab_x, tab_y + margin_y, tab_w, tab_h - margin_y
 end
-
-function Node:__tostring() return "Node" end
 
 return Node

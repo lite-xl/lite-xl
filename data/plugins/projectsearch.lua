@@ -9,6 +9,8 @@ local View = require "core.view"
 ---@class plugins.projectsearch.resultsview : core.view
 local ResultsView = View:extend()
 
+function ResultsView:__tostring() return "ResultsView" end
+
 ResultsView.context = "session"
 
 function ResultsView:new(path, text, fn)
@@ -217,8 +219,6 @@ function ResultsView:draw()
 
   self:draw_scrollbar()
 end
-
-function ResultsView:__tostring() return "ResultsView" end
 
 ---@param path string
 ---@param text string

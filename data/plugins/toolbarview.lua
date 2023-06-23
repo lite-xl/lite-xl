@@ -7,6 +7,7 @@ local View = require "core.view"
 
 local ToolbarView = View:extend()
 
+function ToolbarView:__tostring() return "ToolbarView" end
 
 function ToolbarView:new()
   ToolbarView.super.new(self)
@@ -130,8 +131,6 @@ function ToolbarView:on_mouse_moved(px, py, ...)
     self.tooltip = false
   end
 end
-
-function ToolbarView:__tostring() return "ToolbarView" end
 
 -- The toolbarview pane is not plugged here but it is added in the
 -- treeview plugin.

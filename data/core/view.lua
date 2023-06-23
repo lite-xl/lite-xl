@@ -48,6 +48,8 @@ local Scrollbar = require "core.scrollbar"
 ---@field current_scale number
 local View = Object:extend()
 
+function View:__tostring() return "View" end
+
 -- context can be "application" or "session". The instance of objects
 -- with context "session" will be closed when a project session is
 -- terminated. The context "application" is for functional UI elements.
@@ -327,7 +329,5 @@ end
 
 function View:draw()
 end
-
-function View:__tostring() return "View" end
 
 return View

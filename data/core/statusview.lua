@@ -34,6 +34,8 @@ local Object = require "core.object"
 ---@field hide_messages boolean
 local StatusView = View:extend()
 
+function StatusView:__tostring() return "StatusView" end
+
 ---Space separator
 ---@type string
 StatusView.separator  = "      "
@@ -71,6 +73,8 @@ StatusView.separator2 = "   |   "
 ---@field w number
 ---@field cached_item core.statusview.styledtext
 local StatusViewItem = Object:extend()
+
+function StatusViewItem:__tostring() return "StatusViewItem" end
 
 ---Available StatusViewItem options.
 ---@class core.statusview.item.options : table
@@ -151,8 +155,6 @@ function StatusViewItem:show() self.visible = true end
 function StatusViewItem:set_predicate(predicate)
   self.predicate = command.generate_predicate(predicate)
 end
-
-function StatusViewItem:__tostring() return "StatusViewItem" end
 
 ---@type core.statusview.item
 StatusView.Item = StatusViewItem
@@ -1191,7 +1193,5 @@ function StatusView:draw()
     end
   end
 end
-
-function StatusView:__tostring() return "StatusView" end
 
 return StatusView

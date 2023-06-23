@@ -11,6 +11,8 @@ local DocView = require "core.docview"
 ---@field mouse core.view.position
 local RootView = View:extend()
 
+function RootView:__tostring() return "RootView" end
+
 function RootView:new()
   RootView.super.new(self)
   self.root_node = Node()
@@ -564,7 +566,5 @@ function RootView:draw()
     core.cursor_change_req = nil
   end
 end
-
-function RootView:__tostring() return "RootView" end
 
 return RootView
