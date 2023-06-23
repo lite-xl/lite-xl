@@ -72,6 +72,10 @@ struct RenFaceID {
   char path[];
 };
 
+#ifndef max
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 #ifdef _WIN32
 // used to store the handle and data so that the file is protected when it is used
 typedef struct {
