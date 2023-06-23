@@ -6,6 +6,7 @@
 #include <ft2build.h>
 #include <freetype/ftlcdfil.h>
 #include <freetype/ftoutln.h>
+#include FT_CACHE_H
 #include FT_FREETYPE_H
 
 #ifdef _WIN32
@@ -20,8 +21,14 @@
 #define MAX_LOADABLE_GLYPHSETS 4096
 #define SUBPIXEL_BITMAPS_CACHED 3
 
+typedef struct RenFaceID RenFaceID;
+
 RenWindow window_renderer = {0};
 static FT_Library library;
+static FTC_Manager manager;
+static RenFaceID** face_ids = NULL;
+static int face_ids_capacity = 0;
+static int face_ids_used = 0;
 
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
 static SDL_Surface *draw_rect_surface;
@@ -48,7 +55,8 @@ typedef struct {
 } GlyphSet;
 
 typedef struct RenFont {
-  FT_Face face;
+  // the scaler contains the path as ((RenFaceID*)scaler.face_id)->path
+  FTC_ScalerRec scaler;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
   unsigned short max_height, baseline, height;
@@ -56,12 +64,129 @@ typedef struct RenFont {
   ERenFontHinting hinting;
   unsigned char style;
   unsigned short underline_thickness;
-#ifdef _WIN32
-  unsigned char *file;
-  HANDLE file_handle;
-#endif
-  char path[];
 } RenFont;
+
+// A face ID intended to be used as FTC_FaceID, this is refcounted and stored at FTC_Scaler->face_id
+struct RenFaceID {
+  int refcount;
+  char path[];
+};
+
+#ifdef _WIN32
+// used to store the handle and data so that the file is protected when it is used
+typedef struct {
+  HANDLE handle;
+  char data[];
+} RenFontFile;
+
+static void ren_font_file_free(void* object) {
+  RenFontFile* file = ((FT_Face) object)->generic.data;
+  if (file->handle) CloseHandle(file->handle);
+  free(file);
+}
+#endif
+
+// FT_Face_Requester for FTC subsystem
+static FT_Error open_face(FTC_FaceID face_id, FT_Library library, FT_Pointer req_data, FT_Face* aface) {
+  FT_Error err = FT_Err_Ok;
+  RenFaceID* id = (RenFaceID*) face_id;
+
+#ifdef _WIN32
+  HANDLE file_handle = NULL;
+  wchar_t* wpath = NULL;
+  RenFontFile* file = NULL;
+  DWORD read = 0;
+
+  wpath = utfconv_utf8towc(id->path);
+  if (!wpath) {
+    err = FT_Err_Out_Of_Memory;
+    goto cleanup;
+  }
+
+  file_handle = CreateFileW(wpath,
+                            GENERIC_READ,
+                            FILE_SHARE_READ, // or else we can't copy fonts
+                            NULL,
+                            OPEN_EXISTING,
+                            FILE_ATTRIBUTE_NORMAL,
+                            NULL);
+  if (file_handle == INVALID_HANDLE_VALUE) {
+    err = FT_Err_Cannot_Open_Resource;
+    goto cleanup;
+  }
+
+  read = GetFileSize(file_handle, NULL);
+  if (read == INVALID_FILE_SIZE) {
+    err = FT_Err_Cannot_Open_Resource;
+    goto cleanup;
+  }
+
+  file = malloc(sizeof(RenFontFile) + read);
+  if (!file) {
+    err = FT_Err_Out_Of_Memory;
+    goto cleanup;
+  }
+
+  file->handle = file_handle;
+  if (!ReadFile(file_handle, file->data, read, &read, NULL)) {
+    err = FT_Err_Cannot_Open_Resource;
+    goto cleanup;
+  }
+
+  err = FT_New_Memory_Face(library, file->data, read, 0, aface);
+  if (err)
+    goto cleanup;
+
+  // save the RenFontFile as client data so it gets freed up along with face
+  (*aface)->generic.data = file;
+  (*aface)->generic.finalizer = &ren_font_file_free;
+#else
+  err = FT_New_Face(library, id->path, 0, aface);
+#endif
+
+cleanup:
+#ifdef _WIN32
+  free(wpath);
+  if (err != FT_Err_Ok) {
+    free(file);
+    if (file_handle) CloseHandle(file_handle);
+  }
+#endif
+  return err;
+}
+
+static RenFaceID* get_face_id(const char* path) {
+  // get an existing font ID or create one
+  RenFaceID* id = NULL;
+  for (int i = 0; i < face_ids_used; ++i) {
+    if (strcmp(face_ids[i]->path, path) == 0) {
+      id = face_ids[i];
+      break;
+    }
+  }
+  if (!id) {
+    int len = strlen(path);
+    id = check_alloc(malloc(sizeof(RenFaceID) + len + 1));
+    id->refcount = 0;
+    strncpy(id->path, path, len + 1);
+
+    if (face_ids_used + 1 > face_ids_capacity) {
+      face_ids_capacity = max(1, face_ids_capacity * 2);
+      face_ids = check_alloc(realloc(face_ids, sizeof(RenFont*) * face_ids_capacity));
+    }
+    face_ids[face_ids_used++] = id;
+  }
+  id->refcount++;
+  return id;
+}
+
+static void free_face_id(RenFaceID* id) {
+  id->refcount--;
+  if (!id->refcount) {
+    FTC_Manager_RemoveFaceID(manager, id);
+    free(id);
+  }
+}
 
 static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
   const unsigned char *up = (unsigned char*)p;
@@ -121,20 +246,33 @@ static int font_set_style(FT_Outline* outline, int x_translation, unsigned char 
   return 0;
 }
 
+static FT_Error font_get_face(RenFont* font, FT_Face* aface) {
+  FT_Error err = FT_Err_Ok;
+  FT_Size face_size;
+  if ((err = FTC_Manager_LookupSize(manager, &font->scaler, &face_size)))
+    return err;
+  *aface = face_size->face;
+  return err;
+}
+
 static void font_load_glyphset(RenFont* font, int idx) {
   unsigned int render_option = font_set_render_options(font), load_option = font_set_load_options(font);
   int bitmaps_cached = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1;
   unsigned int byte_width = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 3 : 1;
+  FT_Face face;
+  if (font_get_face(font, &face))
+    return;
+
   for (int j = 0, pen_x = 0; j < bitmaps_cached; ++j) {
     GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
     font->sets[j][idx] = set;
     for (int i = 0; i < MAX_GLYPHSET; ++i) {
-      int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
-      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)
-        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
+      int glyph_index = FT_Get_Char_Index(face, i + idx * MAX_GLYPHSET);
+      if (!glyph_index || FT_Load_Glyph(face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)
+        || font_set_style(&face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(face->glyph, render_option)) {
         continue;
       }
-      FT_GlyphSlot slot = font->face->glyph;
+      FT_GlyphSlot slot = face->glyph;
       int glyph_width = slot->bitmap.width / byte_width;
       if (font->antialiasing == FONT_ANTIALIASING_NONE)
         glyph_width *= 8;
@@ -142,11 +280,11 @@ static void font_load_glyphset(RenFont* font, int idx) {
       pen_x += glyph_width;
       font->max_height = slot->bitmap.rows > font->max_height ? slot->bitmap.rows : font->max_height;
       // In order to fix issues with monospacing; we need the unhinted xadvance; as FreeType doesn't correctly report the hinted advance for spaces on monospace fonts (like RobotoMono). See #843.
-      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)
-        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
+      if (!glyph_index || FT_Load_Glyph(face, glyph_index, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)
+        || font_set_style(&face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(face->glyph, render_option)) {
         continue;
       }
-      slot = font->face->glyph;
+      slot = face->glyph;
       set->metrics[i].xadvance = slot->advance.x / 64.0f;
     }
     if (pen_x == 0)
@@ -154,10 +292,10 @@ static void font_load_glyphset(RenFont* font, int idx) {
     set->surface = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 24 : 8, 0, 0, 0, 0));
     uint8_t* pixels = set->surface->pixels;
     for (int i = 0; i < MAX_GLYPHSET; ++i) {
-      int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
-      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
+      int glyph_index = FT_Get_Char_Index(face, i + idx * MAX_GLYPHSET);
+      if (!glyph_index || FT_Load_Glyph(face, glyph_index, load_option))
         continue;
-      FT_GlyphSlot slot = font->face->glyph;
+      FT_GlyphSlot slot = face->glyph;
       font_set_style(&slot->outline, (64 / bitmaps_cached) * j, font->style);
       if (FT_Render_Glyph(slot, render_option))
         continue;
@@ -216,54 +354,16 @@ static void font_clear_glyph_cache(RenFont* font) {
 
 RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   FT_Face face = NULL;
-
-#ifdef _WIN32
-
-  HANDLE file = INVALID_HANDLE_VALUE;
-  DWORD read;
-  int font_file_len = 0;
-  unsigned char *font_file = NULL;
-  wchar_t *wpath = NULL;
-
-  if ((wpath = utfconv_utf8towc(path)) == NULL)
-    return NULL;
-
-  if ((file = CreateFileW(wpath,
-                          GENERIC_READ,
-                          FILE_SHARE_READ, // or else we can't copy fonts
-                          NULL,
-                          OPEN_EXISTING,
-                          FILE_ATTRIBUTE_NORMAL,
-                          NULL)) == INVALID_HANDLE_VALUE)
-    goto failure;
-
-  if ((font_file_len = GetFileSize(file, NULL)) == INVALID_FILE_SIZE)
-    goto failure;
-
-  font_file = check_alloc(malloc(font_file_len * sizeof(unsigned char)));
-  if (!ReadFile(file, font_file, font_file_len, &read, NULL) || read != font_file_len)
-    goto failure;
-
-  free(wpath);
-  wpath = NULL;
-
-  if (FT_New_Memory_Face(library, font_file, read, 0, &face))
-    goto failure;
-
-#else
-
-  if (FT_New_Face(library, path, 0, &face))
-    return NULL;
-
-#endif
+  RenFont* font = NULL;
+  RenFaceID* id = get_face_id(path);
 
   const int surface_scale = renwin_get_surface(window_renderer).scale;
-  if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
+  font = check_alloc(calloc(1, sizeof(RenFont)));
+  font->scaler = (FTC_ScalerRec) { .face_id = (FTC_FaceID) id, .height = size * surface_scale, .width = 0, .pixel = true };
+
+  if (font_get_face(font, &face))
     goto failure;
-  int len = strlen(path);
-  RenFont* font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
-  strcpy(font->path, path);
-  font->face = face;
+
   font->size = size;
   font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
   font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
@@ -271,32 +371,19 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   font->hinting = hinting;
   font->style = style;
 
-#ifdef _WIN32
-  // we need to keep this for freetype
-  font->file = font_file;
-  font->file_handle = file;
-#endif
-
   if(FT_IS_SCALABLE(face))
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
   if(!font->underline_thickness) font->underline_thickness = ceil((double) font->height / 14.0);
 
-  if (FT_Load_Char(face, ' ', font_set_load_options(font))) {
-    free(font);
+  if (FT_Load_Char(face, ' ', font_set_load_options(font)))
     goto failure;
-  }
+
   font->space_advance = face->glyph->advance.x / 64.0f;
   font->tab_advance = font->space_advance * 2;
   return font;
 
 failure:
-#ifdef _WIN32
-  free(wpath);
-  free(font_file);
-  if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
-#endif
-  if (face != NULL)
-    FT_Done_Face(face);
+  if (id) free_face_id(id);
   return NULL;
 }
 
@@ -305,20 +392,16 @@ RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ER
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
 
-  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style);
+  return ren_font_load(window_renderer, ren_font_get_path(font), size, antialiasing, hinting, style);
 }
 
 const char* ren_font_get_path(RenFont *font) {
-  return font->path;
+  return ((RenFaceID*) font->scaler.face_id)->path;
 }
 
 void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
-  FT_Done_Face(font->face);
-#ifdef _WIN32
-  free(font->file);
-  CloseHandle(font->file_handle);
-#endif
+  free_face_id((RenFaceID*) font->scaler.face_id);
   free(font);
 }
 
@@ -344,13 +427,16 @@ float ren_font_group_get_size(RenFont **fonts) {
 void ren_font_group_set_size(RenWindow *window_renderer, RenFont **fonts, float size) {
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
+    FT_Face face;
     font_clear_glyph_cache(fonts[i]);
-    FT_Face face = fonts[i]->face;
-    FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale));
+    fonts[i]->scaler.height = size * surface_scale;
+    if (font_get_face(fonts[i], &face))
+      continue;
     fonts[i]->size = size;
     fonts[i]->height = (short)((face->height / (float)face->units_per_EM) * size);
     fonts[i]->baseline = (short)((face->ascender / (float)face->units_per_EM) * size);
-    FT_Load_Char(face, ' ', font_set_load_options(fonts[i]));
+    if (FT_Load_Char(face, ' ', font_set_load_options(fonts[i])))
+      continue;
     fonts[i]->space_advance = face->glyph->advance.x / 64.0f;
     fonts[i]->tab_advance = fonts[i]->space_advance * 2;
   }
@@ -518,6 +604,11 @@ void ren_init(SDL_Window *win) {
   assert(win);
   int error = FT_Init_FreeType( &library );
   if ( error ) {
+    fprintf(stderr, "internal font error when starting the application\n");
+    return;
+  }
+  error = FTC_Manager_New(library, 0, 0, 0, &open_face, NULL, &manager);
+  if (error) {
     fprintf(stderr, "internal font error when starting the application\n");
     return;
   }
