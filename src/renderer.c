@@ -148,8 +148,8 @@ static FT_Error open_face(FTC_FaceID face_id, FT_Library library, FT_Pointer req
   err = FT_New_Face(library, id->path, 0, aface);
 #endif
 
-cleanup:
 #ifdef _WIN32
+cleanup:
   free(wpath);
   if (err != FT_Err_Ok) {
     free(file);
