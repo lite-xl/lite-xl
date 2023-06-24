@@ -70,7 +70,7 @@ function Object:__tostring()
   return "Object"
 end
 
----Methamethod to allow using the object call as a constructor.
+---Metamethod to allow using the object call as a constructor.
 ---@return core.object
 function Object:__call(...)
   local obj = setmetatable({}, self)
