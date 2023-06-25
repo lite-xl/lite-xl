@@ -38,8 +38,8 @@ static void* check_alloc(void *ptr) {
 /************************* Fonts *************************/
 
 typedef struct {
-  unsigned short x0, x1, y0, y1, loaded;
-  short bitmap_left, bitmap_top;
+  unsigned int x0, x1, y0, y1, loaded;
+  int bitmap_left, bitmap_top;
   float xadvance;
 } GlyphMetric;
 
@@ -136,7 +136,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
         continue;
       }
       FT_GlyphSlot slot = font->face->glyph;
-      int glyph_width = slot->bitmap.width / byte_width;
+      unsigned int glyph_width = slot->bitmap.width / byte_width;
       if (font->antialiasing == FONT_ANTIALIASING_NONE)
         glyph_width *= 8;
       set->metrics[i] = (GlyphMetric){ pen_x, pen_x + glyph_width, 0, slot->bitmap.rows, true, slot->bitmap_left, slot->bitmap_top, (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f};
