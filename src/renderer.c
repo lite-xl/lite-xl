@@ -16,8 +16,9 @@
 #include "renderer.h"
 #include "renwindow.h"
 
+#define MAX_UNICODE 0x100000
 #define MAX_GLYPHSET 256
-#define MAX_LOADABLE_GLYPHSETS 4096
+#define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / MAX_GLYPHSET)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
 RenWindow window_renderer = {0};
@@ -178,7 +179,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
 }
 
 static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int subpixel_idx) {
-  int idx = (codepoint >> 8) % MAX_LOADABLE_GLYPHSETS;
+  int idx = (codepoint / MAX_GLYPHSET) % MAX_LOADABLE_GLYPHSETS;
   if (!font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx])
     font_load_glyphset(font, idx);
   return font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx];
@@ -192,7 +193,7 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
     bitmap_index += SUBPIXEL_BITMAPS_CACHED;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
-    *metric = &(*set)->metrics[codepoint % 256];
+    *metric = &(*set)->metrics[codepoint % MAX_GLYPHSET];
     if ((*metric)->loaded || codepoint < 0xFF)
       return fonts[i];
   }
@@ -323,14 +324,16 @@ void ren_font_free(RenFont* font) {
 }
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {
+  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
   for (int j = 0; j < FONT_FALLBACK_MAX && fonts[j]; ++j) {
     for (int i = 0; i < (fonts[j]->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1); ++i)
-      font_get_glyphset(fonts[j], '\t', i)->metrics['\t'].xadvance = fonts[j]->space_advance * n;
+      font_get_glyphset(fonts[j], '\t', i)->metrics[tab_index].xadvance = fonts[j]->space_advance * n;
   }
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics['\t'].xadvance;
+  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
+  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics[tab_index].xadvance;
   if (fonts[0]->space_advance) {
     advance /= fonts[0]->space_advance;
   }
