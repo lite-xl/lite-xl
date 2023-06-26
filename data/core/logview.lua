@@ -42,6 +42,7 @@ LogView.context = "session"
 function LogView:new()
   LogView.super.new(self)
   self.last_item = core.log_items[#core.log_items]
+  self.last_item.index = #core.log_items
   self.expanding = {}
   self.scrollable = true
   self.yoffset = 0
@@ -122,12 +123,33 @@ function LogView:on_mouse_pressed(button, px, py, clicks)
 end
 
 
+function LogView:on_mouse_wheel(y, x)
+  if 0 < self.scroll.to.y then
+    if not self.user_scroll then
+      self.user_scroll = { x = self.scroll.to.x, y = self.scroll.to.y }
+    else
+      self.user_scroll.y = self.scroll.to.y
+    end
+  else
+    self.user_scroll = nil
+  end
+end
+
+
 function LogView:update()
   local item = core.log_items[#core.log_items]
   if self.last_item ~= item then
+    local lh = style.font:get_height() + style.padding.y
+    local diff_index = #core.log_items - self.last_item.index
     self.last_item = item
-    self.scroll.to.y = 0
-    self.yoffset = -(style.font:get_height() + style.padding.y)
+    self.last_item.index = #core.log_items
+    if self.user_scroll then
+      self.user_scroll.y = self.user_scroll.y + diff_index * lh
+      self.scroll.to.y = self.user_scroll.y
+    else
+      self.scroll.to.y = 0
+      self.yoffset = -lh
+    end
   end
 
   local expanding = self.expanding[1]
@@ -138,7 +160,9 @@ function LogView:update()
     end
   end
 
-  self:move_towards("yoffset", 0, nil, "logview")
+  if not self.user_scroll then
+    self:move_towards("yoffset", 0, nil, "logview")
+  end
 
   LogView.super.update(self)
 end
