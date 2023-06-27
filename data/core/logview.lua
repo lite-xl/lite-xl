@@ -123,7 +123,6 @@ end
 
 
 function LogView:update()
-  local user_scroll
   local item = core.log_items[#core.log_items]
   if self.last_item ~= item then
     local lh = style.font:get_height() + style.padding.y
