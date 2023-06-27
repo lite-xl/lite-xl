@@ -24,6 +24,8 @@
 typedef struct RenFaceID RenFaceID;
 
 RenWindow window_renderer = {0};
+
+// FIXME: will not work if multiple threads are using the library and manager
 static FT_Library library;
 static FTC_Manager manager;
 static RenFaceID** face_ids = NULL;
