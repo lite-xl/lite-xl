@@ -136,7 +136,6 @@ function LogView:update()
       self.scroll.to.y = self.scroll.to.y + diff_index * lh
       self.scroll.y = self.scroll.to.y
     else
-      self.scroll.to.y = 0
       self.yoffset = -lh
     end
     self.last_item = item
