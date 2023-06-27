@@ -30,7 +30,7 @@ static FT_Library library;
 static FTC_Manager manager;
 static RenFaceID** face_ids = NULL;
 static int face_ids_capacity = 0;
-static int face_ids_max_idx = 0;
+static int face_ids_max_idx = -1;
 
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
 static SDL_Surface *draw_rect_surface;
@@ -176,7 +176,7 @@ static RenFaceID* get_face_id(const char* path) {
   }
 
   // if no unused slots are found we need to create a new slot
-  if (free_face_id_idx == -1)
+  if (!id && free_face_id_idx == -1)
     free_face_id_idx = ++face_ids_max_idx;
 
   if (!id) {
@@ -632,7 +632,8 @@ void ren_free_window_resources(RenWindow *window_renderer) {
   FT_Done_FreeType(library);
 
   face_ids = NULL;
-  face_ids_capacity = face_ids_max_idx = 0;
+  face_ids_capacity = 0;
+  face_ids_max_idx = -1;
   manager = NULL;
   library = NULL;
 }
