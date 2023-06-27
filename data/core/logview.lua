@@ -129,12 +129,9 @@ function LogView:update()
     local lh = style.font:get_height() + style.padding.y
     if 0 < self.scroll.to.y then
       local index = #core.log_items
-      repeat
-        if self.last_item == core.log_items[index] then
-          break
-        end
+      while index > 1 and self.last_item ~= core.log_items[index] do
         index = index - 1
-      until 0 == index
+      end
       local diff_index = #core.log_items - index
       self.scroll.to.y = self.scroll.to.y + diff_index * lh
       self.scroll.y = self.scroll.to.y
