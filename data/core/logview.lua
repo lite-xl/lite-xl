@@ -128,7 +128,6 @@ function LogView:update()
   if self.last_item ~= item then
     local lh = style.font:get_height() + style.padding.y
     if 0 < self.scroll.to.y then
-      user_scroll = true
       local index = #core.log_items
       repeat
         if self.last_item == core.log_items[index] then
@@ -154,9 +153,7 @@ function LogView:update()
     end
   end
 
-  if not user_scroll then
-    self:move_towards("yoffset", 0, nil, "logview")
-  end
+  self:move_towards("yoffset", 0, nil, "logview")
 
   LogView.super.update(self)
 end
