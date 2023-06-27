@@ -633,7 +633,6 @@ static int g_read(lua_State* L, int stream, int read_size) {
   #else
     luaL_Buffer b;
     luaL_buffinit(L, &b);
-    size_t offset = 0;
     do {
       uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
       length = read(self->child_pipes[stream][0], buffer, read_size < LUAL_BUFFERSIZE ? read_size : LUAL_BUFFERSIZE);
@@ -647,8 +646,7 @@ static int g_read(lua_State* L, int stream, int read_size) {
       }
       if (length) {
         luaL_addsize(&b, length);
-        offset += length;
-        read_size -= LUAL_BUFFERSIZE;
+        read_size -= length;
       }
     } while (read_size > 0 && length > 0);
     luaL_pushresult(&b);
