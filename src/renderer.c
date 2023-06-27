@@ -30,7 +30,7 @@ static FT_Library library;
 static FTC_Manager manager;
 static RenFaceID** face_ids = NULL;
 static int face_ids_capacity = 0;
-static int face_ids_used = 0;
+static int face_ids_max_idx = 0;
 
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
 static SDL_Surface *draw_rect_surface;
@@ -162,25 +162,37 @@ cleanup:
 }
 
 static RenFaceID* get_face_id(const char* path) {
-  // get an existing font ID or create one
   RenFaceID* id = NULL;
-  for (int i = 0; i < face_ids_used; ++i) {
-    if (strcmp(face_ids[i]->path, path) == 0) {
+  int free_face_id_idx = -1;
+  // find an existing face ID or find an unused slot
+  for (int i = 0; i <= face_ids_max_idx; ++i) {
+    if (free_face_id_idx == -1 && !face_ids[i])
+      free_face_id_idx = i;
+
+    if (face_ids[i] && strcmp(face_ids[i]->path, path) == 0) {
       id = face_ids[i];
       break;
     }
   }
+
+  // if no unused slots are found we need to create a new slot
+  if (free_face_id_idx == -1)
+    free_face_id_idx = ++face_ids_max_idx;
+
   if (!id) {
+    // allocate RenFaceID
     int len = strlen(path);
     id = check_alloc(malloc(sizeof(RenFaceID) + len + 1));
     id->refcount = 0;
     strncpy(id->path, path, len + 1);
 
-    if (face_ids_used + 1 > face_ids_capacity) {
-      face_ids_capacity = max(1, face_ids_capacity * 2);
-      face_ids = check_alloc(realloc(face_ids, sizeof(RenFont*) * face_ids_capacity));
+    if (free_face_id_idx >= face_ids_capacity) {
+      int new_capacity = max(3, face_ids_capacity * 2);
+      face_ids = check_alloc(realloc(face_ids, sizeof(RenFaceID*) * new_capacity));
+      memset(face_ids + face_ids_capacity, 0, (new_capacity - face_ids_capacity) * sizeof(RenFaceID*));
+      face_ids_capacity = new_capacity;
     }
-    face_ids[face_ids_used++] = id;
+    face_ids[free_face_id_idx] = id;
   }
   id->refcount++;
   return id;
@@ -190,6 +202,12 @@ static void free_face_id(RenFaceID* id) {
   id->refcount--;
   if (!id->refcount) {
     FTC_Manager_RemoveFaceID(manager, id);
+    for (int i = 0; i <= face_ids_max_idx; ++i) {
+      if (face_ids[i] == id) {
+        face_ids[i] = NULL;
+        break;
+      }
+    }
     free(id);
   }
 }
