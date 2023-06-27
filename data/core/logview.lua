@@ -123,29 +123,18 @@ function LogView:on_mouse_pressed(button, px, py, clicks)
 end
 
 
-function LogView:on_mouse_wheel(y, x)
-  if 0 < self.scroll.to.y then
-    if not self.user_scroll then
-      self.user_scroll = { x = self.scroll.to.x, y = self.scroll.to.y }
-    else
-      self.user_scroll.y = self.scroll.to.y
-    end
-  else
-    self.user_scroll = nil
-  end
-end
-
-
 function LogView:update()
+  local user_scroll
   local item = core.log_items[#core.log_items]
   if self.last_item ~= item then
     local lh = style.font:get_height() + style.padding.y
     local diff_index = #core.log_items - self.last_item.index
     self.last_item = item
     self.last_item.index = #core.log_items
-    if self.user_scroll then
-      self.user_scroll.y = self.user_scroll.y + diff_index * lh
-      self.scroll.to.y = self.user_scroll.y
+    if 0 < self.scroll.to.y then
+      user_scroll = true
+      self.scroll.to.y = self.scroll.to.y + diff_index * lh
+      self.scroll.y = self.scroll.to.y
     else
       self.scroll.to.y = 0
       self.yoffset = -lh
@@ -160,7 +149,7 @@ function LogView:update()
     end
   end
 
-  if not self.user_scroll then
+  if not user_scroll then
     self:move_towards("yoffset", 0, nil, "logview")
   end
 
