@@ -6,6 +6,9 @@
 #include <ft2build.h>
 #include <freetype/ftlcdfil.h>
 #include <freetype/ftoutln.h>
+#include <freetype/ttnameid.h>
+#include <freetype/ftsnames.h>
+#include <freetype/ftmm.h>
 #include FT_FREETYPE_H
 
 #ifdef _WIN32
@@ -62,6 +65,8 @@ typedef struct RenFont {
 #endif
   char path[];
 } RenFont;
+
+#define RENDERER_CLAMP(X, MIN, MAX) ((X) < (MIN) ? (MIN) : ((X) > (MAX) ? (MAX) : (X)))
 
 static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
   const unsigned char *up = (unsigned char*)p;
@@ -214,7 +219,102 @@ static void font_clear_glyph_cache(RenFont* font) {
   }
 }
 
-RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
+static int font_get_named_variation(FT_Face face, FT_MM_Var *var, const char *name) {
+  // we need to load the "name" SFNT table and find it. ugh.
+  FT_SfntName entry;
+  int found;
+  const char *end;
+  unsigned char *entry_name;
+  unsigned int codepoint, entry_codepoint, string_count;
+
+  string_count = FT_Get_Sfnt_Name_Count(face);
+  for (int i = 0; i < string_count; i++) {
+    if (FT_Get_Sfnt_Name(face, i, &entry))
+      goto failure;
+    for (int j = 0; j < var->num_namedstyles; j++) {
+      if(entry.name_id == var->namedstyle[j].strid // match name id
+        && (entry.platform_id == TT_PLATFORM_APPLE_UNICODE // UCS-2 BE
+        || (entry.platform_id == TT_PLATFORM_MICROSOFT && entry.encoding_id == TT_MS_ID_UNICODE_CS))) {
+        // generic strcmp code
+        found = 1;
+        end = name + strlen(name);
+        entry_name = entry.string;
+        for (int k = 0; k < entry.string_len && name < end; k++) {
+          name = utf8_to_codepoint(name, &codepoint);
+          entry_codepoint = (entry_name[1] << 0) | (entry_name[0] << 8); // BE to whatever we use
+          entry_name += 2;
+          if (codepoint != entry_codepoint) {
+            found = 0;
+            break;
+          }
+        }
+        if (found) return j;
+      }
+    }
+  }
+
+failure:
+  return -1;
+}
+
+static int font_set_variation(FT_Face face, RenFontVariation *variation) {
+  int retval = 0;
+  int named_idx;
+  FT_MM_Var *font_vars = NULL;
+  FT_Fixed *result_axes = NULL;
+
+  if (face == NULL || variation == NULL)
+    return FT_Err_Invalid_Argument;
+
+  if (!FT_HAS_MULTIPLE_MASTERS(face))
+    return 0; // just fail silently
+
+  if ((retval = FT_Get_MM_Var(face, &font_vars)))
+    goto failure;
+
+  result_axes = check_alloc(malloc(font_vars->num_axis * sizeof(FT_Fixed)));
+
+  // copy the original parameters
+  for (int i = 0;  i < font_vars->num_axis; i++) {
+    result_axes[i] = font_vars->axis[i].def;
+  }
+
+  // set the named variation
+  if (variation->name != NULL) {
+    // try to find the variation
+    named_idx = font_get_named_variation(face, font_vars, variation->name);
+    if (named_idx != -1) {
+      for (int i = 0; i < font_vars->num_axis; i++) {
+        // copy the coordinates
+        result_axes[i] = font_vars->namedstyle[named_idx].coords[i];
+      }
+    }
+  }
+
+  // otf and ttf variations use 16.16 packed fraction https://stackoverflow.com/a/8638840
+#define FLOAT2INT(V) (FT_IS_SFNT(face) ? (signed long) ((V) * 65536) : (signed long) (V))
+  // set the other parameters
+  for (int i = 0; i < font_vars->num_axis; i++) {
+    for (int j = 0; j < variation->axis_len; j++) {
+      if (strlen(variation->axis[j].tag) == 4
+          && font_vars->axis[i].tag == FT_MAKE_TAG(variation->axis[j].tag[0], variation->axis[j].tag[1], variation->axis[j].tag[2], variation->axis[j].tag[3]))
+        // https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxisreg#registered-axis-tags
+        result_axes[i] = RENDERER_CLAMP(FLOAT2INT(variation->axis[j].value), font_vars->axis[i].minimum, font_vars->axis[i].maximum);
+    }
+  }
+#undef FLOAT2INT
+
+  if ((retval = FT_Set_Var_Design_Coordinates(face, font_vars->num_axis, result_axes)))
+    goto failure;
+
+failure:
+  if (font_vars != NULL)
+    FT_Done_MM_Var(library, font_vars);
+  free(result_axes);
+  return retval;
+}
+
+RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, RenFontVariation *variation) {
   FT_Face face = NULL;
 
 #ifdef _WIN32
@@ -256,6 +356,9 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
     return NULL;
 
 #endif
+
+  if (font_set_variation(face, variation))
+    goto failure;
 
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
@@ -300,12 +403,12 @@ failure:
   return NULL;
 }
 
-RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
+RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style, RenFontVariation *variation) {
   antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
 
-  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style);
+  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style, variation);
 }
 
 const char* ren_font_get_path(RenFont *font) {

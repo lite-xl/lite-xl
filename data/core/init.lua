@@ -528,6 +528,24 @@ local style = require "core.style"
 -- underline: true, false
 -- smoothing: true, false
 -- strikethrough: true, false
+-- variation: see below
+--
+-- Lite XL also support font variations if a OpenType / FreeType variation font is used.
+-- Do not confuse this with TrueType collection files (.ttc) files which contain discrete faces.
+-- This can be used for emboldening / italicizing fonts and generally yields better quality than
+-- setting italic and bold to true as it uses font-specific configuration.
+-- NOTE: Before setting any parameter related to font variation, please consult your font documentation
+-- for possible parameters and value ranges.
+--
+-- Roboto Flex, thin
+-- { variation = "Thin" }
+--
+-- Roboto Flex, thin and slanted
+-- Note that Roboto Flex does not support ital, thus we use slnt to simulate italic.
+-- { variation = { "Thin", slnt = -10 } }
+--
+-- Roboto Flex, very thin stroke
+-- { variation = { YOPQ = 25 } }
 
 ------------------------------ Plugins ----------------------------------------
 

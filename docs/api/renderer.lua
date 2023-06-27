@@ -16,15 +16,36 @@ renderer = {}
 ---@field public a number Alpha
 
 ---
+---Advanced font variation options for OpenType/FreeType variation fonts.
+---This is a table that has key-value pairs of parametric axis tag/names and the value.
+---It can also contain a string at index 1, which the string will be used as a named variation.
+---The values are converted to 16.16 packed fraction for Opentype and Truetype fonts.
+---Only axis tags that are supported by the font will be applied.
+---Only standard Opentype tags will be documented here; for supported tags their value ranges,
+---please refer to the font documentation.
+---@see https://fonts.google.com/knowledge/glossary/parametric_axis
+---@see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Fonts/Variable_Fonts_Guide
+---@see https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxisreg
+---@class renderer.variationoptions
+---@field public ital number Italicizes the font
+---@field public opsz number Optical size
+---@field public slnt number Slant, can be used if ital is unavailable
+---@field public wdth number Width
+---@field public wght number Weight
+renderer.variationoptions = {}
+
+---
 ---Represent options that affect a font's rendering.
 ---@class renderer.fontoptions
----@field public antialiasing "none" | "grayscale" | "subpixel"
----@field public hinting "slight" | "none" | "full"
----@field public bold boolean
----@field public italic boolean
+---@field public antialiasing "'none'" | "'grayscale'" | "'subpixel'"
+---@field public hinting "'slight'" | "'none'" | '"full"'
+---@field public bold boolean Emboldens the font. For advanced options, see renderer.variationoptions.
+---@field public italic boolean Italicizes the font. For advanced options, see renderer.variationoptions.
 ---@field public underline boolean
 ---@field public smoothing boolean
 ---@field public strikethrough boolean
+---@field public variation string | renderer.variationoptions
+renderer.fontoptions = {}
 
 ---
 ---@class renderer.font

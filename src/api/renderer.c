@@ -11,7 +11,8 @@ static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
   ERenFontHinting *hinting,
-  int *style
+  int *style,
+  RenFontVariation *variation
 ) {
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
@@ -73,6 +74,54 @@ static int font_get_options(
 
     if (style_local != 0)
       *style = style_local;
+
+    lua_getfield(L, 3, "variation");
+    if (lua_isstring(L, -1)) {
+      variation->name = luaL_checkstring(L, -1);
+    } else if (lua_istable(L, -1)) {
+      int len = 0;
+      int axis_idx = 0;
+      int table_idx = lua_absindex(L, -1);
+      RenFontVariationAxis *axis = NULL;
+
+      lua_rawgeti(L, -1, 1);
+      if (lua_isstring(L, -1)) {
+        // the first value in table is a string, we use it as variation name
+        variation->name = lua_tostring(L, -1);
+      }
+      lua_pop(L, 1);
+
+      // loop the other values
+      lua_pushnil(L);
+      while (lua_next(L, table_idx) != 0) {
+        // this CANNOT be lua_isstring because lua_isstring implicitly casts number to strings
+        if (lua_type(L, -2) == LUA_TSTRING) {
+          luaL_checknumber(L, -1);
+          len++;
+        }
+        lua_pop(L, 1);
+      }
+
+      variation->axis_len = len;
+      if (len > 0) {
+        axis = malloc(len * sizeof(RenFontVariationAxis));
+        if (axis == NULL)
+          luaL_error(L, "cannot allocate memory");
+
+        // do it again!
+        lua_pushnil(L);
+        while(lua_next(L, table_idx) != 0) {
+          if (lua_type(L, -2) == LUA_TSTRING) {
+            axis[axis_idx].tag = lua_tostring(L, -2);
+            axis[axis_idx].value = lua_tonumber(L, -1);
+            axis_idx++;
+          }
+          lua_pop(L, 1);
+        }
+        variation->axis = axis;
+      }
+    }
+    lua_pop(L, 1);
   }
 
   return 0;
@@ -84,13 +133,16 @@ static int f_font_load(lua_State *L) {
   int style = 0;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
   ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
+  RenFontVariation variation;
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  memset(&variation, 0, sizeof(RenFontVariation));
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &variation);
   if (ret_code > 0)
     return ret_code;
 
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(&window_renderer, filename, size, antialiasing, hinting, style);
+  *font = ren_font_load(&window_renderer, filename, size, antialiasing, hinting, style, &variation);
+  free(variation.axis);
   if (!*font)
     return luaL_error(L, "failed to load font");
   luaL_setmetatable(L, API_TYPE_FONT);
@@ -119,8 +171,10 @@ static int f_font_copy(lua_State *L) {
   int style = -1;
   ERenFontHinting hinting = -1;
   ERenFontAntialiasing antialiasing = -1;
+  RenFontVariation variation;
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  memset(&variation, 0, sizeof(RenFontVariation));
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &variation);
   if (ret_code > 0)
     return ret_code;
 
@@ -130,14 +184,19 @@ static int f_font_copy(lua_State *L) {
   }
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-    *font = ren_font_copy(&window_renderer, fonts[i], size, antialiasing, hinting, style);
+    *font = ren_font_copy(&window_renderer, fonts[i], size, antialiasing, hinting, style, &variation);
     if (!*font)
-      return luaL_error(L, "failed to copy font");
+      goto failure;
     luaL_setmetatable(L, API_TYPE_FONT);
     if (table)
       lua_rawseti(L, -2, i+1);
   }
+  free(variation.axis);
   return 1;
+
+failure:
+  free(variation.axis);
+  return luaL_error(L, "failed to copy font");
 }
 
 static int f_font_group(lua_State* L) {

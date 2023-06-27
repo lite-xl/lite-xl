@@ -13,6 +13,7 @@
 
 
 #define FONT_FALLBACK_MAX 10
+#define FONT_VARIATION_AXIS_DEFAULT HUGE_VAL
 typedef struct RenFont RenFont;
 typedef enum { FONT_HINTING_NONE, FONT_HINTING_SLIGHT, FONT_HINTING_FULL } ERenFontHinting;
 typedef enum { FONT_ANTIALIASING_NONE, FONT_ANTIALIASING_GRAYSCALE, FONT_ANTIALIASING_SUBPIXEL } ERenFontAntialiasing;
@@ -20,13 +21,15 @@ typedef enum { FONT_STYLE_BOLD = 1, FONT_STYLE_ITALIC = 2, FONT_STYLE_UNDERLINE 
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
 typedef struct { SDL_Surface *surface; int scale; } RenSurface;
+typedef struct { const char *tag; double value; } RenFontVariationAxis;
+typedef struct { const char *name; int axis_len; RenFontVariationAxis *axis; } RenFontVariation;
 
 struct RenWindow;
 typedef struct RenWindow RenWindow;
 extern RenWindow window_renderer;
 
-RenFont* ren_font_load(RenWindow *window_renderer, const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style);
-RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style);
+RenFont* ren_font_load(RenWindow *window_renderer, const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, RenFontVariation *variation);
+RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style, RenFontVariation *variation);
 const char* ren_font_get_path(RenFont *font);
 void ren_font_free(RenFont *font);
 int ren_font_group_get_tab_size(RenFont **font);
