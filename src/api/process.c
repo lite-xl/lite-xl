@@ -605,7 +605,7 @@ static int process_start(lua_State* L) {
   return retval;
 }
 
-static int g_read(lua_State* L, int stream, int read_size) {
+static int g_read(lua_State* L, int stream, lua_Integer read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   long length = 0;
   if (stream != STDOUT_FD && stream != STDERR_FD)
