@@ -621,21 +621,6 @@ void ren_free_window_resources(RenWindow *window_renderer) {
   free(window_renderer->command_buf);
   window_renderer->command_buf = NULL;
   window_renderer->command_buf_size = 0;
-
-  for (int i = 0; i < face_ids_capacity; ++i) {
-    if (face_ids[i])
-      FTC_Manager_RemoveFaceID(manager, (FTC_FaceID) face_ids[i]);
-    free(face_ids[i]);
-  }
-  free(face_ids);
-  FTC_Manager_Done(manager);
-  FT_Done_FreeType(library);
-
-  face_ids = NULL;
-  face_ids_capacity = 0;
-  face_ids_max_idx = -1;
-  manager = NULL;
-  library = NULL;
 }
 
 // TODO remove global and return RenWindow*
