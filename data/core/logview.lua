@@ -42,7 +42,6 @@ LogView.context = "session"
 function LogView:new()
   LogView.super.new(self)
   self.last_item = core.log_items[#core.log_items]
-  self.last_item.index = #core.log_items
   self.expanding = {}
   self.scrollable = true
   self.yoffset = 0
@@ -128,17 +127,23 @@ function LogView:update()
   local item = core.log_items[#core.log_items]
   if self.last_item ~= item then
     local lh = style.font:get_height() + style.padding.y
-    local diff_index = #core.log_items - self.last_item.index
-    self.last_item = item
-    self.last_item.index = #core.log_items
     if 0 < self.scroll.to.y then
       user_scroll = true
+      local index = #core.log_items
+      repeat
+        if self.last_item == core.log_items[index] then
+          break
+        end
+        index = index - 1
+      until 0 == index
+      local diff_index = #core.log_items - index
       self.scroll.to.y = self.scroll.to.y + diff_index * lh
       self.scroll.y = self.scroll.to.y
     else
       self.scroll.to.y = 0
       self.yoffset = -lh
     end
+    self.last_item = item
   end
 
   local expanding = self.expanding[1]
