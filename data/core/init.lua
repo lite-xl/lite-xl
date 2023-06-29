@@ -760,7 +760,7 @@ function core.init()
   cur_node = cur_node:split("down", core.command_view, {y = true})
   cur_node = cur_node:split("down", core.status_view, {y = true})
 
-  -- Load defaiult commands first so plugins can override them
+  -- Load default commands first so plugins can override them
   command.add_defaults()
 
   -- Load user module, plugins and project module
