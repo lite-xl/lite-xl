@@ -46,8 +46,6 @@ end }
 table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
 
-bit32 = bit32 or require "core.bit"
-
 require "core.utf8string"
 
 -- Because AppImages change the working directory before running the executable,

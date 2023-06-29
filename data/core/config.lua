@@ -34,7 +34,6 @@ config.indent_size = 2
 config.tab_type = "soft"
 config.keep_newline_whitespace = false
 config.line_limit = 80
-config.max_project_files = 2000
 config.transitions = true
 config.disabled_transitions = {
   scroll = false,
@@ -53,6 +52,7 @@ config.draw_whitespace = false
 config.borderless = false
 config.tab_close_button = true
 config.max_clicks = 3
+config.restart_on_config_change = true
 
 -- set as true to be able to test non supported plugins
 config.skip_plugins_version = false

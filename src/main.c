@@ -184,6 +184,7 @@ int main(int argc, char **argv) {
   ren_init(window);
 
   lua_State *L;
+  int restarted = 0;
 init_lua:
   L = luaL_newstate();
   luaL_openlibs(L);
@@ -205,6 +206,9 @@ init_lua:
 
   lua_pushnumber(L, get_scale());
   lua_setglobal(L, "SCALE");
+
+  lua_pushboolean(L, restarted);
+  lua_setglobal(L, "RESTARTED");
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
@@ -270,6 +274,7 @@ init_lua:
   if (lua_toboolean(L, -1)) {
     lua_close(L);
     rencache_invalidate();
+    restarted = 1;
     goto init_lua;
   }
 

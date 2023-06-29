@@ -321,9 +321,7 @@ function StatusView:register_command_items()
     get_item = function()
       return {
         style.icon_font, "g",
-        style.font, style.dim, self.separator2,
-        style.text, #core.docs, style.text, " / ",
-        #core.project_files, " files"
+        style.font, style.dim, self.separator2
       }
     end
   })
