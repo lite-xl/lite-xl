@@ -788,7 +788,7 @@ function core.init()
     end
   end
 
-  -- Load core plugins after user ones to let the user override them
+  -- Load core and user plugins giving preference to user ones with same name.
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
