@@ -27,9 +27,8 @@ void lxl_log_init() {
     default_userdata = data;
   }
 
-#ifdef LXL_ENABLE_DEBUG_LOGGING
+  if (getenv("LITE_XL_DEBUG"))
     SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
-#endif
 }
 
 void lxl_log_verbose(const char *fmt, ...) {
