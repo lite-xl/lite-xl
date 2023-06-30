@@ -10,7 +10,7 @@
 static SDL_LogOutputFunction default_fn = NULL;
 static void *default_userdata = NULL;
 
-void lxl_log(void *userdata, int category, SDL_LogPriority priority, const char *message) {
+static void lxl_log(void *userdata, int category, SDL_LogPriority priority, const char *message) {
   if (default_fn)
     default_fn(default_userdata, category, priority, message);
   if (priority == SDL_LOG_PRIORITY_CRITICAL)
@@ -71,9 +71,9 @@ void lxl_log_critical(const char *fmt, ...) {
   va_end(ap);
 }
 
-void warnoff(void *ud, const char *msg, int tocont);
+static void warnoff(void *ud, const char *msg, int tocont);
 
-int checkcontrol(lua_State *L, const char *msg, int tocont) {
+static int checkcontrol(lua_State *L, const char *msg, int tocont) {
   // adapted from Lua 5.4 source code
   // https://www.lua.org/source/5.4/lauxlib.c.html#checkcontrol
   if (tocont || *(msg++) != '@')
@@ -115,6 +115,6 @@ void lxl_log_lua_warnf(void *ud, const char *msg, int tocont) {
 }
 
 // warn handler when warning is turned off
-void warnoff(void *ud, const char *msg, int tocont) {
+static void warnoff(void *ud, const char *msg, int tocont) {
   checkcontrol((lua_State*) ud, msg, tocont);
 }
