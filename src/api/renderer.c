@@ -339,7 +339,7 @@ static int f_draw_text(lua_State *L) {
     lua_pushboolean(L, 1);
     lua_rawset(L, -3);
   } else {
-    fprintf(stderr, "warning: failed to reference count fonts\n");
+    lua_warning(L, "failed to reference count font", true);
   }
   lua_pop(L, 1);
 

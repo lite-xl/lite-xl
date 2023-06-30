@@ -4,6 +4,7 @@
 #include "api/api.h"
 #include "rencache.h"
 #include "renderer.h"
+#include "log.h"
 
 #include <signal.h>
 
@@ -134,9 +135,10 @@ int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
 #endif
 
+  lxl_log_init();
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
-    exit(1);
+    lxl_log_critical("cannot initialize SDL: %s", SDL_GetError());
+    exit(EXIT_FAILURE);
   }
   SDL_EnableScreenSaver();
   SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
@@ -178,14 +180,15 @@ int main(int argc, char **argv) {
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN);
   init_window_icon();
   if (!window) {
-    fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
-    exit(1);
+    lxl_log_critical("cannot create Lite XL window: %s", SDL_GetError());
+    exit(EXIT_FAILURE);
   }
   ren_init(window);
 
   lua_State *L;
 init_lua:
   L = luaL_newstate();
+  lua_setwarnf(L, lxl_log_lua_warnf, (void *) L);
   luaL_openlibs(L);
   api_load_libs(L);
 
@@ -262,9 +265,10 @@ init_lua:
     "end)\n"
     "return core and core.restart_request\n";
 
-  if (luaL_loadstring(L, init_lite_code)) {
-    fprintf(stderr, "internal error when starting the application\n");
-    exit(1);
+  int err = luaL_loadstring(L, init_lite_code);
+  if (err != LUA_OK) {
+    lxl_log_critical("cannot execute bootstrap: %s", err == LUA_ERRSYNTAX ? lua_tostring(L, -1) : "unknown error");
+    exit(EXIT_FAILURE);
   }
   lua_pcall(L, 0, 1, 0);
   if (lua_toboolean(L, -1)) {
