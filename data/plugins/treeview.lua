@@ -9,10 +9,7 @@ local View = require "core.view"
 local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
 local DocView = require "core.docview"
-local ContextMenu
-if false ~= config.plugins.contextmenu then
-  ContextMenu = require "core.contextmenu"
-end
+local ContextMenu, menu = nil, nil
 
 config.plugins.treeview = common.merge({
   -- Default treeview width
@@ -557,41 +554,6 @@ if config.plugins.toolbarview ~= false and toolbar_plugin then
   })
 end
 
--- Add a context menu to the treeview
-local menu
-if ContextMenu then
-  menu = ContextMenu()
-
-  local on_view_mouse_pressed = RootView.on_view_mouse_pressed
-  local on_mouse_moved = RootView.on_mouse_moved
-  local root_view_update = RootView.update
-  local root_view_draw = RootView.draw
-
-  function RootView:on_mouse_moved(...)
-    if menu:on_mouse_moved(...) then return end
-    on_mouse_moved(self, ...)
-  end
-
-  function RootView.on_view_mouse_pressed(button, x, y, clicks)
-    -- We give the priority to the menu to process mouse pressed events.
-    if button == "right" then
-      view.tooltip.alpha = 0
-      view.tooltip.x, view.tooltip.y = nil, nil
-    end
-    local handled = menu:on_mouse_pressed(button, x, y, clicks)
-    return handled or on_view_mouse_pressed(button, x, y, clicks)
-  end
-
-  function RootView:update(...)
-    root_view_update(self, ...)
-    menu:update()
-  end
-
-  function RootView:draw(...)
-    root_view_draw(self, ...)
-    menu:draw()
-  end
-end
 
 local on_quit_project = core.on_quit_project
 function core.on_quit_project()
@@ -615,47 +577,6 @@ end
 
 local function treeitem() return view.hovered_item or view.selected_item end
 
-
-if ContextMenu then
-  menu:register(function() return core.active_view:is(TreeView) and treeitem() end, {
-    { text = "Open in System", command = "treeview:open-in-system" },
-    ContextMenu.DIVIDER
-  })
-
-  menu:register(
-    function()
-      local item = treeitem()
-      return core.active_view:is(TreeView) and item and not is_project_folder(item.abs_filename)
-    end,
-    {
-      { text = "Rename", command = "treeview:rename" },
-      { text = "Delete", command = "treeview:delete" },
-    }
-  )
-
-  menu:register(
-    function()
-      local item = treeitem()
-      return core.active_view:is(TreeView) and item and item.type == "dir"
-    end,
-    {
-      { text = "New File", command = "treeview:new-file" },
-      { text = "New Folder", command = "treeview:new-folder" },
-    }
-  )
-
-  menu:register(
-    function()
-      local item = treeitem()
-      return core.active_view:is(TreeView) and item
-        and not is_primary_project_folder(item.abs_filename)
-        and is_project_folder(item.abs_filename)
-    end,
-    {
-      { text = "Remove directory", command = "treeview:remove-project-directory" },
-    }
-  )
-end
 
 local previous_view = nil
 
@@ -922,17 +843,9 @@ command.add(
 
 local projectsearch = pcall(require, "plugins.projectsearch")
 if projectsearch then
-  if menu then
-    menu:register(function()
-      local item = treeitem()
-      return item and item.type == "dir"
-    end, {
-      { text = "Find in directory", command = "treeview:search-in-directory" }
-    })
-  end
   command.add(function()
-    return view.hovered_item and view.hovered_item.type == "dir"
-  end, {
+      return view.hovered_item and view.hovered_item.type == "dir"
+    end, {
     ["treeview:search-in-directory"] = function(item)
       command.perform("project-search:find", view.hovered_item.abs_filename)
     end
@@ -947,25 +860,6 @@ command.add(function()
   end, {
   ["treeview:remove-project-directory"] = function(item)
     core.remove_project_directory(item.dir_name)
-  end,
-})
-
-
-command.add(
-  function()
-    return menu and menu.show_context_menu == true and core.active_view:is(TreeView)
-  end, {
-  ["treeview-context:focus-previous"] = function()
-    menu:focus_previous()
-  end,
-  ["treeview-context:focus-next"] = function()
-    menu:focus_next()
-  end,
-  ["treeview-context:hide"] = function()
-    menu:hide()
-  end,
-  ["treeview-context:on-selected"] = function()
-    menu:call_selected_item()
   end,
 })
 
@@ -985,13 +879,130 @@ keymap.add {
   ["ctrl+lclick"] = "treeview:new-folder"
 }
 
-keymap.add {
-  ["menu"]   = "treeview-context:show",
-  ["return"] = "treeview-context:on-selected",
-  ["up"]     = "treeview-context:focus-previous",
-  ["down"]   = "treeview-context:focus-next",
-  ["escape"] = "treeview-context:hide"
-}
+
+-- Add a context menu to the treeview,
+-- if user or other plugin hasn't disabled it,
+-- and add keymaps used by context menu.
+-- Also override some RootView methods.
+local function add_context_menu()
+  if false == config.plugins.contextmenu then return end
+
+  ContextMenu = require "core.contextmenu"
+  menu = ContextMenu()
+
+  local on_view_mouse_pressed = RootView.on_view_mouse_pressed
+  local on_mouse_moved = RootView.on_mouse_moved
+  local root_view_update = RootView.update
+  local root_view_draw = RootView.draw
+
+  function RootView:on_mouse_moved(...)
+    if menu:on_mouse_moved(...) then return end
+    on_mouse_moved(self, ...)
+  end
+
+  function RootView.on_view_mouse_pressed(button, x, y, clicks)
+    -- We give the priority to the menu to process mouse pressed events.
+    if button == "right" then
+      view.tooltip.alpha = 0
+      view.tooltip.x, view.tooltip.y = nil, nil
+    end
+    local handled = menu:on_mouse_pressed(button, x, y, clicks)
+    return handled or on_view_mouse_pressed(button, x, y, clicks)
+  end
+
+  function RootView:update(...)
+    root_view_update(self, ...)
+    menu:update()
+  end
+
+  function RootView:draw(...)
+    root_view_draw(self, ...)
+    menu:draw()
+  end
+
+  menu:register(
+    function()
+      return core.active_view:is(TreeView) and treeitem()
+    end, {
+      { text = "Open in System", command = "treeview:open-in-system" },
+      ContextMenu.DIVIDER
+  })
+
+  menu:register(
+    function()
+      local item = treeitem()
+      return core.active_view:is(TreeView) and item and not is_project_folder(item.abs_filename)
+    end,
+    {
+      { text = "Rename", command = "treeview:rename" },
+      { text = "Delete", command = "treeview:delete" },
+    }
+  )
+
+  menu:register(
+    function()
+      local item = treeitem()
+      return core.active_view:is(TreeView) and item and item.type == "dir"
+    end,
+    {
+      { text = "New File", command = "treeview:new-file" },
+      { text = "New Folder", command = "treeview:new-folder" },
+    }
+  )
+
+  menu:register(
+    function()
+      local item = treeitem()
+      return core.active_view:is(TreeView) and item
+        and not is_primary_project_folder(item.abs_filename)
+        and is_project_folder(item.abs_filename)
+    end,
+    {
+      { text = "Remove directory", command = "treeview:remove-project-directory" },
+    }
+  )
+
+  command.add(
+    function()
+      return menu.show_context_menu == true and core.active_view:is(TreeView)
+    end, {
+    ["treeview-context:focus-previous"] = function()
+      menu:focus_previous()
+    end,
+    ["treeview-context:focus-next"] = function()
+      menu:focus_next()
+    end,
+    ["treeview-context:hide"] = function()
+      menu:hide()
+    end,
+    ["treeview-context:on-selected"] = function()
+      menu:call_selected_item()
+    end,
+  })
+
+  keymap.add {
+    ["menu"]   = "treeview-context:show",
+    ["return"] = "treeview-context:on-selected",
+    ["up"]     = "treeview-context:focus-previous",
+    ["down"]   = "treeview-context:focus-next",
+    ["escape"] = "treeview-context:hide"
+  }
+
+  view.contextmenu = menu
+
+  if not projectsearch then return end
+
+  menu:register(
+    function()
+      local item = treeitem()
+      return item and item.type == "dir"
+    end, {
+      { text = "Find in directory", command = "treeview:search-in-directory" }
+  })
+
+end
+-- Load context menu after everything has been loaded
+core.add_thread(add_context_menu)
 
 
 -- The config specification used by gui generators
