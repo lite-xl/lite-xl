@@ -44,7 +44,7 @@ local function find(string, field)
 end
 
 function syntax.get(filename, header)
-  return find(filename, "files")
+  return (filename and find(filename, "files"))
       or (header and find(header, "headers"))
       or plain_text_syntax
 end
