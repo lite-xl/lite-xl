@@ -16,8 +16,9 @@
 #include "renderer.h"
 #include "renwindow.h"
 
-#define MAX_GLYPHSET 256
-#define MAX_LOADABLE_GLYPHSETS 4096
+#define MAX_UNICODE 0x100000
+#define GLYPHSET_SIZE 256
+#define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / GLYPHSET_SIZE)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
 RenWindow window_renderer = {0};
@@ -37,14 +38,14 @@ static void* check_alloc(void *ptr) {
 /************************* Fonts *************************/
 
 typedef struct {
-  unsigned short x0, x1, y0, y1, loaded;
-  short bitmap_left, bitmap_top;
+  unsigned int x0, x1, y0, y1, loaded;
+  int bitmap_left, bitmap_top;
   float xadvance;
 } GlyphMetric;
 
 typedef struct {
   SDL_Surface* surface;
-  GlyphMetric metrics[MAX_GLYPHSET];
+  GlyphMetric metrics[GLYPHSET_SIZE];
 } GlyphSet;
 
 typedef struct RenFont {
@@ -128,14 +129,14 @@ static void font_load_glyphset(RenFont* font, int idx) {
   for (int j = 0, pen_x = 0; j < bitmaps_cached; ++j) {
     GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
     font->sets[j][idx] = set;
-    for (int i = 0; i < MAX_GLYPHSET; ++i) {
-      int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
+    for (int i = 0; i < GLYPHSET_SIZE; ++i) {
+      int glyph_index = FT_Get_Char_Index(font->face, i + idx * GLYPHSET_SIZE);
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)
         || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
         continue;
       }
       FT_GlyphSlot slot = font->face->glyph;
-      int glyph_width = slot->bitmap.width / byte_width;
+      unsigned int glyph_width = slot->bitmap.width / byte_width;
       if (font->antialiasing == FONT_ANTIALIASING_NONE)
         glyph_width *= 8;
       set->metrics[i] = (GlyphMetric){ pen_x, pen_x + glyph_width, 0, slot->bitmap.rows, true, slot->bitmap_left, slot->bitmap_top, (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f};
@@ -153,8 +154,8 @@ static void font_load_glyphset(RenFont* font, int idx) {
       continue;
     set->surface = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 24 : 8, 0, 0, 0, 0));
     uint8_t* pixels = set->surface->pixels;
-    for (int i = 0; i < MAX_GLYPHSET; ++i) {
-      int glyph_index = FT_Get_Char_Index(font->face, i + idx * MAX_GLYPHSET);
+    for (int i = 0; i < GLYPHSET_SIZE; ++i) {
+      int glyph_index = FT_Get_Char_Index(font->face, i + idx * GLYPHSET_SIZE);
       if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
         continue;
       FT_GlyphSlot slot = font->face->glyph;
@@ -178,7 +179,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
 }
 
 static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int subpixel_idx) {
-  int idx = (codepoint >> 8) % MAX_LOADABLE_GLYPHSETS;
+  int idx = (codepoint / GLYPHSET_SIZE) % MAX_LOADABLE_GLYPHSETS;
   if (!font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx])
     font_load_glyphset(font, idx);
   return font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx];
@@ -192,7 +193,7 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
     bitmap_index += SUBPIXEL_BITMAPS_CACHED;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
-    *metric = &(*set)->metrics[codepoint % 256];
+    *metric = &(*set)->metrics[codepoint % GLYPHSET_SIZE];
     if ((*metric)->loaded || codepoint < 0xFF)
       return fonts[i];
   }
@@ -323,14 +324,16 @@ void ren_font_free(RenFont* font) {
 }
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {
+  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
   for (int j = 0; j < FONT_FALLBACK_MAX && fonts[j]; ++j) {
     for (int i = 0; i < (fonts[j]->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1); ++i)
-      font_get_glyphset(fonts[j], '\t', i)->metrics['\t'].xadvance = fonts[j]->space_advance * n;
+      font_get_glyphset(fonts[j], '\t', i)->metrics[tab_index].xadvance = fonts[j]->space_advance * n;
   }
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics['\t'].xadvance;
+  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
+  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics[tab_index].xadvance;
   if (fonts[0]->space_advance) {
     advance /= fonts[0]->space_advance;
   }
