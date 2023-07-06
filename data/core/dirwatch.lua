@@ -174,8 +174,9 @@ end
 -- in project scan or return false if it shouldn't appear in the list.
 local function get_project_file_info(root, file, ignore_compiled)
   local info = system.get_file_info(root .. PATHSEP .. file)
-  -- info may not be nil but info.type may be nil if it is neither a file nor
-  -- a directory, for example for /dev/* entries on linux.
+  -- info can be valid at the same time that info.type is nil.
+  -- When it is neither a file nor a directory.
+  -- For example: /dev/* entries on linux.
   if info and info.type then
     info.filename = file
     return fileinfo_pass_filter(info, ignore_compiled) and info
