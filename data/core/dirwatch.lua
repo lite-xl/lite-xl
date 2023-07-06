@@ -28,7 +28,7 @@ function dirwatch:scan(directory, bool)
 end
 
 -- Should be called on every directory in a subdirectory.
--- On windows, this is a no-op for anything underneath a top-level directory,
+-- On Windows, this is a no-op for anything underneath a top-level directory,
 -- but code should be called anyway, so we can ensure that we have a proper
 -- experience across all platforms. Should be an absolute path.
 -- Can also be called on individual files, though this should be used sparingly,
@@ -174,7 +174,7 @@ end
 -- in project scan or return false if it shouldn't appear in the list.
 local function get_project_file_info(root, file, ignore_compiled)
   local info = system.get_file_info(root .. PATHSEP .. file)
-  -- info can not be nil but info.type may be nil if it is neither a file nor
+  -- info may not be nil but info.type may be nil if it is neither a file nor
   -- a directory, for example for /dev/* entries on linux.
   if info and info.type then
     info.filename = file
