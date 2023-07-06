@@ -171,7 +171,7 @@ end
 
 
 -- compute a file's info entry completed with "filename" to be used
--- in project scan and return it or falsey if it shouldn't appear in the list.
+-- in project scan and return it or falsy if it shouldn't appear in the list.
 local function get_project_file_info(root, file, ignore_compiled)
   local info = system.get_file_info(root .. PATHSEP .. file)
   -- info can be valid at the same time that info.type is nil.
