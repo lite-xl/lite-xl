@@ -28,7 +28,7 @@ function dirwatch:scan(directory, bool)
 end
 
 -- Should be called on every directory in a subdirectory.
--- In windows, this is a no-op for anything underneath a top-level directory,
+-- On windows, this is a no-op for anything underneath a top-level directory,
 -- but code should be called anyway, so we can ensure that we have a proper
 -- experience across all platforms. Should be an absolute path.
 -- Can also be called on individual files, though this should be used sparingly,
@@ -130,11 +130,11 @@ local function compile_ignore_files()
   -- config.ignore_files could be a simple string...
   if type(ipatterns) ~= "table" then ipatterns = {ipatterns} end
   for i, pattern in ipairs(ipatterns) do
-    -- we ignore malformed pattern that raise an error
+    -- we ignore malformed patterns that raise an error
     if pcall(string.match, "a", pattern) then
       table.insert(compiled, {
         use_path = pattern:match("/[^/$]"), -- contains a slash but not at the end
-        -- An '/' or '/$' at the end means we want to match a directory.
+        -- A '/' or '/$' at the end means we want to match a directory.
         match_dir = pattern:match(".+/%$?$"), -- to be used as a boolen value
         pattern = pattern -- get the actual pattern
       })
@@ -171,10 +171,10 @@ end
 
 
 -- compute a file's info entry completed with "filename" to be used
--- in project scan or falsy if it shouldn't appear in the list.
+-- in project scan or return false if it shouldn't appear in the list.
 local function get_project_file_info(root, file, ignore_compiled)
   local info = system.get_file_info(root .. PATHSEP .. file)
-  -- info can be not nil but info.type may be nil if is neither a file neither
+  -- info can not be nil but info.type may be nil if it is neither a file nor
   -- a directory, for example for /dev/* entries on linux.
   if info and info.type then
     info.filename = file
@@ -186,8 +186,8 @@ end
 -- "root" will by an absolute path without trailing '/'
 -- "path" will be a path starting without '/' and without trailing '/'
 --    or the empty string.
---    It will identifies a sub-path within "root.
--- The current path location will therefore always be: root .. path.
+--    It will identify a sub-path within "root.
+-- The current path location will therefore always be: root .. '/' .. path.
 -- When recursing "root" will always be the same, only "path" will change.
 -- Returns a list of file "items". In each item the "filename" will be the
 -- complete file path relative to "root" *without* the trailing '/', and without the starting '/'.
