@@ -57,8 +57,12 @@ OutputBaseFilename=LiteXL-{#MyAppVersion}-{#ArchInternal}-setup
 
 LicenseFile={#SourceDir}/LICENSE
 SetupIconFile={#SourceDir}/resources/icons/icon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}, 0
 WizardImageFile="{#SourceDir}/scripts/innosetup/wizard-modern-image.bmp"
 WizardSmallImageFile="{#SourceDir}/scripts/innosetup/litexl-55px.bmp"
+
+; Required for the add to path option to refresh environment
+ChangesEnvironment=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -67,6 +71,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 Name: "portablemode"; Description: "Portable Mode"; Flags: unchecked
+Name: "envPath"; Description: "Add lite-xl to the PATH variable, allowing it to be run from a command line."
 
 [Files]
 Source: "{#SourceDir}/lite-xl/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
@@ -95,3 +100,62 @@ Filename: "{app}/{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 
 [Setup]
 Uninstallable=not WizardIsTaskSelected('portablemode')
+
+; Code to add installation path to environment taken from:
+; https://stackoverflow.com/a/46609047
+[Code]
+const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
+
+procedure EnvAddPath(Path: string);
+var
+  Paths: string;
+begin
+  { Retrieve current path (use empty string if entry not exists) }
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths)
+  then Paths := '';
+
+  { Skip if string already found in path }
+  if Pos(';' + Uppercase(Path) + ';', ';' + Uppercase(Paths) + ';') > 0 then exit;
+
+  { App string to the end of the path variable }
+  Paths := Paths + ';'+ Path +';'
+
+  { Overwrite (or create if missing) path environment variable }
+  if RegWriteStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths)
+  then Log(Format('The [%s] added to PATH: [%s]', [Path, Paths]))
+  else Log(Format('Error while adding the [%s] to PATH: [%s]', [Path, Paths]));
+end;
+
+procedure EnvRemovePath(Path: string);
+var
+  Paths: string;
+  P: Integer;
+begin
+  { Skip if registry entry not exists }
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths) then
+    exit;
+
+  { Skip if string not found in path }
+  P := Pos(';' + Uppercase(Path) + ';', ';' + Uppercase(Paths) + ';');
+  if P = 0 then exit;
+
+  { Update path variable }
+  Delete(Paths, P - 1, Length(Path) + 1);
+
+  { Overwrite path environment variable }
+  if RegWriteStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths)
+  then Log(Format('The [%s] removed from PATH: [%s]', [Path, Paths]))
+  else Log(Format('Error while removing the [%s] from PATH: [%s]', [Path, Paths]));
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if (CurStep = ssPostInstall) and WizardIsTaskSelected('envPath')
+  then EnvAddPath(ExpandConstant('{app}'));
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall
+  then EnvRemovePath(ExpandConstant('{app}'));
+end;
