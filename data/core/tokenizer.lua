@@ -133,11 +133,11 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
   local res
   local i = 1
 
-  if #incoming_syntax.patterns == 0 then
-    return { "normal", text }
-  end
-
   state = state or string.char(0)
+
+  if #incoming_syntax.patterns == 0 then
+    return { "normal", text }, state
+  end
 
   if resume then
     res = resume.res
