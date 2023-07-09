@@ -4,9 +4,9 @@
 #include <assert.h>
 #include <math.h>
 #include <ft2build.h>
-#include <freetype/ftlcdfil.h>
-#include <freetype/ftoutln.h>
 #include FT_FREETYPE_H
+#include FT_LCD_FILTER_H
+#include FT_OUTLINE_H
 
 #ifdef _WIN32
 #include <windows.h>
