@@ -215,7 +215,7 @@ static void font_clear_glyph_cache(RenFont* font) {
 
 // based on https://github.com/libsdl-org/SDL_ttf/blob/2a094959055fba09f7deed6e1ffeb986188982ae/SDL_ttf.c#L1735
 static unsigned long font_file_read(FT_Stream stream, unsigned long offset, unsigned char *buffer, unsigned long count) {
-  Sint64 amount;
+  uint64_t amount;
   SDL_RWops *file = (SDL_RWops *) stream->descriptor.pointer;
   SDL_RWseek(file, (int) offset, RW_SEEK_SET);
   if (count == 0)
