@@ -226,17 +226,25 @@ static unsigned long font_file_read(FT_Stream stream, unsigned long offset, unsi
   return (unsigned long) amount;
 }
 
+static void font_file_close(FT_Stream stream) {
+  if (stream && stream->descriptor.pointer) {
+    SDL_RWclose((SDL_RWops *) stream->descriptor.pointer);
+    stream->descriptor.pointer = NULL;
+  }
+}
+
 RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   RenFont *font = NULL;
   FT_Face face = NULL;
   
   SDL_RWops *file = SDL_RWFromFile(path, "rb");
   if (!file)
-    goto failure;
+    goto rwops_failure;
 
   int len = strlen(path);
   font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
   font->stream.read = font_file_read;
+  font->stream.close = font_file_close;
   font->stream.descriptor.pointer = file;
   font->stream.pos = 0;
   font->stream.size = (unsigned long) SDL_RWsize(file);
@@ -272,10 +280,11 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
 failure:
   if (face)
     FT_Done_Face(face);
-  if (file)
-    SDL_RWclose(file);
   if (font)
     free(font);
+rwops_failure:
+  if (file)
+    SDL_RWclose(file);
   return NULL;
 }
 
@@ -294,7 +303,6 @@ const char* ren_font_get_path(RenFont *font) {
 void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
   FT_Done_Face(font->face);
-  SDL_RWclose((SDL_RWops *) font->stream.descriptor.pointer);
   free(font);
 }
 
