@@ -49,7 +49,7 @@ function Doc:reset_syntax()
     path = core.project_dir .. PATHSEP .. self.filename
   end
   if path then path = common.normalize_path(path) end
-  local syn = syntax.get(path or "", header)
+  local syn = syntax.get(path, header)
   if self.syntax ~= syn then
     self.syntax = syn
     self.highlighter:soft_reset()
