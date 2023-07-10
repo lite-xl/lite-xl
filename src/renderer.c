@@ -282,6 +282,8 @@ failure:
     FT_Done_Face(face);
   if (font)
     free(font);
+  return NULL;
+
 rwops_failure:
   if (file)
     SDL_RWclose(file);
