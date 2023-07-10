@@ -202,6 +202,15 @@ static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFo
   return fonts[0];
 }
 
+static unsigned short font_group_get_baseline(RenFont **fonts) {
+  unsigned short max_baseline = 0;
+  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
+    if (fonts[i]->baseline > max_baseline)
+      max_baseline = fonts[i]->baseline;
+  }
+  return max_baseline;
+}
+
 static void font_clear_glyph_cache(RenFont* font) {
   for (int i = 0; i < SUBPIXEL_BITMAPS_CACHED; ++i) {
     for (int j = 0; j < MAX_LOADABLE_GLYPHSETS; ++j) {
@@ -396,6 +405,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   double last_pen_x = x;
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
+  unsigned short baseline = font_group_get_baseline(fonts);
 
   while (text < end) {
     unsigned int codepoint, r, g, b;
@@ -412,7 +422,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
-        int target_y = line + y - metric->bitmap_top + font->baseline * surface_scale;
+        int target_y = line + y - metric->bitmap_top + baseline * surface_scale;
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
