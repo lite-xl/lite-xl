@@ -7,6 +7,7 @@
 #include FT_FREETYPE_H
 #include FT_LCD_FILTER_H
 #include FT_OUTLINE_H
+#include FT_SYSTEM_H
 
 #ifdef _WIN32
 #include <windows.h>
@@ -50,6 +51,7 @@ typedef struct {
 
 typedef struct RenFont {
   FT_Face face;
+  FT_StreamRec stream;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
   unsigned short max_height, baseline, height;
@@ -57,10 +59,6 @@ typedef struct RenFont {
   ERenFontHinting hinting;
   unsigned char style;
   unsigned short underline_thickness;
-#ifdef _WIN32
-  unsigned char *file;
-  HANDLE file_handle;
-#endif
   char path[];
 } RenFont;
 
@@ -215,54 +213,49 @@ static void font_clear_glyph_cache(RenFont* font) {
   }
 }
 
+// based on https://github.com/libsdl-org/SDL_ttf/blob/2a094959055fba09f7deed6e1ffeb986188982ae/SDL_ttf.c#L1735
+static unsigned long font_file_read(FT_Stream stream, unsigned long offset, unsigned char *buffer, unsigned long count) {
+  uint64_t amount;
+  SDL_RWops *file = (SDL_RWops *) stream->descriptor.pointer;
+  SDL_RWseek(file, (int) offset, RW_SEEK_SET);
+  if (count == 0)
+    return 0;
+  amount = SDL_RWread(file, buffer, sizeof(char), count);
+  if (amount <= 0)
+    return 0;
+  return (unsigned long) amount;
+}
+
+static void font_file_close(FT_Stream stream) {
+  if (stream && stream->descriptor.pointer) {
+    SDL_RWclose((SDL_RWops *) stream->descriptor.pointer);
+    stream->descriptor.pointer = NULL;
+  }
+}
+
 RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
+  RenFont *font = NULL;
   FT_Face face = NULL;
+  
+  SDL_RWops *file = SDL_RWFromFile(path, "rb");
+  if (!file)
+    goto rwops_failure;
 
-#ifdef _WIN32
+  int len = strlen(path);
+  font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
+  font->stream.read = font_file_read;
+  font->stream.close = font_file_close;
+  font->stream.descriptor.pointer = file;
+  font->stream.pos = 0;
+  font->stream.size = (unsigned long) SDL_RWsize(file);
 
-  HANDLE file = INVALID_HANDLE_VALUE;
-  DWORD read;
-  int font_file_len = 0;
-  unsigned char *font_file = NULL;
-  wchar_t *wpath = NULL;
-
-  if ((wpath = utfconv_utf8towc(path)) == NULL)
-    return NULL;
-
-  if ((file = CreateFileW(wpath,
-                          GENERIC_READ,
-                          FILE_SHARE_READ, // or else we can't copy fonts
-                          NULL,
-                          OPEN_EXISTING,
-                          FILE_ATTRIBUTE_NORMAL,
-                          NULL)) == INVALID_HANDLE_VALUE)
+  if (FT_Open_Face(library, &(FT_Open_Args){ .flags = FT_OPEN_STREAM, .stream = &font->stream }, 0, &face))
     goto failure;
-
-  if ((font_file_len = GetFileSize(file, NULL)) == INVALID_FILE_SIZE)
-    goto failure;
-
-  font_file = check_alloc(malloc(font_file_len * sizeof(unsigned char)));
-  if (!ReadFile(file, font_file, font_file_len, &read, NULL) || read != font_file_len)
-    goto failure;
-
-  free(wpath);
-  wpath = NULL;
-
-  if (FT_New_Memory_Face(library, font_file, read, 0, &face))
-    goto failure;
-
-#else
-
-  if (FT_New_Face(library, path, 0, &face))
-    return NULL;
-
-#endif
 
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
     goto failure;
-  int len = strlen(path);
-  RenFont* font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
+
   strcpy(font->path, path);
   font->face = face;
   font->size = size;
@@ -272,32 +265,28 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   font->hinting = hinting;
   font->style = style;
 
-#ifdef _WIN32
-  // we need to keep this for freetype
-  font->file = font_file;
-  font->file_handle = file;
-#endif
-
   if(FT_IS_SCALABLE(face))
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
-  if(!font->underline_thickness) font->underline_thickness = ceil((double) font->height / 14.0);
+  if(!font->underline_thickness)
+    font->underline_thickness = ceil((double) font->height / 14.0);
 
-  if (FT_Load_Char(face, ' ', font_set_load_options(font))) {
-    free(font);
+  if (FT_Load_Char(face, ' ', font_set_load_options(font)))
     goto failure;
-  }
+
   font->space_advance = face->glyph->advance.x / 64.0f;
   font->tab_advance = font->space_advance * 2;
   return font;
 
 failure:
-#ifdef _WIN32
-  free(wpath);
-  free(font_file);
-  if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
-#endif
-  if (face != NULL)
+  if (face)
     FT_Done_Face(face);
+  if (font)
+    free(font);
+  return NULL;
+
+rwops_failure:
+  if (file)
+    SDL_RWclose(file);
   return NULL;
 }
 
@@ -316,10 +305,6 @@ const char* ren_font_get_path(RenFont *font) {
 void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
   FT_Done_Face(font->face);
-#ifdef _WIN32
-  free(font->file);
-  CloseHandle(font->file_handle);
-#endif
   free(font);
 }
 
