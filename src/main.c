@@ -181,6 +181,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
     exit(1);
   }
+  SDL_SetWindowMinimumSize(window, dm.w * 0.2, dm.h * 0.2);
   ren_init(window);
 
   lua_State *L;
