@@ -25,7 +25,7 @@ package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
 package.path = USERDIR .. '/?/init.lua;' .. package.path
 
-local suffix = PLATFORM == "Mac OS X" and 'lib' or (PLATFORM == "Windows" and 'dll' or 'so')
+local suffix = PLATFORM == "Windows" and 'dll' or 'so'
 package.cpath =
   USERDIR .. '/?.' .. ARCH .. "." .. suffix .. ";" ..
   USERDIR .. '/?/init.' .. ARCH .. "." .. suffix .. ";" ..
