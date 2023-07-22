@@ -3,7 +3,10 @@ local common = {}
 
 ---Checks if the byte at offset is a UTF-8 continuation byte.
 ---
----A UTF-8 continuation byte is any byte where the first two bits are 10.
+---UTF-8 encodes code points in 1 to 4 bytes. </br>
+---The first byte starts with a number of 1 bits followed by 0, </br>
+---where the number of 1 bits represent the number of bytes needed for the sequence. </br>
+---For multi-byte sequences, each byte following the start byte starts with the bits 10.
 ---@param s string
 ---@param offset? integer The offset of the string to start searching. Defaults to 1.
 ---@return boolean
@@ -31,9 +34,9 @@ function common.clamp(n, lo, hi)
 end
 
 
----Returns a table containing the contents of b merged into a.
----@param a table
----@param b table
+---Returns a new table containing the contents of b merged into a.
+---@param a table|nil
+---@param b table?
 ---@return table
 function common.merge(a, b)
   a = type(a) == "table" and a or {}
@@ -216,7 +219,7 @@ end
 
 ---Returns a list of paths that are relative to the input path.
 ---
----If a root directory is specified, the function returns a paths
+---If a root directory is specified, the function returns paths
 ---that are relative to the root directory.
 ---@param text string The input path.
 ---@param root? string The root directory.
@@ -329,18 +332,16 @@ function common.match_pattern(text, pattern, ...)
 end
 
 
----@alias common.textalign
----| '"left"'   # Align text to the left of the bounding box
----| '"right"'  # Align text to the right of the bounding box
----| '"center"' # Center text in the bounding box
-
 ---Draws text onto the window.
 ---The function returns the X and Y coordinates of the bottom-right
 ---corner of the text.
 ---@param font renderer.font
 ---@param color renderer.color
 ---@param text string
----@param align common.textalign
+---@param align string
+---| '"left"'   # Align text to the left of the bounding box
+---| '"right"'  # Align text to the right of the bounding box
+---| '"center"' # Center text in the bounding box
 ---@param x number
 ---@param y number
 ---@param w number
@@ -447,8 +448,6 @@ end
 
 
 ---Returns the last portion of a path.
----If this function doesn't have a filename (eg. `"C:/"` or `"/"`),
----this function may return nil.
 ---@param path string
 ---@return string|nil
 function common.basename(path)
@@ -483,7 +482,7 @@ function common.home_encode(text)
 end
 
 
----Returns a list of paths where the user's home directory are replaced by `"~"`.
+---Returns a list of paths where the user's home directory is replaced by `"~"`.
 ---@param paths string[] A list of paths to encode
 ---@return string[]
 function common.home_encode_list(paths)
@@ -517,15 +516,13 @@ end
 
 
 ---Normalizes the drive letter in a Windows path to uppercase.
----@param filename string The input path. This must be an absolute path.
+---This function expects an absolute path, e.g. a path from `system.absolute_path`.
+---
+---This function is needed because the path returned by `system.absolute_path`
+---may contain drive letters in upper or lowercase.
+---@param filename string|nil The input path.
 ---@return string|nil
 function common.normalize_volume(filename)
-  -- The filename argument given to the function is supposed to
-  -- come from system.absolute_path and as such should be an
-  -- absolute path without . or .. elements.
-  -- This function exists because on Windows the drive letter returned
-  -- by system.absolute_path is sometimes with a lower case and sometimes
-  -- with an upper case so we normalize to upper case.
   if not filename then return end
   if PATHSEP == '\\' then
     local drive, rem = filename:match('^([a-zA-Z]:\\)(.-)'..PATHSEP..'?$')
@@ -542,7 +539,7 @@ end
 ---On Windows, all drive letters are converted to uppercase.
 ---UNC paths with drive letters are converted back to ordinary Windows paths.
 ---All path separators (`"/"`, `"\\"`) are converted to platform-specific ones.
----@param filename string
+---@param filename string|nil
 ---@return string|nil
 function common.normalize_path(filename)
   if not filename then return end
@@ -593,8 +590,8 @@ end
 
 
 ---Checks whether a path belongs to a parent directory.
----@param filename string The path to check
----@param path string The parent path
+---@param filename string The path to check.
+---@param path string The parent path.
 ---@return boolean
 function common.path_belongs_to(filename, path)
   return string.find(filename, path .. PATHSEP, 1, true) == 1
@@ -602,8 +599,9 @@ end
 
 
 ---Checks whether a path is relative to another path.
----@param ref_dir string The path to check against
----@param dir string The input path
+---@param ref_dir string The path to check against.
+---@param dir string The input path.
+---@return boolean
 function common.relative_path(ref_dir, dir)
   local drive_pattern = "^(%a):\\"
   local drive, ref_drive = dir:match(drive_pattern), ref_dir:match(drive_pattern)
@@ -633,7 +631,7 @@ end
 ---@param path string
 ---@return boolean success
 ---@return string|nil error
----@return string|nil path The path where an error occured
+---@return string|nil path The path where an error occured.
 function common.mkdirp(path)
   local stat = system.get_file_info(path)
   if stat and stat.type then
@@ -662,7 +660,7 @@ end
 ---@param recursively boolean If true, the function will attempt to remove everything in the specified path.
 ---@return boolean success
 ---@return string|nil error
----@return string|nil path The path where the error occured
+---@return string|nil path The path where the error occured.
 function common.rm(path, recursively)
   local stat = system.get_file_info(path)
   if not stat or (stat.type ~= "file" and stat.type ~= "dir") then
