@@ -3,10 +3,8 @@ local common = {}
 
 ---Checks if the byte at offset is a UTF-8 continuation byte.
 ---
----UTF-8 encodes code points in 1 to 4 bytes. </br>
----The first byte starts with a number of 1 bits followed by 0, </br>
----where the number of 1 bits represent the number of bytes needed for the sequence. </br>
----For multi-byte sequences, each byte following the start byte starts with the bits 10.
+---UTF-8 encodes code points in 1 to 4 bytes.
+---For a multi-byte sequence, each byte following the start byte is a continuation byte.
 ---@param s string
 ---@param offset? integer The offset of the string to start searching. Defaults to 1.
 ---@return boolean
