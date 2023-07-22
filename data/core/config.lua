@@ -80,6 +80,7 @@ config.ignore_files = {
 
 ---Lua pattern used to find symbols when advanced syntax highlighting
 ---is not available.
+---This pattern is also used for navigation, e.g. move to next word.
 ---
 ---The default pattern matches all letters, followed by any number
 ---of letters and digits.
@@ -88,7 +89,7 @@ config.symbol_pattern = "[%a_][%w_]*"
 
 ---A list of characters that delimits a word.
 ---
----The default is `" \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"`
+---The default is ``" \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"``
 ---@type string
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
 
@@ -122,7 +123,6 @@ config.always_show_tabs = true
 ---| false # Never highlight the current line.
 ---| "no_selection" Highlight the current line if no text is selected.
 
--- Possible values: false, true, "no_selection"
 ---Highlights the current line.
 ---
 ---The default is true.
@@ -153,7 +153,7 @@ config.tab_type = "soft"
 ---@type boolean
 config.keep_newline_whitespace = false
 
----Maximum number of characters per-line.
+---Maximum number of characters per-line for the line guide.
 ---
 ---Defaults to 80.
 ---@type number
