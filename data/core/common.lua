@@ -447,7 +447,7 @@ end
 
 ---Returns the last portion of a path.
 ---@param path string
----@return string|nil
+---@return string
 function common.basename(path)
   -- a path should never end by / or \ except if it is '/' (unix root) or
   -- 'X:\' (windows drive)
