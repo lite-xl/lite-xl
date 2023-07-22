@@ -422,17 +422,18 @@ end
 ---@field sort boolean Sorts the output if it is a sortable table.
 ---@field initial_indent number The initial indentation level. Defaults to 0.
 
----Serialize a value into a Lua string that is loadable with load().
+---Serializes a value into a Lua string that is loadable with load().
 ---
 ---Only these basic types are supported:
 ---* nil
 ---* boolean
----* number
+---* number (except very large numbers and special constants, e.g. `math.huge`, `inf` and `nan`)
+---* integer
 ---* string
 ---* table
 ---
 ---@param val any
----@param opts common.serializeoptions
+---@param opts? common.serializeoptions
 ---@return string
 function common.serialize(val, opts)
   opts = opts or {}
