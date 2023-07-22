@@ -358,10 +358,10 @@ function common.draw_text(font, color, text, align, x,y,w,h)
 end
 
 
----Runs benchmark on a function.
+---Prints the execution time of a function.
 ---
----When the benchmark is completed, the execution time and
----percentage of frame time for the benchmark is printed.
+---The execution time and percentage of frame time
+---for the function is printed to standard output. </br>
 ---The frame rate is always assumed to be 60 FPS, thus
 ---a value of 100% would mean that the benchmark took
 ---1/60 of a second to execute.
