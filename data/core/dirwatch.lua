@@ -269,7 +269,7 @@ function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse
     if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
       -- when recursing, root will stay the same while path changes
       local _, complete, n = dirwatch.get_directory_files(dir, root, f.filename, t, entries_count, recurse_pred)
-      recurse_complete = recurse_complete and complete
+      recurse_complete = recurse_complete and complete or false
       if n ~= nil then
         entries_count = n
       end
