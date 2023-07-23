@@ -6,7 +6,7 @@ local command = {}
 ---
 ---The predicate function can also return other values after the boolean, which will
 ---be passed into the function associated with the command.
----@alias command.predicate_function fun(...: any): boolean, ...
+---@alias core.command.predicate_function fun(...: any): boolean, ...
 
 ---A predicate is a string, Object or a function that is used to determine whether a command should be
 ---executed. It could be used to match the current view among many other things.
@@ -23,14 +23,14 @@ local command = {}
 ---If the predicate is a function, it must be a predicate function - a function that takes in
 ---any arguments that may be passed via `command.perform()`, and returns a boolean and any
 ---other values for the function associated to the command.
----@alias command.predicate string|core.object|command.predicate_function
+---@alias core.command.predicate string|core.object|core.command.predicate_function
 
 ---The predicate and its associated function.
----@class command.command
----@field predicate command.predicate_function
+---@class core.command.command
+---@field predicate core.command.predicate_function
 ---@field perform fun(...: any)
 
----@type { [string]: command.command }
+---@type { [string]: core.command.command }
 command.map = {}
 
 local always_true = function() return true end
@@ -39,8 +39,8 @@ local always_true = function() return true end
 ---This function takes in a predicate and produces a predicate function
 ---that is internally used to dispatch and execute commands.
 ---@see command.predicate
----@param predicate command.predicate
----@return command.predicate_function
+---@param predicate core.command.predicate
+---@return core.command.predicate_function
 function command.generate_predicate(predicate)
   predicate = predicate or always_true
   local strict = false
@@ -59,7 +59,7 @@ function command.generate_predicate(predicate)
       predicate = function(...) return core.active_view:is(class), core.active_view, ... end
     end
   end
-  ---@cast predicate command.predicate_function
+  ---@cast predicate core.command.predicate_function
   return predicate
 end
 
@@ -69,8 +69,8 @@ end
 ---The function accepts a table containing a list of commands
 ---and their functions. </br>
 ---If a command already exists, it will be replaced.
----@see command.predicate
----@param predicate command.predicate
+---@see core.command.predicate
+---@param predicate core.command.predicate
 ---@param map { [string]: fun(...: any) }
 function command.add(predicate, map)
   predicate = command.generate_predicate(predicate)
@@ -149,8 +149,8 @@ end
 ---
 ---Otherwise, the the arguments passed into this function is passed directly
 ---to the function associated with the command.
----@see command.predicate
----@see command.predicate_function
+---@see core.command.predicate
+---@see core.command.predicate_function
 ---@param ... any
 ---@return boolean # true if the command is performed successfully.
 function command.perform(...)
