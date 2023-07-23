@@ -221,7 +221,7 @@ end
 ---
 ---Aside from fields in `system.fileinfo`, it also includes the filename
 ---relative to a root directory.
----@class dirwatch.extended_fileinfo: system.fileinfo
+---@class core.dirwatch.extended_fileinfo: system.fileinfo
 ---@field filename string The path to the file relative to a root directory, without starting and trailing slashes.
 
 ---Gets files recursively within a project directory.
@@ -238,10 +238,10 @@ end
 ---@param dir table The project directory object.
 ---@param root string An absolute path to search, without trailing `/`.
 ---@param path string A sub-path within `root` without a trailing `/`, or an empty string.
----@param t dirwatch.extended_fileinfo[] A table to store the output of the function.
+---@param t core.dirwatch.extended_fileinfo[] A table to store the output of the function.
 ---@param entries_count number The number of entries in the table.
 ---@param recurse_pred fun(dir: table, path: string, entries_count: number, time_elapsed: number): boolean The predicate function.
----@return dirwatch.extended_fileinfo[]|nil # Table passed via `t`.
+---@return core.dirwatch.extended_fileinfo[]|nil # Table passed via `t`.
 ---@return boolean|nil # false if the indexing is interrupted by the predicate function.
 ---@return number|nil # Number of entries returned.
 function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse_pred)
