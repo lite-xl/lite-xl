@@ -59,6 +59,7 @@ function command.generate_predicate(predicate)
       predicate = function(...) return core.active_view:is(class), core.active_view, ... end
     end
   end
+  ---@cast predicate command.predicate_function
   return predicate
 end
 
@@ -93,6 +94,7 @@ end
 ---@param name string
 ---@return string
 function command.prettify_name(name)
+  ---@diagnostic disable-next-line: redundant-return-value
   return name:gsub(":", ": "):gsub("-", " "):gsub("%S+", capitalize_first)
 end
 
