@@ -809,35 +809,53 @@ function core.init()
     core.root_view:open_doc(core.open_doc(filename))
   end
 
+  local log_view_open
   if not plugins_success or got_user_error or got_project_error then
     command.perform("core:open-log")
+    log_view_open = true
   end
 
   core.configure_borderless_window()
 
-  if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
+  if next(plugins_refuse_list) then
     local opt = {
       { text = "Exit", default_no = true },
-      { text = "Continue", default_yes = true }
+      { text = "Continue", default_yes = true },
+      { text = "Load Anyway" }
     }
     local msg = {}
-    for _, entry in pairs(plugins_refuse_list) do
-      if #entry.plugins > 0 then
+    for dir, entry in pairs(plugins_refuse_list) do
+      if #entry > 0 then
         local msg_list = {}
-        for _, p in pairs(entry.plugins) do
+        for _, p in ipairs(entry) do
           table.insert(msg_list, string.format("%s[%s]", p.file, p.version_string))
         end
-        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(msg_list, "\n"))
+        msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(dir), table.concat(msg_list, "\n"))
       end
     end
     core.nag_view:show(
       "Refused Plugins",
       string.format(
         "Some plugins are not loaded due to version mismatch. Expected version %s.\n\n%s.\n\n" ..
-        "Please download a recent version from https://github.com/lite-xl/lite-xl-plugins.",
+        "Please download a recent version from https://github.com/lite-xl/lite-xl-plugins.\n" ..
+        "To silence this warning, set config.skip_plugins_version to true.",
         MOD_VERSION_STRING, table.concat(msg, ".\n\n")),
       opt, function(item)
-        if item.text == "Exit" then os.exit(1) end
+        if item.text == "Exit" then
+          os.exit(1)
+        elseif item.text == "Load Anyway" then
+          local refused_plugins = {}
+          for _, entry in pairs(plugins_refuse_list) do
+            for _, p in ipairs(entry) do
+              table.insert(refused_plugins, p)
+            end
+          end
+          plugins_success, plugins_refuse_list = core.load_plugins(refused_plugins, true)
+          if not plugins_success and not log_view_open then
+            -- try to not open log if its already opened previously
+            command.perform "core:open-log"
+          end
+        end
       end)
   end
 
@@ -976,61 +994,64 @@ local function get_plugin_details(filename)
 end
 
 
-function core.load_plugins()
+function core.load_plugins(plugins, force)
   local no_errors = true
-  local refused_list = {
-    userdir = {dir = USERDIR, plugins = {}},
-    datadir = {dir = DATADIR, plugins = {}},
-  }
-  local files, ordered = {}, {}
-  for _, root_dir in ipairs {DATADIR, USERDIR} do
-    local plugin_dir = root_dir .. PATHSEP .. "plugins"
-    for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
-      if not files[filename] then
-        table.insert(
-          ordered, {file = filename}
-        )
+  local refused_list = {}
+
+  if not plugins then
+    local files, ordered = {}, {}
+    for _, root_dir in ipairs {DATADIR, USERDIR} do
+      local plugin_dir = root_dir .. PATHSEP .. "plugins"
+      for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
+        if not files[filename] then
+          table.insert(
+            ordered, {file = filename}
+          )
+        end
+        -- user plugins will always replace system plugins
+        files[filename] = plugin_dir
       end
-      -- user plugins will always replace system plugins
-      files[filename] = plugin_dir
     end
-  end
 
-  for _, plugin in ipairs(ordered) do
-    local dir = files[plugin.file]
-    local name = plugin.file:match("(.-)%.lua$") or plugin.file
-    local is_lua_file, details = get_plugin_details(dir .. PATHSEP .. plugin.file)
+    for _, plugin in ipairs(ordered) do
+      local dir = files[plugin.file]
+      local name = plugin.file:match("(.-)%.lua$") or plugin.file
+      local is_lua_file, details = get_plugin_details(dir .. PATHSEP .. plugin.file)
 
-    plugin.valid = is_lua_file
-    plugin.name = name
-    plugin.dir = dir
-    plugin.priority = details and details.priority or 100
-    plugin.version_match = details and details.version_match or false
-    plugin.version = details and details.version or {}
-    plugin.version_string = #plugin.version > 0 and table.concat(plugin.version, ".") or "unknown"
-  end
-
-  -- sort by priority or name for plugins that have same priority
-  table.sort(ordered, function(a, b)
-    if a.priority ~= b.priority then
-      return a.priority < b.priority
+      plugin.valid = is_lua_file
+      plugin.name = name
+      plugin.dir = dir
+      plugin.priority = details and details.priority or 100
+      plugin.version_match = details and details.version_match or false
+      plugin.version = details and details.version or {}
+      plugin.version_string = #plugin.version > 0 and table.concat(plugin.version, ".") or "unknown"
     end
-    return a.name < b.name
-  end)
+
+    -- sort by priority or name for plugins that have same priority
+    table.sort(ordered, function(a, b)
+      if a.priority ~= b.priority then
+        return a.priority < b.priority
+      end
+      return a.name < b.name
+    end)
+
+    plugins = ordered
+  end
 
   local load_start = system.get_time()
-  for _, plugin in ipairs(ordered) do
+  for _, plugin in ipairs(plugins) do
     if plugin.valid then
-      if not config.skip_plugins_version and not plugin.version_match then
+      if not force and not config.skip_plugins_version and not plugin.version_match then
         core.log_quiet(
           "Version mismatch for plugin %q[%s] from %s",
           plugin.name,
           plugin.version_string,
           plugin.dir
         )
-        local rlist = plugin.dir:find(USERDIR, 1, true) == 1
-          and 'userdir' or 'datadir'
-        local list = refused_list[rlist].plugins
+        if not refused_list[plugin.dir] then
+          refused_list[plugin.dir] = {}
+        end
+        local list = refused_list[plugin.dir]
         table.insert(list, plugin)
       elseif config.plugins[plugin.name] ~= false then
         local start = system.get_time()
