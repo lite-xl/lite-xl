@@ -318,9 +318,11 @@ function system.load_native_plugin(name, path) end
 ---Compares two paths in the order used by TreeView.
 ---
 ---@param path1 string
+---@param type1 system.fileinfotype
 ---@param path2 string
+---@param type2 system.fileinfotype
 ---@return boolean compare_result True if path1 < path2
-function system.path_compare(path1, path2) end
+function system.path_compare(path1, type1, path2, type2) end
 
 
 return system
