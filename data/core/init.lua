@@ -838,7 +838,7 @@ function core.init()
       string.format(
         "Some plugins are not loaded due to version mismatch. Expected version %s.\n\n%s.\n\n" ..
         "Please download a recent version from https://github.com/lite-xl/lite-xl-plugins.\n" ..
-        "To silence this warning, set config.skip_plugins_version to true.",
+        "To silence this warning, set config.skip_plugins_version to true or disable broken plugins.",
         MOD_VERSION_STRING, table.concat(msg, ".\n\n")),
       opt, function(item)
         if item.text == "Exit" then
