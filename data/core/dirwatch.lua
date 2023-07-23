@@ -8,6 +8,21 @@ function dirwatch:__index(idx)
   return dirwatch[idx]
 end
 
+---A directory watcher.
+---
+---It can be used to watch changes in files and directories.
+---The user repeatedly calls dirwatch:check() with a callback inside a coroutine.
+---If a file or directory had changed, the callback is called with the corresponding file.
+---@class core.dirwatch
+---@field scanned { [string]: number } Stores the last modified time of paths.
+---@field watched { [string]: boolean|number } Stores the paths that are being watched, and their unique fd.
+---@field reverse_watched { [number]: string } Stores the paths mapped by their unique fd.
+---@field monitor dirmonitor The dirmonitor instance associated with this watcher.
+---@field single_watch_top string The first file that is being watched.
+---@field single_watch_count number Number of files that are being watched.
+
+---Creates a directory monitor.
+---@return core.dirwatch
 function dirwatch.new()
   local t = {
     scanned = {},
@@ -22,11 +37,28 @@ function dirwatch.new()
 end
 
 
+---Schedules a path for scanning.
+---If a path points to a file, it is watched directly.
+---Otherwise, the contents of the path are watched (non-recursively).
+---@param path string
+---@param  unwatch? boolean If true, remove this directory from the watch list.
 function dirwatch:scan(path, unwatch)
   if unwatch == false then return self:unwatch(path) end
   self.scanned[path] = system.get_file_info(path).modified
 end
 
+
+---Watches a path.
+---
+---It is recommended to call this function on every subdirectory if the given path
+---points to a directory. This is not required for Windows, but should be done to ensure
+---cross-platform compatibility.
+---
+---Using this function on individual files is possible, but discouraged as it can cause
+---system resource exhaustion.
+---@param path string The path to watch. This should be an absolute path.
+---@param unwatch? boolean If true, the path is removed from the watch list.
+function dirwatch:watch(path, unwatch)
   if unwatch == false then return self:unwatch(path) end
   local info = system.get_file_info(path)
   if not info then return end
@@ -62,7 +94,8 @@ end
   end
 end
 
--- this should be an absolute path
+---Removes a path from the watch list.
+---@param directory string The path to remove. This should be an absolute path.
 function dirwatch:unwatch(directory)
   if self.watched[directory] then
     if self.monitor:mode() == "multiple" then
@@ -81,7 +114,12 @@ function dirwatch:unwatch(directory)
   end
 end
 
--- designed to be run inside a coroutine.
+---Checks each watched paths for changes.
+---This function must be called in a coroutine, e.g. inside a thread created with `core.add_thread()`.
+---@param change_callback fun(path: string)
+---@param scan_time? number Maximum amount of time, in seconds, before the function yields execution.
+---@param wait_time? number The duration to yield execution (in seconds).
+---@return boolean # If true, a path had changed.
 function dirwatch:check(change_callback, scan_time, wait_time)
   local had_change = false
   self.monitor:check(function(id)
@@ -116,7 +154,7 @@ function dirwatch:check(change_callback, scan_time, wait_time)
 end
 
 
--- inspect config.ignore_files patterns and prepare ready to use entries.
+---Prepare `config.ignore_files` into a list of patterns for matching.
 local function compile_ignore_files()
   local ipatterns = config.ignore_files
   local compiled = {}
@@ -137,6 +175,8 @@ local function compile_ignore_files()
 end
 
 
+---Checks whether a file should be watched based on `config.file_size_limit`
+---and `config.ignore_files`.
 local function fileinfo_pass_filter(info, ignore_compiled)
   if info.size >= config.file_size_limit * 1e6 then return false end
   local basename = common.basename(info.filename)
@@ -163,8 +203,9 @@ local function compare_file(a, b)
 end
 
 
--- compute a file's info entry completed with "filename" to be used
--- in project scan or falsy if it shouldn't appear in the list.
+---Gets extended path information.
+---If the file is filtered by `config.file_size_limit` or `config.ignore_files`,
+---this function returns nil.
 local function get_project_file_info(root, file, ignore_compiled)
   local info = system.get_file_info(root .. PATHSEP .. file)
   -- info can be not nil but info.type may be nil if is neither a file neither
@@ -176,14 +217,33 @@ local function get_project_file_info(root, file, ignore_compiled)
 end
 
 
--- "root" will by an absolute path without trailing '/'
--- "path" will be a path starting without '/' and without trailing '/'
---    or the empty string.
---    It will identifies a sub-path within "root.
--- The current path location will therefore always be: root .. path.
--- When recursing "root" will always be the same, only "path" will change.
--- Returns a list of file "items". In each item the "filename" will be the
--- complete file path relative to "root" *without* the trailing '/', and without the starting '/'.
+---A class containing information about a file.
+---
+---Aside from fields in `system.fileinfo`, it also includes the filename
+---relative to a root directory.
+---@class dirwatch.extended_fileinfo: system.fileinfo
+---@field filename string The path to the file relative to a root directory, without starting and trailing slashes.
+
+---Gets files recursively within a project directory.
+---
+---The function accepts a root path, and a sub-path within the root path.
+---The root path must be an absolute path without trailing slashes,
+---while the sub-path should not contain any slashes. It can be an empty string.
+---
+---This function also accepts a predicate function that'll be called on each subdirectory
+---with the project directory object, the current path, the number of files
+---and the time elapsed (in seconds) since the function first ran. </br>
+---If the predicate returns true, the function recurses into the directory. </br>
+---Otherwise, it moves on to the next subdirectory and repeats the check.
+---@param dir table The project directory object.
+---@param root string An absolute path to search, without trailing `/`.
+---@param path string A sub-path within `root` without a trailing `/`, or an empty string.
+---@param t dirwatch.extended_fileinfo[] A table to store the output of the function.
+---@param entries_count number The number of entries in the table.
+---@param recurse_pred fun(dir: table, path: string, entries_count: number, time_elapsed: number): boolean The predicate function.
+---@return dirwatch.extended_fileinfo[]|nil # Table passed via `t`.
+---@return boolean|nil # false if the indexing is interrupted by the predicate function.
+---@return number|nil # Number of entries returned.
 function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse_pred)
   local t0 = system.get_time()
   local t_elapsed = system.get_time() - t0
@@ -207,6 +267,7 @@ function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse
   for _, f in ipairs(dirs) do
     table.insert(t, f)
     if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
+      -- when recursing, root will stay the same while path changes
       local _, complete, n = dirwatch.get_directory_files(dir, root, f.filename, t, entries_count, recurse_pred)
       recurse_complete = recurse_complete and complete
       if n ~= nil then
