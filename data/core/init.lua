@@ -1040,7 +1040,7 @@ function core.load_plugins(plugins, force)
 
   local load_start = system.get_time()
   for _, plugin in ipairs(plugins) do
-    if plugin.valid then
+    if plugin.valid and config.plugins[plugin.name] ~= false then
       if not force and not config.skip_plugins_version and not plugin.version_match then
         core.log_quiet(
           "Version mismatch for plugin %q[%s] from %s",
@@ -1053,7 +1053,7 @@ function core.load_plugins(plugins, force)
         end
         local list = refused_list[plugin.dir]
         table.insert(list, plugin)
-      elseif config.plugins[plugin.name] ~= false then
+      else
         local start = system.get_time()
         local ok, loaded_plugin = core.try(require, "plugins." .. plugin.name)
         if ok then
