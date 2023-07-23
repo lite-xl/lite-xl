@@ -22,49 +22,49 @@ function dirwatch.new()
 end
 
 
-function dirwatch:scan(directory, bool)
-  if bool == false then return self:unwatch(directory) end
-  self.scanned[directory] = system.get_file_info(directory).modified
+function dirwatch:scan(path, unwatch)
+  if unwatch == false then return self:unwatch(path) end
+  self.scanned[path] = system.get_file_info(path).modified
 end
 
 -- Should be called on every directory in a subdirectory.
--- On Windows, this is a no-op for anything underneath a top-level directory,
+-- In windows, this is a no-op for anything underneath a top-level directory,
 -- but code should be called anyway, so we can ensure that we have a proper
 -- experience across all platforms. Should be an absolute path.
 -- Can also be called on individual files, though this should be used sparingly,
 -- so as not to run into system limits (like in the autoreload plugin).
-function dirwatch:watch(directory, bool)
-  if bool == false then return self:unwatch(directory) end
-  local info = system.get_file_info(directory)
+function dirwatch:watch(path, unwatch)
+  if unwatch == false then return self:unwatch(path) end
+  local info = system.get_file_info(path)
   if not info then return end
-  if not self.watched[directory] and not self.scanned[directory] then
+  if not self.watched[path] and not self.scanned[path] then
     if self.monitor:mode() == "single" then
-      if info.type ~= "dir" then return self:scan(directory) end
-      if not self.single_watch_top or directory:find(self.single_watch_top, 1, true) ~= 1 then
+      if info.type ~= "dir" then return self:scan(path) end
+      if not self.single_watch_top or path:find(self.single_watch_top, 1, true) ~= 1 then
         -- Get the highest level of directory that is common to this directory, and the original.
-        local target = directory
+        local target = path
         while self.single_watch_top and self.single_watch_top:find(target, 1, true) ~= 1 do
           target = common.dirname(target)
         end
         if target ~= self.single_watch_top then
           local value = self.monitor:watch(target)
           if value and value < 0 then
-            return self:scan(directory)
+            return self:scan(path)
           end
           self.single_watch_top = target
         end
       end
       self.single_watch_count = self.single_watch_count + 1
-      self.watched[directory] = true
+      self.watched[path] = true
     else
-      local value = self.monitor:watch(directory)
+      local value = self.monitor:watch(path)
       -- If for whatever reason, we can't watch this directory, revert back to scanning.
       -- Don't bother trying to find out why, for now.
       if value and value < 0 then
-        return self:scan(directory)
+        return self:scan(path)
       end
-      self.watched[directory] = value
-      self.reverse_watched[value] = directory
+      self.watched[path] = value
+      self.reverse_watched[value] = path
     end
   end
 end
