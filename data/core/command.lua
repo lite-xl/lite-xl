@@ -90,7 +90,7 @@ end
 ---Prettifies the command name.
 ---
 ---This function adds a space between the colon and the command name,
----replaces dashes withe spaces and capitalizes the command appropriately.
+---replaces dashes with spaces and capitalizes the command appropriately.
 ---@param name string
 ---@return string
 function command.prettify_name(name)
@@ -99,7 +99,7 @@ function command.prettify_name(name)
 end
 
 
----Returns all commands that can be executed (their predicates evaluate to true).
+---Returns all the commands that can be executed (their predicates evaluate to true).
 ---@return string[]
 function command.get_all_valid()
   local res = {}
@@ -115,7 +115,7 @@ function command.get_all_valid()
   return res
 end
 
----Checks whether a command can be executed (it's predicate evaluates to true).
+---Checks whether a command can be executed (its predicate evaluates to true).
 ---@param name string
 ---@param ... any
 ---@return boolean
@@ -143,12 +143,12 @@ end
 
 ---Performs a command.
 ---
----The arguments passed into this function is forwarded to the predicate function. </br>
----If the predicate function returns more than 1 value, the second to last values
----are passed to the function associated to the command.
+---The arguments passed into this function are forwarded to the predicate function. </br>
+---If the predicate function returns more than 1 value, the other values are passed
+---to the command.
 ---
----Otherwise, the the arguments passed into this function is passed directly
----to the function associated with the command.
+---Otherwise, the arguments passed into this function are passed directly
+---to the command.
 ---@see core.command.predicate
 ---@see core.command.predicate_function
 ---@param name string
