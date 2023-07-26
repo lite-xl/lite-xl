@@ -151,10 +151,11 @@ end
 ---to the function associated with the command.
 ---@see core.command.predicate
 ---@see core.command.predicate_function
+---@param name string
 ---@param ... any
 ---@return boolean # true if the command is performed successfully.
-function command.perform(...)
-  local ok, res = core.try(perform, ...)
+function command.perform(name, ...)
+  local ok, res = core.try(perform, name, ...)
   return not ok or res
 end
 
