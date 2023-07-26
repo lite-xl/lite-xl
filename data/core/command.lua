@@ -8,8 +8,8 @@ local command = {}
 ---be passed into the function associated with the command.
 ---@alias core.command.predicate_function fun(...: any): boolean, ...
 
----A predicate is a string, Object or a function that is used to determine whether a command should be
----executed. It could be used to match the current view among many other things.
+---A predicate is a string, an Object or a function, that is used to determine
+---whether a command should be executed.
 ---
 ---If the predicate is a string, it is resolved into an `Object` via `require()`
 ---and checked against the active view with `Object:extends()`. </br>
@@ -17,12 +17,11 @@ local command = {}
 ---A `!` can be appended to the predicate to strictly match the current view via `Object:is()`,
 ---instead of matching any view that inherits the predicate.
 ---
----If the predicate is a table, it it checked against the active view with `Object:extends()`.
+---If the predicate is a table, it is checked against the active view with `Object:extends()`.
 ---Strict matching via `Object:is()` is not available.
 ---
----If the predicate is a function, it must be a predicate function - a function that takes in
----any arguments that may be passed via `command.perform()`, and returns a boolean and any
----other values for the function associated to the command.
+---If the predicate is a function, it must behave like a predicate function.
+---@see core.command.predicate_function
 ---@alias core.command.predicate string|core.object|core.command.predicate_function
 
 ---The predicate and its associated function.
