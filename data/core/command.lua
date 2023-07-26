@@ -38,6 +38,8 @@ local always_true = function() return true end
 
 ---This function takes in a predicate and produces a predicate function
 ---that is internally used to dispatch and execute commands.
+---
+---This function should not be called manually.
 ---@see command.predicate
 ---@param predicate core.command.predicate
 ---@return core.command.predicate_function
