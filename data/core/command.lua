@@ -24,6 +24,13 @@ local command = {}
 ---@see core.command.predicate_function
 ---@alias core.command.predicate string|core.object|core.command.predicate_function
 
+---A command is identified by a command name.
+---The command name contains a category and the name itself, separated by a colon (':').
+---
+---All commands should be in lowercase and should not contain whitespaces; instead
+---they should be replaced by a dash ('-').
+---@alias core.command.command_name string
+
 ---The predicate and its associated function.
 ---@class core.command.command
 ---@field predicate core.command.predicate_function
@@ -71,8 +78,9 @@ end
 ---and their functions. </br>
 ---If a command already exists, it will be replaced.
 ---@see core.command.predicate
+---@see core.command.command_name
 ---@param predicate core.command.predicate
----@param map { [string]: fun(...: any) }
+---@param map { [core.command.command_name]: fun(...: any) }
 function command.add(predicate, map)
   predicate = command.generate_predicate(predicate)
   for name, fn in pairs(map) do
@@ -92,7 +100,8 @@ end
 ---
 ---This function adds a space between the colon and the command name,
 ---replaces dashes with spaces and capitalizes the command appropriately.
----@param name string
+---@see core.command.command_name
+---@param name core.command.command_name
 ---@return string
 function command.prettify_name(name)
   ---@diagnostic disable-next-line: redundant-return-value
@@ -101,7 +110,7 @@ end
 
 
 ---Returns all the commands that can be executed (their predicates evaluate to true).
----@return string[]
+---@return core.command.command_name[]
 function command.get_all_valid()
   local res = {}
   local memoized_predicates = {}
@@ -117,7 +126,7 @@ function command.get_all_valid()
 end
 
 ---Checks whether a command can be executed (its predicate evaluates to true).
----@param name string
+---@param name core.command.command_name
 ---@param ... any
 ---@return boolean
 function command.is_valid(name, ...)
@@ -152,7 +161,7 @@ end
 ---to the command.
 ---@see core.command.predicate
 ---@see core.command.predicate_function
----@param name string
+---@param name core.command.command_name
 ---@param ... any
 ---@return boolean # true if the command is performed successfully.
 function command.perform(name, ...)
