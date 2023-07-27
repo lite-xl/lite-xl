@@ -39,6 +39,7 @@ local command = {}
 ---@type { [string]: core.command.command }
 command.map = {}
 
+---@type core.command.predicate_function
 local always_true = function() return true end
 
 
@@ -46,8 +47,8 @@ local always_true = function() return true end
 ---that is internally used to dispatch and execute commands.
 ---
 ---This function should not be called manually.
----@see command.predicate
----@param predicate core.command.predicate
+---@see core.command.predicate
+---@param predicate core.command.predicate|nil If nil, the predicate always evaluates to true.
 ---@return core.command.predicate_function
 function command.generate_predicate(predicate)
   predicate = predicate or always_true
