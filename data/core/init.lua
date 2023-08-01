@@ -1432,9 +1432,9 @@ function core.run()
   while true do
     core.frame_start = system.get_time()
     local time_to_wake = run_threads()
-    local did_redraw = false
-    if not next_step or system.get_time() >= next_step then
-      did_redraw = core.step()
+    local did_redraw = core.redraw
+    if did_redraw or not next_step or system.get_time() >= next_step then
+      did_redraw = core.step() or did_redraw
       next_step = nil
     end
     if core.restart_request or core.quit_request then break end
