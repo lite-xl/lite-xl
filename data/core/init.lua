@@ -1433,7 +1433,7 @@ function core.run()
   while true do
     core.frame_start = system.get_time()
     local time_to_wake = run_threads()
-    local did_redraw = core.redraw
+    local did_redraw = false
     local force_draw = core.redraw and last_frame_time and core.frame_start - last_frame_time > (1 / config.fps)
     if force_draw or not next_step or system.get_time() >= next_step then
       if core.step() then
