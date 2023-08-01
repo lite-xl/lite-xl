@@ -1429,12 +1429,17 @@ end)
 
 function core.run()
   local next_step
+  local last_frame_time
   while true do
     core.frame_start = system.get_time()
     local time_to_wake = run_threads()
     local did_redraw = false
-    if not next_step or system.get_time() >= next_step then
-      did_redraw = core.step()
+    local force_draw = core.redraw and last_frame_time and core.frame_start - last_frame_time > (1 / config.fps)
+    if force_draw or not next_step or system.get_time() >= next_step then
+      if core.step() then
+        did_redraw = true
+        last_frame_time = core.frame_start
+      end
       next_step = nil
     end
     if core.restart_request or core.quit_request then break end
