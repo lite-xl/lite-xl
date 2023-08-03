@@ -397,7 +397,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = set->surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
-        int target_y = line + y - metric->bitmap_top + font->baseline * surface_scale;
+        int target_y = line + y - metric->bitmap_top + fonts[0]->baseline * surface_scale;
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
