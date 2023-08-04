@@ -98,6 +98,7 @@ To run lite-xl without installing:
 To install lite-xl copy files over into appropriate directories:
 
 ```sh
+rm -rf  $HOME/.local/share/lite-xl $HOME/.local/bin/lite-xl
 mkdir -p $HOME/.local/bin && cp lite-xl $HOME/.local/bin/
 mkdir -p $HOME/.local/share/lite-xl && cp -r data/* $HOME/.local/share/lite-xl/
 ```
