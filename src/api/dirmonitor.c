@@ -4,12 +4,16 @@
 #include <string.h>
 #include <stdbool.h>
 
+// the buffer size must not exceed 64KB on Windows
+// https://learn.microsoft.com/en-gb/windows/win32/api/winbase/nf-winbase-readdirectorychangesw
+#define DIRMONITOR_BUFFER_SIZE 64512
+
 static unsigned int DIR_EVENT_TYPE = 0;
 
 struct dirmonitor {
   SDL_Thread* thread;
   SDL_mutex* mutex;
-  char buffer[64512];
+  char buffer[DIRMONITOR_BUFFER_SIZE];
   volatile int length;
   struct dirmonitor_internal* internal;
 };
