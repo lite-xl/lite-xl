@@ -9,6 +9,6 @@ modkeys.map = {
   ["right alt"]   = "altgr",
 }
 
-modkeys.keys = { "ctrl", "alt", "altgr", "shift" }
+modkeys.keys = { "ctrl", "shift", "alt", "altgr" }
 
 return modkeys
