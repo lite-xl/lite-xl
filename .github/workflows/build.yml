@@ -130,7 +130,7 @@ jobs:
           path: ${{ env.INSTALL_NAME }}.dmg
 
   build_windows_msys2:
-    name: Windows
+    name: Windows (MINGW)
     runs-on: windows-2019
     strategy:
       matrix:
