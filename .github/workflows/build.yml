@@ -158,7 +158,7 @@ jobs:
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-        if [[ "${MSYSTEM}" == "MINGW64" ]]; then
+        if [[ "${MSYSTEM}" == *64 ]]; then
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
         else
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
