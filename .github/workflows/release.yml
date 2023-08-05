@@ -50,7 +50,7 @@ jobs:
     name: Linux
     needs: release
     runs-on: ubuntu-latest
-    container: ghcr.io/takase1121/lite-xl-build-box:latest
+    container: ghcr.io/lite-xl/lite-xl-build-box:latest
     env:
       CC: gcc
       CXX: g++
