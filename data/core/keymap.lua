@@ -172,7 +172,8 @@ end
 ---@param shortcut string
 ---@param cmd string
 function keymap.unbind(shortcut, cmd)
-  remove_only(keymap.map, normalize_stroke(shortcut), cmd)
+  shortcut = normalize_stroke(shortcut)
+  remove_only(keymap.map, shortcut, cmd)
   remove_only(keymap.reverse_map, cmd, shortcut)
 end
 
