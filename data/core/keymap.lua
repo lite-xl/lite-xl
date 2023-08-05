@@ -90,12 +90,12 @@ end
 ---@param map keymap.map
 local function remove_duplicates(map)
   for stroke, commands in pairs(map) do
-    stroke = normalize_stroke(stroke)
+    local normalized_stroke = normalize_stroke(stroke)
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
-    if keymap.map[stroke] then
-      for _, registered_cmd in ipairs(keymap.map[stroke]) do
+    if keymap.map[normalized_stroke] then
+      for _, registered_cmd in ipairs(keymap.map[normalized_stroke]) do
         local j = 0
         for i=1, #commands do
           while commands[i + j] == registered_cmd do
