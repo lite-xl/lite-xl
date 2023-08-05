@@ -212,7 +212,7 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        msystem: [MINGW32, MINGW64]
+        msystem: [UCRT64]
     defaults:
       run:
         shell: msys2 {0}
