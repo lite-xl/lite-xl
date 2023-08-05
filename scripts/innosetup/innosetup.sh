@@ -29,7 +29,7 @@ main() {
   local version
   local output
 
-  if [[ $MSYSTEM == "MINGW64" ]]; then
+  if [[ $MSYSTEM == *64 ]]; then
     arch=x64
     arch_file=x86_64
   else
