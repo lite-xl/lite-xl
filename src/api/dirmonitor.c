@@ -43,18 +43,17 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
 
 static int dirmonitor_check_thread(void* data) {
   struct dirmonitor* monitor = data;
-  while (monitor->length >= 0) {
-    if (monitor->length == 0) {
-      int result = get_changes_dirmonitor(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
-      SDL_LockMutex(monitor->mutex);
-      if (monitor->length == 0)
-        monitor->length = result;
-      SDL_UnlockMutex(monitor->mutex);
-    }
+  for (;;) {
+    SDL_LockMutex(monitor->mutex);
+    if (monitor->length < 0) break;
+    // wait for changes from the backend
+    if (monitor->length == 0)
+      monitor->length = get_changes_dirmonitor(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
+    SDL_PushEvent(&(SDL_Event) { .type = DIR_EVENT_TYPE });
+    SDL_UnlockMutex(monitor->mutex);
     SDL_Delay(1);
-    SDL_Event event = { .type = DIR_EVENT_TYPE };
-    SDL_PushEvent(&event);
   }
+  SDL_UnlockMutex(monitor->mutex);
   return 0;
 }
 
@@ -73,9 +72,13 @@ static int f_dirmonitor_new(lua_State* L) {
 
 static int f_dirmonitor_gc(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  // when waiting for directory changes, the mutex is held by the thread, so we need to
+  // cancel the current wait operation and attempt to set monitor->length to -1.
+  // currently, all backends sets monitor->length to -1 when they encounter an error,
+  // so it should stop the monitor thread just fine.
+  deinit_dirmonitor(monitor->internal);
   SDL_LockMutex(monitor->mutex);
   monitor->length = -1;
-  deinit_dirmonitor(monitor->internal);
   SDL_UnlockMutex(monitor->mutex);
   SDL_WaitThread(monitor->thread, NULL);
   free(monitor->internal);
@@ -101,16 +104,17 @@ static int f_dirmonitor_unwatch(lua_State *L) {
 
 static int f_dirmonitor_check(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
-  SDL_LockMutex(monitor->mutex);
-  if (monitor->length < 0)
+  int lock_result = SDL_TryLockMutex(monitor->mutex);
+  if (lock_result == -1 || monitor->length < 0) {
     lua_pushnil(L);
-  else if (monitor->length > 0) {
+  } else if (lock_result == SDL_MUTEX_TIMEDOUT || monitor->length == 0) {
+    lua_pushboolean(L, 0);
+  } else {
     if (translate_changes_dirmonitor(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
       monitor->length = 0;
     lua_pushboolean(L, 1);
-  } else
-    lua_pushboolean(L, 0);
-  SDL_UnlockMutex(monitor->mutex);
+    SDL_UnlockMutex(monitor->mutex);
+  }
   return 1;
 }
 
