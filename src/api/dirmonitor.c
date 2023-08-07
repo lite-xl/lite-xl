@@ -104,6 +104,7 @@ static int f_dirmonitor_unwatch(lua_State *L) {
 
 static int f_dirmonitor_check(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
   int lock_result = SDL_TryLockMutex(monitor->mutex);
   if (lock_result == -1 || monitor->length < 0) {
     lua_pushnil(L);
