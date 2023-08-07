@@ -7,17 +7,30 @@ syntax.add {
   comment = "//",
   block_comment = { "/*", "*/" },
   patterns = {
-    { pattern = "//.*",                  type = "comment" },
-    { pattern = { "/%*", "%*/" },        type = "comment" },
-    { pattern = { '"', '"', '\\' },      type = "string"  },
-    { pattern = { "'", "'", '\\' },      type = "string"  },
-    { pattern = "0x%x+",                 type = "number"  },
-    { pattern = "%d+[%d%.eE]*f?",        type = "number"  },
-    { pattern = "%.?%d+f?",              type = "number"  },
-    { pattern = "[%+%-=/%*%^%%<>!~|&]",  type = "operator" },
-    { pattern = "##",                    type = "operator" },
-    { pattern = "struct%s()[%a_][%w_]*", type = {"keyword", "keyword2"} },
-    { pattern = "union%s()[%a_][%w_]*",  type = {"keyword", "keyword2"} },
+    -- Preprocessor
+    { pattern = "^%s*#%s*define%s+()[%a_][%a%d_]*",
+      type = { "keyword", "symbol" }
+    },
+    { pattern = "^%s*%%:%s*define%s+()[%a_][%a%d_]*",
+      type = { "keyword", "symbol" }
+    },
+    { pattern = "#%s*include%s+()<.->",     type = {"keyword", "string"} },
+    { pattern = "%%:%s*include%s+()<.->",   type = {"keyword", "string"} },
+    { pattern = "%f[#]#%s*[%a_][%w_]*",     type = "keyword"   },
+    { pattern = "%f[%%:]%%:%s*[%a_][%w_]*", type = "keyword"   },
+    { pattern = "##",                       type = "operator" },
+    { pattern = "%%:%%:",                   type = "operator" },
+    --
+    { pattern = "//.*",                    type = "comment" },
+    { pattern = { "/%*", "%*/" },          type = "comment" },
+    { pattern = { '"', '"', '\\' },        type = "string"  },
+    { pattern = { "'", "'", '\\' },        type = "string"  },
+    { pattern = "0x%x+",                   type = "number"  },
+    { pattern = "%d+[%d%.eE]*f?",          type = "number"  },
+    { pattern = "%.?%d+f?",                type = "number"  },
+    { pattern = "[%+%-=/%*%^%%<>!~|%?:&]", type = "operator" },
+    { pattern = "struct%s()[%a_][%w_]*",   type = {"keyword", "keyword2"} },
+    { pattern = "union%s()[%a_][%w_]*",    type = {"keyword", "keyword2"} },
     -- static declarations
     { pattern = "static()%s+()inline",
       type = { "keyword", "normal", "keyword" }
@@ -65,12 +78,6 @@ syntax.add {
     { pattern = "__[%u%l]+__",           type = "number"   },
     -- all other functions
     { pattern = "[%a_][%w_]*%f[(]",      type = "function" },
-    -- Macros
-    { pattern = "^%s*#%s*define%s+()[%a_][%a%d_]*",
-      type = { "keyword", "symbol" }
-    },
-    { pattern = "#%s*include%s()<.->",   type = {"keyword", "string"} },
-    { pattern = "%f[#]#%s*[%a_][%w_]*",  type = "keyword"   },
     -- Everything else to make the tokenizer work properly
     { pattern = "[%a_][%w_]*",           type = "symbol" },
   },
@@ -111,18 +118,6 @@ syntax.add {
     ["true"]     = "literal",
     ["false"]    = "literal",
     ["NULL"]     = "literal",
-    ["#include"] = "keyword",
-    ["#if"] = "keyword",
-    ["#ifdef"] = "keyword",
-    ["#ifndef"] = "keyword",
-    ["#elif"]    = "keyword",
-    ["#else"] = "keyword",
-    ["#elseif"] = "keyword",
-    ["#endif"] = "keyword",
-    ["#define"] = "keyword",
-    ["#warning"] = "keyword",
-    ["#error"] = "keyword",
-    ["#pragma"] = "keyword",
   },
 }
 
