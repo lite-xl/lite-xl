@@ -113,8 +113,9 @@ static int f_dirmonitor_check(lua_State* L) {
     if (translate_changes_dirmonitor(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
       monitor->length = 0;
     lua_pushboolean(L, 1);
-    SDL_UnlockMutex(monitor->mutex);
   }
+  if (lock_result == 0)
+    SDL_UnlockMutex(monitor->mutex);
   return 1;
 }
 
