@@ -45,9 +45,16 @@ function dirmonitor:unwatch(fd_or_path) end
 ---edited, removed or added. A file descriptor will be passed to the
 ---callback in "multiple" mode or a path in "single" mode.
 ---
+---If the callback function failed, the function returns true,
+---but also returns a table containing the path
+---and the error message in sequential order.
+---For instance, errors[1] will be the path, errors[2] will be the error message,
+---errors[3] will be the second path, etc.
+---
 ---@param callback dirmonitor.callback
 ---
----@return boolean? changes True when changes were detected.
+---@return boolean|nil changes True when changes are detected, nil if an error occured.
+---@return string[]|nil errors
 function dirmonitor:check(callback) end
 
 ---
