@@ -36,7 +36,7 @@ int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, in
 
 
 int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size, int (*change_callback)(int, const char*, void*), void* data) {
-  for (struct kevent* info = (struct kevent*)buffer; (char*)info < buffer + buffer_size; info = (struct kevent*)(((char*)info) + sizeof(kevent)))
+  for (struct kevent* info = (struct kevent*)buffer; (char*)info < buffer + buffer_size; info++)
     change_callback(info->ident, NULL, data);
   return 0;
 }
