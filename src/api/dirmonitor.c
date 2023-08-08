@@ -62,7 +62,8 @@ static int dirmonitor_check_thread(void* data) {
     // wait for changes from the backend
     if (monitor->length == 0)
       monitor->length = get_changes_dirmonitor(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
-    SDL_PushEvent(&(SDL_Event) { .type = DIR_EVENT_TYPE });
+    if (monitor->length > 0)
+      SDL_PushEvent(&(SDL_Event) { .type = DIR_EVENT_TYPE });
     SDL_UnlockMutex(monitor->mutex);
     SDL_Delay(1);
   }
