@@ -109,7 +109,8 @@ int get_changes_dirmonitor(
   int buffer_size
 ) {
   char response[1];
-  read(monitor->fds[0], response, 1);
+  if (read(monitor->fds[0], response, 1) == -1)
+    return -1;
 
   size_t results = 0;
   SDL_LockMutex(monitor->lock);

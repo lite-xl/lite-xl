@@ -31,7 +31,8 @@ void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
   struct pollfd fds[2] = { { .fd = monitor->fd, .events = POLLIN | POLLERR, .revents = 0 }, { .fd = monitor->sig[0], .events = POLLIN | POLLERR, .revents = 0 } };
-  poll(fds, 2, -1);
+  if (poll(fds, 2, -1) == -1)
+    return -1;
   return read(monitor->fd, buffer, length);
 }
 
