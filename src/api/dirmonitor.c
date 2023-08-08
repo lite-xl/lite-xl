@@ -29,13 +29,11 @@ int get_mode_dirmonitor();
 
 
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
-  /**
-   * This function assumes the following stack positions:
-   * -1: the callback to call
-   * -2: a table to store errors, if any
-   */
+  // this function expects a callback to handle changes on top,
+  // followed by a callback to any errors (passed to lua_pcall).
   int cb_idx = lua_absindex(L, -1);
-  int err_tbl_idx = lua_absindex(L, -2);
+  int err_cb_idx = lua_absindex(L, -2);
+  int top = lua_gettop(L);
 
   lua_pushvalue(L, cb_idx);
   if (path)
@@ -43,24 +41,15 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   else
     lua_pushnumber(L, watch_id);
 
-  int err = lua_pcall(L, 1, 1, 0);
-  if (err != LUA_OK) {
-    // stores the corresponding path/watchid and the error message into the table
-    if (err != LUA_ERRRUN)
-      lua_pushliteral(L, "Lua runtime error");
-
-    if (path)
-      lua_pushlstring(L, path, watch_id);
-    else
-      lua_pushnumber(L, watch_id);
-    // stack[-4] = err_tbl, stack[-3] = cb, stack[-2] = err_str, stack[-1] = path
-    lua_rawseti(L, err_tbl_idx, lua_rawlen(L, err_tbl_idx) + 1);
-    lua_rawseti(L, err_tbl_idx, lua_rawlen(L, err_tbl_idx) + 1);
-    return 1;
+  int result = lua_pcall(L, 1, 1, err_cb_idx);
+  if (result == LUA_OK) {
+    result = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  } else {
+    // the error handler can return data to the stack, so we need to pop them
+    lua_pop(L, lua_gettop(L) - top);
+    result = 0;
   }
-
-  int result = lua_toboolean(L, -1);
-  lua_pop(L, 1);
   return !result;
 }
 
@@ -126,33 +115,34 @@ static int f_dirmonitor_unwatch(lua_State *L) {
 }
 
 
+static int f_noop(lua_State *L) { return 0; }
+
+
 static int f_dirmonitor_check(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
   luaL_checktype(L, 2, LUA_TFUNCTION);
-  lua_settop(L, 2);
+  if (!lua_isnoneornil(L, 3))
+    luaL_checktype(L, 3, LUA_TFUNCTION);
+  else
+    lua_pushcfunction(L, f_noop);
+  lua_settop(L, 3);
 
-  int retval = 1;
   int lock_result = SDL_TryLockMutex(monitor->mutex);
-  if (lock_result == -1 || monitor->length < 0) {
+  if (lock_result == -1 || (lock_result == 0 && monitor->length < 0)) {
     lua_pushnil(L);
-  } else if (lock_result == SDL_MUTEX_TIMEDOUT || monitor->length == 0) {
+  } else if (lock_result == SDL_MUTEX_TIMEDOUT || (lock_result == 0 && monitor->length == 0)) {
     lua_pushboolean(L, 0);
   } else {
-    lua_newtable(L);
-    lua_pushvalue(L, 2);
-    // stack[1] = dirmonitor, stack[2] = cb, stack[3] = err_tbl, stack[4] = cb
-    if (translate_changes_dirmonitor(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
+    // stack[1] = dirmonitor, stack[2] = cb, stack[3] = err_cb
+    lua_rotate(L, 2, 1); // swaps err_cb and cb
+    if (monitor->length > 0
+        && translate_changes_dirmonitor(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
       monitor->length = 0;
-    lua_pushboolean(L, 1);
-    // if an error occured, return a table containing error messages
-    if (lua_rawlen(L, 3) > 0) {
-      retval = 2;
-      lua_pushvalue(L, 3);
-    }
+    lua_pushboolean(L, monitor->length == 0);
   }
   if (lock_result == 0)
     SDL_UnlockMutex(monitor->mutex);
-  return retval;
+  return 1;
 }
 
 
