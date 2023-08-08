@@ -90,9 +90,8 @@ end
 
 -- designed to be run inside a coroutine.
 function dirwatch:check(change_callback, scan_time, wait_time)
-  local had_change = false
-  self.monitor:check(function(id)
-    had_change = true
+  local err
+  local had_change = self.monitor:check(function(id)
     if self.monitor:mode() == "single" then
       local path = common.dirname(id)
       if not string.match(id, "^/") and not string.match(id, "^%a:[/\\]") then
@@ -102,7 +101,8 @@ function dirwatch:check(change_callback, scan_time, wait_time)
     elseif self.reverse_watched[id] then
       change_callback(self.reverse_watched[id])
     end
-  end)
+  end, function(e) err = e end)
+  if err then error(err) end
   local start_time = system.get_time()
   for directory, old_modified in pairs(self.scanned) do
     if old_modified then
