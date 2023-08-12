@@ -31,9 +31,14 @@
  * An example command would be: gcc -shared -o xxxxx.so xxxxx.c
  * You must not link to ANY lua library to avoid symbol collision.
  * 
- * This file contains stock configuration for a typical installation of Lua 5.4.
+ * This file contains stock configuration for a typical installation of Lua 5.4.6.
  * DO NOT MODIFY ANYTHING. MODIFYING STUFFS IN HERE WILL BREAK
  * COMPATIBILITY WITH LITE XL AND CAUSE UNDEBUGGABLE BUGS.
+ * 
+ * For reference, here are a list of permalinks to previous version of this file that targets an older version of Lua.
+ * If you don't need functionalities offered by the new version, use the OLDEST FILE for backwards compatibility.
+ * 
+ * - Lua 5.4.4: https://github.com/lite-xl/lite-xl/blob/397973067f14420b26e3b20a238a50016c0b75e2/resources/include/lite_xl_plugin_api.h
 **/
 #ifndef LITE_XL_PLUGIN_API
 #define LITE_XL_PLUGIN_API
