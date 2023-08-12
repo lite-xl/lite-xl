@@ -135,8 +135,8 @@ jobs:
     strategy:
       matrix:
         config:
-          - {msystem: MINGW32, arch: i686}
-          - {msystem: MINGW64, arch: x86_64}
+          - {msystem: CLANG32, arch: i686, cc: clang}
+          - {msystem: UCRT64, arch: x86_64, cc: gcc}
     defaults:
       run:
         shell: msys2 {0}
@@ -149,7 +149,7 @@ jobs:
           base-devel
           git
           zip
-          mingw-w64-${{ matrix.config.arch }}-gcc
+          mingw-w64-${{ matrix.config.arch }}-${{ matrix.config.cc }}
           mingw-w64-${{ matrix.config.arch }}-meson
           mingw-w64-${{ matrix.config.arch }}-ninja
           mingw-w64-${{ matrix.config.arch }}-ca-certificates
