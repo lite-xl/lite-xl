@@ -123,6 +123,7 @@ if not get_option('source-only')
     sdl_options += 'use_atomic=enabled'
     sdl_options += 'use_threads=enabled'
     sdl_options += 'use_timers=enabled'
+    sdl_options += 'with_main=true'
     # investigate if this is truly needed
     # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
     sdl_options += 'use_events=enabled'
@@ -161,7 +162,13 @@ if not get_option('source-only')
         default_options: default_fallback_options + sdl_options
     )
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
+    if host_machine.system() == 'windows' and sdl_dep.type_name() == 'internal'
+        sdlmain_dep = dependency('sdl2main', fallback: ['sdl2main_dep'])
+    else
+        sdlmain_dep = cc.find_library('SDL2main')
+    endif
+
+    lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration
