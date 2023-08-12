@@ -149,11 +149,12 @@ jobs:
           base-devel
           git
           zip
-          mingw-w64-${{ matrix.config.arch }}-${{ matrix.config.cc }}
-          mingw-w64-${{ matrix.config.arch }}-meson
-          mingw-w64-${{ matrix.config.arch }}-ninja
-          mingw-w64-${{ matrix.config.arch }}-ca-certificates
-          mingw-w64-${{ matrix.config.arch }}-ntldd
+        pacboy: >-
+          ${{ matrix.config.cc }}:p
+          meson:p
+          ninja:p
+          ca-certificates:p
+          ntldd:p
     - name: Set Environment Variables
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
