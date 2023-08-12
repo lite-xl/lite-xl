@@ -155,6 +155,7 @@ if not get_option('source-only')
     sdl_options += 'use_video_vulkan=disabled'
     sdl_options += 'use_video_offscreen=disabled'
     sdl_options += 'use_power=disabled'
+    sdl_options += 'system_iconv=disabled'
 
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
         default_options: default_fallback_options + sdl_options
