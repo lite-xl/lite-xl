@@ -159,11 +159,7 @@ jobs:
       run: |
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-        if [[ "${MSYSTEM}" == *64 ]]; then
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
-        else
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
-        fi
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
     - name: Install Dependencies
       if: false
       run: bash scripts/install-dependencies.sh --debug
