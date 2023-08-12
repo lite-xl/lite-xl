@@ -170,7 +170,7 @@ if not get_option('source-only')
         endif
     else
         sdlmain_dep = dependency('', required: false)
-        assert(not fake_dep.found(), 'checking if fake dependency has been found')
+        assert(not sdlmain_dep.found(), 'checking if fake dependency has been found')
     endif
 
     lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libm, libdl]
