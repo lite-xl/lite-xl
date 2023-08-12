@@ -135,8 +135,8 @@ jobs:
     strategy:
       matrix:
         config:
-          - {msystem: CLANG32, arch: i686, cc: clang}
-          - {msystem: UCRT64, arch: x86_64, cc: gcc}
+          - { msystem: CLANG32, arch: i686 }
+          - { msystem: CLANG64, arch: x86_64 }
     defaults:
       run:
         shell: msys2 {0}
@@ -150,7 +150,7 @@ jobs:
           git
           zip
         pacboy: >-
-          ${{ matrix.config.cc }}:p
+          clang:p
           meson:p
           ninja:p
           ca-certificates:p
