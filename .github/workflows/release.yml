@@ -244,7 +244,7 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-          echo "BUILD_ARCH=${{ matrix.config.arch }} >> "$GITHUB_ENV"
+          echo "BUILD_ARCH=${{ matrix.config.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
 
