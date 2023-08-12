@@ -212,7 +212,9 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        msystem: [UCRT64]
+        config:
+          - { msystem: CLANG32, arch: i686 }
+          - { msystem: CLANG64, arch: x86_64 }
     defaults:
       run:
         shell: msys2 {0}
@@ -220,27 +222,37 @@ jobs:
       - uses: actions/checkout@v3
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: ${{ matrix.msystem }}
+          msystem: ${{ matrix.config.msystem }}
           update: true
           install: >-
             base-devel
             git
             zip
+            unzip
+          pacboy:
+            ca-certificates:p
+            clang:p
+            meson:p
+            ninja:p
+            ntldd:p
+            pkg-config:p
+            mesa:p
+            freetype:p
+            pcre2:p
+            SDL2:p
       - name: Set Environment Variables
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-          if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-            echo "BUILD_ARCH=x86_64" >> "$GITHUB_ENV"
-            echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-x86_64" >> "$GITHUB_ENV"
-            echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-x86_64" >> "$GITHUB_ENV"
-          else
-            echo "BUILD_ARCH=i686" >> "$GITHUB_ENV"
-            echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-i686" >> "$GITHUB_ENV"
-            echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-i686" >> "$GITHUB_ENV"
-          fi
+          echo "BUILD_ARCH=${{ matrix.config.arch }} >> "$GITHUB_ENV"
+          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
+          echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
+
+      # disabled because dependencies are already installed in setup
       - name: Install Dependencies
+        if: false
         run: bash scripts/install-dependencies.sh --debug
+
       - name: Build
         run: |
           bash --version
