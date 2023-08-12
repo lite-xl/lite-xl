@@ -245,7 +245,7 @@ function StatusView:register_docview_items()
     alignment = StatusView.Item.LEFT,
     get_item = function()
       local dv = core.active_view
-      local line, col = dv.doc:get_selection()
+      local line = dv.doc:get_selection()
       return {
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
