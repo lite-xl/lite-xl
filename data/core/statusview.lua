@@ -250,7 +250,6 @@ function StatusView:register_docview_items()
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
     end,
-    command = "doc:go-to-line",
     tooltip = "line : column"
   })
 
