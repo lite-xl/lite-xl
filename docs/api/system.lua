@@ -334,6 +334,23 @@ function system.fuzzy_match(haystack, needle, file) end
 function system.set_window_opacity(window, opacity) end
 
 ---
+---Dynamically links Lite XL with a C library and optionally loads a function.
+---If funcname is "*", then no symbol loading will occur, and true is returned.
+---Note: This is a low level function and incorrect usage can cause crashes.
+---
+---@param libname string an absolute path to the C library.
+---@param funcname string the function name to load.
+---@param extended boolean? if true, the C function is assumed to have
+---lite-xL native plugin API's function signature instead of Lua C function signature.
+---
+---@return boolean|function|nil func the C function, or nil if an error occured.
+---@return string|nil error_msg a message describing the error.
+---@return "open"|"init"|nil error_type
+---"open" if an error occured when linking to the C library,
+---"init" if an error occured when attempting to load the symbol.
+function system.loadlib(libname, funcname, extended) end
+
+---
 ---Loads a lua native module using the default Lua API or lite-xl native plugin API.
 ---Note: Never use this function directly.
 ---
