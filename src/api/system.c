@@ -1103,11 +1103,29 @@ static void* api_require(const char* symbol) {
 }
 
 static int f_library_gc(lua_State *L) {
-  lua_getfield(L, 1, "handle");
-  void* handle = lua_touserdata(L, -1);
-  SDL_UnloadObject(handle);
-
+  SDL_UnloadObject(*(void **) lua_touserdata(L, 1));
   return 0;
+}
+
+static void *load_library(lua_State *L, const char *path) {
+  void *lib = NULL;
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "native_plugins");
+
+  if (lua_getfield(L, -1, path) == LUA_TUSERDATA) {
+    lib = *(void **) lua_touserdata(L, -1);
+    lua_pop(L, 1);
+  } else {
+    lua_pop(L, 1);
+    
+    if (lib = SDL_LoadObject(path)) {
+      *((void **) lua_newuserdata(L, sizeof(void *))) = lib;
+      luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN);
+      lua_setfield(L, -2, path);
+    }
+  }
+  lua_pop(L, 2);
+  return lib;
 }
 
 static int f_load_native_plugin(lua_State *L) {
@@ -1116,18 +1134,7 @@ static int f_load_native_plugin(lua_State *L) {
 
   const char *name = luaL_checkstring(L, 1);
   const char *path = luaL_checkstring(L, 2);
-  void *library = SDL_LoadObject(path);
-  if (!library)
-    return (lua_pushstring(L, SDL_GetError()), lua_error(L));
-
-  lua_getglobal(L, "package");
-  lua_getfield(L, -1, "native_plugins");
-  lua_newtable(L);
-  lua_pushlightuserdata(L, library);
-  lua_setfield(L, -2, "handle");
-  luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN);
-  lua_setfield(L, -2, name);
-  lua_pop(L, 2);
+  void *library = load_library(L, path);
 
   const char *basename = strrchr(name, '.');
   basename = !basename ? name : basename + 1;
