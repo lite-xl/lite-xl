@@ -810,7 +810,9 @@ function core.init()
   end
 
   if not plugins_success or got_user_error or got_project_error then
-    command.perform("core:open-log")
+    core.add_thread(function()
+      command.perform("core:open-log")
+    end)
   end
 
   core.configure_borderless_window()
