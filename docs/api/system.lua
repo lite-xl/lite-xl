@@ -354,6 +354,7 @@ function system.loadlib(libname, funcname, extended) end
 ---Loads a lua native module using the default Lua API or lite-xl native plugin API.
 ---Note: Never use this function directly.
 ---
+---@deprecated
 ---@param name string the name of the module
 ---@param path string the path to the shared library file
 ---@return number nargs the return value of the entrypoint
