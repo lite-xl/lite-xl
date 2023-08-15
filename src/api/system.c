@@ -1179,6 +1179,10 @@ static int f_load_native_plugin(lua_State *L) {
   char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
   int result;
 
+#if LUA_VERSION_NUM >= 503
+  lua_warning(L, "system.load_native_plugin is deprecated, and should not be used", 1);
+#endif
+
   const char *name = luaL_checkstring(L, 1);
   const char *path = luaL_checkstring(L, 2);
   void *library = load_library(L, path);
@@ -1358,6 +1362,7 @@ static const luaL_Reg lib[] = {
   { "fuzzy_match",           f_fuzzy_match           },
   { "set_window_opacity",    f_set_window_opacity    },
   { "loadlib",               f_loadlib               },
+  { "load_native_plugin",    f_load_native_plugin    }, // DEPRECATED!
   { "path_compare",          f_path_compare          },
   { "get_fs_type",           f_get_fs_type           },
   { "text_input",            f_text_input            },
