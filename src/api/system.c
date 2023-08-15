@@ -1128,6 +1128,53 @@ static void *load_library(lua_State *L, const char *path) {
   return lib;
 }
 
+// this is needed to supply api_require
+static int extended_function_thunk(lua_State *L) {
+  int (*fn) (lua_State *L, void* (*)(const char*));
+  fn = lua_touserdata(L, lua_upvalueindex(1));
+  return fn(L, api_require);
+}
+
+static f_loadlib(lua_State *L) {
+  void *lib, *sym;
+  const char *libname = luaL_checkstring(L, 1);
+  const char *funcname = luaL_checkstring(L, 2);
+  int extended = lua_toboolean(L, 3);
+  lua_settop(L, 3);
+
+  lib = load_library(L, libname);
+  if (!lib) {
+    lua_pushnil(L);
+    lua_pushstring(L, SDL_GetError());
+    lua_pushliteral(L, "open");
+    return 3;
+  }
+
+  if (strcmp(funcname, "*") == 0) {
+    lua_pushboolean(L, 1);
+    return 1;
+  }
+
+  sym = SDL_LoadFunction(lib, funcname);
+  if (!sym) {
+    lua_pushnil(L);
+    lua_pushstring(L, SDL_GetError());
+    lua_pushliteral(L, "init");
+    return 3;
+  }
+
+  if (extended) {
+    lua_pushlightuserdata(L, sym);
+    lua_pushcclosure(L, extended_function_thunk, 1);
+  } else {
+    lua_CFunction fn;
+    *(void**)(&fn) = sym;
+    lua_pushcfunction(L, fn);
+  }
+
+  return 1;
+}
+
 static int f_load_native_plugin(lua_State *L) {
   char entrypoint_name[512]; entrypoint_name[sizeof(entrypoint_name) - 1] = '\0';
   int result;
@@ -1310,7 +1357,7 @@ static const luaL_Reg lib[] = {
   { "exec",                  f_exec                  },
   { "fuzzy_match",           f_fuzzy_match           },
   { "set_window_opacity",    f_set_window_opacity    },
-  { "load_native_plugin",    f_load_native_plugin    },
+  { "loadlib",               f_loadlib               },
   { "path_compare",          f_path_compare          },
   { "get_fs_type",           f_get_fs_type           },
   { "text_input",            f_text_input            },
