@@ -1118,7 +1118,7 @@ static void *load_library(lua_State *L, const char *path) {
   } else {
     lua_pop(L, 1);
     
-    if (lib = SDL_LoadObject(path)) {
+    if ((lib = SDL_LoadObject(path))) {
       *((void **) lua_newuserdata(L, sizeof(void *))) = lib;
       luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN);
       lua_setfield(L, -2, path);
@@ -1135,7 +1135,7 @@ static int extended_function_thunk(lua_State *L) {
   return fn(L, api_require);
 }
 
-static f_loadlib(lua_State *L) {
+static int f_loadlib(lua_State *L) {
   void *lib, *sym;
   const char *libname = luaL_checkstring(L, 1);
   const char *funcname = luaL_checkstring(L, 2);
