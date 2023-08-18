@@ -810,7 +810,11 @@ function core.init()
   end
 
   if not plugins_success or got_user_error or got_project_error then
-    command.perform("core:open-log")
+    -- defer LogView to after everything is initialized,
+    -- so that EmptyView won't be added after LogView.
+    core.add_thread(function()
+      command.perform("core:open-log")
+    end)
   end
 
   core.configure_borderless_window()
