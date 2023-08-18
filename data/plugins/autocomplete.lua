@@ -151,7 +151,8 @@ core.add_thread(function()
             else
               filename_message = "unnamed document"
             end
-            core.status_view:show_message("!", style.accent,
+            local color = style.completion_text_accent or style.accent
+            core.status_view:show_message("!", color,
               "Too many symbols in "..filename_message..
               ": stopping auto-complete for this document according to "..
               "config.plugins.autocomplete.max_symbols."
@@ -413,12 +414,13 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
   local height = #lines * font:get_height()
 
   -- draw background rect
+  local background = style.completion_background or style.background3
   renderer.draw_rect(
     x,
     sy,
     width + style.padding.x * 2,
     height + style.padding.y * 2,
-    style.background3
+    background
   )
 
   -- draw text
@@ -439,8 +441,9 @@ local function draw_suggestions_box(av)
   local ah = config.plugins.autocomplete.max_height
 
   -- draw background rect
+  local background = style.completion_background or style.background3
   local rx, ry, rw, rh = get_suggestions_rect(av)
-  renderer.draw_rect(rx, ry, rw, rh, style.background3)
+  renderer.draw_rect(rx, ry, rw, rh, background)
 
   -- draw text
   local font = av:get_font()
@@ -454,10 +457,10 @@ local function draw_suggestions_box(av)
       break
     end
     local s = suggestions[i]
-    local color = (i == suggestions_idx) and style.accent or style.text
+    local color = (i == suggestions_idx) and style.completion_text_active or style.accent or style.text
     common.draw_text(font, color, s.text, "left", rx + style.padding.x, y, rw, lh)
     if s.info then
-      color = (i == suggestions_idx) and style.text or style.dim
+      color = (i == suggestions_idx) and style.completion_type or style.text or style.dim
       common.draw_text(style.font, color, s.info, "right", rx, y, rw - style.padding.x, lh)
     end
     y = y + lh
@@ -472,18 +475,21 @@ local function draw_suggestions_box(av)
     end
   end
 
-  renderer.draw_rect(rx, y, rw, 2, style.caret)
-  renderer.draw_rect(rx, y+2, rw, lh, style.background)
+  local infobar_background = style.completion_infobar_background or style.background
+  local infobar_text = style.completion_infobar_text or style.accent
+  local infobar_divider = style.completion_infobar_divider or style.caret
+  renderer.draw_rect(rx, y, rw, 2, infobar_divider)
+  renderer.draw_rect(rx, y+2, rw, lh, infobar_background)
   common.draw_text(
     style.font,
-    style.accent,
+    infobar_text,
     "Items",
     "left",
     rx + style.padding.x, y, rw, lh
   )
   common.draw_text(
     style.font,
-    style.accent,
+    infobar_text,
     tostring(suggestions_idx) .. "/" .. tostring(#suggestions),
     "right",
     rx, y, rw - style.padding.x, lh
