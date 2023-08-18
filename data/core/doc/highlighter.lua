@@ -7,6 +7,7 @@ local Object = require "core.object"
 
 local Highlighter = Object:extend()
 
+function Highlighter:__tostring() return "Highlighter" end
 
 function Highlighter:new(doc)
   self.doc = doc
@@ -125,6 +126,5 @@ end
 function Highlighter:each_token(idx)
   return tokenizer.each_token(self:get_line(idx).tokens)
 end
-
 
 return Highlighter

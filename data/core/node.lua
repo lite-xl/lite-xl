@@ -9,6 +9,8 @@ local View = require "core.view"
 ---@class core.node : core.object
 local Node = Object:extend()
 
+function Node:__tostring() return "Node" end
+
 function Node:new(type)
   self.type = type or "leaf"
   self.position = { x = 0, y = 0 }

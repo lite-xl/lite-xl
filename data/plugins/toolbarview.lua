@@ -7,6 +7,7 @@ local View = require "core.view"
 
 local ToolbarView = View:extend()
 
+function ToolbarView:__tostring() return "ToolbarView" end
 
 function ToolbarView:new()
   ToolbarView.super.new(self)
