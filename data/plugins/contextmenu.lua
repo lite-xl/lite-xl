@@ -4,6 +4,7 @@ local command = require "core.command"
 local keymap = require "core.keymap"
 local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
+local config = require "core.config"
 
 local menu = ContextMenu()
 local on_view_mouse_pressed = RootView.on_view_mouse_pressed
@@ -61,18 +62,24 @@ keymap.add { ["up"] = "context:focus-previous" }
 keymap.add { ["down"] = "context:focus-next" }
 keymap.add { ["escape"] = "context:hide" }
 
-if require("plugins.scale") then
-  menu:register("core.docview", {
-    { text = "Cut",         command = "doc:cut" },
-    { text = "Copy",        command = "doc:copy" },
-    { text = "Paste",       command = "doc:paste" },
-    { text = "Font +",      command = "scale:increase" },
-    { text = "Font -",      command = "scale:decrease" },
-    { text = "Font Reset",  command = "scale:reset"    },
-    ContextMenu.DIVIDER,
-    { text = "Find",        command = "find-replace:find"    },
-    { text = "Replace",     command = "find-replace:replace" }
-  })
+
+local cmds = {
+  { text = "Cut",     command = "doc:cut" },
+  { text = "Copy",    command = "doc:copy" },
+  { text = "Paste",   command = "doc:paste" },
+  ContextMenu.DIVIDER,
+  { text = "Find",    command = "find-replace:find"    },
+  { text = "Replace", command = "find-replace:replace" }
+}
+
+if config.plugins.scale ~= false and require("plugins.scale") then
+  table.move(cmds, 4, 6, 7)
+  cmds[4] = { text = "Font +",     command = "scale:increase" }
+  cmds[5] = { text = "Font -",     command = "scale:decrease" }
+  cmds[6] = { text = "Font Reset", command = "scale:reset"    }
 end
+
+menu:register("core.docview", cmds)
+
 
 return menu
