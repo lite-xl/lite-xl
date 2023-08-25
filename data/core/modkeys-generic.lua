@@ -7,8 +7,10 @@ modkeys.map = {
   ["right shift"] = "shift",
   ["left alt"]    = "alt",
   ["right alt"]   = "altgr",
+  ["left gui"]    = "super",
+  ["right gui"]   = "super"
 }
 
-modkeys.keys = { "ctrl", "alt", "altgr", "shift" }
+modkeys.keys = { "ctrl", "alt", "altgr", "shift", "super" }
 
 return modkeys
