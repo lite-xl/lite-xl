@@ -11,6 +11,6 @@ modkeys.map = {
   ["right gui"]   = "super"
 }
 
-modkeys.keys = { "ctrl", "alt", "altgr", "shift", "super" }
+modkeys.keys = { "ctrl", "shift", "alt", "altgr", "super" }
 
 return modkeys
