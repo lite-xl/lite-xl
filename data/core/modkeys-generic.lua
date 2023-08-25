@@ -8,7 +8,9 @@ modkeys.map = {
   ["left alt"]    = "alt",
   ["right alt"]   = "altgr",
   ["left gui"]    = "super",
-  ["right gui"]   = "super"
+  ["left windows"] = "super",
+  ["right gui"]   = "super",
+  ["right windows"] = "super"
 }
 
 modkeys.keys = { "ctrl", "shift", "alt", "altgr", "super" }
