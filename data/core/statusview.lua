@@ -250,7 +250,7 @@ function StatusView:register_docview_items()
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
     end,
-    tooltip = "% of doc position"
+    tooltip = "caret position"
   })
 
   self:add_item({
