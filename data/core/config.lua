@@ -121,7 +121,7 @@ config.always_show_tabs = true
 ---@alias config.highlightlinetype
 ---| true # Always highlight the current line.
 ---| false # Never highlight the current line.
----| "no_selection" Highlight the current line if no text is selected.
+---| "no_selection" # Highlight the current line if no text is selected.
 
 ---Highlights the current line.
 ---
