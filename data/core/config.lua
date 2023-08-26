@@ -221,12 +221,8 @@ config.draw_whitespace = false
 
 ---Disables system-drawn window borders.
 ---
----Note that on some Wayland platforms that doesn't have server-side
----decorations, a simple window borders may be drawn if SDL is compiled with
----libdecor support.
----
----In that case, this option can be safely disabled.
----Otherwise, no window decoration will be shown.
+---When set to true, Lite XL draws its own window decorations,
+---which can be useful for certain setups.
 ---
 ---Defaults to false.
 ---@type boolean
