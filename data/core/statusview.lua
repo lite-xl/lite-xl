@@ -232,13 +232,25 @@ function StatusView:register_docview_items()
       return {
         style.text, line, ":",
         col > config.line_limit and style.accent or style.text, col,
-        style.text,
-        self.separator,
-        string.format("%.f%%", line / #dv.doc.lines * 100)
+        style.text
       }
     end,
     command = "doc:go-to-line",
     tooltip = "line : column"
+  })
+
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:position-percent",
+    alignment = StatusView.Item.LEFT,
+    get_item = function()
+      local dv = core.active_view
+      local line = dv.doc:get_selection()
+      return {
+        string.format("%.f%%", line / #dv.doc.lines * 100)
+      }
+    end,
+    tooltip = "caret position"
   })
 
   self:add_item({

@@ -48,7 +48,7 @@ function Highlighter:start()
         self:update_notify(retokenized_from, max - retokenized_from)
       end
       core.redraw = true
-      coroutine.yield()
+      coroutine.yield(0)
     end
     self.max_wanted_line = 0
     self.running = false

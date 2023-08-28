@@ -35,17 +35,38 @@ local modkey_map = modkeys_os.map
 local modkeys = modkeys_os.keys
 
 
+---Normalizes a stroke sequence to follow the modkeys table
+---@param stroke string
+---@return string
+local function normalize_stroke(stroke)
+  local stroke_table = {}
+  for key in stroke:gmatch("[^+]+") do
+    table.insert(stroke_table, key)
+  end
+  table.sort(stroke_table, function(a, b)
+    if a == b then return false end
+    for _, mod in ipairs(modkeys) do
+      if a == mod or b == mod then
+        return a == mod
+      end
+    end
+    return a < b
+  end)
+  return table.concat(stroke_table, "+")
+end
+
+
 ---Generates a stroke sequence including currently pressed mod keys.
 ---@param key string
 ---@return string
 local function key_to_stroke(key)
-  local stroke = ""
+  local keys = { key }
   for _, mk in ipairs(modkeys) do
     if keymap.modkeys[mk] then
-      stroke = stroke .. mk .. "+"
+      table.insert(keys, mk)
     end
   end
-  return stroke .. key
+  return normalize_stroke(table.concat(keys, "+"))
 end
 
 
@@ -74,11 +95,12 @@ end
 ---@param map keymap.map
 local function remove_duplicates(map)
   for stroke, commands in pairs(map) do
+    local normalized_stroke = normalize_stroke(stroke)
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
-    if keymap.map[stroke] then
-      for _, registered_cmd in ipairs(keymap.map[stroke]) do
+    if keymap.map[normalized_stroke] then
+      for _, registered_cmd in ipairs(keymap.map[normalized_stroke]) do
         local j = 0
         for i=1, #commands do
           while commands[i + j] == registered_cmd do
@@ -96,11 +118,12 @@ local function remove_duplicates(map)
   end
 end
 
-
 ---Add bindings by replacing commands that were previously assigned to a shortcut.
 ---@param map keymap.map
 function keymap.add_direct(map)
   for stroke, commands in pairs(map) do
+    stroke = normalize_stroke(stroke)
+
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
@@ -128,6 +151,7 @@ function keymap.add(map, overwrite)
     if macos then
       stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
     end
+    stroke = normalize_stroke(stroke)
     if overwrite then
       if keymap.map[stroke] then
         for _, cmd in ipairs(keymap.map[stroke]) do
@@ -153,6 +177,7 @@ end
 ---@param shortcut string
 ---@param cmd string
 function keymap.unbind(shortcut, cmd)
+  shortcut = normalize_stroke(shortcut)
   remove_only(keymap.map, shortcut, cmd)
   remove_only(keymap.reverse_map, cmd, shortcut)
 end

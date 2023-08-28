@@ -142,14 +142,14 @@ function View:on_mouse_pressed(button, x, y, clicks)
   local result = self.v_scrollbar:on_mouse_pressed(button, x, y, clicks)
   if result then
     if result ~= true then
-      self.scroll.to.y = result * self:get_scrollable_size()
+      self.scroll.to.y = result * (self:get_scrollable_size() - self.size.y)
     end
     return true
   end
   result = self.h_scrollbar:on_mouse_pressed(button, x, y, clicks)
   if result then
     if result ~= true then
-      self.scroll.to.x = result * self:get_h_scrollable_size()
+      self.scroll.to.x = result * (self:get_h_scrollable_size() - self.size.x)
     end
     return true
   end
@@ -177,7 +177,7 @@ function View:on_mouse_moved(x, y, dx, dy)
   result = self.v_scrollbar:on_mouse_moved(x, y, dx, dy)
   if result then
     if result ~= true then
-      self.scroll.to.y = result * self:get_scrollable_size()
+      self.scroll.to.y = result * (self:get_scrollable_size() - self.size.y)
       if not config.animate_drag_scroll then
         self:clamp_scroll_position()
         self.scroll.y = self.scroll.to.y
@@ -191,7 +191,7 @@ function View:on_mouse_moved(x, y, dx, dy)
   result = self.h_scrollbar:on_mouse_moved(x, y, dx, dy)
   if result then
     if result ~= true then
-      self.scroll.to.x = result * self:get_h_scrollable_size()
+      self.scroll.to.x = result * (self:get_h_scrollable_size() - self.size.x)
       if not config.animate_drag_scroll then
         self:clamp_scroll_position()
         self.scroll.x = self.scroll.to.x
@@ -287,12 +287,16 @@ end
 function View:update_scrollbar()
   local v_scrollable = self:get_scrollable_size()
   self.v_scrollbar:set_size(self.position.x, self.position.y, self.size.x, self.size.y, v_scrollable)
-  self.v_scrollbar:set_percent(self.scroll.y/v_scrollable)
+  local v_percent = self.scroll.y/(v_scrollable - self.size.y)
+  -- Avoid setting nan percent
+  self.v_scrollbar:set_percent(v_percent == v_percent and v_percent or 0)
   self.v_scrollbar:update()
 
   local h_scrollable = self:get_h_scrollable_size()
   self.h_scrollbar:set_size(self.position.x, self.position.y, self.size.x, self.size.y, h_scrollable)
-  self.h_scrollbar:set_percent(self.scroll.x/h_scrollable)
+  local h_percent = self.scroll.x/(h_scrollable - self.size.x)
+  -- Avoid setting nan percent
+  self.h_scrollbar:set_percent(h_percent == h_percent and h_percent or 0)
   self.h_scrollbar:update()
 end
 

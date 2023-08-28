@@ -92,15 +92,15 @@ cd lite-xl
 
 To run lite-xl without installing:
 ```sh
-cd bin
 ./lite-xl
 ```
 
 To install lite-xl copy files over into appropriate directories:
 
 ```sh
-mkdir -p $HOME/.local/bin && cp bin/lite-xl $HOME/.local/bin
-cp -r share $HOME/.local
+rm -rf  $HOME/.local/share/lite-xl $HOME/.local/bin/lite-xl
+mkdir -p $HOME/.local/bin && cp lite-xl $HOME/.local/bin/
+mkdir -p $HOME/.local/share/lite-xl && cp -r data/* $HOME/.local/share/lite-xl/
 ```
 
 If `$HOME/.local/bin` is not in PATH:
