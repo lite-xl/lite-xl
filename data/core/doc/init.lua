@@ -27,6 +27,9 @@ function Doc:new(filename, abs_filename, new_file)
       self:load(filename)
     end
   end
+  if new_file then
+    self.crlf = PLATFORM == "Windows"
+  end
 end
 
 
