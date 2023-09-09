@@ -182,7 +182,7 @@ local function refresh_directory(topdir, target)
     directory_start_idx = directory_start_idx + 1
   end
 
-  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), {}, 0, function() return false end)
+  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), 0, function() return false end)
   local change = false
 
   -- If this file doesn't exist, we should be calling this on our parent directory, assume we'll do that.
@@ -263,7 +263,7 @@ function core.add_project_directory(path)
 
   local fstype = PLATFORM == "Linux" and system.get_fs_type(topdir.name) or "unknown"
   topdir.force_scans = (fstype == "nfs" or fstype == "fuse")
-  local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", {}, 0, timed_max_files_pred)
+  local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", 0, timed_max_files_pred)
   topdir.files = t
   if not complete then
     topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
