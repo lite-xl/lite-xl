@@ -102,7 +102,7 @@ local function strip_leading_path(filename)
 end
 
 local function strip_trailing_slash(filename)
-  if filename:match("[^:][/\\]$") then
+  if filename:match("[^:]["..PATHSEP.."]$") then
     return filename:sub(1, -2)
   end
   return filename
@@ -120,9 +120,7 @@ local function show_max_files_warning(dir)
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
     "usage.md at https://github.com/lite-xl/lite-xl."
-  if core.status_view then
-    core.status_view:show_message("!", style.accent, message)
-  end
+  core.warn(message)
 end
 
 
