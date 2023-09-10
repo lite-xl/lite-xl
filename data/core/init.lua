@@ -1438,6 +1438,7 @@ function core.run()
     core.frame_start = system.get_time()
     local time_to_wake = run_threads()
     local did_redraw = false
+    local did_step = false
     local force_draw = core.redraw and last_frame_time and core.frame_start - last_frame_time > (1 / config.fps)
     if force_draw or not next_step or system.get_time() >= next_step then
       if core.step() then
@@ -1445,11 +1446,12 @@ function core.run()
         last_frame_time = core.frame_start
       end
       next_step = nil
+      did_step = true
     end
     if core.restart_request or core.quit_request then break end
 
     if not did_redraw then
-      if system.window_has_focus() then
+      if system.window_has_focus() or not did_step then
         local now = system.get_time()
         if not next_step then -- compute the time until the next blink
           local t = now - core.blink_start
