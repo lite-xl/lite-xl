@@ -439,7 +439,6 @@ function DocView:draw_line_highlight(x, y)
   renderer.draw_rect(x, y, self.size.x, lh, style.line_highlight)
 end
 
-
 function DocView:draw_line_text(line, x, y)
   local default_font = self:get_font()
   local tx, ty = x, y + self:get_line_text_y_offset()
@@ -449,13 +448,22 @@ function DocView:draw_line_text(line, x, y)
   if string.sub(tokens[tokens_count], -1) == "\n" then
     last_token = tokens_count - 1
   end
-  for tidx, type, text in self.doc.highlighter:each_token(line) do
-    local color = style.syntax[type]
-    local font = style.syntax_fonts[type] or default_font
+  for tidx, ltype, text in self.doc.highlighter:each_token(line) do
+    local color = style.syntax[ltype]
+    local font  = style.syntax_fonts[ltype] or default_font
+    -- If type is table, get info member
+    if ltype and type(ltype) == "table" and ltype.info then
+      color = style.syntax[ltype.info]
+      font  = style.syntax_fonts[ltype.info] or default_font
+    end
     -- do not render newline, fixes issue #1164
-    if tidx == last_token then text = text:sub(1, -2) end
+    if tidx == last_token then
+      text = text:sub(1, -2)
+    end
     tx = renderer.draw_text(font, text, tx, ty, color)
-    if tx > self.position.x + self.size.x then break end
+    if tx > self.position.x + self.size.x then
+      break
+    end
   end
   return self:get_line_height()
 end
