@@ -1117,7 +1117,7 @@ static void *load_library(lua_State *L, const char *path) {
     lua_pop(L, 1);
   } else {
     lua_pop(L, 1);
-    
+
     if ((lib = SDL_LoadObject(path))) {
       *((void **) lua_newuserdata(L, sizeof(void *))) = lib;
       luaL_setmetatable(L, API_TYPE_NATIVE_PLUGIN);
@@ -1151,8 +1151,10 @@ static int f_loadlib(lua_State *L) {
   }
 
   if (strcmp(funcname, "*") == 0) {
-    lua_pushboolean(L, 1);
-    return 1;
+    lua_pushnil(L);
+    lua_pushliteral(L, "Loading library symbols with * is not supported");
+    lua_pushliteral(L, "init");
+    return 3;
   }
 
   sym = SDL_LoadFunction(lib, funcname);
