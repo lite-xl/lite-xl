@@ -170,7 +170,7 @@ local function select_add_next(all)
     repeat
       l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
       if l1 == il1 and c1 == ic1 then break end
-      if l2 and (all or not is_in_any_selection(l2, c2)) then
+      if l2 and not is_in_any_selection(l2, c2) then
         doc():add_selection(l2, c2, l1, c1)
         if not all then
           core.active_view:scroll_to_make_visible(l2, c2)
