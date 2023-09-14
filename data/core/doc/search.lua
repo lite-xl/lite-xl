@@ -66,7 +66,18 @@ function search.find(doc, line, col, text, opt)
       s, e = search_func(line_text, pattern, col, plain)
     end
     if s then
-      return line, s, line, e + 1
+      local line2 = line
+      -- If we've matched the newline too,
+      -- return until the initial character of the next line.
+      if e >= #doc.lines[line] then
+        line2 = line + 1
+        e = 0
+      end
+      -- Avoid returning matches that go beyond the last line.
+      -- This is needed to avoid selecting the "last" newline.
+      if line2 <= #doc.lines then
+        return line, s, line2, e + 1
+      end
     end
     col = opt.reverse and -1 or 1
   end
