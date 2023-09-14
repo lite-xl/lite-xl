@@ -269,7 +269,7 @@ command.add(valid_for_finding, {
       core.error("No find to continue from")
     else
       local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
-      local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc2, last_text, case_sensitive, find_regex, false)
+      local line1, col1, line2, col2 = last_fn(dv.doc, sl2, sc2, last_text, case_sensitive, find_regex, false)
       if line1 then
         dv.doc:set_selection(line2, col2, line1, col1)
         dv:scroll_to_line(line2, true)
