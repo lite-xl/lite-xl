@@ -153,6 +153,12 @@ config.tab_type = "soft"
 ---@type boolean
 config.keep_newline_whitespace = false
 
+---Default line endings for new files.
+---
+---Defaults to `crlf` (`\r\n`) on Windows and `lf` (`\n`) on everything else.
+---@type "crlf" | "lf"
+config.line_endings = PLATFORM == "Windows" and "crlf" or "lf"
+
 ---Maximum number of characters per-line for the line guide.
 ---
 ---Defaults to 80.

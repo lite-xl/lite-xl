@@ -28,7 +28,7 @@ function Doc:new(filename, abs_filename, new_file)
     end
   end
   if new_file then
-    self.crlf = PLATFORM == "Windows"
+    self.crlf = config.line_endings == "crlf"
   end
 end
 
