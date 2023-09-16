@@ -5,23 +5,6 @@ local core = require "core"
 
 local initial_color = style.syntax["keyword2"]
 
--- Add 3 type of font styles for use on markdown files
-for _, attr in pairs({"bold", "italic", "bold_italic"}) do
-  local attributes = {}
-  if attr ~= "bold_italic" then
-    attributes[attr] = true
-  else
-    attributes["bold"] = true
-    attributes["italic"] = true
-  end
-  style.syntax_fonts["markdown_"..attr] = style.code_font:copy(
-    style.code_font:get_size(),
-    attributes
-  )
-  -- also add a color for it
-  style.syntax["markdown_"..attr] = style.syntax["keyword2"]
-end
-
 local in_squares_match = "^%[%]"
 local in_parenthesis_match = "^%(%)"
 
@@ -225,6 +208,23 @@ syntax.add {
 
 -- Adjust the color on theme changes
 core.add_thread(function()
+  -- Add 3 type of font styles for use on markdown files
+  for _, attr in pairs({"bold", "italic", "bold_italic"}) do
+    local attributes = {}
+    if attr ~= "bold_italic" then
+      attributes[attr] = true
+    else
+      attributes["bold"] = true
+      attributes["italic"] = true
+    end
+    style.syntax_fonts["markdown_"..attr] = style.code_font:copy(
+      style.code_font:get_size(),
+      attributes
+    )
+    -- also add a color for it
+    style.syntax["markdown_"..attr] = style.syntax["keyword2"]
+  end
+
   while true do
     if initial_color ~= style.syntax["keyword2"] then
       for _, attr in pairs({"bold", "italic", "bold_italic"}) do
