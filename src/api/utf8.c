@@ -139,6 +139,54 @@ static int utf8_range(const char *s, const char *e, lua_Integer *i, lua_Integer 
   return *i < *j;
 }
 
+/* Indexed by top nibble of first byte in code unit */
+static uint8_t utf8_code_unit_len[] = {
+  1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, 2, 2, 3, 4
+};
+
+/* Return pointer to first invalid UTF-8 sequence in 's', or NULL if valid */
+static const char *utf8_invalid_offset(const char *s, const char *e) {
+  while (s < e) {
+    uint8_t c = *s;
+    if (c >= 0x80) {
+      /* c < 0xC0 means a continuation byte, but we are not in the middle of a multi-byte code unit
+       * c >= 0xC0 && c < 0xC2 means an overlong 2-byte code unit
+       * c >= 0xF8 means a 5-byte or 6-byte code unit, which is illegal, or else illegal byte 0xFE/0xFF
+       * c >= 0xF5 && c < 0xF8 means a 4-byte code unit encoding invalid codepoint > U+10FFFF */
+      if (c < 0xC2 || c >= 0xF5)
+        return s;
+      uint8_t needed_bytes = utf8_code_unit_len[c >> 4];
+      if (e - s < needed_bytes)
+        return s; /* String is truncated */
+      uint8_t c2 = *(s+1);
+      if ((c2 & 0xC0) != 0x80)
+        return s; /* 2nd byte of code unit is not a continuation byte */
+      if (needed_bytes >= 3) {
+        uint8_t c3 = *(s+2);
+        if ((c3 & 0xC0) != 0x80)
+          return s; /* 3rd byte of code unit is not a continuation byte */
+        if (needed_bytes == 3) {
+          if (c == 0xE0 && c2 < 0xA0)
+            return s; /* Overlong 3-byte code unit */
+          if (c == 0xED && c2 >= 0xA0)
+            return s; /* Reserved codepoint from U+D800-U+DFFF */
+        } else {
+          uint8_t c4 = *(s+3);
+          if ((c4 & 0xC0) != 0x80)
+            return s; /* 4th byte of code unit is not a continuation byte */
+          if (c == 0xF0 && c2 < 0x90)
+            return s; /* Overlong 4-byte code unit */
+          if (c == 0xF4 && c2 >= 0x90)
+            return s; /* Illegal codepoint > U+10FFFF */
+        }
+      }
+      s += needed_bytes;
+    } else {
+      s++;
+    }
+  }
+  return NULL;
+}
 
 /* Unicode character categories */
 
@@ -201,6 +249,396 @@ static int convert_char (conv_table *t, size_t size, utfint ch) {
   return ch;
 }
 
+/* Normalization */
+
+static int lookup_canon_cls (utfint ch) {
+  /* The first codepoint with canonicalization class != 0 is U+0300 COMBINING GRAVE ACCENT */
+  if (ch < 0x300) {
+    return 0;
+  }
+  size_t begin = 0, end = table_size(nfc_combining_table);
+
+  while (begin < end) {
+    size_t mid = (begin + end) / 2;
+    if (nfc_combining_table[mid].last < ch)
+      begin = mid + 1;
+    else if (nfc_combining_table[mid].first > ch)
+      end = mid;
+    else
+      return nfc_combining_table[mid].canon_cls;
+  }
+
+  return 0;
+}
+
+static nfc_table *nfc_quickcheck (utfint ch) {
+  /* The first character which needs to be checked for possible NFC violations
+   * is U+0300 COMBINING GRAVE ACCENT */
+  if (ch < 0x300) {
+    return NULL;
+  }
+  size_t begin = 0, end = table_size(nfc_quickcheck_table);
+
+  while (begin < end) {
+    size_t mid = (begin + end) / 2;
+    utfint found = nfc_quickcheck_table[mid].cp;
+    if (found < ch)
+      begin = mid + 1;
+    else if (found > ch)
+      end = mid;
+    else
+      return &nfc_quickcheck_table[mid];
+  }
+
+  return NULL;
+}
+
+static int nfc_combine (utfint cp1, utfint cp2, utfint *dest) {
+  size_t begin = 0, end = table_size(nfc_composite_table);
+  unsigned int hash = (cp1 * 213) + cp2;
+
+  while (begin < end) {
+    size_t mid = (begin + end) / 2;
+    utfint val = nfc_composite_table[mid].hash;
+    if (val < hash) {
+      begin = mid + 1;
+    } else if (val > hash) {
+      end = mid;
+    } else if (nfc_composite_table[mid].cp1 == cp1 && nfc_composite_table[mid].cp2 == cp2) {
+      if (dest)
+        *dest = nfc_composite_table[mid].dest;
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+
+  return 0;
+}
+
+static decompose_table *nfc_decompose (utfint ch) {
+  size_t begin = 0, end = table_size(nfc_decompose_table);
+
+  while (begin < end) {
+    size_t mid = (begin + end) / 2;
+    utfint found = nfc_decompose_table[mid].cp;
+    if (found < ch)
+      begin = mid + 1;
+    else if (found > ch)
+      end = mid;
+    else
+      return &nfc_decompose_table[mid];
+  }
+
+  return NULL;
+}
+
+static int nfc_check (utfint ch, nfc_table *entry, utfint starter, unsigned int canon_cls, unsigned int prev_canon_cls) {
+  int reason = entry->reason;
+
+  if (reason == REASON_MUST_CONVERT_1 || reason == REASON_MUST_CONVERT_2) {
+    /* This codepoint has a different, canonical form, so this string is not NFC */
+    return 0;
+  } else if (reason == REASON_STARTER_CAN_COMBINE) {
+    /* It is possible that this 'starter' codepoint should have been combined with the
+     * preceding 'starter' codepoint; if so, this string is not NFC */
+    if (!prev_canon_cls && nfc_combine(starter, ch, NULL)) {
+      /* These codepoints should have been combined */
+      return 0;
+    }
+  } else if (reason == REASON_COMBINING_MARK) {
+    /* Combining mark; check if it should have been combined with preceding starter codepoint */
+    if (canon_cls > prev_canon_cls && nfc_combine(starter, ch, NULL)) {
+      /* Yes, they should have been combined. This string is not NFC */
+      return 0;
+    }
+    /* Could it be that preceding 'starter' codepoint is already combined, but with a
+     * combining mark which is out of order with this one? */
+    decompose_table *decomp = nfc_decompose(starter);
+    if (decomp && decomp->canon_cls2 > canon_cls && nfc_combine(decomp->to1, ch, NULL)) {
+      return 0;
+    }
+  } else if (reason == REASON_JAMO_VOWEL) {
+    if (!prev_canon_cls && starter >= 0x1100 && starter <= 0x115F) {
+      /* Preceding codepoint was a leading jamo; they should have been combined */
+      return 0;
+    }
+  } else if (reason == REASON_JAMO_TRAILING) {
+    if (!prev_canon_cls && starter >= 0xAC00 && starter <= 0xD7A3) {
+      /* Preceding codepoint was a precomposed Hangul syllable; check if it had no trailing jamo */
+      if ((starter - 0xAC00) % 28 == 0) {
+        /* It didn't have a trailing jamo, so this trailing jamo should have been combined */
+        return 0;
+      }
+    }
+  }
+
+  return 1;
+}
+
+static void merge_combining_marks (uint32_t *src1, uint32_t *src2, uint32_t *dest, size_t size1, size_t size2) {
+  while (size1 && size2) {
+    if ((*src1 & 0xFF) > (*src2 & 0xFF)) {
+      *dest++ = *src2++;
+      size2--;
+    } else {
+      *dest++ = *src1++;
+      size1--;
+    }
+  }
+  while (size1) {
+    *dest++ = *src1++;
+    size1--;
+  }
+  while (size2) {
+    *dest++ = *src2++;
+    size2--;
+  }
+}
+
+static void stable_sort_combining_marks (uint32_t *vector, uint32_t *scratch, size_t size) {
+  /* We need to use a stable sort for sorting combining marks which are in the wrong order
+   * when doing NFC normalization; bottom-up merge sort is fast and stable */
+  size_t limit = size - 1;
+  for (unsigned int i = 0; i < limit; i += 2) {
+    if ((vector[i] & 0xFF) > (vector[i+1] & 0xFF)) {
+      uint32_t temp = vector[i];
+      vector[i] = vector[i+1];
+      vector[i+1] = temp;
+    }
+  }
+  if (size <= 2)
+    return;
+
+  uint32_t *src = vector, *dest = scratch;
+  unsigned int runsize = 2; /* Every consecutive slice of this size is sorted */
+  while (runsize < size) {
+    unsigned int blocksize = runsize * 2; /* We will now sort slices of this size */
+    limit = size & ~(blocksize - 1);
+    for (unsigned int i = 0; i < limit; i += blocksize)
+      merge_combining_marks(&src[i], &src[i+runsize], &dest[i], runsize, runsize);
+    if (size - limit > runsize) {
+      merge_combining_marks(&src[limit], &src[limit+runsize], &dest[limit], runsize, size - limit - runsize);
+    } else {
+      memcpy(&dest[limit], &src[limit], (size - limit) * sizeof(uint32_t));
+    }
+    /* After each series of (progressively larger) merges, we swap src & dest to
+     * avoid memcpy'ing the partially sorted results from dest back into src */
+    uint32_t *temp = src; src = dest; dest = temp;
+    runsize = blocksize;
+  }
+
+  if (dest == vector) {
+    /* Since src & dest are swapped on each iteration of the above loop,
+     * this actually means the last buffer which was written into
+     * was 'scratch' */
+    memcpy(vector, scratch, size * sizeof(uint32_t));
+  }
+}
+
+static void add_utf8char (luaL_Buffer *b, utfint ch);
+
+static void string_to_nfc (lua_State *L, luaL_Buffer *buff, const char *s, const char *e)
+{
+  /* Converting a string to Normal Form C involves:
+   * 1) Ensuring that codepoints with "built-in" accents are used whenever possible
+   *    rather than separate codepoints for a base character and combining mark
+   * 2) Where combining marks must be used, putting them into canonical order
+   * 3) Converting some deprecated codepoints to the recommended variant
+   * 4) Ensuring that Korean Hangul are represented as precomposed syllable
+   *    codepoints whenever possible, rather than sequences of Jamo codepoints
+   *
+   * (Combining marks are accents which appear on top of or below the preceding
+   * character. Starter codepoints are the base characters which combining marks can
+   * 'combine' with. Almost all codepoints are starters, including all the Latin alphabet.
+   * Every Unicode codepoint has a numeric 'canonicalization class'; starters have class = 0.
+   * Combining marks must be sorted in order of their canonicalization class. Since the
+   * canonicalization class numbers are not unique, the sort must be stable.)
+   *
+   * When converting to NFC, the largest scope which we need to work on at once
+   * consists of a 'starter' codepoint and either 1 or more ensuing combining marks,
+   * OR else a directly following starter codepoint.
+   *
+   * As we walk through the string, whenever we pass by a complete sequence of starter +
+   * combining marks or starter + starter, we process that sequence to see if it is NFC or not.
+   * If it is, we memcpy the bytes verbatim into the output buffer. If it is not, then we
+   * convert the codepoints to NFC and then emit those codepoints as UTF-8 bytes. */
+
+  utfint starter = -1, ch; /* 'starter' is last starter codepoint seen */
+  const char *to_copy = s; /* pointer to next bytes we might need to memcpy into output buffer */
+  unsigned int prev_canon_cls = 0, canon_cls = 0;
+  int fixedup = 0; /* has the sequence currently under consideration been modified to make it NFC? */
+
+  /* Temporary storage for a sequence of consecutive combining marks
+   * In the vast majority of cases, this small on-stack array will provide enough
+   * space; if not, we will switch to a malloc'd buffer */
+  uint32_t onstack[8];
+  size_t vec_size = 0, vec_max = sizeof(onstack)/sizeof(uint32_t);
+  uint32_t *vector = onstack;
+
+  while (s < e) {
+    const char *new_s = utf8_decode(s, &ch, 1);
+    if (new_s == NULL) {
+      lua_pushstring(L, "string is not valid UTF-8");
+      lua_error(L);
+    }
+    unsigned int canon_cls = lookup_canon_cls(ch);
+
+    if (!canon_cls) {
+      /* This is a starter codepoint */
+      nfc_table *entry = nfc_quickcheck(ch);
+
+      /* Handle preceding starter and optional sequence of combining marks which may have followed it */
+      if (prev_canon_cls) {
+        /* Before this starter, there was a sequence of combining marks.
+         * Check those over and emit output to 'buff' */
+process_combining_marks:
+
+        /* Check if accumulated combining marks were in correct order */
+        for (unsigned int i = 1; i < vec_size; i++) {
+          if ((vector[i-1] & 0xFF) > (vector[i] & 0xFF)) {
+            /* Order is incorrect, we need to sort */
+            uint32_t *scratch = malloc(vec_size * sizeof(uint32_t));
+            stable_sort_combining_marks(vector, scratch, vec_size);
+            free(scratch);
+            fixedup = 1;
+          }
+        }
+
+        /* Check if any of those combining marks are in violation of NFC */
+        unsigned int i = 0;
+        while (i < vec_size) {
+          utfint combine_mark = vector[i] >> 8;
+          nfc_table *mark_entry = nfc_quickcheck(combine_mark);
+          if (mark_entry) {
+            if (mark_entry->reason == REASON_MUST_CONVERT_1) {
+              /* This combining mark must be converted to a different one */
+              vector[i] = (mark_entry->data1 << 8) | mark_entry->data2;
+              fixedup = 1;
+              continue;
+            } else if (mark_entry->reason == REASON_MUST_CONVERT_2) {
+              /* This combining mark must be converted to two others */
+              if (vec_size == vec_max) {
+                vec_max *= 2;
+                vector = realloc((vector == onstack) ? NULL : vector, vec_max * sizeof(uint32_t));
+              }
+              memmove(&vector[i+2], &vector[i+1], sizeof(uint32_t) * (vec_size - i - 1));
+              vector[i] = (mark_entry->data1 << 8) | lookup_canon_cls(mark_entry->data1);
+              vector[i+1] = (mark_entry->data2 << 8) | lookup_canon_cls(mark_entry->data2);
+              vec_size++;
+              fixedup = 1;
+              continue;
+            } else if (mark_entry->reason == REASON_COMBINING_MARK) {
+              if ((i == 0 || (vector[i] & 0xFF) > (vector[i-1] & 0xFF)) && nfc_combine(starter, combine_mark, &starter)) {
+                /* This combining mark must be combined with preceding starter */
+                vec_size--;
+                memmove(&vector[i], &vector[i+1], sizeof(uint32_t) * (vec_size - i)); /* Remove element i */
+                fixedup = 1;
+                continue;
+              }
+
+              decompose_table *decomp = nfc_decompose(starter);
+              if (decomp && decomp->canon_cls2 > (vector[i] & 0xFF) && nfc_combine(decomp->to1, combine_mark, &starter)) {
+                /* The preceding starter already included an accent, but when represented as a combining
+                 * mark, that accent has a HIGHER canonicalization class than this one
+                 * Further, this one is able to combine with the same base character
+                 * In other words, the base character was wrongly combined with a "lower-priority"
+                 * combining mark; fix that up */
+                vector[i] = (decomp->to2 << 8) | lookup_canon_cls(decomp->to2);
+                fixedup = 1;
+                continue;
+              }
+            }
+          }
+          i++;
+        }
+
+        if (fixedup) {
+          /* The preceding starter/combining mark sequence was bad; convert fixed-up codepoints
+           * to UTF-8 bytes */
+          if (starter != -1)
+            add_utf8char(buff, starter);
+          for (unsigned int i = 0; i < vec_size; i++)
+            add_utf8char(buff, vector[i] >> 8);
+        } else {
+          /* The preceding starter/combining mark sequence was good; copy raw bytes to output */
+          luaL_addlstring(buff, to_copy, s - to_copy);
+        }
+        if (s >= e) {
+          /* We jumped in to the middle of the main loop to finish processing trailing
+           * combining marks... we are actually done now */
+          if (vector != onstack)
+            free(vector);
+          return;
+        }
+        vec_size = 0; /* Clear vector of combining marks in readiness for next such sequence */
+        fixedup = 0;
+      } else if (starter != -1) {
+        /* This starter was preceded immediately by another starter
+         * Check if this one should combine with it */
+        fixedup = 0;
+        if (entry) {
+          if (entry->reason == REASON_STARTER_CAN_COMBINE && nfc_combine(starter, ch, &ch)) {
+            fixedup = 1;
+          } else if (entry->reason == REASON_JAMO_VOWEL && starter >= 0x1100 && starter <= 0x115F) {
+            ch = 0xAC00 + ((starter - 0x1100) * 588) + ((ch - 0x1161) * 28);
+            fixedup = 1;
+          } else if (entry->reason == REASON_JAMO_TRAILING) {
+            if (starter >= 0xAC00 && starter <= 0xD7A3 && (starter - 0xAC00) % 28 == 0) {
+              ch = starter + ch - 0x11A7;
+              fixedup = 1;
+            }
+          }
+        }
+        if (!fixedup)
+          add_utf8char(buff, starter); /* Emit previous starter to output */
+      }
+      starter = ch;
+      to_copy = s;
+
+      /* We are finished processing the preceding starter and optional sequence of combining marks
+       * Now check if this (possibly deprecated) starter needs to be converted to a canonical variant */
+      if (entry) {
+        if (entry->reason == REASON_MUST_CONVERT_1) {
+          starter = entry->data1;
+          fixedup = 1;
+        } else if (entry->reason == REASON_MUST_CONVERT_2) {
+          utfint conv1 = entry->data1;
+          /* It is possible that after converting 'ch' to two other codepoints,
+           * the first one might also need to convert to two codepoints */
+          nfc_table *conv_entry = nfc_quickcheck(conv1);
+          if (conv_entry && conv_entry->reason == REASON_MUST_CONVERT_2) {
+            add_utf8char(buff, conv_entry->data1);
+            add_utf8char(buff, conv_entry->data2);
+          } else {
+            add_utf8char(buff, conv1);
+          }
+          starter = entry->data2;
+          fixedup = 1;
+        }
+      }
+    } else {
+      /* Accumulate combining marks in vector */
+      if (vec_size == vec_max) {
+        vec_max *= 2;
+        vector = realloc((vector == onstack) ? NULL : vector, vec_max * sizeof(uint32_t));
+      }
+      vector[vec_size++] = (ch << 8) | (canon_cls & 0xFF);
+    }
+
+    s = new_s;
+    prev_canon_cls = canon_cls;
+  }
+
+  if (vec_size)
+    goto process_combining_marks; /* Finish processing trailing combining marks */
+  if (starter != -1)
+    add_utf8char(buff, starter);
+
+  if (vector != onstack)
+    free(vector);
+}
+
 #define define_category(cls, name) static int utf8_is##name (utfint ch)\
 { return find_in_range(name##_table, table_size(name##_table), ch); }
 #define define_converter(name) static utfint utf8_to##name (utfint ch) \
@@ -239,7 +677,6 @@ static int utf8_width (utfint ch, int ambi_is_single) {
     return 0;
   return 1;
 }
-
 
 /* string module compatible interface */
 
@@ -1263,6 +1700,171 @@ static int Lutf8_gsub (lua_State *L) {
   return 2;
 }
 
+static int Lutf8_isvalid(lua_State *L) {
+  const char *e, *s = check_utf8(L, 1, &e);
+  const char *invalid = utf8_invalid_offset(s, e);
+  lua_pushboolean(L, invalid == NULL);
+  return 1;
+}
+
+static int Lutf8_invalidoffset(lua_State *L) {
+  const char *e, *s = check_utf8(L, 1, &e);
+  const char *orig_s = s;
+  int offset = luaL_optinteger(L, 2, 0);
+  if (offset > 1) {
+    offset--;
+    s += offset;
+    if (s >= e) {
+      lua_pushnil(L);
+      return 1;
+    }
+  } else if (offset < 0 && s - e < offset) {
+    s = e + offset;
+  }
+  const char *invalid = utf8_invalid_offset(s, e);
+  if (invalid == NULL) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, invalid - orig_s + 1);
+  }
+  return 1;
+}
+
+static int Lutf8_clean(lua_State *L) {
+  const char *e, *s = check_utf8(L, 1, &e);
+
+  /* Default replacement string is REPLACEMENT CHARACTER U+FFFD */
+  size_t repl_len;
+  const char *r = luaL_optlstring(L, 2, "\xEF\xBF\xBD", &repl_len);
+
+  if (lua_gettop(L) > 1) {
+    /* Check if replacement string is valid UTF-8 or not */
+    if (utf8_invalid_offset(r, r + repl_len) != NULL) {
+      lua_pushstring(L, "replacement string must be valid UTF-8");
+      lua_error(L);
+    }
+  }
+
+  const char *invalid = utf8_invalid_offset(s, e);
+  if (invalid == NULL) {
+    lua_settop(L, 1); /* Return input string without modification */
+    lua_pushboolean(L, 1); /* String was clean already */
+    return 2;
+  }
+
+  luaL_Buffer buff;
+  luaL_buffinit(L, &buff);
+
+  while (1) {
+    /* Invariant: 's' points to first GOOD byte not in output buffer,
+     * 'invalid' points to first BAD byte after that */
+    luaL_addlstring(&buff, s, invalid - s);
+    luaL_addlstring(&buff, r, repl_len);
+    /* We do not replace every bad byte with the replacement character,
+     * but rather a contiguous sequence of bad bytes
+     * Restore the invariant by stepping forward until we find at least
+     * one good byte */
+    s = invalid;
+    while (s == invalid) {
+      s++;
+      invalid = utf8_invalid_offset(s, e);
+    }
+    if (invalid == NULL) {
+      luaL_addlstring(&buff, s, e - s);
+      luaL_pushresult(&buff);
+      lua_pushboolean(L, 0); /* String was not clean */
+      return 2;
+    }
+  }
+}
+
+static int Lutf8_isnfc(lua_State *L) {
+  const char *e, *s = check_utf8(L, 1, &e);
+  utfint starter = 0, ch;
+  unsigned int prev_canon_cls = 0;
+
+  while (s < e) {
+    s = utf8_decode(s, &ch, 1);
+    if (s == NULL) {
+      lua_pushstring(L, "string is not valid UTF-8");
+      lua_error(L);
+    }
+    if (ch < 0x300) {
+      starter = ch; /* Fast path */
+      prev_canon_cls = 0;
+      continue;
+    }
+
+    unsigned int canon_cls = lookup_canon_cls(ch);
+    if (canon_cls && canon_cls < prev_canon_cls) {
+      /* Combining marks are out of order; this string is not NFC */
+      lua_pushboolean(L, 0); /* Return false */
+      return 1;
+    }
+
+    nfc_table *entry = nfc_quickcheck(ch);
+    if (entry && !nfc_check(ch, entry, starter, canon_cls, prev_canon_cls)) {
+      lua_pushboolean(L, 0); /* Return false */
+      return 1;
+    }
+
+    prev_canon_cls = canon_cls;
+    if (!canon_cls)
+      starter = ch;
+  }
+
+  lua_pushboolean(L, 1); /* Return true */
+  return 1;
+}
+
+static int Lutf8_normalize_nfc(lua_State *L) {
+  const char *e, *s = check_utf8(L, 1, &e), *p = s, *starter_p = s;
+  utfint starter = 0, ch;
+  unsigned int prev_canon_cls = 0;
+
+  /* First scan to see if we can find any problems... if not, we may just return the
+   * input string unchanged */
+  while (p < e) {
+    const char *new_p = utf8_decode(p, &ch, 1);
+    if (new_p == NULL) {
+      lua_pushstring(L, "string is not valid UTF-8");
+      lua_error(L);
+    }
+
+    unsigned int canon_cls = lookup_canon_cls(ch);
+    if (canon_cls && canon_cls < prev_canon_cls) {
+      goto build_string; /* Combining marks are out of order; this string is not NFC */
+    }
+
+    nfc_table *entry = nfc_quickcheck(ch);
+    if (entry && !nfc_check(ch, entry, starter, canon_cls, prev_canon_cls)) {
+      goto build_string;
+    }
+
+    prev_canon_cls = canon_cls;
+    if (!canon_cls) {
+      starter = ch;
+      starter_p = p;
+    }
+    p = new_p;
+  }
+
+  lua_settop(L, 1); /* Return input string without modification */
+  lua_pushboolean(L, 1); /* String was in normal form already, so 2nd return value is 'true' */
+  return 2;
+
+build_string:
+  /* We will need to build a new string, this one is not NFC */
+  luaL_Buffer buff;
+  luaL_buffinit(L, &buff);
+  luaL_addlstring(&buff, s, starter_p - s);
+
+  string_to_nfc(L, &buff, starter_p, e);
+
+  luaL_pushresult(&buff);
+  lua_pushboolean(L, 0);
+  return 2;
+}
 
 /* lua module import interface */
 
@@ -1300,6 +1902,11 @@ int luaopen_utf8extra (lua_State *L) {
     ENTRY(gmatch),
     ENTRY(gsub),
     ENTRY(match),
+    ENTRY(isvalid),
+    ENTRY(invalidoffset),
+    ENTRY(clean),
+    ENTRY(isnfc),
+    ENTRY(normalize_nfc),
 #undef  ENTRY
     { NULL, NULL }
   };
