@@ -190,6 +190,9 @@ function StatusView:new()
   self:register_command_items()
 end
 
+local clicks = -1
+local gx, gy, dx, dy = 0, 0, 2, -2
+
 ---The predefined status bar items displayed when a document view is active.
 function StatusView:register_docview_items()
   if self:get_item("doc:file") then return end
@@ -291,6 +294,30 @@ function StatusView:register_docview_items()
     separator = self.separator2
   })
 
+  if config.stonks ~= nil then
+    self:add_item({
+      predicate = predicate_docview,
+      name = "doc:stats",
+      alignment = StatusView.Item.RIGHT,
+      get_item = function()
+        return {
+          style.text,
+          type(config.stonks) == "table" and config.stonks.font or style.icon_font,
+          type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" ),
+        }
+      end,
+      separator = self.separator2,
+      command = function(button, x, y)
+        if button == "left" then
+          clicks = clicks + 1
+        elseif button == "right" then
+          clicks = -1
+        end
+        gx, gy = x, y
+      end
+    })
+  end
+
   self:add_item({
     predicate = predicate_docview,
     name = "doc:lines",
@@ -298,9 +325,6 @@ function StatusView:register_docview_items()
     get_item = function()
       local dv = core.active_view
       return {
-        style.text,
-        style.icon_font, "g",
-        style.font, style.dim, self.separator2,
         style.text, #dv.doc.lines, " lines",
       }
     end,
@@ -1199,6 +1223,19 @@ function StatusView:draw()
         self:draw_item_tooltip(self.hovered_item)
       end
     end
+  end
+
+  if clicks > 5 then
+    core.root_view:defer_draw(function()
+      local font = type(config.stonks) == "table" and config.stonks.font or style.icon_font
+      local icon = type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" )
+      local xadv = renderer.draw_text(font, icon, gx, gy, style.text)
+      local x2, y2 = core.root_view.size.x - (xadv - gx), core.root_view.size.y - style.icon_font:get_height()
+      gx, gy = common.clamp(gx + dx, 0, x2), common.clamp(gy + dy, 0, y2)
+      if gx <= 0 then dx = math.abs(dx) elseif gx >= x2 then dx = -math.abs(dx) end
+      if gy <= 0 then dy = math.abs(dy) elseif gy >= y2 then dy = -math.abs(dy) end
+      core.redraw = true
+    end)
   end
 end
 
