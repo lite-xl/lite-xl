@@ -94,7 +94,7 @@ local StatusViewItem = Object:extend()
 ---of 1 will insert the item at the beggining.
 ---@field position? integer
 ---@field tooltip? string @Text displayed when mouse hovers the item.
----@field visible boolean @Flag to show or hide the item
+---@field visible? boolean @Flag to show or hide the item
 ---The type of separator rendered to the right of the item if another item
 ---follows it.
 ---@field separator? core.statusview.item.separator
