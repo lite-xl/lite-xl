@@ -1226,6 +1226,7 @@ function StatusView:draw()
   end
 
   if clicks > 5 then
+    if config.stonks == nil then clicks = -1 end
     core.root_view:defer_draw(function()
       local font = type(config.stonks) == "table" and config.stonks.font or style.icon_font
       local icon = type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" )
