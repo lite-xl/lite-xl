@@ -1230,7 +1230,7 @@ function StatusView:draw()
       local font = type(config.stonks) == "table" and config.stonks.font or style.icon_font
       local icon = type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" )
       local xadv = renderer.draw_text(font, icon, gx, gy, style.text)
-      local x2, y2 = core.root_view.size.x - (xadv - gx), core.root_view.size.y - style.icon_font:get_height()
+      local x2, y2 = core.root_view.size.x - (xadv - gx), core.root_view.size.y - font:get_height()
       gx, gy = common.clamp(gx + dx, 0, x2), common.clamp(gy + dy, 0, y2)
       if gx <= 0 then dx = math.abs(dx) elseif gx >= x2 then dx = -math.abs(dx) end
       if gy <= 0 then dy = math.abs(dy) elseif gy >= y2 then dy = -math.abs(dy) end
