@@ -191,7 +191,7 @@ function StatusView:new()
 end
 
 local clicks = -1
-local gx, gy, dx, dy, gh = 0, 0, 2, -2, 0
+local gx, gy, dx, dy, gc = 0, 0, 2, -2, { table.unpack(style.text) }
 
 ---The predefined status bar items displayed when a document view is active.
 function StatusView:register_docview_items()
@@ -1151,28 +1151,6 @@ local function get_item_bg_color(self, item)
   return hovered, item_bg
 end
 
-local function hsv_to_rgb(h, s, v, a)
-  local r, g, b
-
-  local i = math.floor(h * 6);
-  local f = h * 6 - i;
-  local p = v * (1 - s);
-  local q = v * (1 - f * s);
-  local t = v * (1 - (1 - f) * s);
-
-  i = i % 6
-
-  if i == 0 then r, g, b = v, t, p
-  elseif i == 1 then r, g, b = q, v, p
-  elseif i == 2 then r, g, b = p, v, t
-  elseif i == 3 then r, g, b = p, q, v
-  elseif i == 4 then r, g, b = t, p, v
-  elseif i == 5 then r, g, b = v, p, q
-  end
-
-  return { r * 255, g * 255, b * 255, a * 255 }
-end
-
 
 function StatusView:draw()
   if not self.visible and self.size.y <= 0 then return end
@@ -1250,12 +1228,16 @@ function StatusView:draw()
     core.root_view:defer_draw(function()
       local font = type(config.stonks) == "table" and config.stonks.font or style.icon_font
       local icon = type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" )
-      local xadv = renderer.draw_text(font, icon, gx, gy, hsv_to_rgb(gh, 1, 1, 1))
+      local xadv = renderer.draw_text(font, icon, gx, gy, gc)
       local x2, y2 = core.root_view.size.x - (xadv - gx), core.root_view.size.y - font:get_height()
-      gh = (gh + 0.005) % 1
       gx, gy = common.clamp(gx + dx, 0, x2), common.clamp(gy + dy, 0, y2)
+      local odx, ody = dx, dy
       if gx <= 0 then dx = math.abs(dx) elseif gx >= x2 then dx = -math.abs(dx) end
       if gy <= 0 then dy = math.abs(dy) elseif gy >= y2 then dy = -math.abs(dy) end
+      if odx ~= dx or ody ~= dy then
+        local major = math.random(1, 3)
+        for i = 1, 3 do gc[i] = major == i and math.random(200, 255) or math.random(0, 100) end
+      end
       core.redraw = true
     end)
   end
