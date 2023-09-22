@@ -294,29 +294,27 @@ function StatusView:register_docview_items()
     separator = self.separator2
   })
 
-  if config.stonks ~= nil then
-    self:add_item({
-      predicate = predicate_docview,
-      name = "doc:stats",
-      alignment = StatusView.Item.RIGHT,
-      get_item = function()
-        return {
-          style.text,
-          type(config.stonks) == "table" and config.stonks.font or style.icon_font,
-          type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" ),
-        }
-      end,
-      separator = self.separator2,
-      command = function(button, x, y)
-        if button == "left" then
-          clicks = clicks + 1
-        elseif button == "right" then
-          clicks = -1
-        end
-        gx, gy = x, y
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:stats",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
+      return config.stonks == nil and {} or {
+        style.text,
+        type(config.stonks) == "table" and config.stonks.font or style.icon_font,
+        type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" ),
+      }
+    end,
+    separator = self.separator2,
+    command = function(button, x, y)
+      if button == "left" then
+        clicks = clicks + 1
+      elseif button == "right" then
+        clicks = -1
       end
-    })
-  end
+      gx, gy = x, y
+    end
+  })
 
   self:add_item({
     predicate = predicate_docview,
