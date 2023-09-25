@@ -707,5 +707,21 @@ function common.rm(path, recursively)
   return true
 end
 
+-- grabs a flag from the argument list, removing it from the ARGS variable
+function common.grab_flag(name, with_value)
+  for i,v in ipairs(ARGS) do
+    if v:find("^%-%-" .. name:gsub("%-", "%%-") .. "$") then
+      local value = ARGS[i+1]
+      ARGS = { table.unpack(ARGS, 1, i - 1), table.unpack(ARGS, i + (with_value and 2 or 1)) }
+      return with_value and value
+    elseif with_value and v:find("^%-%-" .. name .. "=") then
+      local s, e = v:find("^%-%-" .. name .. "=")
+      ARGS = { table.unpack(ARGS, 1, i - 1), table.unpack(ARGS, i + 1) }
+      return v:sub(e + 1)
+    end
+  end
+  return nil
+end
+function common.grab_arg(name) return common.grab_flag(name, true) end
 
 return common
