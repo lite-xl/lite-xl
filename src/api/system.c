@@ -12,6 +12,8 @@
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
+  #include "SDL_syswm.h"
+  #include <dwmapi.h>
   #include "../utfconv.h"
 
   // Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
@@ -174,6 +176,11 @@ static int f_poll_event(lua_State *L) {
   SDL_Event e;
   SDL_Event event_plus;
 
+#ifdef _WIN32
+  if (SDL_GetEventState(SDL_SYSWMEVENT) == SDL_DISABLE)
+    SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
+#endif
+
 top:
   if ( !SDL_PollEvent(&e) ) {
     return 0;
@@ -183,7 +190,30 @@ top:
     case SDL_QUIT:
       lua_pushstring(L, "quit");
       return 1;
+      
+#ifdef _WIN32
+     case SDL_SYSWMEVENT:      
+       if (e.syswm.msg->msg.win.msg == WM_SETTINGCHANGE) {
+         HWND hwnd = e.syswm.msg->msg.win.hwnd;
+         LPARAM lParam = e.syswm.msg->msg.win.lParam;
+         if (lParam) {
+           int current_immersive_mode = 0;
+           if(DwmGetWindowAttribute(hwnd, WINDOWS_DARK_MODE_BEFORE_20H1, &current_immersive_mode, 4) != FACILITY_NULL)
+             DwmGetWindowAttribute(hwnd, WINDOWS_DARK_MODE, &current_immersive_mode, 4);
 
+           int current_dark_mode = api_windows_dark_theme_activated();
+
+           if (current_dark_mode != current_immersive_mode) {
+             if (DwmSetWindowAttribute(hwnd, WINDOWS_DARK_MODE_BEFORE_20H1, &current_dark_mode, 4) != 0)
+               DwmSetWindowAttribute(hwnd, WINDOWS_DARK_MODE, &current_dark_mode, 4);
+
+           }
+
+         }
+       }
+       return 0;
+
+ #endif
     case SDL_WINDOWEVENT:
       if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
         ren_resize_window(&window_renderer);

@@ -160,7 +160,13 @@ if not get_option('source-only')
         default_options: default_fallback_options + sdl_options
     )
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
+    if host_machine.system() == 'windows'
+        win_dep = cc.find_library('dwmapi', required : true)
+    else
+        win_dep = cc.find_library('dwmapi', required : false)
+    endif
+
+    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, win_dep]
 endif
 #===============================================================================
 # Install Configuration
