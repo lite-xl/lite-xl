@@ -58,9 +58,9 @@ function Scrollbar:new(options)
   ---@type "expanded" | "contracted" | false @Force the scrollbar status
   self.force_status = options.force_status
   self:set_forced_status(options.force_status)
-  ---@type number? @Override the default value specified by `style.expanded_scrollbar_size`
-  self.contracted_size = options.contracted_size
   ---@type number? @Override the default value specified by `style.scrollbar_size`
+  self.contracted_size = options.contracted_size
+  ---@type number? @Override the default value specified by `style.expanded_scrollbar_size`
   self.expanded_size = options.expanded_size
 end
 
