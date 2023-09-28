@@ -1,7 +1,7 @@
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
-[![Discord Badge Image]](https://discord.gg/RWzqC3nx7K)
+[![Discord Badge Image]](https://discord.gg/UQKnzBhY5H)
 
 ![screenshot-dark]
 
