@@ -95,6 +95,14 @@ void renwin_resize_surface(UNUSED RenWindow *ren) {
 #endif
 }
 
+void renwin_update_scale(RenWindow *ren) {
+  SDL_Surface *surface = SDL_GetWindowSurface(ren->window);
+  int window_w = surface->w, window_h = surface->h;
+  SDL_GetWindowSize(ren->window, &window_w, &window_h);
+  ren->scale_x = (float)surface->w / window_w;
+  ren->scale_y = (float)surface->h / window_h;
+}
+
 void renwin_show_window(RenWindow *ren) {
   SDL_ShowWindow(ren->window);
 }
