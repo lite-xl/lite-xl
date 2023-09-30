@@ -20,16 +20,6 @@
 
 static SDL_Window *window;
 
-static double get_scale(void) {
-#ifndef __APPLE__
-  float dpi;
-  if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0)
-    return dpi / 96.0;
-#endif
-  return 1.0;
-}
-
-
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
   int len;
@@ -202,9 +192,6 @@ init_lua:
 
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
-
-  lua_pushnumber(L, get_scale());
-  lua_setglobal(L, "SCALE");
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
