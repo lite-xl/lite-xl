@@ -46,6 +46,71 @@ end }
 table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
 
+local lua_require = require
+local require_stack = { "" }
+---Loads the given module, returns any value returned by the searcher (`true` when `nil`).
+---Besides that value, also returns as a second result the loader data returned by the searcher,
+---which indicates how `require` found the module.
+---(For instance, if the module came from a file, this loader data is the file path.)
+---
+---This is a variant that also supports relative imports.
+---
+---For example `require ".b"` will require `b` in the same path of the current
+---file.
+---This also supports multiple levels traversal. For example `require "...b"`
+---will require `b` from two levels above the current one.
+---This method has a few caveats: it uses the last `require` call to get the
+---current "path", so this only works if the relative `require` is called inside
+---its parent `require`.
+---Calling a relative `require` in a function called outside the parent
+---`require`, will result in the wrong "path" being used.
+---
+---It's possible to save the current "path" with `get_current_require_path`
+---called inside the parent `require`, and use its return value to populate
+---future requires.
+---@see get_current_require_path
+---@param modname string
+---@return unknown
+---@return unknown loaderdata
+function require(modname, ...)
+  if modname then
+    local level, rel_path = string.match(modname, "^(%.*)(.*)")
+    level = #(level or "")
+    if level > 0 then
+      if #require_stack == 0 then
+        return error("Require stack underflowed.")
+      else
+        local base_path = require_stack[#require_stack]
+        while level > 1 do
+          base_path = string.match(base_path, "^(.*)%.") or ""
+          level = level - 1
+        end
+        modname = base_path
+        if #base_path > 0 then
+          modname = modname .. "."
+        end
+        modname = modname .. rel_path
+      end
+    end
+  end
+
+  table.insert(require_stack, modname)
+  local ok, result, loaderdata = pcall(lua_require, modname, ...)
+  table.remove(require_stack)
+
+  if not ok then
+    return error(result)
+  end
+  return result, loaderdata
+end
+
+---Returns the current `require` path.
+---@see require for details and caveats
+---@return string
+function get_current_require_path()
+  return require_stack[#require_stack]
+end
+
 bit32 = bit32 or require "core.bit"
 
 require "core.utf8string"
