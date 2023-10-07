@@ -502,8 +502,7 @@ function Doc:text_input(text, idx)
     end
 
     if self.overwrite
-    and col1 ~= #self.lines[line1]
-    and #text:gsub('\n', '') ~= 0 then
+    and col1 < #self.lines[line1] then
       local ovr_col = col1
       local len = text:ulen()
       while len > 0 do
