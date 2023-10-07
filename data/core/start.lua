@@ -1,4 +1,15 @@
 -- this file is used by lite-xl to setup the Lua environment when starting
+
+-- Set the locale to C.UTF-8, to avoid locale-dependent issues (for example in common.serialize)
+os.setlocale("C.UTF-8")
+os.setlocale_I_promise_to_change_it_back = os.setlocale
+os.setlocale = function(locale, category)
+  if locale == nil then
+    -- Allow read operations
+    return os.setlocale_I_promise_to_change_it_back(nil, category)
+  end
+end
+
 VERSION = "@PROJECT_VERSION@"
 MOD_VERSION_MAJOR = 3
 MOD_VERSION_MINOR = 0
