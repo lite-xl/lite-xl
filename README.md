@@ -81,6 +81,27 @@ affects only the place where the application is actually installed.
 
 Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and download the version for your operating system.
 
+### Windows
+
+Lite XL comes with installers on Windows for typical installations.
+Alternatively, we provide ZIP archives that you can download and extract it anywhere and run directly.
+
+To make the installation portable, simply create a `user` folder where `lite-xl.exe` is located.
+
+### macOS
+
+We provide DMG files for macOS. Simply drag the program into your Applications folder.
+
+> **Important**
+> Since Lite XL is no longer signed, you **must** run this command before starting Lite XL:
+> 
+> ```sh
+> # clears attributes from the directory
+> xattr -cr /Applications/Lite\ XL.app
+> ```
+>
+> Otherwise, macOS will display a **very misleading error** saying that the application is damaged.
+
 ### Linux
 
 Unzip the file and `cd` into the `lite-xl` directory:
@@ -103,21 +124,50 @@ mkdir -p $HOME/.local/bin && cp lite-xl $HOME/.local/bin/
 mkdir -p $HOME/.local/share/lite-xl && cp -r data/* $HOME/.local/share/lite-xl/
 ```
 
+#### Add Lite XL to PATH
+
 If `$HOME/.local/bin` is not in PATH:
 
 ```sh
 echo -e 'export PATH=$PATH:$HOME/.local/bin' >> $HOME/.bashrc
 ```
 
-To get the icon to show up in app launcher:
+> **Note**
+> Some systems might not load `.bashrc` when logging in.
+> This can cause problems with launching applications from the desktop / menu.
+
+#### Add Lite XL to application launchers
+
+To get the icon to show up in app launcher, you need to create a desktop
+entry and put it into `/usr/share/applications` or `~/.local/share/applications`.
+
+Here is an example of the desktop entry, assuming Lite XL is in PATH:
+
+```ini
+# com.lite_xl.LiteXL.desktop
+[Desktop Entry]
+Type=Application
+Name=Lite XL
+Comment=A lightweight text editor written in Lua
+Exec=lite-xl %F
+Icon=lite-xl
+Terminal=false
+StartupWMClass=lite-xl
+Categories=Development;IDE;
+MimeType=text/plain;inode/directory;
+```
+
+To get the icon to show up in app launcher immediately, run:
 
 ```sh
 xdg-desktop-menu forceupdate
 ```
 
-You may need to logout and login again to see icon in app launcher.
+Alternatively, you may log out and log in again for the icon to show up.
 
-To uninstall just run:
+#### Uninstall
+
+To uninstall Lite XL, just run:
 
 ```sh
 rm -f $HOME/.local/bin/lite-xl
@@ -126,7 +176,6 @@ rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
           $HOME/.local/share/metainfo/com.lite_xl.LiteXL.appdata.xml \
           $HOME/.local/share/lite-xl
 ```
-
 
 ## Contributing
 
