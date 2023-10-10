@@ -84,9 +84,10 @@ Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and downloa
 ### Windows
 
 Lite XL comes with installers on Windows for typical installations.
-Alternatively, we provide ZIP archives that you can download and extract it anywhere and run directly.
+Alternatively, we provide ZIP archives that you can download and extract anywhere and run directly.
 
-To make the installation portable, simply create a `user` folder where `lite-xl.exe` is located.
+To make Lite XL portable (e.g. running Lite XL from a thumb drive),
+simply create a `user` folder where `lite-xl.exe` is located.
 
 ### macOS
 
@@ -112,6 +113,7 @@ cd lite-xl
 ```
 
 To run lite-xl without installing:
+
 ```sh
 ./lite-xl
 ```
@@ -126,10 +128,19 @@ mkdir -p $HOME/.local/share/lite-xl && cp -r data/* $HOME/.local/share/lite-xl/
 
 #### Add Lite XL to PATH
 
+To run Lite XL from the command line, you must add it to PATH.
+
 If `$HOME/.local/bin` is not in PATH:
 
 ```sh
 echo -e 'export PATH=$PATH:$HOME/.local/bin' >> $HOME/.bashrc
+```
+
+On recent versions of GNOME and KDE Plasma,
+you can add `$HOME/.local/bin` to PATH via `~/.config/environment.d/envvars.conf`:
+
+```ini
+PATH=$HOME/.local/bin:$PATH
 ```
 
 > **Note**
@@ -141,10 +152,10 @@ echo -e 'export PATH=$PATH:$HOME/.local/bin' >> $HOME/.bashrc
 To get the icon to show up in app launcher, you need to create a desktop
 entry and put it into `/usr/share/applications` or `~/.local/share/applications`.
 
-Here is an example of the desktop entry, assuming Lite XL is in PATH:
+Here is an example for a desktop entry in `~/.local/share/applications/com.lite_xl.LiteXL.desktop`,
+assuming Lite XL is in PATH:
 
 ```ini
-# com.lite_xl.LiteXL.desktop
 [Desktop Entry]
 Type=Application
 Name=Lite XL
@@ -163,11 +174,11 @@ To get the icon to show up in app launcher immediately, run:
 xdg-desktop-menu forceupdate
 ```
 
-Alternatively, you may log out and log in again for the icon to show up.
+Alternatively, you may log out and log in again.
 
 #### Uninstall
 
-To uninstall Lite XL, just run:
+To uninstall Lite XL, run:
 
 ```sh
 rm -f $HOME/.local/bin/lite-xl
