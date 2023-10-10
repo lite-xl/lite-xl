@@ -88,6 +88,7 @@ Alternatively, we provide ZIP archives that you can download and extract anywher
 
 To make Lite XL portable (e.g. running Lite XL from a thumb drive),
 simply create a `user` folder where `lite-xl.exe` is located.
+Lite XL will load and store all your configurations and plugins in the folder.
 
 ### macOS
 
