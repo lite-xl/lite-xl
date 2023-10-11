@@ -95,7 +95,7 @@ Lite XL will load and store all your configurations and plugins in the folder.
 We provide DMG files for macOS. Simply drag the program into your Applications folder.
 
 > **Important**
-> Since Lite XL is no longer signed, you **must** run this command before starting Lite XL:
+> Since Lite XL is not signed, you **must** run this command before starting Lite XL:
 > 
 > ```sh
 > # clears attributes from the directory
