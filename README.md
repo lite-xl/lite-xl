@@ -137,7 +137,7 @@ If `$HOME/.local/bin` is not in PATH:
 echo -e 'export PATH=$PATH:$HOME/.local/bin' >> $HOME/.bashrc
 ```
 
-On recent versions of GNOME and KDE Plasma,
+Alternatively on recent versions of GNOME and KDE Plasma,
 you can add `$HOME/.local/bin` to PATH via `~/.config/environment.d/envvars.conf`:
 
 ```ini
