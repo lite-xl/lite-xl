@@ -378,6 +378,8 @@ function common.bench(name, fn, ...)
   return res
 end
 
+-- From gvx/Ser
+local oddvals = {[tostring(1/0)] = "1/0", [tostring(-1/0)] = "-1/0", [tostring(-(0/0))] = "-(0/0)", [tostring(0/0)] = "0/0"}
 
 local function serialize(val, pretty, indent_str, escape, sort, limit, level)
   local space = pretty and " " or ""
@@ -414,7 +416,8 @@ local function serialize(val, pretty, indent_str, escape, sort, limit, level)
   if ty == "number" then
     -- tostring is locale-dependent, so we need to replace an eventual `,` with `.`
     local res, _ = tostring(val):gsub(",", ".")
-    return res
+    -- handle inf/nan
+    return oddvals[res] or res
   end
   return tostring(val)
 end
