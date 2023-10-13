@@ -383,7 +383,8 @@ local function serialize(val, pretty, indent_str, escape, sort, limit, level)
   local space = pretty and " " or ""
   local indent = pretty and string.rep(indent_str, level) or ""
   local newline = pretty and "\n" or ""
-  if type(val) == "string" then
+  local ty = type(val)
+  if ty == "string" then
     local out = string.format("%q", val)
     if escape then
       out = string.gsub(out, "\\\n", "\\n")
@@ -395,7 +396,7 @@ local function serialize(val, pretty, indent_str, escape, sort, limit, level)
       out = string.gsub(out, "\\13", "\\r")
     end
     return out
-  elseif type(val) == "table" then
+  elseif ty == "table" then
     -- early exit
     if level >= limit then return tostring(val) end
     local next_indent = pretty and (indent .. indent_str) or ""
@@ -409,6 +410,11 @@ local function serialize(val, pretty, indent_str, escape, sort, limit, level)
     if #t == 0 then return "{}" end
     if sort then table.sort(t) end
     return "{" .. newline .. table.concat(t, "," .. newline) .. newline .. indent .. "}"
+  end
+  if ty == "number" then
+    -- tostring is locale-dependent, so we need to replace an eventual `,` with `.`
+    local res, _ = tostring(val):gsub(",", ".")
+    return res
   end
   return tostring(val)
 end
