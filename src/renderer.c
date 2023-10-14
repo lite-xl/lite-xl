@@ -167,7 +167,7 @@ static void font_load_glyphset(RenFont* font, int idx) {
           for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
             int current_source_offset = source_offset + (column / 8);
             int source_pixel = slot->bitmap.buffer[current_source_offset];
-            pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) << 7;
+            pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) * 0xFF;
           }
         } else
           memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
