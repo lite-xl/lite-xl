@@ -497,11 +497,14 @@ end
 
 function Doc:text_input(text, idx)
   for sidx, line1, col1, line2, col2 in self:get_selections(true, idx or true) do
+    local had_selection = false
     if line1 ~= line2 or col1 ~= col2 then
       self:delete_to_cursor(sidx)
+      had_selection = true
     end
 
     if self.overwrite
+    and not had_selection
     and col1 < #self.lines[line1]
     and text:ulen() == 1 then
       self:remove(line1, col1, translate.next_char(doc, line1, col1))
