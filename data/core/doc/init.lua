@@ -502,14 +502,9 @@ function Doc:text_input(text, idx)
     end
 
     if self.overwrite
-    and col1 < #self.lines[line1] then
-      local ovr_col = col1
-      local len = text:ulen()
-      while len > 0 do
-        _, ovr_col = translate.next_char(self, line1, ovr_col)
-        len = len - 1
-      end
-      self:remove(line1, col1, line1, ovr_col)
+    and col1 < #self.lines[line1]
+    and text:ulen() == 1 then
+      self:remove(line1, col1, translate.next_char(doc, line1, col1))
     end
 
     self:insert(line1, col1, text)
