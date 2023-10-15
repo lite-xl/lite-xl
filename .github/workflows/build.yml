@@ -2,19 +2,58 @@ name: CI
 
 on:
   push:
-    branches:
-      - '*'
-
   pull_request:
     branches:
       - '*'
-
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release Version
+        required: false
 
+# Builds & Uploads:
+# * Linux x86_64 Portable
+# * Linux App Image
+# * Mac Universal Portable
+# * Mac Universal DMG
+# * Windows x86_64 Portable
+# * Windows x86_64 Installer
 jobs:
+  # Checks to see if we have an input, and stamps that onto the repo.
+  # Determines if this is a release, and determines the official ref.
+  version:
+    name: Compute Version & Check for Release
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.check_release.outputs.release }}
+      ref: ${{ steps.check_release.outputs.ref }}
+    steps:
+      - name: Update Tag
+        uses: richardsimko/update-tag@v1
+        if: ${{ github.event.inputs.version }}
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Check Release
+        id: check_release
+        run: |
+          export REF=`git describe --match v[0-9]* HEAD --tags`
+          echo "Build Version: $REF"
+          [[ "$REF" != "" ]] && echo "ref=$REF" >> $GITHUB_OUTPUT
+          if [[ `git describe --exact-match --match v[0-9]* HEAD --tags` ]]; then
+            echo "release=$REF" >> $GITHUB_OUTPUT
+            echo "Release Version: $REF"
+          fi
   build_linux:
     name: Linux
-    runs-on: ubuntu-22.04
+    needs: [version]
+    runs-on: ubuntu-latest
+    container: ghcr.io/lite-xl/lite-xl-build-box:latest
     strategy:
       matrix:
         config:
@@ -23,45 +62,48 @@ jobs:
     env:
       CC: ${{ matrix.config.cc }}
       CXX: ${{ matrix.config.cxx }}
+      ARCH: x86_64
     steps:
-      - name: Set Environment Variables
-        if: ${{ matrix.config.cc == 'gcc' }}
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)-portable" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
-      - name: Python Setup
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-      - name: Update Packages
-        run: sudo apt-get update
-      - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh --debug
-      - name: Build
+      - name: System Information
         run: |
           bash --version
-          bash scripts/build.sh --debug --forcefallback --portable
-      - name: Package
-        if: ${{ matrix.config.cc == 'gcc' }}
-        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
+          $CC -v
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_NAME=lite-xl-${{ needs.version.outputs.ref }}-$ARCH-linux" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v3
+      - name: Build
+        run: |
+          scripts/build.sh --forcefallback --portable --addons --debug
+      - name: Package Portable
+        run: |
+          tar -zcvf $INSTALL_NAME.tar.gz -C build-$ARCH-linux lite-xl
+      - name: Package AppImg
+        run: |
+          scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }}
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         if: ${{ matrix.config.cc == 'gcc' }}
         with:
-          name: Linux Artifacts
-          path: ${{ env.INSTALL_NAME }}.tar.gz
+          name: Linux Portable & AppImage
+          path: |
+            *.tar.gz
+            *.AppImage
 
   build_macos:
     name: macOS
+    needs: [version]
     runs-on: macos-11
+    strategy:
+      matrix:
+        config:
+          - {type: bundle}
+          - {type: portable}
     env:
       CC: clang
       CXX: clang++
-    strategy:
-      matrix:
-        arch: ['x86_64', 'arm64']
+      ARCHES: x86_64 aarch64
     steps:
       - name: System Information
         run: |
@@ -72,69 +114,47 @@ jobs:
       - name: Set Environment Variables
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
-          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
+          echo "INSTALL_PREFIX=lite-xl-${{ needs.version.outputs.ref }}" >> "$GITHUB_ENV"
+          echo "TYPE=${{ matrix.config.type }}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - name: Python Setup
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Install Dependencies
-             # --lhelper will eliminate a warning with arm64 and libusb
-        run: bash scripts/install-dependencies.sh --debug --lhelper
-      - name: Build
+        run: scripts/install-dependencies.sh --debug
+      - name: Build x86_64
         run: |
-          bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback $ARCH
-      - name: Create DMG Image
-        run: bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg
-      - name: Upload DMG Image
+          scripts/build.sh --addons --debug --forcefallback --$TYPE -b build-lite-xl-x86_64-$TYPE
+      - name: Build aarch64
+        run: |
+          scripts/build.sh --addons --debug --forcefallback --cross-arch aarch64 --$TYPE -b build-lite-xl-aarch64-$TYPE
+      - name: Create Universal Binary
+        run: |
+          mkdir build-lite-xl-$TYPE
+          cp -r build-lite-xl-x86_64-$TYPE/lite-xl build-lite-xl-$TYPE/lite-xl
+          rm build-lite-xl-$TYPE/lite-xl/lite-xl
+          lipo -create -output build-lite-xl-$TYPE/lite-xl/lite-xl build-lite-xl-x86_64-$TYPE/lite-xl/lite-xl build-lite-xl-aarch64-$TYPE/lite-xl/lite-xl
+      - name: Package Portable
+        if: ${{ matrix.config.type == 'portable' }}
+        run: |
+          tar -zcvf $INSTALL_PREFIX-macos.tar.gz -C build-lite-xl-portable lite-xl
+      - name: Package DMG
+        if: ${{ matrix.config.type == 'bundle' }}
+        run: |
+          cp build-lite-xl-x86_64-bundle/Info.plist build-lite-xl-bundle/Info.plist
+          scripts/package-dmg.sh build-lite-xl-bundle $INSTALL_PREFIX-macos
+      - name: Upload Mac Images
         uses: actions/upload-artifact@v3
         with:
-          name: macOS DMG Images
-          path: ${{ env.INSTALL_NAME }}.dmg
-
-  build_macos_universal:
-    name: macOS (Universal)
-    runs-on: macos-11
-    needs: build_macos
-    steps:
-      - name: System Information
-        run: |
-          system_profiler SPSoftwareDataType
-          bash --version
-          gcc -v
-          xcodebuild -version
-      - name: Set Environment Variables
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-universal" >> "$GITHUB_ENV"
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      - name: Install dmgbuild
-        run: pip install dmgbuild
-      - uses: actions/checkout@v3
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        id: download
-        with:
-          name: macOS DMG Images
-          path: dmgs-original
-      - name: Make universal bundles
-        run: |
-          bash --version
-          bash scripts/make-universal-binaries.sh ${{ steps.download.outputs.download-path }} "${INSTALL_NAME}"
-      - name: Upload DMG Image
-        uses: actions/upload-artifact@v3
-        with:
-          name: macOS Universal DMG Images
-          path: ${{ env.INSTALL_NAME }}.dmg
+          name: macOS Portable and DMGs
+          path: |
+            *.dmg
+            *.tar.gz
 
   build_windows_msys2:
     name: Windows
+    needs: [version]
     runs-on: windows-2019
     strategy:
       matrix:
@@ -160,30 +180,37 @@ jobs:
           mingw-w64-${{ matrix.config.arch }}-ntldd
     - name: Set Environment Variables
       run: |
+        bash --version
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
         if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
+          echo "ARCH=x86_64-windows" >> "$GITHUB_ENV"
+          echo "ADDONS=--addons" >> "$GITHUB_ENV"
         else
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
+          echo "ARCH=x86-windows" >> "$GITHUB_ENV"
         fi
-    - name: Install Dependencies
-      if: false
-      run: bash scripts/install-dependencies.sh --debug
     - name: Build
       run: |
-        bash --version
-        bash scripts/build.sh -U --debug --forcefallback
-    - name: Package
-      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
+        scripts/build.sh $ADDONS -U --debug --forcefallback
+    - name: Package Portable
+      run: |
+        cd build-$ARCH
+        zip ../lite-xl-${{ needs.version.outputs.ref }}-$ARCH.zip -r lite-xl
+        cd ..
+    - name: Package Setup
+      run: |
+        scripts/package-innosetup.sh --debug --version ${{ needs.version.outputs.ref }}
     - name: Upload Artifacts
+      if: ${{ matrix.config.arch == 'x86_64' }}
       uses: actions/upload-artifact@v3
       with:
-        name: Windows Artifacts
-        path: ${{ env.INSTALL_NAME }}.zip
+        name: Windows Portable & Installer
+        path: |
+          *.zip
+          *.exe
 
   build_windows_msvc:
     name: Windows (MSVC)
+    needs: [version]
     runs-on: windows-2019
     strategy:
       matrix:
@@ -199,12 +226,18 @@ jobs:
         with:
           python-version: '3.x'
       - name: Install meson and ninja
-        run: pip install meson ninja
+        run: |
+          pip install meson ninja
       - name: Set up environment variables
         run: |
+<<<<<<< HEAD
           "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
           "LUA_SUBPROJECT_PATH=subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)" >> $env:GITHUB_ENV
+=======
+          "INSTALL_NAME=lite-xl-${{ needs.version.outputs.ref }}-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
+          "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
+>>>>>>> 2cf7c554 (Streamlined and simplified CI, and made it use lpm to install addons.)
       - name: Download and patch subprojects
         shell: bash
         run: |
@@ -216,12 +249,53 @@ jobs:
       - name: Build
         run: |
           meson install -C build --destdir="../lite-xl"
-      - name: Package
+      - name: Package Portable
         run: |
           Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
           Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+
+  release:
+    name: Create Release
+    needs: [version, build_windows_msys2, build_macos, build_linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
         with:
-          name: Windows Artifacts (MSVC)
-          path: ${{ env.INSTALL_NAME }}.zip
+          path: .
+      - name: Versioned Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ needs.version.outputs.release }}
+        with:
+          tag_name: ${{ needs.version.outputs.release }}
+          name: Lite XL ${{ needs.version.outputs.release }}
+          draft: true
+          body_path: changelog.md
+          generate_release_notes: true
+          files: |
+            */*.tar.gz
+            */*.zip
+            */*.exe
+            */*.dmg
+            */*.AppImage
+      - name: Update Tag
+        uses: richardsimko/update-tag@v1
+        if: github.ref == 'refs/heads/master'
+        with:
+          tag_name: continuous
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Continuous Release
+        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/master'
+        with:
+          name: Lite XL Continuous Release
+          tag_name: continuous
+          prerelease: true
+          files: |
+            */*.tar.gz
+            */*.zip
+            */*.exe
+            */*.dmg
+            */*.AppImage
