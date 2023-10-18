@@ -123,6 +123,7 @@ end
 
 function Doc:is_dirty()
   if self.new_file then
+    if self.filename then return true end
     return #self.lines > 1 or #self.lines[1] > 1
   else
     return self.clean_change_id ~= self:get_change_id()
