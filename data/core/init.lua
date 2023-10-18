@@ -1278,6 +1278,9 @@ function core.on_event(type, ...)
   elseif type == "textediting" then
     ime.on_text_editing(...)
   elseif type == "keypressed" then
+    -- In some cases during IME composition input is still sent to us
+    -- so we just ignore it.
+    if ime.editing then return false end
     did_keymap = keymap.on_key_pressed(...)
   elseif type == "keyreleased" then
     keymap.on_key_released(...)
