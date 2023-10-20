@@ -46,8 +46,7 @@ function dirmonitor:unwatch(fd_or_path) end
 ---callback in "multiple" mode or a path in "single" mode.
 ---
 ---If an error occured, the error callback will be called with the error.
----This function must not do anything more than saving the error somewhere else,
----as it runs within a critical section and thus is prone to deadlocks.
+---This callback should not manipulate coroutines to avoid deadlocks.
 ---
 ---@param callback dirmonitor.callback
 ---@param error_callback fun(error: any): nil
