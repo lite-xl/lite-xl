@@ -50,7 +50,7 @@ function dirmonitor:unwatch(fd_or_path) end
 ---as it runs within a critical section and thus is prone to deadlocks.
 ---
 ---@param callback dirmonitor.callback
----@param error_callback fun(error: string): nil
+---@param error_callback fun(error: any): nil
 ---
 ---@return boolean? changes True when changes were detected.
 function dirmonitor:check(callback, error_callback) end
