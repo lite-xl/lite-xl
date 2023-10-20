@@ -201,12 +201,13 @@ jobs:
           "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
           "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
+      - name: Download and patch subprojects
+        shell: bash
+        run: |
+          meson subprojects download
+          cat resources/windows/001-lua-unicode.diff | patch -Np1 -d "$LUA_SUBPROJECT_PATH"
       - name: Configure
         run: |
-          # Download the subprojects first so we can patch it before configuring.
-          # This avoids reconfiguring the subprojects when compiling.
-          meson subprojects download
-          Get-Content -Path resources/windows/001-lua-unicode.diff -Raw | patch -d $env:LUA_SUBPROJECT_PATH -p1 --forward
           meson setup --wrap-mode=forcefallback build
       - name: Build
         run: |
