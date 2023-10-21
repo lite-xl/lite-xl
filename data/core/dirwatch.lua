@@ -91,6 +91,7 @@ end
 -- designed to be run inside a coroutine.
 function dirwatch:check(change_callback, scan_time, wait_time)
   local had_change = false
+  local last_error
   self.monitor:check(function(id)
     had_change = true
     if self.monitor:mode() == "single" then
@@ -102,7 +103,10 @@ function dirwatch:check(change_callback, scan_time, wait_time)
     elseif self.reverse_watched[id] then
       change_callback(self.reverse_watched[id])
     end
+  end, function(err)
+    last_error = err
   end)
+  if last_error ~= nil then error(last_error) end
   local start_time = system.get_time()
   for directory, old_modified in pairs(self.scanned) do
     if old_modified then
