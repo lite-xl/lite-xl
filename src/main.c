@@ -160,6 +160,8 @@ int main(int argc, char **argv) {
   SDL_SetHint("SDL_MOUSE_DOUBLE_CLICK_RADIUS", "4");
 #endif
 
+  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(0, &dm);
 
