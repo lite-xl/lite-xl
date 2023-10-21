@@ -45,7 +45,7 @@ function dirmonitor:unwatch(fd_or_path) end
 ---edited, removed or added. A file descriptor will be passed to the
 ---callback in "multiple" mode or a path in "single" mode.
 ---
----If an error occured, the error callback will be called with the error.
+---If an error occurred during the callback execution, the error callback will be called with the error object.
 ---This callback should not manipulate coroutines to avoid deadlocks.
 ---
 ---@param callback dirmonitor.callback
