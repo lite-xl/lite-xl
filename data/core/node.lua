@@ -181,7 +181,8 @@ function Node:add_view(view, idx)
       idx = idx - 1
     end
   end
-  table.insert(self.views, idx or (#self.views + 1), view)
+  idx = common.clamp(idx or (#self.views + 1), 1, (#self.views + 1))
+  table.insert(self.views, idx, view)
   self:set_active_view(view)
 end
 
