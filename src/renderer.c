@@ -54,6 +54,9 @@ typedef struct RenFont {
   FT_StreamRec stream;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
+#ifdef LITE_USE_SDL_RENDERER
+  int scale;
+#endif
   unsigned short max_height, baseline, height;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
@@ -61,6 +64,14 @@ typedef struct RenFont {
   unsigned short underline_thickness;
   char path[];
 } RenFont;
+
+#ifdef LITE_USE_SDL_RENDERER
+void update_font_scale(RenWindow *window_renderer, RenFont **fonts) {
+  const int surface_scale = renwin_get_surface(window_renderer).scale;
+  if (fonts[0]->scale != surface_scale)
+    ren_font_group_set_size(window_renderer, fonts, fonts[0]->size);
+}
+#endif
 
 static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
   const unsigned char *up = (unsigned char*)p;
@@ -336,6 +347,9 @@ void ren_font_group_set_size(RenWindow *window_renderer, RenFont **fonts, float 
     FT_Face face = fonts[i]->face;
     FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale));
     fonts[i]->size = size;
+#ifdef LITE_USE_SDL_RENDERER
+    fonts[i]->scale = surface_scale;
+#endif
     fonts[i]->height = (short)((face->height / (float)face->units_per_EM) * size);
     fonts[i]->baseline = (short)((face->ascender / (float)face->units_per_EM) * size);
     FT_Load_Char(face, ' ', font_set_load_options(fonts[i]));
