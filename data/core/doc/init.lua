@@ -103,7 +103,23 @@ function Doc:save(filename, abs_filename)
   else
     assert(self.filename or abs_filename, "calling save on unnamed doc without absolute path")
   end
-  local fp = assert(io.open(filename, "wb"))
+
+  local fp
+  if PLATFORM == "Windows" then
+    -- on Windows, opening a hidden file with wb fails with a permission error.
+    -- to get around this, we must open the file as r+b and truncate.
+    -- since r+b fails if file doesn't exist, fall back to wb.
+    fp = io.open(filename, "r+b")
+    if fp then
+      system.ftruncate(fp, 0)
+    else
+      -- file probably doesn't exist, create one
+      fp = assert ( io.open(filename, "wb") )
+    end
+  else
+    fp = assert ( io.open(filename, "wb") )
+  end
+
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)
