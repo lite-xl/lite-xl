@@ -106,9 +106,9 @@ function Doc:save(filename, abs_filename)
 
   local fp
   if PLATFORM == "Windows" then
-    -- on Windows, opening a hidden file with wb fails with a permission error.
-    -- to get around this, we must open the file as r+b and truncate.
-    -- since r+b fails if file doesn't exist, fall back to wb.
+    -- On Windows, opening a hidden file with wb fails with a permission error.
+    -- To get around this, we must open the file as r+b and truncate.
+    -- Since r+b fails if file doesn't exist, fall back to wb.
     fp = io.open(filename, "r+b")
     if fp then
       system.ftruncate(fp, 0)
