@@ -27,6 +27,9 @@
   #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
     #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
   #endif
+
+  #define fileno _fileno
+  #define ftruncate _chsize
 #else
 
 #include <dirent.h>
@@ -799,6 +802,26 @@ static int f_get_fs_type(lua_State *L) {
 }
 
 
+static int f_ftruncate(lua_State *L) {
+#if LUA_VERSION_NUM < 503
+  // note: it is possible to support pre 5.3 and JIT
+  //       since file handles are just FILE*  wrapped in a userdata;
+  //       but it is not standardized. YMMV.
+  #error luaL_Stream is not supported in this version of Lua.
+#endif
+  luaL_Stream *stream = luaL_checkudata(L, 1, LUA_FILEHANDLE);
+  lua_Integer len = luaL_checkinteger(L, 2);
+  if (ftruncate(fileno(stream->f), len) != 0) {
+    lua_pushboolean(L, 0);
+    lua_pushfstring(L, "ftruncate(): %s", strerror(errno));
+    return 2;
+  }
+
+  lua_pushboolean(L, 1);
+  return 1;
+}
+
+
 static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
@@ -1168,6 +1191,7 @@ static const luaL_Reg lib[] = {
   { "show_fatal_error",    f_show_fatal_error    },
   { "rmdir",               f_rmdir               },
   { "chdir",               f_chdir               },
+  { "ftruncate",           f_ftruncate           },
   { "mkdir",               f_mkdir               },
   { "list_dir",            f_list_dir            },
   { "absolute_path",       f_absolute_path       },
