@@ -194,7 +194,7 @@ function system.chdir(path) end
 ---Truncates a file to a set length.
 ---
 ---@param file file* A file handle returned by io.open().
----@param length integer Number of bytes to truncate to.
+---@param length integer? Number of bytes to truncate to. Defaults to 0.
 ---@return boolean success True if the operation suceeded, false otherwise
 ---@return string? message An error message if the operation failed.
 function system.ftruncate(file, length) end

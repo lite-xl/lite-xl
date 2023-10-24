@@ -858,7 +858,7 @@ static int f_ftruncate(lua_State *L) {
   #error luaL_Stream is not supported in this version of Lua.
 #endif
   luaL_Stream *stream = luaL_checkudata(L, 1, LUA_FILEHANDLE);
-  lua_Integer len = luaL_checkinteger(L, 2);
+  lua_Integer len = luaL_optinteger(L, 2, 0);
   if (ftruncate(fileno(stream->f), len) != 0) {
     lua_pushboolean(L, 0);
     lua_pushfstring(L, "ftruncate(): %s", strerror(errno));
