@@ -111,7 +111,7 @@ function Doc:save(filename, abs_filename)
     -- Since r+b fails if file doesn't exist, fall back to wb.
     fp = io.open(filename, "r+b")
     if fp then
-      system.ftruncate(fp, 0)
+      system.ftruncate(fp)
     else
       -- file probably doesn't exist, create one
       fp = assert ( io.open(filename, "wb") )
