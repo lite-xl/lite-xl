@@ -267,7 +267,7 @@ main() {
   if [[ $bundle == true ]]; then
     # https://eclecticlight.co/2019/01/17/code-signing-for-the-concerned-3-signing-an-app/
     codesign --force --deep -s - "${dest_dir}"
-  end
+  fi
 
   echo "Creating a compressed archive ${package_name}"
   if [[ $binary == true ]]; then
