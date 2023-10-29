@@ -64,15 +64,13 @@ function NagView:get_scrollable_size()
   return 0
 end
 
-local transparent = { common.color "rgba(0,0,0,0)" }
-
 function NagView:dim_window_content()
   local ox, oy = self:get_content_offset()
   oy = oy + self.show_height
   local w, h = core.root_view.size.x, core.root_view.size.y - oy
   core.root_view:defer_draw(function()
-    local dim_color = common.lerp(transparent, style.nagbar_dim, self.dim_alpha)
-    ---@cast dim_color -number
+    local dim_color = { table.unpack(style.nagbar_dim) }
+    dim_color[4] = style.nagbar_dim[4] * self.dim_alpha
     renderer.draw_rect(ox, oy, w, h, dim_color)
   end)
 end
