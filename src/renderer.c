@@ -67,23 +67,6 @@ typedef struct RenFont {
   char path[];
 } RenFont;
 
-static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
-  const unsigned char *up = (unsigned char*)p;
-  unsigned res, n;
-  switch (*p & 0xf0) {
-    case 0xf0 :  res = *up & 0x07;  n = 3;  break;
-    case 0xe0 :  res = *up & 0x0f;  n = 2;  break;
-    case 0xd0 :
-    case 0xc0 :  res = *up & 0x1f;  n = 1;  break;
-    default   :  res = *up;         n = 0;  break;
-  }
-  while (n--) {
-    res = (res << 6) | (*(++up) & 0x3f);
-  }
-  *dst = res;
-  return (const char*)up + 1;
-}
-
 static int font_set_load_options(RenFont* font) {
   int load_target = font->antialiasing == FONT_ANTIALIASING_NONE ? FT_LOAD_TARGET_MONO
     : (font->hinting == FONT_HINTING_SLIGHT ? FT_LOAD_TARGET_LIGHT : FT_LOAD_TARGET_NORMAL);
@@ -361,16 +344,26 @@ int ren_font_group_get_height(RenFont **fonts) {
 
 double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
   double width = 0;
-  const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
-  while (text < end) {
-    unsigned int codepoint;
-    text = utf8_to_codepoint(text, &codepoint);
+  hb_buffer_t *buf;  
+  buf = hb_buffer_create();
+  hb_buffer_add_utf8(buf, text, -1, 0, -1);
+  hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
+  hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
+  hb_buffer_set_language(buf, hb_language_from_string("en", -1));
+  RenFont * font = fonts[0]; 
+  hb_shape(font->font, buf, NULL, 0);
+  unsigned int glyph_count;
+  hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
+  for (unsigned int i = 0; i < glyph_count; i++)  {
+    unsigned int codepoint = glyph_info[i].codepoint;
     RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
     if (!metric)
       break;
     width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
   }
+  free(buf);
+  free(glyph_info);
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   return width / surface_scale;
 }
@@ -403,7 +396,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   RenFont * font = fonts[0]; 
   hb_shape(font->font, buf, NULL, 0);
   unsigned int glyph_count;
-  hb_glyph_info_t *glyph_info    = hb_buffer_get_glyph_infos(buf, &glyph_count);
+  hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
   for (unsigned int i = 0; i < glyph_count; i++) {
     unsigned int r, g, b;
     hb_codepoint_t codepoint = glyph_info[i].codepoint;
@@ -475,6 +468,8 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
 
     pen_x += adv;
   }
+  free(buf);
+  free(glyph_info);
   return pen_x / surface_scale;
 }
 
