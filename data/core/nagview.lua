@@ -72,6 +72,7 @@ function NagView:dim_window_content()
   local w, h = core.root_view.size.x, core.root_view.size.y - oy
   core.root_view:defer_draw(function()
     local dim_color = common.lerp(transparent, style.nagbar_dim, self.dim_alpha)
+    ---@cast dim_color -number
     renderer.draw_rect(ox, oy, w, h, dim_color)
   end)
 end
@@ -188,7 +189,6 @@ function NagView:update()
       self.message = nil
       self.options = nil
       self.on_selected = nil
-      self.dim_alpha = 0
     end
   end
 end
