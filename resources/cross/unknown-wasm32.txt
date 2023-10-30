@@ -36,7 +36,7 @@ cpp_link_args = []
 
 [project options]
 buildtype = 'release'
-c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1']
+c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1', '-lidbfs.js']
 
 	
 [host_machine]
