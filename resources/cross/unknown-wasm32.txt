@@ -12,15 +12,20 @@ asyncify_advise = '0'
 # initial heap size in bytes; make sure it is not too low (around 64mb - 250mb)
 initial_heap = '104857600'
 
+# Emscripten is not always added to PATH.
+# Replace this variable with the path to Emscripten;
+# or supply a second machine file that defines this variable.
+toolchain = ''
+
 
 [binaries]
-c = 'emcc'
-cpp = 'em++'
-ar = 'emar'
-strip = 'emstrip'
-cmake = ['emmake', 'cmake']
-pkg-config = ['emconfigure', 'pkg-config']
-sdl2-config = ['emconfigure', 'sdl2-config']
+c = toolchain / 'emcc'
+cpp = toolchain / 'em++'
+ar = toolchain / 'emar'
+strip = toolchain / 'emstrip'
+cmake = [toolchain / 'emmake', 'cmake']
+pkg-config = [toolchain / 'emconfigure', 'pkg-config']
+sdl2-config = [toolchain / 'emconfigure', 'sdl2-config']
 
 
 [properties]
