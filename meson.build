@@ -70,7 +70,6 @@ endif
 # Dependencies
 #===============================================================================
 if not get_option('source-only')
-    libharfbuzz = cc.find_library('harfbuzz', required : true)
     libm = cc.find_library('m', required : false)
     libdl = cc.find_library('dl', required : false)
 
@@ -160,8 +159,9 @@ if not get_option('source-only')
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
         default_options: default_fallback_options + sdl_options
     )
+    harfbuzz_dep = dependency('harfbuzz', fallback: ['harfbuzz'])
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, libharfbuzz]
+    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, harfbuzz_dep]
 endif
 #===============================================================================
 # Install Configuration
