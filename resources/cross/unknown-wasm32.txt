@@ -36,6 +36,10 @@ cpp_link_args = []
 
 [project options]
 buildtype = 'release'
+portable = true
+arch_tuple = 'wasm32-unknown'
+wrap_mode = 'nofallback'
+force_fallback_for = 'lua,pcre2,freetype2'
 c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1', '-lidbfs.js']
 
 	
