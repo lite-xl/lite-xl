@@ -26,6 +26,7 @@ strip = toolchain / 'emstrip'
 cmake = [toolchain / 'emmake', 'cmake']
 pkg-config = [toolchain / 'emconfigure', 'pkg-config']
 sdl2-config = [toolchain / 'emconfigure', 'sdl2-config']
+file_packager = ['python3', toolchain / 'tools/file_packager.py']
 
 
 [properties]
