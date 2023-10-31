@@ -7,4 +7,4 @@ source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/har
 wrapdb_version = 8.2.2-1
 
 [provide]
-dependency_names = harfbuzz, harfbuzz-cairo, harfbuzz-gobject, harfbuzz-icu, harfbuzz-subset
+dependency_names = harfbuzz
