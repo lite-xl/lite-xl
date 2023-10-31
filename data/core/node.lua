@@ -23,6 +23,7 @@ function Node:new(type)
   self.tab_offset = 1
   self.tab_width = style.tab_width
   self.move_towards = View.move_towards
+  self.hovered_scroll_button = 0
 end
 
 
@@ -125,20 +126,22 @@ function Node:remove_view(root, view)
     end
   else
     local parent = self:get_parent_node(root)
-    local is_a = (parent.a == self)
-    local other = parent[is_a and "b" or "a"]
-    local locked_size_x, locked_size_y = other:get_locked_size()
-    local locked_size
-    if parent.type == "hsplit" then
-      locked_size = locked_size_x
-    else
-      locked_size = locked_size_y
+    local locked_size, other, is_a
+    if parent then
+      is_a = (parent.a == self)
+      other = parent[is_a and "b" or "a"]
+      local locked_size_x, locked_size_y = other:get_locked_size()
+      if parent.type == "hsplit" then
+        locked_size = locked_size_x
+      else
+        locked_size = locked_size_y
+      end
     end
     local next_primary
     if self.is_primary_node then
       next_primary = core.root_view:select_next_primary_node()
     end
-    if locked_size or (self.is_primary_node and not next_primary) then
+    if not parent or locked_size or (self.is_primary_node and not next_primary) then
       self.views = {}
       self:add_view(EmptyView())
     else

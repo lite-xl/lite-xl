@@ -103,6 +103,11 @@ function common.distance(x1, y1, x2, y2)
     return math.sqrt(((x2-x1) ^ 2)+((y2-y1) ^ 2))
 end
 
+function common.point_in_rect(x, y, rect_x, rect_y, rect_w, rect_h)
+  if x > rect_x + rect_w or y > rect_y + rect_h then return false end
+  if x < rect_x or y < rect_y then return false end
+  return true
+end
 
 ---Parses a CSS color string.
 ---
