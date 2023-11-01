@@ -159,7 +159,23 @@ if not get_option('source-only')
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
         default_options: default_fallback_options + sdl_options
     )
-    harfbuzz_dep = dependency('harfbuzz', fallback: ['harfbuzz'])
+
+    harfbuzz_options = ['default_library=static']
+
+    harfbuzz_options += 'glib=disabled'
+    harfbuzz_options += 'gobject=disabled'
+    harfbuzz_options += 'cairo=disabled'
+    harfbuzz_options += 'icu=disabled'
+    harfbuzz_options += 'freetype=enabled'
+    harfbuzz_options += 'tests=disabled'
+    harfbuzz_options += 'introspection=disabled'
+    harfbuzz_options += 'docs=disabled'
+    harfbuzz_options += 'doc_tests=false'
+    harfbuzz_options += 'utilities=disabled'
+
+    harfbuzz_dep = dependency('harfbuzz', fallback: ['harfbuzz'],
+        default_options: default_fallback_options + harfbuzz_options
+    )
 
     lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl, harfbuzz_dep]
 endif
