@@ -307,6 +307,8 @@ void ren_font_group_set_tab_size(RenFont **fonts, int n) {
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
+  if (fonts[0]->space_advance) 
+    return fonts[0]->tab_advance / fonts[0]->space_advance;
   return fonts[0]->tab_advance;
 }
 
