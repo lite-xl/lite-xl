@@ -165,7 +165,6 @@ static void font_load_glyphset(RenFont* font, unsigned int idx) {
 
 static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int subpixel_idx) {
   int idx = (codepoint / GLYPHSET_SIZE) % MAX_LOADABLE_GLYPHSETS;
-  // unsigned int idx = codepoint;
   if (!font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx])
     font_load_glyphset(font, idx);
   return font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx];
@@ -302,20 +301,13 @@ void ren_font_free(RenFont* font) {
 }
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {
-  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
   for (int j = 0; j < FONT_FALLBACK_MAX && fonts[j]; ++j) {
-    for (int i = 0; i < (fonts[j]->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1); ++i)
-      font_get_glyphset(fonts[j], '\t', i)->metrics[tab_index].xadvance = fonts[j]->space_advance * n;
+    fonts[j]->tab_advance = fonts[j]->space_advance * n;
   }
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
-  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics[tab_index].xadvance;
-  if (fonts[0]->space_advance) {
-    advance /= fonts[0]->space_advance;
-  }
-  return advance;
+  return fonts[0]->tab_advance;
 }
 
 float ren_font_group_get_size(RenFont **fonts) {
