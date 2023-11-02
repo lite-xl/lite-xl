@@ -21,7 +21,7 @@
 #include <hb-ft.h>
 
 #define MAX_UNICODE 0x100000
-#define GLYPHSET_SIZE 64
+#define GLYPHSET_SIZE 8
 #define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / GLYPHSET_SIZE)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
@@ -171,20 +171,21 @@ static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int su
   return font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx];
 }
 
-static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFont** fonts, unsigned int codepoint, int bitmap_index) {
+static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFont** fonts, unsigned int codepoint, unsigned fb_codepoint, int bitmap_index) {
   if (!metric) {
     return NULL;
   }
   if (bitmap_index < 0)
     bitmap_index += SUBPIXEL_BITMAPS_CACHED;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
-    *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
-    *metric = &(*set)->metrics[codepoint % GLYPHSET_SIZE];
-    if ((*metric)->loaded || codepoint < 0xFF)
+    unsigned cp = i == 0 ? codepoint : FT_Get_Char_Index(fonts[i]->face, fb_codepoint);
+    *set = font_get_glyphset(fonts[i], cp, bitmap_index);
+    *metric = &(*set)->metrics[cp % GLYPHSET_SIZE];
+    if ((*metric)->loaded || fb_codepoint == 0)
       return fonts[i];
   }
   if (*metric && !(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
-    return font_group_get_glyph(set, metric, fonts, 0x25A1, bitmap_index);
+    return font_group_get_glyph(set, metric, fonts, 0x25A1, fb_codepoint, bitmap_index);
   return fonts[0];
 }
 
@@ -340,6 +341,22 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
+static const unsigned utf8_to_codepoint(const char *p) {
+  const unsigned char *up = (unsigned char*)p;
+  unsigned res, n;
+  switch (*p & 0xf0) {
+    case 0xf0 :  res = *up & 0x07;  n = 3;  break;
+    case 0xe0 :  res = *up & 0x0f;  n = 2;  break;
+    case 0xd0 :
+    case 0xc0 :  res = *up & 0x1f;  n = 1;  break;
+    default   :  res = *up;         n = 0;  break;
+  }
+  while (n--) {
+    res = (res << 6) | (*(++up) & 0x3f);
+  }
+  return res;
+}
+
 double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
   double width = 0;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
@@ -355,7 +372,8 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
   hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
   for (unsigned int i = 0; i < glyph_count; i++)  {
     unsigned int codepoint = glyph_info[i].codepoint;
-    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
+    unsigned fb_codepoint = utf8_to_codepoint(&text[glyph_info[i].cluster]);
+    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, fb_codepoint, 0);
     if (!metric)
       break;
     width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
@@ -383,7 +401,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
   // convert text in glyphs
-  hb_buffer_t *buf;  
+  hb_buffer_t *buf;
   buf = hb_buffer_create();
   hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
   hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
@@ -397,9 +415,10 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   hb_glyph_info_t *glyph_info = hb_buffer_get_glyph_infos(buf, &glyph_count);
   for (unsigned int i = 0; i < glyph_count; i++) {
     unsigned int r, g, b;
+    unsigned fb_codepoint = utf8_to_codepoint(&text[glyph_info[i].cluster]);
     hb_codepoint_t codepoint = glyph_info[i].codepoint;
     GlyphSet* set = NULL; GlyphMetric* metric = NULL;
-    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
+    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, fb_codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
     if (!metric)
       break;
     int start_x = floor(pen_x) + metric->bitmap_left;
