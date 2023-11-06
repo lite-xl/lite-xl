@@ -57,7 +57,8 @@ typedef struct RenFont {
   FT_StreamRec stream;
   hb_font_t *font;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
-  float size, space_advance, tab_advance;
+  float size, space_advance;
+  int tab_size;
   unsigned short max_height, baseline, height;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
@@ -263,7 +264,7 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   if (font->font == 0)  
     goto failure;
   font->space_advance = face->glyph->advance.x / 64.0f;
-  font->tab_advance = font->space_advance * 2;
+  font->tab_size = 0;
   return font;
 
 failure:
@@ -302,14 +303,33 @@ void ren_font_free(RenFont* font) {
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {
   for (int j = 0; j < FONT_FALLBACK_MAX && fonts[j]; ++j) {
-    fonts[j]->tab_advance = fonts[j]->space_advance * n;
+    if (fonts[j]->tab_size == n) continue;
+    unsigned codepoint = 0;
+    if (j == 0) {
+      hb_buffer_t *buff = hb_buffer_create();
+      hb_buffer_set_direction(buff, HB_DIRECTION_LTR);
+      hb_buffer_set_script(buff, HB_SCRIPT_LATIN);
+      hb_buffer_add_utf8(buff, "\t", 1, 0, -1);
+      hb_shape(fonts[j]->font, buff, NULL, 0);
+      unsigned counter =0;
+      hb_glyph_info_t *info = hb_buffer_get_glyph_infos(buff, &counter);
+      codepoint = info[0].codepoint;
+      hb_buffer_destroy(buff);
+    } else {
+      codepoint = FT_Get_Char_Index(fonts[j]->face, '\t');
+    }
+    fonts[j]->tab_size = n;
+    float f = (n-1) * fonts[j]->space_advance; 
+    unsigned index = codepoint % GLYPHSET_SIZE;
+     for (int i = 0; i < (fonts[j]->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1); ++i) {
+      GlyphSet * set =  font_get_glyphset(fonts[j], codepoint, i);
+      if (set != 0 && index < GLYPHSET_SIZE) set->metrics[index].xadvance = f;
+     }
   }
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  if (fonts[0]->space_advance) 
-    return fonts[0]->tab_advance / fonts[0]->space_advance;
-  return fonts[0]->tab_advance;
+  return fonts[0]->tab_size;
 }
 
 float ren_font_group_get_size(RenFont **fonts) {
@@ -327,7 +347,6 @@ void ren_font_group_set_size(RenWindow *window_renderer, RenFont **fonts, float 
     fonts[i]->baseline = (short)((face->ascender / (float)face->units_per_EM) * size);
     FT_Load_Char(face, ' ', font_set_load_options(fonts[i]));
     fonts[i]->space_advance = face->glyph->advance.x / 64.0f;
-    fonts[i]->tab_advance = fonts[i]->space_advance * 2;
   }
 }
 
@@ -357,6 +376,7 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
   hb_buffer_t *buf;  
   buf = hb_buffer_create();
   hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
+  hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
   hb_buffer_add_utf8(buf, text, -1, 0, -1);
   RenFont * font = fonts[0]; 
   hb_shape(font->font, buf, NULL, 0);
@@ -396,7 +416,8 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   hb_buffer_t *buf;
   buf = hb_buffer_create();
   hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-  hb_buffer_add_utf8(buf, text, -1, 0, -1);
+  hb_buffer_set_script(buf, HB_SCRIPT_LATIN);
+  hb_buffer_add_utf8(buf, text, len, 0, -1);
 
   RenFont * font = fonts[0]; 
   hb_shape(font->font, buf, NULL, 0);
