@@ -6,22 +6,24 @@ local syntax = require "core.syntax"
 --
 -- (?!/) Don't match empty regexes.
 --
--- (?>[^\\[\/]*) is an atomic group, this matches anything that's not "special";
---               this is using an atomic group to minimize backtracking,
---               as that'd cause "Catastrophic Backtracking" in some cases.
+-- (?>...) this is using an atomic group to minimize backtracking, as that'd
+--         cause "Catastrophic Backtracking" in some cases.
 --
--- \\(?:\\{2})*. will match anything that's escaped, so that we can ignore it.
+-- [^\\[\/]+ will match anything that's isn't an escape, a start of character
+--           class or an end of pattern.
 --
--- (?:\\{2})*\[.*?(?<!\\)(?:\\{2})*\] will match character classes.
+-- \\. will match anything that's escaped.
 --
--- /[gmiyuvsd]*\s*[\n,;\)]) will match the end of pattern delimiter, optionally
---                          followed by pattern options, and anything that can
---                          be after a pattern.
+-- \[(?:[^\\\]]|\\.)*\] will match character classes.
 --
--- Demo with some unit tests (click on the Unit Tests entry): https://regex101.com/r/EDgjPH/1
+-- /[gmiyuvsd]*\s*[\n,;\)\]\}]) will match the end of pattern delimiter, optionally
+--                              followed by pattern options, and anything that can
+--                              be after a pattern.
+--
+-- Demo with some unit tests (click on the Unit Tests entry): https://regex101.com/r/YjDBh4/1
 -- Note that it has a couple of changes to make it work on that platform.
 local regex_pattern = {
-  [=[/(?=(?!/)(?:(?>[^\\[\/]*)(?:\\(?:\\{2})*.|(?:\\{2})*\[.*?(?<!\\)(?:\\{2})*\])*)+/[gmiyuvsd]*\s*[\n,;\)])()]=],
+  [=[/(?=(?!/)(?:(?>[^\\[\/]+|\\.|\[(?:[^\\\]]|\\.)*\])*)+/[gmiyuvsd]*\s*[\n,;\)\]\}])()]=],
   "/()[gmiyuvsd]*", "\\"
 }
 
