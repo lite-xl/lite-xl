@@ -9,21 +9,21 @@ local syntax = require "core.syntax"
 -- (?>...) this is using an atomic group to minimize backtracking, as that'd
 --         cause "Catastrophic Backtracking" in some cases.
 --
--- [^\\[\/]+ will match anything that's isn't an escape, a start of character
---           class or an end of pattern.
+-- [^\\[\/]++ will match anything that's isn't an escape, a start of character
+--           class or an end of pattern, without backtracking (the second +).
 --
 -- \\. will match anything that's escaped.
 --
--- \[(?:[^\\\]]|\\.)*\] will match character classes.
+-- \[(?:[^\\\]++]|\\.)*+\] will match character classes.
 --
 -- /[gmiyuvsd]*\s*[\n,;\)\]\}]) will match the end of pattern delimiter, optionally
 --                              followed by pattern options, and anything that can
 --                              be after a pattern.
 --
--- Demo with some unit tests (click on the Unit Tests entry): https://regex101.com/r/YjDBh4/1
+-- Demo with some unit tests (click on the Unit Tests entry): https://regex101.com/r/R0w8Qw/1
 -- Note that it has a couple of changes to make it work on that platform.
 local regex_pattern = {
-  [=[/(?=(?!/)(?:(?>[^\\[\/]+|\\.|\[(?:[^\\\]]|\\.)*\])*)+/[gmiyuvsd]*\s*[\n,;\)\]\}])()]=],
+  [=[/(?=(?!/)(?:(?>[^\\[\/]++|\\.|\[(?:[^\\\]]++|\\.)*+\])*+)++/[gmiyuvsd]*\s*[\n,;\)\]\}])()]=],
   "/()[gmiyuvsd]*", "\\"
 }
 
