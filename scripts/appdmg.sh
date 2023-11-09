@@ -10,7 +10,7 @@ cat > lite-xl-dmg.py << EOF
 import os.path
 
 app_path = "$(pwd)/Lite XL.app"
-app_name = os.path.basename(app_file)
+app_name = os.path.basename(app_path)
 
 format = defines.get("format", "UDBZ")
 
