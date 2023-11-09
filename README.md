@@ -95,7 +95,7 @@ Lite XL will load and store all your configurations and plugins in the folder.
 We provide DMG files for macOS. Simply drag the program into your Applications folder.
 
 > **Important**
-> Newer versions of Lite XL is signed with a self-signed certificate,
+> Newer versions of Lite XL are signed with a self-signed certificate,
 > so you'll have to follow these steps when running Lite XL for the first time.
 >
 > 1. Find Lite XL in Finder (do not open it in Launchpad).
