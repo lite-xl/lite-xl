@@ -6,25 +6,22 @@ if [ ! -e "src/api/api.h" ]; then
   exit 1
 fi
 
-cat > lite-xl-dmg.json << EOF
-{
-  "title": "Lite XL",
-  "icon": "$(pwd)/resources/icons/icon.icns",
-  "background": "$(pwd)/resources/macos/appdmg.png",
-  "window": {
-    "position": {
-      "x": 360,
-      "y": 360
-    },
-    "size": {
-      "width": 480,
-      "height": 360
-    }
-  },
-  "contents": [
-    { "x": 144, "y": 248, "type": "file", "path": "$(pwd)/Lite XL.app" },
-    { "x": 336, "y": 248, "type": "link", "path": "/Applications" }
-  ]
-}
+cat > lite-xl-dmg.py << EOF
+import os.path
+
+app_path = "$(pwd)/Lite XL.app"
+app_name = os.path.basename(app_file)
+
+format = defines.get("format", "UDBZ")
+
+files = [ (app_path, app_name) ]
+symlinks = { "Applications": "/Applications" }
+icon_locations = { app_name: (144, 248), "Applications": (336, 248) }
+
+icon = "$(pwd)/resources/icons/icon.icns"
+background = "$(pwd)/resources/macos/appdmg.png"
+window_rect = ((360, 360), (480, 360))
+default_view = "icon_view"
 EOF
-~/node_modules/appdmg/bin/appdmg.js lite-xl-dmg.json "$(pwd)/$1.dmg"
+
+dmgbuild -s lite-xl-dmg.py "Lite XL" "$(pwd)/$1.dmg"

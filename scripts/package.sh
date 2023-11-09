@@ -25,7 +25,7 @@ show_help() {
   echo "-A --appimage                 Create an AppImage (Linux only)."
   echo "-B --binary                   Create a normal / portable package or macOS bundle,"
   echo "                              depending on how the build was configured. (Default.)"
-  echo "-D --dmg                      Create a DMG disk image with AppDMG (macOS only)."
+  echo "-D --dmg                      Create a DMG disk image with dmgbuild (macOS only)."
   echo "-I --innosetup                Create a InnoSetup package (Windows only)."
   echo "-r --release                  Strip debugging symbols."
   echo "-S --source                   Create a source code package,"
