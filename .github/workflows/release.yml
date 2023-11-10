@@ -185,8 +185,8 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - name: Install appdmg
-        run: cd ~; npm i appdmg; cd -
+      - name: Install dmgbuild
+        run: pip install dmgbuild
       - name: Prepare DMG Images
         run: |
           mkdir -p dmgs-addons dmgs-normal

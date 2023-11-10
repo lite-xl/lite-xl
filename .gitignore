@@ -22,3 +22,4 @@ LiteXL*
 
 !resources/windows/*.diff
 !resources/windows/*.exe.manifest.in
+!resources/macos/*.py

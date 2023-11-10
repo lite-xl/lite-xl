@@ -110,6 +110,12 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-universal" >> "$GITHUB_ENV"
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dmgbuild
+        run: pip install dmgbuild
       - uses: actions/checkout@v3
       - name: Download artifacts
         uses: actions/download-artifact@v3
@@ -117,8 +123,6 @@ jobs:
         with:
           name: macOS DMG Images
           path: dmgs-original
-      - name: Install appdmg
-        run: cd ~; npm i appdmg; cd -
       - name: Make universal bundles
         run: |
           bash --version
