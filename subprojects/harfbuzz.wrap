@@ -1,0 +1,10 @@
+[wrap-file]
+directory = harfbuzz-8.2.2
+source_url = https://github.com/harfbuzz/harfbuzz/releases/download/8.2.2/harfbuzz-8.2.2.tar.xz
+source_filename = harfbuzz-8.2.2.tar.xz
+source_hash = e433ad85fbdf57f680be29479b3f964577379aaf319f557eb76569f0ecbc90f3
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/harfbuzz_8.2.2-1/harfbuzz-8.2.2.tar.xz
+wrapdb_version = 8.2.2-1
+
+[provide]
+dependency_names = harfbuzz
