@@ -81,6 +81,39 @@ affects only the place where the application is actually installed.
 
 Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and download the version for your operating system.
 
+### Windows
+
+Lite XL comes with installers on Windows for typical installations.
+Alternatively, we provide ZIP archives that you can download and extract anywhere and run directly.
+
+To make Lite XL portable (e.g. running Lite XL from a thumb drive),
+simply create a `user` folder where `lite-xl.exe` is located.
+Lite XL will load and store all your configurations and plugins in the folder.
+
+### macOS
+
+We provide DMG files for macOS. Simply drag the program into your Applications folder.
+
+> **Important**
+> Newer versions of Lite XL are signed with a self-signed certificate,
+> so you'll have to follow these steps when running Lite XL for the first time.
+>
+> 1. Find Lite XL in Finder (do not open it in Launchpad).
+> 2. Control-click Lite XL, then choose `Open` from the shortcut menu.
+> 3. Click `Open` in the popup menu.
+>
+> The correct steps may vary between macOS versions, so you should refer to
+> the [macOS User Guide](https://support.apple.com/en-my/guide/mac-help/mh40616/mac).
+>
+> On an older version of Lite XL, you will need to run these commands instead:
+> 
+> ```sh
+> # clears attributes from the directory
+> xattr -cr /Applications/Lite\ XL.app
+> ```
+>
+> Otherwise, macOS will display a **very misleading error** saying that the application is damaged.
+
 ### Linux
 
 Unzip the file and `cd` into the `lite-xl` directory:
