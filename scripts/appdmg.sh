@@ -6,25 +6,4 @@ if [ ! -e "src/api/api.h" ]; then
   exit 1
 fi
 
-cat > lite-xl-dmg.json << EOF
-{
-  "title": "Lite XL",
-  "icon": "$(pwd)/resources/icons/icon.icns",
-  "background": "$(pwd)/resources/macos/appdmg.png",
-  "window": {
-    "position": {
-      "x": 360,
-      "y": 360
-    },
-    "size": {
-      "width": 480,
-      "height": 360
-    }
-  },
-  "contents": [
-    { "x": 144, "y": 248, "type": "file", "path": "$(pwd)/Lite XL.app" },
-    { "x": 336, "y": 248, "type": "link", "path": "/Applications" }
-  ]
-}
-EOF
-~/node_modules/appdmg/bin/appdmg.js lite-xl-dmg.json "$(pwd)/$1.dmg"
+dmgbuild -s resources/macos/lite-xl-dmg.py "Lite XL" "$1.dmg"
