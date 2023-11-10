@@ -11,7 +11,7 @@ format = defines.get("format", "UDZO")
 # Content options
 files = [(app_path, app_name)]
 symlinks = { "Applications": "/Applications" }
-icon = "resources/icons/icon.icon.icns"
+icon = "resources/icons/icon.icns"
 icon_locations = {
     app_name: (144, 248),
     "Applications": (336, 248)
