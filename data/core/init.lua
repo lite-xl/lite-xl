@@ -1461,7 +1461,7 @@ function core.run()
           local cursor_time_to_wake = dt + 1 / config.fps
           next_step = now + cursor_time_to_wake
         end
-        if time_to_wake > 0 and system.wait_event(math.min(next_step - now, time_to_wake)) then
+        if system.wait_event(math.min(next_step - now, time_to_wake)) then
           next_step = nil -- if we've recevied an event, perform a step
         end
       else
