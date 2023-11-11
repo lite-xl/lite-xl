@@ -61,10 +61,10 @@ function system.poll_event() end
 ---
 ---Wait until an event is triggered.
 ---
----@param timeout number Amount of seconds, also supports fractions
----of a second, eg: 0.01
+---@param timeout? number Amount of seconds, also supports fractions
+---of a second, eg: 0.01. If not provided, waits forever.
 ---
----@return boolean status True on success or false if there was an error.
+---@return boolean status True on success or false if there was an error or if no event was received.
 function system.wait_event(timeout) end
 
 ---
