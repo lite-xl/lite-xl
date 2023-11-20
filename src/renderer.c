@@ -15,6 +15,10 @@
 #include <windows.h>
 #include "utfconv.h"
 #endif
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
 
 #include "renderer.h"
 #include "renwindow.h"
@@ -360,20 +364,11 @@ void ren_font_free(RenFont* font) {
 }
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {
-  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
-  for (int j = 0; j < FONT_FALLBACK_MAX && fonts[j]; ++j) {
-    for (int i = 0; i < (fonts[j]->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1); ++i)
-      font_get_glyphset(fonts[j], '\t', i)->metrics[tab_index].xadvance = fonts[j]->space_advance * n;
-  }
+  fonts[0]->tab_advance = fonts[0]->space_advance * n;
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
-  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics[tab_index].xadvance;
-  if (fonts[0]->space_advance) {
-    advance /= fonts[0]->space_advance;
-  }
-  return advance;
+  return fonts[0]->tab_advance / fonts[0]->space_advance;
 }
 
 float ren_font_group_get_size(RenFont **fonts) {
@@ -415,24 +410,31 @@ GlyphRun_gen* get_runs(RenFont **fonts, const char *string, size_t len, size_t *
   GlyphRun_gen* gr_array = NULL;
   *n_runs = 0;
   const char* end = string + len;
-  size_t last_font_idx = FONT_FALLBACK_MAX;
+  ssize_t last_font_idx = FONT_FALLBACK_MAX;
   while (string < end) {
-    size_t font_idx = 0;
+    ssize_t font_idx = 0;
     uint32_t codepoint;
     string = utf8_to_codepoint(string, &codepoint);
     LBT_Glyph g = 0;
-    while (g == 0 && fonts[font_idx] != NULL && font_idx < FONT_FALLBACK_MAX) {
-      g = FT_Get_Char_Index(fonts[font_idx]->face, codepoint);
-      if (g == 0)
-        font_idx++;
+    if (codepoint == '\t') {
+      font_idx = -1;
+      g = codepoint;
+    } else {
+      while (g == 0 && fonts[font_idx] != NULL && font_idx < FONT_FALLBACK_MAX) {
+        g = FT_Get_Char_Index(fonts[font_idx]->face, codepoint);
+        if (g == 0)
+          font_idx++;
+      }
+      // If the glyph wasn't found, fallback to the main font
+      if (font_idx >= FONT_FALLBACK_MAX || fonts[font_idx] == NULL)
+        font_idx = 0;
     }
-    // If the glyph wasn't found, fallback to the main font
-    if (font_idx >= FONT_FALLBACK_MAX || fonts[font_idx] == NULL)
-      font_idx = 0;
     if (font_idx != last_font_idx) {
       gr_array = realloc(gr_array, sizeof(GlyphRun_gen) * (*n_runs + 1));
       memset(&gr_array[*n_runs], 0, sizeof(GlyphRun_gen));
-      gr_array[*n_runs].font = fonts[font_idx];
+      if (font_idx >= 0) {
+        gr_array[*n_runs].font = fonts[font_idx];
+      }
       (*n_runs)++;
     }
     gr_array[*n_runs - 1].run.glyphs = realloc(gr_array[*n_runs - 1].run.glyphs, sizeof(LBT_Glyph) * (gr_array[*n_runs - 1].run.n_glyphs + 1));
@@ -451,8 +453,15 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
   bool set_x_offset = x_offset == NULL;
   for (size_t z = 0; z < n_runs; z++) {
-    size_t n_glyphs = 0;
     RenFont *font = gr_array[z].font;
+    if (font == NULL) { // The glyphs are "special"
+      for (size_t i = 0; i < gr_array[z].run.n_glyphs; i++) {
+        width += fonts[0]->tab_advance;
+      }
+      free(gr_array[z].run.glyphs);
+      continue;
+    }
+    size_t n_glyphs = 0;
     LBT_Glyph *ligated = LBT_apply_chain(font->chain, gr_array[z].run.glyphs, gr_array[z].run.n_glyphs, &n_glyphs);
     free(gr_array[z].run.glyphs);
     for (size_t i = 0; i < n_glyphs; i++) {
@@ -499,8 +508,15 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
 
   for (size_t z = 0; z < n_runs; z++) {
-    size_t n_glyphs = 0;
     RenFont *font = gr_array[z].font;
+    if (font == NULL) { // The glyphs are "special"
+      for (size_t i = 0; i < gr_array[z].run.n_glyphs; i++) {
+        pen_x += fonts[0]->tab_advance;
+      }
+      free(gr_array[z].run.glyphs);
+      continue;
+    }
+    size_t n_glyphs = 0;
     LBT_Glyph *ligated = LBT_apply_chain(font->chain, gr_array[z].run.glyphs, gr_array[z].run.n_glyphs, &n_glyphs);
     free(gr_array[z].run.glyphs);
     for (size_t i = 0; i < n_glyphs; i++) {
