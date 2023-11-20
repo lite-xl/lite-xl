@@ -406,7 +406,7 @@ GlyphRun_gen* get_runs(RenFont **fonts, const char *string, size_t len, size_t *
     uint32_t codepoint;
     string = utf8_to_codepoint(string, &codepoint);
     LBT_Glyph g = 0;
-    if (codepoint == '\t') {
+    if (codepoint == '\t' || codepoint == '\n') {
       font_idx = -1;
       g = codepoint;
     } else {
@@ -446,7 +446,7 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
     RenFont *font = gr_array[z].font;
     if (font == NULL) { // The glyphs are "special"
       for (size_t i = 0; i < gr_array[z].run.n_glyphs; i++) {
-        width += fonts[0]->tab_advance;
+        width += gr_array[z].run.glyphs[i] == '\t' ? fonts[0]->tab_advance : fonts[0]->space_advance;
       }
       free(gr_array[z].run.glyphs);
       continue;
@@ -501,7 +501,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     RenFont *font = gr_array[z].font;
     if (font == NULL) { // The glyphs are "special"
       for (size_t i = 0; i < gr_array[z].run.n_glyphs; i++) {
-        pen_x += fonts[0]->tab_advance;
+        pen_x += gr_array[z].run.glyphs[i] == '\t' ? fonts[0]->tab_advance : fonts[0]->space_advance;
       }
       free(gr_array[z].run.glyphs);
       continue;
