@@ -251,7 +251,7 @@ static void font_file_close(FT_Stream stream) {
   }
 }
 
-RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
+RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, const RenFontLigatureOptions *ligopt) {
   RenFont *font = NULL;
   FT_Face face = NULL;
   
@@ -274,17 +274,7 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   if (font->chain_creator == NULL)
     goto failure;
 
-  const unsigned char features[][4] = {
-    { 'r', 'v', 'r', 'n' },
-    { 'c', 'c', 'm', 'p' },
-    { 'r', 'l', 'i', 'g' },
-    { 'c', 'a', 'l', 't' },
-    { 'd', 'l', 'i', 'g' },
-    { 'c', 'l', 'i', 'g' },
-    { 'l', 'i', 'g', 'a' },
-    { ' ', 'R', 'Q', 'D' },
-  };
-  font->chain = LBT_generate_chain(font->chain_creator, NULL, NULL, features, sizeof(features) / sizeof(features[0]));
+  font->chain = LBT_generate_chain(font->chain_creator, ligopt->script, ligopt->language, ligopt->features, ligopt->n_features);
 
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
@@ -324,12 +314,12 @@ rwops_failure:
   return NULL;
 }
 
-RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
+RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style, const RenFontLigatureOptions *ligopt) {
   antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
 
-  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style);
+  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style, ligopt);
 }
 
 const char* ren_font_get_path(RenFont *font) {
