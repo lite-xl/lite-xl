@@ -27,6 +27,9 @@ unsigned char default_ligature_features[][4] = {
   { 'd', 'l', 'i', 'g' },
 };
 
+#define n_default_features (sizeof(default_features) / sizeof(default_features[0]))
+#define n_default_ligature_features (sizeof(default_ligature_features) / sizeof(default_ligature_features[0]))
+
 static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
@@ -34,12 +37,7 @@ static int font_get_options(
   int *style,
   RenFontLigatureOptions *liga_options
 ) {
-  size_t n_default_features = sizeof(default_features) / sizeof(default_features[0]);
-  size_t n_default_ligature_features = sizeof(default_ligature_features) / sizeof(default_ligature_features[0]);
-  liga_options->script = NULL;
-  liga_options->language = NULL;
-  liga_options->features = default_features;
-  liga_options->n_features = n_default_features;
+
 
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
@@ -143,19 +141,15 @@ static int font_get_options(
         lua_pop(L, 1); // pop value
       }
       lua_pop(L, 1); // pop key
-    } else {
-      bool ligatures_enabled = lua_toboolean(L, -1);
-      size_t n_features = n_default_features;
-      if (ligatures_enabled) n_features += n_default_ligature_features;
-      liga_options->features = calloc(n_features, sizeof(unsigned char [4]));
+    } else if(lua_toboolean(L, -1)) {
+      size_t n_features = n_default_features + n_default_ligature_features;
+      liga_options->features = malloc(n_features * sizeof(unsigned char [4]));
       memcpy(liga_options->features, default_features, n_default_features * sizeof(unsigned char [4]));
       liga_options->n_features = n_default_features;
-      if (ligatures_enabled) {
-        memcpy(&liga_options->features[n_default_features],
-               default_ligature_features,
-               n_default_ligature_features * sizeof(unsigned char [4]));
-        liga_options->n_features += n_default_ligature_features;
-      }
+      memcpy(&liga_options->features[n_default_features],
+             default_ligature_features,
+             n_default_ligature_features * sizeof(unsigned char [4]));
+      liga_options->n_features += n_default_ligature_features;
     }
 
     lua_pop(L, 8);
@@ -173,16 +167,25 @@ static int f_font_load(lua_State *L) {
   int style = 0;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
   ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
-  RenFontLigatureOptions ligopt;
+  RenFontLigatureOptions ligopt = {0};
 
   int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &ligopt);
   if (ret_code > 0)
     return ret_code;
+  if (ligopt.features == NULL) {
+    ligopt.script = NULL;
+    ligopt.language = NULL;
+    ligopt.features = malloc(n_default_features * sizeof(unsigned char [4]));
+    memcpy(ligopt.features, default_features, n_default_features * sizeof(unsigned char [4]));
+    ligopt.n_features = n_default_features;
+  }
 
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, antialiasing, hinting, style, &ligopt);
-  if (!*font)
+  *font = ren_font_load(filename, size, antialiasing, hinting, style, ligopt);
+  if (!*font) {
+    free(ligopt.features);
     return luaL_error(L, "failed to load font");
+  }
   luaL_setmetatable(L, API_TYPE_FONT);
   return 1;
 }
@@ -215,7 +218,7 @@ static int f_font_copy(lua_State *L) {
   int style = -1;
   ERenFontHinting hinting = -1;
   ERenFontAntialiasing antialiasing = -1;
-  RenFontLigatureOptions ligopt;
+  RenFontLigatureOptions ligopt = {0};
 
   int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &ligopt);
   if (ret_code > 0)
@@ -225,11 +228,14 @@ static int f_font_copy(lua_State *L) {
     lua_newtable(L);
     luaL_setmetatable(L, API_TYPE_FONT);
   }
+  RenFontLigatureOptions *ligopt_ptr = ligopt.features == NULL ? NULL : &ligopt;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style, &ligopt);
-    if (!*font)
+    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style, ligopt_ptr);
+    if (!*font) {
+      if (!ligopt_ptr) free(ligopt_ptr->features);
       return luaL_error(L, "failed to copy font");
+    }
     luaL_setmetatable(L, API_TYPE_FONT);
     if (table)
       lua_rawseti(L, -2, i+1);

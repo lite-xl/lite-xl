@@ -69,6 +69,7 @@ typedef struct RenFont {
   ERenFontHinting hinting;
   unsigned char style;
   unsigned short underline_thickness;
+  RenFontLigatureOptions ligopt;
   LBT_ChainCreator *chain_creator;
   LBT_Chain *chain;
   char path[];
@@ -268,7 +269,7 @@ static void font_file_close(FT_Stream stream) {
   }
 }
 
-RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, const RenFontLigatureOptions *ligopt) {
+RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, RenFontLigatureOptions ligopt) {
   RenFont *font = NULL;
   FT_Face face = NULL;
   
@@ -287,11 +288,13 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   if (FT_Open_Face(library, &(FT_Open_Args){ .flags = FT_OPEN_STREAM, .stream = &font->stream }, 0, &face))
     goto failure;
 
+  font->ligopt = ligopt;
+
   font->chain_creator = LBT_new(face);
   if (font->chain_creator == NULL)
     goto failure;
 
-  font->chain = LBT_generate_chain(font->chain_creator, ligopt->script, ligopt->language, ligopt->features, ligopt->n_features);
+  font->chain = LBT_generate_chain(font->chain_creator, ligopt.script, ligopt.language, ligopt.features, ligopt.n_features);
 
   if (FT_Set_Pixel_Sizes(face, 0, (int)(size)))
     goto failure;
@@ -337,8 +340,16 @@ RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialias
   antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
+  RenFontLigatureOptions _ligopt;
+  if (ligopt == NULL) {
+    _ligopt = font->ligopt;
+    _ligopt.features = malloc(sizeof(unsigned char [4]) * font->ligopt.n_features);
+    memcpy(_ligopt.features, font->ligopt.features, sizeof(unsigned char [4]) * font->ligopt.n_features);
+  } else {
+    _ligopt = *ligopt;
+  }
 
-  return ren_font_load(font->path, size, antialiasing, hinting, style, ligopt);
+  return ren_font_load(font->path, size, antialiasing, hinting, style, _ligopt);
 }
 
 const char* ren_font_get_path(RenFont *font) {
@@ -348,6 +359,7 @@ const char* ren_font_get_path(RenFont *font) {
 void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
   FT_Done_Face(font->face);
+  free(font->ligopt.features);
   LBT_destroy_chain(font->chain);
   LBT_destroy(font->chain_creator);
   free(font);
