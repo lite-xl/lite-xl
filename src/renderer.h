@@ -31,7 +31,7 @@ struct RenWindow;
 typedef struct RenWindow RenWindow;
 extern RenWindow* window_renderer;
 
-RenFont* ren_font_load(RenWindow *window_renderer, const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, const RenFontLigatureOptions *ligopt);
+RenFont* ren_font_load(RenWindow *window_renderer, const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style, RenFontLigatureOptions ligopt);
 RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style, const RenFontLigatureOptions *ligopt);
 const char* ren_font_get_path(RenFont *font);
 void ren_font_free(RenFont *font);
