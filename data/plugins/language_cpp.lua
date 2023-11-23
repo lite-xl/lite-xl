@@ -27,7 +27,7 @@ syntax.add {
     { pattern = "static()%s+()inline",
       type = { "keyword", "normal", "keyword" }
     },
-    { pattern = "static()%s+()const",
+    { pattern = "static()%s+()const()%s+",
       type = { "keyword", "normal", "keyword" }
     },
     { pattern = "static()%s+()[%a_][%w_]*",
