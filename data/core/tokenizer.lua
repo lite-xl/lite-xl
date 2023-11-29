@@ -210,9 +210,11 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
         -- Remove '^' from the beginning of the pattern
         if type(target) == "table" then
           target[p_idx] = code:usub(2)
+          code = target[p_idx]
         else
           p.pattern = p.pattern and code:usub(2)
           p.regex = p.regex and code:usub(2)
+          code = p.pattern or p.regex
         end
       end
     end
