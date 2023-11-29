@@ -463,7 +463,7 @@ end
 
 function DocView:draw_overwrite_caret(x, y, width)
   local lh = self:get_line_height()
-  renderer.draw_rect(x, y + lh, width, style.caret_width * 2, style.caret)
+  renderer.draw_rect(x, y + lh - style.caret_width, width, style.caret_width, style.caret)
 end
 
 
