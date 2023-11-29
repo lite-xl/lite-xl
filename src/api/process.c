@@ -526,6 +526,7 @@ static int process_env_add_system(process_env_t *env_list, size_t *env_list_len)
       goto cleanup;
     proc_env_block_p += proc_env_len + 1;
   }
+  retval = 0;
 
 cleanup:
   if (proc_env_block) FreeEnvironmentStringsW(proc_env_block);
