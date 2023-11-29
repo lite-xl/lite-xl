@@ -190,47 +190,45 @@ end
 -- "root" will by an absolute path without trailing '/'
 -- "path" will be a path starting without '/' and without trailing '/'
 --    or the empty string.
---    It will identifies a sub-path within "root.
+--    It identifies a sub-path within "root".
 -- The current path location will therefore always be: root .. path.
--- When recursing "root" will always be the same, only "path" will change.
+-- When recursing, "root" will always be the same, only "path" will change.
 -- Returns a list of file "items". In each item the "filename" will be the
 -- complete file path relative to "root" *without* the trailing '/', and without the starting '/'.
-function dirwatch.get_directory_files(dir, root, path, t, entries_count, recurse_pred)
+function dirwatch.get_directory_files(dir, root, path, entries_count, recurse_pred)
+  local t = {}
   local t0 = system.get_time()
-  local t_elapsed = system.get_time() - t0
-  local dirs, files = {}, {}
   local ignore_compiled = compile_ignore_files()
-
 
   local all = system.list_dir(root .. PATHSEP .. path)
   if not all then return nil end
-
-  for _, file in ipairs(all or {}) do
+  local entries = { }
+  for _, file in ipairs(all) do
     local info = get_project_file_info(root, (path ~= "" and (path .. PATHSEP) or "") .. file, ignore_compiled)
     if info then
-      table.insert(info.type == "dir" and dirs or files, info)
-      entries_count = entries_count + 1
+      table.insert(entries, info)
     end
   end
+  table.sort(entries, compare_file)
 
   local recurse_complete = true
-  table.sort(dirs, compare_file)
-  for _, f in ipairs(dirs) do
-    table.insert(t, f)
-    if recurse_pred(dir, f.filename, entries_count, t_elapsed) then
-      local _, complete, n = dirwatch.get_directory_files(dir, root, f.filename, t, entries_count, recurse_pred)
-      recurse_complete = recurse_complete and complete
-      if n ~= nil then
-        entries_count = n
+  for _, info in ipairs(entries) do
+    table.insert(t, info)
+    entries_count = entries_count + 1
+    if info.type == "dir" then
+      if recurse_pred(dir, info.filename, entries_count, system.get_time() - t0) then
+        local t_rec, complete, n = dirwatch.get_directory_files(dir, root, info.filename, entries_count, recurse_pred)
+        recurse_complete = recurse_complete and complete
+        if n ~= nil then
+          entries_count = n
+          for _, info_rec in ipairs(t_rec) do
+            table.insert(t, info_rec)
+          end
+        end
+      else
+        recurse_complete = false
       end
-    else
-      recurse_complete = false
     end
-  end
-
-  table.sort(files, compare_file)
-  for _, f in ipairs(files) do
-    table.insert(t, f)
   end
 
   return t, recurse_complete, entries_count

@@ -226,7 +226,7 @@ function common.path_suggest(text, root)
   if root and root:sub(-1) ~= PATHSEP then
     root = root .. PATHSEP
   end
-  local path, name = text:match("^(.-)([^/\\]*)$")
+  local path, name = text:match("^(.-)([^"..PATHSEP.."]*)$")
   local clean_dotslash = false
   -- ignore root if path is absolute
   local is_absolute = common.is_absolute_path(text)
@@ -279,7 +279,7 @@ end
 ---@param text string The input path.
 ---@return string[]
 function common.dir_path_suggest(text)
-  local path, name = text:match("^(.-)([^/\\]*)$")
+  local path, name = text:match("^(.-)([^"..PATHSEP.."]*)$")
   local files = system.list_dir(path == "" and "." or path) or {}
   local res = {}
   for _, file in ipairs(files) do
@@ -298,7 +298,7 @@ end
 ---@param dir_list string[] A list of paths to filter.
 ---@return string[]
 function common.dir_list_suggest(text, dir_list)
-  local path, name = text:match("^(.-)([^/\\]*)$")
+  local path, name = text:match("^(.-)([^"..PATHSEP.."]*)$")
   local res = {}
   for _, dir_path in ipairs(dir_list) do
     if dir_path:lower():find(text:lower(), nil, true) == 1 then
@@ -461,7 +461,7 @@ end
 function common.basename(path)
   -- a path should never end by / or \ except if it is '/' (unix root) or
   -- 'X:\' (windows drive)
-  return path:match("[^\\/]+$") or path
+  return path:match("[^"..PATHSEP.."]+$") or path
 end
 
 
@@ -470,7 +470,7 @@ end
 ---@param path string
 ---@return string|nil
 function common.dirname(path)
-  return path:match("(.+)[\\/][^\\/]+$")
+  return path:match("(.+)["..PATHSEP.."][^"..PATHSEP.."]+$")
 end
 
 
@@ -513,10 +513,10 @@ end
 
 local function split_on_slash(s, sep_pattern)
   local t = {}
-  if s:match("^[/\\]") then
+  if s:match("^["..PATHSEP.."]") then
     t[#t + 1] = ""
   end
-  for fragment in string.gmatch(s, "([^/\\]+)") do
+  for fragment in string.gmatch(s, "([^"..PATHSEP.."]+)") do
     t[#t + 1] = fragment
   end
   return t
@@ -649,7 +649,7 @@ function common.mkdirp(path)
   while path and path ~= "" do
     local success_mkdir = system.mkdir(path)
     if success_mkdir then break end
-    local updir, basedir = path:match("(.*)[/\\](.+)$")
+    local updir, basedir = path:match("(.*)["..PATHSEP.."](.+)$")
     table.insert(subdirs, 1, basedir or path)
     path = updir
   end

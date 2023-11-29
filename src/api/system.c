@@ -1058,7 +1058,7 @@ static int f_load_native_plugin(lua_State *L) {
 #endif
 
 /* Special purpose filepath compare function. Corresponds to the
-   order used in the TreeView view of the project's files. Returns true iff
+   order used in the TreeView view of the project's files. Returns true if
    path1 < path2 in the TreeView order. */
 static int f_path_compare(lua_State *L) {
   size_t len1, len2;
@@ -1072,7 +1072,6 @@ static int f_path_compare(lua_State *L) {
   size_t offset = 0, i, j;
   for (i = 0; i < len1 && i < len2; i++) {
     if (path1[i] != path2[i]) break;
-    if (isdigit(path1[i])) break;
     if (path1[i] == PATHSEP) {
       offset = i + 1;
     }
