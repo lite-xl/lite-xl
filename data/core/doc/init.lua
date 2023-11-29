@@ -507,7 +507,7 @@ function Doc:text_input(text, idx)
     and not had_selection
     and col1 < #self.lines[line1]
     and text:ulen() == 1 then
-      self:remove(line1, col1, translate.next_char(doc, line1, col1))
+      self:remove(line1, col1, translate.next_char(self, line1, col1))
     end
 
     self:insert(line1, col1, text)
