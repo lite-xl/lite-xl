@@ -1,5 +1,5 @@
 local Object = require "core.object"
-local Highlighter = require "core.doc.highlighter"
+local Highlighter = require ".highlighter"
 local core = require "core"
 local syntax = require "core.syntax"
 local config = require "core.config"
