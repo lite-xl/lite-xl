@@ -101,7 +101,7 @@ if not get_option('source-only')
         endforeach
     else
         lua_dep = dependency('', fallback: ['lua', 'lua_dep'], required : true,
-            default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
+            default_options: default_fallback_options + ['default_library=static', 'line_editing=disabled', 'interpreter=false']
         )
     endif
 
@@ -123,6 +123,7 @@ if not get_option('source-only')
     sdl_options += 'use_atomic=enabled'
     sdl_options += 'use_threads=enabled'
     sdl_options += 'use_timers=enabled'
+    sdl_options += 'with_main=true'
     # investigate if this is truly needed
     # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
     sdl_options += 'use_events=enabled'
@@ -155,12 +156,24 @@ if not get_option('source-only')
     sdl_options += 'use_video_vulkan=disabled'
     sdl_options += 'use_video_offscreen=disabled'
     sdl_options += 'use_power=disabled'
+    sdl_options += 'system_iconv=disabled'
 
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
         default_options: default_fallback_options + sdl_options
     )
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
+    if host_machine.system() == 'windows'
+        if sdl_dep.type_name() == 'internal'
+            sdlmain_dep = dependency('sdl2main', fallback: ['sdl2main_dep'])
+        else
+            sdlmain_dep = cc.find_library('SDL2main')
+        endif
+    else
+        sdlmain_dep = dependency('', required: false)
+        assert(not sdlmain_dep.found(), 'checking if fake dependency has been found')
+    endif
+
+    lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration
