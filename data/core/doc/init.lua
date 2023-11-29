@@ -488,6 +488,10 @@ end
 
 function Doc:insert(line, col, text)
   self.redo_stack = { idx = 1 }
+  -- Reset the clean id when we're pushing something new before it
+  if self:get_change_id() < self.clean_change_id then
+    self.clean_change_id = -1
+  end
   line, col = self:sanitize_position(line, col)
   self:raw_insert(line, col, text, self.undo_stack, system.get_time())
   self:on_text_change("insert")
