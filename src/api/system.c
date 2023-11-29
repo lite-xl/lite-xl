@@ -225,8 +225,8 @@ top:
       SDL_GetMouseState(&mx, &my);
       lua_pushstring(L, "filedropped");
       lua_pushstring(L, e.drop.file);
-      lua_pushinteger(L, mx);
-      lua_pushinteger(L, my);
+      lua_pushinteger(L, mx * window_renderer.scale_x);
+      lua_pushinteger(L, my * window_renderer.scale_y);
       SDL_free(e.drop.file);
       return 4;
 
@@ -283,8 +283,8 @@ top:
       if (e.button.button == 1) { SDL_CaptureMouse(1); }
       lua_pushstring(L, "mousepressed");
       lua_pushstring(L, button_name(e.button.button));
-      lua_pushinteger(L, e.button.x);
-      lua_pushinteger(L, e.button.y);
+      lua_pushinteger(L, e.button.x * window_renderer.scale_x);
+      lua_pushinteger(L, e.button.y * window_renderer.scale_y);
       lua_pushinteger(L, e.button.clicks);
       return 5;
 
@@ -292,8 +292,8 @@ top:
       if (e.button.button == 1) { SDL_CaptureMouse(0); }
       lua_pushstring(L, "mousereleased");
       lua_pushstring(L, button_name(e.button.button));
-      lua_pushinteger(L, e.button.x);
-      lua_pushinteger(L, e.button.y);
+      lua_pushinteger(L, e.button.x * window_renderer.scale_x);
+      lua_pushinteger(L, e.button.y * window_renderer.scale_y);
       return 4;
 
     case SDL_MOUSEMOTION:
@@ -305,10 +305,10 @@ top:
         e.motion.yrel += event_plus.motion.yrel;
       }
       lua_pushstring(L, "mousemoved");
-      lua_pushinteger(L, e.motion.x);
-      lua_pushinteger(L, e.motion.y);
-      lua_pushinteger(L, e.motion.xrel);
-      lua_pushinteger(L, e.motion.yrel);
+      lua_pushinteger(L, e.motion.x * window_renderer.scale_x);
+      lua_pushinteger(L, e.motion.y * window_renderer.scale_y);
+      lua_pushinteger(L, e.motion.xrel * window_renderer.scale_x);
+      lua_pushinteger(L, e.motion.yrel * window_renderer.scale_y);
       return 5;
 
     case SDL_MOUSEWHEEL:

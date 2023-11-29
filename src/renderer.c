@@ -520,6 +520,7 @@ void ren_init(SDL_Window *win) {
 
 void ren_resize_window(RenWindow *window_renderer) {
   renwin_resize_surface(window_renderer);
+  renwin_update_scale(window_renderer);
 }
 
 
