@@ -198,7 +198,7 @@ static int f_font_get_width(lua_State *L) {
   size_t len;
   const char *text = luaL_checklstring(L, 2, &len);
 
-  lua_pushnumber(L, ren_font_group_get_width(&window_renderer, fonts, text, len));
+  lua_pushnumber(L, ren_font_group_get_width(&window_renderer, fonts, text, len, NULL));
   return 1;
 }
 
