@@ -460,15 +460,16 @@ function DocView:draw_line_text(line, x, y)
   return self:get_line_height()
 end
 
-function DocView:draw_caret(x, y, selection_id)
-  local line, col = self.doc:get_selection_idx(selection_id or 1)
+
+function DocView:draw_overwrite_caret(x, y, width)
   local lh = self:get_line_height()
-  if self.doc.overwrite then
-    local w = self:get_font():get_width(self.doc:get_char(line, col))
-    renderer.draw_rect(x, y + lh, w, style.caret_width * 2, style.caret)
-  else
-    renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
-  end
+  renderer.draw_rect(x, y + lh, width, style.caret_width * 2, style.caret)
+end
+
+
+function DocView:draw_caret(x, y)
+  local lh = self:get_line_height()
+  renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
 end
 
 function DocView:draw_line_body(line, x, y)
@@ -528,8 +529,7 @@ function DocView:draw_line_gutter(line, x, y, width)
 end
 
 
-function DocView:draw_ime_decoration(selection_id)
-  local line1, col1, line2, col2 = self.doc:get_selection_idx(selection_id or 1)
+function DocView:draw_ime_decoration(line1, col1, line2, col2)
   local x, y = self:get_line_screen_position(line1)
   local line_size = math.max(1, SCALE)
   local lh = self:get_line_height()
@@ -549,7 +549,7 @@ function DocView:draw_ime_decoration(selection_id)
     line_size = style.caret_width
     renderer.draw_rect(x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.caret)
   end
-  self:draw_caret(x + x1, y, selection_id)
+  self:draw_caret(x + x1, y)
 end
 
 
@@ -558,16 +558,20 @@ function DocView:draw_overlay()
     local minline, maxline = self:get_visible_line_range()
     -- draw caret if it overlaps this line
     local T = config.blink_period
-    for idx, line1, col1, line2, col2 in self.doc:get_selections() do
+    for _, line1, col1, line2, col2 in self.doc:get_selections() do
       if line1 >= minline and line1 <= maxline
       and system.window_has_focus() then
         if ime.editing then
-          self:draw_ime_decoration(idx)
+          self:draw_ime_decoration(line1, col1, line2, col2)
         else
           if config.disable_blink
           or (core.blink_timer - core.blink_start) % T < T / 2 then
             local x, y = self:get_line_screen_position(line1, col1)
-            self:draw_caret(x, y, idx)
+            if self.doc.overwrite then
+              self:draw_overwrite_caret(x, y, self:get_font():get_width(self.doc:get_char(line1, col1)))
+            else
+              self:draw_caret(x, y)
+            end
           end
         end
       end
