@@ -319,6 +319,19 @@ function StatusView:register_docview_items()
     end,
     command = "doc:toggle-line-ending"
   })
+
+  self:add_item {
+    predicate = predicate_docview,
+    name = "doc:overwrite-mode",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
+      return {
+        style.text, core.active_view.doc.overwrite and "OVR" or "INS"
+      }
+    end,
+    command = "doc:toggle-overwrite",
+    separator = StatusView.separator2
+  }
 end
 
 
