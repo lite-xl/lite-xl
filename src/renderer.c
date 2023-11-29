@@ -348,10 +348,11 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
-double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len) {
+double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, int *x_offset) {
   double width = 0;
   const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
+  bool set_x_offset = x_offset == NULL;
   while (text < end) {
     unsigned int codepoint;
     text = utf8_to_codepoint(text, &codepoint);
@@ -359,8 +360,15 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
     if (!metric)
       break;
     width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
+    if (!set_x_offset) {
+      set_x_offset = true;
+      *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
+    }
   }
   const int surface_scale = renwin_get_surface(window_renderer).scale;
+  if (!set_x_offset) {
+    *x_offset = 0;
+  }
   return width / surface_scale;
 }
 
