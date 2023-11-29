@@ -16,14 +16,14 @@ local syntax = require "core.syntax"
 --
 -- \[(?:[^\\\]++]|\\.)*+\] will match character classes.
 --
--- /[gmiyuvsd]*\s*[\n,;\)\]\}]) will match the end of pattern delimiter, optionally
---                              followed by pattern options, and anything that can
---                              be after a pattern.
+-- /[gmiyuvsd]*\s*[\n,;\)\]\}\.]) will match the end of pattern delimiter, optionally
+--                                followed by pattern options, and anything that can
+--                                be after a pattern.
 --
 -- Demo with some unit tests (click on the Unit Tests entry): https://regex101.com/r/R0w8Qw/1
 -- Note that it has a couple of changes to make it work on that platform.
 local regex_pattern = {
-  [=[/(?=(?!/)(?:(?>[^\\[\/]++|\\.|\[(?:[^\\\]]++|\\.)*+\])*+)++/[gmiyuvsd]*\s*[\n,;\)\]\}])()]=],
+  [=[/(?=(?!/)(?:(?>[^\\[\/]++|\\.|\[(?:[^\\\]]++|\\.)*+\])*+)++/[gmiyuvsd]*\s*[\n,;\)\]\}\.])()]=],
   "/()[gmiyuvsd]*", "\\"
 }
 
