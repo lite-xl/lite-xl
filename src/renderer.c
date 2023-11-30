@@ -16,6 +16,7 @@
 
 #include "renderer.h"
 #include "renwindow.h"
+#include "log.h"
 
 #define MAX_UNICODE 0x100000
 #define GLYPHSET_SIZE 256
@@ -28,13 +29,19 @@ static FT_Library library;
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
 static SDL_Surface *draw_rect_surface;
 
-static void* check_alloc(void *ptr) {
+static void* _check_alloc(void *ptr, const char *filename) {
   if (!ptr) {
-    fprintf(stderr, "Fatal error: memory allocation failed\n");
+    lxl_log_critical("%s: cannot allocate memory", filename);
     exit(EXIT_FAILURE);
   }
   return ptr;
 }
+
+#define S1(x) #x
+#define S2(x) S1(x)
+#define LOCATION __FILE__ ":" S2(__LINE__)
+
+#define check_alloc(ptr) _check_alloc(ptr, LOCATION)
 
 /************************* Fonts *************************/
 
@@ -512,9 +519,9 @@ void ren_free_window_resources(RenWindow *window_renderer) {
 // TODO remove global and return RenWindow*
 void ren_init(SDL_Window *win) {
   assert(win);
-  int error = FT_Init_FreeType( &library );
-  if ( error ) {
-    fprintf(stderr, "internal font error when starting the application\n");
+  int error = FT_Init_FreeType(&library);
+  if (error && FT_Error_String(error)) {
+    lxl_log_critical("cannot initialize FreeType: %s", FT_Error_String(error));
     return;
   }
   window_renderer.window = win;

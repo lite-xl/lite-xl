@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "renwindow.h"
+#include "log.h"
 
 #ifdef LITE_USE_SDL_RENDERER
 static int query_surface_scale(RenWindow *ren) {
@@ -39,8 +40,8 @@ void renwin_init_surface(RenWindow *ren) {
   SDL_GL_GetDrawableSize(ren->window, &w, &h);
   ren->rensurface.surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_BGRA32);
   if (!ren->rensurface.surface) {
-    fprintf(stderr, "Error creating surface: %s", SDL_GetError());
-    exit(1);
+    lxl_log_critical("cannot create surface: %s", SDL_GetError());
+    exit(EXIT_FAILURE);
   }
   setup_renderer(ren, w, h);
 #endif
@@ -76,8 +77,8 @@ RenSurface renwin_get_surface(RenWindow *ren) {
 #else
   SDL_Surface *surface = SDL_GetWindowSurface(ren->window);
   if (!surface) {
-    fprintf(stderr, "Error getting window surface: %s", SDL_GetError());
-    exit(1);
+    lxl_log_critical("cannot get window surface: %s", SDL_GetError());
+    exit(EXIT_FAILURE);
   }
   return (RenSurface){.surface = surface, .scale = 1};
 #endif

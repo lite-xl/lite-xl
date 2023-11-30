@@ -18,6 +18,7 @@
 #include <lauxlib.h>
 #include "rencache.h"
 #include "renwindow.h"
+#include "log.h"
 
 /* a cache over the software renderer -- all drawing operations are stored as
 ** commands when issued. At the end of the frame we write the commands to a grid
@@ -139,8 +140,9 @@ static void* push_command(RenWindow *window_renderer, enum CommandType type, int
   int n = window_renderer->command_buf_idx + size;
   while (n > window_renderer->command_buf_size) {
     if (!expand_command_buffer(window_renderer)) {
-      fprintf(stderr, "Warning: (" __FILE__ "): unable to resize command buffer (%zu)\n",
-              (size_t)(window_renderer->command_buf_size * CMD_BUF_RESIZE_RATE));
+      lxl_log_warn("cannot resize command buffer from (%zu) to (%zu)",
+                    (size_t) window_renderer->command_buf_size,
+                    (size_t)(window_renderer->command_buf_size * CMD_BUF_RESIZE_RATE));
       resize_issue = true;
       return NULL;
     }
