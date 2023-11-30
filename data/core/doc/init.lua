@@ -28,6 +28,9 @@ function Doc:new(filename, abs_filename, new_file)
       self:load(filename)
     end
   end
+  if new_file then
+    self.crlf = config.line_endings == "crlf"
+  end
 end
 
 function Doc:reset()
