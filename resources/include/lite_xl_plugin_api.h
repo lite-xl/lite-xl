@@ -31,9 +31,14 @@
  * An example command would be: gcc -shared -o xxxxx.so xxxxx.c
  * You must not link to ANY lua library to avoid symbol collision.
  * 
- * This file contains stock configuration for a typical installation of Lua 5.4.
+ * This file contains stock configuration for a typical installation of Lua 5.4.6.
  * DO NOT MODIFY ANYTHING. MODIFYING STUFFS IN HERE WILL BREAK
  * COMPATIBILITY WITH LITE XL AND CAUSE UNDEBUGGABLE BUGS.
+ * 
+ * For reference, here are a list of permalinks to previous version of this file that targets an older version of Lua.
+ * If you don't need functionalities offered by the new version, use the OLDEST FILE for backwards compatibility.
+ * 
+ * - Lua 5.4.4: https://github.com/lite-xl/lite-xl/blob/397973067f14420b26e3b20a238a50016c0b75e2/resources/include/lite_xl_plugin_api.h
 **/
 #ifndef LITE_XL_PLUGIN_API
 #define LITE_XL_PLUGIN_API
@@ -1028,6 +1033,7 @@ extern const char lua_ident[];
 SYMBOL_DECLARE(lua_State *, lua_newstate, lua_Alloc f, void *ud)
 SYMBOL_DECLARE(void,        lua_close, lua_State *L)
 SYMBOL_DECLARE(lua_State *, lua_newthread, lua_State *L)
+SYMBOL_DECLARE(int,         lua_closethread, lua_State *L, lua_State *from)
 SYMBOL_DECLARE(int,         lua_resetthread, lua_State *L)
 
 SYMBOL_DECLARE(lua_CFunction, lua_atpanic, lua_State *L, lua_CFunction panicf)
@@ -1739,6 +1745,9 @@ SYMBOL_WRAP_DECL(void, lua_close, lua_State *L) {
 SYMBOL_WRAP_DECL(lua_State *, lua_newthread, lua_State *L) {
   return SYMBOL_WRAP_CALL(lua_newthread, L);
 }
+SYMBOL_WRAP_DECL(int, lua_closethread, lua_State *L, lua_State *from) {
+  return SYMBOL_WRAP_CALL(lua_closethread, L, from);
+}
 SYMBOL_WRAP_DECL(int, lua_resetthread, lua_State *L) {
   return SYMBOL_WRAP_CALL(lua_resetthread, L);
 }
@@ -2351,6 +2360,7 @@ void lite_xl_plugin_init(void *XL) {
   IMPORT_SYMBOL(lua_newstate, lua_State *, lua_Alloc f, void *ud);
   IMPORT_SYMBOL(lua_close, void, lua_State *L);
   IMPORT_SYMBOL(lua_newthread, lua_State *, lua_State *L);
+  IMPORT_SYMBOL(lua_closethread, int, lua_State *L, lua_State *from);
   IMPORT_SYMBOL(lua_resetthread, int, lua_State *L);
   IMPORT_SYMBOL(lua_atpanic, lua_CFunction, lua_State *L, lua_CFunction panicf);
   IMPORT_SYMBOL(lua_version, lua_Number, lua_State *L);

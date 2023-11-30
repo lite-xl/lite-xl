@@ -101,7 +101,7 @@ if not get_option('source-only')
         endforeach
     else
         lua_dep = dependency('', fallback: ['lua', 'lua_dep'], required : true,
-            default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
+            default_options: default_fallback_options + ['default_library=static', 'line_editing=disabled', 'interpreter=false']
         )
     endif
 
