@@ -204,7 +204,7 @@ jobs:
         run: |
           "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
           "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
-          "LUA_SUBPROJECT_PATH=subprojects/lua-5.4.4" >> $env:GITHUB_ENV
+          "LUA_SUBPROJECT_PATH=subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)" >> $env:GITHUB_ENV
       - name: Download and patch subprojects
         shell: bash
         run: |
