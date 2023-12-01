@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.1] - TBA
+## [2.1.2] - TBA
 
 This release addresses some issues present in the previous release.
 
