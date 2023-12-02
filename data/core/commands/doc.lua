@@ -43,7 +43,7 @@ local function save(filename)
     core.log("Saved \"%s\"", saved_filename)
   else
     core.error(err)
-    core.nag_view:show("Saving failed", string.format("Could not save \"%s\" do you want to save to another location?", doc().filename), {
+    core.nag_view:show("Saving failed", string.format("Couldn't save file \"%s\". Do you want to save to another location?", doc().filename), {
       { text = "No", default_no = true },
       { text = "Yes", default_yes = true }
     }, function(item)
