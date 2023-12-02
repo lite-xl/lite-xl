@@ -4,16 +4,13 @@ Various scripts and configurations used to configure, build, and package Lite XL
 
 ### Build
 
-- **build.sh**
-- **build-packages.sh**: In root directory, as all in one script; relies to the
-  ones in this directory.
+- **build.sh**:             Runs meson in a standard way across platforms.
 
 ### Package
 
-- **appdmg.sh**:    Create a macOS DMG image using [dmgbuild][1].
-- **appimage.sh**:  [AppImage][2] builder.
-- **innosetup.sh**: Creates a 32/64 bit [InnoSetup][3] installer package.
-- **package.sh**:   Creates all binary / DMG image / installer / source packages.
+- **package-appdmg.sh**:    Create a macOS DMG image using [dmgbuild][1].
+- **package-appimage.sh**:  [AppImage][2] builder.
+- **package-innosetup.sh**: Creates a 32/64 bit [InnoSetup][3] installer package.
 
 ### Utility
 
