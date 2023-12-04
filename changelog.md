@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.1] - TBA
+## [2.1.2] - TBA
 
 This release addresses some issues present in the previous release.
 
@@ -72,16 +72,15 @@ This release addresses some issues present in the previous release.
   ([#1335](https://github.com/lite-xl/lite-xl/pull/1335))
 
 * The native plugin API header now follows the Lua 5.4 API.
-  Previously, the plugin API header follows the Lua 5.2 API.
+  Previously, the plugin API header followed the Lua 5.2 API.
   ([#1436](https://github.com/lite-xl/lite-xl/pull/1436))
 
-* On Linux, `process.start()` will now throw an error if `execv()`` fails.
-  Previously, the function will return a valid Process object and the error message
-  can be obtained by reading the standard output.
+* On Linux, `process.start()` will now throw an error if `execv()` fails.
   ([#1363](https://github.com/lite-xl/lite-xl/pull/1363))
 
 * Lite XL will use the default `SCALE` of 1 due to unreliable display
   scale detection. This may be fixed in a later version of Lite XL.
+  Set the `LITE_SCALE` environment variable to override this value.
 
 ### Fixes
 
@@ -119,7 +118,7 @@ This release addresses some issues present in the previous release.
 * Fix msys build now requiring ca-certificates
   ([#1348](https://github.com/lite-xl/lite-xl/pull/1348))
 
-* Fix path to macOS arm64 cross file in GItHub workflows
+* Fix path to macOS arm64 cross file in GitHub workflows
 
 * Fix Doc contextmenu not registering commands if scale plugin is not found
   ([#1338](https://github.com/lite-xl/lite-xl/pull/1338))
@@ -154,7 +153,7 @@ This release addresses some issues present in the previous release.
 * Add asynchronous process reaping
   ([#1412](https://github.com/lite-xl/lite-xl/pull/1412))
 
-* fix cursors positions when deleting multiple selections
+* Fix cursors positions when deleting multiple selections
   ([#1393](https://github.com/lite-xl/lite-xl/pull/1393),
    [#1463](https://github.com/lite-xl/lite-xl/pull/1463))
 
@@ -257,13 +256,14 @@ This release addresses some issues present in the previous release.
 * Fix deleting indentation with multiple cursors
   ([#1670](https://github.com/lite-xl/lite-xl/pull/1670))
 
-* Fix `set_target_size`` passing the wrong value to plugins
+* Fix `set_target_size` passing the wrong value to plugins
   ([#1657](https://github.com/lite-xl/lite-xl/pull/1657))
 
 * Limit `system.{sleep,wait_event}` to `timeouts >= 0`
   ([#1666](https://github.com/lite-xl/lite-xl/pull/1666))
 
 * Fix running core.step when receiving an event while not waiting
+  ([#1667](https://github.com/lite-xl/lite-xl/pull/1667))
 
 * Fix dirmonitor sorting issues
   ([#1599](https://github.com/lite-xl/lite-xl/pull/1599))
@@ -294,6 +294,8 @@ This release addresses some issues present in the previous release.
 
 * Allow long commands and envs on process_start
   ([#1477](https://github.com/lite-xl/lite-xl/pull/1477)) 
+
+* Fix typo in `drawwhitespace.lua`
 
 ### Other Changes
 
