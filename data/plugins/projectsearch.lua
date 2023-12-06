@@ -111,8 +111,8 @@ function ResultsView:open_selected_result()
   core.try(function()
     local dv = core.root_view:open_doc(core.open_doc(res.file))
     core.root_view.root_node:update_layout()
-    dv.doc:set_selection(res.line, res.col)
-    dv:scroll_to_line(res.line, false, true)
+    dv:set_selection(res.line, res.col)
+    dv:scroll_to_line(res.line, false, true, res.col)
   end)
   return true
 end
