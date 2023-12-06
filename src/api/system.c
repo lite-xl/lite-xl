@@ -74,7 +74,7 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
   const int controls_width = hit_info->controls_width;
   int w, h;
 
-  SDL_GetWindowSize(window_renderer.window, &w, &h);
+  SDL_GetWindowSize(window_renderer->window, &w, &h);
 
   if (pt->y < hit_info->title_height &&
     #if RESIZE_FROM_TOP
@@ -186,7 +186,7 @@ top:
 
     case SDL_WINDOWEVENT:
       if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
-        ren_resize_window(&window_renderer);
+        ren_resize_window(window_renderer);
         lua_pushstring(L, "resized");
         /* The size below will be in points. */
         lua_pushinteger(L, e.window.data1);
@@ -225,8 +225,8 @@ top:
       SDL_GetMouseState(&mx, &my);
       lua_pushstring(L, "filedropped");
       lua_pushstring(L, e.drop.file);
-      lua_pushinteger(L, mx * window_renderer.scale_x);
-      lua_pushinteger(L, my * window_renderer.scale_y);
+      lua_pushinteger(L, mx * window_renderer->scale_x);
+      lua_pushinteger(L, my * window_renderer->scale_y);
       SDL_free(e.drop.file);
       return 4;
 
@@ -283,8 +283,8 @@ top:
       if (e.button.button == 1) { SDL_CaptureMouse(1); }
       lua_pushstring(L, "mousepressed");
       lua_pushstring(L, button_name(e.button.button));
-      lua_pushinteger(L, e.button.x * window_renderer.scale_x);
-      lua_pushinteger(L, e.button.y * window_renderer.scale_y);
+      lua_pushinteger(L, e.button.x * window_renderer->scale_x);
+      lua_pushinteger(L, e.button.y * window_renderer->scale_y);
       lua_pushinteger(L, e.button.clicks);
       return 5;
 
@@ -292,8 +292,8 @@ top:
       if (e.button.button == 1) { SDL_CaptureMouse(0); }
       lua_pushstring(L, "mousereleased");
       lua_pushstring(L, button_name(e.button.button));
-      lua_pushinteger(L, e.button.x * window_renderer.scale_x);
-      lua_pushinteger(L, e.button.y * window_renderer.scale_y);
+      lua_pushinteger(L, e.button.x * window_renderer->scale_x);
+      lua_pushinteger(L, e.button.y * window_renderer->scale_y);
       return 4;
 
     case SDL_MOUSEMOTION:
@@ -305,10 +305,10 @@ top:
         e.motion.yrel += event_plus.motion.yrel;
       }
       lua_pushstring(L, "mousemoved");
-      lua_pushinteger(L, e.motion.x * window_renderer.scale_x);
-      lua_pushinteger(L, e.motion.y * window_renderer.scale_y);
-      lua_pushinteger(L, e.motion.xrel * window_renderer.scale_x);
-      lua_pushinteger(L, e.motion.yrel * window_renderer.scale_y);
+      lua_pushinteger(L, e.motion.x * window_renderer->scale_x);
+      lua_pushinteger(L, e.motion.y * window_renderer->scale_y);
+      lua_pushinteger(L, e.motion.xrel * window_renderer->scale_x);
+      lua_pushinteger(L, e.motion.yrel * window_renderer->scale_y);
       return 5;
 
     case SDL_MOUSEWHEEL:
@@ -324,7 +324,7 @@ top:
       return 3;
 
       case SDL_FINGERDOWN:
-      SDL_GetWindowSize(window_renderer.window, &w, &h);
+      SDL_GetWindowSize(window_renderer->window, &w, &h);
 
       lua_pushstring(L, "touchpressed");
       lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
@@ -333,7 +333,7 @@ top:
       return 4;
 
     case SDL_FINGERUP:
-      SDL_GetWindowSize(window_renderer.window, &w, &h);
+      SDL_GetWindowSize(window_renderer->window, &w, &h);
 
       lua_pushstring(L, "touchreleased");
       lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
@@ -349,7 +349,7 @@ top:
         e.tfinger.dx += event_plus.tfinger.dx;
         e.tfinger.dy += event_plus.tfinger.dy;
       }
-      SDL_GetWindowSize(window_renderer.window, &w, &h);
+      SDL_GetWindowSize(window_renderer->window, &w, &h);
 
       lua_pushstring(L, "touchmoved");
       lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
@@ -363,7 +363,7 @@ top:
       #ifdef LITE_USE_SDL_RENDERER
         rencache_invalidate();
       #else
-        SDL_UpdateWindowSurface(window_renderer.window);
+        SDL_UpdateWindowSurface(window_renderer->window);
       #endif
       lua_pushstring(L, e.type == SDL_APP_WILLENTERFOREGROUND ? "enteringforeground" : "enteredforeground");
       return 1;
@@ -429,7 +429,7 @@ static int f_set_cursor(lua_State *L) {
 
 static int f_set_window_title(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
-  SDL_SetWindowTitle(window_renderer.window, title);
+  SDL_SetWindowTitle(window_renderer->window, title);
   return 0;
 }
 
@@ -439,39 +439,39 @@ enum { WIN_NORMAL, WIN_MINIMIZED, WIN_MAXIMIZED, WIN_FULLSCREEN };
 
 static int f_set_window_mode(lua_State *L) {
   int n = luaL_checkoption(L, 1, "normal", window_opts);
-  SDL_SetWindowFullscreen(window_renderer.window,
+  SDL_SetWindowFullscreen(window_renderer->window,
     n == WIN_FULLSCREEN ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-  if (n == WIN_NORMAL) { SDL_RestoreWindow(window_renderer.window); }
-  if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window_renderer.window); }
-  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window_renderer.window); }
+  if (n == WIN_NORMAL) { SDL_RestoreWindow(window_renderer->window); }
+  if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window_renderer->window); }
+  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window_renderer->window); }
   return 0;
 }
 
 
 static int f_set_window_bordered(lua_State *L) {
   int bordered = lua_toboolean(L, 1);
-  SDL_SetWindowBordered(window_renderer.window, bordered);
+  SDL_SetWindowBordered(window_renderer->window, bordered);
   return 0;
 }
 
 
 static int f_set_window_hit_test(lua_State *L) {
   if (lua_gettop(L) == 0) {
-    SDL_SetWindowHitTest(window_renderer.window, NULL, NULL);
+    SDL_SetWindowHitTest(window_renderer->window, NULL, NULL);
     return 0;
   }
   window_hit_info->title_height = luaL_checknumber(L, 1);
   window_hit_info->controls_width = luaL_checknumber(L, 2);
   window_hit_info->resize_border = luaL_checknumber(L, 3);
-  SDL_SetWindowHitTest(window_renderer.window, hit_test, window_hit_info);
+  SDL_SetWindowHitTest(window_renderer->window, hit_test, window_hit_info);
   return 0;
 }
 
 
 static int f_get_window_size(lua_State *L) {
   int x, y, w, h;
-  SDL_GetWindowSize(window_renderer.window, &w, &h);
-  SDL_GetWindowPosition(window_renderer.window, &x, &y);
+  SDL_GetWindowSize(window_renderer->window, &w, &h);
+  SDL_GetWindowPosition(window_renderer->window, &x, &y);
   lua_pushinteger(L, w);
   lua_pushinteger(L, h);
   lua_pushinteger(L, x);
@@ -485,22 +485,22 @@ static int f_set_window_size(lua_State *L) {
   double h = luaL_checknumber(L, 2);
   double x = luaL_checknumber(L, 3);
   double y = luaL_checknumber(L, 4);
-  SDL_SetWindowSize(window_renderer.window, w, h);
-  SDL_SetWindowPosition(window_renderer.window, x, y);
-  ren_resize_window(&window_renderer);
+  SDL_SetWindowSize(window_renderer->window, w, h);
+  SDL_SetWindowPosition(window_renderer->window, x, y);
+  ren_resize_window(window_renderer);
   return 0;
 }
 
 
 static int f_window_has_focus(lua_State *L) {
-  unsigned flags = SDL_GetWindowFlags(window_renderer.window);
+  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
   lua_pushboolean(L, flags & SDL_WINDOW_INPUT_FOCUS);
   return 1;
 }
 
 
 static int f_get_window_mode(lua_State *L) {
-  unsigned flags = SDL_GetWindowFlags(window_renderer.window);
+  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
   if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
     lua_pushstring(L, "fullscreen");
   } else if (flags & SDL_WINDOW_MINIMIZED) {
@@ -538,8 +538,8 @@ static int f_raise_window(lua_State *L) {
     to allow the window to be focused. Also on wayland the raise window event
     may not always be obeyed.
   */
-  SDL_SetWindowInputFocus(window_renderer.window);
-  SDL_RaiseWindow(window_renderer.window);
+  SDL_SetWindowInputFocus(window_renderer->window);
+  SDL_RaiseWindow(window_renderer->window);
   return 0;
 }
 
@@ -916,7 +916,7 @@ static int f_fuzzy_match(lua_State *L) {
 
 static int f_set_window_opacity(lua_State *L) {
   double n = luaL_checknumber(L, 1);
-  int r = SDL_SetWindowOpacity(window_renderer.window, n);
+  int r = SDL_SetWindowOpacity(window_renderer->window, n);
   lua_pushboolean(L, r > -1);
   return 1;
 }

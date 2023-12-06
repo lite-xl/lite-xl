@@ -22,7 +22,7 @@
 #define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / GLYPHSET_SIZE)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
-RenWindow window_renderer = {0};
+RenWindow* window_renderer = NULL;
 static FT_Library library;
 
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
@@ -501,30 +501,34 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 }
 
 /*************** Window Management ****************/
-void ren_free_window_resources(RenWindow *window_renderer) {
+RenWindow* ren_init(SDL_Window *win) {
+  assert(win);
+  int error = FT_Init_FreeType( &library );
+  if ( error ) {
+    fprintf(stderr, "internal font error when starting the application\n");
+    return NULL;
+  }
+  RenWindow* window_renderer = malloc(sizeof(RenWindow));
+
+  window_renderer->window = win;
+  renwin_init_surface(window_renderer);
+  renwin_init_command_buf(window_renderer);
+  renwin_clip_to_surface(window_renderer);
+  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
+                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+
+  return window_renderer;
+}
+
+void ren_free(RenWindow* window_renderer) {
+  assert(window_renderer);
   renwin_free(window_renderer);
   SDL_FreeSurface(draw_rect_surface);
   free(window_renderer->command_buf);
   window_renderer->command_buf = NULL;
   window_renderer->command_buf_size = 0;
+  free(window_renderer);
 }
-
-// TODO remove global and return RenWindow*
-void ren_init(SDL_Window *win) {
-  assert(win);
-  int error = FT_Init_FreeType( &library );
-  if ( error ) {
-    fprintf(stderr, "internal font error when starting the application\n");
-    return;
-  }
-  window_renderer.window = win;
-  renwin_init_surface(&window_renderer);
-  renwin_init_command_buf(&window_renderer);
-  renwin_clip_to_surface(&window_renderer);
-  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
-                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
-}
-
 
 void ren_resize_window(RenWindow *window_renderer) {
   renwin_resize_surface(window_renderer);

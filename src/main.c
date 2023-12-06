@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
     exit(1);
   }
-  ren_init(window);
+  window_renderer = ren_init(window);
 
   lua_State *L;
 init_lua:
@@ -264,7 +264,7 @@ init_lua:
 
   // This allows the window to be destroyed before lite-xl is done with
   // reaping child processes
-  ren_free_window_resources(&window_renderer);
+  ren_free(window_renderer);
   lua_close(L);
 
   return EXIT_SUCCESS;
