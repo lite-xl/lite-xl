@@ -501,15 +501,6 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 }
 
 /*************** Window Management ****************/
-void ren_free_window_resources(RenWindow *window_renderer) {
-  renwin_free(window_renderer);
-  SDL_FreeSurface(draw_rect_surface);
-  free(window_renderer->command_buf);
-  window_renderer->command_buf = NULL;
-  window_renderer->command_buf_size = 0;
-}
-
-// TODO remove global and return RenWindow*
 RenWindow* ren_init(SDL_Window *win) {
   assert(win);
   int error = FT_Init_FreeType( &library );
