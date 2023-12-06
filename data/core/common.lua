@@ -721,5 +721,12 @@ function common.rm(path, recursively)
   return true
 end
 
+function common.sort_positions(line1, col1, line2, col2)
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1, true
+  end
+  return line1, col1, line2, col2, false
+end
+
 
 return common
