@@ -9,7 +9,7 @@ on:
     inputs:
       version:
         description: Release Version
-        default: v2.1.1
+        default: v2.1.2
         required: true
 
 jobs:
