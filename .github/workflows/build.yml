@@ -173,7 +173,7 @@ jobs:
     - name: Build
       run: |
         bash --version
-        bash scripts/build.sh -U --debug --forcefallback
+        bash scripts/build.sh -U --debug --forcefallback --unity
     - name: Package
       run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
     - name: Upload Artifacts
@@ -212,7 +212,7 @@ jobs:
           cat resources/windows/001-lua-unicode.diff | patch -Np1 -d "$LUA_SUBPROJECT_PATH"
       - name: Configure
         run: |
-          meson setup --wrap-mode=forcefallback build
+          meson setup --wrap-mode=forcefallback build --unity=subprojects
       - name: Build
         run: |
           meson install -C build --destdir="../lite-xl"

@@ -25,6 +25,7 @@ show_help() {
   echo "-U --windows-lua-utf          Use the UTF8 patch for Lua."
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
+  echo "-Y --unity                    EXPERIMENTAL: Unity build mode."
   echo "-r --release                  Compile in release mode."
   echo "   --cross-platform PLATFORM  Cross compile for this platform."
   echo "                              The script will find the appropriate"
@@ -47,6 +48,7 @@ main() {
   local portable
   local pgo
   local patch_lua
+  local unity
   local cross
   local cross_platform
   local cross_arch
@@ -96,6 +98,10 @@ main() {
         ;;
       -U|--windows-lua-utf)
         patch_lua="true"
+        shift
+        ;;
+      -Y|--unity)
+        unity="--unity=subprojects"
         shift
         ;;
       --cross-arch)
@@ -195,6 +201,7 @@ main() {
     $bundle \
     $portable \
     $pgo \
+    $unity \
     "${build_dir}"
 
   meson compile -C "${build_dir}"
