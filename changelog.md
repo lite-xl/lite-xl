@@ -271,10 +271,10 @@ This release addresses some issues present in the previous release.
 * Scale mouse coordinates by window scale
   ([#1630](https://github.com/lite-xl/lite-xl/pull/1630))
 
-* Made coroutines make more sense, and fixed a bug.
+* Made coroutines make more sense, and fixed a bug
   ([#1381](https://github.com/lite-xl/lite-xl/pull/1381))
 
-* Fix selecting newlines with `find-replace:select-add-{next,all}``
+* Fix selecting newlines with `find-replace:select-add-{next,all}`
   ([#1608](https://github.com/lite-xl/lite-xl/pull/1608))
 
 * Fix editing after undo not clearing the change id
