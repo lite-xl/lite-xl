@@ -297,6 +297,11 @@ This release addresses some issues present in the previous release.
 
 * Fix typo in `drawwhitespace.lua`
 
+* Fix NagBar save failed message
+  ([#1678](https://github.com/lite-xl/lite-xl/pull/1678))
+
+* Fixed typo in `drawwhitespace.lua`
+
 ### Other Changes
 
 * Make api_require's nodes const
