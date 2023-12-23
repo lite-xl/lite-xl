@@ -230,7 +230,7 @@ This release addresses some issues present in the previous release.
 
 * Fix returned percent when clicking the Scrollbar track
 
-* Fixed C++14 digit separators
+* Fix C++14 digit separators
   ([#1593](https://github.com/lite-xl/lite-xl/pull/1593))
 
 * Make linewrapping consider the expanded Scrollbar size
@@ -300,7 +300,10 @@ This release addresses some issues present in the previous release.
 * Fix NagBar save failed message
   ([#1678](https://github.com/lite-xl/lite-xl/pull/1678))
 
-* Fixed typo in `drawwhitespace.lua`
+* Fix typo in `drawwhitespace.lua`
+
+* Add autocompletion to multicursor
+  ([#1394](https://github.com/lite-xl/lite-xl/pull/1394))
 
 ### Other Changes
 
@@ -332,7 +335,7 @@ This release addresses some issues present in the previous release.
 * Get rid of annoying forward slash on windows
   ([#1345](https://github.com/lite-xl/lite-xl/pull/1345))
 
-* Improved plugins config table handling
+* Improve plugins config table handling
   ([#1356](https://github.com/lite-xl/lite-xl/pull/1356))
 
 * Add manifest on Windows
@@ -393,7 +396,7 @@ This release addresses some issues present in the previous release.
 * Update the *Installing prebuild* section in README.md
   ([#1548](https://github.com/lite-xl/lite-xl/pull/1548))
 
-* Updated README.md to remove previously installed files
+* Update README.md to remove previously installed files
   prior to installing a new version
 
 * Use lite-xl Build Box to build releases
