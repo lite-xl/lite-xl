@@ -238,7 +238,6 @@ jobs:
           Invoke-WebRequest -OutFile curl.zip -URI "https://curl.se/windows/latest.cgi?p=win64-mingw.zip"
           7z e infozip.zip "-o$env:USERPROFILE/.local/bin" zip.exe unzip.exe
           7z e curl.zip "-o$env:USERPROFILE/.local/bin" -r curl.exe
-          Get-ChildItem ~/.local/bin
   
       - name: Build
         run: |

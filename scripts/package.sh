@@ -78,6 +78,7 @@ main() {
   local cross
   local cross_arch
   local cross_platform
+  local variant="$(get_platform_variant)"
 
   # store the current flags to easily pass them to appimage script
   local flags="$@"
@@ -176,6 +177,8 @@ main() {
 
   if [[ -n $1 ]]; then show_help; exit 1; fi
 
+  if [[ -n $variant ]]; then variant="-$variant"; fi
+
   if [[ -n "$cross" ]]; then
     platform="${cross_platform:-$platform}"
     arch="${cross_arch:-$arch}"
@@ -201,7 +204,7 @@ main() {
   local data_dir="$(pwd)/${dest_dir}/data"
   local exe_file="$(pwd)/${dest_dir}/lite-xl"
 
-  local package_name=lite-xl$version-$platform-$arch
+  local package_name=lite-xl$version-$platform$variant-$arch
   local bundle=false
   local portable=false
   local stripcmd="strip"

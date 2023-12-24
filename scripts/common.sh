@@ -73,11 +73,21 @@ get_platform_name() {
   fi
 }
 
+get_platform_variant() {
+  if [[ -n $VSCMD_VER ]]; then
+    echo "msvc"
+  elif [[ -n $MSYSTEM ]]; then
+    # for backward compatibility purposes, this is not used
+    # echo "mingw"
+    :
+  fi
+}
+
 get_platform_arch() {
   platform=$(get_platform_name)
   arch=${CROSS_ARCH:-$(uname -m)}
   if [[ -n $MSYSTEM ]] || [[ -n $VSCMD_VER ]]; then
-    case ${VSCMD_VER:-$MSYSTEM} in
+    case ${VSCMD_ARG_TGT_ARCH:-$MSYSTEM} in
       MINGW64|UCRT64|CLANG64|amd64|x64)
         arch=x86_64
         ;;
