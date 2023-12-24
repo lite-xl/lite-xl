@@ -216,11 +216,15 @@ main() {
       # Copy MinGW libraries dependencies.
       # MSYS2 ldd command seems to be only 64bit, so use ntldd
       # see https://github.com/msys2/MINGW-packages/issues/4164
-      ntldd -R "${exe_file}" \
-        | grep mingw \
-        | awk '{print $3}' \
-        | sed 's#\\#/#g' \
-        | xargs -I '{}' cp -v '{}' "$(pwd)/${dest_dir}/"
+      if command -v ntldd >/dev/null 2>&1; then
+        ntldd -R "${exe_file}" \
+          | grep mingw \
+          | awk '{print $3}' \
+          | sed 's#\\#/#g' \
+          | xargs -I '{}' cp -v '{}' "$(pwd)/${dest_dir}/"
+      else
+        echo "WARNING: ntldd not found, assuming program is fully static"
+      fi
     else
       # Windows archive is always portable
       package_name+="-portable"
