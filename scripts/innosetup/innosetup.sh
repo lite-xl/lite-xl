@@ -29,13 +29,8 @@ main() {
   local version
   local output
 
-  if [[ $MSYSTEM == "MINGW64" ]]; then
-    arch=x64
-    arch_file=x86_64
-  else
-    arch=i686;
-    arch_file=i686
-  fi
+  arch=$(get_platform_arch)
+  arch_file=$arch
 
   initial_arg_count=$#
 
