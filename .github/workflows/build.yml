@@ -190,36 +190,67 @@ jobs:
         arch:
           - { target: x86, name: i686 }
           - { target: x64, name: x86_64 }
+    defaults:
+      run:
+        shell: bash
     steps:
+      - name: Set up environment variables
+        run: |
+          echo "$(cygpath -w "$HOME/.local/bin")" >> "$GITHUB_PATH"
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-msvc-${{ matrix.arch.name }}" >> "$GITHUB_ENV"
+          echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+      
       - uses: actions/checkout@v3
+
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.arch.target }}
+
+      - name: Workaround MSVC link.exe issue with bash
+        run: mv /usr/bin/link /usr/bin/gnu_link
+
       - uses: actions/setup-python@v4
+        id: install-python
         with:
-          python-version: '3.x'
-      - name: Install meson and ninja
-        run: pip install meson ninja
-      - name: Set up environment variables
+          python-version: '3.11'
+
+      - name: Cache Poetry and other build tools
+        id: build-tools
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: build-tools-${{ runner.os }}-${{ steps.install-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install Poetry
+        if: steps.build-tools.outputs.cache-hit != 'true'
+        uses: snok/install-poetry@v1
+      
+      - name: Configure Poetry
+        run: poetry config virtualenvs.path ~/.local/virtualenvs
+      
+      - name: Install meson, ninja, curl, wget, zip, unzip
+        if: steps.build-tools.outputs.cache-hit != 'true'
+        shell: pwsh
         run: |
-          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
-          "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
-          "LUA_SUBPROJECT_PATH=subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)" >> $env:GITHUB_ENV
-      - name: Download and patch subprojects
-        shell: bash
-        run: |
-          meson subprojects download
-          cat resources/windows/001-lua-unicode.diff | patch -Np1 -d "$LUA_SUBPROJECT_PATH"
-      - name: Configure
-        run: |
-          meson setup --wrap-mode=forcefallback build
+          poetry -C scripts/ci install --no-interaction --no-root
+          Invoke-WebRequest -OutFile ~/.local/bin/wget.exe -URI "https://eternallybored.org/misc/wget/1.21.4/64/wget.exe"
+          Invoke-WebRequest -OutFile infozip.zip -URI "https://www.willus.com/archive/zip64/infozip_binaries_win64.zip"
+          Invoke-WebRequest -OutFile curl.zip -URI "https://curl.se/windows/latest.cgi?p=win64-mingw.zip"
+          7z e infozip.zip "-o$env:USERPROFILE/.local/bin" zip.exe unzip.exe
+          7z e curl.zip "-o$env:USERPROFILE/.local/bin" -r curl.exe
+          Get-ChildItem ~/.local/bin
+  
       - name: Build
         run: |
-          meson install -C build --destdir="../lite-xl"
+          bash --version
+          source "$(poetry -C scripts/ci env info --path)/Scripts/activate"
+          bash scripts/build.sh -U --debug --forcefallback
+
       - name: Package
         run: |
-          Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
-          Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
+          source "$(poetry -C scripts/ci env info --path)/Scripts/activate"
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
