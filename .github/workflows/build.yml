@@ -146,36 +146,68 @@ jobs:
         shell: msys2 {0}
     steps:
     - uses: actions/checkout@v3
+
     - uses: msys2/setup-msys2@v2
       with:
         msystem: ${{ matrix.config.msystem }}
+        release: false
         install: >-
-          base-devel
-          git
           zip
+          wget
+          curl
           mingw-w64-${{ matrix.config.arch }}-gcc
-          mingw-w64-${{ matrix.config.arch }}-meson
-          mingw-w64-${{ matrix.config.arch }}-ninja
-          mingw-w64-${{ matrix.config.arch }}-ca-certificates
           mingw-w64-${{ matrix.config.arch }}-ntldd
+
+    - name: Get Git path from runner
+      env:
+        MSYS2_PATH_TYPE: inherit # to get git path
+      run: echo "GIT_PATH=$(dirname "$(command -v git)")" >> "$GITHUB_ENV"
+
     - name: Set Environment Variables
       run: |
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-        if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
-        else
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
-        fi
+        echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
+        # workaround not being able to export paths to $GITHUB_PATH
+        echo 'export PATH="$PATH:$HOME/.local/bin:$(cygpath "$USERPROFILE/.local/bin"):$GIT_PATH"' >> ~/.bash_profile
+
+    - uses: actions/setup-python@v4
+      id: install-python
+      with:
+        python-version: '3.11'
+
+    - name: Cache Poetry and other build tools
+      id: build-tools
+      uses: actions/cache@v3
+      with:
+        path: ~/.local
+        key: build-tools-msys2-${{ runner.os }}-${{ steps.install-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+    - name: Install Poetry
+      if: steps.build-tools.outputs.cache-hit != 'true'
+      uses: snok/install-poetry@v1
+    
+    - name: Configure Poetry
+      run: poetry config virtualenvs.path "$(cygpath -w "$USERPROFILE/.local/virtualenvs")"
+
+    - name: Install meson, ninja, curl, wget, zip, unzip
+      if: steps.build-tools.outputs.cache-hit != 'true'
+      run: poetry -C scripts/ci install --no-interaction --no-root
+
     - name: Install Dependencies
       if: false
       run: bash scripts/install-dependencies.sh --debug
+
     - name: Build
       run: |
         bash --version
+        source "$(poetry -C scripts/ci env info --path)/Scripts/activate"
         bash scripts/build.sh -U --debug --forcefallback
+
     - name: Package
-      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
+      run: |
+        source "$(poetry -C scripts/ci env info --path)/Scripts/activate"
+        bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
+
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
