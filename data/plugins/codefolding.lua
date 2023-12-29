@@ -7,7 +7,6 @@ local DocView = require "core.docview"
 local Node = require "core.node"
 local common = require "core.common"
 
-local old_transform = DocView.transform
 
 function DocView:is_folded(doc_line)
   return self.folded[doc_line+1]
@@ -44,24 +43,25 @@ function DocView:compute_fold(doc_line)
   end
 end
 
+local old_transform = DocView.transform
 function DocView:transform(doc_line)
-  local results = old_transform(self, doc_line)
+  local tokens = old_transform(self, doc_line)
   self:compute_fold(doc_line)
   if self.folded[doc_line] then return {} end
   if self:is_foldable(doc_line) and self.folded[doc_line+1] then
     -- remove the newline from the end of the tokens
-    table.insert(results, "virtual")
-    table.insert(results, " ... ")
-    table.insert(results, false)
-    table.insert(results, false)
-    table.insert(results, { color = style.dim })
-    table.insert(results, "virtual")
-    table.insert(results, "}")
-    table.insert(results, false)
-    table.insert(results, false)
-    table.insert(results, {  })
+    table.insert(tokens, "virtual")
+    table.insert(tokens, " ... ")
+    table.insert(tokens, false)
+    table.insert(tokens, false)
+    table.insert(tokens, { color = style.dim })
+    table.insert(tokens, "virtual")
+    table.insert(tokens, "}")
+    table.insert(tokens, false)
+    table.insert(tokens, false)
+    table.insert(tokens, {  })
   end
-  return results
+  return tokens
 end
 
 function DocView:is_foldable(doc_line)
@@ -99,13 +99,15 @@ end
 local old_draw_line_gutter = DocView.draw_line_gutter
 function DocView:draw_line_gutter(line, x, y, width)
   local lh = old_draw_line_gutter(self, line, x, y, width)
-  local start = x + 4
+  local size = lh - 4
+  local startx = x + 4
+  local starty = y + (lh - size) / 2
   if self:is_foldable(line) then
-    renderer.draw_rect(start, y, lh, lh, style.accent)
-    renderer.draw_rect(start + 1, y + 1, lh - 2, lh - 2, self.hovering_foldable == line and style.dim or style.background)
-    common.draw_text(self:get_font(), style.accent, self:is_folded(line) and "+" or "-", "left", start + 6, y, width, lh)
+    renderer.draw_rect(startx, starty, size, size, style.accent)
+    renderer.draw_rect(startx + 1, starty + 1, size - 2, size - 2, self.hovering_foldable == line and style.dim or style.background)
+    common.draw_text(self:get_font(), style.accent, self:is_folded(line) and "+" or "-", "center", startx, starty, size, size)
   end
-  -- common.draw_text(self:get_font(), style.accent, self.foldable[line] or "nil", "left", start + 6, y, width, lh)
+  -- common.draw_text(self:get_font(), style.accent, self.foldable[line] or "nil", "center", startx, starty, size, size)
   return lh
 end
 

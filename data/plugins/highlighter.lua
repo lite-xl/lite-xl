@@ -1,3 +1,12 @@
+-- mod-version:3
+local core = require "core"
+local config = require "core.config"
+local style = require "core.style"
+local Doc = require "core.doc"
+local DocView = require "core.docview"
+local Node = require "core.node"
+local common = require "core.common"
+
 local core = require "core"
 local common = require "core.common"
 local config = require "core.config"
@@ -7,12 +16,12 @@ local Object = require "core.object"
 
 local Highlighter = Object:extend()
 
-
 function Highlighter:new(doc)
   self.doc = doc
   self.running = false
   self:reset()
 end
+
 
 -- init incremental syntax highlighting
 function Highlighter:start()
@@ -37,16 +46,12 @@ function Highlighter:start()
             goto yield
           end
         elseif retokenized_from then
-          self:update_notify(retokenized_from, i - retokenized_from - 1)
           retokenized_from = nil
         end
       end
 
-      self.first_invalid_line = max + 1
       ::yield::
-      if retokenized_from then
-        self:update_notify(retokenized_from, max - retokenized_from)
-      end
+      self.first_invalid_line = max + 1
       core.redraw = true
       coroutine.yield(0)
     end
@@ -68,6 +73,7 @@ function Highlighter:reset()
   self:soft_reset()
 end
 
+
 function Highlighter:soft_reset()
   for i=1,#self.lines do
     self.lines[i] = false
@@ -76,27 +82,10 @@ function Highlighter:soft_reset()
   self.max_wanted_line = 0
 end
 
+
 function Highlighter:invalidate(idx)
   self.first_invalid_line = math.min(self.first_invalid_line, idx)
   set_max_wanted_lines(self, math.min(self.max_wanted_line, #self.doc.lines))
-end
-
-function Highlighter:insert_notify(line, n)
-  self:invalidate(line)
-  local blanks = { }
-  for i = 1, n do
-    blanks[i] = false
-  end
-  common.splice(self.lines, line, 0, blanks)
-end
-
-function Highlighter:remove_notify(line, n)
-  self:invalidate(line)
-  common.splice(self.lines, line, n)
-end
-
-function Highlighter:update_notify(line, n)
-  -- plugins can hook here to be notified that lines have been retokenized
 end
 
 
@@ -115,16 +104,50 @@ function Highlighter:get_line(idx)
     local prev = self.lines[idx - 1]
     line = self:tokenize_line(idx, prev and prev.state)
     self.lines[idx] = line
-    self:update_notify(idx, 0)
   end
   set_max_wanted_lines(self, math.max(self.max_wanted_line, idx))
   return line
 end
 
 
-function Highlighter:each_token(idx)
-  return tokenizer.each_token(self:get_line(idx).tokens)
+local function get_tokens(highlighted_tokens, doc_line, start_offset, end_offset, token_style)
+  local tokens = {}
+  local offset = 1
+  for i = 1, #highlighted_tokens, 2 do
+    local type, text = highlighted_tokens[i], highlighted_tokens[i+1]
+    if offset <= end_offset and offset + #text >= start_offset then
+      table.insert(tokens, "doc")
+      table.insert(tokens, doc_line)
+      table.insert(tokens, math.max(start_offset, offset))
+      table.insert(tokens, math.min(end_offset, offset + #text - 1))
+      table.insert(tokens, common.merge(token_style, { color = style.syntax[type], font = style.syntax_fonts[type] }))
+    end
+    if offset > end_offset then break end
+    offset = offset + #text
+  end
+  return tokens
 end
 
+local old_transform = DocView.transform
+function DocView:transform(doc_line)
+  if not self.doc.highighter then self.doc.highlighter = Highlighter(self.doc) end
+
+  local tokens = old_transform(self, doc_line)
+  if #tokens == 0 then return tokens end
+  local highlighted_tokens = self.doc.highlighter:get_line(doc_line).tokens
+  -- Walk through all doc tokens, and then map them onto what we've tokenized.
+  local colorized = {}
+  local start_offset = 1
+  local start_highlighted = 1
+  for i = 1, #tokens, 5 do
+    if tokens[i] == "doc" then
+      local t = get_tokens(highlighted_tokens, tokens[i+1], tokens[i+2], tokens[i+3], tokens[i+4])
+      table.move(t, 1, #t, #colorized + 1, colorized)
+    else
+      table.move(tokens, i, i + 4, #colorized + 1, colorized)
+    end
+  end
+  return #colorized > 0 and colorized or { "doc", doc_line, 1, 0, {} }
+end
 
 return Highlighter

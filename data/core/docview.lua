@@ -492,7 +492,7 @@ function DocView:get_visible_virutal_line_range()
   local x, y, x2, y2 = self:get_content_bounds()
   local lh = self:get_line_height()
   local minline = math.max(1, math.floor((y - style.padding.y) / lh) + 1)
-  local maxline = math.min(#self.doc.lines, math.floor((y2 - style.padding.y) / lh) + 1)
+  local maxline = math.floor((y2 - style.padding.y) / lh) + 1
   return minline, maxline
 end
 
@@ -503,7 +503,7 @@ function DocView:get_col_x_offset(line, col)
   default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
-  for _, text, style in self:each_text_token(line) do
+  for _, text, style in self:each_vline_token(line) do
     local font = style.font or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
     local length = #text
@@ -535,7 +535,7 @@ function DocView:get_x_offset_col(line, x)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
-  for _, text, style in self:each_text_token(line) do
+  for _, text, style in self:each_vline_token(line) do
     local font = style.font or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
     local width = font:get_width(text)
@@ -774,7 +774,7 @@ local default_color = { common.color "#FFFFFF" }
 function DocView:draw_line_text(vline, x, y)
   local default_font = self:get_font()
   local tx, ty = x, y + self:get_line_text_y_offset()
-  for tidx, text, style in self:each_text_token(vline) do
+  for tidx, text, style in self:each_vline_token(vline) do
     local font = style.font or default_font
     tx = renderer.draw_text(font, text, tx, ty, style.color or default_color)
     if tx > self.position.x + self.size.x then break end
@@ -937,7 +937,7 @@ end
 -- `{ "doc", doc_line, 1, #self.doc.lines[doc_line], style }`
 -- `{ "virtual", text, false, false, style }
 function DocView:transform(doc_line)
-  return { "doc", doc_line, 1, #self.doc.lines[doc_line] - 1, {} }
+  return { "doc", doc_line, 1, #self.doc.lines[doc_line] - 1, { } }
 end
 
 --[[
@@ -949,9 +949,10 @@ Each token can contain *at most* one new line, at the end of it.
 ]]
 
 function DocView:invalidate_cache(start_doc_line)
+  if not start_doc_line then start_doc_line = 1 end
   while #self.tokens >= self.dcache[start_doc_line] do table.remove(self.tokens) end
   while #self.dcache >= start_doc_line do table.remove(self.dcache) end
-  while self.vcache[#self.vcache] > #self.tokens do table.remove(self.vcache) end
+  while (self.vcache[#self.vcache] or 0) > #self.tokens do table.remove(self.vcache) end
 end
 
 function DocView:get_token_text(type, doc_line, col_start, col_end)
@@ -968,11 +969,10 @@ local function retrieve_tokens(self, vline)
       table.insert(self.vcache, #self.tokens + 1)
       self.vtodcache[#self.vcache] = #self.dcache
     end
-    for j = 1, bundles do
-      local token_idx = (j - 1) * 5 + 1
-      local text = self:get_token_text(tokens[token_idx], tokens[token_idx+1], tokens[token_idx+2], tokens[token_idx+3])
-      table.move(tokens, token_idx, token_idx+4, #self.tokens + 1, self.tokens)
-      if text:find("\n$") and j < bundles then
+    for j = 1, #tokens, 5 do
+      local text = self:get_token_text(tokens[j], tokens[j+1], tokens[j+2], tokens[j+3])
+      table.move(tokens, j, j+4, #self.tokens + 1, self.tokens)
+      if text:find("\n$") and j < #tokens - 5 then
         table.insert(self.vcache, #self.tokens + 1)
         self.vtodcache[#self.vcache] = #self.dcache
       end
@@ -988,13 +988,23 @@ local function text_iter(state, idx)
   return idx + 5, text, self.tokens[idx+4]
 end
 
-function DocView:each_text_token(vline)
+function DocView:each_vline_token(vline)
   return text_iter, { self, vline }, retrieve_tokens(self, vline)
 end
 
 function DocView:has_tokens(vline)
   local token_idx = retrieve_tokens(self, vline)
   return token_idx and token_idx < #self.tokens and token_idx ~= retrieve_tokens(self, vline + 1)
+end
+
+local function dline_iter(state, idx)
+  local self, tokens = table.unpack(state)
+  if idx > #tokens then return nil end
+  return idx + 5, tokens[idx], tokens[idx+1], tokens[idx+2], tokens[idx+3], tokens[idx+4]
+end
+
+function DocView:each_dline_token(tokens)
+  return dline_iter, { self, tokens }, 1
 end
 
 return DocView

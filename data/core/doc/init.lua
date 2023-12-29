@@ -1,5 +1,4 @@
 local Object = require "core.object"
-local Highlighter = require "core.doc.highlighter"
 local translate = require "core.doc.translate"
 local core = require "core"
 local syntax = require "core.syntax"
@@ -39,7 +38,6 @@ function Doc:reset()
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
-  self.highlighter = Highlighter(self)
   self.overwrite = false
   self:reset_syntax()
 end
@@ -54,7 +52,6 @@ function Doc:reset_syntax()
   local syn = syntax.get(path, header)
   if self.syntax ~= syn then
     self.syntax = syn
-    self.highlighter:soft_reset()
   end
 end
 
@@ -75,7 +72,6 @@ function Doc:load(filename)
       self.crlf = true
     end
     table.insert(self.lines, line .. "\n")
-    self.highlighter.lines[i] = false
     i = i + 1
   end
   if #self.lines == 0 then
@@ -267,7 +263,6 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   local line2, col2 = self:position_offset(line, col, #text)
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
-  -- update highlighter and assure selection is in bounds
   for i,v in ipairs(self.listeners) do v("insert", text, line, col, line, col) end
 end
 
