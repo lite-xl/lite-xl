@@ -13,6 +13,11 @@ local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
 local found_expression
 
+local function dv()
+  local is_DocView = core.active_view:is(DocView) and not core.active_view:is(CommandView)
+  return is_DocView and core.active_view or last_view
+end
+
 local function doc()
   local is_DocView = core.active_view:is(DocView) and not core.active_view:is(CommandView)
   return is_DocView and core.active_view.doc or (last_view and last_view.doc)
@@ -57,7 +62,7 @@ end
 
 local function find(label, search_fn)
   last_view, last_sel = core.active_view,
-    { core.active_view.doc:get_selection() }
+    { core.active_view:get_selection() }
   local text = last_view.doc:get_text(table.unpack(last_sel))
   found_expression = false
 
@@ -140,7 +145,7 @@ end
 local function has_unique_selection()
   if not doc() then return false end
   local text = nil
-  for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
+  for idx, line1, col1, line2, col2 in dv():get_selections(true, true) do
     if line1 == line2 and col1 == col2 then return false end
     local selection = doc():get_text(line1, col1, line2, col2)
     if text ~= nil and text ~= selection then return false end
@@ -157,7 +162,7 @@ local function is_in_selection(line, col, l1, c1, l2, c2)
 end
 
 local function is_in_any_selection(line, col)
-  for idx, l1, c1, l2, c2 in doc():get_selections(true, false) do
+  for idx, l1, c1, l2, c2 in dv():get_selections(true, false) do
     if is_in_selection(line, col, l1, c1, l2, c2) then return true end
   end
   return false
@@ -165,7 +170,7 @@ end
 
 local function select_add_next(all)
   local il1, ic1
-  for _, l1, c1, l2, c2 in doc():get_selections(true, true) do
+  for _, l1, c1, l2, c2 in dv():get_selections(true, true) do
     if not il1 then
       il1, ic1 = l1, c1
     end
@@ -186,7 +191,7 @@ local function select_add_next(all)
 end
 
 local function select_next(reverse)
-  local l1, c1, l2, c2 = doc():get_selection(true)
+  local l1, c1, l2, c2 = dv():get_selection(true)
   local text = doc():get_text(l1, c1, l2, c2)
   if reverse then
     l1, c1, l2, c2 = search.find(doc(), l1, c1, text, { wrap = true, reverse = true })
@@ -198,7 +203,7 @@ end
 
 ---@param in_selection? boolean whether to replace in the selections only, or in the whole file.
 local function find_replace(in_selection)
-  local l1, c1, l2, c2 = doc():get_selection()
+  local l1, c1, l2, c2 = dv():get_selection()
   local selected_text = ""
   if not in_selection then
     selected_text = doc():get_text(l1, c1, l2, c2)
@@ -239,7 +244,7 @@ command.add("core.docview!", {
   ["find-replace:replace-symbol"] = function()
     local first = ""
     if doc():has_selection() then
-      local text = doc():get_text(doc():get_selection())
+      local text = doc():get_text(dv():get_selection())
       first = text:match(config.symbol_pattern) or ""
     end
     replace("Symbol", first, function(text, old, new)
@@ -268,7 +273,7 @@ command.add(valid_for_finding, {
     if not last_fn then
       core.error("No find to continue from")
     else
-      local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
+      local sl1, sc1, sl2, sc2 = dv:get_selection(true)
       local line1, col1, line2, col2 = last_fn(dv.doc, sl2, sc2, last_text, case_sensitive, find_regex, false)
       if line1 then
         dv.doc:set_selection(line2, col2, line1, col1)
@@ -283,7 +288,7 @@ command.add(valid_for_finding, {
     if not last_fn then
       core.error("No find to continue from")
     else
-      local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
+      local sl1, sc1, sl2, sc2 = dv:get_selection(true)
       local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc1, last_text, case_sensitive, find_regex, true)
       if line1 then
         dv.doc:set_selection(line2, col2, line1, col1)

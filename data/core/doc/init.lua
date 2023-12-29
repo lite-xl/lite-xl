@@ -36,8 +36,6 @@ end
 
 function Doc:reset()
   self.lines = { "\n" }
-  self.selections = { 1, 1, 1, 1 }
-  self.last_selection = 1
   self.undo_stack = { idx = 1 }
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
@@ -195,7 +193,7 @@ end
 function Doc:get_text(line1, col1, line2, col2)
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
-  line1, col1, line2, col2 = sort_positions(line1, col1, line2, col2)
+  line1, col1, line2, col2 = common.sort_positions(line1, col1, line2, col2)
   if line1 == line2 then
     return self.lines[line1]:sub(col1, col2 - 1)
   end
@@ -211,6 +209,7 @@ function Doc:get_char(line, col)
   line, col = self:sanitize_position(line, col)
   return self.lines[line]:sub(col, col)
 end
+
 
 local function push_undo(undo_stack, time, type, ...)
   undo_stack[undo_stack.idx] = { type = type, time = time, ... }
@@ -232,8 +231,6 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
   elseif cmd.type == "remove" then
     local line1, col1, line2, col2 = table.unpack(cmd)
     self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
-  elseif cmd.type == "selection" then
-    self.selections = { table.unpack(cmd) }
   end
 
   modified = modified or (cmd.type ~= "selection")
@@ -245,10 +242,9 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
     return pop_undo(self, undo_stack, redo_stack, modified)
   end
 
-  if modified then
-    self:on_text_change("undo")
-  end
+ if modified then for i,v in ipairs(self.listeners) do v("undo") end end
 end
+
 
 
 function Doc:raw_insert(line, col, text, undo_stack, time)
@@ -272,8 +268,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   -- update highlighter and assure selection is in bounds
-  self.highlighter:insert_notify(line, #lines - 1)
-  for i,v in ipairs(listeners) do v(text, line, col, line, col) end
+  for i,v in ipairs(self.listeners) do v("insert", text, line, col, line, col) end
 end
 
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
@@ -293,9 +288,9 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
 
   local merge = false
 
-  -- update highlighter and assure selection is in bounds
-  self.highlighter:remove_notify(line1, line_removal)
+  for i,v in ipairs(self.listeners) do v("remove", "", line1, col1, line2, col2) end
 end
+
 
 function Doc:insert(line, col, text)
   self.redo_stack = { idx = 1 }
@@ -304,26 +299,18 @@ function Doc:insert(line, col, text)
     self.clean_change_id = -1
   end
   line, col = self:sanitize_position(line, col)
-  self:raw_insert(line, col, text, self.undo_stack, system.get_time())
-  self:on_text_change("insert")
+  self:insert(line, col, text, self.undo_stack, system.get_time())
 end
 
 function Doc:remove(line1, col1, line2, col2)
   self.redo_stack = { idx = 1 }
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
-  line1, col1, line2, col2 = sort_positions(line1, col1, line2, col2)
-  self:raw_remove(line1, col1, line2, col2, self.undo_stack, system.get_time())
-  self:on_text_change("remove")
+  line1, col1, line2, col2 = common.sort_positions(line1, col1, line2, col2)
+  self:remove(line1, col1, line2, col2, self.undo_stack, system.get_time())
 end
 
-function Doc:undo()
-  pop_undo(self, self.undo_stack, self.redo_stack, false)
-end
 
-function Doc:redo()
-  pop_undo(self, self.redo_stack, self.undo_stack, false)
-end
 
 
 function Doc:get_indent_string()
@@ -336,8 +323,92 @@ end
 
 
 
--- For plugins to add custom actions of document change
-function Doc:on_text_change(type)
+function Doc:line_comment(comment, line1, col1, line2, col2)
+  local start_comment = (type(comment) == 'table' and comment[1] or comment) .. " "
+  local end_comment = (type(comment) == 'table' and " " .. comment[2])
+  local uncomment = true
+  local start_offset = math.huge
+  for line = line1, line2 do
+    local text = self.lines[line]
+    local s = text:find("%S")
+    if s then
+      local cs, ce = text:find(start_comment, s, true)
+      if cs ~= s then
+        uncomment = false
+      end
+      start_offset = math.min(start_offset, s)
+    end
+  end
+
+  local end_line = col2 == #self.lines[line2]
+  for line = line1, line2 do
+    local text = self.lines[line]
+    local s = text:find("%S")
+    if s and uncomment then
+      if end_comment and text:sub(#text - #end_comment, #text - 1) == end_comment then
+        self:remove(line, #text - #end_comment, line, #text)
+      end
+      local cs, ce = text:find(start_comment, s, true)
+      if ce then
+        self:remove(line, cs, line, ce + 1)
+      end
+    elseif s then
+      self:insert(line, start_offset, start_comment)
+      if end_comment then
+        self:insert(line, #doc().lines[line], " " .. comment[2])
+      end
+    end
+  end
+  col1 = col1 + (col1 > start_offset and #start_comment or 0) * (uncomment and -1 or 1)
+  col2 = col2 + (col2 > start_offset and #start_comment or 0) * (uncomment and -1 or 1)
+  if end_comment and end_line then
+    col2 = col2 + #end_comment * (uncomment and -1 or 1)
+  end
+  return line1, col1, line2, col2
+end
+
+
+function Doc:block_comment(comment, line1, col1, line2, col2)
+  -- automatically skip spaces
+  local word_start = self:get_text(line1, col1, line1, math.huge):find("%S")
+  local word_end = self:get_text(line2, 1, line2, col2):find("%s*$")
+  col1 = col1 + (word_start and (word_start - 1) or 0)
+  col2 = word_end and word_end or col2
+
+  local block_start = self:get_text(line1, col1, line1, col1 + #comment[1])
+  local block_end = self:get_text(line2, col2 - #comment[2], line2, col2)
+
+  if block_start == comment[1] and block_end == comment[2] then
+    -- remove up to 1 whitespace after the comment
+    local start_len, stop_len = #comment[1], #comment[2]
+    if self:get_text(line1, col1 + #comment[1], line1, col1 + #comment[1] + 1):find("%s$") then
+      start_len = start_len + 1
+    end
+    if self:get_text(line2, col2 - #comment[2] - 1, line2, col2):find("^%s") then
+      stop_len = stop_len + 1
+    end
+
+    self:remove(line1, col1, line1, col1 + start_len)
+    col2 = col2 - (line1 == line2 and start_len or 0)
+    self:remove(line2, col2 - stop_len, line2, col2)
+
+    return line1, col1, line2, col2 - stop_len
+  else
+    self:insert(line1, col1, comment[1] .. " ")
+    col2 = col2 + (line1 == line2 and (#comment[1] + 1) or 0)
+    self:insert(line2, col2, " " .. comment[2])
+
+    return line1, col1, line2, col2 + #comment[2] + 1
+  end
+end
+
+
+function Doc:undo()
+  pop_undo(self, self.undo_stack, self.redo_stack, false)
+end
+
+function Doc:redo()
+  pop_undo(self, self.redo_stack, self.undo_stack, false)
 end
 
 -- For plugins to get notified when a document is closed

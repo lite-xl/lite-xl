@@ -26,7 +26,7 @@ end
 
 DocView.translate = {
   ["previous_page"] = function(doc, line, col, dv)
-    local min, max = dv:get_visible_line_range()
+    local min, max = dv:get_visible_virutal_line_range()
     return line - (max - min), 1
   end,
 
@@ -34,7 +34,7 @@ DocView.translate = {
     if line == #doc.lines then
       return #doc.lines, #doc.lines[line]
     end
-    local min, max = dv:get_visible_line_range()
+    local min, max = dv:get_visible_virutal_line_range()
     return line + (max - min), 1
   end,
 
@@ -64,20 +64,16 @@ function DocView:new(doc)
   self.ime_selection = { from = 0, size = 0 }
   self.ime_status = false
   self.hovering_gutter = false
-  table.insert(doc.listeners, function(...) self:listener(...) end)
-  self.lines = {}
-  self.selections = {}
+  self.tokens = {}
+  self.vcache = {}
+  self.dcache = {}
+  self.vtodcache = {}
+  self.selections = { 1, 1, 1, 1 }
+  self.last_selection = 1
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
   self.h_scrollbar:set_forced_status(config.force_scrollbar_status)
+  table.insert(doc.listeners, function(...) self:listener(...) end)
 end
-
-local function sort_positions(line1, col1, line2, col2)
-  if line1 > line2 or line1 == line2 and col1 > col2 then
-    return line2, col2, line1, col1, true
-  end
-  return line1, col1, line2, col2, false
-end
-
 
 -- Cursor section. Cursor indices are *only* valid during a get_selections() call.
 -- Cursors will always be iterated in order from top to bottom. Through normal operation
@@ -100,7 +96,7 @@ function DocView:get_selection_idx(idx, sort)
       self.selections[idx * 4 - 1],
       self.selections[idx * 4]
   if line1 and sort then
-    return sort_positions(line1, col1, line2, col2)
+    return common.sort_positions(line1, col1, line2, col2)
   else
     return line1, col1, line2, col2
   end
@@ -135,13 +131,13 @@ end
 function DocView:set_selections(idx, line1, col1, line2, col2, swap, rm)
   assert(not line2 == not col2, "expected 3 or 5 arguments")
   if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
-  line1, col1 = self:sanitize_position(line1, col1)
-  line2, col2 = self:sanitize_position(line2 or line1, col2 or col1)
+  line1, col1 = self.doc:sanitize_position(line1, col1)
+  line2, col2 = self.doc:sanitize_position(line2 or line1, col2 or col1)
   common.splice(self.selections, (idx - 1) * 4 + 1, rm == nil and 4 or rm, { line1, col1, line2, col2 })
 end
 
 function DocView:add_selection(line1, col1, line2, col2, swap)
-  local l1, c1 = sort_positions(line1, col1, line2 or line1, col2 or col1)
+  local l1, c1 = common.sort_positions(line1, col1, line2 or line1, col2 or col1)
   local target = #self.selections / 4 + 1
   for idx, tl1, tc1 in self:get_selections(true) do
     if l1 < tl1 or l1 == tl1 and c1 < tc1 then
@@ -185,7 +181,7 @@ local function selection_iterator(invariant, idx)
   local target = invariant[3] and (idx * 4 - 7) or (idx * 4 + 1)
   if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
   if invariant[2] then
-    return idx + (invariant[3] and -1 or 1), sort_positions(table.unpack(invariant[1], target, target + 4))
+    return idx + (invariant[3] and -1 or 1), common.sort_positions(table.unpack(invariant[1], target, target + 4))
   else
     return idx + (invariant[3] and -1 or 1), table.unpack(invariant[1], target, target + 4)
   end
@@ -218,24 +214,23 @@ function DocView:text_input(text, idx)
     and not had_selection
     and col1 < #self.lines[line1]
     and text:ulen() == 1 then
-      self:remove(line1, col1, translate.next_char(self, line1, col1))
+      self.doc:remove(line1, col1, translate.next_char(self.doc, line1, col1))
     end
 
-    self:insert(line1, col1, text)
+    self.doc:insert(line1, col1, text)
     self:move_to_cursor(sidx, #text)
   end
 end
 
-function DocView:listener(text, line1, col1, line2, col2)
-
+function DocView:listener(type, text, line1, col1, line2, col2)
   -- keep cursors where they should be on insertion
-  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
-    if cline1 < line then break end
-    local line_addition = (line < cline1 or col < ccol1) and #lines - 1 or 0
-    local column_addition = line == cline1 and ccol1 > col and len or 0
-    self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition,
-      ccol2 + column_addition)
-  end
+  -- for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+  --   if cline1 < line then break end
+  --   local line_addition = (line < cline1 or col < ccol1) and #lines - 1 or 0
+  --   local column_addition = line == cline1 and ccol1 > col and len or 0
+  --   self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition,
+  --     ccol2 + column_addition)
+  -- end
 
 
   -- keep selections in correct positions on removal: each pair (line, col)
@@ -243,35 +238,35 @@ function DocView:listener(text, line1, col1, line2, col2)
   -- * is set to (line1, col1) if in the deleted text
   -- * is set to (line1, col - col_removal) if on line2 but out of the deleted text
   -- * is set to (line - line_removal, col) if after line2
-  for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
-    if cline2 < line1 then break end
-    local l1, c1, l2, c2 = cline1, ccol1, cline2, ccol2
+  -- for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+  --   if cline2 < line1 then break end
+  --   local l1, c1, l2, c2 = cline1, ccol1, cline2, ccol2
 
-    if cline1 > line1 or (cline1 == line1 and ccol1 > col1) then
-      if cline1 > line2 then
-        l1 = l1 - line_removal
-      else
-        l1 = line1
-        c1 = (cline1 == line2 and ccol1 > col2) and c1 - col_removal or col1
-      end
-    end
+  --   if cline1 > line1 or (cline1 == line1 and ccol1 > col1) then
+  --     if cline1 > line2 then
+  --       l1 = l1 - line_removal
+  --     else
+  --       l1 = line1
+  --       c1 = (cline1 == line2 and ccol1 > col2) and c1 - col_removal or col1
+  --     end
+  --   end
 
-    if cline2 > line1 or (cline2 == line1 and ccol2 > col1) then
-      if cline2 > line2 then
-        l2 = l2 - line_removal
-      else
-        l2 = line1
-        c2 = (cline2 == line2 and ccol2 > col2) and c2 - col_removal or col1
-      end
-    end
+  --   if cline2 > line1 or (cline2 == line1 and ccol2 > col1) then
+  --     if cline2 > line2 then
+  --       l2 = l2 - line_removal
+  --     else
+  --       l2 = line1
+  --       c2 = (cline2 == line2 and ccol2 > col2) and c2 - col_removal or col1
+  --     end
+  --   end
 
-    if l1 == line1 and c1 == col1 then merge = true end
-    self:set_selections(idx, l1, c1, l2, c2)
-  end
+  --   if l1 == line1 and c1 == col1 then merge = true end
+  --   self:set_selections(idx, l1, c1, l2, c2)
+  -- end
 
-  if merge then
-    self:merge_cursors()
-  end
+  -- if merge then
+  --   self:merge_cursors()
+  -- end
 end
 
 function DocView:try_close(do_close)
@@ -311,13 +306,13 @@ function DocView:ime_text_editing(text, start, length, idx)
 end
 
 function DocView:replace_cursor(idx, line1, col1, line2, col2, fn)
-  local old_text = self:get_text(line1, col1, line2, col2)
+  local old_text = self.doc:get_text(line1, col1, line2, col2)
   local new_text, res = fn(old_text)
   if old_text ~= new_text then
     self:insert(line2, col2, new_text)
     self:remove(line1, col1, line2, col2)
     if line1 == line2 and col1 == col2 then
-      line2, col2 = self:position_offset(line1, col1, #new_text)
+      line2, col2 = self.doc:position_offset(line1, col1, #new_text)
       self:set_selections(idx, line1, col1, line2, col2)
     end
   end
@@ -342,11 +337,11 @@ end
 function DocView:delete_to_cursor(idx, ...)
   for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
     if line1 ~= line2 or col1 ~= col2 then
-      self:remove(line1, col1, line2, col2)
+      self.doc:remove(line1, col1, line2, col2)
     else
-      local l2, c2 = self:position_offset(line1, col1, ...)
-      self:remove(line1, col1, l2, c2)
-      line1, col1 = sort_positions(line1, col1, l2, c2)
+      local l2, c2 = self.doc:position_offset(line1, col1, ...)
+      self.doc:remove(line1, col1, l2, c2)
+      line1, col1 = common.sort_positions(line1, col1, l2, c2)
     end
     self:set_selections(sidx, line1, col1)
   end
@@ -357,7 +352,7 @@ function DocView:delete_to(...) return self:delete_to_cursor(nil, ...) end
 
 function DocView:move_to_cursor(idx, ...)
   for sidx, line, col in self:get_selections(false, idx) do
-    self:set_selections(sidx, self:position_offset(line, col, ...))
+    self:set_selections(sidx, self.doc:position_offset(line, col, ...))
   end
   self:merge_cursors(idx)
 end
@@ -366,7 +361,7 @@ function DocView:move_to(...) return self:move_to_cursor(nil, ...) end
 
 function DocView:select_to_cursor(idx, ...)
   for sidx, line, col, line2, col2 in self:get_selections(false, idx) do
-    line, col = self:position_offset(line, col, ...)
+    line, col = self.doc:position_offset(line, col, ...)
     self:set_selections(sidx, line, col, line2, col2)
   end
   self:merge_cursors(idx)
@@ -378,7 +373,7 @@ function DocView:select_to(...) return self:select_to_cursor(nil, ...) end
 -- in your config format, rounded either up or down
 function DocView:get_line_indent(line, rnd_up)
   local _, e = line:find("^[ \t]+")
-  local indent_type, indent_size = self:get_indent_info()
+  local indent_type, indent_size = self.doc:get_indent_info()
   local soft_tab = string.rep(" ", indent_size)
   if indent_type == "hard" then
     local indent = e and line:sub(1, e):gsub(soft_tab, "\t") or ""
@@ -403,28 +398,28 @@ end
 -- * if you are unindenting, the cursor will jump to the start of the line,
 --   and remove the appropriate amount of spaces (or a tab).
 function DocView:indent_text(unindent, line1, col1, line2, col2)
-  local text = self:get_indent_string()
-  local _, se = self.lines[line1]:find("^[ \t]+")
+  local text = self.doc:get_indent_string()
+  local _, se = self.doc.lines[line1]:find("^[ \t]+")
   local in_beginning_whitespace = col1 == 1 or (se and col1 <= se + 1)
   local has_selection = line1 ~= line2 or col1 ~= col2
   if unindent or has_selection or in_beginning_whitespace then
-    local l1d, l2d = #self.lines[line1], #self.lines[line2]
+    local l1d, l2d = #self.doc.lines[line1], #self.doc.lines[line2]
     for line = line1, line2 do
-      if not has_selection or #self.lines[line] > 1 then -- don't indent empty lines in a selection
-        local e, rnded = self:get_line_indent(self.lines[line], unindent)
-        self:remove(line, 1, line, (e or 0) + 1)
-        self:insert(line, 1,
+      if not has_selection or #self.doc.lines[line] > 1 then -- don't indent empty lines in a selection
+        local e, rnded = self:get_line_indent(self.doc.lines[line], unindent)
+        self.doc:remove(line, 1, line, (e or 0) + 1)
+        self.doc:insert(line, 1,
           unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
       end
     end
-    l1d, l2d = #self.lines[line1] - l1d, #self.lines[line2] - l2d
+    l1d, l2d = #self.doc.lines[line1] - l1d, #self.doc.lines[line2] - l2d
     if (unindent or in_beginning_whitespace) and not has_selection then
       local start_cursor = (se and se + 1 or 1) + l1d or #(self.lines[line1])
       return line1, start_cursor, line2, start_cursor
     end
     return line1, col1 + l1d, line2, col2 + l2d
   end
-  self:insert(line1, col1, text)
+  self.doc:insert(line1, col1, text)
   return line1, col1 + #text, line1, col1 + #text
 end
 
@@ -493,7 +488,7 @@ function DocView:get_line_text_y_offset()
 end
 
 
-function DocView:get_visible_line_range()
+function DocView:get_visible_virutal_line_range()
   local x, y, x2, y2 = self:get_content_bounds()
   local lh = self:get_line_height()
   local minline = math.max(1, math.floor((y - style.padding.y) / lh) + 1)
@@ -508,8 +503,8 @@ function DocView:get_col_x_offset(line, col)
   default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
-  for _, type, text in self.doc.highlighter:each_token(line) do
-    local font = style.syntax_fonts[type] or default_font
+  for _, text, style in self:each_text_token(line) do
+    local font = style.font or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
     local length = #text
     if column + length <= col then
@@ -540,8 +535,8 @@ function DocView:get_x_offset_col(line, x)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
-  for _, type, text in self.doc.highlighter:each_token(line) do
-    local font = style.syntax_fonts[type] or default_font
+  for _, text, style in self:each_text_token(line) do
+    local font = style.font or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
     local width = font:get_width(text)
     -- Don't take the shortcut if the width matches x,
@@ -576,7 +571,7 @@ end
 
 
 function DocView:scroll_to_line(line, ignore_if_visible, instant)
-  local min, max = self:get_visible_line_range()
+  local min, max = self:get_visible_virutal_line_range()
   if not (ignore_if_visible and line > min and line < max) then
     local x, y = self:get_line_screen_position(line)
     local ox, oy = self:get_content_offset()
@@ -636,13 +631,13 @@ function DocView:on_mouse_moved(x, y, ...)
       if l1 > l2 then l1, l2 = l2, l1 end
       self.doc.selections = { }
       for i = l1, l2 do
-        self.doc:set_selections(i - l1 + 1, i, math.min(c1, #self.doc.lines[i]), i, math.min(c2, #self.doc.lines[i]))
+        self:set_selections(i - l1 + 1, i, math.min(c1, #self.doc.lines[i]), i, math.min(c2, #self.doc.lines[i]))
       end
     else
       if snap_type then
         l1, c1, l2, c2 = self:mouse_selection(self.doc, snap_type, l1, c1, l2, c2)
       end
-      self.doc:set_selection(l1, c1, l2, c2)
+      self:set_selection(l1, c1, l2, c2)
     end
   end
 end
@@ -672,17 +667,17 @@ function DocView:on_mouse_pressed(button, x, y, clicks)
   end
   local line = self:resolve_screen_position(x, y)
   if keymap.modkeys["shift"] then
-    local sline, scol, sline2, scol2 = self.doc:get_selection(true)
+    local sline, scol, sline2, scol2 = self:get_selection(true)
     if line > sline then
-      self.doc:set_selection(sline, 1, line,  #self.doc.lines[line])
+      self:set_selection(sline, 1, line,  #self.doc.lines[line])
     else
-      self.doc:set_selection(line, 1, sline2, #self.doc.lines[sline2])
+      self:set_selection(line, 1, sline2, #self.doc.lines[sline2])
     end
   else
     if clicks == 1 then
-      self.doc:set_selection(line, 1, line, 1)
+      self:set_selection(line, 1, line, 1)
     elseif clicks == 2 then
-      self.doc:set_selection(line, 1, line, #self.doc.lines[line])
+      self:set_selection(line, 1, line, #self.doc.lines[line])
     end
   end
   return true
@@ -696,7 +691,7 @@ end
 
 
 function DocView:on_text_input(text)
-  self.doc:text_input(text)
+  self:text_input(text)
 end
 
 function DocView:on_ime_text_editing(text, start, length)
@@ -707,7 +702,7 @@ function DocView:on_ime_text_editing(text, start, length)
 
   -- Set the composition bounding box that the system IME
   -- will consider when drawing its interface
-  local line1, col1, line2, col2 = self.doc:get_selection(true)
+  local line1, col1, line2, col2 = self:get_selection(true)
   local col = math.min(col1, col2)
   self:update_ime_location()
   self:scroll_to_make_visible(line1, col + start)
@@ -718,7 +713,7 @@ end
 function DocView:update_ime_location()
   if not self.ime_status then return end
 
-  local line1, col1, line2, col2 = self.doc:get_selection(true)
+  local line1, col1, line2, col2 = self:get_selection(true)
   local x, y = self:get_line_screen_position(line1)
   local h = self:get_line_height()
   local col = math.min(col1, col2)
@@ -742,7 +737,7 @@ end
 
 function DocView:update()
   -- scroll to make caret visible and reset blink timer if it moved
-  local line1, col1, line2, col2 = self.doc:get_selection()
+  local line1, col1, line2, col2 = self:get_selection()
   if (line1 ~= self.last_line1 or col1 ~= self.last_col1 or
       line2 ~= self.last_line2 or col2 ~= self.last_col2) and self.size.x > 0 then
     if core.active_view == self and not ime.editing then
@@ -775,21 +770,13 @@ function DocView:draw_line_highlight(x, y)
 end
 
 
-function DocView:draw_line_text(line, x, y)
+local default_color = { common.color "#FFFFFF" }
+function DocView:draw_line_text(vline, x, y)
   local default_font = self:get_font()
   local tx, ty = x, y + self:get_line_text_y_offset()
-  local last_token = nil
-  local tokens = self.doc.highlighter:get_line(line).tokens
-  local tokens_count = #tokens
-  if string.sub(tokens[tokens_count], -1) == "\n" then
-    last_token = tokens_count - 1
-  end
-  for tidx, type, text in self.doc.highlighter:each_token(line) do
-    local color = style.syntax[type]
-    local font = style.syntax_fonts[type] or default_font
-    -- do not render newline, fixes issue #1164
-    if tidx == last_token then text = text:sub(1, -2) end
-    tx = renderer.draw_text(font, text, tx, ty, color)
+  for tidx, text, style in self:each_text_token(vline) do
+    local font = style.font or default_font
+    tx = renderer.draw_text(font, text, tx, ty, style.color or default_color)
     if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()
@@ -807,13 +794,13 @@ function DocView:draw_caret(x, y)
   renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
 end
 
-function DocView:draw_line_body(line, x, y)
+function DocView:draw_line_body(vline, x, y)
   -- draw highlight if any selection ends on this line
   local draw_highlight = false
   local hcl = config.highlight_current_line
   if hcl ~= false then
-    for lidx, line1, col1, line2, col2 in self.doc:get_selections(false) do
-      if line1 == line then
+    for lidx, line1, col1, line2, col2 in self:get_selections(false) do
+      if line1 == vline then
         if hcl == "no_selection" then
           if (line1 ~= line2) or (col1 ~= col2) then
             draw_highlight = false
@@ -831,13 +818,13 @@ function DocView:draw_line_body(line, x, y)
 
   -- draw selection if it overlaps this line
   local lh = self:get_line_height()
-  for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
-    if line >= line1 and line <= line2 then
-      local text = self.doc.lines[line]
-      if line1 ~= line then col1 = 1 end
-      if line2 ~= line then col2 = #text + 1 end
-      local x1 = x + self:get_col_x_offset(line, col1)
-      local x2 = x + self:get_col_x_offset(line, col2)
+  for lidx, line1, col1, line2, col2 in self:get_selections(true) do
+    if vline >= line1 and vline <= line2 then
+      local text = self.doc.lines[vline]
+      if line1 ~= vline then col1 = 1 end
+      if line2 ~= vline then col2 = #text + 1 end
+      local x1 = x + self:get_col_x_offset(vline, col1)
+      local x2 = x + self:get_col_x_offset(vline, col2)
       if x1 ~= x2 then
         renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
       end
@@ -845,21 +832,21 @@ function DocView:draw_line_body(line, x, y)
   end
 
   -- draw line's text
-  return self:draw_line_text(line, x, y)
+  return self:draw_line_text(vline, x, y)
 end
 
 
-function DocView:draw_line_gutter(line, x, y, width)
+function DocView:draw_line_gutter(vline, x, y, width)
   local color = style.line_number
-  for _, line1, _, line2 in self.doc:get_selections(true) do
-    if line >= line1 and line <= line2 then
+  for _, line1, _, line2 in self:get_selections(true) do
+    if vline >= line1 and vline <= line2 then
       color = style.line_number2
       break
     end
   end
   x = x + style.padding.x
   local lh = self:get_line_height()
-  common.draw_text(self:get_font(), color, line, "right", x, y, width, lh)
+  common.draw_text(self:get_font(), color, self.vtodcache[vline] or vline, "right", x, y, width, lh)
   return lh
 end
 
@@ -890,10 +877,10 @@ end
 
 function DocView:draw_overlay()
   if core.active_view == self then
-    local minline, maxline = self:get_visible_line_range()
+    local minline, maxline = self:get_visible_virutal_line_range()
     -- draw caret if it overlaps this line
     local T = config.blink_period
-    for _, line1, col1, line2, col2 in self.doc:get_selections() do
+    for _, line1, col1, line2, col2 in self:get_selections() do
       if line1 >= minline and line1 <= maxline
       and system.window_has_focus() then
         if ime.editing then
@@ -919,13 +906,15 @@ function DocView:draw()
   local _, indent_size = self.doc:get_indent_info()
   self:get_font():set_tab_size(indent_size)
 
-  local minline, maxline = self:get_visible_line_range()
+  local minline, maxline = self:get_visible_virutal_line_range()
   local lh = self:get_line_height()
 
   local x, y = self:get_line_screen_position(minline)
   local gw, gpad = self:get_gutter_width()
   for i = minline, maxline do
-    y = y + (self:draw_line_gutter(i, self.position.x, y, gpad and gw - gpad or gw) or lh)
+    if self:has_tokens(i) then
+      y = y + (self:draw_line_gutter(i, self.position.x, y, gpad and gw - gpad or gw) or lh)
+    end
   end
 
   local pos = self.position
@@ -942,5 +931,70 @@ function DocView:draw()
   self:draw_scrollbar()
 end
 
+
+-- Transform function for lines from the doc.
+-- Plugins hook this to return a line/col list from `doc`, or provide a virtual line.
+-- `{ "doc", doc_line, 1, #self.doc.lines[doc_line], style }`
+-- `{ "virtual", text, false, false, style }
+function DocView:transform(doc_line)
+  return { "doc", doc_line, 1, #self.doc.lines[doc_line] - 1, {} }
+end
+
+--[[
+self.vcache maps virtual line numbers to the point in the self.tokens array where that line starts. It is always guaranteed to be correct, up until the point where it's invalid.
+self.dcache maps doc line number sto the point in the self.tokens array where that line starts. It is always guaranteed to be correct, up until the point where it's invalid.
+self.vtodcache maps the virtual line number to the relevant doc line number; not foundational to the algorithm; purely cosmetic.
+self.tokens contains the stream of transformed tokens.
+Each token can contain *at most* one new line, at the end of it.
+]]
+
+function DocView:invalidate_cache(start_doc_line)
+  while #self.tokens >= self.dcache[start_doc_line] do table.remove(self.tokens) end
+  while #self.dcache >= start_doc_line do table.remove(self.dcache) end
+  while self.vcache[#self.vcache] > #self.tokens do table.remove(self.vcache) end
+end
+
+function DocView:get_token_text(type, doc_line, col_start, col_end)
+  return type == "doc" and self.doc.lines[doc_line]:sub(col_start, col_end) or doc_line
+end
+
+
+local function retrieve_tokens(self, vline)
+  while vline > #self.vcache and #self.dcache < #self.doc.lines do
+    local tokens = self:transform(#self.dcache + 1)
+    local bundles = #tokens / 5
+    table.insert(self.dcache, #self.tokens + 1)
+    if #tokens > 0 then
+      table.insert(self.vcache, #self.tokens + 1)
+      self.vtodcache[#self.vcache] = #self.dcache
+    end
+    for j = 1, bundles do
+      local token_idx = (j - 1) * 5 + 1
+      local text = self:get_token_text(tokens[token_idx], tokens[token_idx+1], tokens[token_idx+2], tokens[token_idx+3])
+      table.move(tokens, token_idx, token_idx+4, #self.tokens + 1, self.tokens)
+      if text:find("\n$") and j < bundles then
+        table.insert(self.vcache, #self.tokens + 1)
+        self.vtodcache[#self.vcache] = #self.dcache
+      end
+    end
+  end
+  return self.vcache[vline]
+end
+
+local function text_iter(state, idx)
+  local self, line = table.unpack(state)
+  if not idx or not self.tokens[idx] or (self.vcache[line + 1] and idx >= self.vcache[line + 1]) then return nil end
+  local text = self:get_token_text(self.tokens[idx], self.tokens[idx+1], self.tokens[idx+2], self.tokens[idx+3])
+  return idx + 5, text, self.tokens[idx+4]
+end
+
+function DocView:each_text_token(vline)
+  return text_iter, { self, vline }, retrieve_tokens(self, vline)
+end
+
+function DocView:has_tokens(vline)
+  local token_idx = retrieve_tokens(self, vline)
+  return token_idx and token_idx < #self.tokens and token_idx ~= retrieve_tokens(self, vline + 1)
+end
 
 return DocView
