@@ -148,13 +148,13 @@ function Doc:sanitize_position(line, col)
   return line, common.clamp(col, 1, #self.lines[line])
 end
 
-local function position_offset_func(self, line, col, fn, ...)
+function Doc:position_offset_func(line, col, fn, ...)
   line, col = self:sanitize_position(line, col)
   return fn(self, line, col, ...)
 end
 
 
-local function position_offset_byte(self, line, col, offset)
+function Doc:position_offset_byte(line, col, offset)
   line, col = self:sanitize_position(line, col)
   col = col + offset
   while line > 1 and col < 1 do
@@ -169,18 +169,18 @@ local function position_offset_byte(self, line, col, offset)
 end
 
 
-local function position_offset_linecol(self, line, col, lineoffset, coloffset)
+function Doc:position_offset_linecol(line, col, lineoffset, coloffset)
   return self:sanitize_position(line + lineoffset, col + coloffset)
 end
 
 
 function Doc:position_offset(line, col, ...)
   if type(...) ~= "number" then
-    return position_offset_func(self, line, col, ...)
+    return self:position_offset_func(line, col, ...)
   elseif select("#", ...) == 1 then
-    return position_offset_byte(self, line, col, ...)
+    return self:position_offset_byte(line, col, ...)
   elseif select("#", ...) == 2 then
-    return position_offset_linecol(self, line, col, ...)
+    return self:position_offset_linecol(line, col, ...)
   else
     error("bad number of arguments")
   end
@@ -294,7 +294,7 @@ function Doc:insert(line, col, text)
     self.clean_change_id = -1
   end
   line, col = self:sanitize_position(line, col)
-  self:insert(line, col, text, self.undo_stack, system.get_time())
+  self:raw_insert(line, col, text, self.undo_stack, system.get_time())
 end
 
 function Doc:remove(line1, col1, line2, col2)
@@ -302,7 +302,7 @@ function Doc:remove(line1, col1, line2, col2)
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
   line1, col1, line2, col2 = common.sort_positions(line1, col1, line2, col2)
-  self:remove(line1, col1, line2, col2, self.undo_stack, system.get_time())
+  self:raw_remove(line1, col1, line2, col2, self.undo_stack, system.get_time())
 end
 
 

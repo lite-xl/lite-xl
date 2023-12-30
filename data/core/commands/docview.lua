@@ -223,12 +223,12 @@ local commands = {
       if line1 == line2 and col1 == col2 and dv.doc.lines[line1]:find("^%s*$", col1) then
         dv.doc:remove(line1, col1, line1, math.huge)
       end
-      dv.doc:delete_to_cursor(idx, translate.next_char)
+      dv:delete_to_cursor(idx, translate.next_char)
     end
   end,
 
   ["docview:backspace"] = function(dv)
-    local _, indent_size = dv:get_indent_info()
+    local _, indent_size = dv.doc:get_indent_info()
     for idx, line1, col1, line2, col2 in dv:get_selections(true, true) do
       if line1 == line2 and col1 == col2 then
         local text = dv.doc:get_text(line1, 1, line1, col1)
@@ -260,8 +260,8 @@ local commands = {
 
   ["docview:select-word"] = function(dv)
     for idx, line1, col1 in dv.doc:get_selections(true) do
-      local line1, col1 = translate.start_of_word(dv.doc, line1, col1)
-      local line2, col2 = translate.end_of_word(dv.doc, line1, col1)
+      local line1, col1 = translate.start_of_word(dv, line1, col1)
+      local line2, col2 = translate.end_of_word(dv, line1, col1)
       dv:set_selections(idx, line2, col2, line1, col1)
     end
   end,

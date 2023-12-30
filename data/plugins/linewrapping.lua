@@ -79,20 +79,34 @@ local function split_token(font, text, mode, width)
   return nil
 end
 
+local old_draw = DocView.draw
+function DocView:draw()
+  old_draw(self)
+  if self.wrapping and config.plugins.linewrapping.guide and config.plugins.linewrapping.width_override then
+    local width = config.plugins.linewrapping.width_override
+    if type(width) == "function" then width = width(self) end
+
+    local x, y = docview:get_content_offset()
+    local gw = docview:get_gutter_width()
+    renderer.draw_rect(x + gw + width, y, 1, core.root_view.size.y, style.selection)
+  end
+end
+
 local old_transform = DocView.transform
 function DocView:transform(doc_line)
   if not self.wrapping then return old_transform(self, doc_line) end
   local tokens = {}
+  local x, y = self:get_content_offset()
   local gw = self:get_gutter_width()
-  local width = self.size.x
+  local width = self.size.x - gw
   if config.plugins.linewrapping.width_override then
     width = config.plugins.linewrapping.width_override
     if type(width) == "function" then width = width(self) end
   end
 
-  local docstart = self.position.x + gw + style.padding.x
+  local docstart = x + gw + style.padding.x
   local offset = docstart
-  local docend = self.position.x + width
+  local docend = docstart + width
 
   for _, type, l, s, e, style in self:each_dline_token(old_transform(self, doc_line)) do
     local font = self:get_font() or style.font

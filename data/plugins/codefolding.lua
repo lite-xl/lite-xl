@@ -46,18 +46,21 @@ end
 local old_transform = DocView.transform
 function DocView:transform(doc_line)
   local tokens = old_transform(self, doc_line)
+  if not self.foldable then return tokens end
   self:compute_fold(doc_line)
   if self.folded[doc_line] then return {} end
   if self:is_foldable(doc_line) and self.folded[doc_line+1] then
     -- remove the newline from the end of the tokens
+    local type, line, e = tokens[#tokens - 4], tokens[#tokens - 3], tokens[#tokens - 1]
+    if type == "doc" and self.doc.lines[line]:sub(e, e) == "\n" then tokens[#tokens - 1] = tokens[#tokens - 1] - 1 end
     table.insert(tokens, "virtual")
+    table.insert(tokens, doc_line)
     table.insert(tokens, " ... ")
-    table.insert(tokens, false)
     table.insert(tokens, false)
     table.insert(tokens, { color = style.dim })
     table.insert(tokens, "virtual")
-    table.insert(tokens, "}")
-    table.insert(tokens, false)
+    table.insert(tokens, doc_line)
+    table.insert(tokens, "}\n")
     table.insert(tokens, false)
     table.insert(tokens, {  })
   end
@@ -72,20 +75,20 @@ function DocView:is_foldable(doc_line)
   return false
 end
 
-function DocView:toggle_fold(doc_line, value)
-  if self:is_foldable(doc_line) then
-    if value == nil then value = not self:is_folded(doc_line) end
-    local starting_fold = self.foldable[doc_line]
-    local line = doc_line + 1
-    self:invalidate_cache(doc_line)
-    while line <= #self.doc.lines do
-      if self.foldable[line] <= starting_fold then
-        if self.doc.lines[line]:find("}%s*$") then self.folded[line] = value end
+function DocView:toggle_fold(start_doc_line, value)
+  if self:is_foldable(start_doc_line) then
+    if value == nil then value = not self:is_folded(start_doc_line) end
+    local starting_fold = self.foldable[start_doc_line]
+    local end_doc_line = start_doc_line + 1
+    while end_doc_line <= #self.doc.lines do
+      if self.foldable[end_doc_line] <= starting_fold then
+        if self.doc.lines[end_doc_line]:find("}%s*$") then self.folded[end_doc_line] = value end
         break
       end
-      self.folded[line] = value
-      line = line + 1
+      self.folded[end_doc_line] = value
+      end_doc_line = end_doc_line + 1
     end
+    self:invalidate_cache(start_doc_line, end_doc_line)
   end
 end
 

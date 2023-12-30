@@ -39,7 +39,7 @@ local function update_preview(sel, search_fn, text)
     sel[1], sel[2], text, case_sensitive, find_regex)
   if ok and line1 and text ~= "" then
     last_view.doc:set_selection(line2, col2, line1, col1)
-    last_view:scroll_to_line(line2, true)
+    last_view:scroll_to_line(line2, true, nil, col2)
     found_expression = true
   else
     last_view.doc:set_selection(table.unpack(sel))
@@ -277,7 +277,7 @@ command.add(valid_for_finding, {
       local line1, col1, line2, col2 = last_fn(dv.doc, sl2, sc2, last_text, case_sensitive, find_regex, false)
       if line1 then
         dv.doc:set_selection(line2, col2, line1, col1)
-        dv:scroll_to_line(line2, true)
+        dv:scroll_to_line(line2, true, nil, col2)
       else
         core.error("Couldn't find %q", last_text)
       end
@@ -292,7 +292,7 @@ command.add(valid_for_finding, {
       local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc1, last_text, case_sensitive, find_regex, true)
       if line1 then
         dv.doc:set_selection(line2, col2, line1, col1)
-        dv:scroll_to_line(line2, true)
+        dv:scroll_to_line(line2, true, nil, col2)
       else
         core.error("Couldn't find %q", last_text)
       end
