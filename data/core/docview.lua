@@ -18,25 +18,25 @@ local function move_to_line_offset(dv, dline, dcol, offset)
   local vline, vcol = dv:get_closest_vline(dline, dcol)
   local xo = dv.last_x_offset
   if xo.line ~= vline or xo.col ~= vcol then
-    xo.x, xo.y = dv:get_line_screen_position(vline, vcol)
+    xo.x, xo.y = dv:get_line_screen_position(dline, dcol)
   end
-  xo.line = dv:get_dline(vline + offset, dcol)
-  return xo.line, vcol
+  xo.line, xo.col = dv:get_dline(math.max(vline + offset, 1), vcol)
+  return xo.line, xo.col
 end
 
 
 DocView.translate = {
   ["previous_page"] = function(self, dline, col)
     local min, max = self:get_visible_virutal_line_range()
-    return dline - (max - min), 1
+    return move_to_line_offset(self, dline, col, (min - max))
   end,
 
   ["next_page"] = function(self, dline, col)
-    if dline == #doc.lines then
+    if dline == #self.doc.lines then
       return #self.doc.lines, #self.doc.lines[dline]
     end
     local min, max = self:get_visible_virutal_line_range()
-    return dline + (max - min), 1
+    return move_to_line_offset(self, dline, col, (max - min))
   end,
 
   ["previous_line"] = function(self, dline, col)
@@ -68,8 +68,8 @@ function DocView:new(doc)
   self.tokens = {}
   self.vcache = {}
   self.dcache = {}
-  self.vtodcache = {}
   self.dtovcache = {}
+  self.lines = doc.lines
   self.selections = { 1, 1, 1, 1 }
   self.last_selection = 1
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
@@ -124,45 +124,114 @@ end
 DocView.position_offset_func = Doc.position_offset_func
 DocView.position_offset = Doc.position_offset
 
+
+
+local function retrieve_tokens(self, vline, dline)
+  while ((vline and vline > #self.vcache) or (dline and dline > #self.dcache)) and #self.dcache < #self.doc.lines do
+    local tokens = self:transform(#self.dcache + 1)
+    local bundles = #tokens / 5
+    table.insert(self.dcache, #self.tokens + 1)
+    if #tokens > 0 then
+      table.insert(self.vcache, #self.tokens + 1)
+    end
+    self.dtovcache[#self.dcache] = #self.vcache
+    for j = 1, #tokens, 5 do
+      local text = self:get_token_text(tokens[j], tokens[j+1], tokens[j+2], tokens[j+3])
+      table.move(tokens, j, j+4, #self.tokens + 1, self.tokens)
+      if text:find("\n$") and j < #tokens - 5 then
+        table.insert(self.vcache, #self.tokens + 1)
+      end
+    end
+  end
+  if vline then return self.vcache[vline] end
+  return self.dcache[dline]
+end
+
+
 function DocView:get_closest_vline(dline, dcol)
-  return self.dtovcache[dline], dcol
+  local token_idx = retrieve_tokens(self, nil, dline)
+  if not token_idx then
+    return #self.vcache + 1, 1
+  end
+  if self.tokens[token_idx+1] ~= dline then return self.dtovcache[dline] end
+  local total_line_length = 0
+  local total_token_length = 0
+  local vline = self.dtovcache[dline]
+  if dcol and dcol > 1 then
+    for _, text, _, type in self:each_dline_token(dline) do
+      if type == "doc" then
+        local length = text:ulen() or #text
+        if dcol <= total_token_length + total_line_length + length then
+          return vline, dcol - total_line_length
+        end
+        total_token_length = total_token_length + length
+      end
+      if text:find("\n$") then
+        total_line_length = total_line_length + total_token_length
+        vline = vline + 1
+      end
+    end
+  end
+  return vline, 1
 end
 
 function DocView:get_dline(vline, vcol)
-  return self.vtodcache[vline], vcol
+  local dline = self.tokens[retrieve_tokens(self, vline) + 1]
+  local total_line_length = 0
+  local current_line = self.dtovcache[dline]
+  for _, text, _, type in self:each_dline_token(dline) do
+    if current_line == vline then
+      return dline, vcol + total_line_length
+    end
+    if type == "doc" then total_line_length = total_line_length + text:ulen() end
+    if text:find("\n$") then
+      current_line = current_line + 1
+    end
+  end
+  return dline, vcol
 end
 
--- Takes position in virtual space.
-function DocView:get_line_screen_position(vline, col)
+function DocView:get_virtual_line_offset(vline)
+  local x, y = self:get_content_offset()
+  local gw = self:get_gutter_width()
+  return x + gw, y
+end
+
+function DocView:get_line_screen_position(line, col)
   local x, y = self:get_content_offset()
   local lh = self:get_line_height()
   local gw = self:get_gutter_width()
-  y = y + (vline-1) * lh + style.padding.y
-  if col then
+  local vline, vcol = self:get_closest_vline(line, col)
+  y = y + (vline-1) * lh
+  if col and self.vcache[vline] and self.tokens[self.vcache[vline]+1] == line then
     local default_font = self:get_font()
     local _, indent_size = self.doc:get_indent_info()
     default_font:set_tab_size(indent_size)
     local column = 1
     local xoffset = 0
-    for _, text, style in self:each_vline_token(vline) do
+    for _, text, style, type in self:each_vline_token(vline) do
       local font = style.font or default_font
       if font ~= default_font then font:set_tab_size(indent_size) end
-      local length = #text
-      if column + length <= col then
-        xoffset = xoffset + font:get_width(text)
-        column = column + length
-        if column >= col then
-          return x + gw + xoffset, y
+      local length = text:ulen()
+      if type == "doc" then
+        if column + length < vcol then
+          xoffset = xoffset + font:get_width(text)
+          column = column + length
+        else
+          for char in common.utf8_chars(text) do
+            if column >= vcol then
+              return x + gw + xoffset, y
+            end
+            xoffset = xoffset + font:get_width(char)
+            column = column + 1
+          end
         end
       else
-        for char in common.utf8_chars(text) do
-          if column >= col then
-            return x + gw + xoffset, y
-          end
-          xoffset = xoffset + font:get_width(char)
-          column = column + #char
-        end
+        xoffset = xoffset + font:get_width(text)
       end
+    end
+    if line == 8 then
+      print("VLINE", line, col, vline, vcol)
     end
     return x + gw + xoffset, y
   else
@@ -172,7 +241,7 @@ end
 
 -- Returns cursor position in virtual space.
 function DocView:resolve_screen_position(x, y)
-  local ox, oy = self:get_line_screen_position(1)
+  local ox, oy = self:get_virtual_line_offset(1)
   local line = math.floor((y - oy) / self:get_line_height()) + 1
   line = common.clamp(line, 1, #self.doc.lines)
   local line_text = self.doc.lines[line]
@@ -593,6 +662,7 @@ end
 
 
 function DocView:get_scrollable_size()
+  local max_lines = math.max(#self.doc.lines, #self.vcache)
   if not config.scroll_past_end then
     local _, _, _, h_scroll = self.h_scrollbar:get_track_rect()
     return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2 + h_scroll
@@ -658,14 +728,14 @@ end
 
 
 function DocView:scroll_to_make_visible(line, col)
-  local _, oy = self:get_content_offset()
+  local ox, oy = self:get_content_offset()
   local lx, ly = self:get_line_screen_position(line, col)
   local lh = self:get_line_height()
   local _, _, _, scroll_h = self.h_scrollbar:get_track_rect()
   self.scroll.to.y = common.clamp(self.scroll.to.y, ly - oy - self.size.y + scroll_h + lh * 2, ly - oy - lh)
   local xmargin = 3 * self:get_font():get_width(' ')
-  local xsup = lx + self:get_gutter_width() + xmargin
-  local xinf = lx - xmargin
+  local xsup = lx + self:get_gutter_width() + xmargin - ox
+  local xinf = lx - self:get_gutter_width() - xmargin - ox
   local _, _, scroll_w = self.v_scrollbar:get_track_rect()
   local size_x = math.max(0, self.size.x - scroll_w)
   if xsup > self.scroll.x + size_x then
@@ -889,8 +959,8 @@ function DocView:draw_line_body(vline, x, y)
       local text = self.doc.lines[vline]
       if line1 ~= vline then col1 = 1 end
       if line2 ~= vline then col2 = #text + 1 end
-      local _, x1 = x + self:get_line_screen_position(vline, col1)
-      local _, x2 = x + self:get_line_screen_position(vline, col2)
+      local _, x1 = x + self:get_line_screen_position(line1, col1)
+      local _, x2 = x + self:get_line_screen_position(line2, col2)
       if x1 ~= x2 then
         renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
       end
@@ -912,7 +982,9 @@ function DocView:draw_line_gutter(vline, x, y, width)
   end
   x = x + style.padding.x
   local lh = self:get_line_height()
-  common.draw_text(self:get_font(), color, self.vtodcache[vline] or vline, "right", x, y, width, lh)
+  if self:is_first_line_of_block(vline) then
+    common.draw_text(self:get_font(), color, self.tokens[self.vcache[vline] + 1], "right", x, y, width, lh)
+  end
   return lh
 end
 
@@ -943,12 +1015,10 @@ end
 
 function DocView:draw_overlay()
   if core.active_view == self then
-    local minline, maxline = self:get_visible_virutal_line_range()
     -- draw caret if it overlaps this line
     local T = config.blink_period
-    for _, line1, col1, line2, col2 in self:get_vselections() do
-      if line1 >= minline and line1 <= maxline
-      and system.window_has_focus() then
+    for _, line1, col1, line2, col2 in self:get_selections() do
+      if system.window_has_focus() then
         if ime.editing then
           self:draw_ime_decoration(line1, col1, line2, col2)
         else
@@ -975,7 +1045,7 @@ function DocView:draw()
   local minline, maxline = self:get_visible_virutal_line_range()
   local lh = self:get_line_height()
 
-  local x, y = self:get_line_screen_position(minline)
+  local x, y = self:get_virtual_line_offset(minline)
   local gw, gpad = self:get_gutter_width()
   for i = minline, maxline do
     if self:has_tokens(i) then
@@ -984,7 +1054,7 @@ function DocView:draw()
   end
 
   local pos = self.position
-  x, y = self:get_line_screen_position(minline)
+  x, y = self:get_virtual_line_offset(minline)
   -- the clip below ensure we don't write on the gutter region. On the
   -- right side it is redundant with the Node's clip.
   core.push_clip_rect(pos.x + gw, pos.y, self.size.x - gw, self.size.y)
@@ -1010,11 +1080,15 @@ end
 --[[
 self.vcache maps virtual line numbers to the point in the self.tokens array where that line starts. It is always guaranteed to be correct, up until the point where it's invalid.
 self.dcache maps doc line number sto the point in the self.tokens array where that line starts. It is always guaranteed to be correct, up until the point where it's invalid.
-self.vtodcache maps the virtual line number to the relevant doc line number; not foundational to the algorithm; purely cosmetic.
 self.dtovcache maps the doc line number onto the earliest relevant virtual line number.
 self.tokens contains the stream of transformed tokens.
 Each token can contain *at most* one new line, at the end of it.
 ]]
+
+function DocView:is_first_line_of_block(vline)
+  local token_idx = self.vcache[vline]
+  return token_idx == self.dcache[self.tokens[token_idx + 1]]
+end
 
 function DocView:invalidate_cache(start_doc_line)
   if not start_doc_line then start_doc_line = 1 end
@@ -1028,56 +1102,39 @@ function DocView:get_token_text(type, doc_line, col_start, col_end)
 end
 
 
-local function retrieve_tokens(self, vline)
-  while vline > #self.vcache and #self.dcache < #self.doc.lines do
-    local tokens = self:transform(#self.dcache + 1)
-    local bundles = #tokens / 5
-    table.insert(self.dcache, #self.tokens + 1)
-    if #tokens > 0 then
-      table.insert(self.vcache, #self.tokens + 1)
-      self.vtodcache[#self.vcache] = #self.dcache
-    end
-    self.dtovcache[#self.dcache] = #self.vcache
-    for j = 1, #tokens, 5 do
-      local text = self:get_token_text(tokens[j], tokens[j+1], tokens[j+2], tokens[j+3])
-      table.move(tokens, j, j+4, #self.tokens + 1, self.tokens)
-      if text:find("\n$") and j < #tokens - 5 then
-        table.insert(self.vcache, #self.tokens + 1)
-        self.vtodcache[#self.vcache] = #self.dcache
-      end
-    end
-  end
-  return self.vcache[vline]
-end
-
-local function text_iter(state, idx)
-  local self, line = table.unpack(state)
-  if not idx or not self.tokens[idx] or (self.vcache[line + 1] and idx >= self.vcache[line + 1]) then return nil end
-  local text = self:get_token_text(self.tokens[idx], self.tokens[idx+1], self.tokens[idx+2], self.tokens[idx+3])
-  return idx + 5, text, self.tokens[idx+4]
-end
-
-function DocView:each_vline_token(vline)
-  return text_iter, { self, vline }, retrieve_tokens(self, vline)
-end
-
 function DocView:has_tokens(vline)
   local token_idx = retrieve_tokens(self, vline)
   return token_idx and token_idx < #self.tokens and token_idx ~= retrieve_tokens(self, vline + 1)
 end
 
-local function dline_iter(state, idx)
+
+local function vline_iter(state, idx)
+  local self, line = table.unpack(state)
+  if not idx or not self.tokens[idx] or (self.vcache[line + 1] and idx >= self.vcache[line + 1]) then return nil end
+  local text = self:get_token_text(self.tokens[idx], self.tokens[idx+1], self.tokens[idx+2], self.tokens[idx+3])
+  return idx + 5, text, self.tokens[idx+4], self.tokens[idx]
+end
+
+
+local function token_iter(state, idx)
   local self, tokens = table.unpack(state)
   if idx > #tokens then return nil end
   return idx + 5, tokens[idx], tokens[idx+1], tokens[idx+2], tokens[idx+3], tokens[idx+4]
 end
 
-function DocView:each_dline_token(tokens, idx)
-  return dline_iter, { self, tokens }, idx or 1
+local function dline_iter(state, idx)
+  local self, line = table.unpack(state)
+  if not idx or not self.tokens[idx] or self.tokens[idx+1] ~= line then return nil end
+  local text = self:get_token_text(self.tokens[idx], self.tokens[idx+1], self.tokens[idx+2], self.tokens[idx+3])
+  return idx + 5, text, self.tokens[idx+4], self.tokens[idx]
 end
 
+function DocView:each_vline_token(vline) return vline_iter, { self, vline }, retrieve_tokens(self, vline) end
+function DocView:each_token(tokens, line) return token_iter, { self, tokens }, (((line or 1) - 1) * 5) + 1 end
+function DocView:each_dline_token(line) return dline_iter, { self, line }, retrieve_tokens(self, nil, line) end
+
 function DocView:get_dline_token_idx(dline, dcol)
-  for i = self.dcache[dline], #self.tokens, 5 do
+  for i = retrieve_tokens(self, nil, dline), #self.tokens, 5 do
     if self.tokens[i] == "doc" and (self.tokens[i+1] ~= dline or dcol >= self.tokens[i+2]) then
       return i
     end

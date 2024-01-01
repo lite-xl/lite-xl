@@ -108,38 +108,35 @@ function DocView:transform(doc_line)
   local offset = docstart
   local docend = docstart + width
 
-  for _, type, l, s, e, style in self:each_dline_token(old_transform(self, doc_line)) do
+  for _, type, l, s, e, style in self:each_token(old_transform(self, doc_line)) do
     local font = self:get_font() or style.font
     while true do
       local text = self:get_token_text(type, l, s, e)
       local w = font:get_width(text)
+      table.insert(tokens, type)
+      table.insert(tokens, l)
       if offset + w >= docend then
         local i = split_token(font, text, config.plugins.linewrapping.mode, docend - offset)
         assert(i)
-        table.insert(tokens, type)
         if type == "doc" then
-          table.insert(tokens, l)
           table.insert(tokens, s)
           table.insert(tokens, i and (i - 1) or e)
           s = i
         else
           table.insert(tokens, i and l:sub(1, i) or l)
           table.insert(tokens, false)
-          table.insert(tokens, false)
           l = l:sub(i+1)
         end
         table.insert(tokens, style)
 
         table.insert(tokens, "virtual")
+        table.insert(tokens, doc_line)
         table.insert(tokens, "\n")
-        table.insert(tokens, false)
         table.insert(tokens, false)
         table.insert(tokens, style)
 
         offset = docstart
       else
-        table.insert(tokens, type)
-        table.insert(tokens, l)
         table.insert(tokens, s)
         table.insert(tokens, e)
         table.insert(tokens, style)
