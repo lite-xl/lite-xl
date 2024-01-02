@@ -92,9 +92,9 @@ function DocView:draw()
   end
 end
 
-local old_transform = DocView.transform
-function DocView:transform(doc_line)
-  if not self.wrapping then return old_transform(self, doc_line) end
+local old_tokenize = DocView.tokenize
+function DocView:tokenize(doc_line)
+  if not self.wrapping then return old_tokenize(self, doc_line) end
   local tokens = {}
   local x, y = self:get_content_offset()
   local gw = self:get_gutter_width()
@@ -108,7 +108,7 @@ function DocView:transform(doc_line)
   local offset = docstart
   local docend = docstart + width
 
-  for _, type, l, s, e, style in self:each_token(old_transform(self, doc_line)) do
+  for _, type, l, s, e, style in self:each_token(old_tokenize(self, doc_line)) do
     local font = self:get_font() or style.font
     while true do
       local text = self:get_token_text(type, l, s, e)

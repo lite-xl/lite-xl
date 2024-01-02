@@ -441,7 +441,7 @@ local commands = {
   end,
 
   ["docview:select-to-cursor"] = function(dv, x, y, clicks)
-    local line1, col1 = select(3, doc():get_selection())
+    local line1, col1 = select(3, dv:get_selection())
     local line2, col2 = dv:resolve_screen_position(x, y)
     dv.mouse_selecting = { line1, col1, nil }
     dv:set_selection(line2, col2, line1, col1)

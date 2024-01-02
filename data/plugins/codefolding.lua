@@ -43,9 +43,9 @@ function DocView:compute_fold(doc_line)
   end
 end
 
-local old_transform = DocView.transform
-function DocView:transform(doc_line)
-  local tokens = old_transform(self, doc_line)
+local old_tokenize = DocView.tokenize
+function DocView:tokenize(doc_line)
+  local tokens = old_tokenize(self, doc_line)
   if not self.foldable then return tokens end
   self:compute_fold(doc_line)
   if self.folded[doc_line] then return {} end

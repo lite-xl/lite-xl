@@ -128,11 +128,11 @@ local function get_tokens(highlighted_tokens, doc_line, start_offset, end_offset
   return tokens
 end
 
-local old_transform = DocView.transform
-function DocView:transform(doc_line)
+local old_tokenize = DocView.tokenize
+function DocView:tokenize(doc_line)
   if not self.doc.highighter then self.doc.highlighter = Highlighter(self.doc) end
 
-  local tokens = old_transform(self, doc_line)
+  local tokens = old_tokenize(self, doc_line)
   if #tokens == 0 then return tokens end
   local highlighted_tokens = self.doc.highlighter:get_line(doc_line).tokens
   -- Walk through all doc tokens, and then map them onto what we've tokenized.
