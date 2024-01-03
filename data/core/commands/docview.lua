@@ -111,21 +111,9 @@ local function insert_paste(doc, value, whole_line, idx)
   end
 end
 
-local commands = {
-  ["docview:select-none"] = function(dv)
-    local l1, c1 = dv.doc:get_selection_idx(dv.doc.last_selection)
-    if not l1 then
-      l1, c1 = dv.doc:get_selection_idx(1)
-    end
-    dv:set_selection(l1, c1)
-  end,
-
+local write_commands = {
   ["docview:cut"] = function()
     cut_or_copy(true)
-  end,
-
-  ["docview:copy"] = function()
-    cut_or_copy(false)
   end,
 
   ["docview:undo"] = function(dv)
@@ -239,30 +227,6 @@ local commands = {
       end
       dv:delete_to_cursor(idx, translate.previous_char)
       ::continue::
-    end
-  end,
-
-  ["docview:select-all"] = function(dv)
-    dv:set_selection(1, 1, math.huge, math.huge)
-    -- avoid triggering DocView:scroll_to_make_visible
-    dv.last_line1 = 1
-    dv.last_col1 = 1
-    dv.last_line2 = #dv.doc.lines
-    dv.last_col2 = #dv.doc.lines[#dv.doc.lines]
-  end,
-
-  ["docview:select-lines"] = function(dv)
-    for idx, line1, _, line2 in dv.doc:get_selections(true) do
-      append_line_if_last_line(line2)
-      dv:set_selections(idx, line2 + 1, 1, line1, 1)
-    end
-  end,
-
-  ["docview:select-word"] = function(dv)
-    for idx, line1, col1 in dv.doc:get_selections(true) do
-      local line1, col1 = translate.start_of_word(dv, line1, col1)
-      local line2, col2 = translate.end_of_word(dv, line1, col1)
-      dv:set_selections(idx, line2, col2, line1, col1)
     end
   end,
 
@@ -402,6 +366,44 @@ local commands = {
 
   ["docview:lower-case"] = function(dv)
     dv:replace(string.ulower)
+  end
+}
+
+local read_commands = {
+  ["docview:select-none"] = function(dv)
+    local l1, c1 = dv.doc:get_selection_idx(dv.doc.last_selection)
+    if not l1 then
+      l1, c1 = dv.doc:get_selection_idx(1)
+    end
+    dv:set_selection(l1, c1)
+  end,
+
+  ["docview:copy"] = function()
+    cut_or_copy(false)
+  end,
+
+  ["docview:select-all"] = function(dv)
+    dv:set_selection(1, 1, math.huge, math.huge)
+    -- avoid triggering DocView:scroll_to_make_visible
+    dv.last_line1 = 1
+    dv.last_col1 = 1
+    dv.last_line2 = #dv.doc.lines
+    dv.last_col2 = #dv.doc.lines[#dv.doc.lines]
+  end,
+
+  ["docview:select-lines"] = function(dv)
+    for idx, line1, _, line2 in dv.doc:get_selections(true) do
+      append_line_if_last_line(line2)
+      dv:set_selections(idx, line2 + 1, 1, line1, 1)
+    end
+  end,
+
+  ["docview:select-word"] = function(dv)
+    for idx, line1, col1 in dv.doc:get_selections(true) do
+      local line1, col1 = translate.start_of_word(dv, line1, col1)
+      local line2, col2 = translate.end_of_word(dv, line1, col1)
+      dv:set_selections(idx, line2, col2, line1, col1)
+    end
   end,
 
   ["docview:go-to-line"] = function(dv)
@@ -515,12 +517,12 @@ local translations = {
 }
 
 for name, obj in pairs(translations) do
-  commands["docview:move-to-" .. name] = function(dv) dv:move_to(obj[name:gsub("-", "_")], dv) end
-  commands["docview:select-to-" .. name] = function(dv) dv:select_to(obj[name:gsub("-", "_")], dv) end
-  commands["docview:delete-to-" .. name] = function(dv) dv:delete_to(obj[name:gsub("-", "_")], dv) end
+  read_commands["docview:move-to-" .. name] = function(dv) dv:move_to(obj[name:gsub("-", "_")], dv) end
+  read_commands["docview:select-to-" .. name] = function(dv) dv:select_to(obj[name:gsub("-", "_")], dv) end
+  write_commands["docview:delete-to-" .. name] = function(dv) dv:delete_to(obj[name:gsub("-", "_")], dv) end
 end
 
-commands["docview:move-to-previous-char"] = function(dv)
+read_commands["docview:move-to-previous-char"] = function(dv)
   for idx, line1, col1, line2, col2 in dv:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
       dv:set_selections(idx, line1, col1)
@@ -531,7 +533,7 @@ commands["docview:move-to-previous-char"] = function(dv)
   dv:merge_cursors()
 end
 
-commands["docview:move-to-next-char"] = function(dv)
+read_commands["docview:move-to-next-char"] = function(dv)
   for idx, line1, col1, line2, col2 in dv:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
       dv:set_selections(idx, line2, col2)
@@ -542,4 +544,7 @@ commands["docview:move-to-next-char"] = function(dv)
   dv:merge_cursors()
 end
 
-command.add("core.docview", commands)
+command.add(function()
+  return core.active_view:is(DocView) and not core.active_view.read_only
+end, read_commands)
+command.add("core.docview", write_commands)

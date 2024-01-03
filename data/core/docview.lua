@@ -65,6 +65,7 @@ function DocView:new(doc)
   self.ime_selection = { from = 0, size = 0 }
   self.ime_status = false
   self.hovering_gutter = false
+  self.read_only = false
   self.tokens = {}
   self.vcache = {}
   self.dcache = {}
@@ -712,7 +713,7 @@ end
 
 
 function DocView:supports_text_input()
-  return true
+  return not self.read_only
 end
 
 
