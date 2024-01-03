@@ -44,22 +44,22 @@ function DocView:compute_fold(doc_line)
 end
 
 local old_tokenize = DocView.tokenize
-function DocView:tokenize(doc_line)
-  local tokens = old_tokenize(self, doc_line)
+function DocView:tokenize(line)
+  local tokens = old_tokenize(self, line)
   if not self.foldable then return tokens end
-  self:compute_fold(doc_line)
-  if self.folded[doc_line] then return {} end
-  if self:is_foldable(doc_line) and self.folded[doc_line+1] then
+  self:compute_fold(line)
+  if self.folded[line] then return {} end
+  if self:is_foldable(line) and self.folded[line+1] then
     -- remove the newline from the end of the tokens
     local type, line, e = tokens[#tokens - 4], tokens[#tokens - 3], tokens[#tokens - 1]
     if type == "doc" and self.doc.lines[line]:sub(e, e) == "\n" then tokens[#tokens - 1] = tokens[#tokens - 1] - 1 end
     table.insert(tokens, "virtual")
-    table.insert(tokens, doc_line)
+    table.insert(tokens, line)
     table.insert(tokens, " ... ")
     table.insert(tokens, false)
     table.insert(tokens, { color = style.dim })
     table.insert(tokens, "virtual")
-    table.insert(tokens, doc_line)
+    table.insert(tokens, line)
     table.insert(tokens, "}\n")
     table.insert(tokens, false)
     table.insert(tokens, {  })
@@ -67,10 +67,10 @@ function DocView:tokenize(doc_line)
   return tokens
 end
 
-function DocView:is_foldable(doc_line)
-  if doc_line < #self.doc.lines then
-    if not self.foldable[doc_line] or not self.foldable[doc_line+1] then self:compute_fold(doc_line+1) end
-    return self.foldable[doc_line] and self.foldable[doc_line+1] > self.foldable[doc_line]
+function DocView:is_foldable(line)
+  if line < #self.doc.lines then
+    if not self.foldable[line] or not self.foldable[line+1] then self:compute_fold(line+1) end
+    return self.foldable[line] and self.foldable[line+1] > self.foldable[line]
   end
   return false
 end

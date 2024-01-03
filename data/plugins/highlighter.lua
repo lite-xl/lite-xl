@@ -2,14 +2,8 @@
 local core = require "core"
 local config = require "core.config"
 local style = require "core.style"
-local Doc = require "core.doc"
 local DocView = require "core.docview"
-local Node = require "core.node"
 local common = require "core.common"
-
-local core = require "core"
-local common = require "core.common"
-local config = require "core.config"
 local tokenizer = require "core.tokenizer"
 local Object = require "core.object"
 
@@ -129,12 +123,12 @@ local function get_tokens(highlighted_tokens, doc_line, start_offset, end_offset
 end
 
 local old_tokenize = DocView.tokenize
-function DocView:tokenize(doc_line)
+function DocView:tokenize(line)
   if not self.doc.highighter then self.doc.highlighter = Highlighter(self.doc) end
 
-  local tokens = old_tokenize(self, doc_line)
+  local tokens = old_tokenize(self, line)
   if #tokens == 0 then return tokens end
-  local highlighted_tokens = self.doc.highlighter:get_line(doc_line).tokens
+  local highlighted_tokens = self.doc.highlighter:get_line(line).tokens
   -- Walk through all doc tokens, and then map them onto what we've tokenized.
   local colorized = {}
   local start_offset = 1
@@ -147,7 +141,7 @@ function DocView:tokenize(doc_line)
       table.move(tokens, i, i + 4, #colorized + 1, colorized)
     end
   end
-  return #colorized > 0 and colorized or { "doc", doc_line, 1, 0, {} }
+  return #colorized > 0 and colorized or { "doc", line, 1, 1, {} }
 end
 
 return Highlighter

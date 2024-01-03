@@ -224,7 +224,7 @@ function DocView:resolve_screen_position(x, y)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
-  local token_idx = self:retrieve_tokens(nil, vline)
+  local token_idx = self:retrieve_tokens(vline)
   if not token_idx then return #self.doc.lines, #self.doc.lines[#self.doc.lines] end
   local line = self.tokens[token_idx+1]
   for _, text, style in self:each_vline_token(vline) do
@@ -1056,10 +1056,10 @@ end
 -- Selections are in document space.
 -- Tokenize function for lines from the doc.
 -- Plugins hook this to return a line/col list from `doc`, or provide a virtual line.
--- `{ "doc", doc_line, 1, #self.doc.lines[doc_line], style }`
--- `{ "virtual", doc_line, text, false, style }
-function DocView:tokenize(doc_line)
-  return { "doc", doc_line, 1, #self.doc.lines[doc_line], { } }
+-- `{ "doc", line, 1, #self.doc.lines[line], style }`
+-- `{ "virtual", line, text, false, style }
+function DocView:tokenize(line)
+  return { "doc", line, 1, #self.doc.lines[line], { } }
 end
 
 --[[
