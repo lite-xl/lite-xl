@@ -219,11 +219,14 @@ function DocView:resolve_screen_position(x, y)
   local ox, oy = self:get_virtual_line_offset(1)
   local vline = math.floor((y - oy) / self:get_line_height()) + 1
 
+
   local xoffset, last_i, i = ox, 1, 1
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
-  local line = self.tokens[self.vcache[vline]+1]
+  local token_idx = self:retrieve_tokens(nil, vline)
+  if not token_idx then return #self.doc.lines, #self.doc.lines[#self.doc.lines] end
+  local line = self.tokens[token_idx+1]
   for _, text, style in self:each_vline_token(vline) do
     local font = style.font or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
@@ -682,7 +685,9 @@ end
 
 function DocView:get_visible_line_range()
   local minline, maxline = self:get_visible_virtual_line_range()
-  return self.vcache[self:retrieve_tokens(minline) + 1], self.vcache[self:retrieve_tokens(maxline) + 1]
+  local min_token_idx = self:retrieve_tokens(minline) or self.vcache[#self.vcache]
+  local max_token_idx = self:retrieve_tokens(maxline) or self.vcache[#self.vcache]
+  return self.tokens[min_token_idx + 1], self.tokens[max_token_idx + 1]
 end
 
 
@@ -893,9 +898,9 @@ function DocView:draw_line_text(line, x, y)
   for tidx, text, style in self:each_dline_token(line) do
     local font = style.font or default_font
     tx = renderer.draw_text(font, text, tx, ty, style.color or default_color)
-    if tx > self.position.x + self.size.x then break end
     if text:find("\n$") then
       tx = otx
+      ty = ty + self:get_line_height()
       lines = lines + 1
     end
   end
@@ -916,10 +921,12 @@ end
 
 function DocView:draw_line(line, x, y)
   local gw, gpad = self:get_gutter_width()
-  self:draw_line_gutter(line, x, y, gpad and gw - gpad or gw)
   core.push_clip_rect(self.position.x + gw, self.position.y, self.size.x - gw, self.size.y)
   local lh = self:draw_line_body(line, x + gw, y)
   core.pop_clip_rect()
+  if lh > 0 then
+    self:draw_line_gutter(line, x, y, gpad and gw - gpad or gw)
+  end
   return lh
 end
 
@@ -928,7 +935,7 @@ function DocView:draw_line_body(line, x, y)
   local draw_highlight = false
   local hcl = config.highlight_current_line
   if hcl ~= false then
-    for lidx, line1, col1, line2, col2 in self:get_vselections(false) do
+    for lidx, line1, col1, line2, col2 in self:get_selections(false) do
       if line1 == line then
         if hcl == "no_selection" then
           if (line1 ~= line2) or (col1 ~= col2) then
@@ -1033,12 +1040,12 @@ function DocView:draw()
   local _, indent_size = self.doc:get_indent_info()
   self:get_font():set_tab_size(indent_size)
 
-  local minline, maxline = self:get_visible_virtual_line_range()
+  local minline, maxline = self:get_visible_line_range()
   local gw, gpad = self:get_gutter_width()
   local lh = self:get_line_height()
-  local x, y = self:get_virtual_line_offset(minline)
+  local _, y = self:get_line_screen_position(minline, 1)
   for i = minline, maxline do
-    y = y + self:draw_line(i, x - gw, y) or lh
+    y = y + self:draw_line(i, self.position.x, y) or lh
   end
   self:draw_overlay()
 
