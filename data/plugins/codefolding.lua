@@ -81,6 +81,7 @@ function DocView:toggle_fold(start_doc_line, value)
     local starting_fold = self.foldable[start_doc_line]
     local end_doc_line = start_doc_line + 1
     while end_doc_line <= #self.doc.lines do
+      self:compute_fold(end_doc_line+1) 
       if self.foldable[end_doc_line] <= starting_fold then
         if self.doc.lines[end_doc_line]:find("}%s*$") then self.folded[end_doc_line] = value end
         break

@@ -544,7 +544,5 @@ read_commands["docview:move-to-next-char"] = function(dv)
   dv:merge_cursors()
 end
 
-command.add(function()
-  return core.active_view:is(DocView) and not core.active_view.read_only
-end, read_commands)
-command.add("core.docview", write_commands)
+command.add(function() return core.active_view:is(DocView) and not core.active_view.read_only, core.active_view end, write_commands)
+command.add("core.docview", read_commands)

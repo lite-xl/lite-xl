@@ -84,38 +84,37 @@ function DocView:get_char(line, col)
 end
 
 function DocView:position_offset_byte(line, col, offset)
-  local token_idx = self:get_line_token_idx(line, col)
+  local token_idx = self:retrieve_tokens(nil, line)
+  for idx = token_idx, #self.tokens, 5 do
+    if self.tokens[idx] == "doc" then token_idx = idx if self.tokens[idx+1] ~= line or col >= self.tokens[idx+2] then break end end
+  end
   if offset > 0 then
-    if self.tokens[token_idx+1] ~= line or col < self.tokens[token_idx+2] then
-      line, col = self.tokens[token_idx+1], self.tokens[token_idx+3]
-    end
     local total_offset = (col + offset) - self.tokens[token_idx+2]
-    for i = token_idx, #self.tokens, 5 do
-      if self.tokens[i] == "doc" then
-        local width = (self.tokens[i+3] - self.tokens[i+2]) + 1
+    while token_idx do
+      if self.tokens[token_idx] == "doc" then
+        local width = (self.tokens[token_idx+3] - self.tokens[token_idx+2]) + 1
         if total_offset < width then
-          return self.tokens[i+1], self.tokens[i+2] + total_offset
+          return self.tokens[token_idx+1], self.tokens[token_idx+2] + total_offset
         end
         total_offset = total_offset - width
       end
+      token_idx = self:next_token(token_idx)
     end
     return #self.doc.lines, #self.doc.lines[#self.doc.lines]
   else
-    if self.tokens[token_idx+1] ~= line or col < self.tokens[token_idx+2] then
-      line, col = self.tokens[token_idx+1], self.tokens[token_idx+3]
-    end
     local total_offset = self.tokens[token_idx+3] - (col + offset)
-    for i = token_idx, 1, -5 do
-      if self.tokens[i] == "doc" then
-        local width = (self.tokens[i+3] - self.tokens[i+2]) + 1
+    while token_idx > 0 do
+      if self.tokens[token_idx] == "doc" then
+        local width = (self.tokens[token_idx+3] - self.tokens[token_idx+2]) + 1
         if total_offset < width then
-          return self.tokens[i+1], self.tokens[i+3] - total_offset
+          return self.tokens[token_idx+1], self.tokens[token_idx+3] - total_offset
         end
         total_offset = total_offset - width
       end
+      token_idx = token_idx - 5
     end
+    return 1,1
   end
-  return 1,1
 end
 
 function DocView:sanitize_position(line, col)
@@ -376,26 +375,6 @@ end
 function DocView:get_selections(sort_intra, idx_reverse)
   return selection_iterator, { self.selections, sort_intra, idx_reverse, self },
       idx_reverse == true and ((#self.selections / 4) + 1) or ((idx_reverse or -1) + 1)
-end
-
-
-local function vselection_iterator(invariant, idx)
-  local target = invariant[3] and (idx * 4 - 7) or (idx * 4 + 1)
-  if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
-  local line1, col1, line2, col2
-  if invariant[2] then
-    line1, col1, line2, col2 = common.sort_positions(table.unpack(invariant[1], target, target + 4))
-  else
-    line1, col1, line2, col2 = table.unpack(invariant[1], target, target + 4)
-  end
-  line1, col1 = invariant[4]:get_closest_vline(line1, col1)
-  line2, col2 = invariant[4]:get_closest_vline(line2, col2)
-  return idx + (invariant[3] and -1 or 1), line1, col1, line2, col2
-end
-
-
-function DocView:get_vselections(...)
-  return vselection_iterator, select(2, self:get_selections(...))
 end
 
 -- End of cursor seciton.
@@ -929,7 +908,7 @@ end
 function DocView:draw_line(line, x, y)
   local gw, gpad = self:get_gutter_width()
   core.push_clip_rect(self.position.x + gw, self.position.y, self.size.x - gw, self.size.y)
-  local lh = self:draw_line_body(line, x + gw, y)
+  local lh = self:draw_line_body(line, x + gw - self.scroll.x, y)
   core.pop_clip_rect()
   if lh > 0 then
     self:draw_line_gutter(line, x, y, gpad and gw - gpad or gw)
@@ -963,13 +942,21 @@ function DocView:draw_line_body(line, x, y)
   local lh = self:get_line_height()
   for lidx, line1, col1, line2, col2 in self:get_selections(true) do
     if line >= line1 and line <= line2 then
-      local text = self.doc.lines[line]
+      local length = self.doc.lines[line]:ulen()
       if line1 ~= line then col1 = 1 end
-      if line2 ~= line then col2 = #text + 1 end
-      local x1, y1 = self:get_line_screen_position(line1, col1)
-      local x2, y2 = self:get_line_screen_position(line2, col2)
-      if x1 ~= x2 then
-        renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
+      if line2 ~= line then col2 = length + 1 end
+      local x1, y1 = self:get_line_screen_position(line, col1)
+      local x2, y2 = self:get_line_screen_position(line, col2)
+      if y1 ~= y2 or x1 ~= x2 then
+        if y1 == y2 then
+          renderer.draw_rect(x1, y1, x2 - x1, (y2 - y1) + lh, style.selection)
+        else
+          local vline = self:get_closest_vline(line1, col1)
+          -- we need at most three rects here; one for the initial selection, one for the middle large block, one for the end
+          renderer.draw_rect(x1, y1, self:get_vline_width(vline) + x - x1, lh, style.selection)
+          if y2 > y1 + lh then renderer.draw_rect(x, y1 + lh, self:get_vline_width(vline), (y2 - y1), style.selection) end
+          renderer.draw_rect(x, y1 + lh, x2, lh, style.selection)
+        end
       end
     end
   end
@@ -981,7 +968,7 @@ end
 
 function DocView:draw_line_gutter(line, x, y, width)
   local color = style.line_number
-  for _, line1, _, line2 in self:get_vselections(true) do
+  for _, line1, _, line2 in self:get_selections(true) do
     if line >= line1 and line <= line2 then
       color = style.line_number2
       break
@@ -1050,7 +1037,7 @@ function DocView:draw()
   local minline, maxline = self:get_visible_line_range()
   local gw, gpad = self:get_gutter_width()
   local lh = self:get_line_height()
-  local _, y = self:get_line_screen_position(minline, 1)
+  local x, y = self:get_line_screen_position(minline, 1)
   for i = minline, maxline do
     y = y + self:draw_line(i, self.position.x, y) or lh
   end
@@ -1083,6 +1070,7 @@ function DocView:is_first_line_of_block(vline)
 end
 
 function DocView:invalidate_cache(start_doc_line)
+  if #self.tokens == 0 then return end
   if not start_doc_line then start_doc_line = 1 end
   while #self.tokens >= self.dcache[start_doc_line] do table.remove(self.tokens) end
   while #self.dcache >= start_doc_line do table.remove(self.dcache) end
@@ -1144,16 +1132,15 @@ function DocView:retrieve_tokens(vline, line)
 end
 
 function DocView:each_vline_token(vline) return vline_iter, { self, vline }, self:retrieve_tokens(vline) end
-function DocView:each_token(tokens, line) return token_iter, { self, tokens }, (((line or 1) - 1) * 5) + 1 end
+function DocView:each_token(tokens, idx) return token_iter, { self, tokens }, (((idx or 1) - 1) * 5) + 1 end
 function DocView:each_line_token(line) return dline_iter, { self, line }, self:retrieve_tokens(nil, line) end
-
-function DocView:get_line_token_idx(line, col)
-  for i = self:retrieve_tokens(nil, line), #self.tokens, 5 do
-    if self.tokens[i] == "doc" and (self.tokens[i+1] ~= line or dcol >= self.tokens[i+2]) then
-      return i
-    end
+function DocView:next_token(idx) return idx < #self.tokens and idx + 5 or self:retrieve_tokens(#self.dcache + 1) end
+function DocView:get_vline_width(vline)
+  local width = 0
+  for _, text, style, type in self:each_vline_token(vline) do
+    width = width + (style.font or self:get_font()):get_width(text)
   end
-  return 1
+  return width
 end
 
 return DocView
