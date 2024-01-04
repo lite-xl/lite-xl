@@ -412,49 +412,50 @@ end
 function DocView:listener(type, text, line1, col1, line2, col2)
   self:invalidate_cache(line1, line2)
   -- keep cursors where they should be on insertion
-  -- for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
-  --   if cline1 < line then break end
-  --   local line_addition = (line < cline1 or col < ccol1) and #lines - 1 or 0
-  --   local column_addition = line == cline1 and ccol1 > col and len or 0
-  --   self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition,
-  --     ccol2 + column_addition)
-  -- end
-
-
+  if type == "insert" then
+    for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+      if cline1 < line1 then break end
+      local line_addition = (line1 < cline1 or col1 < ccol1) and #lines - 1 or 0
+      local column_addition = line1 == cline1 and ccol1 > col1 and len or 0
+      self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition, ccol2 + column_addition)
+    end
+  end
   -- keep selections in correct positions on removal: each pair (line, col)
   -- * remains unchanged if before the deleted text
   -- * is set to (line1, col1) if in the deleted text
   -- * is set to (line1, col - col_removal) if on line2 but out of the deleted text
   -- * is set to (line - line_removal, col) if after line2
-  -- for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
-  --   if cline2 < line1 then break end
-  --   local l1, c1, l2, c2 = cline1, ccol1, cline2, ccol2
+  if type == "remove" then
+    local merge = false
+    for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
+      if cline2 < line1 then break end
+      local l1, c1, l2, c2 = cline1, ccol1, cline2, ccol2
 
-  --   if cline1 > line1 or (cline1 == line1 and ccol1 > col1) then
-  --     if cline1 > line2 then
-  --       l1 = l1 - line_removal
-  --     else
-  --       l1 = line1
-  --       c1 = (cline1 == line2 and ccol1 > col2) and c1 - col_removal or col1
-  --     end
-  --   end
+      if cline1 > line1 or (cline1 == line1 and ccol1 > col1) then
+        if cline1 > line2 then
+          l1 = l1 - line_removal
+        else
+          l1 = line1
+          c1 = (cline1 == line2 and ccol1 > col2) and c1 - col_removal or col1
+        end
+      end
 
-  --   if cline2 > line1 or (cline2 == line1 and ccol2 > col1) then
-  --     if cline2 > line2 then
-  --       l2 = l2 - line_removal
-  --     else
-  --       l2 = line1
-  --       c2 = (cline2 == line2 and ccol2 > col2) and c2 - col_removal or col1
-  --     end
-  --   end
+      if cline2 > line1 or (cline2 == line1 and ccol2 > col1) then
+        if cline2 > line2 then
+          l2 = l2 - line_removal
+        else
+          l2 = line1
+          c2 = (cline2 == line2 and ccol2 > col2) and c2 - col_removal or col1
+        end
+      end
 
-  --   if l1 == line1 and c1 == col1 then merge = true end
-  --   self:set_selections(idx, l1, c1, l2, c2)
-  -- end
-
-  -- if merge then
-  --   self:merge_cursors()
-  -- end
+      if l1 == line1 and c1 == col1 then merge = true end
+      self:set_selections(idx, l1, c1, l2, c2)
+    end
+    if merge then
+      self:merge_cursors()
+    end
+  end
 end
 
 function DocView:try_close(do_close)
@@ -1058,9 +1059,6 @@ function DocView:draw()
   self:draw_scrollbar()
 end
 
-
--- Selections are in document space.
--- Tokenize function for lines from the doc.
 -- Plugins hook this to return a line/col list from `doc`, or provide a virtual line.
 -- `{ "doc", line, 1, #self.doc.lines[line], style }`
 -- `{ "virtual", line, text, false, style }
