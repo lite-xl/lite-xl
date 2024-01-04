@@ -127,14 +127,12 @@ DocView.position_offset = Doc.position_offset
 
 function DocView:get_closest_vline(line, col)
   local token_idx = self:retrieve_tokens(nil, line)
-  if not token_idx then
-    return #self.vcache + 1, 1
-  end
+  if not token_idx then return #self.vcache + 1, 1 end
   if self.tokens[token_idx+1] ~= line then return self.dtovcache[line] end
-  local total_line_length = 0
-  local total_token_length = 0
   local vline = self.dtovcache[line]
   if col and col > 1 then
+    local total_line_length = 0
+    local total_token_length = 0
     for _, text, _, type in self:each_line_token(line) do
       if type == "doc" then
         local length = text:ulen() or #text
@@ -150,6 +148,12 @@ function DocView:get_closest_vline(line, col)
     end
   end
   return vline, 1
+end
+
+function DocView:get_last_vline(line)
+  local vline = self:get_closest_vline(line)
+  while vline <= #self.vcache and self.tokens[self.vcache[vline + 1]+1] == line do vline = vline + 1 end
+  return vline
 end
 
 function DocView:get_dline(vline, vcol)
@@ -917,6 +921,7 @@ function DocView:draw_line(line, x, y)
 end
 
 function DocView:draw_line_body(line, x, y)
+  if not self:has_tokens(line) then return 0 end
   -- draw highlight if any selection ends on this line
   local draw_highlight = false
   local hcl = config.highlight_current_line
@@ -943,20 +948,27 @@ function DocView:draw_line_body(line, x, y)
   for lidx, line1, col1, line2, col2 in self:get_selections(true) do
     if line >= line1 and line <= line2 then
       local length = self.doc.lines[line]:ulen()
+      local x1, x2, y1, y2
       if line1 ~= line then col1 = 1 end
-      if line2 ~= line then col2 = length + 1 end
-      local x1, y1 = self:get_line_screen_position(line, col1)
-      local x2, y2 = self:get_line_screen_position(line, col2)
-      if y1 ~= y2 or x1 ~= x2 then
-        if y1 == y2 then
-          renderer.draw_rect(x1, y1, x2 - x1, (y2 - y1) + lh, style.selection)
+      if line2 ~= line then col2 = self.doc.lines[line]:ulen() end
+
+      local vline1, vcol1 = self:get_closest_vline(line, col1)
+      local vline2, vcol2 = self:get_closest_vline(line, col2)
+      for i = vline1, vline2 do
+        local offset, width, vy
+        if i > vline1 or (i == vline1 and line1 ~= line) then
+          vy = select(2, self:get_virtual_line_offset(i))
+          offset = x
         else
-          local vline = self:get_closest_vline(line1, col1)
-          -- we need at most three rects here; one for the initial selection, one for the middle large block, one for the end
-          renderer.draw_rect(x1, y1, self:get_vline_width(vline) + x - x1, lh, style.selection)
-          if y2 > y1 + lh then renderer.draw_rect(x, y1 + lh, self:get_vline_width(vline), (y2 - y1), style.selection) end
-          renderer.draw_rect(x, y1 + lh, x2, lh, style.selection)
+          offset, vy = self:get_line_screen_position(line, col1)
         end
+        if i < vline2 or (i == vline2 and line2 ~= line) then
+          width = self:get_vline_width(i)
+        else
+          local x2, y2 = self:get_line_screen_position(line, col2)
+          width = x2 - offset
+        end
+        renderer.draw_rect(offset, vy, width, lh, style.selection)
       end
     end
   end
@@ -1069,7 +1081,7 @@ function DocView:is_first_line_of_block(vline)
   return token_idx == self.dcache[self.tokens[token_idx + 1]]
 end
 
-function DocView:invalidate_cache(start_doc_line)
+function DocView:invalidate_cache(start_doc_line, end_doc_line)
   if #self.tokens == 0 then return end
   if not start_doc_line then start_doc_line = 1 end
   while #self.tokens >= self.dcache[start_doc_line] do table.remove(self.tokens) end
@@ -1082,9 +1094,9 @@ function DocView:get_token_text(type, doc_line, col_start, col_end)
 end
 
 
-function DocView:has_tokens(vline)
-  local token_idx = self:retrieve_tokens(vline)
-  return token_idx and token_idx < #self.tokens and token_idx ~= self:retrieve_tokens(vline + 1)
+function DocView:has_tokens(line)
+  local token_idx = self:retrieve_tokens(nil, line)
+  return token_idx and token_idx < #self.tokens and self.tokens[token_idx+1] == line
 end
 
 
