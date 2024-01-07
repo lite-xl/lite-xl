@@ -14,6 +14,7 @@ function Highlighter:new(doc)
   self.doc = doc
   self.running = false
   self:reset()
+  self.state = {}
 end
 
 
@@ -128,14 +129,17 @@ function DocView:tokenize(line)
 
   local tokens = old_tokenize(self, line)
   if #tokens == 0 then return tokens end
-  local highlighted_tokens = self.doc.highlighter:get_line(line).tokens
+  local tokenized = self.doc.highlighter:get_line(line)
+  -- Ensure we tokenize the next line if our state is different.
+  if self.doc.highlighter.state[line] and self.doc.highlighter.state[line] ~= tokenized.state then
+    self:invalidate_cache(line + 1, line + 1)
+  end
+  self.doc.highlighter.state[line] = tokenized.state
   -- Walk through all doc tokens, and then map them onto what we've tokenized.
   local colorized = {}
-  local start_offset = 1
-  local start_highlighted = 1
   for i = 1, #tokens, 5 do
     if tokens[i] == "doc" then
-      local t = get_tokens(highlighted_tokens, tokens[i+1], tokens[i+2], tokens[i+3], tokens[i+4])
+      local t = get_tokens(tokenized.tokens, tokens[i+1], tokens[i+2], tokens[i+3], tokens[i+4])
       table.move(t, 1, #t, #colorized + 1, colorized)
     else
       table.move(tokens, i, i + 4, #colorized + 1, colorized)

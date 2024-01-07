@@ -124,54 +124,6 @@ end
 DocView.position_offset_func = Doc.position_offset_func
 DocView.position_offset = Doc.position_offset
 
-
-function DocView:get_closest_vline(line, col)
-  local token_idx = self:retrieve_tokens(nil, line)
-  if not token_idx then return #self.vcache + 1, 1 end
-  if self.tokens[token_idx+1] ~= line then return self.dtovcache[line] end
-  local vline = self.dtovcache[line]
-  if col and col > 1 then
-    local total_line_length = 0
-    local total_token_length = 0
-    for _, text, _, type in self:each_line_token(line) do
-      if type == "doc" then
-        local length = text:ulen() or #text
-        if col <= total_token_length + total_line_length + length then
-          return vline, col - total_line_length
-        end
-        total_token_length = total_token_length + length
-      end
-      if text:find("\n$") then
-        total_line_length = total_line_length + total_token_length
-        vline = vline + 1
-      end
-    end
-  end
-  return vline, 1
-end
-
-function DocView:get_last_vline(line)
-  local vline = self:get_closest_vline(line)
-  while vline <= #self.vcache and self.tokens[self.vcache[vline + 1]+1] == line do vline = vline + 1 end
-  return vline
-end
-
-function DocView:get_dline(vline, vcol)
-  local line = self.tokens[self:retrieve_tokens(vline) + 1]
-  local total_line_length = 0
-  local current_line = self.dtovcache[line]
-  for _, text, _, type in self:each_line_token(line) do
-    if current_line == vline then
-      return line, vcol + total_line_length
-    end
-    if type == "doc" then total_line_length = total_line_length + text:ulen() end
-    if text:find("\n$") then
-      current_line = current_line + 1
-    end
-  end
-  return line, vcol
-end
-
 function DocView:get_virtual_line_offset(vline)
   local lh = self:get_line_height()
   local x, y = self:get_content_offset()
@@ -185,7 +137,7 @@ function DocView:get_line_screen_position(line, col)
   local gw = self:get_gutter_width()
   local vline, vcol = self:get_closest_vline(line, col)
   y = y + (vline-1) * lh
-  if col and self.vcache[vline] and self.tokens[self.vcache[vline]+1] == line then
+  if col and self:get_vline_line(vline) == line then
     local default_font = self:get_font()
     local _, indent_size = self.doc:get_indent_info()
     default_font:set_tab_size(indent_size)
@@ -228,9 +180,9 @@ function DocView:resolve_screen_position(x, y)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
+  local line = self:get_dline(vline)
   local token_idx = self:retrieve_tokens(vline)
-  if not token_idx then return #self.doc.lines, #self.doc.lines[#self.doc.lines] end
-  local line = self.tokens[token_idx+1]
+  if not token_idx then return #self.doc.lines, self.doc.lines[#self.doc.lines]:ulen() end
   for idx, text, style, type in self:each_line_token(line) do
     if idx < token_idx then
       if type == "doc" then
@@ -630,7 +582,7 @@ end
 
 
 function DocView:get_scrollable_size()
-  local max_lines = math.max(#self.doc.lines, #self.vcache)
+  local max_lines = math.max(#self.doc.lines, self:get_total_vlines())
   if not config.scroll_past_end then
     local _, _, _, h_scroll = self.h_scrollbar:get_track_rect()
     return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2 + h_scroll
@@ -676,9 +628,9 @@ end
 
 function DocView:get_visible_line_range()
   local minline, maxline = self:get_visible_virtual_line_range()
-  local min_token_idx = self:retrieve_tokens(minline) or self.vcache[#self.vcache]
-  local max_token_idx = self:retrieve_tokens(maxline) or self.vcache[#self.vcache]
-  return self.tokens[min_token_idx + 1], self.tokens[max_token_idx + 1]
+  local line1 = self:get_dline(minline)
+  local line2 = self:get_dline(maxline)
+  return line1, line2
 end
 
 
@@ -1067,6 +1019,8 @@ function DocView:tokenize(line)
 end
 
 --[[
+Virtual Lines Section
+
 self.vcache maps virtual line numbers to the point in the self.tokens array where that line starts. It is always guaranteed to be correct, up until the point where it's invalid.
 self.dcache maps doc line number sto the point in the self.tokens array where that line starts. It is always guaranteed to be correct, up until the point where it's invalid.
 self.dtovcache maps the doc line number onto the earliest relevant virtual line number.
@@ -1082,9 +1036,18 @@ end
 function DocView:invalidate_cache(start_doc_line, end_doc_line)
   if #self.tokens == 0 then return end
   if not start_doc_line then start_doc_line = 1 end
-  while #self.tokens >= self.dcache[start_doc_line] do table.remove(self.tokens) end
-  while #self.dcache >= start_doc_line do table.remove(self.dcache) end
-  while (self.vcache[#self.vcache] or 0) > #self.tokens do table.remove(self.vcache) end
+  --if not end_doc_line then
+    while #self.tokens >= self.dcache[start_doc_line] do table.remove(self.tokens) end
+    while #self.dcache >= start_doc_line do table.remove(self.dcache) end
+    while (self.vcache[#self.vcache] or 0) > #self.tokens do table.remove(self.vcache) end
+  -- else
+  --   for i = start_doc_line, end_doc_line do self.dcache[i] = false end
+  --   local i = self.dtovcache[start_doc_line]
+  --   while self.vcache[i] and self.tokens[self.vcache[i]+1] <= end_doc_line do
+  --     self.vcache[i] = false
+  --     i = i + 1
+  --   end
+  -- end
 end
 
 function DocView:get_token_text(type, doc_line, col_start, col_end)
@@ -1151,6 +1114,62 @@ function DocView:get_vline_width(vline)
     width = width + (style.font or self:get_font()):get_width(text)
   end
   return width
+end
+function DocView:get_total_vlines() return #self.vcache end
+function DocView:get_vline_line(vline)
+  local token_idx = self:retrieve_tokens(vline)
+  return token_idx and self.tokens[token_idx + 1] or #self.doc.lines
+end
+
+function DocView:get_last_vline(line)
+  local vline = self:get_closest_vline(line)
+  while vline <= #self.vcache and self:get_vline_line(vline) == line do vline = vline + 1 end
+  return vline
+end
+
+function DocView:get_closest_vline(line, col)
+  local token_idx = self:retrieve_tokens(nil, line)
+  if not token_idx then return #self.vcache + 1, 1 end
+  if self.tokens[token_idx+1] ~= line then return self.dtovcache[line] end
+  local vline = self.dtovcache[line]
+  if col and col > 1 then
+    local total_line_length = 0
+    local total_token_length = 0
+    for _, text, _, type in self:each_line_token(line) do
+      if type == "doc" then
+        local length = text:ulen() or #text
+        if col <= total_token_length + total_line_length + length then
+          return vline, col - total_line_length
+        end
+        total_token_length = total_token_length + length
+      end
+      if text:find("\n$") then
+        total_line_length = total_line_length + total_token_length
+        vline = vline + 1
+      end
+    end
+  end
+  return vline, 1
+end
+
+
+function DocView:get_dline(vline, vcol)
+  local token_idx = self:retrieve_tokens(vline)
+  if not token_idx then return #self.doc.lines, self.doc.lines[#self.doc.lines]:ulen() end
+  local line = self.tokens[token_idx + 1]
+  vcol = vcol or 1
+  local total_line_length = 0
+  local current_line = self.dtovcache[line]
+  for _, text, _, type in self:each_line_token(line) do
+    if current_line == vline then
+      return line, vcol + total_line_length
+    end
+    if type == "doc" then total_line_length = total_line_length + text:ulen() end
+    if text:find("\n$") then
+      current_line = current_line + 1
+    end
+  end
+  return line, vcol
 end
 
 return DocView
