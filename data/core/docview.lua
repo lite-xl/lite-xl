@@ -916,7 +916,7 @@ function DocView:draw_line_body(line, x, y)
           offset, vy = self:get_line_screen_position(line, col1)
         end
         if i < vline2 or (i == vline2 and line2 ~= line) then
-          width = self:get_vline_width(i)
+          width = self:get_vline_width(i) - (offset - x)
         else
           local x2, y2 = self:get_line_screen_position(line, col2)
           width = x2 - offset
@@ -1109,7 +1109,7 @@ function DocView:each_token(tokens, idx) return token_iter, { self, tokens }, ((
 function DocView:each_line_token(line) return dline_iter, { self, line }, self:retrieve_tokens(nil, line) end
 function DocView:next_token(idx) return idx < #self.tokens and idx + 5 or self:retrieve_tokens(#self.dcache + 1) end
 function DocView:get_vline_width(vline)
-  local width = 0
+  local width = -self:get_font():get_width("\n")
   for _, text, style, type in self:each_vline_token(vline) do
     width = width + (style.font or self:get_font()):get_width(text)
   end
