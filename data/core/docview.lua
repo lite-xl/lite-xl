@@ -324,9 +324,12 @@ function DocView:text_input(text, idx)
 end
 
 function DocView:listener(type, text, line1, col1, line2, col2)
-  self:invalidate_cache(line1, line2)
+  local invalid_line1, invalid_line2 = line1, line2
+  if type == "insert" and text:find("\n") then invalid_line2 = nil end
+  if type == "remove" and line2 ~= line1 then invalid_line2 = nil end
   -- keep cursors where they should be on insertion
   if type == "insert" then
+    self:invalidate_cache(invalid_line1, invalid_line2)
     for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
       if cline1 < line1 then break end
       local line_addition = (line1 < cline1 or col1 < ccol1) and #lines - 1 or 0
@@ -340,6 +343,7 @@ function DocView:listener(type, text, line1, col1, line2, col2)
   -- * is set to (line1, col - col_removal) if on line2 but out of the deleted text
   -- * is set to (line - line_removal, col) if after line2
   if type == "remove" then
+    self:invalidate_cache(invalid_line1, invalid_line2)
     local merge = false
     for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
       if cline2 < line1 then break end
@@ -1090,20 +1094,18 @@ function DocView:invalidate_cache(start_doc_line, end_doc_line)
   if not end_doc_line then end_doc_line = #self.dcache end
   if end_doc_line >= #self.dcache then
     while #self.dcache >= start_doc_line do table.remove(self.dcache) end
-    while self.vcache[#self.vcache] do
+    while self.vcache[#self.vcache] ~= nil do
       local line, offset = getvoffset(self.vcache[#self.vcache])
-      if line < start_doc_line then break end
+      if line and line < start_doc_line then break end
       table.remove(self.vcache)
     end
   else
     for line = start_doc_line, end_doc_line do
       self.dcache[line] = false
-      local vline = self.dtovcache[line]
-      while true do
+      for vline = self.dtovcache[line], #self.vcache do
         local l, offset = getvoffset(self.vcache[vline])
         if l ~= line then break end
         self.vcache[vline] = false
-        vline = vline + 1
       end
     end
   end
