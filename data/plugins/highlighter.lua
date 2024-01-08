@@ -21,6 +21,8 @@ function Highlighter:new(doc)
   self.running = false
   self.lines = {}
   self.syntax = self.doc.syntax
+  self.first_invalid_line = 1
+  self.max_wanted_line = 0
   self.views = setmetatable({}, { __mode = "k" })
   table.insert(doc.listeners, self)
 end
@@ -32,32 +34,6 @@ function Doc:reset_syntax()
   if self.highlighter and self.syntax ~= self.highlighter.syntax then
     self:start(1)
   end
-end
-
--- init incremental syntax highlighting
-function Highlighter:start(s, e)
-  if s then self.first_invalid_line = math.min(self.first_invalid_line, s) end
-  if e then self.max_wanted_line = math.max(self.max_wanted_line or 0, e) end
-  if self.running then return end
-  self.running = true
-  core.add_thread(function()
-    while self.first_invalid_line and self.max_wanted_line and self.first_invalid_line <= self.max_wanted_line do
-      local max = math.min(self.first_invalid_line + config.plugins.highlighter.step_line_tokenization, self.max_wanted_line)
-      for i = self.first_invalid_line, max do
-        local state = (i > 1) and self.lines[i - 1].state
-        local line = self.lines[i]
-        if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
-          self.lines[i] = self:tokenize_line(i, state)
-        end
-      end
-      for view in pairs(self.views) do view:invalidate_cache(self.first_invalid_line, max) end
-      self.first_invalid_line = max + 1
-      core.redraw = true
-      coroutine.yield(0)
-    end
-    self.max_wanted_line = 0
-    self.running = false
-  end)
 end
 
 
@@ -73,13 +49,38 @@ function Highlighter:tokenize_line(idx, state, resume)
 end
 
 
+function Highlighter:start(first_invalid_line, max_wanted_line)
+  if first_invalid_line then self.first_invalid_line = common.clamp(self.first_invalid_line, 1, first_invalid_line) end
+  if max_wanted_line then self.max_wanted_line = common.clamp(self.max_wanted_line, #self.doc.lines, max_wanted_line) end
+
+  self.running = self.running or core.add_thread(function()
+    while self.first_invalid_line <= self.max_wanted_line do
+      local max = math.min(self.first_invalid_line + config.plugins.highlighter.lines_per_step, self.max_wanted_line)
+      for i = self.first_invalid_line, max do
+        local state = (i > 1) and self.lines[i - 1].state
+        local line = self.lines[i]
+        if not (line and line.init_state == state and line.text == self.doc.lines[i]) then
+          self.lines[i] = self:tokenize_line(i, state)
+        end
+      end
+      for view in pairs(self.views) do view:invalidate_cache(self.first_invalid_line, max) end
+      self.first_invalid_line = max + 1
+      core.redraw = true
+      coroutine.yield(0)
+    end
+    self.max_wanted_line = 0
+    self.running = nil
+  end)
+end
+
+
 function Highlighter:get_line(idx)
   local line = self.lines[idx]
-  if not line or line.text ~= self.doc.lines[idx] then
-    local prev = self.lines[idx - 1]
+  local prev = self.lines[idx - 1]
+  if not line or line.text ~= self.doc.lines[idx] or (prev and line.init_state ~= prev.state) then
     line = self:tokenize_line(idx, prev and prev.state)
     if self.lines[idx] and line.state ~= self.lines[idx].state then
-      for view in pairs(self.views) do view:invalidate_cache(idx, idx + 1) end
+      self:start(idx + 1, idx + config.plugins.highlighter.lines_per_step)
     end
     self.lines[idx] = line
   end
