@@ -74,7 +74,7 @@ function DocView:new(doc)
   self.last_selection = 1
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
   self.h_scrollbar:set_forced_status(config.force_scrollbar_status)
-  table.insert(doc.listeners, function(...) self:listener(...) end)
+  table.insert(doc.listeners, self)
 end
 
 function DocView:get_char(line, col)
@@ -323,7 +323,7 @@ function DocView:text_input(text, idx)
   end
 end
 
-function DocView:listener(type, text, line1, col1, line2, col2)
+function DocView:on_doc_change(type, text, line1, col1, line2, col2)
   local invalid_line1, invalid_line2 = line1, line2
   if type == "insert" and text:find("\n") then invalid_line2 = nil end
   if type == "remove" and line2 ~= line1 then invalid_line2 = nil end
@@ -1157,7 +1157,7 @@ function DocView:each_line_token(line)
 end
 function DocView:each_token(tokens, idx) return token_iter, { self, tokens }, (((idx or 1) - 1) * 5) + 1 end
 function DocView:get_vline_width(vline)
-  local width = -self:get_font():get_width("\n")
+  local width = 0
   for _, text, style, type in self:each_vline_token(vline) do
     width = width + (style.font or self:get_font()):get_width(text)
   end
@@ -1173,21 +1173,12 @@ function DocView:get_vlines(line)
   end
   return vlines
 end
+
 function DocView:get_vline_line(vline)
   local line = self:retrieve_tokens(vline)
   return line or #self.doc.lines
 end
 
-function DocView:get_last_vline(line)
-  local vline = self:get_closest_vline(line)
-  while vline <= #self.vcache and self:get_vline_line(vline) == line do vline = vline + 1 end
-  return vline
-end
-
-function DocView:is_first_line_of_block(vline)
-  local _, offset = getvoffset(self.vcache[vline])
-  return offset == 1
-end
 
 function DocView:get_closest_vline(line, col)
   line = self:retrieve_tokens(nil, line)

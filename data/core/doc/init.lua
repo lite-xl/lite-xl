@@ -20,7 +20,7 @@ end
 
 function Doc:new(filename, abs_filename, new_file)
   self.new_file = new_file
-  self.listeners = {}
+  self.listeners = setmetatable({}, { __mode = "v" })
   self:reset()
   if filename then
     self:set_filename(filename, abs_filename)
@@ -49,10 +49,7 @@ function Doc:reset_syntax()
     path = core.project_dir .. PATHSEP .. self.filename
   end
   if path then path = common.normalize_path(path) end
-  local syn = syntax.get(path, header)
-  if self.syntax ~= syn then
-    self.syntax = syn
-  end
+  self.syntax = syntax.get(path, header)
 end
 
 function Doc:set_filename(filename, abs_filename)
@@ -238,7 +235,7 @@ local function pop_undo(self, undo_stack, redo_stack, modified)
     return pop_undo(self, undo_stack, redo_stack, modified)
   end
 
- if modified then for i,v in ipairs(self.listeners) do v("undo") end end
+ if modified then for i,v in ipairs(self.listeners) do v:on_doc_change("undo") end end
 end
 
 
@@ -263,7 +260,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   local line2, col2 = self:position_offset(line, col, #text)
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
-  for i,v in ipairs(self.listeners) do v("insert", text, line, col, line, col) end
+  for i,v in ipairs(self.listeners) do v:on_doc_change("insert", text, line, col, line, col) end
 end
 
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
@@ -283,7 +280,7 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
 
   local merge = false
 
-  for i,v in ipairs(self.listeners) do v("remove", "", line1, col1, line2, col2) end
+  for i,v in ipairs(self.listeners) do v:on_doc_change("remove", "", line1, col1, line2, col2) end
 end
 
 
