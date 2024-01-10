@@ -93,11 +93,14 @@ local function cut_or_copy(delete)
   system.set_clipboard(full_text)
 end
 
-local function split_cursor(direction)
+local function split_cursor(dv, direction)
   local new_cursors = {}
+  local dv_translate = direction < 0
+    and DocView.translate.previous_line
+    or DocView.translate.next_line
   for _, line1, col1 in doc():get_selections() do
     if line1 + direction >= 1 and line1 + direction <= #doc().lines then
-      table.insert(new_cursors, { line1 + direction, col1 })
+      table.insert(new_cursors, { dv_translate(dv.doc, line1, col1, dv) })
     end
   end
   -- add selections in the order that will leave the "last" added one as doc.last_selection
@@ -626,12 +629,12 @@ local commands = {
   end,
 
   ["doc:create-cursor-previous-line"] = function(dv)
-    split_cursor(-1)
+    split_cursor(dv, -1)
     dv.doc:merge_cursors()
   end,
 
   ["doc:create-cursor-next-line"] = function(dv)
-    split_cursor(1)
+    split_cursor(dv, 1)
     dv.doc:merge_cursors()
   end
 
