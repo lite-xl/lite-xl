@@ -98,8 +98,8 @@ local function split_cursor(dv, direction)
   local dv_translate = direction < 0
     and DocView.translate.previous_line
     or DocView.translate.next_line
-  for _, line1, col1 in doc():get_selections() do
-    if line1 + direction >= 1 and line1 + direction <= #doc().lines then
+  for _, line1, col1 in dv.doc:get_selections() do
+    if line1 + direction >= 1 and line1 + direction <= #dv.doc.lines then
       table.insert(new_cursors, { dv_translate(dv.doc, line1, col1, dv) })
     end
   end
@@ -110,7 +110,7 @@ local function split_cursor(dv, direction)
   end
   for i = start, stop, direction do
     local v = new_cursors[i]
-    doc():add_selection(v[1], v[2])
+    dv.doc:add_selection(v[1], v[2])
   end
   core.blink_reset()
 end
