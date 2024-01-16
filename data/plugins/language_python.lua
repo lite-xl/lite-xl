@@ -16,7 +16,7 @@ syntax.add {
     { pattern = { "[ruU]?'''", "'''", '\\' },  type = "string"   },
     { pattern = { '[ruU]?"', '"', '\\' },      type = "string"   },
     { pattern = { "[ruU]?'", "'", '\\' },      type = "string"   },
-    { pattern = "0x[%da-fA-F]+",               type = "number"   },
+    { pattern = "0[x|b|o|X|B|O][%da-fA-F]+",   type = "number"   },
     { pattern = "-?%d+[%d%.eE]*",              type = "number"   },
     { pattern = "-?%.?%d+",                    type = "number"   },
     { pattern = "[%+%-=/%*%^%%<>!~|&]",        type = "operator" },
