@@ -509,6 +509,7 @@ RenWindow* ren_init(SDL_Window *win) {
     return NULL;
   }
   RenWindow* window_renderer = malloc(sizeof(RenWindow));
+  memset(window_renderer, 0, sizeof(RenWindow));
 
   window_renderer->window = win;
   renwin_init_surface(window_renderer);
