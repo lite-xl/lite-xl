@@ -560,12 +560,12 @@ static int process_env_add(process_env_t *env_list, size_t *env_len, const char 
 }
 
 
-static void process_env_free(process_env_t *list) {
+static void process_env_free(process_env_t *list, size_t list_len) {
   if (!*list) return;
 #ifdef _WIN32
   free(*list);
 #else
-  for (size_t i = 0; (*list)[i]; i++) free((*list)[i]);
+  for (size_t i = 0; i < list_len; i++) free((*list)[i]);
   free(*list);
 #endif
   *list = NULL;
@@ -830,7 +830,7 @@ static int process_start(lua_State* L) {
     }
   }
   process_arglist_free(&arglist);
-  process_env_free(&env_vars);
+  process_env_free(&env_vars, env_vars_len);
 
   if (retval == -1)
     return lua_error(L);
