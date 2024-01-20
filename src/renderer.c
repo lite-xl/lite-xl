@@ -508,7 +508,7 @@ RenWindow* ren_init(SDL_Window *win) {
     fprintf(stderr, "internal font error when starting the application\n");
     return NULL;
   }
-  RenWindow* window_renderer = malloc(sizeof(RenWindow));
+  RenWindow* window_renderer = calloc(1, sizeof(RenWindow));
 
   window_renderer->window = win;
   renwin_init_surface(window_renderer);
