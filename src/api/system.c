@@ -1150,6 +1150,24 @@ static int f_text_input(lua_State* L) {
   return 0;
 }
 
+static int f_setenv(lua_State* L) {
+  size_t keylen, vallen;
+  const char *key = luaL_checklstring(L, 1, &keylen);
+  const char *val = luaL_checklstring(L, 2, &vallen);
+
+  int ok; // unused: this could be used later to report success
+#ifdef _WIN32
+  // I can't find documentation on whether SetEnvironmentVariable
+  // makes a copy of its arguments.
+  ok = SetEnvironmentVariable(key, val);
+#else
+  // right now we overwrite unconditionally
+  // this could be expanded later as an optional 3rd boolean argument
+  ok = setenv(key, val, 1);
+#endif
+  return 0;
+}
+
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -1185,6 +1203,7 @@ static const luaL_Reg lib[] = {
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
   { "text_input",          f_text_input          },
+  { "setenv",              f_setenv              },
   { NULL, NULL }
 };
 
