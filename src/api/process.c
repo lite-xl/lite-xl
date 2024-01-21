@@ -562,12 +562,11 @@ static int process_env_add(process_env_t *env_list, size_t *env_len, const char 
 
 static void process_env_free(process_env_t *list, size_t list_len) {
   if (!*list) return;
-#ifdef _WIN32
-  free(*list);
-#else
-  for (size_t i = 0; i < list_len; i++) free((*list)[i]);
-  free(*list);
+#ifndef _WIN32
+  for (size_t i = 0; i < list_len; i++)
+    free((*list)[i]);
 #endif
+  free(*list);
   *list = NULL;
 }
 
