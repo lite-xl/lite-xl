@@ -142,14 +142,12 @@ function DocView:resolve_screen_position(x, y)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
-  local line = self:get_dline(vline)
-  local token_idx = self:retrieve_tokens(vline)
-  if not token_idx then return #self.doc.lines, self.doc.lines[#self.doc.lines]:ulen() end
-  for idx, text, style, type in self:each_line_token(line) do
-    if idx < token_idx then
-      if type == "doc" then
-        i = i + text:ulen()
-      end
+  local line, col = self:retrieve_tokens(vline)
+  if not line then return #self.doc.lines, self.doc.lines[#self.doc.lines]:ulen() end
+  for _, text, style, type in self:each_line_token(line) do
+    local len = type == "doc" and text:ulen()
+    if i + len < col then
+      i = i + len
     else
       local font = style.font or default_font
       if font ~= default_font then font:set_tab_size(indent_size) end
@@ -158,7 +156,7 @@ function DocView:resolve_screen_position(x, y)
       -- because we need last_i which should be calculated using utf-8.
       if xoffset + width < x then
         xoffset = xoffset + width
-        i = i + text:ulen()
+        i = i + len
       else
         for char in common.utf8_chars(text) do
           local w = font:get_width(char)
