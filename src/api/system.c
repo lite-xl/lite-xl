@@ -12,7 +12,6 @@
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
-  #include <processenv.h>
   #include "../utfconv.h"
 
   // Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
