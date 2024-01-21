@@ -12,6 +12,7 @@
   #include <direct.h>
   #include <windows.h>
   #include <fileapi.h>
+  #include <processenv.h>
   #include "../utfconv.h"
 
   // Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
@@ -1157,9 +1158,9 @@ static int f_setenv(lua_State* L) {
 
   int ok; // unused: this could be used later to report success
 #ifdef _WIN32
-  // I can't find documentation on whether SetEnvironmentVariable
-  // makes a copy of its arguments.
-  ok = SetEnvironmentVariable(key, val);
+  LPWSTR wkey = utfconv_utf8towc(key);
+  LPWSTR wval = utfconv_utf8towc(val);
+  ok = SetEnvironmentVariableW(wkey, wval);
 #else
   // right now we overwrite unconditionally
   // this could be expanded later as an optional 3rd boolean argument
