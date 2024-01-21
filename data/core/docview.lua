@@ -145,27 +145,29 @@ function DocView:resolve_screen_position(x, y)
   local line, col = self:retrieve_tokens(vline)
   if not line then return #self.doc.lines, self.doc.lines[#self.doc.lines]:ulen() end
   for _, text, style, type in self:each_line_token(line) do
-    local len = type == "doc" and text:ulen()
-    if i + len < col then
-      i = i + len
-    else
-      local font = style.font or default_font
-      if font ~= default_font then font:set_tab_size(indent_size) end
-      local width = font:get_width(text)
-      -- Don't take the shortcut if the width matches x,
-      -- because we need last_i which should be calculated using utf-8.
-      if xoffset + width < x then
-        xoffset = xoffset + width
+    local len = type == "doc" and (text:ulen() or #text)
+    if len then
+      if i + len < col then
         i = i + len
       else
-        for char in common.utf8_chars(text) do
-          local w = font:get_width(char)
-          if xoffset >= x then
-            return line, (xoffset - x > w / 2) and last_i or i
+        local font = style.font or default_font
+        if font ~= default_font then font:set_tab_size(indent_size) end
+        local width = font:get_width(text)
+        -- Don't take the shortcut if the width matches x,
+        -- because we need last_i which should be calculated using utf-8.
+        if xoffset + width < x then
+          xoffset = xoffset + width
+          i = i + len
+        else
+          for char in common.utf8_chars(text) do
+            local w = font:get_width(char)
+            if xoffset >= x then
+              return line, (xoffset - x > w / 2) and last_i or i
+            end
+            xoffset = xoffset + w
+            last_i = i
+            i = i + 1
           end
-          xoffset = xoffset + w
-          last_i = i
-          i = i + 1
         end
       end
     end
@@ -1022,6 +1024,7 @@ function DocView:retrieve_tokens(vline, line)
   if line and self.dcache[line] then return line, 1 end
   -- If we're here, it means we need to tokenize a block of lines in the middle of the document. Start from the beginning up until the relevant line.
   if (vline and vline < #self.vcache) or (line and line < #self.dcache) then
+
     local start_line, end_line
     if vline then
       local invalid_line = vline
@@ -1064,7 +1067,7 @@ function DocView:retrieve_tokens(vline, line)
       total_free_vlines = total_free_vlines + 1
     end
     for i = start_line, end_line do
-      local tokens, vlines = tokenize_line(self, i, vline)
+      local tokens, vlines = tokenize_line(self, vline, i)
       self.dcache[i] = tokens
       self.dtovcache[i] = vline
       table.move(vlines, 1, #vlines, #total_vlines + 1, total_vlines)

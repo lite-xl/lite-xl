@@ -110,7 +110,6 @@ function DocView:draw_line_gutter(line, x, y, width)
     renderer.draw_rect(startx + 1, starty + 1, size - 2, size - 2, self.hovering_foldable == line and style.dim or style.background)
     common.draw_text(self:get_font(), style.accent, self:is_folded(line) and "+" or "-", "center", startx, starty, size, size)
   end
-  -- common.draw_text(self:get_font(), style.accent, self.foldable[line] or "nil", "center", startx, starty, size, size)
   return lh
 end
 
