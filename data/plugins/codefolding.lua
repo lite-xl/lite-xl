@@ -7,7 +7,6 @@ local DocView = require "core.docview"
 local Node = require "core.node"
 local common = require "core.common"
 
-
 function DocView:is_folded(doc_line)
   return self.folded[doc_line+1]
 end
@@ -81,7 +80,7 @@ function DocView:toggle_fold(start_doc_line, value)
     local starting_fold = self.foldable[start_doc_line]
     local end_doc_line = start_doc_line + 1
     while end_doc_line <= #self.doc.lines do
-      self:compute_fold(end_doc_line+1) 
+      self:compute_fold(end_doc_line+1)
       if self.foldable[end_doc_line] <= starting_fold then
         if self.doc.lines[end_doc_line]:find("}%s*$") then self.folded[end_doc_line] = value end
         break
@@ -103,7 +102,7 @@ end
 local old_draw_line_gutter = DocView.draw_line_gutter
 function DocView:draw_line_gutter(line, x, y, width)
   local lh = old_draw_line_gutter(self, line, x, y, width)
-  local size = lh - 4
+  local size = lh - 8
   local startx = x + 4
   local starty = y + (lh - size) / 2
   if self:is_foldable(line) then
