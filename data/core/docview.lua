@@ -969,6 +969,7 @@ function DocView:draw()
   local gw, gpad = self:get_gutter_width()
   local lh = self:get_line_height()
   local x, y = self:get_line_screen_position(minline, 1)
+
   for i = minline, maxline do
     y = y + self:draw_line(i, self.position.x, y) or lh
   end
@@ -1075,6 +1076,9 @@ function DocView:retrieve_tokens(vline, line)
     local differential = #total_vlines - total_free_vlines
     if differential ~= 0 then
       table.move(self.vcache, start_vline + total_free_vlines, #self.vcache, start_vline + #total_vlines)
+      if differential < 0 then
+        for i = 1, -differential do table.remove(self.vcache) end
+      end
       for i = end_line + 1, #self.dtovcache do
         self.dtovcache[i] = self.dtovcache[i] + differential
       end
