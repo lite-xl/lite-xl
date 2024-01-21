@@ -758,7 +758,7 @@ function core.init()
   cur_node = cur_node:split("down", core.command_view, {y = true})
   cur_node = cur_node:split("down", core.status_view, {y = true})
 
-  -- Load defaiult commands first so plugins can override them
+  -- Load default commands first so plugins can override them
   command.add_defaults()
 
   -- Load user module, plugins and project module
@@ -786,7 +786,7 @@ function core.init()
     end
   end
 
-  -- Load core plugins after user ones to let the user override them
+  -- Load core and user plugins giving preference to user ones with same name.
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
