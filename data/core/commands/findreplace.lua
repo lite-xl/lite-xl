@@ -164,13 +164,16 @@ local function is_in_any_selection(line, col)
 end
 
 local function select_add_next(all)
-  local il1, ic1 = doc():get_selection(true)
-  for idx, l1, c1, l2, c2 in doc():get_selections(true, true) do
+  local il1, ic1
+  for _, l1, c1, l2, c2 in doc():get_selections(true, true) do
+    if not il1 then
+      il1, ic1 = l1, c1
+    end
     local text = doc():get_text(l1, c1, l2, c2)
     repeat
       l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
       if l1 == il1 and c1 == ic1 then break end
-      if l2 and (all or not is_in_any_selection(l2, c2)) then
+      if l2 and not is_in_any_selection(l2, c2) then
         doc():add_selection(l2, c2, l1, c1)
         if not all then
           core.active_view:scroll_to_make_visible(l2, c2)
@@ -266,7 +269,7 @@ command.add(valid_for_finding, {
       core.error("No find to continue from")
     else
       local sl1, sc1, sl2, sc2 = dv.doc:get_selection(true)
-      local line1, col1, line2, col2 = last_fn(dv.doc, sl1, sc2, last_text, case_sensitive, find_regex, false)
+      local line1, col1, line2, col2 = last_fn(dv.doc, sl2, sc2, last_text, case_sensitive, find_regex, false)
       if line1 then
         dv.doc:set_selection(line2, col2, line1, col1)
         dv:scroll_to_line(line2, true)

@@ -112,7 +112,8 @@ end
 
 function DocView:get_scrollable_size()
   if not config.scroll_past_end then
-    return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2
+    local _, _, _, h_scroll = self.h_scrollbar:get_track_rect()
+    return self:get_line_height() * (#self.doc.lines) + style.padding.y * 2 + h_scroll
   end
   return self:get_line_height() * (#self.doc.lines - 1) + self.size.y
 end
@@ -244,7 +245,8 @@ function DocView:scroll_to_line(line, ignore_if_visible, instant)
   if not (ignore_if_visible and line > min and line < max) then
     local x, y = self:get_line_screen_position(line)
     local ox, oy = self:get_content_offset()
-    self.scroll.to.y = math.max(0, y - oy - self.size.y / 2)
+    local _, _, _, scroll_h = self.h_scrollbar:get_track_rect()
+    self.scroll.to.y = math.max(0, y - oy - (self.size.y - scroll_h) / 2)
     if instant then
       self.scroll.y = self.scroll.to.y
     end
@@ -258,17 +260,20 @@ end
 
 
 function DocView:scroll_to_make_visible(line, col)
-  local ox, oy = self:get_content_offset()
+  local _, oy = self:get_content_offset()
   local _, ly = self:get_line_screen_position(line, col)
   local lh = self:get_line_height()
-  self.scroll.to.y = common.clamp(self.scroll.to.y, ly - oy - self.size.y + lh * 2, ly - oy - lh)
+  local _, _, _, scroll_h = self.h_scrollbar:get_track_rect()
+  self.scroll.to.y = common.clamp(self.scroll.to.y, ly - oy - self.size.y + scroll_h + lh * 2, ly - oy - lh)
   local gw = self:get_gutter_width()
   local xoffset = self:get_col_x_offset(line, col)
   local xmargin = 3 * self:get_font():get_width(' ')
   local xsup = xoffset + gw + xmargin
   local xinf = xoffset - xmargin
-  if xsup > self.scroll.x + self.size.x then
-    self.scroll.to.x = xsup - self.size.x
+  local _, _, scroll_w = self.v_scrollbar:get_track_rect()
+  local size_x = math.max(0, self.size.x - scroll_w)
+  if xsup > self.scroll.x + size_x then
+    self.scroll.to.x = xsup - size_x
   elseif xinf < self.scroll.x then
     self.scroll.to.x = math.max(0, xinf)
   end
@@ -455,9 +460,16 @@ function DocView:draw_line_text(line, x, y)
   return self:get_line_height()
 end
 
+
+function DocView:draw_overwrite_caret(x, y, width)
+  local lh = self:get_line_height()
+  renderer.draw_rect(x, y + lh - style.caret_width, width, style.caret_width, style.caret)
+end
+
+
 function DocView:draw_caret(x, y)
-    local lh = self:get_line_height()
-    renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
+  local lh = self:get_line_height()
+  renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
 end
 
 function DocView:draw_line_body(line, x, y)
@@ -554,7 +566,12 @@ function DocView:draw_overlay()
         else
           if config.disable_blink
           or (core.blink_timer - core.blink_start) % T < T / 2 then
-            self:draw_caret(self:get_line_screen_position(line1, col1))
+            local x, y = self:get_line_screen_position(line1, col1)
+            if self.doc.overwrite then
+              self:draw_overwrite_caret(x, y, self:get_font():get_width(self.doc:get_char(line1, col1)))
+            else
+              self:draw_caret(x, y)
+            end
           end
         end
       end

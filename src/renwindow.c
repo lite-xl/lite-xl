@@ -29,7 +29,8 @@ static void setup_renderer(RenWindow *ren, int w, int h) {
 #endif
 
 
-void renwin_init_surface(UNUSED RenWindow *ren) {
+void renwin_init_surface(RenWindow *ren) {
+  ren->scale_x = ren->scale_y = 1;
 #ifdef LITE_USE_SDL_RENDERER
   if (ren->rensurface.surface) {
     SDL_FreeSurface(ren->rensurface.surface);
@@ -92,6 +93,16 @@ void renwin_resize_surface(UNUSED RenWindow *ren) {
     renwin_clip_to_surface(ren);
     setup_renderer(ren, new_w, new_h);
   }
+#endif
+}
+
+void renwin_update_scale(RenWindow *ren) {
+#ifndef LITE_USE_SDL_RENDERER
+  SDL_Surface *surface = SDL_GetWindowSurface(ren->window);
+  int window_w = surface->w, window_h = surface->h;
+  SDL_GetWindowSize(ren->window, &window_w, &window_h);
+  ren->scale_x = (float)surface->w / window_w;
+  ren->scale_y = (float)surface->h / window_h;
 #endif
 }
 

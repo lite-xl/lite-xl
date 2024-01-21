@@ -25,7 +25,7 @@ show_help() {
   echo "-A --appimage                 Create an AppImage (Linux only)."
   echo "-B --binary                   Create a normal / portable package or macOS bundle,"
   echo "                              depending on how the build was configured. (Default.)"
-  echo "-D --dmg                      Create a DMG disk image with AppDMG (macOS only)."
+  echo "-D --dmg                      Create a DMG disk image with dmgbuild (macOS only)."
   echo "-I --innosetup                Create a InnoSetup package (Windows only)."
   echo "-r --release                  Strip debugging symbols."
   echo "-S --source                   Create a source code package,"
@@ -262,6 +262,11 @@ main() {
 
   if [[ $release == true ]]; then
     $stripcmd "${exe_file}"
+  fi
+
+  if [[ $bundle == true ]]; then
+    # https://eclecticlight.co/2019/01/17/code-signing-for-the-concerned-3-signing-an-app/
+    codesign --force --deep -s - "${dest_dir}"
   fi
 
   echo "Creating a compressed archive ${package_name}"

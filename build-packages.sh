@@ -38,7 +38,7 @@ show_help() {
   echo "-v --version VERSION          Sets the version on the package name."
   echo "-A --appimage                 Create an AppImage (Linux only)."
   echo "-D --dmg                      Create a DMG disk image (macOS only)."
-  echo "                              Requires NPM and AppDMG."
+  echo "                              Requires dmgbuild."
   echo "-I --innosetup                Create an InnoSetup installer (Windows only)."
   echo "-r --release                  Compile in release mode."
   echo "-S --source                   Create a source code package,"

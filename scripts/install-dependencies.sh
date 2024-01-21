@@ -57,9 +57,7 @@ main() {
     else
       brew install bash ninja sdl2
     fi
-    pip3 install meson
-    cd ~; npm install appdmg; cd -
-    ~/node_modules/appdmg/bin/appdmg.js --version
+    pip3 install meson dmgbuild
   elif [[ "$OSTYPE" == "msys" ]]; then
     if [[ $lhelper == true ]]; then
       pacman --noconfirm -S \

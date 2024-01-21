@@ -102,7 +102,7 @@ local function strip_leading_path(filename)
 end
 
 local function strip_trailing_slash(filename)
-  if filename:match("[^:][/\\]$") then
+  if filename:match("[^:]["..PATHSEP.."]$") then
     return filename:sub(1, -2)
   end
   return filename
@@ -120,9 +120,7 @@ local function show_max_files_warning(dir)
     "Too many files in project directory: stopped reading at "..
     config.max_project_files.." files. For more information see "..
     "usage.md at https://github.com/lite-xl/lite-xl."
-  if core.status_view then
-    core.status_view:show_message("!", style.accent, message)
-  end
+  core.warn(message)
 end
 
 
@@ -184,7 +182,7 @@ local function refresh_directory(topdir, target)
     directory_start_idx = directory_start_idx + 1
   end
 
-  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), {}, 0, function() return false end)
+  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), 0, function() return false end)
   local change = false
 
   -- If this file doesn't exist, we should be calling this on our parent directory, assume we'll do that.
@@ -265,7 +263,7 @@ function core.add_project_directory(path)
 
   local fstype = PLATFORM == "Linux" and system.get_fs_type(topdir.name) or "unknown"
   topdir.force_scans = (fstype == "nfs" or fstype == "fuse")
-  local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", {}, 0, timed_max_files_pred)
+  local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", 0, timed_max_files_pred)
   topdir.files = t
   if not complete then
     topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
@@ -810,7 +808,11 @@ function core.init()
   end
 
   if not plugins_success or got_user_error or got_project_error then
-    command.perform("core:open-log")
+    -- defer LogView to after everything is initialized,
+    -- so that EmptyView won't be added after LogView.
+    core.add_thread(function()
+      command.perform("core:open-log")
+    end)
   end
 
   core.configure_borderless_window()
@@ -1274,6 +1276,9 @@ function core.on_event(type, ...)
   elseif type == "textediting" then
     ime.on_text_editing(...)
   elseif type == "keypressed" then
+    -- In some cases during IME composition input is still sent to us
+    -- so we just ignore it.
+    if ime.editing then return false end
     did_keymap = keymap.on_key_pressed(...)
   elseif type == "keyreleased" then
     keymap.on_key_released(...)
@@ -1418,29 +1423,40 @@ local run_threads = coroutine.wrap(function()
 
       -- stop running threads if we're about to hit the end of frame
       if system.get_time() - core.frame_start > max_time then
-        coroutine.yield(0)
+        coroutine.yield(0, false)
       end
     end
 
-    coroutine.yield(minimal_time_to_wake)
+    coroutine.yield(minimal_time_to_wake, true)
   end
 end)
 
 
 function core.run()
   local next_step
+  local last_frame_time
+  local run_threads_full = 0
   while true do
     core.frame_start = system.get_time()
-    local time_to_wake = run_threads()
+    local time_to_wake, threads_done = run_threads()
+    if threads_done then
+      run_threads_full = run_threads_full + 1
+    end
     local did_redraw = false
-    if not next_step or system.get_time() >= next_step then
-      did_redraw = core.step()
+    local did_step = false
+    local force_draw = core.redraw and last_frame_time and core.frame_start - last_frame_time > (1 / config.fps)
+    if force_draw or not next_step or system.get_time() >= next_step then
+      if core.step() then
+        did_redraw = true
+        last_frame_time = core.frame_start
+      end
       next_step = nil
+      did_step = true
     end
     if core.restart_request or core.quit_request then break end
 
     if not did_redraw then
-      if system.window_has_focus() then
+      if system.window_has_focus() or not did_step or run_threads_full < 2 then
         local now = system.get_time()
         if not next_step then -- compute the time until the next blink
           local t = now - core.blink_start
@@ -1449,7 +1465,7 @@ function core.run()
           local cursor_time_to_wake = dt + 1 / config.fps
           next_step = now + cursor_time_to_wake
         end
-        if time_to_wake > 0 and system.wait_event(math.min(next_step - now, time_to_wake)) then
+        if system.wait_event(math.min(next_step - now, time_to_wake)) then
           next_step = nil -- if we've recevied an event, perform a step
         end
       else
@@ -1457,6 +1473,7 @@ function core.run()
         next_step = nil -- perform a step when we're not in focus if get we an event
       end
     else -- if we redrew, then make sure we only draw at most FPS/sec
+      run_threads_full = 0
       local now = system.get_time()
       local elapsed = now - core.frame_start
       local next_frame = math.max(0, 1 / config.fps - elapsed)

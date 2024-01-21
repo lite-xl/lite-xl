@@ -11,8 +11,9 @@ This folder contains resources that is used for building or packaging the projec
 - `icons/icon.{icns,ico,inl,rc,svg}`: lite-xl icon in various formats.
 - `linux/com.lite_xl.LiteXL.appdata.xml`: AppStream metadata.
 - `linux/com.lite_xl.LiteXL.desktop`: Desktop file for Linux desktops.
-- `macos/appdmg.png`: Background image for packaging MacOS DMGs.
-- `macos/Info.plist.in`: Template for generating `info.plist` on MacOS. See `macos/macos-retina-display.md` for details.
+- `macos/dmg-cover.png`: Background image for packaging macOS DMGs.
+- `macos/Info.plist.in`: Template for generating `info.plist` on macOS. See `macos/macos-retina-display.md` for details.
+- `macos/lite-xl-dmg.py`: Configuration options for dmgbuild for packaging macOS DMGs.
 - `windows/001-lua-unicode.diff`: Patch for allowing Lua to load files with UTF-8 filenames on Windows.
 
 ### Development

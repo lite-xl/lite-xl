@@ -20,16 +20,6 @@
 
 static SDL_Window *window;
 
-static double get_scale(void) {
-#ifndef __APPLE__
-  float dpi;
-  if (SDL_GetDisplayDPI(0, NULL, &dpi, NULL) == 0)
-    return dpi / 96.0;
-#endif
-  return 1.0;
-}
-
-
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
   int len;
@@ -170,6 +160,8 @@ int main(int argc, char **argv) {
   SDL_SetHint("SDL_MOUSE_DOUBLE_CLICK_RADIUS", "4");
 #endif
 
+  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+
   SDL_DisplayMode dm;
   SDL_GetCurrentDisplayMode(0, &dm);
 
@@ -181,7 +173,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
     exit(1);
   }
-  ren_init(window);
+  window_renderer = ren_init(window);
 
   lua_State *L;
 init_lua:
@@ -202,9 +194,6 @@ init_lua:
 
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
-
-  lua_pushnumber(L, get_scale());
-  lua_setglobal(L, "SCALE");
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
@@ -275,7 +264,7 @@ init_lua:
 
   // This allows the window to be destroyed before lite-xl is done with
   // reaping child processes
-  ren_free_window_resources(&window_renderer);
+  ren_free(window_renderer);
   lua_close(L);
 
   return EXIT_SUCCESS;

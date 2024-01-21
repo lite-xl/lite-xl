@@ -43,9 +43,9 @@ local function save(filename)
     core.log("Saved \"%s\"", saved_filename)
   else
     core.error(err)
-    core.nag_view:show("Saving failed", string.format("Could not save \"%s\" do you want to save to another location?", doc().filename), {
-      { text = "No", default_no = true },
-      { text = "Yes", default_yes = true }
+    core.nag_view:show("Saving failed", string.format("Couldn't save file \"%s\". Do you want to save to another location?", doc().filename), {
+      { text = "Yes", default_yes = true },
+      { text = "No", default_no = true }
     }, function(item)
       if item.text == "Yes" then
         core.add_thread(function()
@@ -93,11 +93,14 @@ local function cut_or_copy(delete)
   system.set_clipboard(full_text)
 end
 
-local function split_cursor(direction)
+local function split_cursor(dv, direction)
   local new_cursors = {}
-  for _, line1, col1 in doc():get_selections() do
-    if line1 + direction >= 1 and line1 + direction <= #doc().lines then
-      table.insert(new_cursors, { line1 + direction, col1 })
+  local dv_translate = direction < 0
+    and DocView.translate.previous_line
+    or DocView.translate.next_line
+  for _, line1, col1 in dv.doc:get_selections() do
+    if line1 + direction >= 1 and line1 + direction <= #dv.doc.lines then
+      table.insert(new_cursors, { dv_translate(dv.doc, line1, col1, dv) })
     end
   end
   -- add selections in the order that will leave the "last" added one as doc.last_selection
@@ -107,7 +110,7 @@ local function split_cursor(direction)
   end
   for i = start, stop, direction do
     local v = new_cursors[i]
-    doc():add_selection(v[1], v[2])
+    dv.doc:add_selection(v[1], v[2])
   end
   core.blink_reset()
 end
@@ -340,10 +343,11 @@ local commands = {
         local text = dv.doc:get_text(line1, 1, line1, col1)
         if #text >= indent_size and text:find("^ *$") then
           dv.doc:delete_to_cursor(idx, 0, -indent_size)
-          return
+          goto continue
         end
       end
       dv.doc:delete_to_cursor(idx, translate.previous_char)
+      ::continue::
     end
   end,
 
@@ -544,6 +548,11 @@ local commands = {
     dv.doc.crlf = not dv.doc.crlf
   end,
 
+  ["doc:toggle-overwrite"] = function(dv)
+    dv.doc.overwrite = not dv.doc.overwrite
+    core.blink_reset() -- to show the cursor has changed edit modes
+  end,
+
   ["doc:save-as"] = function(dv)
     local last_doc = core.last_active_view and core.last_active_view.doc
     local text
@@ -620,12 +629,12 @@ local commands = {
   end,
 
   ["doc:create-cursor-previous-line"] = function(dv)
-    split_cursor(-1)
+    split_cursor(dv, -1)
     dv.doc:merge_cursors()
   end,
 
   ["doc:create-cursor-next-line"] = function(dv)
-    split_cursor(1)
+    split_cursor(dv, 1)
     dv.doc:merge_cursors()
   end
 

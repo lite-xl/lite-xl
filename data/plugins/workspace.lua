@@ -83,7 +83,8 @@ local function save_view(view)
       filename = view.doc.filename,
       selection = { view.doc:get_selection() },
       scroll = { x = view.scroll.to.x, y = view.scroll.to.y },
-      text = not view.doc.filename and view.doc:get_text(1, 1, math.huge, math.huge)
+      crlf = view.doc.crlf,
+      text = view.doc.new_file and view.doc:get_text(1, 1, math.huge, math.huge)
     }
   end
   if mt == LogView then return end
@@ -106,7 +107,6 @@ local function load_view(t)
     if not t.filename then
       -- document not associated to a file
       dv = DocView(core.open_doc())
-      if t.text then dv.doc:insert(1, 1, t.text) end
     else
       -- we have a filename, try to read the file
       local ok, doc = pcall(core.open_doc, t.filename)
@@ -114,9 +114,11 @@ local function load_view(t)
         dv = DocView(doc)
       end
     end
-    -- doc view "dv" can be nil here if the filename associated to the document
-    -- cannot be read.
     if dv and dv.doc then
+      if dv.doc.new_file and t.text then
+        dv.doc:insert(1, 1, t.text)
+        dv.doc.crlf = t.crlf
+      end
       dv.doc:set_selection(table.unpack(t.selection))
       dv.last_line1, dv.last_col1, dv.last_line2, dv.last_col2 = dv.doc:get_selection()
       dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x

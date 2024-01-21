@@ -266,7 +266,7 @@ local function detect_indent_stat(doc)
   local max_lines = auto_detect_max_lines
   for i, text in get_non_empty_lines(doc.syntax, doc.lines) do
     local spaces = text:match("^ +")
-    if spaces then table.insert(stat, spaces:len()) end
+    if spaces and #spaces > 1 then table.insert(stat, #spaces) end
     local tabs = text:match("^\t+")
     if tabs then tab_count = tab_count + 1 end
     -- if nothing found for first lines try at least 4 more times

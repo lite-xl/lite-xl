@@ -58,9 +58,9 @@ function Scrollbar:new(options)
   ---@type "expanded" | "contracted" | false @Force the scrollbar status
   self.force_status = options.force_status
   self:set_forced_status(options.force_status)
-  ---@type number? @Override the default value specified by `style.expanded_scrollbar_size`
-  self.contracted_size = options.contracted_size
   ---@type number? @Override the default value specified by `style.scrollbar_size`
+  self.contracted_size = options.contracted_size
+  ---@type number? @Override the default value specified by `style.expanded_scrollbar_size`
   self.expanded_size = options.expanded_size
 end
 
@@ -121,7 +121,7 @@ function Scrollbar:_get_thumb_rect_normal()
   across_size = across_size + (expanded_scrollbar_size - scrollbar_size) * self.expand_percent
   return
     nr.across + nr.across_size - across_size,
-    nr.along + self.percent * nr.scrollable * (nr.along_size - along_size) / (sz - nr.along_size),
+    nr.along + self.percent * (nr.along_size - along_size),
     across_size,
     along_size
 end
@@ -189,8 +189,9 @@ function Scrollbar:_on_mouse_pressed_normal(button, x, y, clicks)
       self.drag_start_offset = along - y
       return true
     elseif overlaps == "track" then
+      local nr = self.normal_rect
       self.drag_start_offset = - along_size / 2
-      return (y - self.normal_rect.along - along_size / 2) / self.normal_rect.along_size
+      return common.clamp((y - nr.along - along_size / 2) / (nr.along_size - along_size), 0, 1)
     end
   end
 end
@@ -237,7 +238,8 @@ end
 function Scrollbar:_on_mouse_moved_normal(x, y, dx, dy)
   if self.dragging then
     local nr = self.normal_rect
-    return common.clamp((y - nr.along + self.drag_start_offset) / nr.along_size, 0, 1)
+    local _, _, _, along_size = self:_get_thumb_rect_normal()
+    return common.clamp((y - nr.along + self.drag_start_offset) / (nr.along_size - along_size), 0, 1)
   end
   return self:_update_hover_status_normal(x, y)
 end
@@ -280,7 +282,7 @@ function Scrollbar:set_size(x, y, w, h, scrollable)
 end
 
 ---Updates the scrollbar location
----@param percent number @number between 0 and 1 representing the position of the middle part of the thumb
+---@param percent number @number between 0 and 1 where 0 means thumb at the top and 1 at the bottom
 function Scrollbar:set_percent(percent)
   self.percent = percent
 end

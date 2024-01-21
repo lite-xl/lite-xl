@@ -1,7 +1,7 @@
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
-[![Discord Badge Image]](https://discord.gg/RWzqC3nx7K)
+[![Discord Badge Image]](https://discord.gg/UQKnzBhY5H)
 
 ![screenshot-dark]
 
@@ -81,6 +81,39 @@ affects only the place where the application is actually installed.
 
 Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and download the version for your operating system.
 
+### Windows
+
+Lite XL comes with installers on Windows for typical installations.
+Alternatively, we provide ZIP archives that you can download and extract anywhere and run directly.
+
+To make Lite XL portable (e.g. running Lite XL from a thumb drive),
+simply create a `user` folder where `lite-xl.exe` is located.
+Lite XL will load and store all your configurations and plugins in the folder.
+
+### macOS
+
+We provide DMG files for macOS. Simply drag the program into your Applications folder.
+
+> **Important**
+> Newer versions of Lite XL are signed with a self-signed certificate,
+> so you'll have to follow these steps when running Lite XL for the first time.
+>
+> 1. Find Lite XL in Finder (do not open it in Launchpad).
+> 2. Control-click Lite XL, then choose `Open` from the shortcut menu.
+> 3. Click `Open` in the popup menu.
+>
+> The correct steps may vary between macOS versions, so you should refer to
+> the [macOS User Guide](https://support.apple.com/en-my/guide/mac-help/mh40616/mac).
+>
+> On an older version of Lite XL, you will need to run these commands instead:
+> 
+> ```sh
+> # clears attributes from the directory
+> xattr -cr /Applications/Lite\ XL.app
+> ```
+>
+> Otherwise, macOS will display a **very misleading error** saying that the application is damaged.
+
 ### Linux
 
 Unzip the file and `cd` into the `lite-xl` directory:
@@ -91,17 +124,22 @@ cd lite-xl
 ```
 
 To run lite-xl without installing:
+
 ```sh
-cd bin
 ./lite-xl
 ```
 
 To install lite-xl copy files over into appropriate directories:
 
 ```sh
-mkdir -p $HOME/.local/bin && cp bin/lite-xl $HOME/.local/bin
-cp -r share $HOME/.local
+rm -rf  $HOME/.local/share/lite-xl $HOME/.local/bin/lite-xl
+mkdir -p $HOME/.local/bin && cp lite-xl $HOME/.local/bin/
+mkdir -p $HOME/.local/share/lite-xl && cp -r data/* $HOME/.local/share/lite-xl/
 ```
+
+#### Add Lite XL to PATH
+
+To run Lite XL from the command line, you must add it to PATH.
 
 If `$HOME/.local/bin` is not in PATH:
 
@@ -109,15 +147,49 @@ If `$HOME/.local/bin` is not in PATH:
 echo -e 'export PATH=$PATH:$HOME/.local/bin' >> $HOME/.bashrc
 ```
 
-To get the icon to show up in app launcher:
+Alternatively on recent versions of GNOME and KDE Plasma,
+you can add `$HOME/.local/bin` to PATH via `~/.config/environment.d/envvars.conf`:
+
+```ini
+PATH=$HOME/.local/bin:$PATH
+```
+
+> **Note**
+> Some systems might not load `.bashrc` when logging in.
+> This can cause problems with launching applications from the desktop / menu.
+
+#### Add Lite XL to application launchers
+
+To get the icon to show up in app launcher, you need to create a desktop
+entry and put it into `/usr/share/applications` or `~/.local/share/applications`.
+
+Here is an example for a desktop entry in `~/.local/share/applications/com.lite_xl.LiteXL.desktop`,
+assuming Lite XL is in PATH:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Lite XL
+Comment=A lightweight text editor written in Lua
+Exec=lite-xl %F
+Icon=lite-xl
+Terminal=false
+StartupWMClass=lite-xl
+Categories=Development;IDE;
+MimeType=text/plain;inode/directory;
+```
+
+To get the icon to show up in app launcher immediately, run:
 
 ```sh
 xdg-desktop-menu forceupdate
 ```
 
-You may need to logout and login again to see icon in app launcher.
+Alternatively, you may log out and log in again.
 
-To uninstall just run:
+#### Uninstall
+
+To uninstall Lite XL, run:
 
 ```sh
 rm -f $HOME/.local/bin/lite-xl
@@ -126,7 +198,6 @@ rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
           $HOME/.local/share/metainfo/com.lite_xl.LiteXL.appdata.xml \
           $HOME/.local/share/lite-xl
 ```
-
 
 ## Contributing
 

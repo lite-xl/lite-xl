@@ -177,8 +177,12 @@ function Node:add_view(view, idx)
   assert(not self.locked, "Tried to add view to locked node")
   if self.views[1] and self.views[1]:is(EmptyView) then
     table.remove(self.views)
+    if idx and idx > 1 then
+      idx = idx - 1
+    end
   end
-  table.insert(self.views, idx or (#self.views + 1), view)
+  idx = common.clamp(idx or (#self.views + 1), 1, (#self.views + 1))
+  table.insert(self.views, idx, view)
   self:set_active_view(view)
 end
 

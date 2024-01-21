@@ -1,9 +1,10 @@
 [wrap-file]
-directory = freetype-2.12.1
-source_url = https://download.savannah.gnu.org/releases/freetype/freetype-2.12.1.tar.xz
-source_filename = freetype-2.12.1.tar.xz
-source_hash = 4766f20157cc4cf0cd292f80bf917f92d1c439b243ac3018debf6b9140c41a7f
-wrapdb_version = 2.12.1-2
+directory = freetype-2.13.2
+source_url = https://download.savannah.gnu.org/releases/freetype/freetype-2.13.2.tar.xz
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/freetype2_2.13.2-1/freetype-2.13.2.tar.xz
+source_filename = freetype-2.13.2.tar.xz
+source_hash = 12991c4e55c506dd7f9b765933e62fd2be2e06d421505d7950a132e4f1bb484d
+wrapdb_version = 2.13.2-1
 
 [provide]
 freetype2 = freetype_dep
