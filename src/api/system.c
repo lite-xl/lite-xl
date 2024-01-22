@@ -1150,6 +1150,26 @@ static int f_text_input(lua_State* L) {
   return 0;
 }
 
+static int f_setenv(lua_State* L) {
+  const char *key = luaL_checkstring(L, 1);
+  const char *val = luaL_checkstring(L, 2);
+
+  int ok;
+#ifdef _WIN32
+  LPWSTR wkey = utfconv_utf8towc(key);
+  LPWSTR wval = utfconv_utf8towc(val);
+  ok = (wkey && wval) ? SetEnvironmentVariableW(wkey, wval)
+  /* utfconv error */ : 0;
+  free(wkey); free(wval);
+#else
+  // right now we overwrite unconditionally
+  // this could be expanded later as an optional 3rd boolean argument
+  ok = !setenv(key, val, 1);
+#endif
+  lua_pushboolean(L, ok);
+  return 1;
+}
+
 
 static const luaL_Reg lib[] = {
   { "poll_event",          f_poll_event          },
@@ -1185,6 +1205,7 @@ static const luaL_Reg lib[] = {
   { "path_compare",        f_path_compare        },
   { "get_fs_type",         f_get_fs_type         },
   { "text_input",          f_text_input          },
+  { "setenv",              f_setenv              },
   { NULL, NULL }
 };
 
