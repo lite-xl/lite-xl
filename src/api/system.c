@@ -1151,21 +1151,22 @@ static int f_text_input(lua_State* L) {
 }
 
 static int f_setenv(lua_State* L) {
-  size_t keylen, vallen;
-  const char *key = luaL_checklstring(L, 1, &keylen);
-  const char *val = luaL_checklstring(L, 2, &vallen);
+  const char *key = luaL_checkstring(L, 1);
+  const char *val = luaL_checkstring(L, 2);
 
-  int ok; // unused: this could be used later to report success
+  int ok;
 #ifdef _WIN32
   LPWSTR wkey = utfconv_utf8towc(key);
   LPWSTR wval = utfconv_utf8towc(val);
-  ok = SetEnvironmentVariableW(wkey, wval);
+  ok = (wkey && wval) ? SetEnvironmentVariableW(wkey, wval)
+  /* utfconv error */ : 0;
 #else
   // right now we overwrite unconditionally
   // this could be expanded later as an optional 3rd boolean argument
-  ok = setenv(key, val, 1);
+  ok = !setenv(key, val, 1);
 #endif
-  return 0;
+  lua_pushboolean(L, ok);
+  return 1;
 }
 
 

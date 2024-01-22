@@ -330,6 +330,7 @@ function system.path_compare(path1, type1, path2, type2) end
 ---
 ---@param key string
 ---@param val string
+---@return boolean ok True if call succeeded
 function system.setenv(key, val) end
 
 return system
