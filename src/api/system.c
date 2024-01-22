@@ -1160,6 +1160,7 @@ static int f_setenv(lua_State* L) {
   LPWSTR wval = utfconv_utf8towc(val);
   ok = (wkey && wval) ? SetEnvironmentVariableW(wkey, wval)
   /* utfconv error */ : 0;
+  free(wkey); free(wval);
 #else
   // right now we overwrite unconditionally
   // this could be expanded later as an optional 3rd boolean argument
