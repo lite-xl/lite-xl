@@ -268,3 +268,9 @@ command.add(nil, {
     })
   end,
 })
+
+command.add(function() return keymap.current_strokes end, {
+  ["keymap:cancel-stroke"] = function()
+    keymap.current_strokes = nil
+  end
+})
