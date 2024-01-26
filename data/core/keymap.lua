@@ -108,10 +108,10 @@ end
 ---@param keys any[] Keys
 ---@return any? `tbl[keys[1]]...[keys[#keys]]`
 local function get_nested(tbl, keys)
-  local r, i = tbl, 1
-  while r and i < #keys + 1 do
-    r = type(r) == "table" and r[keys[i]] or nil
-    i = i + 1
+  local r = tbl
+  for _, key in ipairs(keys) do
+    r = type(r) == "table" and r[key] or nil
+    if not r then break end
   end
   return r
 end
