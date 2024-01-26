@@ -67,8 +67,8 @@ end
 
 ---Splits a stroke into a sequence of substrokes
 ---@param strokes string
----@return string The normalized stroke
----@return string[] The normalized substrokes
+---@return string stroke The normalized stroke
+---@return string[] substrokes The normalized substrokes
 local function split_strokes(strokes)
   local substrokes = {}
   for substroke in strokes:gmatch(stroke_sep_pat) do
@@ -95,7 +95,7 @@ end
 ---Returns the value at `tbl[keys[1]]...[keys[#keys]]`
 ---@param tbl table<any, any> Base table
 ---@param keys any[] Keys
----@return any? `tbl[keys[1]]...[keys[#keys]]`
+---@return any? # `tbl[keys[1]]...[keys[#keys]]`
 local function get_nested(tbl, keys)
   local r = tbl
   for _, key in ipairs(keys) do
@@ -118,29 +118,6 @@ local function set_nested(tbl, keys, v)
     dst = dst[k]
   end
   dst[keys[#keys]] = v
-end
-
-
----Iterates each command in the given table
----@param tbl keymap.map
----@return string The substroke in the given map
----@return string The command name
-local function each_cmd(tbl)
-  return coroutine.wrap(function()
-    for k, v in pairs(tbl) do
-      if type(k) ~= "string" then
-        coroutine.yield('', v)
-      else
-        local nested = each_cmd(v)
-        local s, cmd = nested()
-        while cmd do
-          s = s ~= '' and (k .. stroke_sep .. s) or k
-          coroutine.yield(s, cmd)
-          s, cmd = nested()
-        end
-      end
-    end
-  end)
 end
 
 
@@ -319,6 +296,7 @@ function keymap.on_key_pressed(k, ...)
           return true
         end
       end
+      -- check if the table contains any further substroke
       for k, substroke in pairs(commands) do
         if type(k) == "string" then
           return true
