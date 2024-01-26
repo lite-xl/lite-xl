@@ -44,40 +44,37 @@ local stroke_sep = " "
 local stroke_sep_pat = "[^" .. stroke_sep .. "]+"
 
 
----Splits a stroke into a sequence of substrokes
----@param strokes string
----@return string[]
-local function split_strokes(strokes)
-  local substrokes = {}
-  for substroke in strokes:gmatch(stroke_sep_pat) do
-    table.insert(substrokes, substroke)
-  end
-  return substrokes
-end
-
-
----Normalizes a stroke sequence to follow the modkeys table
+---Normalizes a single stroke sequence to follow the modkeys table
 ---@param stroke string
 ---@return string
 local function normalize_stroke(stroke)
   local stroke_table = {}
-  for substroke in stroke:gmatch(stroke_sep_pat) do
-    local substroke_table = { }
-    for key in substroke:gmatch("[^+]+") do
-      table.insert(substroke_table, key)
-    end
-    table.sort(substroke_table, function(a, b)
-      if a == b then return false end
-      for _, mod in ipairs(modkeys) do
-        if a == mod or b == mod then
-          return a == mod
-        end
-      end
-      return a < b
-    end)
-    table.insert(stroke_table, table.concat(substroke_table, "+"))
+  for key in stroke:gmatch("[^+]+") do
+    table.insert(stroke_table, key)
   end
-  return table.concat(stroke_table, stroke_sep)
+  table.sort(stroke_table, function(a, b)
+    if a == b then return false end
+    for _, mod in ipairs(modkeys) do
+      if a == mod or b == mod then
+        return a == mod
+      end
+    end
+    return a < b
+  end)
+  return table.concat(stroke_table, "+")
+end
+
+
+---Splits a stroke into a sequence of substrokes
+---@param strokes string
+---@return string The normalized stroke
+---@return string[] The normalized substrokes
+local function split_strokes(strokes)
+  local substrokes = {}
+  for substroke in strokes:gmatch(stroke_sep_pat) do
+    table.insert(substrokes, normalize_stroke(substroke))
+  end
+  return table.concat(substrokes, stroke_sep), substrokes
 end
 
 
@@ -172,8 +169,7 @@ end
 ---@param map keymap.map
 local function remove_duplicates(map)
   for stroke, commands in pairs(map) do
-    local normalized_stroke = normalize_stroke(stroke)
-    local substrokes = split_strokes(normalized_stroke)
+    local normalized_stroke, substrokes = split_strokes(stroke)
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
@@ -202,8 +198,7 @@ end
 ---@param map keymap.map
 function keymap.add_direct(map)
   for stroke, commands in pairs(map) do
-    stroke = normalize_stroke(stroke)
-    local substrokes = split_strokes(stroke)
+    local stroke, substrokes = split_strokes(stroke)
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
@@ -236,8 +231,7 @@ function keymap.add(map, overwrite)
     if macos then
       stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
     end
-    stroke = normalize_stroke(stroke)
-    local substrokes = split_strokes(stroke)
+    local stroke, substrokes = split_strokes(stroke)
     if overwrite then
       local cmds = get_nested(keymap.map, substrokes)
       if cmds then
@@ -269,9 +263,8 @@ end
 ---@param shortcut string
 ---@param cmd string
 function keymap.unbind(shortcut, cmd)
-  shortcut = normalize_stroke(shortcut)
-  remove_only(get_nested(keymap.map, split_strokes(shortcut)) or { },
-    shortcut, cmd)
+  local shortcut, substrokes = split_strokes(shortcut)
+  remove_only(get_nested(keymap.map, substrokes) or { }, shortcut, cmd)
   remove_only(keymap.reverse_map, cmd, shortcut)
 end
 
