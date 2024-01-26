@@ -209,8 +209,12 @@ function keymap.add_direct(map)
     end
     local cmds = get_nested(keymap.map, substrokes)
     if cmds then
-      for s, cmd in each_cmd(cmds) do
-        remove_only(keymap.reverse_map, cmd, stroke .. stroke_sep .. s)
+      for s, cmd in pairs(cmds) do
+        if type(s) == "number" then
+          remove_only(keymap.reverse_map, cmd, stroke)
+        else
+          commands[s] = cmd
+        end
       end
     end
     set_nested(keymap.map, substrokes, commands)
@@ -237,8 +241,12 @@ function keymap.add(map, overwrite)
     if overwrite then
       local cmds = get_nested(keymap.map, substrokes)
       if cmds then
-        for s, cmd in each_cmd(cmds) do
-          remove_only(keymap.reverse_map, cmd, stroke .. stroke_sep .. s)
+        for s, cmd in pairs(cmds) do
+          if type(s) == "number" then
+            remove_only(keymap.reverse_map, cmd, stroke)
+          else
+            commands[s] = cmd
+          end
         end
       end
       set_nested(keymap.map, substrokes, commands)
