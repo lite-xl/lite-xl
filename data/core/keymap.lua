@@ -296,7 +296,7 @@ function keymap.on_key_pressed(k, ...)
           return true
         end
       end
-      -- check if the table contains any further substroke
+      -- mark the keypress as handled if we're in a valid multistroke prefix
       for k, substroke in pairs(commands) do
         if type(k) == "string" then
           return true
