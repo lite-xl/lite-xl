@@ -56,14 +56,6 @@ local function split_strokes(strokes)
 end
 
 
----Concatenates a sequence of strokes into a single string
----@param strokes string[]
----@return string
-local function concat_strokes(strokes)
-  return table.concat(strokes, stroke_sep)
-end
-
-
 ---Normalizes a stroke sequence to follow the modkeys table
 ---@param stroke string
 ---@return string
