@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.3-rc1] - 2024-01-21
+## [2.1.3] - 2024-01-29
 
 This release addresses severe bugs not found in previous releases.
 
@@ -24,7 +24,7 @@ This release addresses severe bugs not found in previous releases.
 * Improve JavaScript number syntax highlighting
   ([#1710](https://github.com/lite-xl/lite-xl/pull/1710))
 
-## Other Changes
+### Other Changes
 
 * Process API style changes
   ([#1709](https://github.com/lite-xl/lite-xl/pull/1709))
@@ -1451,7 +1451,7 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
-[2.1.3-rc1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.3-rc1
+[2.1.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.3
 [2.1.2]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.2
 [2.1.1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.1
 [2.1.0]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.0
