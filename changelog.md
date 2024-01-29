@@ -1,5 +1,34 @@
 # Changes Log
 
+## [2.1.3] - 2024-01-29
+
+This release addresses severe bugs not found in previous releases.
+
+### Fixes
+
+* Fix `doc:create-cursor-{previous,next}-line` with tabs
+  ([#1697](https://github.com/lite-xl/lite-xl/pull/1697))
+
+* Fix heap buffer overflow and memory leaks in process and renderer API
+  ([#1705](https://github.com/lite-xl/lite-xl/pull/1705))
+
+* Improve Python number syntax highlighting
+  ([#1704](https://github.com/lite-xl/lite-xl/pull/1704))
+
+* Fix inconsistent NagView options on `doc:save`
+  ([#1696](https://github.com/lite-xl/lite-xl/pull/1696))
+
+* Fix crashes with autoreload when files are deleted externally and replaced with a directory.
+  ([#1698](https://github.com/lite-xl/lite-xl/pull/1698))
+
+* Improve JavaScript number syntax highlighting
+  ([#1710](https://github.com/lite-xl/lite-xl/pull/1710))
+
+### Other Changes
+
+* Process API style changes
+  ([#1709](https://github.com/lite-xl/lite-xl/pull/1709))
+
 ## [2.1.2] - 2023-12-29
 
 This release addresses some issues present in the previous release,
@@ -1422,6 +1451,7 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
+[2.1.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.3
 [2.1.2]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.2
 [2.1.1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.1
 [2.1.0]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.0
