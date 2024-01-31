@@ -242,7 +242,7 @@ end
 function keymap.unbind(shortcut, cmd)
   local shortcut, substrokes = split_strokes(shortcut)
   local last_sub = table.remove(substrokes)
-  remove_only(get_nested(keymap.map, substrokes), last_sub, cmd)
+  remove_only(get_nested(keymap.map, substrokes) or { }, last_sub, cmd)
   remove_only(keymap.reverse_map, cmd, shortcut)
 end
 
