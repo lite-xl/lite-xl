@@ -267,7 +267,7 @@ function TreeView:on_mouse_moved(px, py, ...)
       item_changed = true
       self.hovered_item = item
 
-      x,y,w,h = self:get_text_bounding_box(item, x,y,w,h)
+      x = math.max(x, self.position.x)
       if px > x and py > y and px <= x + w and py <= y + h then
         tooltip_changed = true
         self.tooltip.x, self.tooltip.y = px, py
