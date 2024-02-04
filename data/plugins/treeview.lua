@@ -263,7 +263,7 @@ function TreeView:on_mouse_moved(px, py, ...)
 
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
-    if px > x and py > y and px <= x + w and py <= y + h then
+    if px > x and py > y and px <= self.size.x and py <= y + h then
       item_changed = true
       self.hovered_item = item
 
@@ -455,6 +455,7 @@ function TreeView:draw()
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
   local ox = math.abs(self:get_content_offset())
+  local sw, ox = 0, math.abs(self:get_content_offset())
   for item, x,y,w,h in self:each_item() do
     if y + h >= _y and y < _y + _h then
       local w = self:draw_item(
@@ -463,9 +464,10 @@ function TreeView:draw()
         item == self.hovered_item,
         x, y, w, h
       ) + ox
-      self.scroll_width = math.max(w, self.scroll_width)
+      sw = math.max(w, sw)
     end
   end
+  self.scroll_width = sw
 
   self:draw_scrollbar()
   if self.hovered_item and self.tooltip.x and self.tooltip.alpha > 0 then
@@ -524,7 +526,6 @@ function TreeView:toggle_expand(toggle, item)
   if not item then return end
 
   if item.type == "dir" then
-    self.scroll_width = 0
     if type(toggle) == "boolean" then
       item.expanded = toggle
     else
