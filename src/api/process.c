@@ -36,6 +36,7 @@ typedef wchar_t *process_env_t;
 
 #define HANDLE_INVALID (INVALID_HANDLE_VALUE)
 #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
+#define PROCESS_ARGLIST_INITIALIZER { 0 }
 
 static volatile long PipeSerialNumber;
 
@@ -49,6 +50,7 @@ typedef char **process_env_t;
 
 #define HANDLE_INVALID (0)
 #define PROCESS_GET_HANDLE(P) ((P)->pid)
+#define PROCESS_ARGLIST_INITIALIZER NULL
 
 #endif
 
@@ -437,6 +439,7 @@ static int process_arglist_add(process_arglist_t *list, size_t *list_len, const 
 
 
 static void process_arglist_free(process_arglist_t *list) {
+  if (!*list) return;
 #ifndef _WIN32
   char **cmd = *list;
   for (int i = 0; cmd[i]; i++)
@@ -574,7 +577,8 @@ static void process_env_free(process_env_t *list, size_t list_len) {
 static int process_start(lua_State* L) {
   int r, retval = 1;
   size_t env_len = 0, cmd_len = 0, arglist_len = 0, env_vars_len = 0;
-  process_arglist_t arglist;
+  process_t *self = NULL;
+  process_arglist_t arglist = PROCESS_ARGLIST_INITIALIZER;
   process_env_t env_vars = NULL;
   const char *cwd = NULL;
   bool detach = false, escape = true;
@@ -664,7 +668,7 @@ static int process_start(lua_State* L) {
     lua_pop(L, 1);
   }
 
-  process_t* self = lua_newuserdata(L, sizeof(process_t));
+  self = lua_newuserdata(L, sizeof(process_t));
   memset(self, 0, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
   self->deadline = deadline;
@@ -822,10 +826,12 @@ static int process_start(lua_State* L) {
     if (control_pipe[0]) close(control_pipe[0]);
     if (control_pipe[1]) close(control_pipe[1]);
   #endif
-  for (int stream = 0; stream < 3; ++stream) {
-    process_stream_t* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
-    if (*pipe) {
-      close_fd(pipe);
+  if (self) {
+    for (int stream = 0; stream < 3; ++stream) {
+      process_stream_t* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
+      if (*pipe) {
+        close_fd(pipe);
+      }
     }
   }
   process_arglist_free(&arglist);
