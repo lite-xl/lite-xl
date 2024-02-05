@@ -36,6 +36,7 @@ typedef wchar_t *process_env_t;
 
 #define HANDLE_INVALID (INVALID_HANDLE_VALUE)
 #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
+#define PROCESS_ARGLIST_INITIALIZER { 0 }
 
 static volatile long PipeSerialNumber;
 
@@ -49,6 +50,7 @@ typedef char **process_env_t;
 
 #define HANDLE_INVALID (0)
 #define PROCESS_GET_HANDLE(P) ((P)->pid)
+#define PROCESS_ARGLIST_INITIALIZER NULL
 
 #endif
 
@@ -576,7 +578,7 @@ static int process_start(lua_State* L) {
   int r, retval = 1;
   size_t env_len = 0, cmd_len = 0, arglist_len = 0, env_vars_len = 0;
   process_t *self = NULL;
-  process_arglist_t arglist = NULL;
+  process_arglist_t arglist = PROCESS_ARGLIST_INITIALIZER;
   process_env_t env_vars = NULL;
   const char *cwd = NULL;
   bool detach = false, escape = true;
