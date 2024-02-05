@@ -467,7 +467,9 @@ function TreeView:draw()
       sw = math.max(w, sw)
     end
   end
-  self.scroll_width = sw
+  if sw > self.scroll.x + self.size.x then
+    self.scroll_width = sw
+  end
 
   self:draw_scrollbar()
   if self.hovered_item and self.tooltip.x and self.tooltip.alpha > 0 then
