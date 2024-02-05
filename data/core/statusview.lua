@@ -274,7 +274,7 @@ function StatusView:register_docview_items()
     name = "keymap:current-stroke",
     alignment = StatusView.Item.LEFT,
     get_item = function()
-      return { style.text, table.concat(keymap.current_strokes, " ") }
+      return { style.text, keymap.binding_to_string(keymap.current_strokes) }
     end
   })
 

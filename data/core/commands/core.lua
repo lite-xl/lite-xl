@@ -77,7 +77,7 @@ command.add(nil, {
         for i, name in ipairs(res) do
           res[i] = {
             text = command.prettify_name(name),
-            info = keymap.get_binding(name),
+            info = keymap.binding_to_string(keymap.get_binding(name)),
             command = name,
           }
         end
