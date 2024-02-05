@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <assert.h>
@@ -8,6 +9,7 @@
 #include FT_LCD_FILTER_H
 #include FT_OUTLINE_H
 #include FT_SYSTEM_H
+#include FT_GLYPH_H
 
 #ifdef _WIN32
 #include <windows.h>
@@ -21,6 +23,17 @@
 #define GLYPHSET_SIZE 256
 #define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / GLYPHSET_SIZE)
 #define SUBPIXEL_BITMAPS_CACHED 3
+
+// A pseudo-codepoint that when rendered, displays the "missing glyph" glyph.
+// It is also used to indicate that such codepoint isn't found yet in a font.
+#define MISSING_GLYPH_CODEPOINT UINT_MAX
+
+// number of pixels to compensate for incorrect CBox predictions
+#define CBOX_OVERFLOW_H_PIXELS 4
+#define CBOX_OVERFLOW_W_PIXELS 8
+
+// probability of CBox predictions being wrong out of all glyphs loaded in a GlyphSet
+#define CBOX_OVERFLOW_H_PROB 0.2f
 
 RenWindow* window_renderer = NULL;
 static FT_Library library;
@@ -38,14 +51,36 @@ static void* check_alloc(void *ptr) {
 
 /************************* Fonts *************************/
 
+/**
+ * A glyph can be classififed into a few stages.
+ * 0. The glyph isn't loaded
+ * 1. The glyph is loaded, but it points to the missing glyph (glyph index 0)
+ * 2. The glyph is loaded, but it has no bitmap representation (whitespace)
+ * 3. The glyph is loaded and it has a bitmap
+ *
+ * For stage 0 and 1, the glyph, all fields are invalid.
+ * For stage 2, xadvance is guaranteed to be valid (including 0).
+ * For stage 3, x0, x1, y0, y1, bitmap_left and bitmap_top are guaranteed to be valid.
+ *
+ * GLYPH_NOT_LOADED corresponnds to stage 0, GLYPH_LOADED_MISSING corresponds to stage 1,
+ * while GLYPH_LOADED_NORMAL corresponds to stage 2 and 3.
+*/
+typedef enum {
+  GLYPH_NOT_LOADED,
+  GLYPH_LOADED_MISSING,
+  GLYPH_LOADED_NORMAL
+} EGlyphLoadFlag;
+
 typedef struct {
-  unsigned int x0, x1, y0, y1, loaded;
+  EGlyphLoadFlag flags;
+  unsigned int x0, x1, y0, y1;
   int bitmap_left, bitmap_top;
   float xadvance;
 } GlyphMetric;
 
 typedef struct {
   SDL_Surface* surface;
+  unsigned int pen_y, max_width;
   GlyphMetric metrics[GLYPHSET_SIZE];
 } GlyphSet;
 
@@ -54,11 +89,21 @@ typedef struct RenFont {
   FT_StreamRec stream;
   GlyphSet* sets[SUBPIXEL_BITMAPS_CACHED][MAX_LOADABLE_GLYPHSETS];
   float size, space_advance, tab_advance;
-  unsigned short max_height, baseline, height;
+  unsigned short baseline, height;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
   unsigned char style;
   unsigned short underline_thickness;
+  /**
+   * Each font will have a "missing glyph" codepoint.
+   * This value is initially set to MISSING_GLYPH_CODEPOINT.
+   * When a codepoint points to the missing glyph (glyph index 0) is loaded,
+   * it is designated as the missing glyph codepoint.
+   * Afterwards, all codepoints points to the missing glyph will be translated
+   * into this codepoint and returned.
+   * This means the missing glyph rendered once and stored in 1 place.
+   */
+  unsigned int missing_glyph_codepoint;
   char path[];
 } RenFont;
 
@@ -107,8 +152,7 @@ static int font_set_render_options(RenFont* font) {
   return 0;
 }
 
-static int font_set_style(FT_Outline* outline, int x_translation, unsigned char style) {
-  FT_Outline_Translate(outline, x_translation, 0 );
+static int font_set_style(FT_Outline* outline, unsigned char style) {
   if (style & FONT_STYLE_SMOOTH)
     FT_Outline_Embolden(outline, 1 << 5);
   if (style & FONT_STYLE_BOLD)
@@ -120,84 +164,349 @@ static int font_set_style(FT_Outline* outline, int x_translation, unsigned char 
   return 0;
 }
 
-static void font_load_glyphset(RenFont* font, int idx) {
-  unsigned int render_option = font_set_render_options(font), load_option = font_set_load_options(font);
+static inline float font_get_whitespace_advance(RenFont* font, unsigned int codepoint) {
+  unsigned int em = font->face->size->metrics.x_ppem;
+  /**
+   * https://en.wikipedia.org/wiki/Whitespace_character
+   * Notes:
+   * 0. OGHAM SPACE MARK isn't implemented because it may contain lines
+   * 1. FIGURE SPACE, PUNCTUATION SPACE and IDEOGRAPHIC SPACE (CJK) isn't implemented correctly
+   *    because it requires actually loading something (this may cause infinite recursion)
+   * 2. MONGOLIAN VOWEL SEPARATOR is implemented as zero-width instead of narrow space
+   */
+  // SPACE, LF, CR, NL, LT, FF
+  if (codepoint == 0x0020 || (codepoint >= 0x000A && codepoint <= 0x000D))
+    return font->space_advance;
+  else if (codepoint == 0x0009) // CHARACTER TABULATION
+    return font->tab_advance;
+  switch (codepoint) {
+    case 0x00A0: case 0x2007: case 0x2008: // NO-BREAK SPACE, FIGURE SPACE, PUNCTUATION SPACE (we don't really support these)
+      return font->space_advance;
+    case 0x180E: case 0x200B: case 0x200C: case 0x200D: case 0x2060: case 0xFEFF: // MONGOLIAN VOWEL SEPARATOR, ZWS, ZWNJ, ZWJ, WJ, ZWNBS (BOM)
+      return 0.0f;
+    case 0x2000: case 0x2002: // EN SPACE
+      return em / 2.0f;
+    case 0x3000:              // IDEOGRAPHIC SPACE (CJK)
+    case 0x2001: case 0x2003: // EM SPACE
+      return em;
+    case 0x2004:              // THREE-PER-EM SPACE
+      return em / 3.0f;
+    case 0x2005:              // FOUR-PER-EM SPACE
+      return em / 4.0f;
+    case 0x2006: case 0x2009: // SIX-PER-EM SPACE, THIN SPACE
+      return em / 6.0f;
+    case 0x200A:              // HAIR SPACE
+      return em / 8.0f;
+    case 0x202F:              // NARROW NO-BREAK SPACE
+      return font->space_advance / 3.0f;
+    case 0x205F:              // MEDIUM MATHEMATICAL SPACE
+      return 4.0f/18.0f * em;
+  }
+  return -1.0f; // not a whitespace
+}
+
+static void font_allocate_glyphset(RenFont *font, int idx, bool cbox) {
   int bitmaps_cached = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1;
-  unsigned int byte_width = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 3 : 1;
-  for (int j = 0, pen_x = 0; j < bitmaps_cached; ++j) {
-    GlyphSet* set = check_alloc(calloc(1, sizeof(GlyphSet)));
-    font->sets[j][idx] = set;
-    for (int i = 0; i < GLYPHSET_SIZE; ++i) {
-      int glyph_index = FT_Get_Char_Index(font->face, i + idx * GLYPHSET_SIZE);
-      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY)
-        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
+  unsigned int load_option = font_set_load_options(font);
+  unsigned int render_option = font_set_render_options(font);
+
+  unsigned int pen_y[SUBPIXEL_BITMAPS_CACHED] = { 0 };
+  unsigned int max_width[SUBPIXEL_BITMAPS_CACHED] = { 0 };
+  int glyphs_predicted = 0;
+
+  // get the dimension of the GlyphSet with cbox or by rendering the glyph
+  for (int i = 0; i < GLYPHSET_SIZE; ++i) {
+    FT_GlyphSlot slot;
+    int predicted_width, predicted_height;
+
+    unsigned int codepoint = i + idx * GLYPHSET_SIZE;
+    unsigned int glyph_index = FT_Get_Char_Index(font->face, codepoint);
+
+    if (!glyph_index) {
+      // Most fonts only map the SPACE character to an actual glyph, while other whitespaces
+      // such as EM SPACE are mapped to the missing glyph (Glyph index 0).
+      // If this is the case, we will use our own whitespace logic to determine the xadvance.
+      // Here, we just want to check if we're dealing with an actual missing glyph.
+      if (font_get_whitespace_advance(font, codepoint) >= 0)
         continue;
-      }
-      FT_GlyphSlot slot = font->face->glyph;
-      unsigned int glyph_width = slot->bitmap.width / byte_width;
-      if (font->antialiasing == FONT_ANTIALIASING_NONE)
-        glyph_width *= 8;
-      set->metrics[i] = (GlyphMetric){ pen_x, pen_x + glyph_width, 0, slot->bitmap.rows, true, slot->bitmap_left, slot->bitmap_top, (slot->advance.x + slot->lsb_delta - slot->rsb_delta) / 64.0f};
-      pen_x += glyph_width;
-      font->max_height = slot->bitmap.rows > font->max_height ? slot->bitmap.rows : font->max_height;
-      // In order to fix issues with monospacing; we need the unhinted xadvance; as FreeType doesn't correctly report the hinted advance for spaces on monospace fonts (like RobotoMono). See #843.
-      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)
-        || font_set_style(&font->face->glyph->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) || FT_Render_Glyph(font->face->glyph, render_option)) {
+
+      // if a missing glyph codepoint is already found somewhere, we can skip rendering it
+      // in this GlyphSet.
+      if (font->missing_glyph_codepoint != MISSING_GLYPH_CODEPOINT)
         continue;
-      }
-      slot = font->face->glyph;
-      set->metrics[i].xadvance = slot->advance.x / 64.0f;
     }
-    if (pen_x == 0)
+
+    if (FT_Load_Glyph(font->face, glyph_index, load_option | FT_LOAD_BITMAP_METRICS_ONLY))
       continue;
-    set->surface = check_alloc(SDL_CreateRGBSurface(0, pen_x, font->max_height, font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 24 : 8, 0, 0, 0, 0));
-    uint8_t* pixels = set->surface->pixels;
-    for (int i = 0; i < GLYPHSET_SIZE; ++i) {
-      int glyph_index = FT_Get_Char_Index(font->face, i + idx * GLYPHSET_SIZE);
-      if (!glyph_index || FT_Load_Glyph(font->face, glyph_index, load_option))
+
+    slot = font->face->glyph;
+    predicted_width = -1;
+    predicted_height = -1;
+
+    /**
+     * Use FT_Outline_Get_CBox to predict the glyph dimensions. This function is very, very fast.
+     * Antialiasing, hinting and subpixel positioning can make the output inaccurate,
+     * so we compensate it with a few extra pixels.
+     * The control box is not accurate for 1-bit monochrome bitmaps due to pixel dropout when hinting.
+     * We are not going to account for width mispredictions when the glyph is translated due to subpixel positioning.
+     * unless the font is "tricky" or the glyphs are tiled vertically, the prediction is accurate enough.
+     */
+    if (cbox && slot->format == FT_GLYPH_FORMAT_OUTLINE && font->antialiasing != FONT_ANTIALIASING_NONE) {
+      FT_BBox bbox;
+
+      font_set_style(&slot->outline, font->style);
+      FT_Outline_Get_CBox(&slot->outline, &bbox);
+      predicted_width = ceilf((bbox.xMax - bbox.xMin) / 64.0f);
+      predicted_height = ceilf((bbox.yMax - bbox.yMin) / 64.0f);
+
+      if (predicted_width == 0 || predicted_height == 0)
         continue;
-      FT_GlyphSlot slot = font->face->glyph;
-      font_set_style(&slot->outline, (64 / bitmaps_cached) * j, font->style);
-      if (FT_Render_Glyph(slot, render_option))
-        continue;
-      for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
-        int target_offset = set->surface->pitch * line + set->metrics[i].x0 * byte_width;
-        int source_offset = line * slot->bitmap.pitch;
-        if (font->antialiasing == FONT_ANTIALIASING_NONE) {
-          for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
-            int current_source_offset = source_offset + (column / 8);
-            int source_pixel = slot->bitmap.buffer[current_source_offset];
-            pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) * 0xFF;
-          }
-        } else
-          memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
+
+      predicted_width += CBOX_OVERFLOW_W_PIXELS;
+      glyphs_predicted++;
+    }
+
+    // increment the dimensions for all subpixel bitmaps
+    for (int j = 0; j < bitmaps_cached; ++j) {
+      // Subpixel positioning is going to increase the bitmap size by a few pixels.
+      // Combined with hinting, this amounts to 4-6 pixels at most, which is covered by CBOX_OVERFLOW_W_PIXELS.
+      int width = predicted_width;
+      int height = predicted_height;
+
+      if (predicted_height == -1 || predicted_width == -1) {
+        // Render the glyph to get an accurate dimension
+        // As far as I know, there's no way to translate the outline incrementally and render it.
+        // This means we need to call FT_Load_Glyph every time to "clear" the glyph slot.
+        if (FT_Load_Glyph(font->face, glyph_index, load_option))
+          continue;
+
+        slot = font->face->glyph;
+        if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+          if (slot->outline.n_points == 0) continue;
+          // perform transformation and subpixel positioning
+          font_set_style(&slot->outline, font->style);
+          if (j > 0)
+            FT_Outline_Translate(&slot->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), 0);
+        }
+
+        if (FT_Render_Glyph(slot, render_option))
+          continue;
+
+        width = slot->bitmap.width;
+        height = slot->bitmap.rows;
+        if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_LCD)
+          width /= 3;
       }
+
+      pen_y[j] += height;
+      max_width[j] = width > max_width[j] ? width : max_width[j];
+    }
+
+    // designate this codepoint as the missing glyph codepoint
+    if (!glyph_index)
+      font->missing_glyph_codepoint = codepoint;
+
+  } // for (int i = 0; i < GLYPHSET_SIZE; ++i)
+
+  for (int j = 0; j < bitmaps_cached; ++j) {
+    GlyphSet *set = font->sets[j][idx];
+
+    if (!set)
+      font->sets[j][idx] = set = check_alloc(calloc(1, sizeof(GlyphSet)));
+
+    // don't allocate empty surfaces
+    if (pen_y[j] == 0 || max_width[j] == 0)
+      continue;
+
+    // Hinting and AA alone doesn't add a lot of extra height to a bitmap,
+    // so we can try to be smart and only add Y overflow to a select few glyphs.
+    // Here, we assume that 20% of all predictions are wrong, and this is adequate for most cases.
+    pen_y[j] += glyphs_predicted * CBOX_OVERFLOW_H_PROB * CBOX_OVERFLOW_H_PIXELS;
+
+    if (!set->surface || max_width[j] > set->surface->w || pen_y[j] > set->surface->h) {
+      SDL_Surface *new_surface = check_alloc(SDL_CreateRGBSurface(0, max_width[j], pen_y[j], bitmaps_cached * 8, 0, 0, 0, 0));
+
+      if (set->surface) {
+        // copy the old surface data onto the new one
+        for (unsigned int line = 0; line < set->surface->h; ++line) {
+          uint8_t *src_row = ((uint8_t *) set->surface->pixels) + line * set->surface->pitch;
+          uint8_t *dst_row = ((uint8_t *) new_surface->pixels) + line * new_surface->pitch;
+          memcpy(dst_row, src_row, set->surface->w * set->surface->format->BytesPerPixel);
+        }
+        SDL_FreeSurface(set->surface);
+      }
+
+      set->surface = new_surface;
     }
   }
 }
 
-static GlyphSet* font_get_glyphset(RenFont* font, unsigned int codepoint, int subpixel_idx) {
-  int idx = (codepoint / GLYPHSET_SIZE) % MAX_LOADABLE_GLYPHSETS;
-  if (!font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx])
-    font_load_glyphset(font, idx);
-  return font->sets[font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0][idx];
+static void font_render_glyph(RenFont* font, unsigned int codepoint) {
+  unsigned int bitmaps_cached = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1;
+  unsigned int metrics_idx = codepoint % GLYPHSET_SIZE;
+  unsigned int glyphset_idx = (codepoint / GLYPHSET_SIZE) % MAX_LOADABLE_GLYPHSETS;
+
+  unsigned int load_flags = font_set_load_options(font);
+  unsigned int render_flags = font_set_render_options(font);
+  unsigned int glyph_index = FT_Get_Char_Index(font->face, codepoint);
+
+  if (!glyph_index) {
+    // We assume that the codepoint points to glyph index 0 because it is whitespace.
+    // If it isn't, we'll see if the codepoint is the designated missing glyph codepoint.
+    // If yes, we'll render the glyph. Otherwise, we'll skip.
+    int flags = GLYPH_LOADED_NORMAL;
+    float whitespace_advance = font_get_whitespace_advance(font, codepoint);
+
+    if (whitespace_advance < 0) {
+      // not whitespace
+      flags = GLYPH_LOADED_MISSING;
+      whitespace_advance = 0;
+    }
+
+    for (int j = 0; j < bitmaps_cached; ++j) {
+      font->sets[j][glyphset_idx]->metrics[metrics_idx].flags = flags;
+      font->sets[j][glyphset_idx]->metrics[metrics_idx].xadvance = whitespace_advance;
+    }
+
+    if (flags == GLYPH_LOADED_NORMAL || font->missing_glyph_codepoint != codepoint)
+      return;
+  }
+
+  /**
+   * There's an issue with monospaced fonts where the hinted xadvance is off (rounded)
+   * when calculated with lsb_delta and rsb_delta;
+   * we need to load the font without hinting and use that.
+   * See #843.
+   */
+  if (FT_Load_Glyph(font->face, glyph_index, (load_flags | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT))
+    return;
+
+  // subpixel positioning & transformations don't affect xadvance, so we don't run them
+  for (int j = 0; j < bitmaps_cached; ++j) {
+    // since we already have the xadvance, we can consider this codepoint loaded
+    font->sets[j][glyphset_idx]->metrics[metrics_idx].flags = GLYPH_LOADED_NORMAL;
+    font->sets[j][glyphset_idx]->metrics[metrics_idx].xadvance = font->face->glyph->advance.x / 64.0f;
+  }
+
+  for (int j = 0; j < bitmaps_cached; ++j) {
+
+    int width, height;
+    FT_GlyphSlot slot;
+    uint8_t *src_pixels, *dst_pixels;
+    GlyphSet *set = font->sets[j][glyphset_idx];
+    GlyphMetric *metric = &set->metrics[metrics_idx];
+
+    // we must reload the glyph instead of incrementally translating it because FT_Render_Glyph
+    // will not re-render the glyph unless the slot is "cleared".
+    if (FT_Load_Glyph(font->face, glyph_index, load_flags))
+      return;
+
+    slot = font->face->glyph;
+    if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
+      if (slot->outline.n_points == 0) continue;
+      // perform style and subpixel positioning
+      font_set_style(&slot->outline, font->style);
+      if (j > 0)
+        FT_Outline_Translate(&slot->outline, j * (64 / SUBPIXEL_BITMAPS_CACHED), 0);
+    }
+
+    if (FT_Render_Glyph(slot, render_flags))
+      return;
+
+    width = slot->bitmap.width;
+    height = slot->bitmap.rows;
+    if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_LCD)
+      width /= 3;
+
+    if (width == 0 || height == 0)
+      return;
+
+    // save bitmap metrics
+    metric->x0 = 0;
+    metric->x1 = width;
+    metric->y0 = set->pen_y;
+    metric->y1 = metric->y0 + height;
+    metric->bitmap_left = slot->bitmap_left;
+    metric->bitmap_top = slot->bitmap_top;
+
+    if (!set->surface || metric->x1 > set->surface->w || metric->y1 > set->surface->h) {
+      // resize the glyphset with exact pixel sizing
+      font_allocate_glyphset(font, glyphset_idx, false);
+      assert(metric->x1 <= set->surface->w && metric->y1 <= set->surface->h);
+    }
+
+    // blit the bitmap onto the surface
+    src_pixels = (uint8_t *) slot->bitmap.buffer;
+    dst_pixels = (uint8_t *) set->surface->pixels;
+    for (unsigned int line = 0; line < height; ++line) {
+      unsigned int src_offset =  line * slot->bitmap.pitch;
+      unsigned int dst_offset = (metric->y0 + line) * set->surface->pitch + metric->x0 * set->surface->format->BytesPerPixel;
+      if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) {
+        for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
+          int current_source_offset = src_offset + (column / 8);
+          int source_pixel = src_pixels[current_source_offset];
+          dst_pixels[dst_offset++] = ((source_pixel >> (7 - (column % 8))) & 0x1) << 7;
+        }
+      } else {
+        memcpy(&dst_pixels[dst_offset], &src_pixels[src_offset], slot->bitmap.width);
+      }
+    }
+    set->pen_y += height;
+
+  } // for (int j = 0; j < bitmaps_cached; ++j)
 }
 
-static RenFont* font_group_get_glyph(GlyphSet** set, GlyphMetric** metric, RenFont** fonts, unsigned int codepoint, int bitmap_index) {
-  if (!metric) {
-    return NULL;
-  }
-  if (bitmap_index < 0)
-    bitmap_index += SUBPIXEL_BITMAPS_CACHED;
+static EGlyphLoadFlag font_get_glyph(RenFont* font,
+                                      unsigned int codepoint,
+                                      int subpixel_idx,
+                                      GlyphMetric **metric,
+                                      SDL_Surface **surface) {
+  int glyphset_idx = (codepoint / GLYPHSET_SIZE) % MAX_LOADABLE_GLYPHSETS;
+  int metrics_idx = codepoint % GLYPHSET_SIZE;
+  GlyphSet *set;
+
+  subpixel_idx = font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? subpixel_idx : 0;
+  subpixel_idx = subpixel_idx < 0 ? subpixel_idx + SUBPIXEL_BITMAPS_CACHED : subpixel_idx;
+
+  if (!font->sets[subpixel_idx][glyphset_idx])
+    font_allocate_glyphset(font, glyphset_idx, true);
+
+  set = font->sets[subpixel_idx][glyphset_idx];
+  if (!set->metrics[metrics_idx].flags)
+    font_render_glyph(font, codepoint);
+
+  if (metric) *metric = &set->metrics[metrics_idx];
+  if (surface) *surface = set->surface;
+  return set->metrics[metrics_idx].flags;
+}
+
+static RenFont *font_group_get_glyph(RenFont** fonts,
+                                      unsigned int codepoint,
+                                      int subpixel_idx,
+                                      GlyphMetric **metric,
+                                      SDL_Surface **glyph_surface,
+                                      bool *glyph_missing) {
+  int last_font = 0;
+
+  // try to load the glyph from each font
+  if (glyph_missing) *glyph_missing = false;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
-    *set = font_get_glyphset(fonts[i], codepoint, bitmap_index);
-    *metric = &(*set)->metrics[codepoint % GLYPHSET_SIZE];
-    if ((*metric)->loaded || codepoint < 0xFF)
+    if (font_get_glyph(fonts[i], codepoint, subpixel_idx, metric, glyph_surface) == GLYPH_LOADED_NORMAL)
       return fonts[i];
+    last_font = i;
   }
-  if (*metric && !(*metric)->loaded && codepoint > 0xFF && codepoint != 0x25A1)
-    return font_group_get_glyph(set, metric, fonts, 0x25A1, bitmap_index);
-  return fonts[0];
+
+  // cannot load glyph, try to load the missing glyph codepoint
+  if (glyph_missing) *glyph_missing = true;
+  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
+    if (fonts[i]->missing_glyph_codepoint == MISSING_GLYPH_CODEPOINT) continue;
+    if (font_get_glyph(fonts[i], fonts[i]->missing_glyph_codepoint, subpixel_idx, metric, glyph_surface) == GLYPH_LOADED_NORMAL)
+      return fonts[i];
+    last_font = i;
+  }
+
+  // cannot load anything, just return the last enumerated font
+  return fonts[last_font];
 }
 
 static void font_clear_glyph_cache(RenFont* font) {
@@ -236,7 +545,7 @@ static void font_file_close(FT_Stream stream) {
 RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   RenFont *font = NULL;
   FT_Face face = NULL;
-  
+
   SDL_RWops *file = SDL_RWFromFile(path, "rb");
   if (!file)
     goto rwops_failure;
@@ -264,6 +573,7 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   font->antialiasing = antialiasing;
   font->hinting = hinting;
   font->style = style;
+  font->missing_glyph_codepoint = MISSING_GLYPH_CODEPOINT;
 
   if(FT_IS_SCALABLE(face))
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
@@ -309,20 +619,23 @@ void ren_font_free(RenFont* font) {
 }
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {
-  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
   for (int j = 0; j < FONT_FALLBACK_MAX && fonts[j]; ++j) {
-    for (int i = 0; i < (fonts[j]->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1); ++i)
-      font_get_glyphset(fonts[j], '\t', i)->metrics[tab_index].xadvance = fonts[j]->space_advance * n;
+    int bitmaps_cached = fonts[j]->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1;
+    fonts[j]->tab_advance = fonts[j]->space_advance * n;
+
+    for (int i = 0; i < bitmaps_cached; ++i) {
+      GlyphMetric *metric = NULL;
+      font_get_glyph(fonts[j], '\t', i, &metric, NULL);
+      if (metric)
+        metric->xadvance = fonts[j]->space_advance * n;
+    }
   }
 }
 
 int ren_font_group_get_tab_size(RenFont **fonts) {
-  unsigned int tab_index = '\t' % GLYPHSET_SIZE;
-  float advance = font_get_glyphset(fonts[0], '\t', 0)->metrics[tab_index].xadvance;
-  if (fonts[0]->space_advance) {
-    advance /= fonts[0]->space_advance;
-  }
-  return advance;
+  GlyphMetric *metric = NULL;
+  font_get_glyph(fonts[0], '\t', 0, &metric, NULL);
+  return metric && fonts[0]->space_advance ? (metric->xadvance / fonts[0]->space_advance) : fonts[0]->space_advance;
 }
 
 float ren_font_group_get_size(RenFont **fonts) {
@@ -351,14 +664,13 @@ int ren_font_group_get_height(RenFont **fonts) {
 double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, int *x_offset) {
   double width = 0;
   const char* end = text + len;
-  GlyphMetric* metric = NULL; GlyphSet* set = NULL;
   bool set_x_offset = x_offset == NULL;
   while (text < end) {
     unsigned int codepoint;
+    RenFont *font = NULL;
+    GlyphMetric* metric = NULL;
     text = utf8_to_codepoint(text, &codepoint);
-    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, 0);
-    if (!metric)
-      break;
+    font = font_group_get_glyph(fonts, codepoint, 0, &metric, NULL, NULL);
     width += (!font || metric->xadvance) ? metric->xadvance : fonts[0]->space_advance;
     if (!set_x_offset) {
       set_x_offset = true;
@@ -372,90 +684,177 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
   return width / surface_scale;
 }
 
+// 4-times unrolled loop
+// https://github.com/libsdl-org/SDL_ttf/blob/2d50c3e9658ceba8272b13a8cc64ab072f19d4e3/SDL_ttf.c#L364
+#define DUFFS_LOOP4(pixel_copy_increment, width)                        \
+{ int n = (width+3)/4;                                                  \
+    switch (width & 3) {                                                \
+    case 0: do {    pixel_copy_increment;   /* fallthrough */           \
+    case 3:     pixel_copy_increment;       /* fallthrough */           \
+    case 2:     pixel_copy_increment;       /* fallthrough */           \
+    case 1:     pixel_copy_increment;       /* fallthrough */           \
+        } while (--n > 0);                                              \
+    }                                                                   \
+}
+
+// dual source blending for LCD (subpixel rendering)
+static inline void lcd_blend(SDL_Surface *dst, SDL_Surface *src, RenRect *src_rect, RenRect *dst_rect, RenColor *color) {
+  unsigned char src_r, src_g, src_b, dst_r, dst_g, dst_b, dst_a, r, g, b;
+  uint8_t *src_row = (uint8_t *) src->pixels + src_rect->y * src->pitch + src_rect->x * src->format->BytesPerPixel;
+  uint32_t *dst_row = (uint32_t *) ((uint8_t *) dst->pixels + dst_rect->y * dst->pitch + dst_rect->x * dst->format->BytesPerPixel);
+  int src_skip = src->pitch - (src_rect->width * src->format->BytesPerPixel);
+  int dst_skip = dst->pitch - (src_rect->width * dst->format->BytesPerPixel);
+
+  for (int y = 0; y < src_rect->height; ++y) {
+    DUFFS_LOOP4(
+      // the correct way to do this is with SDL_GetRGBA() but it introduces performance regression
+      dst_r = (*dst_row & dst->format->Rmask) >> dst->format->Rshift;
+      dst_g = (*dst_row & dst->format->Gmask) >> dst->format->Gshift;
+      dst_b = (*dst_row & dst->format->Bmask) >> dst->format->Bshift;
+      dst_a = (*dst_row & dst->format->Amask) >> dst->format->Ashift;
+      src_r = *(src_row++);
+      src_g = *(src_row++);
+      src_b = *(src_row++);
+
+      // magic equations that does dual source blending
+      r = (color->r * src_r * color->a + dst_r * (65025 - src_r * color->a) + 32767) / 65025;
+      g = (color->g * src_g * color->a + dst_g * (65025 - src_g * color->a) + 32767) / 65025;
+      b = (color->b * src_b * color->a + dst_b * (65025 - src_b * color->a) + 32767) / 65025;
+
+      // the correct way to do this is with SDL_MapRGBA() but it introduces performance regression
+      *(dst_row++) = (r << dst->format->Rshift) | (g << dst->format->Gshift) | (b << dst->format->Bshift) | (dst_a << dst->format->Ashift);
+    , src_rect->width);
+
+    src_row += src_skip;
+    dst_row = (uint32_t *) ((uint8_t *) dst_row + dst_skip);
+  }
+}
+
+// dual source blending for grayscale
+static inline void grayscale_blend(SDL_Surface *dst, SDL_Surface *src, RenRect *src_rect, RenRect *dst_rect, RenColor *color) {
+  unsigned char src_r, src_g, src_b, dst_r, dst_g, dst_b, dst_a, r, g, b;
+  uint8_t *src_row = (uint8_t *) src->pixels + src_rect->y * src->pitch + src_rect->x * src->format->BytesPerPixel;
+  uint32_t *dst_row = (uint32_t *) ((uint8_t *) dst->pixels + dst_rect->y * dst->pitch + dst_rect->x * dst->format->BytesPerPixel);
+  int src_skip = src->pitch - (src_rect->width * src->format->BytesPerPixel);
+  int dst_skip = dst->pitch - (src_rect->width * dst->format->BytesPerPixel);
+
+  for (int y = 0; y < src_rect->height; ++y) {
+
+    DUFFS_LOOP4(
+      // the correct way to do this is with SDL_GetRGBA() but it introduces performance regression
+      dst_r = (*dst_row & dst->format->Rmask) >> dst->format->Rshift;
+      dst_g = (*dst_row & dst->format->Gmask) >> dst->format->Gshift;
+      dst_b = (*dst_row & dst->format->Bmask) >> dst->format->Bshift;
+      dst_a = (*dst_row & dst->format->Amask) >> dst->format->Ashift;
+      src_r = *(src_row);
+      src_g = *(src_row);
+      src_b = *(src_row++);
+
+      // magic equations that does dual source blending
+      r = (color->r * src_r * color->a + dst_r * (65025 - src_r * color->a) + 32767) / 65025;
+      g = (color->g * src_g * color->a + dst_g * (65025 - src_g * color->a) + 32767) / 65025;
+      b = (color->b * src_b * color->a + dst_b * (65025 - src_b * color->a) + 32767) / 65025;
+
+      // the correct way to do this is with SDL_MapRGBA() but it introduces performance regression
+      *(dst_row++) = (r << dst->format->Rshift) | (g << dst->format->Gshift) | (b << dst->format->Bshift) | (dst_a << dst->format->Ashift);
+    , src_rect->width)
+
+    src_row += src_skip;
+    dst_row = (uint32_t *) ((uint8_t *) dst_row + dst_skip);
+  }
+}
+
 double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
-  SDL_Surface *surface = rs->surface;
   SDL_Rect clip;
-  SDL_GetClipRect(surface, &clip);
+  SDL_Surface *dst_surface = rs->surface;
+  SDL_GetClipRect(dst_surface, &clip);
 
   const int surface_scale = rs->scale;
   double pen_x = x * surface_scale;
   y *= surface_scale;
-  int bytes_per_pixel = surface->format->BytesPerPixel;
   const char* end = text + len;
-  uint8_t* destination_pixels = surface->pixels;
-  int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
+  int clip_end_x = clip.x + clip.w;
+  int clip_end_y = clip.y + clip.h;
 
-  RenFont* last = NULL;
   double last_pen_x = x;
-  bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
-  bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
+  RenFont* last_font = NULL;
 
   while (text < end) {
-    unsigned int codepoint, r, g, b;
+    unsigned int codepoint;
+    RenFont *font = NULL;
+    GlyphMetric* metric = NULL;
+    SDL_Surface* src_surface = NULL;
+    bool glyph_missing = false;
+    RenRect src_rect = { 0 }, dst_rect = { 0 };
+    float adv;
+
     text = utf8_to_codepoint(text, &codepoint);
-    GlyphSet* set = NULL; GlyphMetric* metric = NULL;
-    RenFont* font = font_group_get_glyph(&set, &metric, fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED));
-    if (!metric)
-      break;
-    int start_x = floor(pen_x) + metric->bitmap_left;
-    int end_x = (metric->x1 - metric->x0) + start_x;
-    int glyph_end = metric->x1, glyph_start = metric->x0;
-    if (!metric->loaded && codepoint > 0xFF)
-      ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
-    if (set->surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
-      uint8_t* source_pixels = set->surface->pixels;
-      for (int line = metric->y0; line < metric->y1; ++line) {
-        int target_y = line + y - metric->bitmap_top + fonts[0]->baseline * surface_scale;
-        if (target_y < clip.y)
-          continue;
-        if (target_y >= clip_end_y)
-          break;
-        if (start_x + (glyph_end - glyph_start) >= clip_end_x)
-          glyph_end = glyph_start + (clip_end_x - start_x);
-        if (start_x < clip.x) {
-          int offset = clip.x - start_x;
-          start_x += offset;
-          glyph_start += offset;
-        }
-        uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * bytes_per_pixel]);
-        uint8_t* source_pixel = &source_pixels[line * set->surface->pitch + glyph_start * (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? 3 : 1)];
-        for (int x = glyph_start; x < glyph_end; ++x) {
-          uint32_t destination_color = *destination_pixel;
-          // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
-          SDL_Color src;
+    font = font_group_get_glyph(fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &metric, &src_surface, &glyph_missing);
+    adv = font->space_advance;
 
-          if (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL) {
-            src.r = *(source_pixel++);
-            src.g = *(source_pixel++);
-          }
-          else  {
-            src.r = *(source_pixel);
-            src.g = *(source_pixel);
-          }
+    if (metric && metric->flags == GLYPH_LOADED_NORMAL) {
+      adv = metric->xadvance;
+      src_rect = (RenRect) {
+        .x =     metric->x0,              .y =      metric->y0,
+        .width = metric->x1 - metric->x0, .height = metric->y1 - metric->y0
+      };
+      dst_rect = (RenRect) {
+        .x     = floor(pen_x) + metric->bitmap_left, .y      = y - metric->bitmap_top + font->baseline * surface_scale,
+        .width = 0,                                  .height = 0
+      };
 
-          src.b = *(source_pixel++);
-          src.a = 0xFF;
+      // perform clipping and clamping
+      if (dst_rect.x >= clip_end_x)
+        break;
 
-          r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
-          g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
-          b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
-          // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          *destination_pixel++ = dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
-        }
+      if (dst_rect.x + src_rect.width >= clip_end_x)
+        src_rect.width = clip_end_x - dst_rect.x;
+      if (dst_rect.y + src_rect.height >= clip_end_y)
+        src_rect.height = clip_end_y - dst_rect.y;
+
+      if (dst_rect.x < clip.x) {
+        int offset = clip.x - dst_rect.x;
+        src_rect.x += offset;
+        src_rect.width -= offset;
+        dst_rect.x += offset;
+      }
+      if (dst_rect.y < clip.y) {
+        int offset = clip.y - dst_rect.y;
+        src_rect.y += offset;
+        src_rect.height -= offset;
+        dst_rect.y += offset;
       }
     }
 
-    float adv = metric->xadvance ? metric->xadvance : font->space_advance;
+    if (glyph_missing && (src_rect.width == 0 || src_rect.height == 0)) {
+      // if the original glyph for the codepoint cannot be found, and we don't have a bitmap for the missing
+      // glyph, we'll draw a rectangle.
+      dst_rect = (RenRect) {
+        .x     = floor(pen_x) + 1, .y      = y + 1,
+        .width = adv - 2,          .height = font->height - 2
+      };
+      ren_draw_rect(rs, dst_rect, color);
+    } else if (color.a > 0 && src_rect.width > 0 && src_rect.height > 0) {
+      // if we're drawing something opaque, and the glyph is loaded, and the glyph has a bitmap, then we blit it
+      if (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL)
+        lcd_blend(dst_surface, src_surface, &src_rect, &dst_rect, &color);
+      else
+        grayscale_blend(dst_surface, src_surface, &src_rect, &dst_rect, &color);
+    }
 
-    if(!last) last = font;
-    else if(font != last || text == end) {
+    if(!last_font) {
+      last_font = font;
+    } else if(font != last_font || text == end) {
+      bool underline = last_font->style & FONT_STYLE_UNDERLINE;
+      bool strikethrough = last_font->style & FONT_STYLE_STRIKETHROUGH;
       double local_pen_x = text == end ? pen_x + adv : pen_x;
+
       if (underline)
-        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last_font->height - 1, (local_pen_x - last_pen_x) / surface_scale, last_font->underline_thickness * surface_scale}, color);
       if (strikethrough)
-        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height / 2, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
-      last = font;
+        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last_font->height / 2, (local_pen_x - last_pen_x) / surface_scale, last_font->underline_thickness * surface_scale}, color);
+
+      last_font = font;
       last_pen_x = pen_x;
     }
 
