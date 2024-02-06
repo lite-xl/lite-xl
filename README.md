@@ -80,6 +80,7 @@ affects only the place where the application is actually installed.
 ## Installing Prebuilt
 
 Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and download the version for your operating system.
+
 The prebuilt releases supports the following OSes:
 
 - Windows 7 and above
