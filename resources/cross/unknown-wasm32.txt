@@ -12,15 +12,21 @@ asyncify_advise = '0'
 # initial heap size in bytes; make sure it is not too low (around 64mb - 250mb)
 initial_heap = '104857600'
 
+# Emscripten is not always added to PATH.
+# Replace this variable with the path to Emscripten;
+# or supply a second machine file that defines this variable.
+toolchain = ''
+
 
 [binaries]
-c = 'emcc'
-cpp = 'em++'
-ar = 'emar'
-strip = 'emstrip'
-cmake = ['emmake', 'cmake']
-pkg-config = ['emconfigure', 'pkg-config']
-sdl2-config = ['emconfigure', 'sdl2-config']
+c = toolchain / 'emcc'
+cpp = toolchain / 'em++'
+ar = toolchain / 'emar'
+strip = toolchain / 'emstrip'
+cmake = [toolchain / 'emmake', 'cmake']
+pkg-config = [toolchain / 'emconfigure', 'pkg-config']
+sdl2-config = [toolchain / 'emconfigure', 'sdl2-config']
+file_packager = ['python3', toolchain / 'tools/file_packager.py']
 
 
 [properties]
@@ -36,7 +42,11 @@ cpp_link_args = []
 
 [project options]
 buildtype = 'release'
-c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1']
+portable = true
+arch_tuple = 'wasm32-unknown'
+wrap_mode = 'nofallback'
+force_fallback_for = 'lua,pcre2,freetype2'
+c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1', '-lidbfs.js']
 
 	
 [host_machine]
