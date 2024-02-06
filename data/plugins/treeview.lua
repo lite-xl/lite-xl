@@ -467,8 +467,14 @@ function TreeView:draw()
       sw = math.max(w, sw)
     end
   end
-  if sw > self.scroll.x + self.size.x then
+  local ss = self:get_h_scrollable_size()
+  if sw > self.scroll_width then
+    -- We can increase the scrollable size without issues
     self.scroll_width = sw
+  elseif ss > self.scroll.x + self.size.x then
+    -- We can decrease it only up to the current scroll position
+    local so = ss - self.scroll_width -- Keep track of the vertical scrollbar offset
+    self.scroll_width = math.max(sw + so, self.scroll.x + self.size.x) - so
   end
 
   self:draw_scrollbar()
