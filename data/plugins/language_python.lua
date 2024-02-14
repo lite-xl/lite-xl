@@ -1,6 +1,17 @@
 -- mod-version:3
 local syntax = require "core.syntax"
 
+
+local python_fstring = {
+
+    patterns = {
+      { pattern = {"{", "}"}, type = "normal", syntax = ".py" },
+      { pattern = ".",        type = "string"                 }
+    },
+
+    symbols = {}
+}
+
 syntax.add {
   name = "Python",
   files = { "%.py$", "%.pyw$", "%.rpy$" },
@@ -8,20 +19,25 @@ syntax.add {
   comment = "#",
   block_comment = { '"""', '"""' },
   patterns = {
-    { pattern = "#.*",                         type = "comment"  },
-    { pattern = { '^%s*"""', '"""' },          type = "comment"  },
-    { pattern = '[uUrR]%f["]',                 type = "keyword"  },
-    { pattern = "class%s+()[%a_][%w_]*",       type = {"keyword", "keyword2"} },
-    { pattern = { '[ruU]?"""', '"""'; '\\' },  type = "string"   },
-    { pattern = { "[ruU]?'''", "'''", '\\' },  type = "string"   },
-    { pattern = { '[ruU]?"', '"', '\\' },      type = "string"   },
-    { pattern = { "[ruU]?'", "'", '\\' },      type = "string"   },
-    { pattern = "-?0[xboXBO][%da-fA-F_]+",type = "number"   },
-    { pattern = "-?%d+[%d%.eE_]*",             type = "number"   },
-    { pattern = "-?%.?%d+",                    type = "number"   },
-    { pattern = "[%+%-=/%*%^%%<>!~|&]",        type = "operator" },
-    { pattern = "[%a_][%w_]*%f[(]",            type = "function" },
-    { pattern = "[%a_][%w_]*",                 type = "symbol"   },
+    { pattern = "#.*",                           type = "comment"                         },
+    { pattern = { '^%s*"""', '"""' },            type = "comment"                         },
+    { pattern = '[uUrR]%f["]',                   type = "keyword"                         },
+    { pattern = "class%s+()[%a_][%w_]*",         type = {"keyword", "keyword2"}           },
+    { pattern = "%f[^:]%s*[%a_][%w_]*%f[%s=),]", type = "keyword2"                        },
+    { pattern = "->()%s*[%a_][%w_]*%f[:]",       type = {"operator", "keyword2"}          },
+    { pattern = { '[ruU]?"""', '"""'; '\\' },    type = "string"                          },
+    { pattern = { "[ruU]?'''", "'''", '\\' },    type = "string"                          },
+    { pattern = { '[ruU]?"', '"', '\\' },        type = "string"                          },
+    { pattern = { "[ruU]?'", "'", '\\' },        type = "string"                          },
+    { pattern = { 'f"', '"', "\\"},              type = "string", syntax = python_fstring },
+    { pattern = { "f'", "'", "\\"},              type = "string", syntax = python_fstring },
+    { pattern = "-?0[xboXBO][%da-fA-F_]+",       type = "number"                          },
+    { pattern = "-?%d+[%d%.eE_]*",               type = "number"                          },
+    { pattern = "-?%.?%d+",                      type = "number"                          },
+    { pattern = "[%+%-=/%*%^%%<>!~|&]",          type = "operator"                        },
+    { pattern = "[%a_][%w_]*%f[(]",              type = "function"                        },
+    { pattern = "[%a_][%w_]*",                   type = "symbol"                          },
+
   },
   symbols = {
     ["class"]    = "keyword",
