@@ -30,11 +30,11 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)-portable" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Python Setup
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: '3.11'
       - name: Update Packages
         run: sudo apt-get update
       - name: Install Dependencies
@@ -47,11 +47,12 @@ jobs:
         if: ${{ matrix.config.cc == 'gcc' }}
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ matrix.config.cc == 'gcc' }}
         with:
           name: Linux Artifacts
           path: ${{ env.INSTALL_NAME }}.tar.gz
+          compression-level: 0
 
   build_macos:
     name: macOS
@@ -75,11 +76,11 @@ jobs:
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Python Setup
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: '3.11'
       - name: Install Dependencies
              # --lhelper will eliminate a warning with arm64 and libusb
         run: bash scripts/install-dependencies.sh --debug --lhelper
@@ -90,10 +91,11 @@ jobs:
       - name: Create DMG Image
         run: bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg
       - name: Upload DMG Image
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macOS DMG Images
+          name: macOS DMG Images (${{ matrix.arch }})
           path: ${{ env.INSTALL_NAME }}.dmg
+          compression-level: 0
 
   build_macos_universal:
     name: macOS (Universal)
@@ -111,27 +113,29 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-universal" >> "$GITHUB_ENV"
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.11'
       - name: Install dmgbuild
         run: pip install dmgbuild
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         id: download
         with:
-          name: macOS DMG Images
+          name: macOS DMG Images *
+          merge-multiple: true
           path: dmgs-original
       - name: Make universal bundles
         run: |
           bash --version
           bash scripts/make-universal-binaries.sh ${{ steps.download.outputs.download-path }} "${INSTALL_NAME}"
       - name: Upload DMG Image
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macOS Universal DMG Images
+          name: macOS DMG Images (Universal)
           path: ${{ env.INSTALL_NAME }}.dmg
+          compression-level: 0
 
   build_windows_msys2:
     name: Windows
@@ -145,7 +149,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: msys2/setup-msys2@v2
       with:
         msystem: ${{ matrix.config.msystem }}
@@ -177,10 +181,11 @@ jobs:
     - name: Package
       run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: Windows Artifacts
+        name: Windows Artifacts (${{ matrix.config.msystem }}-${{ matrix.config.arch }})
         path: ${{ env.INSTALL_NAME }}.zip
+        compression-level: 0
 
   build_windows_msvc:
     name: Windows (MSVC)
@@ -191,13 +196,13 @@ jobs:
           - { target: x86, name: i686 }
           - { target: x64, name: x86_64 }
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.arch.target }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
       - name: Install meson and ninja
         run: pip install meson ninja
       - name: Set up environment variables
@@ -221,7 +226,8 @@ jobs:
           Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
           Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: Windows Artifacts (MSVC)
+          name: Windows Artifacts (MSVC ${{ matrix.arch.target }})
           path: ${{ env.INSTALL_NAME }}.zip
+          compression-level: 0
