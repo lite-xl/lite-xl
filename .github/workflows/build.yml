@@ -123,7 +123,7 @@ jobs:
         uses: actions/download-artifact@v4
         id: download
         with:
-          name: macOS DMG Images *
+          pattern: macOS DMG Images *
           merge-multiple: true
           path: dmgs-original
       - name: Make universal bundles
@@ -183,7 +183,7 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Windows Artifacts (${{ matrix.config.msystem }}-${{ matrix.config.arch }})
+        name: Windows Artifacts (${{ matrix.config.msystem }})
         path: ${{ env.INSTALL_NAME }}.zip
         compression-level: 0
 
