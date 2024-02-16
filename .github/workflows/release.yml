@@ -57,7 +57,6 @@ jobs:
     name: Linux
     needs: release
     runs-on: ubuntu-latest
-    container: ghcr.io/lite-xl/lite-xl-build-box:latest
     env:
       CC: gcc
       CXX: g++
@@ -88,17 +87,23 @@ jobs:
           sudo apt-get install -y ccache
 
       - name: Build Portable
-        run: |
-          bash --version
-          bash scripts/build.sh --debug --forcefallback --portable --release
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
+        with:
+          args: |
+            bash --version
+            bash scripts/build.sh --debug --forcefallback --portable --release
       - name: Package Portables
-        run: |
-          bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
-          bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
+        with:
+          args: |
+            bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
+            bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
       - name: Build AppImages
-        run: |
-          bash scripts/appimage.sh --debug --static --version ${INSTALL_REF} --release
-          bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
+        with:
+          args: |
+            bash scripts/appimage.sh --debug --static --version ${INSTALL_REF} --release
+            bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}
       - name: Upload Files
         uses: ncipollo/release-action@v1
         with:
