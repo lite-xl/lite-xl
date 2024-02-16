@@ -23,7 +23,7 @@ jobs:
       version: ${{ steps.tag.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Fetch Version
@@ -44,12 +44,14 @@ jobs:
         run: bash scripts/generate-release-notes.sh --version ${{ steps.tag.outputs.version }}
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ steps.tag.outputs.version }}
+          tag: ${{ steps.tag.outputs.version }}
           name: Lite XL ${{ steps.tag.outputs.version }}
           draft: true
-          body_path: release-notes.md
+          bodyFile: release-notes.md
+          generateReleaseNotes: true
+          allowUpdates: true
 
   build_linux:
     name: Linux
@@ -64,14 +66,14 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # disabled because this will break our own Python install
       - name: Python Setup
         if: false
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: '3.11'
 
       # disabled because the container has up-to-date packages
       - name: Update Packages
@@ -98,11 +100,12 @@ jobs:
           bash scripts/appimage.sh --debug --static --version ${INSTALL_REF} --release
           bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}
       - name: Upload Files
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
+          tag: ${{ needs.release.outputs.version }}
           draft: true
-          files: |
+          allowUpdates: true
+          artifacts: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
             lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
             LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
@@ -132,11 +135,11 @@ jobs:
           echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Python Setup
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: '3.11'
       - name: Install Dependencies
         run: bash scripts/install-dependencies.sh --debug
       - name: Build
@@ -148,18 +151,19 @@ jobs:
           bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg --release
           bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --addons --dmg --release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macOS DMG Images
+          name: macOS DMG Images (${{ matrix.arch }})
           path: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
       - name: Upload Files
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
+          tag: ${{ needs.release.outputs.version }}
           draft: true
-          files: |
+          allowUpdates: true
+          artifacts: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
 
@@ -179,17 +183,18 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_BASE=lite-xl-${{ needs.release.outputs.version }}-macos" >> "$GITHUB_ENV"
           echo "INSTALL_BASE_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         id: download
         with:
-          name: macOS DMG Images
+          pattern: macOS DMG Images *
+          merge-multiple: true
           path: dmgs-original
       - name: Python Setup
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: '3.11'
       - name: Install dmgbuild
         run: pip install dmgbuild
       - name: Prepare DMG Images
@@ -203,11 +208,12 @@ jobs:
           bash scripts/make-universal-binaries.sh dmgs-normal "$INSTALL_BASE-universal"
           bash scripts/make-universal-binaries.sh dmgs-addons "$INSTALL_BASE_ADDONS-universal"
       - name: Upload Files
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
+          tag: ${{ needs.release.outputs.version }}
           draft: true
-          files: |
+          allowUpdates: true
+          artifacts: |
             ${{ env.INSTALL_BASE }}-universal.dmg
             ${{ env.INSTALL_BASE_ADDONS }}-universal.dmg
 
@@ -222,7 +228,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
@@ -259,11 +265,12 @@ jobs:
       - name: Build Installer With Addons
         run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF} --addons
       - name: Upload Files
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
+          tag: ${{ needs.release.outputs.version }}
           draft: true
-          files: |
+          allowUpdates: true
+          artifacts: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip
             LiteXL-${{ env.INSTALL_REF }}-${{ env.BUILD_ARCH }}-setup.exe
