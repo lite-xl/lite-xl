@@ -90,14 +90,14 @@ jobs:
         uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
         with:
           args: >-
-            bash --version &&
-            bash scripts/build.sh --debug --forcefallback --portable --release
+            bash -c "bash --version &&
+            bash scripts/build.sh --debug --forcefallback --portable --release"
       - name: Package Portables
         uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
         with:
           args: >-
-            bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release &&
-            bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
+            bash -c "bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release &&
+            bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release"
       - name: Build AppImages
         uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
         with:
