@@ -25,7 +25,7 @@ renderer = {}
 ---@field public underline boolean | nil
 ---@field public smoothing boolean | nil
 ---@field public strikethrough boolean | nil
----@field public ligatures boolean | table<string, boolean> | nil
+---@field public ligatures boolean | table<string, boolean> | string[] | nil
 
 ---
 ---@class renderer.font

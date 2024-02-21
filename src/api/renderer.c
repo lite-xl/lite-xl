@@ -30,6 +30,18 @@ unsigned char default_ligature_features[][4] = {
 #define n_default_features (sizeof(default_features) / sizeof(default_features[0]))
 #define n_default_ligature_features (sizeof(default_ligature_features) / sizeof(default_ligature_features[0]))
 
+static size_t get_table_size(lua_State *L, int index) {
+  if (index < 0)
+    index = lua_gettop(L) + index + 1;
+  size_t counter = 0;
+  lua_pushnil(L);
+  while (lua_next(L, index) != 0) {
+    counter++;
+    lua_pop(L, 1); // pop value
+  }
+  return counter;
+}
+
 static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
@@ -98,7 +110,7 @@ static int font_get_options(
     lua_getfield(L, 3, "ligatures");
     if (lua_istable(L, -1)) {
       liga_options->n_features = 0;
-      size_t n_features = n_default_features + n_default_ligature_features + luaL_len(L, -1);
+      size_t n_features = n_default_features + n_default_ligature_features + get_table_size(L, -1);
       liga_options->features = calloc(n_features, sizeof(unsigned char [4]));
       // Handle default features
       for (size_t i = 0; i < n_default_features; i++) {
@@ -127,7 +139,12 @@ static int font_get_options(
       lua_pushnil(L);
       while (lua_next(L, -2) != 0) {
         size_t taglen;
-        const char* tagname = luaL_checklstring(L, -2, &taglen);
+        const char* tagname;
+        if (lua_isinteger(L, -2)) {
+          tagname = luaL_checklstring(L, -1, &taglen);
+        } else {
+          tagname = luaL_checklstring(L, -2, &taglen);
+        }
         if (taglen != 4) {
           return luaL_error(
             L,
@@ -140,7 +157,6 @@ static int font_get_options(
         }
         lua_pop(L, 1); // pop value
       }
-      lua_pop(L, 1); // pop key
     } else if(lua_toboolean(L, -1)) {
       size_t n_features = n_default_features + n_default_ligature_features;
       liga_options->features = malloc(n_features * sizeof(unsigned char [4]));
