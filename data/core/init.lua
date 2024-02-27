@@ -957,7 +957,7 @@ local function get_plugin_details(filename)
     end
 
     if not priority then
-      priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
+      priority = line:match('%-%-.*%f[%a]priority%s*:%s*(-?%d+%.?%d*)')
       if priority then priority = tonumber(priority) end
     end
 
