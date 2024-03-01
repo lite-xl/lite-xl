@@ -618,11 +618,24 @@ local function draw_suggestions_box(av)
       end
     end
 
+    local info_size = style.font:get_width(s.info) + style.padding.x
+
     local color = (i == suggestions_idx) and style.accent or style.text
-    common.draw_text(
+    -- Push clip to avoid that the suggestion text gets drawn over suggestion type/icon
+    core.push_clip_rect(rx + icon_l_padding + style.padding.x, y,
+                        rw - info_size - icon_l_padding - icon_r_padding - style.padding.x, lh)
+    local x_adv = common.draw_text(
       font, color, s.text, "left",
       rx + icon_l_padding + style.padding.x, y, rw, lh
     )
+    core.pop_clip_rect()
+    -- If the text wasn't fully visible, draw an ellipsis
+    if x_adv > rx + rw - info_size - icon_r_padding then
+      local ellipsis_size = font:get_width("…")
+      local ell_x = rx + rw - info_size - icon_r_padding - ellipsis_size
+      renderer.draw_rect(ell_x, y, ellipsis_size, lh, style.background3)
+      common.draw_text(font, color, "…", "left", ell_x, y, ellipsis_size, lh)
+    end
     if s.info and not hide_info then
       color = (i == suggestions_idx) and style.text or style.dim
       common.draw_text(
