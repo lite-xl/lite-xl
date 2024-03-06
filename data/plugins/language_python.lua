@@ -49,7 +49,7 @@ syntax.add {
     { pattern = "-?%d+[%d%.eE_]*",               type = "number"                          },
     { pattern = "-?%.?%d+",                      type = "number"                          },
     { pattern = "[%+%-=/%*%^%%<>!~|&]",          type = "operator"                        },
-    { pattern = "[%a_][%w_]*%s*%f[(]",           type = "function"                        },
+    { pattern = "[%a_][%w_]*%f[(]",              type = "function"                        },
     { pattern = "[%a_][%w_]*",                   type = "symbol"                          },
 
   },
