@@ -24,8 +24,7 @@ end
 
 local function consume_workspace(project_dir)
   for key, id in workspace_keys_for(project_dir) do
-    local load_f = load(storage.load(STORAGE_MODULE, key))
-    local workspace = load_f and load_f()
+    local workspace = storage.load(STORAGE_MODULE, key)
     if workspace and workspace.path == project_dir then
       storage.clear(STORAGE_MODULE, key)
       return workspace
