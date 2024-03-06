@@ -29,13 +29,24 @@ main() {
   local version
   local output
 
-  if [[ $MSYSTEM == "MINGW64" ]]; then
+  case "$MSYSTEM" in
+    MINGW64|UCRT64|CLANG64)
     arch=x64
     arch_file=x86_64
-  else
-    arch=i686;
+    ;;
+    MINGW32|CLANG32)
+    arch=x86
     arch_file=i686
-  fi
+    ;;
+    CLANGARM64)
+    arch=arm64
+    arch_file=aarch64
+    ;;
+    *)
+    echo "error: unsupported MSYSTEM type: $MSYSTEM"
+    exit 1
+    ;;
+  esac
 
   initial_arg_count=$#
 
