@@ -12,9 +12,20 @@ local python_fstring = {
     symbols = {}
 }
 
+local python_type = {
+
+    patterns = {
+      { pattern = "[%[%],%s]", type = "normal"     },
+      { pattern = "|",          type = "operator"   },
+      { pattern = ".",          type = "keyword2"   }
+    },
+
+    symbols = {}
+}
+
 syntax.add {
   name = "Python",
-  files = { "%.py$", "%.pyw$", "%.rpy$" },
+  files = { "%.py$", "%.pyw$", "%.rpy$", "%.pyi$" },
   headers = "^#!.*[ /]python",
   comment = "#",
   block_comment = { '"""', '"""' },
@@ -23,8 +34,11 @@ syntax.add {
     { pattern = { '^%s*"""', '"""' },            type = "comment"                         },
     { pattern = '[uUrR]%f["]',                   type = "keyword"                         },
     { pattern = "class%s+()[%a_][%w_]*",         type = {"keyword", "keyword2"}           },
-    { pattern = "%f[^:]%s*[%a_][%w_]*%f[%s=),]", type = "keyword2"                        },
-    { pattern = "->()%s*[%a_][%w_]*%f[:]",       type = {"operator", "keyword2"}          },
+    { pattern = "%f[^:]%s*[%a_][%w_]*%s*%b[]",   type = "keyword2",                       },
+    { pattern = "%f[^:]%s*[%a_][%w_]*[:%]]",     type = "normal"                          },
+    { pattern = "lambda().*:[%s%a_]",            type = {"keyword, normal"}               },
+    { pattern = "%f[^:]%s*[%a_][%w_]*",          type = "keyword2"                        },
+    { pattern = {"->()", ":"},                   type = {"operator", "normal"},           syntax = python_type },
     { pattern = { '[ruU]?"""', '"""'; '\\' },    type = "string"                          },
     { pattern = { "[ruU]?'''", "'''", '\\' },    type = "string"                          },
     { pattern = { '[ruU]?"', '"', '\\' },        type = "string"                          },
@@ -35,7 +49,7 @@ syntax.add {
     { pattern = "-?%d+[%d%.eE_]*",               type = "number"                          },
     { pattern = "-?%.?%d+",                      type = "number"                          },
     { pattern = "[%+%-=/%*%^%%<>!~|&]",          type = "operator"                        },
-    { pattern = "[%a_][%w_]*%f[(]",              type = "function"                        },
+    { pattern = "[%a_][%w_]*%s*%f[(]",           type = "function"                        },
     { pattern = "[%a_][%w_]*",                   type = "symbol"                          },
 
   },
