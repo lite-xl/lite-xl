@@ -282,12 +282,14 @@ end)
 
 
 local partial = ""
+local suggestions_offset = 1
 local suggestions_idx = 1
 local suggestions = {}
 local last_line, last_col
 
 
 local function reset_suggestions()
+  suggestions_offset = 1
   suggestions_idx = 1
   suggestions = {}
 
@@ -369,6 +371,7 @@ local function update_suggestions()
     end
   end
   suggestions_idx = 1
+  suggestions_offset = 1
 end
 
 local function get_partial_symbol()
@@ -581,8 +584,8 @@ local function draw_suggestions_box(av)
   local font = av:get_font()
   local lh = font:get_height() + style.padding.y
   local y = ry + style.padding.y / 2
-  local show_count = #suggestions <= ah and #suggestions or ah
-  local start_index = suggestions_idx > ah and (suggestions_idx-(ah-1)) or 1
+  local show_count = math.min(#suggestions, ah)
+  local start_index = suggestions_offset
   local hide_info = config.plugins.autocomplete.hide_info
 
   for i=start_index, start_index+show_count-1, 1 do
@@ -848,7 +851,7 @@ command.add(predicate, {
       local current_partial = get_partial_symbol()
       local sz = #current_partial
 
-      for idx, line1, col1, line2, col2 in doc:get_selections(true) do
+      for _, line1, col1, line2, _ in doc:get_selections(true) do
         local n = col1 - 1
         local line = doc.lines[line1]
         for i = 1, sz + 1 do
@@ -869,10 +872,24 @@ command.add(predicate, {
 
   ["autocomplete:previous"] = function()
     suggestions_idx = (suggestions_idx - 2) % #suggestions + 1
+
+    local ah = math.min(config.plugins.autocomplete.max_height, #suggestions)
+    if suggestions_offset > suggestions_idx then
+      suggestions_offset = suggestions_idx
+    elseif suggestions_offset + ah < suggestions_idx + 1 then
+      suggestions_offset = suggestions_idx - ah + 1
+    end
   end,
 
   ["autocomplete:next"] = function()
     suggestions_idx = (suggestions_idx % #suggestions) + 1
+
+    local ah = math.min(config.plugins.autocomplete.max_height, #suggestions)
+    if suggestions_offset + ah < suggestions_idx + 1 then
+      suggestions_offset = suggestions_idx - ah + 1
+    elseif suggestions_offset > suggestions_idx then
+      suggestions_offset = suggestions_idx
+    end
   end,
 
   ["autocomplete:cycle"] = function()
