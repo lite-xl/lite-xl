@@ -183,10 +183,7 @@ local function save_workspace()
     id = id + 1
   end
   local root = get_unlocked_root(core.root_view.root_node)
-  local node_text = common.serialize(save_node(root))
-  local dir_text = common.serialize(save_directories())
-
-  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, string.format("return { path = %q, documents = %s, directories = %s }\n", core.project_dir, node_text, dir_text))
+  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.project_dir, documents = save_node(root), directories = save_directories() })
 end
 
 
