@@ -26,12 +26,16 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 
-#if Arch=="x64"
-  ArchitecturesAllowed=x64
-  ArchitecturesInstallIn64BitMode=x64
-  #define ArchInternal "x86_64"
-#else
+#if Arch=="x86"
   #define ArchInternal "i686"
+#else
+  ArchitecturesAllowed={#Arch}
+  ArchitecturesInstallIn64BitMode={#Arch}
+  #if Arch=="x64"
+    #define ArchInternal "x86_64"
+  #elif Arch=="arm64"
+    #define ArchInternal "aarch64"
+  #endif
 #endif
 
 AllowNoIcons=yes
