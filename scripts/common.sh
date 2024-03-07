@@ -77,11 +77,17 @@ get_platform_arch() {
   platform=$(get_platform_name)
   arch=${CROSS_ARCH:-$(uname -m)}
   if [[ $MSYSTEM != "" ]]; then
-    if [[ $MSYSTEM == "MINGW64" ]]; then
+    case "$MSYSTEM" in
+      MINGW64|UCRT64|CLANG64)
       arch=x86_64
-    else
+      ;;
+      MINGW32|CLANG32)
       arch=i686
-    fi
+      ;;
+      CLANGARM64)
+      arch=aarch64
+      ;;
+    esac
   fi
   echo "$arch"
 }
