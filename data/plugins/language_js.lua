@@ -69,7 +69,7 @@ syntax.add {
     { regex   = [[-?\.?\d+()\s*()(?:\/(?!\/))?]],                  type = {"number", "normal", "operator"}   },
     { pattern = "[%+%-=/%*%^%%<>!~|&]",                            type = "operator" },
     { pattern = "[%a_][%w_]*%f[(]",                                type = "function" },
-    { regex   = [=[[a-zA-Z_]\w*()\s*()(?:\/(?!\/))?]=],            type = {"symbol", "normal", "operator"}   },
+    { pattern = "[%a_][%w_]*",                                     type = "symbol"   },
   },
   symbols = {
     ["async"]      = "keyword",
