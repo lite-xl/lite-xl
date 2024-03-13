@@ -4,7 +4,8 @@ project('lite-xl',
     license : 'MIT',
     meson_version : '>= 0.56',
     default_options : [
-        'c_std=gnu11'
+        'c_std=gnu11',
+        'cpp_std=c++20'
     ]
 )
 
