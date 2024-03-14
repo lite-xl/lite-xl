@@ -24,6 +24,8 @@ config.plugins.linewrapping = common.merge({
   -- Requires tokenization
   require_tokenization = false,
   -- The config specification used by gui generators
+  files = { "%.txt$", "%.md$", "%.markdown$" },
+  -- List of Lua patterns matching files extensions to linewrap.
   config_spec = {
     name = "Line Wrapping",
     {
@@ -64,7 +66,14 @@ config.plugins.linewrapping = common.merge({
       path = "require_tokenization",
       type = "toggle",
       default = false
-    }
+    },
+    {
+    label = "Files",
+    description = "List of Lua patterns matching files extensions to linewrap.",
+    path = "files",
+    type = "list_strings",
+    default = { "%.txt$", "%.md$", "%.markdown$" }
+    },
   }
 }, config.plugins.linewrapping)
 
@@ -366,7 +375,9 @@ function DocView:new(doc)
   old_new(self, doc)
   if not open_files[doc] then open_files[doc] = {} end
   table.insert(open_files[doc], self)
-  if config.plugins.linewrapping.enable_by_default then
+  if config.plugins.linewrapping.enable_by_default
+  and matches_any(self.doc.filename or "", config.plugins.linewrapping.files)
+  then
     self.wrapping_enabled = true
     LineWrapping.update_docview_breaks(self)
   else
