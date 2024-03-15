@@ -376,7 +376,7 @@ function DocView:new(doc)
   if not open_files[doc] then open_files[doc] = {} end
   table.insert(open_files[doc], self)
   if config.plugins.linewrapping.enable_by_default
-  and matches_any(self.doc.filename or "", config.plugins.linewrapping.files)
+      and matches_any(self.doc.filename or "", config.plugins.linewrapping.files)
   then
     self.wrapping_enabled = true
     LineWrapping.update_docview_breaks(self)
