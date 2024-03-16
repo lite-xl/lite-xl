@@ -23,9 +23,9 @@ config.plugins.linewrapping = common.merge({
   enable_by_default = false,
   -- Requires tokenization
   require_tokenization = false,
-  -- The config specification used by gui generators
-  files = { "%.txt$", "%.md$", "%.markdown$" },
   -- List of Lua patterns matching files extensions to linewrap.
+  files = { "%.txt$", "%.md$", "%.markdown$" },
+  -- The config specification used by gui generators
   config_spec = {
     name = "Line Wrapping",
     {
@@ -69,7 +69,7 @@ config.plugins.linewrapping = common.merge({
     },
     {
     label = "Files",
-    description = "List of Lua patterns matching files extensions to linewrap.",
+    description = "List of Lua patterns matching file names to linewrap.",
     path = "files",
     type = "list_strings",
     default = { "%.txt$", "%.md$", "%.markdown$" }
