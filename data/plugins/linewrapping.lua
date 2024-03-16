@@ -55,7 +55,7 @@ config.plugins.linewrapping = common.merge({
     },
     {
       label = "Enable by Default",
-      description = "Whether or not to enable wrapping by default when opening files.",
+      description = "Whether or not to enable wrapping by default when opening files matching with the filename pattern specified in \"Files\".",
       path = "enable_by_default",
       type = "toggle",
       default = false
