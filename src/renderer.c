@@ -248,7 +248,7 @@ static void font_file_close(FT_Stream stream) {
   }
 }
 
-RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
+RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   RenFont *font = NULL;
   FT_Face face = NULL;
   
@@ -304,12 +304,12 @@ rwops_failure:
   return NULL;
 }
 
-RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
+RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
   antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
 
-  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style);
+  return ren_font_load(font->path, size, antialiasing, hinting, style);
 }
 
 const char* ren_font_get_path(RenFont *font) {
@@ -343,7 +343,7 @@ float ren_font_group_get_size(RenFont **fonts) {
   return fonts[0]->size;
 }
 
-void ren_font_group_set_size(RenWindow *window_renderer, RenFont **fonts, float size) {
+void ren_font_group_set_size(RenFont **fonts, float size) {
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     font_clear_glyph_cache(fonts[i]);
     FT_Face face = fonts[i]->face;
@@ -364,7 +364,7 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
-double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, int *x_offset) {
+double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, int *x_offset) {
   double width = 0;
   const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;

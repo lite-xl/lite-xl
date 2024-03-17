@@ -25,19 +25,19 @@ struct RenWindow;
 typedef struct RenWindow RenWindow;
 extern RenWindow* window_renderer;
 
-RenFont* ren_font_load(RenWindow *window_renderer, const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style);
-RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style);
+RenFont* ren_font_load(const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style);
+RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style);
 const char* ren_font_get_path(RenFont *font);
 void ren_font_free(RenFont *font);
 int ren_font_group_get_tab_size(RenFont **font);
 int ren_font_group_get_height(RenFont **font);
 float ren_font_group_get_size(RenFont **font);
-void ren_font_group_set_size(RenWindow *window_renderer, RenFont **font, float size);
+void ren_font_group_set_size(RenFont **font, float size);
 #ifdef LITE_USE_SDL_RENDERER
 void update_font_scale(RenWindow *window_renderer, RenFont **fonts);
 #endif
 void ren_font_group_set_tab_size(RenFont **font, int n);
-double ren_font_group_get_width(RenWindow *window_renderer, RenFont **font, const char *text, size_t len, int *x_offset);
+double ren_font_group_get_width(RenFont **font, const char *text, size_t len, int *x_offset);
 double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
