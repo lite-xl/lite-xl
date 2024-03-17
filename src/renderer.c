@@ -267,8 +267,7 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   if (FT_Open_Face(library, &(FT_Open_Args){ .flags = FT_OPEN_STREAM, .stream = &font->stream }, 0, &face))
     goto failure;
 
-  const int surface_scale = renwin_get_surface(window_renderer).scale;
-  if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
+  if (FT_Set_Pixel_Sizes(face, 0, (int)(size)))
     goto failure;
 
   strcpy(font->path, path);
@@ -345,11 +344,10 @@ float ren_font_group_get_size(RenFont **fonts) {
 }
 
 void ren_font_group_set_size(RenWindow *window_renderer, RenFont **fonts, float size) {
-  const int surface_scale = renwin_get_surface(window_renderer).scale;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     font_clear_glyph_cache(fonts[i]);
     FT_Face face = fonts[i]->face;
-    FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale));
+    FT_Set_Pixel_Sizes(face, 0, (int)(size));
     fonts[i]->size = size;
 #ifdef LITE_USE_SDL_RENDERER
     fonts[i]->scale = surface_scale;
@@ -383,11 +381,10 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
       *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
     }
   }
-  const int surface_scale = renwin_get_surface(window_renderer).scale;
   if (!set_x_offset) {
     *x_offset = 0;
   }
-  return width / surface_scale;
+  return width;
 }
 
 double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
@@ -571,6 +568,6 @@ void ren_set_clip_rect(RenWindow *window_renderer, RenRect rect) {
 
 void ren_get_size(RenWindow *window_renderer, int *x, int *y) {
   RenSurface rs = renwin_get_surface(window_renderer);
-  *x = rs.surface->w / rs.scale;
-  *y = rs.surface->h / rs.scale;
+  *x = rs.surface->w;
+  *y = rs.surface->h;
 }
