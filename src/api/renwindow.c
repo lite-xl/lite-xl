@@ -50,14 +50,14 @@ static int f_renwin_create(lua_State *L) {
   RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
   luaL_setmetatable(L, API_TYPE_RENWINDOW);
 
-  *window_renderer = ren_init(window);
+  *window_renderer = ren_create(window);
 
   return 1;
 }
 
 static int f_renwin_gc(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  ren_free(window_renderer);
+  ren_destroy(window_renderer);
 
   return 0;
 }

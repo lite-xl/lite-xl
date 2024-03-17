@@ -518,24 +518,38 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 
 /*************** Window Management ****************/
 static void ren_add_window(RenWindow *window_renderer) {
-  window_list = realloc(window_list, ++window_count);
+  window_count += 1;
+  window_list = realloc(window_list, window_count);
   window_list[window_count-1] = window_renderer;
 }
 
 static void ren_remove_window(RenWindow *window_renderer) {
   for (size_t i = 0; i < window_count; ++i) {
     if (window_list[i] == window_renderer) {
-      memmove(&window_list[i], &window_list[i+1], window_count - i - 1);
+      window_count -= 1;
+      memmove(&window_list[i], &window_list[i+1], window_count - i);
       return;
     }
   }
 }
 
-int ren_init_freetype(void) {
-  return FT_Init_FreeType( &library );
+int ren_init(void) {
+  int err;
+
+  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
+                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+
+  if ((err = FT_Init_FreeType( &library )))
+    return err;
+
+  return 0;
 }
 
-RenWindow* ren_init(SDL_Window *win) {
+void ren_free(void) {
+   SDL_FreeSurface(draw_rect_surface);
+}
+
+RenWindow* ren_create(SDL_Window *win) {
   assert(win);
   RenWindow* window_renderer = calloc(1, sizeof(RenWindow));
 
@@ -543,21 +557,18 @@ RenWindow* ren_init(SDL_Window *win) {
   renwin_init_surface(window_renderer);
   renwin_init_command_buf(window_renderer);
   renwin_clip_to_surface(window_renderer);
-  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
-                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
 
   ren_add_window(window_renderer);
   return window_renderer;
 }
 
-void ren_free(RenWindow* window_renderer) {
+void ren_destroy(RenWindow* window_renderer) {
   assert(window_renderer);
+  ren_remove_window(window_renderer);
   renwin_free(window_renderer);
-  SDL_FreeSurface(draw_rect_surface);
   free(window_renderer->command_buf);
   window_renderer->command_buf = NULL;
   window_renderer->command_buf_size = 0;
-  ren_remove_window(window_renderer);
   free(window_renderer);
 }
 

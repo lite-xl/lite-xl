@@ -41,9 +41,10 @@ double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t le
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
 
-int ren_init_freetype(void);
-RenWindow* ren_init(SDL_Window *win);
-void ren_free(RenWindow* window_renderer);
+int ren_init(void);
+void ren_free(void);
+RenWindow* ren_create(SDL_Window *win);
+void ren_destroy(RenWindow* window_renderer);
 void ren_resize_window(RenWindow *window_renderer);
 void ren_update_rects(RenWindow *window_renderer, RenRect *rects, int count);
 void ren_set_clip_rect(RenWindow *window_renderer, RenRect rect);

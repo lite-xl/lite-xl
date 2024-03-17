@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
 
   SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
 
-  if ( ren_init_freetype() ) {
+  if ( ren_init() ) {
     fprintf(stderr, "internal font error when starting the application\n");
   }
 
@@ -237,6 +237,8 @@ init_lua:
   }
 
   lua_close(L);
+
+  ren_free();
 
   return EXIT_SUCCESS;
 }
