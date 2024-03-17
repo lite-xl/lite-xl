@@ -54,7 +54,7 @@ function NagView:get_target_height()
 end
 
 function NagView:get_scrollable_size()
-  local w, h = system.get_window_size()
+  local w, h = system.get_window_size(core.window)
   if self.visible and self:get_target_height() > h then
     self.size.y = h
     return self:get_target_height()
@@ -71,7 +71,7 @@ function NagView:dim_window_content()
   core.root_view:defer_draw(function()
     local dim_color = { table.unpack(style.nagbar_dim) }
     dim_color[4] = style.nagbar_dim[4] * self.dim_alpha
-    renderer.draw_rect(ox, oy, w, h, dim_color)
+    renderer.draw_rect(core.window, ox, oy, w, h, dim_color)
   end)
 end
 
@@ -196,7 +196,7 @@ local function draw_nagview_message(self)
 
   -- draw message's background
   local ox, oy = self:get_content_offset()
-  renderer.draw_rect(ox, oy, self.size.x, self.show_height, style.nagbar)
+  renderer.draw_rect(core.window, ox, oy, self.size.x, self.show_height, style.nagbar)
 
   ox = ox + style.padding.x
 
@@ -205,7 +205,7 @@ local function draw_nagview_message(self)
   -- if there are other items, show it
   if #self.queue > 0 then
     local str = string.format("[%d]", #self.queue)
-    ox = common.draw_text(style.font, style.nagbar_text, str, "left", ox, oy, self.size.x, self.show_height)
+    ox = common.draw_text(core.window, style.font, style.nagbar_text, str, "left", ox, oy, self.size.x, self.show_height)
     ox = ox + style.padding.x
   end
 
@@ -214,7 +214,7 @@ local function draw_nagview_message(self)
   oy = oy + style.padding.y + (self.target_height - self:get_message_height()) / 2
   for msg_line in self.message:gmatch("(.-)\n") do
     local ty = oy + self:get_line_text_y_offset()
-    renderer.draw_text(style.font, msg_line, ox, ty, style.nagbar_text)
+    renderer.draw_text(core.window, style.font, msg_line, ox, ty, style.nagbar_text)
     oy = oy + lh
   end
 
@@ -224,8 +224,8 @@ local function draw_nagview_message(self)
     local fx,fy = bx + BORDER_WIDTH, by + BORDER_WIDTH
 
     -- draw the button
-    renderer.draw_rect(bx,by,bw,bh, style.nagbar_text)
-    renderer.draw_rect(fx,fy,fw,fh, style.nagbar)
+    renderer.draw_rect(core.window, bx,by,bw,bh, style.nagbar_text)
+    renderer.draw_rect(core.window, fx,fy,fw,fh, style.nagbar)
 
     if i == self.hovered_item then -- draw underline
       local uw = fw - 2 * UNDERLINE_MARGIN
@@ -233,10 +233,10 @@ local function draw_nagview_message(self)
       local lx = fx + UNDERLINE_MARGIN + halfuw - (halfuw * self.underline_progress)
       local ly = fy + fh - UNDERLINE_MARGIN - UNDERLINE_WIDTH
       uw = uw * self.underline_progress
-      renderer.draw_rect(lx,ly,uw,UNDERLINE_WIDTH, style.nagbar_text)
+      renderer.draw_rect(core.window, lx,ly,uw,UNDERLINE_WIDTH, style.nagbar_text)
     end
 
-    common.draw_text(style.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
+    common.draw_text(core.window, style.font, style.nagbar_text, opt.text, "center", fx,fy,fw,fh)
   end
 
   self:draw_scrollbar()

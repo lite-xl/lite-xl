@@ -23,7 +23,6 @@ typedef struct { SDL_Surface *surface; int scale; } RenSurface;
 
 struct RenWindow;
 typedef struct RenWindow RenWindow;
-extern RenWindow* window_renderer;
 
 RenFont* ren_font_load(const char *filename, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style);
 RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style);
@@ -42,12 +41,15 @@ double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t le
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
 
+int ren_init_freetype(void);
 RenWindow* ren_init(SDL_Window *win);
 void ren_free(RenWindow* window_renderer);
 void ren_resize_window(RenWindow *window_renderer);
 void ren_update_rects(RenWindow *window_renderer, RenRect *rects, int count);
 void ren_set_clip_rect(RenWindow *window_renderer, RenRect rect);
 void ren_get_size(RenWindow *window_renderer, int *x, int *y); /* Reports the size in points. */
-
+size_t ren_get_window_list(RenWindow ***window_list_dest);
+RenWindow* ren_find_window(SDL_Window *window);
+RenWindow* ren_find_window_from_id(uint32_t id);
 
 #endif

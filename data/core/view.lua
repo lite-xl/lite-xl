@@ -319,7 +319,7 @@ end
 function View:draw_background(color)
   local x, y = self.position.x, self.position.y
   local w, h = self.size.x, self.size.y
-  renderer.draw_rect(x, y, w, h, color)
+  renderer.draw_rect(core.window, x, y, w, h, color)
 end
 
 

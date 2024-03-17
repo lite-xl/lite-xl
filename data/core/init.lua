@@ -27,8 +27,8 @@ local function save_session()
   local fp = io.open(USERDIR .. PATHSEP .. "session.lua", "w")
   if fp then
     fp:write("return {recents=", common.serialize(core.recent_projects),
-      ", window=", common.serialize(table.pack(system.get_window_size())),
-      ", window_mode=", common.serialize(system.get_window_mode()),
+      ", window=", common.serialize(table.pack(system.get_window_size(core.window))),
+      ", window_mode=", common.serialize(system.get_window_mode(core.window)),
       ", previous_find=", common.serialize(core.previous_find),
       ", previous_replace=", common.serialize(core.previous_replace),
       "}\n")
@@ -689,12 +689,13 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
+  core.window = renwindow.create("")
   do
     local session = load_session()
     if session.window_mode == "normal" then
-      system.set_window_size(table.unpack(session.window))
+      system.set_window_size(core.window, table.unpack(session.window))
     elseif session.window_mode == "maximized" then
-      system.set_window_mode("maximized")
+      system.set_window_mode(core.window, "maximized")
     end
     core.recent_projects = session.recents or {}
     core.previous_find = session.previous_find or {}
@@ -1149,14 +1150,14 @@ function core.push_clip_rect(x, y, w, h)
   b, r = math.min(b, b2), math.min(r, r2)
   w, h = r-x, b-y
   table.insert(core.clip_rect_stack, { x, y, w, h })
-  renderer.set_clip_rect(x, y, w, h)
+  renderer.set_clip_rect(core.window, x, y, w, h)
 end
 
 
 function core.pop_clip_rect()
   table.remove(core.clip_rect_stack)
   local x, y, w, h = table.unpack(core.clip_rect_stack[#core.clip_rect_stack])
-  renderer.set_clip_rect(x, y, w, h)
+  renderer.set_clip_rect(core.window, x, y, w, h)
 end
 
 
@@ -1309,7 +1310,7 @@ function core.on_event(type, ...)
   elseif type == "touchmoved" then
     core.root_view:on_touch_moved(...)
   elseif type == "resized" then
-    core.window_mode = system.get_window_mode()
+    core.window_mode = system.get_window_mode(core.window)
   elseif type == "minimized" or type == "maximized" or type == "restored" then
     core.window_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
@@ -1356,7 +1357,7 @@ function core.step()
     core.redraw = true
   end
 
-  local width, height = renderer.get_size()
+  local width, height = renderer.get_size(core.window)
 
   -- update
   core.root_view.size.x, core.root_view.size.y = width, height
@@ -1376,16 +1377,16 @@ function core.step()
   -- update window title
   local current_title = get_title_filename(core.active_view)
   if current_title ~= nil and current_title ~= core.window_title then
-    system.set_window_title(core.compose_window_title(current_title))
+    system.set_window_title(core.window, core.compose_window_title(current_title))
     core.window_title = current_title
   end
 
   -- draw
-  renderer.begin_frame()
+  renderer.begin_frame(core.window)
   core.clip_rect_stack[1] = { 0, 0, width, height }
-  renderer.set_clip_rect(table.unpack(core.clip_rect_stack[1]))
+  renderer.set_clip_rect(core.window, table.unpack(core.clip_rect_stack[1]))
   core.root_view:draw()
-  renderer.end_frame()
+  renderer.end_frame(core.window)
   return true
 end
 
@@ -1453,7 +1454,7 @@ function core.run()
     if core.restart_request or core.quit_request then break end
 
     if not did_redraw then
-      if system.window_has_focus() or not did_step or run_threads_full < 2 then
+      if system.window_has_focus(core.window) or not did_step or run_threads_full < 2 then
         local now = system.get_time()
         if not next_step then -- compute the time until the next blink
           local t = now - core.blink_start

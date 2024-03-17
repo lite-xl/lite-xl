@@ -22,7 +22,8 @@
 #define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / GLYPHSET_SIZE)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
-RenWindow* window_renderer = NULL;
+static RenWindow** window_list = NULL;
+static size_t window_count = 0;
 static FT_Library library;
 
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
@@ -516,13 +517,26 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 }
 
 /*************** Window Management ****************/
+static void ren_add_window(RenWindow *window_renderer) {
+  window_list = realloc(window_list, ++window_count);
+  window_list[window_count-1] = window_renderer;
+}
+
+static void ren_remove_window(RenWindow *window_renderer) {
+  for (size_t i = 0; i < window_count; ++i) {
+    if (window_list[i] == window_renderer) {
+      memmove(&window_list[i], &window_list[i+1], window_count - i - 1);
+      return;
+    }
+  }
+}
+
+int ren_init_freetype(void) {
+  return FT_Init_FreeType( &library );
+}
+
 RenWindow* ren_init(SDL_Window *win) {
   assert(win);
-  int error = FT_Init_FreeType( &library );
-  if ( error ) {
-    fprintf(stderr, "internal font error when starting the application\n");
-    return NULL;
-  }
   RenWindow* window_renderer = calloc(1, sizeof(RenWindow));
 
   window_renderer->window = win;
@@ -532,6 +546,7 @@ RenWindow* ren_init(SDL_Window *win) {
   draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
                        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
 
+  ren_add_window(window_renderer);
   return window_renderer;
 }
 
@@ -542,6 +557,7 @@ void ren_free(RenWindow* window_renderer) {
   free(window_renderer->command_buf);
   window_renderer->command_buf = NULL;
   window_renderer->command_buf_size = 0;
+  ren_remove_window(window_renderer);
   free(window_renderer);
 }
 
@@ -570,4 +586,26 @@ void ren_get_size(RenWindow *window_renderer, int *x, int *y) {
   RenSurface rs = renwin_get_surface(window_renderer);
   *x = rs.surface->w;
   *y = rs.surface->h;
+}
+
+size_t ren_get_window_list(RenWindow ***window_list_dest) {
+  *window_list_dest = window_list;
+  return window_count;
+}
+
+RenWindow* ren_find_window(SDL_Window *window) {
+  for (size_t i = 0; i < window_count; ++i) {
+    RenWindow* window_renderer = window_list[i];
+    if (window_renderer->window == window) {
+      return window_renderer;
+    }
+  }
+
+  return NULL;
+}
+
+RenWindow* ren_find_window_from_id(uint32_t id)
+{
+  SDL_Window *window = SDL_GetWindowFromID(id);
+  return ren_find_window(window);
 }
