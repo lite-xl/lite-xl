@@ -5,9 +5,8 @@ local syntax = require "core.syntax"
 local python_fstring = {
 
     patterns = {
-      { pattern = {"{", "}"}, type = "normal", syntax = ".py" },
-      { pattern = "%g",       type = "string"                 },
-      { pattern = "%s",       type = "normal"                 },
+      { pattern = {"{", "}"},  type = "normal", syntax = ".py" },
+      { pattern = "%g",        type = "string"                 },
 
     },
 
@@ -18,15 +17,16 @@ local python_fstring = {
 local python_type = {
 
   patterns = {
-    { pattern = "|",            type = "operator"                           },
-    { pattern = "None",         type = "literal"                            },
-    { pattern = "[%w_]",        type = "keyword2"                           },
-    { pattern = "%s",           type = "normal"                             },
+    { pattern = "|",      type = "operator"  },
+    { pattern = "None",   type = "literal"   },
+    { pattern = "[%w_]",  type = "keyword2"  },
   },
 
   symbols = {}
 }
-
+-- Add this line after in order for the recursion to work.
+-- Makes sure that the square brackets are well balanced when capturing the syntax 
+-- (in order to make something like this work: Tuple[Tuple[int, str], float])
 table.insert(python_type.patterns, 1, { pattern = { "%[", "%]" }, syntax = python_type })
 
 
@@ -42,7 +42,7 @@ syntax.add {
     { pattern = '[uUrR]%f["]',                   type = "keyword"                         },
     { pattern = "class%s+()[%a_][%w_]*",         type = {"keyword", "keyword2"}           },
     { pattern = ":%s*[%a_][%w_]*[:%]]",          type = "normal"                          },
-    { pattern = "lambda().*:[%s%a_]",            type = {"keyword, normal"}               },
+    { pattern = "lambda().-:",                   type = {"keyword, normal"}               },
     { pattern = { ":", "[,%)\n]"},               type = "normal",               syntax = python_type },
     { pattern = { "->()", ":" },                 type = {"operator", "normal"}, syntax = python_type },
     { pattern = { '[ruU]?"""', '"""'; '\\' },    type = "string"                          },
@@ -58,7 +58,6 @@ syntax.add {
     { pattern = "[%a_][%w_]*%f[(]",              type = "function"                        },
 
     { pattern = "[%a_][%w_]*",                   type = "symbol"                          },
-    { pattern = "%s",                            type = "normal"                          },
 
 
   },
