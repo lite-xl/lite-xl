@@ -34,7 +34,7 @@ local function draw_text(x, y, color)
   y = y + (dh - (th + style.padding.y) * #lines) / 2
   local w = 0
   for _, line in ipairs(lines) do
-    local text = string.format(line.fmt, keymap.get_binding(line.cmd))
+    local text = string.format(line.fmt, keymap.binding_to_string(keymap.get_binding(line.cmd)))
     w = math.max(w, renderer.draw_text(style.font, text, x + style.padding.x, y, color))
     y = y + th + style.padding.y
   end
