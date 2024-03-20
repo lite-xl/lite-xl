@@ -17,12 +17,14 @@ local python_fstring = {
 local python_type = {
 
   patterns = {
-    { pattern = "|",      type = "operator"  },
-    { pattern = "None",   type = "literal"   },
-    { pattern = "[%w_]",  type = "keyword2"  },
+    { pattern = "|",       type = "operator"  },
+    { pattern = "[%w_]+",  type = "keyword2"  },
+    { pattern = "%a%a+"},  type = "symbol"
   },
 
-  symbols = {}
+  symbols = {
+    ["None"] = "literal"
+  }
 }
 -- Add this line after in order for the recursion to work.
 -- Makes sure that the square brackets are well balanced when capturing the syntax 
@@ -43,7 +45,7 @@ syntax.add {
     { pattern = "class%s+()[%a_][%w_]*",         type = {"keyword", "keyword2"}           },
     { pattern = ":%s*[%a_][%w_]*[:%]]",          type = "normal"                          },
     { pattern = "lambda().-:",                   type = {"keyword, normal"}               },
-    { pattern = { ":", "[,%)\n]"},               type = "normal",               syntax = python_type },
+    { pattern = { ":%s*", "[,%)%s]"},                                           syntax = python_type },
     { pattern = { "->()", ":" },                 type = {"operator", "normal"}, syntax = python_type },
     { pattern = { '[ruU]?"""', '"""'; '\\' },    type = "string"                          },
     { pattern = { "[ruU]?'''", "'''", '\\' },    type = "string"                          },
