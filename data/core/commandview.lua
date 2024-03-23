@@ -50,6 +50,7 @@ local default_state = {
 function CommandView:new()
   CommandView.super.new(self, SingleLineDoc())
   self.suggestion_idx = 1
+  self.suggestions_offset = 1
   self.suggestions = {}
   self.suggestions_height = 0
   self.last_change_id = 0
@@ -123,6 +124,24 @@ function CommandView:move_suggestion_idx(dir)
     end
   end
 
+  local function get_suggestions_offset()
+    local max_visible = math.min(max_suggestions, #self.suggestions)
+    if dir > 0 then
+      if self.suggestions_offset + max_visible < self.suggestion_idx + 1 then
+        return self.suggestion_idx - max_visible + 1
+      elseif self.suggestions_offset > self.suggestion_idx then
+        return self.suggestion_idx
+      end
+    else
+      if self.suggestions_offset > self.suggestion_idx then
+        return self.suggestion_idx
+      elseif self.suggestions_offset + max_visible < self.suggestion_idx + 1 then
+        return self.suggestion_idx - max_visible + 1
+      end
+    end
+    return self.suggestions_offset
+  end
+
   if self.state.show_suggestions then
     local n = self.suggestion_idx + dir
     self.suggestion_idx = overflow_suggestion_idx(n, #self.suggestions)
@@ -146,6 +165,8 @@ function CommandView:move_suggestion_idx(dir)
     self.last_change_id = self.doc:get_change_id()
     self.state.suggest(self:get_text())
   end
+
+  self.suggestions_offset = get_suggestions_offset()
 end
 
 
@@ -256,6 +277,7 @@ function CommandView:update_suggestions()
   end
   self.suggestions = res
   self.suggestion_idx = 1
+  self.suggestions_offset = 1
 end
 
 
@@ -299,7 +321,7 @@ function CommandView:update()
   self:move_towards("suggestions_height", dest, nil, "commandview")
 
   -- update suggestion cursor offset
-  local dest = math.min(self.suggestion_idx, max_suggestions) * self:get_suggestion_line_height()
+  local dest = (self.suggestion_idx - self.suggestions_offset + 1) * self:get_suggestion_line_height()
   self:move_towards("selection_offset", dest, nil, "commandview")
 
   -- update size based on whether this is the active_view
@@ -335,6 +357,7 @@ local function draw_suggestions_box(self)
   local h = math.ceil(self.suggestions_height)
   local rx, ry, rw, rh = self.position.x, self.position.y - h - dh, self.size.x, h
 
+  core.push_clip_rect(rx, ry, rw, rh)
   -- draw suggestions background
   if #self.suggestions > 0 then
     renderer.draw_rect(rx, ry, rw, rh, style.background3)
@@ -344,14 +367,12 @@ local function draw_suggestions_box(self)
   end
 
   -- draw suggestion text
-  local offset = math.max(self.suggestion_idx - max_suggestions, 0)
-  local last = math.min(offset + max_suggestions, #self.suggestions)
-  core.push_clip_rect(rx, ry, rw, rh)
-  local first = 1 + offset
+  local first = math.max(self.suggestions_offset, 1)
+  local last = math.min(self.suggestions_offset + max_suggestions, #self.suggestions)
   for i=first, last do
     local item = self.suggestions[i]
     local color = (i == self.suggestion_idx) and style.accent or style.text
-    local y = self.position.y - (i - offset) * lh - dh
+    local y = self.position.y - (i - first + 1) * lh - dh
     common.draw_text(self:get_font(), color, item.text, nil, x, y, 0, lh)
 
     if item.info then
