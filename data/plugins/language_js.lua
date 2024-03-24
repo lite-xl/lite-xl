@@ -93,6 +93,7 @@ syntax.add {
     ["get"]        = "keyword",
     ["if"]         = "keyword",
     ["import"]     = "keyword",
+    ["from"]       = "keyword",    
     ["in"]         = "keyword",
     ["of"]         = "keyword",
     ["instanceof"] = "keyword",
