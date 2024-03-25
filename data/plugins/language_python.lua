@@ -17,9 +17,9 @@ local python_fstring = {
 local python_type = {
 
   patterns = {
-    { pattern = "|",       type = "operator"  },
-    { pattern = "[%w_]+",  type = "keyword2"  },
-    { pattern = "%a%a+"},  type = "symbol"
+    { pattern = "|",          type = "operator"  },
+    { pattern = "[%w_]+",     type = "keyword2"  },
+    { pattern = "%a%a+",      type = "symbol"    },
   },
 
   symbols = {
@@ -30,6 +30,22 @@ local python_type = {
 -- Makes sure that the square brackets are well balanced when capturing the syntax 
 -- (in order to make something like this work: Tuple[Tuple[int, str], float])
 table.insert(python_type.patterns, 1, { pattern = { "%[", "%]" }, syntax = python_type })
+
+-- For things like this_list = other_list[a:b:c]
+local not_python_type = {
+  patterns = {
+    { pattern = "-?0[xboXBO][%da-fA-F_]+",       type = "number"   },
+    { pattern = "-?%d+[%d%.eE_]*",               type = "number"   },
+    { pattern = "-?%.?%d+",                      type = "number"   },
+    { pattern = "[%+%-=/%*%^%%<>!~|&]",          type = "operator" },
+    { pattern = "[%a_][%w_]*%f[(]",              type = "function" },
+  },
+
+  symbols = {
+  }
+}
+
+table.insert(not_python_type.patterns, 1, { pattern = { "%[", "%]" }, syntax = not_python_type })
 
 
 syntax.add {
@@ -42,11 +58,12 @@ syntax.add {
     { pattern = "#.*",                           type = "comment"                         },
     { pattern = { '^%s*"""', '"""' },            type = "comment"                         },
     { pattern = '[uUrR]%f["]',                   type = "keyword"                         },
-    { pattern = "class%s+()[%a_][%w_]*",         type = {"keyword", "keyword2"}           },
-    { pattern = ":%s*[%a_][%w_]*[:%]]",          type = "normal"                          },
-    { pattern = "lambda().-:",                   type = {"keyword, normal"}               },
-    { pattern = { ":%s*", "[,%)%s]"},                                           syntax = python_type },
-    { pattern = { "->()", ":" },                 type = {"operator", "normal"}, syntax = python_type },
+    { pattern = "class%s+()[%a_][%w_]*",         type = { "keyword", "keyword2"}          },
+    { pattern = { "%[", "%]" },                                  syntax = not_python_type },
+    { pattern = "lambda().-:",                   type = { "keyword, normal"}              },
+    { pattern = ":%s*\n",                                                                 },
+    { pattern = { ":%s*", "[,%)%s]"},                             syntax = python_type    },
+    { pattern = { "->()", ":" },                 type = { "operator", "normal" }, syntax = python_type },
     { pattern = { '[ruU]?"""', '"""'; '\\' },    type = "string"                          },
     { pattern = { "[ruU]?'''", "'''", '\\' },    type = "string"                          },
     { pattern = { '[ruU]?"', '"', '\\' },        type = "string"                          },
