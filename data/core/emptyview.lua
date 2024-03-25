@@ -1,3 +1,4 @@
+local core = require "core"
 local style = require "core.style"
 local keymap = require "core.keymap"
 local View = require "core.view"
@@ -26,16 +27,16 @@ local function draw_text(x, y, color)
     version_width = style.font:get_width(version)
     xv = x1 - (version_width - title_width)
   end
-  x = renderer.draw_text(style.big_font, title, x1, y1, color)
-  renderer.draw_text(style.font, version, xv, y1 + th, color)
+  x = renderer.draw_text(core.window, style.big_font, title, x1, y1, color)
+  renderer.draw_text(core.window, style.font, version, xv, y1 + th, color)
   x = x + style.padding.x
-  renderer.draw_rect(x, y, math.ceil(1 * SCALE), dh, color)
+  renderer.draw_rect(core.window, x, y, math.ceil(1 * SCALE), dh, color)
   th = style.font:get_height()
   y = y + (dh - (th + style.padding.y) * #lines) / 2
   local w = 0
   for _, line in ipairs(lines) do
     local text = string.format(line.fmt, keymap.get_binding(line.cmd))
-    w = math.max(w, renderer.draw_text(style.font, text, x + style.padding.x, y, color))
+    w = math.max(w, renderer.draw_text(core.window, style.font, text, x + style.padding.x, y, color))
     y = y + th + style.padding.y
   end
   return w, dh

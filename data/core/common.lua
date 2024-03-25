@@ -346,7 +346,7 @@ end
 ---@param h number
 ---@return number x_advance
 ---@return number y_advance
-function common.draw_text(font, color, text, align, x,y,w,h)
+function common.draw_text(window, font, color, text, align, x,y,w,h)
   local tw, th = font:get_width(text), font:get_height()
   if align == "center" then
     x = x + (w - tw) / 2
@@ -354,7 +354,7 @@ function common.draw_text(font, color, text, align, x,y,w,h)
     x = x + (w - tw)
   end
   y = common.round(y + (h - th) / 2)
-  return renderer.draw_text(font, text, x, y, color), y + th
+  return renderer.draw_text(window, font, text, x, y, color), y + th
 end
 
 

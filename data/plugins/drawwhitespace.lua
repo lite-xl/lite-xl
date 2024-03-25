@@ -331,11 +331,11 @@ function DocView:draw_line_text(idx, x, y)
     end
 
     if #partials == 0 and not config.plugins.drawwhitespace.show_selected_only then
-      renderer.draw_text(font, sub, tx, ty, color)
+      renderer.draw_text(core.window, font, sub, tx, ty, color)
     else
       for _, p in pairs(partials) do
         if p then core.push_clip_rect(table.unpack(p)) end
-        renderer.draw_text(font, sub, tx, ty, color)
+        renderer.draw_text(core.window, font, sub, tx, ty, color)
         if p then core.pop_clip_rect() end
       end
     end

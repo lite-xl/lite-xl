@@ -192,7 +192,7 @@ void rencache_draw_rect(RenWindow *window_renderer, RenRect rect, RenColor color
 double rencache_draw_text(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, double x, int y, RenColor color)
 {
   int x_offset;
-  double width = ren_font_group_get_width(window_renderer, fonts, text, len, &x_offset);
+  double width = ren_font_group_get_width(fonts, text, len, &x_offset);
   RenRect rect = { x + x_offset, y, (int)(width - x_offset), ren_font_group_get_height(fonts) };
   if (rects_overlap(last_clip_rect, rect)) {
     int sz = len + 1;

@@ -552,6 +552,7 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
 
   -- draw background rect
   renderer.draw_rect(
+    core.window,
     x,
     sy,
     width + style.padding.x * 2,
@@ -562,6 +563,7 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
   -- draw text
   for _, line in pairs(lines) do
     common.draw_text(
+      core.window,
       font, style.text, line, "left",
       x + style.padding.x, y, width, lh
     )
@@ -578,7 +580,7 @@ local function draw_suggestions_box(av)
 
   -- draw background rect
   local rx, ry, rw, rh, has_icons = get_suggestions_rect(av)
-  renderer.draw_rect(rx, ry, rw, rh, style.background3)
+  renderer.draw_rect(core.window, rx, ry, rw, rh, style.background3)
 
   -- draw text
   local font = av:get_font()
@@ -609,12 +611,12 @@ local function draw_suggestions_box(av)
         end
         if config.plugins.autocomplete.icon_position == "left" then
           common.draw_text(
-            ifont, icolor, itext, "left", rx + style.padding.x, y, rw, lh
+            core.window, ifont, icolor, itext, "left", rx + style.padding.x, y, rw, lh
           )
           icon_l_padding = ifont:get_width(itext) + (style.padding.x / 2)
         else
           common.draw_text(
-            ifont, icolor, itext, "right", rx, y, rw - style.padding.x, lh
+            core.window, ifont, icolor, itext, "right", rx, y, rw - style.padding.x, lh
           )
           icon_r_padding = ifont:get_width(itext) + (style.padding.x / 2)
         end
@@ -628,7 +630,7 @@ local function draw_suggestions_box(av)
     core.push_clip_rect(rx + icon_l_padding + style.padding.x, y,
                         rw - info_size - icon_l_padding - icon_r_padding - style.padding.x, lh)
     local x_adv = common.draw_text(
-      font, color, s.text, "left",
+      core.window, font, color, s.text, "left",
       rx + icon_l_padding + style.padding.x, y, rw, lh
     )
     core.pop_clip_rect()
@@ -636,13 +638,13 @@ local function draw_suggestions_box(av)
     if x_adv > rx + rw - info_size - icon_r_padding then
       local ellipsis_size = font:get_width("…")
       local ell_x = rx + rw - info_size - icon_r_padding - ellipsis_size
-      renderer.draw_rect(ell_x, y, ellipsis_size, lh, style.background3)
-      common.draw_text(font, color, "…", "left", ell_x, y, ellipsis_size, lh)
+      renderer.draw_rect(core.window, ell_x, y, ellipsis_size, lh, style.background3)
+      common.draw_text(core.window, font, color, "…", "left", ell_x, y, ellipsis_size, lh)
     end
     if s.info and not hide_info then
       color = (i == suggestions_idx) and style.text or style.dim
       common.draw_text(
-        style.font, color, s.info, "right",
+        core.window, style.font, color, s.info, "right",
         rx, y, rw - icon_r_padding - style.padding.x, lh
       )
     end
@@ -658,9 +660,10 @@ local function draw_suggestions_box(av)
     end
   end
 
-  renderer.draw_rect(rx, y, rw, 2, style.caret)
-  renderer.draw_rect(rx, y+2, rw, lh, style.background)
+  renderer.draw_rect(core.window, rx, y, rw, 2, style.caret)
+  renderer.draw_rect(core.window, rx, y+2, rw, lh, style.background)
   common.draw_text(
+    core.window,
     style.font,
     style.accent,
     "Items",
@@ -668,6 +671,7 @@ local function draw_suggestions_box(av)
     rx + style.padding.x, y, rw, lh
   )
   common.draw_text(
+    core.window,
     style.font,
     style.accent,
     tostring(suggestions_idx) .. "/" .. tostring(#suggestions),
