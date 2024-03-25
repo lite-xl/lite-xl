@@ -16,6 +16,8 @@ syntax.add {
     { pattern = "%d+[Ee]%d+f?",          type = "number"  },
     { pattern = "%d+%.%d*f?",            type = "number"  },
     { pattern = "%.%d+f?",               type = "number"  },
+    { pattern = "0()%d+ll?",              type = { "keyword", "number" } },
+    { pattern = "%d+ll?",                 type = "number"  },
     { pattern = "0()%d+u?",              type = { "keyword", "number" } },
     { pattern = "%d+u?",                 type = "number"  },
     { pattern = "[%+%-=/%*%^%%<>!~|&]",  type = "operator" },
