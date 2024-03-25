@@ -122,8 +122,10 @@ local function report_bad_pattern(log_fn, syntax, pattern_idx, msg, ...)
   end
   if bad_patterns[syntax][pattern_idx] then return end
   bad_patterns[syntax][pattern_idx] = true
-  log_fn("Malformed pattern #%d in %s language plugin. " .. msg,
-            pattern_idx, syntax.name or "unnamed", ...)
+  log_fn("Malformed pattern #%d <%s> in %s language plugin.\n" .. msg,
+            pattern_idx,
+            syntax.patterns[pattern_idx].pattern or syntax.patterns[pattern_idx].regex,
+            syntax.name or "unnamed", ...)
 end
 
 ---@param incoming_syntax table
@@ -337,6 +339,14 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     for n, p in ipairs(current_syntax.patterns) do
       local find_results = { find_text(text, p, i, true, false) }
       if find_results[1] then
+        -- Check for patterns successfully matching nothing
+        if find_results[1] > find_results[2] then
+          report_bad_pattern(core.warn, current_syntax, n,
+              "Pattern successfully matched, but nothing was captured.")
+          goto continue
+        end
+
+        -- Check for patterns with mismatching number of `types`
         local type_is_table = type(p.type) == "table"
         local n_types = type_is_table and #p.type or 1
         if #find_results == 2 and type_is_table then
@@ -350,6 +360,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
           report_bad_pattern(core.warn, current_syntax, n,
             "Too many token types: got %d needed %d.", n_types, #find_results - 1)
         end
+
         -- matched pattern; make and add tokens
         push_tokens(res, current_syntax, p, text, find_results)
         -- update state if this was a start|end pattern pair
@@ -365,6 +376,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
         i = find_results[2] + 1
         matched = true
         break
+        ::continue::
       end
     end
 
