@@ -851,7 +851,7 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
     return luaL_error(L, "error: redirect to handles, FILE* and paths are not supported");
   #if _WIN32
     int writable_stream_idx = stream - 1;
-    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], READ_BUF_SIZE, NULL, &self->overlapped[writable_stream_idx])) {
+    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], read_size > READ_BUF_SIZE ? READ_BUF_SIZE : read_size, NULL, &self->overlapped[writable_stream_idx])) {
       if (self->reading[writable_stream_idx] || GetLastError() == ERROR_IO_PENDING) {
         self->reading[writable_stream_idx] = true;
         DWORD bytesTransferred = 0;
