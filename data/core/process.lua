@@ -62,11 +62,11 @@ function process.stream:write(bytes, options)
   while #buf > 0 do
     local len = self.process:write(buf)
     if not len then break end
-    buf = buf:sub(len + 1)
     if not coroutine.running() then return len end
+    buf = buf:sub(len + 1)
     coroutine.yield(options.scan or (1 / config.fps))
   end
-  return #buf
+  return #bytes - #buf
 end
 
 
