@@ -113,7 +113,7 @@ syntax.add {
     { pattern = { "{", "}" },                                    syntax = not_python_type },
     { pattern = "lambda().-:",                   type = { "keyword, normal"}              },
     { pattern = ":%s*\n",                        type = "normal"                          },
-    { pattern = { ":%s*", "[,%)%s]"},                            syntax = python_type     },
+    { pattern = { ":%s*", "%f[=,%)%s]"},                           syntax = python_type     },
     { pattern = { "->()", ":" },                 type = { "operator", "normal" }, syntax = python_type },
     { pattern = { '[ruU]?"""', '"""'; '\\' },    type = "string"                          },
     { pattern = { "[ruU]?'''", "'''", '\\' },    type = "string"                          },
