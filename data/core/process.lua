@@ -78,9 +78,9 @@ end
 local old_start = process.start
 function process.start(...)
   local self = old_start(...)
-  self.stdout = proc.stream.new(self, process.STREAM_STDOUT),
-  self.stderr = proc.stream.new(self, process.STREAM_STDERR),
-  self.stdin = proc.stream.new(self, process.STREAM_STDIN)
+  self.stdout = process.stream.new(self, process.STREAM_STDOUT),
+  self.stderr = process.stream.new(self, process.STREAM_STDERR),
+  self.stdin  = process.stream.new(self, process.STREAM_STDIN)
   return self
 end
 
