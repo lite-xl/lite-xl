@@ -2,10 +2,18 @@
 #include "api.h"
 #include "../renderer.h"
 #include "../rencache.h"
+#include "../renwindow.h"
 #include "lua.h"
 
 // a reference index to a table that stores the fonts
 static int RENDERER_FONT_REF = LUA_NOREF;
+// a reference index to a table that stores the canvases sent to the renderer
+int RENDERER_CANVAS_REF = LUA_NOREF;
+// a reference index to a table that stores the temporary canvases needed for COW
+int RENDERER_CANVAS_COW_REF = LUA_NOREF;
+// reference indexes for tables that cache scaled versions of canvases
+static int RENDERER_CANVAS_SCALED_CURRENT_REF = LUA_NOREF;
+static int RENDERER_CANVAS_SCALED_PREVIOUS_REF = LUA_NOREF;
 
 static int font_get_options(
   lua_State *L,
@@ -294,6 +302,19 @@ static int f_end_frame(UNUSED lua_State *L) {
   // clear the font reference table
   lua_newtable(L);
   lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
+  // clear the canvas reference table
+  lua_newtable(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
+  // clear the canvas COW reference table
+  lua_newtable(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_COW_REF);
+  // clear the previous frame scaled canvas cache
+  lua_newtable(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_SCALED_PREVIOUS_REF);
+  // swap current and previous scaled canvas cache
+  int tmp_ref = RENDERER_CANVAS_SCALED_PREVIOUS_REF;
+  RENDERER_CANVAS_SCALED_PREVIOUS_REF = RENDERER_CANVAS_SCALED_CURRENT_REF;
+  RENDERER_CANVAS_SCALED_CURRENT_REF = tmp_ref;
   return 0;
 }
 
@@ -353,6 +374,227 @@ static int f_draw_text(lua_State *L) {
   return 1;
 }
 
+static int f_create_canvas(lua_State *L) {
+  int w = luaL_checkinteger(L, 1);
+  int h = luaL_checkinteger(L, 2);
+  if (w <= 0) {
+    return luaL_error(L, "error in canvas options, width must be a positive integer");
+  }
+  if (h <= 0) {
+    return luaL_error(L, "error in canvas options, height must be a positive integer");
+  }
+
+  RenColor color = checkcolor(L, 3, 0); // defaults to black
+  // TODO: might be a good idea to match the window format
+  SDL_Surface *s = SDL_CreateRGBSurface(0, w, h, 32,
+    0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+  if (!s) {
+    return luaL_error(L, "unable to create canvas: %s", SDL_GetError);
+  }
+  SDL_FillRect(s, NULL, SDL_MapRGBA(s->format, color.r, color.g, color.b, color.a));
+
+  RenCanvas *canvas = lua_newuserdata(L, sizeof(RenCanvas));
+  RenSurface window_surface = renwin_get_surface(&window_renderer);
+  canvas->rensurface.surface = s;
+  canvas->rensurface.scale = window_surface.scale;
+  canvas->change_counter = 0;
+  luaL_setmetatable(L, API_TYPE_CANVAS);
+  return 1;
+}
+
+// Check if a canvas is cached in the specified registry table.
+// The key is the canvas itself, the secondary key is a string specific for
+// the scaled canvas.
+// If the canvas was found this returns true and pushes the cached canvas on
+// the stack. Otherwise it returns false and doesn't push anything on the stack.
+static bool check_if_cached(lua_State *L, int registry_ref, int key_idx, int secondary_key_idx) {
+  if (key_idx < 0) key_idx = lua_gettop(L) + key_idx + 1;
+  if (secondary_key_idx < 0) secondary_key_idx = lua_gettop(L) + secondary_key_idx + 1;
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, registry_ref);
+  if (!lua_istable(L, -1)) {
+    fprintf(stderr, "warning: failed to check canvas cache\n");
+    lua_pop(L, 1);
+    return false;
+  }
+
+  // Check if there is a cache for the key
+  lua_pushvalue(L, key_idx);
+  lua_rawget(L, -2);
+  if (lua_isnoneornil(L, -1)) {
+    lua_pop(L, 2);
+    return false;
+  }
+  // We should now have the cache table at the top of the stack
+  // Check if the secondary key is in the cache
+  lua_pushvalue(L, secondary_key_idx);
+  lua_rawget(L, -2);
+  if (lua_isnoneornil(L, -1)) {
+    lua_pop(L, 3);
+    return false;
+  }
+  // Only keep the cached canvas on the stack
+  lua_replace(L, -3);
+  lua_pop(L, 1);
+  return true;
+}
+
+// The cache is in the format:
+// ```lua
+// local current_frame_cache = {
+//   [key] = {
+//     [secondary_key1] = scaled_canvas1_1,
+//     [secondary_key2] = scaled_canvas1_2
+//   }
+// }
+// ```
+static void cache_canvas(lua_State *L, int key_idx, int secondary_key_idx, int canvas_idx) {
+  if (key_idx < 0) key_idx = lua_gettop(L) + key_idx + 1;
+  if (secondary_key_idx < 0) secondary_key_idx = lua_gettop(L) + secondary_key_idx + 1;
+  if (canvas_idx < 0) canvas_idx = lua_gettop(L) + canvas_idx + 1;
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_SCALED_CURRENT_REF);
+  if (!lua_istable(L, -1)) {
+    fprintf(stderr, "warning: failed to add canvas to cache\n");
+    lua_pop(L, 1);
+    return;
+  }
+
+  // Obtain the canvas cache
+  lua_pushvalue(L, key_idx);
+  lua_rawget(L, -2);
+  if (lua_isnoneornil(L, -1)) {
+    // There is no cache for the canvas, so we create it
+    lua_pop(L, 1);
+    lua_newtable(L);
+    lua_pushvalue(L, key_idx); // Key = key
+    lua_pushvalue(L, -2); // Value = {}
+    lua_rawset(L, -4); // current[Key] = Value
+  }
+  // We should now have the cache table for the specified key at the top of the stack
+  lua_pushvalue(L, secondary_key_idx);
+  lua_pushvalue(L, canvas_idx);
+  lua_rawset(L, -3); // current[key][secondary_key] = canvas
+  lua_pop(L, 2);
+}
+
+// Creates a scaled version of the canvas and pushes it to the stack
+static RenCanvas* push_scaled_canvas(lua_State *L, RenCanvas *original_canvas, RenRect scale_rect) {
+  RenCanvas *temp_canvas = lua_newuserdata(L, sizeof(RenCanvas));
+  temp_canvas->change_counter = original_canvas->change_counter;
+  temp_canvas->rensurface.scale = original_canvas->rensurface.scale;
+  temp_canvas->rensurface.surface = SDL_CreateRGBSurface(0, scale_rect.width, scale_rect.height, 32,
+                                    0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+  if (!temp_canvas->rensurface.surface) {
+    fprintf(stderr, "warning: failed to create scaled canvas\n");
+  }
+  temp_canvas->change_counter = 0;
+  luaL_setmetatable(L, API_TYPE_CANVAS);
+
+  SDL_Surface *src = original_canvas->rensurface.surface;
+  SDL_Surface *dst = temp_canvas->rensurface.surface;
+  if (src && dst) {
+    SDL_Rect src_rect = { scale_rect.x, scale_rect.y, src->w, src->h };
+    SDL_Rect dst_rect = { 0, 0, dst->w, dst->h };
+    // Use the lower variant to avoid eventual clips
+    SDL_LowerBlitScaled(src, &src_rect, dst, &dst_rect);
+  }
+  return temp_canvas;
+}
+
+static void push_scaled_key(lua_State *L, unsigned int change_counter, RenRect scale_rect) {
+  lua_pushinteger(L, change_counter);
+  lua_pushstring(L, "-");
+  lua_pushinteger(L, scale_rect.x);
+  lua_pushstring(L, ",");
+  lua_pushinteger(L, scale_rect.y);
+  lua_pushstring(L, ",");
+  lua_pushinteger(L, scale_rect.width);
+  lua_pushstring(L, ",");
+  lua_pushinteger(L, scale_rect.height);
+  lua_concat(L, 9);
+}
+
+static int f_draw_canvas(lua_State *L) {
+  int nparms = lua_gettop(L);
+  if (nparms != 3 && nparms != 5 && nparms != 9) {
+    return luaL_error(L, "wrong number of parameters");
+  }
+  RenCanvas* canvas = (RenCanvas*) luaL_checkudata(L, 1, API_TYPE_CANVAS);
+  RenSurface rs = canvas->rensurface;
+
+  // stores a reference to this canvas to the reference table
+  lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
+  if (lua_istable(L, -1))
+  {
+    lua_pushvalue(L, 1);
+    // Store the change counter to allow COW for canvas operations
+    lua_pushinteger(L, canvas->change_counter);
+    lua_rawset(L, -3);
+  } else {
+    fprintf(stderr, "warning: failed to reference count canvases\n");
+  }
+  lua_pop(L, 1);
+
+  if (!canvas->rensurface.surface) return 0;
+
+  lua_Number dst_x = luaL_checknumber(L, 2);
+  lua_Number dst_y = luaL_checknumber(L, 3);
+  lua_Number dst_w = luaL_optnumber(L, 4, canvas->rensurface.surface->w);
+  lua_Number dst_h = luaL_optnumber(L, 5, canvas->rensurface.surface->h);
+  lua_Number src_x = luaL_optinteger(L, 6, 0);
+  lua_Number src_y = luaL_optinteger(L, 7, 0);
+  lua_Number src_w = luaL_optinteger(L, 8, canvas->rensurface.surface->w);
+  lua_Number src_h = luaL_optinteger(L, 9, canvas->rensurface.surface->h);
+
+  RenRect dst_rect = rect_to_grid(dst_x, dst_y, dst_w, dst_h);
+  if (dst_rect.width <= 0 || dst_rect.height <= 0
+      || src_w <= 0 || src_h <= 0
+      || dst_rect.x + dst_rect.width < 0 || dst_rect.y + dst_rect.height < 0
+      || src_x + src_w < 0 || src_y + src_h < 0) {
+    return 0;
+  }
+
+  // Check if we will render the canvas scaled
+  if (dst_rect.width != src_w || dst_rect.height != src_h) {
+    // We need to pre-scale the canvas, because clipping in rencache
+    // will create artifacts due to rounding errors.
+
+    // Create the key in the format CHANGE-X,Y,WIDTH,HEIGHT
+    RenRect scale_rect = (RenRect){ src_x, src_y, dst_rect.width, dst_rect.height };
+    scale_rect.width = scale_rect.width < 1 ? 1 : scale_rect.width;
+    scale_rect.height = scale_rect.height < 1 ? 1 : scale_rect.height;
+    push_scaled_key(L, canvas->change_counter, scale_rect);
+
+    // Check if we already used the scaled version in this frame
+    if(!check_if_cached(L, RENDERER_CANVAS_SCALED_CURRENT_REF, 1, -1)) {
+      // Check if we used it in the previous frame
+      if(check_if_cached(L, RENDERER_CANVAS_SCALED_PREVIOUS_REF, 1, -1)) {
+        // Push the cached version to the current frame cache
+        cache_canvas(L, 1, -2, -1);
+      } else {
+        // We need to cache the scaled version
+        push_scaled_canvas(L, canvas, scale_rect);
+        cache_canvas(L, 1, -2, -1);
+      }
+    }
+
+    // Use the scaled canvas
+    RenCanvas *scaled_canvas = (RenCanvas*) luaL_checkudata(L, -1, API_TYPE_CANVAS);
+    rs = scaled_canvas->rensurface;
+    lua_pop(L, 1);
+    // Set the coordinates to use the full size of the scaled canvas
+    src_x = 0;
+    src_y = 0;
+    src_w = dst_rect.width;
+    src_h = dst_rect.height;
+  }
+
+  RenRect src_rect = { src_x, src_y, src_w, src_h };
+  rencache_draw_surface(dst_rect, src_rect, &rs, canvas->change_counter);
+  return 0;
+}
+
 static const luaL_Reg lib[] = {
   { "show_debug",         f_show_debug         },
   { "get_size",           f_get_size           },
@@ -361,6 +603,8 @@ static const luaL_Reg lib[] = {
   { "set_clip_rect",      f_set_clip_rect      },
   { "draw_rect",          f_draw_rect          },
   { "draw_text",          f_draw_text          },
+  { "create_canvas",      f_create_canvas      },
+  { "draw_canvas",        f_draw_canvas        },
   { NULL,                 NULL                 }
 };
 
@@ -382,6 +626,17 @@ int luaopen_renderer(lua_State *L) {
   // gets a reference on the registry to store font data
   lua_newtable(L);
   RENDERER_FONT_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+  // gets a reference on the registry to store canvases sent to the renderer
+  lua_newtable(L);
+  RENDERER_CANVAS_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+  // gets a reference on the registry to store canvases needed for COW
+  lua_newtable(L);
+  RENDERER_CANVAS_COW_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+  // gets references on the registry to cache scaled versions of canvases
+  lua_newtable(L);
+  RENDERER_CANVAS_SCALED_CURRENT_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+  lua_newtable(L);
+  RENDERER_CANVAS_SCALED_PREVIOUS_REF = luaL_ref(L, LUA_REGISTRYINDEX);
 
   luaL_newlib(L, lib);
   luaL_newmetatable(L, API_TYPE_FONT);
