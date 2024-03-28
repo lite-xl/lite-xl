@@ -580,7 +580,7 @@ local config = require "core.config"
 --
 -- "^%.git/" matches any directory named ".git" anywhere in the project.
 --
--- If a "/" appears anywhere in the pattern, except if it appears at the end or
+-- If a "/" appears anywhere in the pattern (except when it appears at the end or
 -- is immediately followed by a '$', then the pattern will be applied to the full
 -- path of the file or directory. An initial "/" will be prepended to the file's
 -- or directory's path to indicate the project's root.
