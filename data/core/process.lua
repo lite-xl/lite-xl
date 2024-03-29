@@ -98,7 +98,7 @@ end
 --- waits until the process exits. designed to be called in a coroutine, otherwise will block the editor.
 --- @param timeout number The amount of seconds to wait. If omitted, will wait indefinitely.
 ---
---- @return integer The system exit code for this process.
+--- @return integer|nil The system exit code for this process, or nil, if the wait timed out.
 function process:wait(timeout)
   if not coroutine.running() then return self.process:wait(timeout) end
   local start = system.get_time()
