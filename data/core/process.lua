@@ -1,12 +1,12 @@
 local config = require "core.config"
 
 process.stream = {}
-process.stream.__index = proc.stream
+process.stream.__index = process.stream
 
 --- @param proc process The `process` which this stream references.
 --- @param fd integer The constant from `process` that represents `stdin`, `stdout` or `stderr`.
 function process.stream.new(proc, fd)
-  return setmetatable({ fd = fd, process = proc, buf = {}, len = 0 }, proc.stream)
+  return setmetatable({ fd = fd, process = proc, buf = {}, len = 0 }, process.stream)
 end
 
 --- read is designed to be run in a coroutine; if not in one, it will perform a non-blocking read.
@@ -18,30 +18,33 @@ function process.stream:read(bytes, options)
   if type(bytes) == 'string' then bytes = bytes:gsub("^%*", "") end
   options = options or {}
   local start = system.get_time()
-  local target
+  local target = 0
   if bytes == "line" or bytes == "l" or bytes == "L" then
-    target = 0
-    for i,v in ipairs(self.buf) do
-      local s = v:find("\n")
-      if s then
-        target = target + s
-        break
-      elseif i < #self.buf then
-        target = target + #v
-      else
-        target = math.huge
+    if #self.buf > 0 then
+      for i,v in ipairs(self.buf) do
+        local s = v:find("\n")
+        if s then
+          target = target + s
+          break
+        elseif i < #self.buf then
+          target = target + #v
+        else
+          target = 1024*1024*1024*1024
+        end
       end
+    else
+      target = 1024*1024*1024*1024
     end
   elseif bytes == "all" or bytes == "a" then
-    target = math.huge
+    target = 1024*1024*1024*1024
   elseif type(bytes) == "number" then
     target = bytes
   else
     error("'" .. bytes .. "' is an unsupported read option for this stream")
   end
 
-  while self.len < target then
-    local chunk = self.process:read(self.fd, math.max(target - self.len, 0))
+  while self.len < target do
+    local chunk = self.process.process:read(self.fd, math.max(target - self.len, 0))
     if not chunk then break end
     if #chunk > 0 then
       table.insert(self.buf, chunk)
@@ -58,12 +61,12 @@ function process.stream:read(bytes, options)
     else
       break
     end
-  until
+  end
   if #self.buf == 0 then return nil end
   local str = table.concat(self.buf)
   self.len = math.max(self.len - target, 0)
   self.buf = self.len > 0 and { str:sub(target + 1) } or {}
-  return str:sub(1, target + ((bytes == "line" or bytes == "l") and str:byte(target) == "\n" and -1 or 0))
+  return str:sub(1, target + ((bytes == "line" or bytes == "l") and str:byte(target) == 10 and -1 or 0))
 end
 
 
@@ -76,7 +79,7 @@ function process.stream:write(bytes, options)
   options = options or {}
   local buf = bytes
   while #buf > 0 do
-    local len = self.process:write(buf)
+    local len = self.process.process:write(buf)
     if not len then break end
     if not coroutine.running() then return len end
     buf = buf:sub(len + 1)
@@ -88,15 +91,32 @@ end
 
 --- closes the underlying stream
 function process.stream:close()
-  return self.process:close_stream(self.fd)
+  return self.process.process:close_stream(self.fd)
+end
+
+
+function process:wait(timeout)
+  if not coroutine.running() then return self.process:wait(timeout) end
+  local start = system.get_time()
+  while self.process:running() and (system.get_time() - start > (timeout or math.huge)) do
+    coroutine.yield(scan or (1 / config.fps))
+  end
+  return self.process:returncode()
+end
+
+
+function process:__index(k)
+  if process[k] then return process[k] end
+  if type(self.process[k]) == 'function' then return function(newself, ...) return self.process[k](self.process, ...) end end
+  return self.process[k]
 end
 
 
 local old_start = process.start
 function process.start(...)
-  local self = old_start(...)
-  self.stdout = process.stream.new(self, process.STREAM_STDOUT),
-  self.stderr = process.stream.new(self, process.STREAM_STDERR),
+  local self = setmetatable({ process = old_start(...) }, process)
+  self.stdout = process.stream.new(self, process.STREAM_STDOUT)
+  self.stderr = process.stream.new(self, process.STREAM_STDERR)
   self.stdin  = process.stream.new(self, process.STREAM_STDIN)
   return self
 end
