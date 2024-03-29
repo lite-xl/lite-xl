@@ -3,16 +3,23 @@ local config = require "core.config"
 process.stream = {}
 process.stream.__index = proc.stream
 
+--- @param proc process The `process` which this stream references.
+--- @param fd integer The constant from `process` that represents `stdin`, `stdout` or `stderr`.
 function process.stream.new(proc, fd)
   return setmetatable({ fd = fd, process = proc, buf = {}, len = 0 }, proc.stream)
 end
 
--- read function can take either "*all", "*line", or a byte count.
+--- read is designed to be run in a coroutine; if not in one, it will perform a non-blocking read.
+--- @param bytes string|number Can be "line", "l", or "L" to read a line, "all", "a" to read the whole file, or a number to read the specified amount of bytes.
+--- @param options table? A table specifying `timeout`: how many seconds to wait before `error`ing, and `scan`: the amount of time to yield for while waiting.
+---
+--- @return string The result of reading from this process.
 function process.stream:read(bytes, options)
+  if type(bytes) == 'string' then bytes = bytes:gsub("^%*", "") end
   options = options or {}
   local start = system.get_time()
-  local target = bytes
-  if bytes == "*line" then
+  local target
+  if bytes == "line" or bytes == "l" or bytes == "L" then
     target = 0
     for i,v in ipairs(self.buf) do
       local s = v:find("\n")
@@ -25,8 +32,12 @@ function process.stream:read(bytes, options)
         target = math.huge
       end
     end
-  elseif bytes == "*all" then
+  elseif bytes == "all" or bytes == "a" then
     target = math.huge
+  elseif type(bytes) == "number" then
+    target = bytes
+  else
+    error("'" .. bytes .. "' is an unsupported read option for this stream")
   end
 
   while self.len < target then
@@ -35,7 +46,7 @@ function process.stream:read(bytes, options)
     if #chunk > 0 then
       table.insert(self.buf, chunk)
       self.len = self.len + #chunk
-      if bytes == "*line" then
+      if bytes == "line" or bytes == "l" or bytes == "L" then
         local s = chunk:find("\n")
         if s then target = self.len - #chunk + s end
       end
@@ -52,10 +63,15 @@ function process.stream:read(bytes, options)
   local str = table.concat(self.buf)
   self.len = math.max(self.len - target, 0)
   self.buf = self.len > 0 and { str:sub(target + 1) } or {}
-  return str:sub(1, target + (bytes == "*line" and str:byte(target) == "\n" and -1 or 0))
+  return str:sub(1, target + ((bytes == "line" or bytes == "l") and str:byte(target) == "\n" and -1 or 0))
 end
 
 
+--- write is designed to be run in a coroutine, if not in one, it will perform a non-blocking write.
+--- @param bytes string The bytes to write into this process's stream.
+--- @param options table? A table specifying `scan`, which is the amount of time to yield for while waiting.
+---
+--- @return integer The amount of bytes written to this stream.
 function process.stream:write(bytes, options)
   options = options or {}
   local buf = bytes
@@ -70,6 +86,7 @@ function process.stream:write(bytes, options)
 end
 
 
+--- closes the underlying stream
 function process.stream:close()
   return self.process:close_stream(self.fd)
 end
