@@ -59,6 +59,7 @@ syntax.add {
   patterns = {
     { pattern = "//.*",                                               type = "comment"  },
     { pattern = { "/%*", "%*/" },                                     type = "comment"  },
+    { pattern = "^#!.*",                                              type = "comment"  },
     { regex = regex_pattern, syntax = inner_regex_syntax,             type = {"string", "string"}  },
     { pattern = { '"', '"', '\\' },                                   type = "string"   },
     { pattern = { "'", "'", '\\' },                                   type = "string"   },
