@@ -188,7 +188,7 @@ function ResultsView:draw()
       #self.results, self.query)
   end
   local color = common.lerp(style.text, style.accent, self.brightness / 100)
-  renderer.draw_text(core.window, style.font, text, x, y, color)
+  renderer.draw_text( style.font, text, x, y, color)
 
   -- horizontal line
   local yoffset = self:get_results_yoffset()
@@ -196,9 +196,9 @@ function ResultsView:draw()
   local w = self.size.x - style.padding.x * 2
   local h = style.divider_size
   local color = common.lerp(style.dim, style.text, self.brightness / 100)
-  renderer.draw_rect(core.window, x, oy + yoffset - style.padding.y, w, h, color)
+  renderer.draw_rect(x, oy + yoffset - style.padding.y, w, h, color)
   if self.searching then
-    renderer.draw_rect(core.window, x, oy + yoffset - style.padding.y, w * per, h, style.text)
+    renderer.draw_rect(x, oy + yoffset - style.padding.y, w * per, h, style.text)
   end
 
   -- results
@@ -207,12 +207,12 @@ function ResultsView:draw()
     local color = style.text
     if i == self.selected_idx then
       color = style.accent
-      renderer.draw_rect(core.window, x, y, w, h, style.line_highlight)
+      renderer.draw_rect(x, y, w, h, style.line_highlight)
     end
     x = x + style.padding.x
     local text = string.format("%s at line %d (col %d): ", item.file, item.line, item.col)
-    x = common.draw_text(core.window, style.font, style.dim, text, "left", x, y, w, h)
-    x = common.draw_text(core.window, style.code_font, color, item.text, "left", x, y, w, h)
+    x = common.draw_text( style.font, style.dim, text, "left", x, y, w, h)
+    x = common.draw_text( style.code_font, color, item.text, "left", x, y, w, h)
   end
 
   self:draw_scrollbar()

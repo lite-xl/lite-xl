@@ -592,7 +592,7 @@ local function draw_items(self, items, x, y, draw_fn)
     elseif type(item) == "table" then
       color = item
     else
-      x = draw_fn(core.window, font, color, item, nil, x, y, 0, self.size.y)
+      x = draw_fn(font, color, item, nil, x, y, 0, self.size.y)
     end
   end
 
@@ -605,7 +605,7 @@ end
 ---@param font renderer.font
 ---@param text string
 ---@param x number
-local function text_width(window, font, _, text, _, x)
+local function text_width(font, _, text, _, x)
   return x + font:get_width(text)
 end
 
@@ -645,7 +645,6 @@ function StatusView:draw_item_tooltip(item)
     end
 
     renderer.draw_rect(
-      core.window,
       x + style.padding.x,
       self.position.y - h - (style.padding.y * 2),
       w + (style.padding.x * 2),
@@ -654,7 +653,6 @@ function StatusView:draw_item_tooltip(item)
     )
 
     renderer.draw_text(
-      core.window,
       style.font,
       text,
       x + (style.padding.x * 2),
@@ -1168,7 +1166,6 @@ function StatusView:draw()
         if item.alignment == StatusView.Item.LEFT and not self.tooltip_mode then
           if type(item_bg) == "table" then
             renderer.draw_rect(
-              core.window,
               item_x, self.position.y,
               item.w, self.size.y, item_bg
             )
@@ -1195,7 +1192,6 @@ function StatusView:draw()
         if item.alignment == StatusView.Item.RIGHT then
           if type(item_bg) == "table" then
             renderer.draw_rect(
-              core.window,
               item_x, self.position.y,
               item.w, self.size.y, item_bg
             )

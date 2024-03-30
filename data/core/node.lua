@@ -535,7 +535,7 @@ function Node:draw_tab_title(view, font, is_active, is_hovered, x, y, w, h)
   local color = style.dim
   if is_active then color = style.text end
   if is_hovered then color = style.text end
-  common.draw_text(core.window, font, color, text, align, x, y, w, h)
+  common.draw_text( font, color, text, align, x, y, w, h)
 end
 
 function Node:draw_tab_borders(view, is_active, is_hovered, x, y, w, h, standalone)
@@ -543,17 +543,17 @@ function Node:draw_tab_borders(view, is_active, is_hovered, x, y, w, h, standalo
   local ds = style.divider_size
   local color = style.dim
   local padding_y = style.padding.y
-  renderer.draw_rect(core.window, x + w, y + padding_y, ds, h - padding_y*2, style.dim)
+  renderer.draw_rect(x + w, y + padding_y, ds, h - padding_y*2, style.dim)
   if standalone then
-    renderer.draw_rect(core.window, x-1, y-1, w+2, h+2, style.background2)
+    renderer.draw_rect(x-1, y-1, w+2, h+2, style.background2)
   end
   -- Full border
   if is_active then
     color = style.text
-    renderer.draw_rect(core.window, x, y, w, h, style.background)
-    renderer.draw_rect(core.window, x, y, w, ds, style.divider)
-    renderer.draw_rect(core.window, x + w, y, ds, h, style.divider)
-    renderer.draw_rect(core.window, x - ds, y, ds, h, style.divider)
+    renderer.draw_rect(x, y, w, h, style.background)
+    renderer.draw_rect(x, y, w, ds, style.divider)
+    renderer.draw_rect(x + w, y, ds, h, style.divider)
+    renderer.draw_rect(x - ds, y, ds, h, style.divider)
   end
   return x + ds, y, w - ds*2, h
 end
@@ -566,7 +566,7 @@ function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h
   local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
   if show_close_button then
     local close_style = is_close_hovered and style.text or style.dim
-    common.draw_text(core.window, style.icon_font, close_style, "C", nil, cx, y, cw, h)
+    common.draw_text( style.icon_font, close_style, "C", nil, cx, y, cw, h)
   end
   -- Title
   x = x + cpad
@@ -582,8 +582,8 @@ function Node:draw_tabs()
   local ds = style.divider_size
   local dots_width = style.font:get_width("…")
   core.push_clip_rect(x, y, self.size.x, h)
-  renderer.draw_rect(core.window, x, y, self.size.x, h, style.background2)
-  renderer.draw_rect(core.window, x, y + h - ds, self.size.x, ds, style.divider)
+  renderer.draw_rect(x, y, self.size.x, h, style.background2)
+  renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
   local tabs_number = self:get_visible_tabs_number()
 
   for i = self.tab_offset, self.tab_offset + tabs_number - 1 do
@@ -597,13 +597,13 @@ function Node:draw_tabs()
   if #self.views > tabs_number then
     local _, pad = get_scroll_button_width()
     local xrb, yrb, wrb, hrb = self:get_scroll_button_rect(1)
-    renderer.draw_rect(core.window, xrb + pad, yrb, wrb * 2, hrb, style.background2)
+    renderer.draw_rect(xrb + pad, yrb, wrb * 2, hrb, style.background2)
     local left_button_style = (self.hovered_scroll_button == 1 and self.tab_offset > 1) and style.text or style.dim
-    common.draw_text(core.window, style.icon_font, left_button_style, "<", nil, xrb + scroll_padding, yrb, 0, h)
+    common.draw_text( style.icon_font, left_button_style, "<", nil, xrb + scroll_padding, yrb, 0, h)
 
     xrb, yrb, wrb = self:get_scroll_button_rect(2)
     local right_button_style = (self.hovered_scroll_button == 2 and #self.views > self.tab_offset + tabs_number - 1) and style.text or style.dim
-    common.draw_text(core.window, style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
+    common.draw_text( style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
 
   core.pop_clip_rect()
@@ -621,7 +621,7 @@ function Node:draw()
     core.pop_clip_rect()
   else
     local x, y, w, h = self:get_divider_rect()
-    renderer.draw_rect(core.window, x, y, w, h, style.divider)
+    renderer.draw_rect(x, y, w, h, style.divider)
     self:propagate("draw")
   end
 end

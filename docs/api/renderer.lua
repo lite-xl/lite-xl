@@ -124,34 +124,30 @@ function renderer.begin_frame(window) end
 ---
 ---Tell the rendering system that we finished building the frame.
 ---
----@param window renwindow
-function renderer.end_frame(window) end
+function renderer.end_frame() end
 
 ---
 ---Set the region of the screen where draw operations will take effect.
 ---
----@param window renwindow
 ---@param x number
 ---@param y number
 ---@param width number
 ---@param height number
-function renderer.set_clip_rect(window, x, y, width, height) end
+function renderer.set_clip_rect(x, y, width, height) end
 
 ---
 ---Draw a rectangle.
 ---
----@param window renwindow
 ---@param x number
 ---@param y number
 ---@param width number
 ---@param height number
 ---@param color renderer.color
-function renderer.draw_rect(window, x, y, width, height, color) end
+function renderer.draw_rect(x, y, width, height, color) end
 
 ---
 ---Draw text and return the x coordinate where the text finished drawing.
 ---
----@param window renwindow
 ---@param font renderer.font
 ---@param text string
 ---@param x number
@@ -159,7 +155,7 @@ function renderer.draw_rect(window, x, y, width, height, color) end
 ---@param color renderer.color
 ---
 ---@return number x
-function renderer.draw_text(window, font, text, x, y, color) end
+function renderer.draw_text(font, text, x, y, color) end
 
 
 return renderer

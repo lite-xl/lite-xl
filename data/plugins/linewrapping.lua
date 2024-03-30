@@ -214,7 +214,7 @@ function LineWrapping.draw_guide(docview)
   if config.plugins.linewrapping.guide and docview.wrapped_settings.width ~= math.huge then
     local x, y = docview:get_content_offset()
     local gw = docview:get_gutter_width()
-    renderer.draw_rect(core.window, x + gw + docview.wrapped_settings.width, y, 1, core.root_view.size.y, style.selection)
+    renderer.draw_rect(x + gw + docview.wrapped_settings.width, y, 1, core.root_view.size.y, style.selection)
   end
 end
 
@@ -470,7 +470,7 @@ function DocView:draw_line_text(line, x, y)
       end
       local max_length = next_line_start_col - total_offset
       local rendered_text = text:sub(token_offset, token_offset + max_length - 1)
-      tx = renderer.draw_text(core.window, font, rendered_text, tx, ty, color)
+      tx = renderer.draw_text( font, rendered_text, tx, ty, color)
       total_offset = total_offset + #rendered_text
       if total_offset ~= next_line_start_col or max_length == 0 then break end
       token_offset = token_offset + #rendered_text
@@ -502,7 +502,7 @@ function DocView:draw_line_body(line, x, y)
             start = start + get_idx_line_length(self, i, line)
             x2 = x + self:get_col_x_offset(line, start + 1, true)
           end
-          renderer.draw_rect(core.window, x1, y + (i - idx0) * lh, x2 - x1, lh, style.selection)
+          renderer.draw_rect(x1, y + (i - idx0) * lh, x2 - x1, lh, style.selection)
         end
       end
     end

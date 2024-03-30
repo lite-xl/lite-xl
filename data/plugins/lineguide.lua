@@ -118,7 +118,7 @@ function DocView:draw_overlay(...)
         local w = ruler_width
         local h = self.size.y
 
-        renderer.draw_rect(core.window, x, y, w, h, ruler.color or ruler_color)
+        renderer.draw_rect(x, y, w, h, ruler.color or ruler_color)
       end
     end
   end

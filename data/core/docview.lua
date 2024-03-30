@@ -436,7 +436,7 @@ end
 
 function DocView:draw_line_highlight(x, y)
   local lh = self:get_line_height()
-  renderer.draw_rect(core.window, x, y, self.size.x, lh, style.line_highlight)
+  renderer.draw_rect(x, y, self.size.x, lh, style.line_highlight)
 end
 
 
@@ -454,7 +454,7 @@ function DocView:draw_line_text(line, x, y)
     local font = style.syntax_fonts[type] or default_font
     -- do not render newline, fixes issue #1164
     if tidx == last_token then text = text:sub(1, -2) end
-    tx = renderer.draw_text(core.window, font, text, tx, ty, color)
+    tx = renderer.draw_text( font, text, tx, ty, color)
     if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()
@@ -463,13 +463,13 @@ end
 
 function DocView:draw_overwrite_caret(x, y, width)
   local lh = self:get_line_height()
-  renderer.draw_rect(core.window, x, y + lh - style.caret_width, width, style.caret_width, style.caret)
+  renderer.draw_rect(x, y + lh - style.caret_width, width, style.caret_width, style.caret)
 end
 
 
 function DocView:draw_caret(x, y)
   local lh = self:get_line_height()
-  renderer.draw_rect(core.window, x, y, style.caret_width, lh, style.caret)
+  renderer.draw_rect(x, y, style.caret_width, lh, style.caret)
 end
 
 function DocView:draw_line_body(line, x, y)
@@ -504,7 +504,7 @@ function DocView:draw_line_body(line, x, y)
       local x1 = x + self:get_col_x_offset(line, col1)
       local x2 = x + self:get_col_x_offset(line, col2)
       if x1 ~= x2 then
-        renderer.draw_rect(core.window, x1, y, x2 - x1, lh, style.selection)
+        renderer.draw_rect(x1, y, x2 - x1, lh, style.selection)
       end
     end
   end
@@ -524,7 +524,7 @@ function DocView:draw_line_gutter(line, x, y, width)
   end
   x = x + style.padding.x
   local lh = self:get_line_height()
-  common.draw_text(core.window, self:get_font(), color, line, "right", x, y, width, lh)
+  common.draw_text( self:get_font(), color, line, "right", x, y, width, lh)
   return lh
 end
 
@@ -537,7 +537,7 @@ function DocView:draw_ime_decoration(line1, col1, line2, col2)
   -- Draw IME underline
   local x1 = self:get_col_x_offset(line1, col1)
   local x2 = self:get_col_x_offset(line2, col2)
-  renderer.draw_rect(core.window, x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.text)
+  renderer.draw_rect(x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.text)
 
   -- Draw IME selection
   local col = math.min(col1, col2)
@@ -547,7 +547,7 @@ function DocView:draw_ime_decoration(line1, col1, line2, col2)
   if from ~= to then
     x2 = self:get_col_x_offset(line1, to)
     line_size = style.caret_width
-    renderer.draw_rect(core.window, x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.caret)
+    renderer.draw_rect(x + math.min(x1, x2), y + lh - line_size, math.abs(x1 - x2), line_size, style.caret)
   end
   self:draw_caret(x + x1, y)
 end

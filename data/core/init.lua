@@ -1150,14 +1150,14 @@ function core.push_clip_rect(x, y, w, h)
   b, r = math.min(b, b2), math.min(r, r2)
   w, h = r-x, b-y
   table.insert(core.clip_rect_stack, { x, y, w, h })
-  renderer.set_clip_rect(core.window, x, y, w, h)
+  renderer.set_clip_rect(x, y, w, h)
 end
 
 
 function core.pop_clip_rect()
   table.remove(core.clip_rect_stack)
   local x, y, w, h = table.unpack(core.clip_rect_stack[#core.clip_rect_stack])
-  renderer.set_clip_rect(core.window, x, y, w, h)
+  renderer.set_clip_rect(x, y, w, h)
 end
 
 
@@ -1384,9 +1384,9 @@ function core.step()
   -- draw
   renderer.begin_frame(core.window)
   core.clip_rect_stack[1] = { 0, 0, width, height }
-  renderer.set_clip_rect(core.window, table.unpack(core.clip_rect_stack[1]))
+  renderer.set_clip_rect(table.unpack(core.clip_rect_stack[1]))
   core.root_view:draw()
-  renderer.end_frame(core.window)
+  renderer.end_frame()
   return true
 end
 
