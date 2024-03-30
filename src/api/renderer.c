@@ -284,9 +284,9 @@ static int f_show_debug(lua_State *L) {
 
 
 static int f_get_size(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  int w, h;
-  ren_get_size(window_renderer, &w, &h);
+  int w = 0, h = 0;
+  if (active_window_renderer)
+    ren_get_size(active_window_renderer, &w, &h);
   lua_pushnumber(L, w);
   lua_pushnumber(L, h);
   return 2;

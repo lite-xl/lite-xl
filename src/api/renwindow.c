@@ -62,9 +62,19 @@ static int f_renwin_gc(lua_State *L) {
   return 0;
 }
 
+static int f_get_size(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  int w, h;
+  ren_get_size(window_renderer, &w, &h);
+  lua_pushnumber(L, w);
+  lua_pushnumber(L, h);
+  return 2;
+}
+
 static const luaL_Reg renwindow_lib[] = {
-  { "create",   f_renwin_create   },
-  { "__gc",     f_renwin_gc       },
+  { "create",     f_renwin_create   },
+  { "__gc",       f_renwin_gc       },
+  { "get_size",   f_get_size        },
   {NULL, NULL}
 };
 

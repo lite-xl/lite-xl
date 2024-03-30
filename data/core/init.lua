@@ -1357,7 +1357,7 @@ function core.step()
     core.redraw = true
   end
 
-  local width, height = renderer.get_size(core.window)
+  local width, height = core.window:get_size()
 
   -- update
   core.root_view.size.x, core.root_view.size.y = width, height

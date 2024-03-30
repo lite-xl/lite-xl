@@ -84,9 +84,8 @@ function renderer.font:get_height() end
 ---
 ---Get the current size of the font.
 ---
----@param window renwindow
 ---@return number
-function renderer.font:get_size(window) end
+function renderer.font:get_size() end
 
 ---
 ---Set a new size for the font.
