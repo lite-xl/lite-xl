@@ -53,7 +53,9 @@ local function reload_doc_watch(doc)
   -- more than 2 seconds.
   local known_content
   local iter = 0
-  while iter <= 6 do
+  local start_time = system.get_time()
+  local max_iter = 6
+  while iter <= max_iter do
     local fp = io.open(doc.abs_filename, "rb")
     local new_content = fp and fp:read("*a")
     if new_content and new_content ~= known_content then
@@ -61,10 +63,17 @@ local function reload_doc_watch(doc)
       -- update the known content we store.
       reload_doc(doc)
       known_content = new_content
+      start_time = system.get_time()
       iter = 0
     end
-    coroutine.yield(wait_base_time * math.pow(2, iter))
-    iter = iter + 1
+    local now = system.get_time()
+    local new_time
+    -- increase iter until its associated time is greater than the present instant
+    repeat
+      iter = iter + 1
+      new_time = start_time + wait_base_time * math.pow(2, iter)
+    until new_time > now
+    coroutine.yield(new_time - now)
   end
 end
 
