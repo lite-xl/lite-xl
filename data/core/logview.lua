@@ -158,7 +158,7 @@ local function draw_text_multiline(font, text, x, y, color)
   local th = font:get_height()
   local resx = x
   for line in text:gmatch("[^\n]+") do
-    resx = renderer.draw_text( style.font, line, x, y, color)
+    resx = renderer.draw_text(style.font, line, x, y, color)
     y = y + th
   end
   return resx, y
@@ -193,7 +193,7 @@ function LogView:draw()
 
       -- timestamps are always 15% of the width
       local time = os.date(nil, item.time)
-      common.draw_text( style.font, style.dim, time, "left", x, y, tw, lh)
+      common.draw_text(style.font, style.dim, time, "left", x, y, tw, lh)
       x = x + tw + style.padding.x
 
       w = w - (x - self:get_content_offset())
@@ -203,7 +203,7 @@ function LogView:draw()
         _, y = draw_text_multiline(style.font, item.text, x, y, style.text)
 
         local at = "at " .. common.home_encode(item.at)
-        _, y = common.draw_text( style.font, style.dim, at, "left", x, y, w, lh)
+        _, y = common.draw_text(style.font, style.dim, at, "left", x, y, w, lh)
 
         if item.info then
           _, y = draw_text_multiline(style.font, item.info, x, y, style.dim)
@@ -213,7 +213,7 @@ function LogView:draw()
         if has_newline ~= "" then
           line = line .. " ..."
         end
-        _, y = common.draw_text( style.font, style.text, line, "left", x, y, w, lh)
+        _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
       end
 
       core.pop_clip_rect()

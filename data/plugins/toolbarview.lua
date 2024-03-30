@@ -83,7 +83,7 @@ function ToolbarView:draw()
 
   for item, x, y, w, h in self:each_item() do
     local color = item == self.hovered_item and command.is_valid(item.command) and style.text or style.dim
-    common.draw_text( item.font or self.toolbar_font, color, item.symbol, nil, x, y, 0, h)
+    common.draw_text(item.font or self.toolbar_font, color, item.symbol, nil, x, y, 0, h)
   end
 end
 

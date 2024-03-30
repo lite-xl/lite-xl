@@ -359,7 +359,7 @@ function TreeView:draw_tooltip()
   local bw, bh = w + 2 * tooltip_border, h + 2 * tooltip_border
   renderer.draw_rect(bx, by, bw, bh, replace_alpha(style.text, self.tooltip.alpha))
   renderer.draw_rect(x, y, w, h, replace_alpha(style.background2, self.tooltip.alpha))
-  common.draw_text( style.font, replace_alpha(style.text, self.tooltip.alpha), text, "center", x, y, w, h)
+  common.draw_text(style.font, replace_alpha(style.text, self.tooltip.alpha), text, "center", x, y, w, h)
 end
 
 
@@ -389,13 +389,13 @@ end
 
 function TreeView:draw_item_text(item, active, hovered, x, y, w, h)
   local item_text, item_font, item_color = self:get_item_text(item, active, hovered)
-  common.draw_text( item_font, item_color, item_text, nil, x, y, 0, h)
+  common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
 end
 
 
 function TreeView:draw_item_icon(item, active, hovered, x, y, w, h)
   local icon_char, icon_font, icon_color = self:get_item_icon(item, active, hovered)
-  common.draw_text( icon_font, icon_color, icon_char, nil, x, y, 0, h)
+  common.draw_text(icon_font, icon_color, icon_char, nil, x, y, 0, h)
   return self.item_icon_width + self.item_text_spacing
 end
 
@@ -410,7 +410,7 @@ function TreeView:draw_item_chevron(item, active, hovered, x, y, w, h)
   if item.type == "dir" then
     local chevron_icon = item.expanded and "-" or "+"
     local chevron_color = hovered and style.accent or style.text
-    common.draw_text( style.icon_font, chevron_color, chevron_icon, nil, x, y, 0, h)
+    common.draw_text(style.icon_font, chevron_color, chevron_icon, nil, x, y, 0, h)
   end
   return style.padding.x
 end

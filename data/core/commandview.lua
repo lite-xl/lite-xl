@@ -348,7 +348,7 @@ function CommandView:draw_line_gutter(idx, x, y)
   local color = common.lerp(style.text, style.accent, self.gutter_text_brightness / 100)
   core.push_clip_rect(pos.x, pos.y, self:get_gutter_width(), self.size.y)
   x = x + style.padding.x
-  renderer.draw_text( self:get_font(), self.label, x, y + yoffset, color)
+  renderer.draw_text(self:get_font(), self.label, x, y + yoffset, color)
   core.pop_clip_rect()
   return self:get_line_height()
 end
@@ -377,11 +377,11 @@ local function draw_suggestions_box(self)
     local item = self.suggestions[i]
     local color = (i == self.suggestion_idx) and style.accent or style.text
     local y = self.position.y - (i - first + 1) * lh - dh
-    common.draw_text( self:get_font(), color, item.text, nil, x, y, 0, lh)
+    common.draw_text(self:get_font(), color, item.text, nil, x, y, 0, lh)
 
     if item.info then
       local w = self.size.x - x - style.padding.x
-      common.draw_text( self:get_font(), style.dim, item.info, "right", x, y, w, lh)
+      common.draw_text(self:get_font(), style.dim, item.info, "right", x, y, w, lh)
     end
   end
   core.pop_clip_rect()

@@ -454,7 +454,7 @@ function DocView:draw_line_text(line, x, y)
     local font = style.syntax_fonts[type] or default_font
     -- do not render newline, fixes issue #1164
     if tidx == last_token then text = text:sub(1, -2) end
-    tx = renderer.draw_text( font, text, tx, ty, color)
+    tx = renderer.draw_text(font, text, tx, ty, color)
     if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()
@@ -524,7 +524,7 @@ function DocView:draw_line_gutter(line, x, y, width)
   end
   x = x + style.padding.x
   local lh = self:get_line_height()
-  common.draw_text( self:get_font(), color, line, "right", x, y, width, lh)
+  common.draw_text(self:get_font(), color, line, "right", x, y, width, lh)
   return lh
 end
 

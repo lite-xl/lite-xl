@@ -637,7 +637,7 @@ local function draw_suggestions_box(av)
       local ellipsis_size = font:get_width("…")
       local ell_x = rx + rw - info_size - icon_r_padding - ellipsis_size
       renderer.draw_rect(ell_x, y, ellipsis_size, lh, style.background3)
-      common.draw_text( font, color, "…", "left", ell_x, y, ellipsis_size, lh)
+      common.draw_text(font, color, "…", "left", ell_x, y, ellipsis_size, lh)
     end
     if s.info and not hide_info then
       color = (i == suggestions_idx) and style.text or style.dim

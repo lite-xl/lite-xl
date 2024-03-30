@@ -188,7 +188,7 @@ function ResultsView:draw()
       #self.results, self.query)
   end
   local color = common.lerp(style.text, style.accent, self.brightness / 100)
-  renderer.draw_text( style.font, text, x, y, color)
+  renderer.draw_text(style.font, text, x, y, color)
 
   -- horizontal line
   local yoffset = self:get_results_yoffset()
@@ -211,8 +211,8 @@ function ResultsView:draw()
     end
     x = x + style.padding.x
     local text = string.format("%s at line %d (col %d): ", item.file, item.line, item.col)
-    x = common.draw_text( style.font, style.dim, text, "left", x, y, w, h)
-    x = common.draw_text( style.code_font, color, item.text, "left", x, y, w, h)
+    x = common.draw_text(style.font, style.dim, text, "left", x, y, w, h)
+    x = common.draw_text(style.code_font, color, item.text, "left", x, y, w, h)
   end
 
   self:draw_scrollbar()

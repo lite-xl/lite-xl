@@ -97,7 +97,7 @@ end
 function TitleView:draw_window_controls()
   for item, x, y, w, h in self:each_control_item() do
     local color = item == self.hovered_item and style.text or style.dim
-    common.draw_text( style.icon_font, color, item.symbol, nil, x, y, 0, h)
+    common.draw_text(style.icon_font, color, item.symbol, nil, x, y, 0, h)
   end
 end
 

@@ -281,9 +281,9 @@ function ContextMenu:draw_context_menu()
         renderer.draw_rect(x, y, w, h, style.selection)
       end
 
-      common.draw_text( style.font, style.text, item.text, "left", x + style.padding.x, y, w, h)
+      common.draw_text(style.font, style.text, item.text, "left", x + style.padding.x, y, w, h)
       if item.info then
-        common.draw_text( style.font, style.dim, item.info, "right", x, y, w - style.padding.x, h)
+        common.draw_text(style.font, style.dim, item.info, "right", x, y, w - style.padding.x, h)
       end
     end
   end

@@ -535,7 +535,7 @@ function Node:draw_tab_title(view, font, is_active, is_hovered, x, y, w, h)
   local color = style.dim
   if is_active then color = style.text end
   if is_hovered then color = style.text end
-  common.draw_text( font, color, text, align, x, y, w, h)
+  common.draw_text(font, color, text, align, x, y, w, h)
 end
 
 function Node:draw_tab_borders(view, is_active, is_hovered, x, y, w, h, standalone)
@@ -566,7 +566,7 @@ function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h
   local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
   if show_close_button then
     local close_style = is_close_hovered and style.text or style.dim
-    common.draw_text( style.icon_font, close_style, "C", nil, cx, y, cw, h)
+    common.draw_text(style.icon_font, close_style, "C", nil, cx, y, cw, h)
   end
   -- Title
   x = x + cpad
@@ -599,11 +599,11 @@ function Node:draw_tabs()
     local xrb, yrb, wrb, hrb = self:get_scroll_button_rect(1)
     renderer.draw_rect(xrb + pad, yrb, wrb * 2, hrb, style.background2)
     local left_button_style = (self.hovered_scroll_button == 1 and self.tab_offset > 1) and style.text or style.dim
-    common.draw_text( style.icon_font, left_button_style, "<", nil, xrb + scroll_padding, yrb, 0, h)
+    common.draw_text(style.icon_font, left_button_style, "<", nil, xrb + scroll_padding, yrb, 0, h)
 
     xrb, yrb, wrb = self:get_scroll_button_rect(2)
     local right_button_style = (self.hovered_scroll_button == 2 and #self.views > self.tab_offset + tabs_number - 1) and style.text or style.dim
-    common.draw_text( style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
+    common.draw_text(style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
 
   core.pop_clip_rect()

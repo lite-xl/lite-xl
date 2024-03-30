@@ -470,7 +470,7 @@ function DocView:draw_line_text(line, x, y)
       end
       local max_length = next_line_start_col - total_offset
       local rendered_text = text:sub(token_offset, token_offset + max_length - 1)
-      tx = renderer.draw_text( font, rendered_text, tx, ty, color)
+      tx = renderer.draw_text(font, rendered_text, tx, ty, color)
       total_offset = total_offset + #rendered_text
       if total_offset ~= next_line_start_col or max_length == 0 then break end
       token_offset = token_offset + #rendered_text
