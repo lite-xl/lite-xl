@@ -43,6 +43,31 @@ local function reload_doc(doc)
   core.log_quiet("Auto-reloaded doc \"%s\"", doc.filename)
 end
 
+-- thread function to watch a file for a period of time for changes in
+-- its content
+local function reload_doc_watch(doc)
+  local wait_base_time = 20e-3
+  -- the variable iter is the iteration count in the watch procedure.
+  -- it will wait each time: wait_base_time * 2^iter
+  -- The max number of iter is choosen so that it waits, globally a little
+  -- more than 2 seconds.
+  local known_content
+  local iter = 0
+  while iter <= 6 do
+    local fp = io.open(doc.abs_filename, "rb")
+    local new_content = fp and fp:read("*a")
+    if new_content and new_content ~= known_content then
+      -- reading file was successfull and content has changed: reload the doc and
+      -- update the known content we store.
+      reload_doc(doc)
+      known_content = new_content
+      iter = 0
+    end
+    coroutine.yield(wait_base_time * math.pow(2, iter))
+    iter = iter + 1
+  end
+end
+
 local function check_prompt_reload(doc)
   if doc and doc.deferred_reload then
     core.nag_view:show("File Changed", doc.filename .. " has changed. Reload this file?", {
@@ -71,7 +96,7 @@ function dirwatch:check(change_callback, ...)
         local info = system.get_file_info(doc.filename or "")
         if info and info.type == "file" and times[doc] ~= info.modified then
           if not doc:is_dirty() and not config.plugins.autoreload.always_show_nagview then
-            reload_doc(doc)
+            core.add_thread(reload_doc_watch, doc, doc)
           else
             doc.deferred_reload = true
             if doc == core.active_view.doc then check_prompt_reload(doc) end
