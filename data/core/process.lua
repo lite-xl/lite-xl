@@ -11,23 +11,6 @@ local config = require "core.config"
 process.stream = {}
 process.stream.__index = process.stream
 
-
----@alias process.stream.readtype
----| `"line"` # Reads a single line
----| `"all"`  # Reads the entire stream
-
-
----Options that can be passed to stream.read().
----@class process.stream.readoption
----@field public timeout number The number of seconds to wait before the function throws an error. Reads do not time out by default.
----@field public scan number The number of seconds to yield in a coroutine. Defaults to `1/config.fps`.
-
-
----Options that can be passed into stream.write().
----@class process.stream.writeoption
----@field public scan number The number of seconds to yield in a coroutine. Defaults to `1/config.fps`.
-
-
 ---Creates a stream from a process.
 ---@param proc process The process to wrap.
 ---@param fd process.streamtype The standard stream of the process to wrap.
@@ -35,6 +18,15 @@ function process.stream.new(proc, fd)
   return setmetatable({ fd = fd, process = proc, buf = {}, len = 0 }, process.stream)
 end
 
+---@alias process.stream.readtype
+---| `"line"` # Reads a single line
+---| `"all"`  # Reads the entire stream
+---| `"L"`    # Reads a single line, keeping the trailing newline character.
+
+---Options that can be passed to stream.read().
+---@class process.stream.readoption
+---@field public timeout number The number of seconds to wait before the function throws an error. Reads do not time out by default.
+---@field public scan number The number of seconds to yield in a coroutine. Defaults to `1/config.fps`.
 
 ---Reads data from the stream.
 ---
@@ -100,6 +92,10 @@ function process.stream:read(bytes, options)
   return str:sub(1, target + ((bytes == "line" or bytes == "l") and str:byte(target) == 10 and -1 or 0))
 end
 
+
+---Options that can be passed into stream.write().
+---@class process.stream.writeoption
+---@field public scan number The number of seconds to yield in a coroutine. Defaults to `1/config.fps`.
 
 ---Writes data into the stream.
 ---
