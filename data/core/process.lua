@@ -1,19 +1,50 @@
 local config = require "core.config"
 
+
+---An abstraction over the standard input and outputs of a process
+---that allows you to read and write data easily.
+---@class process.stream
+---@field private fd process.streamtype
+---@field private process process
+---@field private buf string[]
+---@field private len number
 process.stream = {}
 process.stream.__index = process.stream
 
---- @param proc process The `process` which this stream references.
---- @param fd integer The constant from `process` that represents `stdin`, `stdout` or `stderr`.
+
+---@alias process.stream.readtype
+---| `"line"` # Reads a single line
+---| `"all"`  # Reads the entire stream
+
+
+---Options that can be passed to stream.read().
+---@class process.stream.readoption
+---@field public timeout number The number of seconds to wait before the function throws an error. Reads do not time out by default.
+---@field public scan number The number of seconds to yield in a coroutine. Defaults to `1/config.fps`.
+
+
+---Options that can be passed into stream.write().
+---@class process.stream.writeoption
+---@field public scan number The number of seconds to yield in a coroutine. Defaults to `1/config.fps`.
+
+
+---Creates a stream from a process.
+---@param proc process The process to wrap.
+---@param fd process.streamtype The standard stream of the process to wrap.
 function process.stream.new(proc, fd)
   return setmetatable({ fd = fd, process = proc, buf = {}, len = 0 }, process.stream)
 end
 
---- read is designed to be run in a coroutine; if not in one, it will perform a non-blocking read.
---- @param bytes string|number Can be "line", "l", or "L" to read a line, "all", "a" to read the whole file, or a number to read the specified amount of bytes.
---- @param options table? A table specifying `timeout`: how many seconds to wait before `error`ing, and `scan`: the amount of time to yield for while waiting.
+
+---Reads data from the stream.
 ---
---- @return string The result of reading from this process.
+---When called inside a coroutine such as `core.add_thread()`,
+---the function yields to the main thread occassionally to avoid blocking the editor. <br>
+---If the function is not called inside the coroutine, the function returns immediately
+---without waiting for more data.
+---@param bytes process.stream.readtype|integer The format or number of bytes to read.
+---@param options? process.stream.readoption Options for reading from the stream.
+---@return string|nil data The string read from the stream, or nil if no data could be read.
 function process.stream:read(bytes, options)
   if type(bytes) == 'string' then bytes = bytes:gsub("^%*", "") end
   options = options or {}
@@ -70,11 +101,15 @@ function process.stream:read(bytes, options)
 end
 
 
---- write is designed to be run in a coroutine, if not in one, it will perform a non-blocking write.
---- @param bytes string The bytes to write into this process's stream.
---- @param options table? A table specifying `scan`, which is the amount of time to yield for while waiting.
+---Writes data into the stream.
 ---
---- @return integer The amount of bytes written to this stream.
+---When called inside a coroutine such as `core.add_thread()`,
+---the function yields to the main thread occassionally to avoid blocking the editor. <br>
+---If the function is not called inside the coroutine,
+---the function writes as much data as possible before returning.
+---@param bytes string The bytes to write into the stream.
+---@param options? process.stream.writeoption Options for writing to the stream.
+---@return integer num_bytes The number of bytes written to the stream.
 function process.stream:write(bytes, options)
   options = options or {}
   local buf = bytes
@@ -89,17 +124,20 @@ function process.stream:write(bytes, options)
 end
 
 
---- closes the underlying stream
+---Closes the stream and its underlying resources.
 function process.stream:close()
   return self.process.process:close_stream(self.fd)
 end
 
 
---- waits until the process exits. designed to be called in a coroutine, otherwise will block the editor.
---- @param timeout number The amount of seconds to wait. If omitted, will wait indefinitely.
----
---- @return integer|nil The system exit code for this process, or nil, if the wait timed out.
-function process:wait(timeout)
+---Waits for the process to exit.
+---When called inside a coroutine such as `core.add_thread()`,
+---the function yields to the main thread occassionally to avoid blocking the editor. <br>
+---Otherwise, the function blocks the editor until the process exited or the timeout has expired.
+---@param timeout? number The amount of seconds to wait. If omitted, the function will wait indefinitely.
+---@param scan? number The amount of seconds to yield while scanning. If omittted, the scan rate will be the FPS.
+---@return integer|nil exit_code The exit code for this process, or nil if the wait timed out.
+function process:wait(timeout, scan)
   if not coroutine.running() then return self.process:wait(timeout) end
   local start = system.get_time()
   while self.process:running() and (system.get_time() - start > (timeout or math.huge)) do
