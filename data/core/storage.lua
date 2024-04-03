@@ -1,3 +1,4 @@
+local core = require "core"
 local common = require "core.common"
 
 local function module_key_to_path(module, key)
@@ -5,15 +6,16 @@ local function module_key_to_path(module, key)
 end
 
 
------ Provides persistent storage between restarts of the application.
+---Provides persistent storage between restarts of the application.
 ---@class storage
 local storage = {}
 
----Loads data from a persistent storage file.
 
+---Loads data from a persistent storage file.
+---
 ---@param module string The module under which the data is stored.
 ---@param key string The key under which the data is stored.
----@return string|table|number data The stored data present for this module, at this key.
+---@return string|table|number? data The stored data present for this module, at this key.
 function storage.load(module, key)
   local path = module_key_to_path(module, key)
   if system.get_file_info(path) then
@@ -29,7 +31,7 @@ end
 
 
 ---Saves data to a persistent storage file.
-
+---
 ---@param module string The module under which the data is stored.
 ---@param key string The key under which the data is stored.
 ---@param value table|string|number The value to store.
@@ -53,16 +55,16 @@ end
 
 
 ---Gets the list of keys saved under a module.
-
+---
 ---@param module string The module under which the data is stored.
 ---@return table A table of keys under which data is stored for this module.
 function storage.keys(module)
-  return system.list_dir(module_key_to_path(module))
+  return system.list_dir(module_key_to_path(module)) or {}
 end
 
 
 ---Clears data for a particular module and optionally key.
-
+---
 ---@param module string The module under which the data is stored.
 ---@param key? string The key under which the data is stored. If omitted, will clear the entire store for this module.
 function storage.clear(module, key)
@@ -71,5 +73,6 @@ function storage.clear(module, key)
     common.rm(path, true)
   end
 end
+
 
 return storage
