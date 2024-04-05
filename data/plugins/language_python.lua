@@ -49,7 +49,7 @@ local python_fstring = {
     patterns = {
       { pattern = {"{", "}"},  type = "normal", syntax = ".py" },
       { pattern = "\\.",       type = "string"                 },
-      { pattern = '[^"\\{}]+', type = "string"                 }
+      { pattern = '[^"\\{]+',  type = "string"                 }
 
     },
 
