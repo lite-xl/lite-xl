@@ -472,6 +472,7 @@ function RootView:update()
   self.root_node.size = { x = self.size.x, y = self.size.y }
   self.root_node:update()
   self.root_node:update_layout(self)
+  self.root_node:dump(0)
 
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)

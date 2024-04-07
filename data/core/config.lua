@@ -265,10 +265,10 @@ config.pockets = {
   -- { id = "status", direction = "down", layout = "single" },
   -- { id = "command", direction = "down", layout = "single" },
   -- { id = "top", direction = "up", layout = "hsplit", length = 200*SCALE },
-  -- { id = "bottom", direction = "down", layout = "hsplit", length = 200*SCALE },
-  { id = "left", direction = "left", layout = "tab", length = 200*SCALE },
-  -- { id = "right", direction = "right", layout = "tab", length = 200*SCALE },
-  -- { id = "drawer", direction = "down", layout = "tab", length = 200*SCALE }
+  -- { id = "bottom", direction = "down", layout = "hsplit", length = 200*SCALE, tabbable = true },
+     { id = "left", direction = "left", layout = "primary", length = 200*SCALE },
+  -- { id = "right", direction = "right", layout = "primary", length = 200*SCALE },
+  -- { id = "drawer", direction = "down", layout = "primary", length = 200*SCALE }
 }
 
 -- holds the plugins real config table

@@ -94,6 +94,8 @@ function Node:split(dir, view, pocket)
   local child = Node()
   child:consume(self)
   self:consume(Node(node_type))
+  self.pocket = child.pocket
+  child.pocket = nil
   self.a = child
   self.b = Node()
   if pocket then
@@ -166,7 +168,7 @@ function Node:add_view(view, idx, layout)
   local leaf = self
   if self.pocket then
     layout = layout or self.pocket.layout
-    if layout == "tab" then
+    if layout == "primary" then
       while leaf.type ~= "leaf" do leaf = leaf.a end
     else
       while leaf.type ~= "leaf" do leaf = leaf.b end
@@ -291,12 +293,16 @@ end
 
 
 function Node:should_show_tabs()
-  if self.pocket and self.pocket.layout == "single" then return false end
+  local always_show_tabs = config.always_show_tabs
+  if self.pocket then
+    if self.pocket.layout == "single" then return false end
+    if self.pocket.always_show_tabs ~= nil then always_show_tabs = self.pocket.always_show_tabs end
+  end
   local dn = core.root_view.dragged_node
   if #self.views > 1
      or (dn and dn.dragging) then -- show tabs while dragging
     return true
-  elseif config.always_show_tabs then
+  elseif always_show_tabs then
     return not self.views[1]:is(EmptyView)
   end
   return false
@@ -386,6 +392,15 @@ function Node:get_divider_rect()
 end
 
 
+function Node:dump(level)
+  print(string.rep(" ", level) .. " " .. self.type .. (self.pocket and " (" .. self.pocket.id .. ")" or ""))
+  if self.type ~= "leaf" then
+    self.a:dump(level+1)
+    self.b:dump(level+1)
+  end
+end
+
+
 function Node:known_length(parent, pocket)
   if self.pocket then pocket = self end
   if not pocket then return nil end
@@ -393,17 +408,20 @@ function Node:known_length(parent, pocket)
     if pocket.pocket.layout == "single" then
       local axis = (pocket.pocket.direction == "left" or pocket.pocket.direction == "right") and "x" or "y"
       return self.active_view.size[axis]
+    else
+      return nil -- pockets are always resizable, and have no known length
     end
   end
-  -- If we're in a pocket that is a "tab" pocket, all subsequent splits are assumed to be "single" splits, where the view controls the height.
+  -- If we're in a pocket that is a "primary" pocket, all subsequent splits are assumed to be "single" splits, where the view controls the height.
   -- The first split will be of variable height.
-  if pocket and pocket.pocket.layout == "tab" and self ~= pocket.a then
+  if pocket and pocket.pocket.layout == "primary" and self ~= pocket.a then
     local axis = parent.type == "hsplit" and "x" or "y"
     if self.type == "leaf" then return self.active_view.size[axis] end
     return self.a:known_length(self, pocket) + self.b:known_length(self, pocket)
   end
   return nil
 end
+
 
 -- The process for determining view size is like so.
 -- This function is where all layout computations go.
@@ -424,6 +442,7 @@ end
     elseif b_length then
       self.length = self.size[axis] - b_length - style.divider_size
     end
+    print("A", self.pocket ~= nil, a_length, b_length, self.length)
     if self.length then
       if self.type == "hsplit" then
         self.a.size.x = self.length
@@ -683,7 +702,7 @@ end
 
 -- Nodes are resizable only exactly any of the following conditions.
 -- 1. The node is the primary node.
--- 2. The node is in a pocket that does not have a layout of "tab" or "single".
+-- 2. The node is in a pocket that does not have a layout of "primary" or "single".
 -- 4. The node is a pocket that does not have a layout of "single".
 function Node:is_resizable(axis)
   if self.pocket then
