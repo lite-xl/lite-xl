@@ -45,6 +45,7 @@ function RootView:new()
   for i,v in ipairs(config.pockets) do
     self.pockets[v.id] = self:get_primary_node():split(v.direction, defaults_view_placement[v.id], v)
   end
+  self.pockets.root = self:get_primary_node()
 end
 
 
@@ -54,11 +55,11 @@ end
 
 
 ---@return core.node
-function RootView:get_active_node()
-  local node = self.root_node:get_node_for_view(core.active_view)
-  if not node then node = self:get_primary_node() end
-  return node
+function RootView:get_active_node(pocket)
+  local node = (pocket and self.pockets[pocket] or self.root_node):get_node_for_view(core.active_view)
+  return node or self:get_primary_node()
 end
+RootView.get_active_node_default = RootView.get_active_node
 
 
 ---@return core.node
@@ -72,18 +73,6 @@ local function get_primary_node(node)
 end
 
 
----@return core.node
-function RootView:get_active_node_default()
-  local node = self.root_node:get_node_for_view(core.active_view)
-  if not node then node = self:get_primary_node() end
-  if node.locked then
-    local default_view = self:get_primary_node().views[1]
-    assert(default_view, "internal error: cannot find original document node.")
-    core.set_active_view(default_view)
-    node = self:get_active_node()
-  end
-  return node
-end
 
 
 ---@return core.node
@@ -113,7 +102,7 @@ end
 ---@param doc core.doc
 ---@return core.docview
 function RootView:open_doc(doc)
-  local node = self:get_active_node_default()
+  local node = self:get_active_node_default("root")
   for i, view in ipairs(node.views) do
     if view.doc == doc then
       node:set_active_view(node.views[i])
@@ -589,7 +578,7 @@ function RootView:add_view(view, pocket, layout)
   local target
   if pocket then
     if pocket == "root" then
-      target = self:get_primary_node()
+      target = self:get_active_node_default("root")
     else
       target = self.pockets[pocket]
       if not target then
