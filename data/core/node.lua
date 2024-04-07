@@ -710,18 +710,11 @@ end
 function Node:is_resizable(axis)
   if self.pocket then
     if self.pocket.layout == "single" then return false end
+    if self.pocket.layout == "root" then return true end
     return (axis == "x" and (self.pocket.direction == "left" or self.pocket.direction == "right")) or
       (axis == "y" and (self.pocket.direction == "top" or self.pocket.direction == "bottom"))
   end
   return self.is_primary_node or (self.type ~= 'leaf' and (self.a:is_resizable(axis) and self.b:is_resizable(axis)))
-end
-
-
-function Node:resize(axis, value)
-  value = math.floor(value)
-  if self.type ~= 'leaf' and self.type == (axis == "x" and "hsplit" or "vsplit") then
-    self.length = value
-  end
 end
 
 

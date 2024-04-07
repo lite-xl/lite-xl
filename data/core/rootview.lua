@@ -46,6 +46,7 @@ function RootView:new()
     self.pockets[v.id] = self:get_primary_node():split(v.direction, defaults_view_placement[v.id], v)
   end
   self.pockets.root = self:get_primary_node()
+  self.pockets.root.pocket = { id = "root", layout = "root" }
 end
 
 
@@ -284,16 +285,6 @@ function RootView:on_mouse_released(button, x, y, ...)
 end
 
 
-local function resize_child_node(node, axis, value, delta)
-  local accept_resize = node.a:resize(axis, value)
-  if not accept_resize then
-    accept_resize = node.b:resize(axis, node.size[axis] - value)
-  end
-  if not accept_resize then
-    node.divider = node.divider + delta / node.size[axis]
-  end
-end
-
 
 ---@param x number
 ---@param y number
@@ -318,10 +309,10 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     local node = self.dragged_divider
     if node.type == "hsplit" then
       x = common.clamp(x - node.position.x, 0, self.root_node.size.x * 0.95)
-      resize_child_node(node, "x", x, dx)
+      node.length = x
     elseif node.type == "vsplit" then
       y = common.clamp(y - node.position.y, 0, self.root_node.size.y * 0.95)
-      resize_child_node(node, "y", y, dy)
+      node.length = y
     end
     node.divider = common.clamp(node.divider, 0.01, 0.99)
     return
