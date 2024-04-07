@@ -1,9 +1,14 @@
 local core = require "core"
 local common = require "core.common"
+local config = require "core.config"
 local style = require "core.style"
 local Node = require "core.node"
 local View = require "core.view"
 local DocView = require "core.docview"
+local StatusView = require "core.statusview"
+local TitleView = require "core.titleview"
+local CommandView = require "core.commandview"
+local NagView = require "core.nagview"
 
 ---@class core.rootview : core.view
 ---@field super core.view
@@ -14,6 +19,7 @@ local RootView = View:extend()
 function RootView:new()
   RootView.super.new(self)
   self.root_node = Node()
+  self.root_node.is_primary_node = true
   self.deferred_draws = {}
   self.mouse = { x = 0, y = 0 }
   self.drag_overlay = { x = 0, y = 0, w = 0, h = 0, visible = false, opacity = 0,
@@ -27,6 +33,18 @@ function RootView:new()
   self.grab = nil -- = {view = nil, button = nil}
   self.overlapping_view = nil
   self.touched_view = nil
+
+  self.pockets = {}
+
+  local defaults_view_placement = {
+    title = core.title_view,
+    nag = core.nag_view,
+    command = core.command_view,
+    status = core.status_view
+  }
+  for i,v in ipairs(config.pockets) do
+    self.pockets[v.id] = self:get_primary_node():split(v.direction, defaults_view_placement[v.id], v)
+  end
 end
 
 
@@ -80,11 +98,8 @@ local function select_next_primary_node(node)
   if node.is_primary_node then return end
   if node.type ~= "leaf" then
     return select_next_primary_node(node.a) or select_next_primary_node(node.b)
-  else
-    local lx, ly = node:get_locked_size()
-    if not lx and not ly then
-      return node
-    end
+  elseif not node.pocket then
+    return node
   end
 end
 
@@ -453,9 +468,10 @@ end
 
 
 function RootView:update()
-  Node.copy_position_and_size(self.root_node, self)
+  self.root_node.position = { x = self.position.x, y = self.position.y }
+  self.root_node.size = { x = self.size.x, y = self.size.y }
   self.root_node:update()
-  self.root_node:update_layout()
+  self.root_node:update_layout(self)
 
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
@@ -563,6 +579,26 @@ function RootView:draw()
     system.set_cursor(core.cursor_change_req)
     core.cursor_change_req = nil
   end
+end
+
+
+function RootView:add_view(view, pocket, layout)
+  local target
+  if pocket then
+    if pocket == "root" then
+      target = self:get_primary_node()
+    else
+      target = self.pockets[pocket]
+      if not target then
+        core.warn("can't find pocket '%s'; defaulting to primary node", pocket)
+        target = self:get_primary_node()
+      end
+    end
+  else
+    target = self:get_active_node_default()
+  end
+  target:add_view(view, nil, layout)
+  return view
 end
 
 

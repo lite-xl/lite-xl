@@ -1115,7 +1115,7 @@ function StatusView:update()
   else
     self.size.y = height
   end
-
+  
   if system.get_time() < self.message_timeout then
     self.scroll.to.y = self.size.y
   else

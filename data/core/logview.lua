@@ -1,3 +1,5 @@
+-- mod-version:3
+
 local core = require "core"
 local common = require "core.common"
 local config = require "core.config"
@@ -45,7 +47,6 @@ function LogView:new()
   self.expanding = {}
   self.scrollable = true
   self.yoffset = 0
-
   core.status_view:show_message("i", style.text, "ctrl+click to copy entry")
 end
 

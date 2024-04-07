@@ -736,29 +736,7 @@ function core.init()
   core.restart_request = false
   core.quit_request = false
 
-  -- We load core views before plugins that may need them.
-  ---@type core.rootview
-  core.root_view = RootView()
-  ---@type core.commandview
-  core.command_view = CommandView()
-  ---@type core.statusview
-  core.status_view = StatusView()
-  ---@type core.nagview
-  core.nag_view = NagView()
-  ---@type core.titleview
-  core.title_view = TitleView()
-
-  -- Some plugins (eg: console) require the nodes to be initialized to defaults
-  local cur_node = core.root_view.root_node
-  cur_node.is_primary_node = true
-  cur_node:split("up", core.title_view, {y = true})
-  cur_node = cur_node.b
-  cur_node:split("up", core.nag_view, {y = true})
-  cur_node = cur_node.b
-  cur_node = cur_node:split("down", core.command_view, {y = true})
-  cur_node = cur_node:split("down", core.status_view, {y = true})
-
-  -- Load defaiult commands first so plugins can override them
+  -- Load default commands first so plugins can override them
   command.add_defaults()
 
   -- Load user module, plugins and project module
@@ -785,6 +763,13 @@ function core.init()
       os.exit(1)
     end
   end
+
+  ---@type core.rootview
+  core.command_view = CommandView()
+  core.status_view = StatusView()
+  core.nag_view = NagView()
+  core.title_view = TitleView()
+  core.root_view = RootView()
 
   -- Load core plugins after user ones to let the user override them
   local plugins_success, plugins_refuse_list = core.load_plugins()
@@ -832,7 +817,7 @@ function core.init()
         msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(msg_list, "\n"))
       end
     end
-    core.nag_view:show(
+    core.root_view.nag_view:show(
       "Refused Plugins",
       string.format(
         "Some plugins are not loaded due to version mismatch. Expected version %s.\n\n%s.\n\n" ..
@@ -868,7 +853,7 @@ function core.confirm_close_docs(docs, close_fn, ...)
       { text = "Yes", default_yes = true },
       { text = "No", default_no = true }
     }
-    core.nag_view:show("Unsaved Changes", text, opt, function(item)
+    core.root_view.nag_view:show("Unsaved Changes", text, opt, function(item)
       if item.text == "Yes" then close_fn(table.unpack(args)) end
     end)
   else
@@ -1197,10 +1182,11 @@ end
 
 function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
+  print(text)
   if show then
     local s = style.log[level]
-    if core.status_view then
-      core.status_view:show_message(s.icon, s.color, text)
+    if core.root_view.status_view then
+      core.root_view.status_view:show_message(s.icon, s.color, text)
     end
   end
 

@@ -46,6 +46,10 @@ local t = {
     end
   end,
 
+  ["root:toggle-pocket"] = function(node)
+
+  end,
+
   ["root:shrink"] = function(node)
     local parent = node:get_parent_node(core.root_view.root_node)
     local n = (parent.a == node) and -0.1 or 0.1
@@ -98,8 +102,7 @@ end
 
 command.add(function()
   local node = core.root_view:get_active_node()
-  local sx, sy = node:get_locked_size()
-  return not sx and not sy, node
+  return true, node
 end, t)
 
 command.add(nil, {

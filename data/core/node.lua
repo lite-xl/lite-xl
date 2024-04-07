@@ -23,6 +23,7 @@ function Node:new(type)
   self.tab_offset = 1
   self.tab_width = style.tab_width
   self.move_towards = View.move_towards
+  self.pocket = nil
 end
 
 
@@ -84,13 +85,9 @@ end
 
 local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
 
--- The "locked" argument below should be in the form {x = <boolean>, y = <boolean>}
--- and it indicates if the node want to have a fixed size along the axis where the
--- boolean is true. If not it will be expanded to take all the available space.
--- The "resizable" flag indicates if, along the "locked" axis the node can be resized
--- by the user. If the node is marked as resizable their view should provide a
--- set_target_size method.
-function Node:split(dir, view, locked, resizable)
+-- The "pocket" argument below should indicate if this node is splitting off to form
+-- an addressable pocket, and should be provided with the object as specified in `config`.
+function Node:split(dir, view, pocket)
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local node_type = assert(type_map[dir], "Invalid direction")
   local last_active = core.active_view
@@ -99,13 +96,13 @@ function Node:split(dir, view, locked, resizable)
   self:consume(Node(node_type))
   self.a = child
   self.b = Node()
-  if view then self.b:add_view(view) end
-  if locked then
-    assert(type(locked) == 'table')
-    self.b.locked = locked
-    self.b.resizable = resizable or false
-    core.set_active_view(last_active)
+  if pocket then
+    local axis = dir == "left" or dir == "right" and "x" or "y"
+    self.b.pocket = pocket
+    self.size[axis] = pocket.length
+    self.length = pocket.length
   end
+  if view then self.b:add_view(view) end
   if dir == "up" or dir == "left" then
     self.a, self.b = self.b, self.a
     return self.a
@@ -127,18 +124,11 @@ function Node:remove_view(root, view)
     local parent = self:get_parent_node(root)
     local is_a = (parent.a == self)
     local other = parent[is_a and "b" or "a"]
-    local locked_size_x, locked_size_y = other:get_locked_size()
-    local locked_size
-    if parent.type == "hsplit" then
-      locked_size = locked_size_x
-    else
-      locked_size = locked_size_y
-    end
     local next_primary
     if self.is_primary_node then
       next_primary = core.root_view:select_next_primary_node()
     end
-    if locked_size or (self.is_primary_node and not next_primary) then
+    if (self.is_primary_node and not next_primary) then
       self.views = {}
       self:add_view(EmptyView())
     else
@@ -172,18 +162,33 @@ function Node:close_active_view(root)
 end
 
 
-function Node:add_view(view, idx)
-  assert(self.type == "leaf", "Tried to add view to non-leaf node")
-  assert(not self.locked, "Tried to add view to locked node")
-  if self.views[1] and self.views[1]:is(EmptyView) then
-    table.remove(self.views)
+function Node:add_view(view, idx, layout)
+  local leaf = self
+  if self.pocket then
+    layout = layout or self.pocket.layout
+    if layout == "tab" then
+      while leaf.type ~= "leaf" do leaf = leaf.a end
+    else
+      while leaf.type ~= "leaf" do leaf = leaf.b end
+    end
+    local view_count = #leaf.views - (#leaf.views > 0 and leaf.views[1]:is(EmptyView) and 1 or 0)
+    if view_count > 0 and layout == "hsplit" then
+      return leaf:split("right", view)
+    elseif view_count > 0 and layout == "vsplit" then
+      return leaf:split("down", view)
+    end
+  end
+  assert(leaf.type == "leaf", "Tried to add view to non-leaf node")
+  if leaf.views[1] and leaf.views[1]:is(EmptyView) then
+    table.remove(leaf.views)
     if idx and idx > 1 then
       idx = idx - 1
     end
   end
-  idx = common.clamp(idx or (#self.views + 1), 1, (#self.views + 1))
-  table.insert(self.views, idx, view)
-  self:set_active_view(view)
+  assert(not leaf.pocket or leaf.pocket.layout ~= "single" or #leaf.views == 0, "Tried to add secondary view to single pocket.")
+  idx = common.clamp(idx or (#leaf.views + 1), 1, (#leaf.views + 1))
+  table.insert(leaf.views, idx, view)
+  leaf:set_active_view(view)
 end
 
 
@@ -212,6 +217,13 @@ function Node:get_node_for_view(view)
   if self.type ~= "leaf" then
     return self.a:get_node_for_view(view) or self.b:get_node_for_view(view)
   end
+end
+
+
+function Node:get_pocket(root)
+  if self.pocket then return self end
+  local parent = self:get_parent_node(root)
+  return parent and parent:get_pocket(root)
 end
 
 
@@ -279,7 +291,7 @@ end
 
 
 function Node:should_show_tabs()
-  if self.locked then return false end
+  if self.pocket and self.pocket.layout == "single" then return false end
   local dn = core.root_view.dragged_node
   if #self.views > 1
      or (dn and dn.dragging) then -- show tabs while dragging
@@ -374,82 +386,69 @@ function Node:get_divider_rect()
 end
 
 
--- Return two values for x and y axis and each of them is either falsy or a number.
--- A falsy value indicate no fixed size along the corresponding direction.
-function Node:get_locked_size()
-  if self.type == "leaf" then
-    if self.locked then
-      local size = self.active_view.size
-      -- The values below should be either a falsy value or a number
-      local sx = (self.locked and self.locked.x) and size.x
-      local sy = (self.locked and self.locked.y) and size.y
-      return sx, sy
+function Node:known_length(parent, pocket)
+  if self.pocket then pocket = self end
+  if not pocket then return nil end
+  if self == pocket then
+    if pocket.pocket.layout == "single" then
+      local axis = (pocket.pocket.direction == "left" or pocket.pocket.direction == "right") and "x" or "y"
+      return self.active_view.size[axis]
     end
-  else
-    local x1, y1 = self.a:get_locked_size()
-    local x2, y2 = self.b:get_locked_size()
-    -- The values below should be either a falsy value or a number
-    local sx, sy
-    if self.type == 'hsplit' then
-      if x1 and x2 then
-        local dsx = (x1 < 1 or x2 < 1) and 0 or style.divider_size
-        sx = x1 + x2 + dsx
-      end
-      sy = y1 or y2
-    else
-      if y1 and y2 then
-        local dsy = (y1 < 1 or y2 < 1) and 0 or style.divider_size
-        sy = y1 + y2 + dsy
-      end
-      sx = x1 or x2
-    end
-    return sx, sy
   end
+  -- If we're in a pocket that is a "tab" pocket, all subsequent splits are assumed to be "single" splits, where the view controls the height.
+  -- The first split will be of variable height.
+  if pocket and pocket.pocket.layout == "tab" and self ~= pocket.a then
+    local axis = parent.type == "hsplit" and "x" or "y"
+    if self.type == "leaf" then return self.active_view.size[axis] end
+    return self.a:known_length(self, pocket) + self.b:known_length(self, pocket)
+  end
+  return nil
 end
 
-
-function Node.copy_position_and_size(dst, src)
-  dst.position.x, dst.position.y = src.position.x, src.position.y
-  dst.size.x, dst.size.y = src.size.x, src.size.y
-end
-
-
--- calculating the sizes is the same for hsplits and vsplits, except the x/y
--- axis are swapped; this function lets us use the same code for both
-local function calc_split_sizes(self, x, y, x1, x2, y1, y2)
-  local ds = ((x1 and x1 < 1) or (x2 and x2 < 1)) and 0 or style.divider_size
-  local n = x1 and x1 + ds or (x2 and self.size[x] - x2 or math.floor(self.size[x] * self.divider))
-  self.a.position[x] = self.position[x]
-  self.a.position[y] = self.position[y]
-  self.a.size[x] = n - ds
-  self.a.size[y] = self.size[y]
-  self.b.position[x] = self.position[x] + n
-  self.b.position[y] = self.position[y]
-  self.b.size[x] = self.size[x] - n
-  self.b.size[y] = self.size[y]
-end
-
-
-function Node:update_layout()
+-- The process for determining view size is like so.
+-- This function is where all layout computations go.
+  function Node:update_layout(root, pocket)
   if self.type == "leaf" then
     local av = self.active_view
-    if self:should_show_tabs() then
-      local _, _, _, th = self:get_tab_rect(1)
-      av.position.x, av.position.y = self.position.x, self.position.y + th
-      av.size.x, av.size.y = self.size.x, self.size.y - th
-    else
-      Node.copy_position_and_size(av, self)
-    end
+    local th = self:should_show_tabs() and select(4, self:get_tab_rect(1)) or 0
+    av.position.x, av.position.y = self.position.x, self.position.y + th
+    av.size.x, av.size.y = self.size.x, self.size.y - th
   else
-    local x1, y1 = self.a:get_locked_size()
-    local x2, y2 = self.b:get_locked_size()
-    if self.type == "hsplit" then
-      calc_split_sizes(self, "x", "y", x1, x2)
-    elseif self.type == "vsplit" then
-      calc_split_sizes(self, "y", "x", y1, y2)
+    if self.pocket then pocket = self end
+    local a_length = self.a:known_length(self, pocket)
+    local b_length = self.b:known_length(self, pocket)
+    -- in this case, this node decides, based on where it's resizable slider is
+    local axis = self.type == "hsplit" and "x" or "y"
+    if a_length then
+      self.length = a_length
+    elseif b_length then
+      self.length = self.size[axis] - b_length - style.divider_size
     end
-    self.a:update_layout()
-    self.b:update_layout()
+    if self.length then
+      if self.type == "hsplit" then
+        self.a.size.x = self.length
+        self.b.size.x = self.size.x - self.length - style.divider_size
+        self.a.size.y, self.b.size.y = self.size.y, self.size.y
+
+        self.a.position.x = self.position.x
+        self.a.position.y = self.position.y
+        self.b.position.x = self.position.x + self.a.size.x + style.divider_size
+        self.b.position.y = self.position.y
+      else
+        self.a.size.y = self.length
+        self.b.size.y = self.size.y - self.length - style.divider_size
+        self.a.size.x, self.b.size.x = self.size.x, self.size.x
+
+        self.a.position.x = self.position.x
+        self.b.position.x = self.position.x
+        self.a.position.y = self.position.y
+        self.b.position.y = self.position.y + self.a.size.y + style.divider_size
+      end
+    else
+
+    end
+    self.a:update_layout(root, pocket)
+    self.b:update_layout(root, pocket)
   end
 end
 
@@ -682,60 +681,24 @@ function Node:close_all_docviews(keep_active)
   end
 end
 
--- Returns true for nodes that accept either "proportional" resizes (based on the
--- node.divider) or "locked" resizable nodes (along the resize axis).
+-- Nodes are resizable only exactly any of the following conditions.
+-- 1. The node is the primary node.
+-- 2. The node is in a pocket that does not have a layout of "tab" or "single".
+-- 4. The node is a pocket that does not have a layout of "single".
 function Node:is_resizable(axis)
-  if self.type == 'leaf' then
-    return not self.locked or not self.locked[axis] or self.resizable
-  else
-    local a_resizable = self.a:is_resizable(axis)
-    local b_resizable = self.b:is_resizable(axis)
-    return a_resizable and b_resizable
+  if self.pocket then
+    if self.pocket.layout == "single" then return false end
+    return (axis == "x" and (self.pocket.direction == "left" or self.pocket.direction == "right")) or
+      (axis == "y" and (self.pocket.direction == "top" or self.pocket.direction == "bottom"))
   end
-end
-
-
--- Return true iff it is a locked pane along the rezise axis and is
--- declared "resizable".
-function Node:is_locked_resizable(axis)
-  return self.locked and self.locked[axis] and self.resizable
+  return self.is_primary_node or (self.type ~= 'leaf' and (self.a:is_resizable(axis) and self.b:is_resizable(axis)))
 end
 
 
 function Node:resize(axis, value)
-  -- the application works fine with non-integer values but to have pixel-perfect
-  -- placements of view elements, like the scrollbar, we round the value to be
-  -- an integer.
   value = math.floor(value)
-  if self.type == 'leaf' then
-    -- If it is not locked we don't accept the
-    -- resize operation here because for proportional panes the resize is
-    -- done using the "divider" value of the parent node.
-    if self:is_locked_resizable(axis) then
-      return self.active_view:set_target_size(axis, value)
-    end
-  else
-    if self.type == (axis == "x" and "hsplit" or "vsplit") then
-      -- we are resizing a node that is splitted along the resize axis
-      if self.a:is_locked_resizable(axis) and self.b:is_locked_resizable(axis) then
-        local rem_value = value - self.a.size[axis]
-        if rem_value >= 0 then
-          return self.b.active_view:set_target_size(axis, rem_value)
-        else
-          self.b.active_view:set_target_size(axis, 0)
-          return self.a.active_view:set_target_size(axis, value)
-        end
-      end
-    else
-      -- we are resizing a node that is splitted along the axis perpendicular
-      -- to the resize axis
-      local a_resizable = self.a:is_resizable(axis)
-      local b_resizable = self.b:is_resizable(axis)
-      if a_resizable and b_resizable then
-        self.a:resize(axis, value)
-        self.b:resize(axis, value)
-      end
-    end
+  if self.type ~= 'leaf' and self.type == (axis == "x" and "hsplit" or "vsplit") then
+    self.length = value
   end
 end
 
