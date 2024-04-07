@@ -260,13 +260,13 @@ config.skip_plugins_version = false
 ---
 ---@type table
 config.pockets = {
-  -- { id = "title", direction = "up", layout = "single" },
-  -- { id = "nag", direction = "up", layout = "single" },
-  -- { id = "status", direction = "down", layout = "single" },
-  -- { id = "command", direction = "down", layout = "single" },
+  { id = "title", direction = "up", layout = "single" },
+  { id = "nag", direction = "up", layout = "single" },
+  { id = "status", direction = "down", layout = "single" },
+  { id = "command", direction = "down", layout = "single" },
   -- { id = "top", direction = "up", layout = "hsplit", length = 200*SCALE },
   -- { id = "bottom", direction = "down", layout = "hsplit", length = 200*SCALE, tabbable = true },
-     { id = "left", direction = "left", layout = "primary", length = 200*SCALE },
+     { id = "left", direction = "left", layout = "primary", length = 200*SCALE, always_show_tabs = false },
   -- { id = "right", direction = "right", layout = "primary", length = 200*SCALE },
   -- { id = "drawer", direction = "down", layout = "primary", length = 200*SCALE }
 }

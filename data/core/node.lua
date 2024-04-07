@@ -294,9 +294,12 @@ end
 
 function Node:should_show_tabs()
   local always_show_tabs = config.always_show_tabs
-  if self.pocket then
-    if self.pocket.layout == "single" then return false end
-    if self.pocket.always_show_tabs ~= nil then always_show_tabs = self.pocket.always_show_tabs end
+  if self.pocket and self.pocket.layout == "single" then return false end
+  if self.parent_pocket then
+    if self.parent_pocket.pocket.layout == "primary" and self ~= self.parent_pocket.a then return false end
+    if self.parent_pocket.pocket.always_show_tabs ~= nil then
+      always_show_tabs = self.parent_pocket.pocket.always_show_tabs
+    end
   end
   local dn = core.root_view.dragged_node
   if #self.views > 1
@@ -393,7 +396,7 @@ end
 
 
 function Node:dump(level)
-  print(string.rep(" ", level) .. " " .. self.type .. (self.pocket and " (" .. self.pocket.id .. ")" or ""))
+  print(string.rep(" ", level) .. " " .. self.type .. " (" .. (core.root_view:get_primary_node() == self and "primary" or (self.pocket and self.pocket.id or "?")) .. ")")
   if self.type ~= "leaf" then
     self.a:dump(level+1)
     self.b:dump(level+1)
@@ -425,7 +428,8 @@ end
 
 -- The process for determining view size is like so.
 -- This function is where all layout computations go.
-  function Node:update_layout(root, pocket)
+function Node:update_layout(root, pocket)
+  self.parent_pocket = pocket
   if self.type == "leaf" then
     local av = self.active_view
     local th = self:should_show_tabs() and select(4, self:get_tab_rect(1)) or 0
@@ -442,7 +446,6 @@ end
     elseif b_length then
       self.length = self.size[axis] - b_length - style.divider_size
     end
-    print("A", self.pocket ~= nil, a_length, b_length, self.length)
     if self.length then
       if self.type == "hsplit" then
         self.a.size.x = self.length
