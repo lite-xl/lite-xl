@@ -822,7 +822,7 @@ function core.init()
         msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(msg_list, "\n"))
       end
     end
-    core.root_view.nag_view:show(
+    core.nag_view:show(
       "Refused Plugins",
       string.format(
         "Some plugins are not loaded due to version mismatch. Expected version %s.\n\n%s.\n\n" ..
