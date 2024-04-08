@@ -1182,7 +1182,6 @@ end
 
 function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
-  print(text)
   if show then
     local s = style.log[level]
     if core.root_view.status_view then
