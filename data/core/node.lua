@@ -28,11 +28,22 @@ end
 
 
 function Node:propogate(fn, ...)
-  if self.type ~= "leaf" then
-    self.a:propogate(fn, ...)
-    self.b:propogate(fn, ...)
-  end
+  if self.type ~= "leaf" then self.a:propogate(fn, ...) end
+  if self.type ~= "leaf" then self.b:propogate(fn, ...) end
   fn(self, ...)
+end
+
+function Node:view_propogate(fn, ...)
+  self:propogate(function(node)
+    local i = 1
+    while i <= #node.views do
+      local view = node.views[i]
+      fn(node, view)
+      if view == node.views[i] then
+        i = i + 1
+      end
+    end
+  end)
 end
 
 

@@ -550,4 +550,13 @@ function RootView:add_view(view, pocket, layout)
 end
 
 
+function RootView:close_session_views(keep_active)
+  self.root_node:view_propogate(function(node, view)
+    if view.context == "session" and (not keep_active or view ~= node.active_view) then
+      node:close_view(self.root_node, view)
+    end
+  end)
+end
+
+
 return RootView
