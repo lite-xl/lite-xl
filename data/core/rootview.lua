@@ -452,9 +452,9 @@ function RootView:update()
   self.root_node.size = { x = self.size.x, y = self.size.y }
   self.root_node:update()
   self.root_node:update_layout(self)
-  print("BEGIN DUMP")
-  self.root_node:dump(0)
-  print("END DUMP")
+  --print("BEGIN DUMP")
+  --self.root_node:dump(0)
+  --print("END DUMP")
 
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
@@ -574,6 +574,7 @@ function RootView:add_view(view, pocket, layout)
       target = self.pockets[pocket]
       if not target then
         core.warn("can't find pocket '%s'; defaulting to primary node", pocket)
+        layout = "tab"
         target = self:get_primary_node()
       end
     end

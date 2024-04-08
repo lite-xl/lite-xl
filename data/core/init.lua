@@ -853,7 +853,7 @@ function core.confirm_close_docs(docs, close_fn, ...)
       { text = "Yes", default_yes = true },
       { text = "No", default_no = true }
     }
-    core.root_view.nag_view:show("Unsaved Changes", text, opt, function(item)
+    core.nag_view:show("Unsaved Changes", text, opt, function(item)
       if item.text == "Yes" then close_fn(table.unpack(args)) end
     end)
   else

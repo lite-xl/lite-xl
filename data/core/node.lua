@@ -412,6 +412,7 @@ function Node:known_length(parent, pocket)
       local axis = (pocket.pocket.direction == "left" or pocket.pocket.direction == "right") and "x" or "y"
       return self.active_view.size[axis]
     else
+      if self.type == "leaf" and pocket.pocket.layout ~= "root" and self:is_empty() then return 0 end
       return nil -- pockets are always resizable, and have no known length
     end
   end
@@ -441,30 +442,31 @@ function Node:update_layout(root, pocket)
     local b_length = self.b:known_length(self, pocket)
     -- in this case, this node decides, based on where it's resizable slider is
     local axis = self.type == "hsplit" and "x" or "y"
+    local divider_size = a_length ~= 0 and b_length ~= 0 and style.divider_size or 0
     if a_length then
       self.length = a_length
     elseif b_length then
-      self.length = self.size[axis] - b_length - style.divider_size
+      self.length = self.size[axis] - b_length - divider_size
     end
     if self.length then
       if self.type == "hsplit" then
         self.a.size.x = self.length
-        self.b.size.x = self.size.x - self.length - style.divider_size
+        self.b.size.x = self.size.x - self.length - divider_size
         self.a.size.y, self.b.size.y = self.size.y, self.size.y
 
         self.a.position.x = self.position.x
         self.a.position.y = self.position.y
-        self.b.position.x = self.position.x + self.a.size.x + style.divider_size
+        self.b.position.x = self.position.x + self.a.size.x + divider_size
         self.b.position.y = self.position.y
       else
         self.a.size.y = self.length
-        self.b.size.y = self.size.y - self.length - style.divider_size
+        self.b.size.y = self.size.y - self.length - divider_size
         self.a.size.x, self.b.size.x = self.size.x, self.size.x
 
         self.a.position.x = self.position.x
         self.b.position.x = self.position.x
         self.a.position.y = self.position.y
-        self.b.position.y = self.position.y + self.a.size.y + style.divider_size
+        self.b.position.y = self.position.y + self.a.size.y + divider_size
       end
     else
 
@@ -704,9 +706,9 @@ function Node:close_all_docviews(keep_active)
 end
 
 -- Nodes are resizable only exactly any of the following conditions.
--- 1. The node is the primary node.
+-- 1. The node is under, or is the root pocket.
 -- 2. The node is in a pocket that does not have a layout of "primary" or "single".
--- 4. The node is a pocket that does not have a layout of "single".
+-- 3. The node is a pocket that does not have a layout of "single".
 function Node:is_resizable(axis)
   if self.pocket then
     if self.pocket.layout == "single" then return false end
