@@ -19,7 +19,6 @@ local RootView = View:extend()
 function RootView:new()
   RootView.super.new(self)
   self.root_node = Node()
-  self.root_node.is_primary_node = true
   self.deferred_draws = {}
   self.mouse = { x = 0, y = 0 }
   self.drag_overlay = { x = 0, y = 0, w = 0, h = 0, visible = false, opacity = 0,
@@ -42,10 +41,11 @@ function RootView:new()
     command = core.command_view,
     status = core.status_view
   }
+  local primary_node = self.root_node
   for i,v in ipairs(config.pockets) do
-    self.pockets[v.id] = self:get_primary_node():split(v.direction, defaults_view_placement[v.id], v)
+    self.pockets[v.id], primary_node = primary_node:split(v.direction, defaults_view_placement[v.id], v)
   end
-  self.pockets.root = self:get_primary_node()
+  self.pockets.root = primary_node
   self.pockets.root.pocket = { id = "root", layout = "root" }
 end
 
@@ -64,40 +64,10 @@ RootView.get_active_node_default = RootView.get_active_node
 
 
 ---@return core.node
-local function get_primary_node(node)
-  if node.is_primary_node then
-    return node
-  end
-  if node.type ~= "leaf" then
-    return get_primary_node(node.a) or get_primary_node(node.b)
-  end
-end
-
-
-
-
----@return core.node
 function RootView:get_primary_node()
-  return get_primary_node(self.root_node)
+  return self.pockets.root
 end
 
-
----@param node core.node
----@return core.node
-local function select_next_primary_node(node)
-  if node.is_primary_node then return end
-  if node.type ~= "leaf" then
-    return select_next_primary_node(node.a) or select_next_primary_node(node.b)
-  elseif not node.pocket then
-    return node
-  end
-end
-
-
----@return core.node
-function RootView:select_next_primary_node()
-  return select_next_primary_node(self.root_node)
-end
 
 
 ---@param doc core.doc
@@ -120,7 +90,7 @@ end
 
 ---@param keep_active boolean
 function RootView:close_all_docviews(keep_active)
-  self.root_node:close_all_docviews(keep_active)
+  self.root_node:close_all_docviews(self, keep_active)
 end
 
 

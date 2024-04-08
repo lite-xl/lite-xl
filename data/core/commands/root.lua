@@ -91,9 +91,14 @@ command.add(function()
 end, {
   ["root:close"] = function(node)
     node:close_active_view(core.root_view.root_node)
-  end,
+  end
+})
+command.add(function()
+  local node = core.root_view:get_active_node()
+  return node.active_view, node
+end, {
   ["root:close-or-quit"] = function(node)
-    if node and (not node:is_empty() or not node.is_primary_node) then
+    if node and (not node:is_empty() or not node.closable) then
       node:close_active_view(core.root_view.root_node)
     else
       core.quit()

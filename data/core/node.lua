@@ -110,9 +110,9 @@ function Node:split(dir, view, pocket)
   if view then self.b:add_view(view) end
   if dir == "up" or dir == "left" then
     self.a, self.b = self.b, self.a
-    return self.a
+    return self.a, self.b
   end
-  return self.b
+  return self.b, self.a
 end
 
 function Node:remove_view(root, view)
@@ -129,26 +129,16 @@ function Node:remove_view(root, view)
     local parent = self:get_parent_node(root)
     local is_a = (parent.a == self)
     local other = parent[is_a and "b" or "a"]
-    local next_primary
-    if self.is_primary_node then
-      next_primary = core.root_view:select_next_primary_node()
-    end
-    if (self.is_primary_node and not next_primary) then
+    if root.pockets.root == self then
       self.views = {}
       self:add_view(EmptyView())
     else
-      if other == next_primary then
-        next_primary = parent
-      end
       parent:consume(other)
       local p = parent
       while p.type ~= "leaf" do
         p = p[is_a and "a" or "b"]
       end
       p:set_active_view(p.active_view)
-      if self.is_primary_node then
-        next_primary.is_primary_node = true
-      end
     end
   end
   core.last_active_view = nil
@@ -402,6 +392,8 @@ function Node:get_divider_rect()
 end
 
 
+-- Only certain nodes will know the length perpendicular to their parent split.
+-- nil is the default here for something that doesn't have a well-defined size.
 function Node:known_length(parent, pocket)
   if self.pocket then pocket = self end
   if not pocket then return nil end
@@ -423,7 +415,6 @@ function Node:known_length(parent, pocket)
   end
   return nil
 end
-
 
 -- The process for determining view size is like so.
 -- This function is where all layout computations go.
@@ -447,23 +438,20 @@ function Node:update_layout(root, pocket)
       self.length = self.size[axis] - b_length - divider_size
     end
     if self.length then
+      self.a.position.x, self.a.position.y = self.position.x, self.position.y
       if self.type == "hsplit" then
         self.a.size.x = self.length
         self.b.size.x = self.size.x - self.length - divider_size
         self.a.size.y, self.b.size.y = self.size.y, self.size.y
 
-        self.a.position.x = self.position.x
-        self.a.position.y = self.position.y
-        self.b.position.x = self.position.x + self.a.size.x + divider_size
         self.b.position.y = self.position.y
+        self.b.position.x = self.position.x + self.a.size.x + divider_size
       else
         self.a.size.y = self.length
         self.b.size.y = self.size.y - self.length - divider_size
         self.a.size.x, self.b.size.x = self.size.x, self.size.x
 
-        self.a.position.x = self.position.x
-        self.b.position.x = self.position.x
-        self.a.position.y = self.position.y
+        self.b.position.x = self.position.x 
         self.b.position.y = self.position.y + self.a.size.y + divider_size
       end
     else
@@ -665,7 +653,7 @@ function Node:is_in_tab_area(x, y)
 end
 
 
-function Node:close_all_docviews(keep_active)
+function Node:close_all_docviews(root, keep_active)
   local node_active_view = self.active_view
   local lost_active_view = false
   if self.type == "leaf" then
@@ -673,32 +661,17 @@ function Node:close_all_docviews(keep_active)
     while i <= #self.views do
       local view = self.views[i]
       if view.context == "session" and (not keep_active or view ~= self.active_view) then
-        table.remove(self.views, i)
-        if view == node_active_view then
-          lost_active_view = true
-        end
+        self:close_view(root, view)
       else
         i = i + 1
       end
     end
-    self.tab_offset = 1
-    if #self.views == 0 and self.is_primary_node then
-      -- if we are not the primary view and we had the active view it doesn't
-      -- matter to reattribute the active view because, within the close_all_docviews
-      -- top call, the primary node will take the active view anyway.
-      -- Set the empty view and takes the active view.
-      self:add_view(EmptyView())
-    elseif #self.views > 0 and lost_active_view then
-      -- In practice we never get there but if a view remain we need
-      -- to reset the Node's active view.
-      self:set_active_view(self.views[1])
-    end
   else
-    self.a:close_all_docviews(keep_active)
-    self.b:close_all_docviews(keep_active)
-    if self.a:is_empty() and not self.a.is_primary_node then
+    self.a:close_all_docviews(root, keep_active)
+    self.b:close_all_docviews(root, keep_active)
+    if self.a:is_empty() then
       self:consume(self.b)
-    elseif self.b:is_empty() and not self.b.is_primary_node then
+    elseif self.b:is_empty() then
       self:consume(self.a)
     end
   end
@@ -715,7 +688,7 @@ function Node:is_resizable(axis)
     return (axis == "x" and (self.pocket.direction == "left" or self.pocket.direction == "right")) or
       (axis == "y" and (self.pocket.direction == "top" or self.pocket.direction == "bottom"))
   end
-  return self.is_primary_node or (self.type ~= 'leaf' and (self.a:is_resizable(axis) and self.b:is_resizable(axis)))
+  return self.parent_pocket and self.parent_pocket.layout == "root" or (self.type ~= 'leaf' and (self.a:is_resizable(axis) and self.b:is_resizable(axis)))
 end
 
 
