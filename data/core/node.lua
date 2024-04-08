@@ -76,10 +76,12 @@ function Node:on_touch_moved(...)
   end
 end
 
-
+-- consuming does not affect pocket status; pockets can be neither created nor destroyed
 function Node:consume(node)
+  local pocket = self.pocket
   for k, _ in pairs(self) do self[k] = nil end
   for k, v in pairs(node) do self[k] = v   end
+  self.pocket = pocket
 end
 
 
@@ -94,15 +96,15 @@ function Node:split(dir, view, pocket)
   local child = Node()
   child:consume(self)
   self:consume(Node(node_type))
-  self.pocket = child.pocket
-  child.pocket = nil
   self.a = child
   self.b = Node()
+  local axis = dir == "left" or dir == "right" and "x" or "y"
   if pocket then
-    local axis = dir == "left" or dir == "right" and "x" or "y"
     self.b.pocket = pocket
     self.size[axis] = pocket.length
     self.length = pocket.length
+  elseif self.a.size[axis] then
+    self.length = self.a.size[axis] / 2
   end
   if view then self.b:add_view(view) end
   if dir == "up" or dir == "left" then
@@ -396,7 +398,7 @@ end
 
 
 function Node:dump(level)
-  print(string.rep(" ", level) .. " " .. self.type .. " (" .. (core.root_view:get_primary_node() == self and "primary" or (self.pocket and self.pocket.id or "?")) .. ")")
+  print(string.format(string.rep(" ", level) .. " " .. self.type .. " (" .. (core.root_view:get_primary_node() == self and "primary" or (self.pocket and self.pocket.id or "?")) .. ")" .. " %sx%s %sx%s", self.position.x or 0, self.position.y or 0, self.size.x or 0, self.size.y or 0))
   if self.type ~= "leaf" then
     self.a:dump(level+1)
     self.b:dump(level+1)
@@ -586,14 +588,13 @@ function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h
   x, y, w, h = self:draw_tab_borders(view, is_active, is_hovered, x, y + margin_y, w, h - margin_y, standalone)
   -- Close button
   local cx, cw, cpad = close_button_location(x, w)
-  local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
+  local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button) and view.closable
   if show_close_button then
     local close_style = is_close_hovered and style.text or style.dim
     common.draw_text(style.icon_font, close_style, "C", nil, cx, y, cw, h)
+    x = x + cpad
+    w = cx - x
   end
-  -- Title
-  x = x + cpad
-  w = cx - x
   core.push_clip_rect(x, y, w, h)
   self:draw_tab_title(view, style.font, is_active, is_hovered, x, y, w, h)
   core.pop_clip_rect()

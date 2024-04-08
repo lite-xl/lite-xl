@@ -63,6 +63,8 @@ function DocView:new(doc)
   self.last_x_offset = {}
   self.ime_selection = { from = 0, size = 0 }
   self.ime_status = false
+  self.closable = true
+  self.movable = true
   self.hovering_gutter = false
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
   self.h_scrollbar:set_forced_status(config.force_scrollbar_status)

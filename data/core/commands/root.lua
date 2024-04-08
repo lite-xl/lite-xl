@@ -8,18 +8,6 @@ local Node = require "core.node"
 
 
 local t = {
-  ["root:close"] = function(node)
-    node:close_active_view(core.root_view.root_node)
-  end,
-
-  ["root:close-or-quit"] = function(node)
-    if node and (not node:is_empty() or not node.is_primary_node) then
-      node:close_active_view(core.root_view.root_node)
-    else
-      core.quit()
-    end
-  end,
-
   ["root:close-all"] = function()
     core.confirm_close_docs(core.docs, core.root_view.close_all_docviews, core.root_view)
   end,
@@ -44,10 +32,6 @@ local t = {
       table.remove(node.views, idx)
       table.insert(node.views, idx + 1, core.active_view)
     end
-  end,
-
-  ["root:toggle-pocket"] = function(node)
-
   end,
 
   ["root:shrink"] = function(node)
@@ -76,11 +60,7 @@ end
 
 for _, dir in ipairs { "left", "right", "up", "down" } do
   t["root:split-" .. dir] = function(node)
-    local av = node.active_view
-    node:split(dir)
-    if av:is(DocView) then
-      core.root_view:open_doc(av.doc)
-    end
+    node:split(dir, node.active_view:is(DocView) and DocView(node.active_view.doc) or nil)
   end
 
   t["root:switch-to-" .. dir] = function(node)
@@ -104,6 +84,22 @@ command.add(function()
   local node = core.root_view:get_active_node()
   return true, node
 end, t)
+
+command.add(function()
+  local node = core.root_view:get_active_node()
+  return node.active_view and node.active_view.closable, node
+end, {
+  ["root:close"] = function(node)
+    node:close_active_view(core.root_view.root_node)
+  end,
+  ["root:close-or-quit"] = function(node)
+    if node and (not node:is_empty() or not node.is_primary_node) then
+      node:close_active_view(core.root_view.root_node)
+    else
+      core.quit()
+    end
+  end,
+})
 
 command.add(nil, {
   ["root:scroll"] = function(delta)
