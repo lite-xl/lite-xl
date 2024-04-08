@@ -129,7 +129,7 @@ function Node:remove_view(root, view)
     local parent = self:get_parent_node(root)
     local is_a = (parent.a == self)
     local other = parent[is_a and "b" or "a"]
-    if root.pockets.root == self then
+    if core.root_view.pockets.root == self then
       self.views = {}
       self:add_view(EmptyView())
     else
@@ -335,7 +335,7 @@ function Node:tab_hovered_update(px, py)
   if tab_index then
     local x, y, w, h = self:get_tab_rect(tab_index)
     local cx, cw = close_button_location(x, w)
-    if px >= cx and px < cx + cw and py >= y and py < y + h and config.tab_close_button then
+    if px >= cx and px < cx + cw and py >= y and py < y + h and config.tab_close_button and self.active_view.closable then
       self.hovered_close = tab_index
     end
   elseif #self.views > self:get_visible_tabs_number() then
@@ -573,7 +573,7 @@ function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h
   -- Close button
   local cx, cw, cpad = close_button_location(x, w)
   local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
-  if show_close_button then
+  if show_close_button and view.closable then
     local close_style = is_close_hovered and style.text or style.dim
     common.draw_text(style.icon_font, close_style, "C", nil, cx, y, cw, h)
   end

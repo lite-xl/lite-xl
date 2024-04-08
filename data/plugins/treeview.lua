@@ -48,6 +48,7 @@ function TreeView:new()
   self.visible = true
   self.target_size = config.plugins.treeview.size
   self.cache = {}
+  self.closable = false
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
   self.last_scroll_y = 0
 
