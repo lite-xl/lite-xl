@@ -279,6 +279,7 @@ function Node:get_divider_overlapping_point(px, py)
 end
 
 function Node:accepts(node, mode)
+  if self.parent_pocket and self.parent_pocket.pocket.layout == "primary" then return mode == "tab" end
   return true
 end
 

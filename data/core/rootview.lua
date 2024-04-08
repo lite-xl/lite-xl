@@ -498,11 +498,11 @@ end
 function RootView:update_drag_overlay()
   if not (self.dragged_node and self.dragged_node.dragging) then return end
   local over = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
-  if over and not over.tabbable then
+  local split_type = over:get_split_type(self.mouse.x, self.mouse.y)
+  if over and over:accepts(self.dragged_node, split_type) then
     local _, _, _, tab_h = over:get_scroll_button_rect(1)
     local x, y = over.position.x, over.position.y
     local w, h = over.size.x, over.size.y
-    local split_type = over:get_split_type(self.mouse.x, self.mouse.y)
 
     if split_type == "tab" and (over ~= self.dragged_node.node or #over.views > 1) then
       local tab_index, tab_x, tab_y, tab_w, tab_h = over:get_drag_overlay_tab_position(self.mouse.x, self.mouse.y)
