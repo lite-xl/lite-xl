@@ -7,15 +7,30 @@ local config = require "core.config"
 local Node = require "core.node"
 
 
+local function close_docviews(keep_active)
+  local root = core.root_view.root_node
+  root:propogate(function(node)
+    local i = 1
+    while i <= #node.views do
+      local view = node.views[i]
+      if view.context == "session" and (not keep_active or view ~= node.active_view) then
+        node:close_view(root, view)
+      else
+        i = i + 1
+      end
+    end
+  end)
+end
+
 local t = {
   ["root:close-all"] = function()
-    core.confirm_close_docs(core.docs, core.root_view.close_all_docviews, core.root_view)
+    core.confirm_close_docs(core.docs, close_docviews)
   end,
 
   ["root:close-all-others"] = function()
     local active_doc, docs = core.active_view and core.active_view.doc, {}
     for i, v in ipairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
-    core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
+    core.confirm_close_docs(docs, close_docviews, true)
   end,
 
   ["root:move-tab-left"] = function(node)

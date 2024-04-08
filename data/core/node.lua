@@ -27,9 +27,12 @@ function Node:new(type)
 end
 
 
-function Node:propagate(fn, ...)
-  self.a[fn](self.a, ...)
-  self.b[fn](self.b, ...)
+function Node:propogate(fn, ...)
+  if self.type ~= "leaf" then
+    self.a:propogate(fn, ...)
+    self.b:propogate(fn, ...)
+  end
+  fn(self, ...)
 end
 
 
@@ -39,7 +42,8 @@ function Node:on_mouse_moved(x, y, ...)
   if self.type == "leaf" then
     self.active_view:on_mouse_moved(x, y, ...)
   else
-    self:propagate("on_mouse_moved", x, y, ...)
+    self.a:on_mouse_moved(x, y, ...)
+    self.b:on_mouse_moved(x, y, ...)
   end
 end
 
@@ -50,7 +54,8 @@ function Node:on_mouse_released(...)
   if self.type == "leaf" then
     self.active_view:on_mouse_released(...)
   else
-    self:propagate("on_mouse_released", ...)
+    self.a:on_mouse_released(...)
+    self.b:on_mouse_released(...)
   end
 end
 
@@ -61,7 +66,8 @@ function Node:on_mouse_left()
   if self.type == "leaf" then
     self.active_view:on_mouse_left()
   else
-    self:propagate("on_mouse_left")
+    self.a:on_mouse_left()
+    self.b:on_mouse_left()
   end
 end
 
@@ -72,7 +78,8 @@ function Node:on_touch_moved(...)
   if self.type == "leaf" then
     self.active_view:on_touch_moved(...)
   else
-    self:propagate("on_touch_moved", ...)
+    self.a:on_touch_moved(...)
+    self.b:on_touch_moved(...)
   end
 end
 
@@ -129,7 +136,7 @@ function Node:remove_view(root, view)
     local parent = self:get_parent_node(root)
     local is_a = (parent.a == self)
     local other = parent[is_a and "b" or "a"]
-    if core.root_view.pockets.root == self then
+    if self.pocket then
       self.views = {}
       self:add_view(EmptyView())
     else
@@ -632,7 +639,8 @@ function Node:draw()
   else
     local x, y, w, h = self:get_divider_rect()
     renderer.draw_rect(x, y, w, h, style.divider)
-    self:propagate("draw")
+    self.a:draw()
+    self.b:draw()
   end
 end
 
@@ -653,29 +661,6 @@ function Node:is_in_tab_area(x, y)
 end
 
 
-function Node:close_all_docviews(root, keep_active)
-  local node_active_view = self.active_view
-  local lost_active_view = false
-  if self.type == "leaf" then
-    local i = 1
-    while i <= #self.views do
-      local view = self.views[i]
-      if view.context == "session" and (not keep_active or view ~= self.active_view) then
-        self:close_view(root, view)
-      else
-        i = i + 1
-      end
-    end
-  else
-    self.a:close_all_docviews(root, keep_active)
-    self.b:close_all_docviews(root, keep_active)
-    if self.a:is_empty() then
-      self:consume(self.b)
-    elseif self.b:is_empty() then
-      self:consume(self.a)
-    end
-  end
-end
 
 -- Nodes are resizable only exactly any of the following conditions.
 -- 1. The node is under, or is the root pocket.

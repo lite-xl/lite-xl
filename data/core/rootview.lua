@@ -88,12 +88,6 @@ function RootView:open_doc(doc)
 end
 
 
----@param keep_active boolean
-function RootView:close_all_docviews(keep_active)
-  self.root_node:close_all_docviews(self, keep_active)
-end
-
-
 ---Obtain mouse grab.
 ---
 ---This means that mouse movements will be sent to the specified view, even when
