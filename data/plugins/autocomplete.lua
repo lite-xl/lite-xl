@@ -282,12 +282,14 @@ end)
 
 
 local partial = ""
+local suggestions_offset = 1
 local suggestions_idx = 1
 local suggestions = {}
 local last_line, last_col
 
 
 local function reset_suggestions()
+  suggestions_offset = 1
   suggestions_idx = 1
   suggestions = {}
 
@@ -369,6 +371,7 @@ local function update_suggestions()
     end
   end
   suggestions_idx = 1
+  suggestions_offset = 1
 end
 
 local function get_partial_symbol()
@@ -384,8 +387,10 @@ local function get_active_view()
   end
 end
 
+local last_max_width = 0
 local function get_suggestions_rect(av)
   if #suggestions == 0 then
+    last_max_width = 0
     return 0, 0, 0, 0
   end
 
@@ -398,45 +403,59 @@ local function get_suggestions_rect(av)
   local hide_info = config.plugins.autocomplete.hide_info
   local hide_icons = config.plugins.autocomplete.hide_icons
 
+  local ah = config.plugins.autocomplete.max_height
+
+  local max_items = math.min(ah, #suggestions)
+
+  local show_count = math.min(#suggestions, ah)
+  local start_index = math.max(suggestions_idx-(ah-1), 1)
+
   local max_width = 0
-  for _, s in ipairs(suggestions) do
+  local max_l_icon_width = 0
+  for i = start_index, start_index + show_count - 1 do
+    local s = suggestions[i]
     local w = font:get_width(s.text)
     if s.info and not hide_info then
       w = w + style.font:get_width(s.info) + style.padding.x
     end
     local icon = s.icon or s.info
     if not hide_icons and icon and autocomplete.icons[icon] then
-      w = w + autocomplete.icons[icon].font:get_width(
+      local icon_width = autocomplete.icons[icon].font:get_width(
         autocomplete.icons[icon].char
-      ) + (style.padding.x / 2)
+      )
+      if config.plugins.autocomplete.icon_position == "left" then
+        max_l_icon_width = math.max(max_l_icon_width, icon_width + (style.padding.x / 2))
+      end
+      w = w + icon_width + (style.padding.x / 2)
       has_icons = true
     end
     max_width = math.max(max_width, w)
   end
+  max_width = math.max(last_max_width, max_width)
+  last_max_width = max_width
 
-  local ah = config.plugins.autocomplete.max_height
-
-  local max_items = #suggestions
-  if max_items > ah then
-    max_items = ah
-  end
+  max_width = max_width + style.padding.x * 2
+  x = x - style.padding.x - max_l_icon_width
 
   -- additional line to display total items
   max_items = max_items + 1
 
-  if max_width < 150 then
-    max_width = 150
+  if max_width > core.root_view.size.x then
+    max_width = core.root_view.size.x
+  end
+  if max_width < 150 * SCALE then
+    max_width = 150 * SCALE
   end
 
   -- if portion not visiable to right, reposition to DocView right margin
-  if (x - av.position.x) + max_width > av.size.x then
-    x = (av.size.x + av.position.x) - max_width - (style.padding.x * 2)
+  if x + max_width > core.root_view.size.x then
+    x = (av.size.x + av.position.x) - max_width
   end
 
   return
-    x - style.padding.x,
+    x,
     y - style.padding.y,
-    max_width + style.padding.x * 2,
+    max_width,
     max_items * (th + style.padding.y) + style.padding.y,
     has_icons
 end
@@ -565,8 +584,8 @@ local function draw_suggestions_box(av)
   local font = av:get_font()
   local lh = font:get_height() + style.padding.y
   local y = ry + style.padding.y / 2
-  local show_count = #suggestions <= ah and #suggestions or ah
-  local start_index = suggestions_idx > ah and (suggestions_idx-(ah-1)) or 1
+  local show_count = math.min(#suggestions, ah)
+  local start_index = suggestions_offset
   local hide_info = config.plugins.autocomplete.hide_info
 
   for i=start_index, start_index+show_count-1, 1 do
@@ -602,11 +621,24 @@ local function draw_suggestions_box(av)
       end
     end
 
+    local info_size = style.font:get_width(s.info) + style.padding.x
+
     local color = (i == suggestions_idx) and style.accent or style.text
-    common.draw_text(
+    -- Push clip to avoid that the suggestion text gets drawn over suggestion type/icon
+    core.push_clip_rect(rx + icon_l_padding + style.padding.x, y,
+                        rw - info_size - icon_l_padding - icon_r_padding - style.padding.x, lh)
+    local x_adv = common.draw_text(
       font, color, s.text, "left",
       rx + icon_l_padding + style.padding.x, y, rw, lh
     )
+    core.pop_clip_rect()
+    -- If the text wasn't fully visible, draw an ellipsis
+    if x_adv > rx + rw - info_size - icon_r_padding then
+      local ellipsis_size = font:get_width("…")
+      local ell_x = rx + rw - info_size - icon_r_padding - ellipsis_size
+      renderer.draw_rect(ell_x, y, ellipsis_size, lh, style.background3)
+      common.draw_text(font, color, "…", "left", ell_x, y, ellipsis_size, lh)
+    end
     if s.info and not hide_info then
       color = (i == suggestions_idx) and style.text or style.dim
       common.draw_text(
@@ -819,7 +851,7 @@ command.add(predicate, {
       local current_partial = get_partial_symbol()
       local sz = #current_partial
 
-      for idx, line1, col1, line2, col2 in doc:get_selections(true) do
+      for _, line1, col1, line2, _ in doc:get_selections(true) do
         local n = col1 - 1
         local line = doc.lines[line1]
         for i = 1, sz + 1 do
@@ -840,10 +872,24 @@ command.add(predicate, {
 
   ["autocomplete:previous"] = function()
     suggestions_idx = (suggestions_idx - 2) % #suggestions + 1
+
+    local ah = math.min(config.plugins.autocomplete.max_height, #suggestions)
+    if suggestions_offset > suggestions_idx then
+      suggestions_offset = suggestions_idx
+    elseif suggestions_offset + ah < suggestions_idx + 1 then
+      suggestions_offset = suggestions_idx - ah + 1
+    end
   end,
 
   ["autocomplete:next"] = function()
     suggestions_idx = (suggestions_idx % #suggestions) + 1
+
+    local ah = math.min(config.plugins.autocomplete.max_height, #suggestions)
+    if suggestions_offset + ah < suggestions_idx + 1 then
+      suggestions_offset = suggestions_idx - ah + 1
+    elseif suggestions_offset > suggestions_idx then
+      suggestions_offset = suggestions_idx
+    end
   end,
 
   ["autocomplete:cycle"] = function()

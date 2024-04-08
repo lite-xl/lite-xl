@@ -11,20 +11,31 @@ lite_sources = [
     'main.c',
 ]
 
+lite_sources += 'api/dirmonitor.c'
 # dirmonitor backend
 if get_option('dirmonitor_backend') == ''
     if cc.has_function('inotify_init', prefix : '#include<sys/inotify.h>')
         dirmonitor_backend = 'inotify'
+        lite_sources += 'api/dirmonitor/inotify.c'
     elif host_machine.system() == 'darwin' and cc.check_header('CoreServices/CoreServices.h')
         dirmonitor_backend = 'fsevents'
+        lite_sources += 'api/dirmonitor/fsevents.c'
     elif cc.has_function('kqueue', prefix : '#include<sys/event.h>')
         dirmonitor_backend = 'kqueue'
+        lite_sources += 'api/dirmonitor/kqueue.c'
+    elif cc.has_function('create_inode_watcher', prefix : '#include<fcntl.h>')
+        dirmonitor_backend = 'inodewatcher'
+        add_languages('cpp')
+        lite_sources += 'api/dirmonitor/inodewatcher.cpp'
     elif dependency('libkqueue', required : false).found()
         dirmonitor_backend = 'kqueue'
+        lite_sources += 'api/dirmonitor/kqueue.c'
     elif host_machine.system() == 'windows'
         dirmonitor_backend = 'win32'
+        lite_sources += 'api/dirmonitor/win32.c'
     else
         dirmonitor_backend = 'dummy'
+        lite_sources += 'api/dirmonitor/dummy.c'
         warning('no suitable backend found, defaulting to dummy backend')
     endif
 else
@@ -39,12 +50,6 @@ if dirmonitor_backend == 'kqueue'
         lite_deps += libkqueue_dep
     endif
 endif
-
-lite_sources += [
-    'api/dirmonitor.c',
-    'api/dirmonitor/' + dirmonitor_backend + '.c',
-]
-
 
 lite_rc = []
 if host_machine.system() == 'windows'

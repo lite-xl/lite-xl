@@ -9,7 +9,7 @@
 
 #ifdef _WIN32
   #include <windows.h>
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__serenity__)
   #include <unistd.h>
 #elif defined(__APPLE__)
   #include <mach-o/dyld.h>
@@ -34,7 +34,7 @@ static void get_exe_filename(char *buf, int sz) {
   } else {
     buf[0] = '\0';
   }
-#elif __linux__
+#elif __linux__ || __serenity__
   char path[] = "/proc/self/exe";
   ssize_t len = readlink(path, buf, sz - 1);
   if (len > 0)
@@ -110,6 +110,9 @@ void set_macos_bundle_resources(lua_State *L);
     #define ARCH_PLATFORM "freebsd"
   #elif __APPLE__
     #define ARCH_PLATFORM "darwin"
+  #elif __serenity__
+    #define ARCH_PLATFORM "serenity"
+  #else
   #endif
 
   #if !defined(ARCH_PROCESSOR) || !defined(ARCH_PLATFORM)
@@ -173,7 +176,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
     exit(1);
   }
-  ren_init(window);
+  window_renderer = ren_init(window);
 
   lua_State *L;
 init_lua:
@@ -264,7 +267,7 @@ init_lua:
 
   // This allows the window to be destroyed before lite-xl is done with
   // reaping child processes
-  ren_free_window_resources(&window_renderer);
+  ren_free(window_renderer);
   lua_close(L);
 
   return EXIT_SUCCESS;

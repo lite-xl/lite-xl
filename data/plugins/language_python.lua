@@ -3,7 +3,7 @@ local syntax = require "core.syntax"
 
 syntax.add {
   name = "Python",
-  files = { "%.py$", "%.pyw$", "%.rpy$" },
+  files = { "%.py$", "%.pyw$", "%.rpy$", "%.pyi$" },
   headers = "^#!.*[ /]python",
   comment = "#",
   block_comment = { '"""', '"""' },
@@ -16,8 +16,8 @@ syntax.add {
     { pattern = { "[ruU]?'''", "'''", '\\' },  type = "string"   },
     { pattern = { '[ruU]?"', '"', '\\' },      type = "string"   },
     { pattern = { "[ruU]?'", "'", '\\' },      type = "string"   },
-    { pattern = "0x[%da-fA-F]+",               type = "number"   },
-    { pattern = "-?%d+[%d%.eE]*",              type = "number"   },
+    { pattern = "-?0[xboXBO][%da-fA-F_]+",type = "number"   },
+    { pattern = "-?%d+[%d%.eE_]*",             type = "number"   },
     { pattern = "-?%.?%d+",                    type = "number"   },
     { pattern = "[%+%-=/%*%^%%<>!~|&]",        type = "operator" },
     { pattern = "[%a_][%w_]*%f[(]",            type = "function" },

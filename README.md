@@ -81,6 +81,14 @@ affects only the place where the application is actually installed.
 
 Head over to [releases](https://github.com/lite-xl/lite-xl/releases) and download the version for your operating system.
 
+The prebuilt releases supports the following OSes:
+
+- Windows 7 and above
+- Ubuntu 18.04 and above (glibc 2.27 and above)
+- OS X El Capitan and above (version 10.11 and above)
+
+Some distributions may provide custom binaries for their platforms.
+
 ### Windows
 
 Lite XL comes with installers on Windows for typical installations.
