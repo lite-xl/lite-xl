@@ -688,7 +688,7 @@ function Node:is_resizable(axis)
     return (axis == "x" and (self.pocket.direction == "left" or self.pocket.direction == "right")) or
       (axis == "y" and (self.pocket.direction == "top" or self.pocket.direction == "bottom"))
   end
-  return self.parent_pocket and self.parent_pocket.layout == "root" or (self.type ~= 'leaf' and (self.a:is_resizable(axis) and self.b:is_resizable(axis)))
+  return not self.parent_pocket or (self.parent_pocket and self.parent_pocket.layout == "root" or (self.type ~= 'leaf' and (self.a:is_resizable(axis) and self.b:is_resizable(axis))))
 end
 
 

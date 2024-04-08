@@ -268,7 +268,7 @@ config.pockets = {
   { id = "bottom", direction = "down", layout = "hsplit", length = 200*SCALE, tabbable = true },
   { id = "left", direction = "left", layout = "primary", length = 240*SCALE, always_show_tabs = false },
   { id = "right", direction = "right", layout = "primary", length = 200*SCALE },
-  --{ id = "drawer", direction = "down", layout = "primary", length = 200*SCALE }
+  { id = "drawer", direction = "down", layout = "primary", length = 200*SCALE }
 }
 
 -- holds the plugins real config table
