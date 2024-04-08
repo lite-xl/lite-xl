@@ -544,6 +544,9 @@ function RootView:add_view(view, pocket, layout)
     end
   else
     target = self:get_active_node_default()
+    if target:is_thin() then
+      target = self:get_active_node_default("root")
+    end
   end
   target:add_view(view, nil, layout)
   return view

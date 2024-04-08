@@ -306,15 +306,18 @@ function Node:get_tab_overlapping_point(px, py)
   end
 end
 
+-- Determines whether this node is "thin", i.e. it's entirely controlled by the single view within it.
+function Node:is_thin()
+  return (self.pocket and self.pocket.layout == "single") or
+    (self.parent_pocket and self.parent_pocket.pocket.layout == "primary" and self ~= self.parent_pocket.a)
+end
+
 
 function Node:should_show_tabs()
   local always_show_tabs = config.always_show_tabs
-  if self.pocket and self.pocket.layout == "single" then return false end
-  if self.parent_pocket then
-    if self.parent_pocket.pocket.layout == "primary" and self ~= self.parent_pocket.a then return false end
-    if self.parent_pocket.pocket.always_show_tabs ~= nil then
-      always_show_tabs = self.parent_pocket.pocket.always_show_tabs
-    end
+  if self:is_thin() then return false end
+  if self.parent_pocket and self.parent_pocket.pocket.always_show_tabs ~= nil then
+    always_show_tabs = self.parent_pocket.pocket.always_show_tabs
   end
   local dn = core.root_view.dragged_node
   if #self.views > 1
@@ -678,8 +681,8 @@ end
 -- 2. The node is in a pocket that does not have a layout of "primary" or "single".
 -- 3. The node is a pocket that does not have a layout of "single".
 function Node:is_resizable(axis)
+  if self:is_thin() then return false end
   if self.pocket then
-    if self.pocket.layout == "single" then return false end
     if self.pocket.layout == "root" then return true end
     return (axis == "x" and (self.pocket.direction == "left" or self.pocket.direction == "right")) or
       (axis == "y" and (self.pocket.direction == "top" or self.pocket.direction == "bottom"))
