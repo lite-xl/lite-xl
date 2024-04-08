@@ -689,7 +689,10 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
-  core.window = renwindow.create("")
+  core.window = renwindow._restore()
+  if core.window == nil then
+    core.window = renwindow.create("")
+  end
   do
     local session = load_session()
     if session.window_mode == "normal" then
@@ -923,7 +926,10 @@ end
 
 
 function core.restart()
-  quit_with_function(function() core.restart_request = true end)
+  quit_with_function(function()
+    core.restart_request = true
+    core.window:_persist()
+  end)
 end
 
 

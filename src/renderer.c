@@ -22,7 +22,7 @@
 #define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / GLYPHSET_SIZE)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
-static RenWindow** window_list = NULL;
+static RenWindow **window_list = NULL;
 static size_t window_count = 0;
 static FT_Library library;
 
