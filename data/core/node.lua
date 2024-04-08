@@ -93,18 +93,19 @@ function Node:split(dir, view, pocket)
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local node_type = assert(type_map[dir], "Invalid direction")
   local last_active = core.active_view
+  local axis = (dir == "left" or dir == "right") and "x" or "y"
+  local size = self.size[axis]
   local child = Node()
   child:consume(self)
   self:consume(Node(node_type))
   self.a = child
   self.b = Node()
-  local axis = dir == "left" or dir == "right" and "x" or "y"
   if pocket then
     self.b.pocket = pocket
     self.size[axis] = pocket.length
     self.length = pocket.length
-  elseif self.a.size[axis] then
-    self.length = self.a.size[axis] / 2
+  else
+    self.length = size / 2
   end
   if view then self.b:add_view(view) end
   if dir == "up" or dir == "left" then
@@ -277,6 +278,9 @@ function Node:get_divider_overlapping_point(px, py)
   end
 end
 
+function Node:accepts(node, mode)
+  return true
+end
 
 function Node:get_visible_tabs_number()
   return math.min(#self.views - self.tab_offset + 1, config.max_tabs)
@@ -393,15 +397,6 @@ function Node:get_divider_rect()
     return x + self.a.size.x, y, style.divider_size, self.size.y
   elseif self.type == "vsplit" then
     return x, y + self.a.size.y, self.size.x, style.divider_size
-  end
-end
-
-
-function Node:dump(level)
-  print(string.format(string.rep(" ", level) .. " " .. self.type .. " (" .. (core.root_view:get_primary_node() == self and "primary" or (self.pocket and self.pocket.id or "?")) .. ")" .. " %sx%s %sx%s", self.position.x or 0, self.position.y or 0, self.size.x or 0, self.size.y or 0))
-  if self.type ~= "leaf" then
-    self.a:dump(level+1)
-    self.b:dump(level+1)
   end
 end
 
@@ -588,10 +583,12 @@ function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h
   x, y, w, h = self:draw_tab_borders(view, is_active, is_hovered, x, y + margin_y, w, h - margin_y, standalone)
   -- Close button
   local cx, cw, cpad = close_button_location(x, w)
-  local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button) and view.closable
+  local show_close_button = ((is_active or is_hovered) and not standalone and config.tab_close_button)
   if show_close_button then
     local close_style = is_close_hovered and style.text or style.dim
     common.draw_text(style.icon_font, close_style, "C", nil, cx, y, cw, h)
+  end
+  if view.closable then
     x = x + cpad
     w = cx - x
   end

@@ -112,7 +112,7 @@ function RootView:open_doc(doc)
   end
   local view = DocView(doc)
   node:add_view(view)
-  self.root_node:update_layout()
+  self:update()
   view:scroll_to_line(view.doc:get_selection(), true, true)
   return view
 end
@@ -250,10 +250,10 @@ function RootView:on_mouse_released(button, x, y, ...)
         local node = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
         local dragged_node = self.dragged_node.node
 
-        if node and not node.locked
+        local split_type = node:get_split_type(self.mouse.x, self.mouse.y)
+        if node and node:accepts(self.dragged_node, split_type)
            -- don't do anything if dragging onto own node, with only one view
            and (node ~= dragged_node or #node.views > 1) then
-          local split_type = node:get_split_type(self.mouse.x, self.mouse.y)
           local view = dragged_node.views[self.dragged_node.idx]
 
           if split_type ~= "middle" and split_type ~= "tab" then -- needs splitting
@@ -270,7 +270,7 @@ function RootView:on_mouse_released(button, x, y, ...)
             node:add_view(view, tab_index)
             self.root_node:get_node_for_view(view):set_active_view(view)
           end
-          self.root_node:update_layout()
+          self:update()
           core.redraw = true
         end
       end
@@ -498,7 +498,7 @@ end
 function RootView:update_drag_overlay()
   if not (self.dragged_node and self.dragged_node.dragging) then return end
   local over = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
-  if over and not over.locked then
+  if over and not over.tabbable then
     local _, _, _, tab_h = over:get_scroll_button_rect(1)
     local x, y = over.position.x, over.position.y
     local w, h = over.size.x, over.size.y
