@@ -432,7 +432,9 @@ function Node:known_length(parent, pocket)
   if pocket and pocket.pocket.layout == "primary" and self ~= pocket.a then
     local axis = parent.type == "hsplit" and "x" or "y"
     if self.type == "leaf" then return self.active_view.size[axis] end
-    return self.a:known_length(self, pocket) + self.b:known_length(self, pocket)
+    local ka, kb = self.a:known_length(self, pocket), self.b:known_length(self, pocket)
+    if not ka or not kb then return nil end
+    return ka + kb
   end
   return nil
 end
