@@ -42,6 +42,9 @@ and improves the usability of the program.
 * Fix `buffer_size` in `g_read` for Windows
   ([#1722](https://github.com/lite-xl/lite-xl/pull/1722))
 
+* Fix missing permission for creating releases
+  ([#1770](https://github.com/lite-xl/lite-xl/pull/1770))
+
 ### Other Changes
 
 * Rectify LICENSE dates and owners
