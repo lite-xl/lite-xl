@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.4] - 2024-04-15
+## [2.1.4] - 2024-04-16
 
 This release addresses severe bugs not found in previous releases,
 and improves the usability of the program.
@@ -41,6 +41,9 @@ and improves the usability of the program.
 
 * Fix `buffer_size` in `g_read` for Windows
   ([#1722](https://github.com/lite-xl/lite-xl/pull/1722))
+
+* Fix missing permission for creating releases
+  ([#1770](https://github.com/lite-xl/lite-xl/pull/1770))
 
 ### Other Changes
 
@@ -1501,7 +1504,7 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
-[2.1.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.4-rc1
+[2.1.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.4
 [2.1.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.3
 [2.1.2]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.2
 [2.1.1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.1
