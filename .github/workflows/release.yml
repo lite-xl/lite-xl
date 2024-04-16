@@ -41,7 +41,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Generate Release Notes
-        run: bash scripts/generate-release-notes.sh
+        run: bash scripts/generate-release-notes.sh --version ${{ steps.tag.outputs.version }}
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1

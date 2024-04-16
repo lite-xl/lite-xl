@@ -13,8 +13,9 @@ show_help() {
   echo
   echo "Available options:"
   echo
-  echo "--debug    Debug this script."
-  echo "--help     Show this message."
+  echo "--version    Use this version instead of git tags or GitHub outputs."
+  echo "--debug      Debug this script."
+  echo "--help       Show this message."
   echo
 }
 
@@ -31,6 +32,11 @@ main() {
         show_help
         exit 0
         ;;
+      --version)
+        version="$2"
+        shift
+        shift
+        ;;
       *)
         # unknown option
         ;;
@@ -42,11 +48,13 @@ main() {
     exit 0
   fi
 
-  if [[ "$GITHUB_REF" == "refs/tags/"* ]]; then
-    version="${GITHUB_REF##*/}"
-  else
-    version="$(git describe --tags $(git rev-list --tags --max-count=1))"
-    if [[ $? -ne 0 ]]; then version=""; fi
+  if [[ -z "$version" ]]; then
+    if [[ "$GITHUB_REF" == "refs/tags/"* ]]; then
+      version="${GITHUB_REF##*/}"
+    else
+      version="$(git describe --tags $(git rev-list --tags --max-count=1))"
+      if [[ $? -ne 0 ]]; then version=""; fi
+    fi
   fi
 
   if [[ -z "$version" ]]; then
