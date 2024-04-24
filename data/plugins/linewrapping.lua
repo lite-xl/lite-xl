@@ -89,6 +89,12 @@ local function get_tokens(doc, line)
   return spew_tokens, doc, line
 end
 
+local function matches_any(filename, ptns)
+  for _, ptn in ipairs(ptns) do
+    if filename:find(ptn) then return true end
+  end
+end
+
 -- Computes the breaks for a given line, width and mode. Returns a list of columns
 -- at which the line should be broken.
 function LineWrapping.compute_line_breaks(doc, default_font, line, width, mode)
