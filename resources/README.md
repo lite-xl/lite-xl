@@ -40,5 +40,9 @@ sips -s dpiWidth 144 -s dpiHeight 144 macos/background@2x.png
 
 `sips` and `tiffutil` are available by default on macOS.
 
+### Other Files
+
+- `shell.html`: A shell file for use with WASM builds.
+
 
 [1]: https://mesonbuild.com/Cross-compilation.html
