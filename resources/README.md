@@ -20,5 +20,9 @@ This folder contains resources that is used for building or packaging the projec
 
 - `include/lite_xl_plugin_api.h`: Native plugin API header. See the contents of `lite_xl_plugin_api.h` for more details.
 
+### Other Files
+
+- `shell.html`: A shell file for use with WASM builds.
+
 
 [1]: https://mesonbuild.com/Cross-compilation.html
