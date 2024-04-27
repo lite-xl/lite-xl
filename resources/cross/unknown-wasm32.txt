@@ -17,6 +17,16 @@ initial_heap = '104857600'
 # or supply a second machine file that defines this variable.
 toolchain = ''
 
+# The memory allocator to use. You shouldn't need to change this,
+# but other allocator might offer more performance at the cost of binary size.
+malloc_impl = 'emmalloc'
+
+# In order to run Lite XL, you will also need to bundle the /data directory.
+# The following option is added to the linking process to bundle the /data directory.
+# If you want to do this manually or the automatic bundling process does not work,
+# comment out the following line.
+bundle_paths = ['--preload-file', '../data@/usr/share/lite-xl/']
+
 
 [binaries]
 c = toolchain / 'emcc'
@@ -46,7 +56,7 @@ portable = true
 arch_tuple = 'wasm32-unknown'
 wrap_mode = 'nofallback'
 force_fallback_for = 'lua,pcre2,freetype2'
-c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1', '-lidbfs.js']
+c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1', '-lidbfs.js', '-s', 'EXIT_RUNTIME=1', '-s', 'MALLOC=' + malloc_impl] + bundle_paths
 
 [pcre2:project options]
 jit = 'disabled'
