@@ -12,8 +12,10 @@
 #elif defined(__linux__) || defined(__serenity__)
   #include <unistd.h>
 #elif defined(__APPLE__)
+  #include <unistd.h>
   #include <mach-o/dyld.h>
 #elif defined(__FreeBSD__)
+  #include <unistd.h>
   #include <sys/sysctl.h>
 #endif
 
@@ -124,6 +126,12 @@ void set_macos_bundle_resources(lua_State *L);
 
 int main(int argc, char **argv) {
 #ifndef _WIN32
+  if (isatty(STDOUT_FILENO)) {
+    if (!getenv("NO_FORK") && fork()) {
+      return 0;
+    }
+  }
+
   signal(SIGPIPE, SIG_IGN);
 #endif
 
