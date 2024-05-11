@@ -1402,7 +1402,15 @@ local run_threads = coroutine.wrap(function()
     local max_time = 1 / config.fps - 0.004
     local minimal_time_to_wake = math.huge
 
+    local threads = {}
+    -- We modify core.threads while iterating, both by removing dead threads,
+    -- and by potentially adding more threads while we yielded early,
+    -- so we need to extract the threads list and iterate over that instead.
     for k, thread in pairs(core.threads) do
+      threads[k] = thread
+    end
+
+    for k, thread in pairs(threads) do
       -- run thread
       if thread.wake < system.get_time() then
         local _, wait = assert(coroutine.resume(thread.cr))
