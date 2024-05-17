@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Fetch Version
         id: tag
         run: |
@@ -38,6 +40,8 @@ jobs:
           tag_name: ${{ steps.tag.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate Release Notes
+        run: bash scripts/generate-release-notes.sh --version ${{ steps.tag.outputs.version }}
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -45,8 +49,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.version }}
           name: Lite XL ${{ steps.tag.outputs.version }}
           draft: true
-          body_path: changelog.md
-          generate_release_notes: true
+          body_path: release-notes.md
 
   build_linux:
     name: Linux
