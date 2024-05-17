@@ -8,6 +8,7 @@ This folder contains resources that is used for building or packaging the projec
 
 ### Packaging
 
+- `release-notes.md`: lite-xl release note template, used with `envsubst`.
 - `icons/icon.{icns,ico,inl,rc,svg}`: lite-xl icon in various formats.
 - `linux/com.lite_xl.LiteXL.appdata.xml`: AppStream metadata.
 - `linux/com.lite_xl.LiteXL.desktop`: Desktop file for Linux desktops.
