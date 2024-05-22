@@ -9,7 +9,7 @@
 
 #ifdef _WIN32
   #include <windows.h>
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__serenity__)
   #include <unistd.h>
 #elif defined(__APPLE__)
   #include <mach-o/dyld.h>
@@ -34,7 +34,7 @@ static void get_exe_filename(char *buf, int sz) {
   } else {
     buf[0] = '\0';
   }
-#elif __linux__
+#elif __linux__ || __serenity__
   char path[] = "/proc/self/exe";
   ssize_t len = readlink(path, buf, sz - 1);
   if (len > 0)
@@ -110,6 +110,9 @@ void set_macos_bundle_resources(lua_State *L);
     #define ARCH_PLATFORM "freebsd"
   #elif __APPLE__
     #define ARCH_PLATFORM "darwin"
+  #elif __serenity__
+    #define ARCH_PLATFORM "serenity"
+  #else
   #endif
 
   #if !defined(ARCH_PROCESSOR) || !defined(ARCH_PLATFORM)

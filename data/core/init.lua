@@ -572,22 +572,22 @@ local config = require "core.config"
 --
 -- Here some examples:
 --
--- "^%." match any file of directory whose basename begins with a dot.
+-- "^%." matches any file of directory whose basename begins with a dot.
 --
--- When there is an '/' or a '/$' at the end the pattern it will only match
+-- When there is an '/' or a '/$' at the end, the pattern will only match
 -- directories. When using such a pattern a final '/' will be added to the name
 -- of any directory entry before checking if it matches.
 --
 -- "^%.git/" matches any directory named ".git" anywhere in the project.
 --
--- If a "/" appears anywhere in the pattern except if it appears at the end or
--- is immediately followed by a '$' then the pattern will be applied to the full
+-- If a "/" appears anywhere in the pattern (except when it appears at the end or
+-- is immediately followed by a '$'), then the pattern will be applied to the full
 -- path of the file or directory. An initial "/" will be prepended to the file's
 -- or directory's path to indicate the project's root.
 --
 -- "^/node_modules/" will match a directory named "node_modules" at the project's root.
--- "^/build.*/" match any top level directory whose name begins with "build"
--- "^/subprojects/.+/" match any directory inside a top-level folder named "subprojects".
+-- "^/build.*/" will match any top level directory whose name begins with "build".
+-- "^/subprojects/.+/" will match any directory inside a top-level folder named "subprojects".
 
 -- You may activate some plugins on a per-project basis to override the user's settings.
 -- config.plugins.trimwitespace = true

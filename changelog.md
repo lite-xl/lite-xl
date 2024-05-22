@@ -1,5 +1,58 @@
 # Changes Log
 
+## [2.1.4] - 2024-04-16
+
+This release addresses severe bugs not found in previous releases,
+and improves the usability of the program.
+
+### Features
+
+* Add `.pyi` extension to `language_python`.
+  ([#1728](https://github.com/lite-xl/lite-xl/pull/1728))
+
+* Improve autocomplete suggestions box behavior with long text
+  ([#1734](https://github.com/lite-xl/lite-xl/pull/1734))
+
+* Improve `CommandView` and autocomplete scroll behavior
+  ([#1732](https://github.com/lite-xl/lite-xl/pull/1732))
+
+* Add `from` symbol to support ESM
+  ([#1754](https://github.com/lite-xl/lite-xl/pull/1754))
+
+* Add Arduino syntax highlighting support in `language_cpp`
+  ([#1767](https://github.com/lite-xl/lite-xl/pull/1767))
+
+* Skip patterns matching nothing in tokenizer
+  ([#1743](https://github.com/lite-xl/lite-xl/pull/1743))
+
+### Fixes
+
+* Fix uninitialized variables in `src/api/process.c`
+  ([#1719](https://github.com/lite-xl/lite-xl/pull/1719))
+
+* Fix `language_js` regex/comment distinction
+  ([#1731](https://github.com/lite-xl/lite-xl/pull/1731))
+
+* Fix compilation on non-MINGW64 platforms
+  ([#1739](https://github.com/lite-xl/lite-xl/pull/1739))
+
+* Limit `language_js` regex avoidance to numbers, and fix starting `/*` comments
+  ([#1744](https://github.com/lite-xl/lite-xl/pull/1744))
+
+* Fix `buffer_size` in `g_read` for Windows
+  ([#1722](https://github.com/lite-xl/lite-xl/pull/1722))
+
+* Fix missing permission for creating releases
+  ([#1770](https://github.com/lite-xl/lite-xl/pull/1770))
+
+### Other Changes
+
+* Rectify LICENSE dates and owners
+  ([#1748](https://github.com/lite-xl/lite-xl/pull/1748))
+
+* Fix some typos in `core.init`
+  ([#1755](https://github.com/lite-xl/lite-xl/pull/1755))
+
 ## [2.1.3] - 2024-01-29
 
 This release addresses severe bugs not found in previous releases.
@@ -1451,6 +1504,7 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
+[2.1.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.4
 [2.1.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.3
 [2.1.2]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.2
 [2.1.1]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.1
