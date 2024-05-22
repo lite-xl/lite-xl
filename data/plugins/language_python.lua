@@ -71,15 +71,15 @@ local not_python_type = {
     { pattern = { '[ruU]?"', '"', '\\' },        type = "string"                          },
     { pattern = { "[ruU]?'", "'", '\\' },        type = "string"                          },
 
-    { pattern = "0[xboXBO][%da-fA-F_]+",         type = "number"                          },
-    { pattern = "%d+[%d%.eE_]*",                 type = "number"                          },
-    { pattern = "%.?%d+",                        type = "number"                          },
-    { pattern = "%f[-%w]-%f[%d]",                type = "number"                          },
+    { pattern = "%f[%w_]0[xboXBO][%da-fA-F_]+%f[^%w_]",         type = "number"           },
+    { pattern = "%f[%w_]%d+[%d%.eE_]*%f[^%w_]",                 type = "number"           },
+    { pattern = "%f[%w_]%.?%d+%f[^%w_]",                        type = "number"           },
+    { pattern = "%f[-%w_]-%f[%d%.]",                            type = "number"           },
 
     { pattern = "[%+%-=/%*%^%%<>!~|&]",          type = "operator"                        },
     { pattern = "[%a_][%w_]*%f[(]",              type = "function"                        },
 
-    { pattern = "%f[%a_]%a%a+%f[^%a_]",          type = "symbol"                          },
+    { pattern = "[%w_][%w_]+",                   type = "symbol"                          },
   },
 
   symbols = python_symbols
@@ -105,6 +105,32 @@ local python_fstring = {
 table.insert(not_python_type.patterns, 3, { pattern = { 'f"', '"', "\\"}, type = "string", syntax = python_fstring })
 table.insert(not_python_type.patterns, 3, { pattern = { "f'", "'", "\\"}, type = "string", syntax = python_fstring })
 
+local python_func = {
+  patterns = {
+    { pattern = { '[ruU]?"""', '"""'; '\\' },    type = "string"                          },
+    { pattern = { "[ruU]?'''", "'''", '\\' },    type = "string"                          },
+    { pattern = { '[ruU]?"', '"', '\\' },        type = "string"                          },
+    { pattern = { "[ruU]?'", "'", '\\' },        type = "string"                          },
+
+    { pattern = { "->", "%f[:]" },               type = "operator", syntax = python_type  },
+    { pattern = { ":%s*", "%f[^%[%]%w_]"},                          syntax = python_type  },
+
+
+    { pattern = "%f[%w_]0[xboXBO][%da-fA-F_]+%f[^%w_]",         type = "number"           },
+    { pattern = "%f[%w_]%d+[%d%.eE_]*%f[^%w_]",                 type = "number"           },
+    { pattern = "%f[%w_]%.?%d+%f[^%w_]",                        type = "number"           },
+    { pattern = "%f[-%w_]-%f[%d%.]",                            type = "number"           },
+
+    { pattern = "[%+%-=/%*%^%%<>!~|&]",          type = "operator"                        },
+    { pattern = "[%a_][%w_]*%f[(]",              type = "function"                        },
+
+    { pattern = "[%w_][%w_]+",                   type = "symbol"                          },
+  },
+
+  symbols = python_symbols
+}
+
+table.insert(python_func.patterns, 1, { pattern = { "%(", "%)" }, syntax = python_func })
 
 
 syntax.add {
@@ -123,11 +149,8 @@ syntax.add {
 
     { pattern = { "%[", "%]" },                                  syntax = not_python_type },
     { pattern = { "{",  "}"  },                                  syntax = not_python_type },
-    { pattern = { "%(", "%)" },                                  syntax = ".py"           },
 
-    { pattern = "lambda().-:",                 type = { "keyword", "normal" }             },
-
-    { pattern = { "def",     "[:\n]" },                          syntax = ".py"           }, -- this and the following prevent one-liner highlight bugs
+    { pattern = { "def",     "[:\n]" },                          syntax = python_func     }, -- this and the following prevent one-liner highlight bugs
 
     { pattern = { "for",     "[:\n]" },                          syntax = not_python_type },
     { pattern = { "if",      "[:\n]" },                          syntax = not_python_type },
@@ -136,14 +159,14 @@ syntax.add {
     { pattern = { "match",   "[:\n]" },                          syntax = not_python_type },
     { pattern = { "case",    "[:\n]" },                          syntax = not_python_type },
     { pattern = { "except",  "[:\n]" },                          syntax = not_python_type },
+    { pattern = { "lambda",  "[:\n]" },                          syntax = not_python_type },
 
     { pattern =  "else():",                    type = { "keyword", "normal" }             },
     { pattern =  "try():",                     type = { "keyword", "normal" }             },
 
     { pattern = ":%s*\n",                      type = "normal"                            },
 
-    { pattern = { ":%s*", "%f[^%[%]%w_]"},                        syntax = python_type    },
-    { pattern = { "->()", "%f[:]" },           type = { "operator", "normal" }, syntax = python_type },
+    { pattern = { ":%s*", "%f[^%[%]%w_]"},                       syntax = python_type     },
 
     { pattern = { '[ruU]?"""', '"""'; '\\' },  type = "string"                            },
     { pattern = { "[ruU]?'''", "'''", '\\' },  type = "string"                            },
@@ -155,12 +178,12 @@ syntax.add {
     { pattern = "%f[%w_]0[xboXBO][%da-fA-F_]+%f[^%w_]",         type = "number"           },
     { pattern = "%f[%w_]%d+[%d%.eE_]*%f[^%w_]",                 type = "number"           },
     { pattern = "%f[%w_]%.?%d+%f[^%w_]",                        type = "number"           },
-    { pattern = "%f[-%w_]-%f[%d%.]",           type = "number"                            },
+    { pattern = "%f[-%w_]-%f[%d%.]",                            type = "number"           },
 
     { pattern = "[%+%-=/%*%^%%<>!~|&]",        type = "operator"                          },
     { pattern = "[%a_][%w_]*%f[(]",            type = "function"                          },
 
-    { pattern = "%f[%w_]%a%a+%f[^%w_]",        type = "symbol"                            },
+    { pattern = "[%w_][%w_]+",                 type = "symbol"                            },
 
   },
 
