@@ -1127,8 +1127,14 @@ function core.show_title_bar(show)
 end
 
 
+local thread_counter = 0
 function core.add_thread(f, weak_ref, ...)
-  local key = weak_ref or #core.threads + 1
+  local key = weak_ref
+  if not key then
+    thread_counter = thread_counter + 1
+    key = thread_counter
+  end
+  assert(core.threads[key] == nil, "Duplicate thread reference")
   local args = {...}
   local fn = function() return core.try(f, table.unpack(args)) end
   core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
@@ -1415,11 +1421,7 @@ local run_threads = coroutine.wrap(function()
       if core.threads[k] and thread.wake < system.get_time() then
         local _, wait = assert(coroutine.resume(thread.cr))
         if coroutine.status(thread.cr) == "dead" then
-          if type(k) == "number" then
-            table.remove(core.threads, k)
-          else
-            core.threads[k] = nil
-          end
+          core.threads[k] = nil
         else
           wait = wait or (1/30)
           thread.wake = system.get_time() + wait
