@@ -1411,8 +1411,8 @@ local run_threads = coroutine.wrap(function()
     end
 
     for k, thread in pairs(threads) do
-      -- run thread
-      if thread.wake < system.get_time() then
+      -- Run thread if it wasn't deleted externally and it's time to resume it
+      if core.threads[k] and thread.wake < system.get_time() then
         local _, wait = assert(coroutine.resume(thread.cr))
         if coroutine.status(thread.cr) == "dead" then
           if type(k) == "number" then
