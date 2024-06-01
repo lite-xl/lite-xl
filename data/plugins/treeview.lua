@@ -18,6 +18,8 @@ config.plugins.treeview = common.merge({
   expand_dirs_to_focused_file = false,
   scroll_to_focused_file = false,
   animate_scroll_to_focused_file = true
+  -- Shows treeview on treeitem:toggle-focus if previously hidden
+  show_on_focus = true,
 }, config.plugins.treeview)
 
 local tooltip_offset = style.font:get_height()
@@ -666,6 +668,9 @@ command.add(nil, {
       end
       if not previous_view then
         previous_view = core.root_view:get_primary_node().active_view
+      end
+      if config.plugins.treeview.show_on_focus and view.visible == false then
+        view.visible = true
       end
       core.set_active_view(view)
       if not view.selected_item then
