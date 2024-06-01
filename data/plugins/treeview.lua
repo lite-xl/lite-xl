@@ -17,7 +17,7 @@ config.plugins.treeview = common.merge({
   highlight_focused_file = true,
   expand_dirs_to_focused_file = false,
   scroll_to_focused_file = false,
-  animate_scroll_to_focused_file = true
+  animate_scroll_to_focused_file = true,
   -- Shows treeview on treeitem:toggle-focus if previously hidden
   show_on_focus = true,
 }, config.plugins.treeview)
