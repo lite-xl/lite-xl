@@ -133,7 +133,7 @@ syntax.add {
     ["this"]      = "keyword",
     ["thread_local"] = "keyword",
     ["requires"]  = "keyword",
-    ["co_wait"]   = "keyword",
+    ["co_await"]   = "keyword",
     ["co_return"] = "keyword",
     ["co_yield"]  = "keyword",
     ["decltype"] = "keyword",
