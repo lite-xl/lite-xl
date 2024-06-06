@@ -120,6 +120,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ needs.release.outputs.version }}
+          allowUpdates: true
           artifacts: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
             lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
@@ -186,6 +187,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ needs.release.outputs.version }}
+          allowUpdates: true
           artifacts: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
@@ -243,6 +245,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ needs.release.outputs.version }}
+          allowUpdates: true
           artifacts: |
             ${{ env.INSTALL_BASE }}-universal.dmg
             ${{ env.INSTALL_BASE_ADDONS }}-universal.dmg
@@ -317,6 +320,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ needs.release.outputs.version }}
+          allowUpdates: true
           artifacts: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip
