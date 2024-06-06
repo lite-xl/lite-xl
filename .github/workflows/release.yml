@@ -151,7 +151,9 @@ jobs:
           echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
-      - uses: actions/checkout@v4
+      
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Python Setup
         uses: actions/setup-python@v5
