@@ -69,7 +69,8 @@ jobs:
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
           echo "CCACHE_DIR=$PWD/.ccache" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       # disabled because this will break our own Python install
       - name: Python Setup
