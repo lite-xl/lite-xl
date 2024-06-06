@@ -115,6 +115,7 @@ jobs:
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
+          name: Lite XL ${{ steps.tag.outputs.version }}
           tag_name: ${{ steps.tag.outputs.version }}
           files: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
@@ -171,6 +172,7 @@ jobs:
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
+          name: Lite XL ${{ steps.tag.outputs.version }}
           tag_name: ${{ steps.tag.outputs.version }}
           files: |
             ${{ env.INSTALL_NAME }}.dmg
@@ -219,6 +221,7 @@ jobs:
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
+          name: Lite XL ${{ steps.tag.outputs.version }}
           tag_name: ${{ steps.tag.outputs.version }}
           files: |
             ${{ env.INSTALL_BASE }}-universal.dmg
@@ -274,6 +277,7 @@ jobs:
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
+          name: Lite XL ${{ steps.tag.outputs.version }}
           tag_name: ${{ steps.tag.outputs.version }}
           files: |
             ${{ env.INSTALL_NAME }}.zip
