@@ -86,7 +86,7 @@ jobs:
           sudo apt-get install -y ccache
 
       - name: Build Portable
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.2
         with:
           args: >-
             bash -c "
@@ -94,7 +94,7 @@ jobs:
             bash scripts/build.sh --debug --forcefallback --portable --release"
 
       - name: Package Portables
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.2
         with:
           args: >-
             bash -c "
@@ -102,7 +102,7 @@ jobs:
             bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release"
           
       - name: Build AppImages
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.1
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.2
         with:
           args: >-
             bash -c "
