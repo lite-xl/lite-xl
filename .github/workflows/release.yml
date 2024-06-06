@@ -330,6 +330,7 @@ jobs:
       - name: Update Release
         uses: ncipollo/release-action@v1
         with:
+          tag: ${{ needs.release.outputs.version }}
           omitBodyDuringUpdate: true
           omitDraftDuringUpdate: true
           omitNameDuringUpdate: true
