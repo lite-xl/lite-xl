@@ -184,7 +184,7 @@ jobs:
 
   build_macos_universal:
     name: macOS (Universal)
-    needs: [build_macos]
+    needs: [release, build_macos]
     runs-on: macos-11
 
     steps:
@@ -319,7 +319,7 @@ jobs:
     name: Upload Release Artifacts
     runs-on: ubuntu-latest
     needs:
-      [build_linux, build_macos, build_macos_universal, build_windows_msys2]
+      [release, build_linux, build_macos, build_macos_universal, build_windows_msys2]
 
     steps:
       - name: Download Artifacts
