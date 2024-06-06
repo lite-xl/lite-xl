@@ -93,28 +93,25 @@ jobs:
           sudo apt-get install -y ccache
 
       - name: Build Portable
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.2
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.3
         with:
-          args: >-
-            bash -c "
-            bash --version &&
-            bash scripts/build.sh --debug --forcefallback --portable --release"
+          args: |
+            bash --version
+            bash scripts/build.sh --debug --forcefallback --portable --release
 
       - name: Package Portables
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.2
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.3
         with:
-          args: >-
-            bash -c "
-            bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release &&
-            bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release"
+          args: |
+            bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
+            bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
 
       - name: Build AppImages
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.2
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.3
         with:
-          args: >-
-            bash -c "
-            bash scripts/appimage.sh --debug --static --version ${INSTALL_REF} --release &&
-            bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}"
+          args: |
+            bash scripts/appimage.sh --debug --static --version ${INSTALL_REF} --release
+            bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
