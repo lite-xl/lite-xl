@@ -36,4 +36,4 @@ Please go to [changelog.md] for detailed description of all the changes.
 [macintel-dmg]:     https://github.com/lite-xl/lite-xl/releases/download/${RELEASE_TAG}/lite-xl-${RELEASE_TAG}-macos-x86_64.dmg
 [macarm-dmg]:       https://github.com/lite-xl/lite-xl/releases/download/${RELEASE_TAG}/lite-xl-${RELEASE_TAG}-macos-arm64.dmg
 [README]:           https://github.com/lite-xl/lite-xl?tab=readme-ov-file#installing-prebuilt
-[changelog]:        https://github.com/lite-xl/lite-xl/blob/${RELEASE_TAG}/changelog.md
+[changelog.md]:     https://github.com/lite-xl/lite-xl/blob/${RELEASE_TAG}/changelog.md
