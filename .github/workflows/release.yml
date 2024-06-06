@@ -316,7 +316,7 @@ jobs:
             LiteXL-${{ env.INSTALL_REF }}-addons-${{ matrix.config.arch }}-setup.exe
 
   upload_artifacts:
-    name: Create Release
+    name: Upload Release Artifacts
     runs-on: ubuntu-latest
     needs:
       [build_linux, build_macos, build_macos_universal, build_windows_msys2]
