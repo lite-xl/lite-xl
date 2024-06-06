@@ -26,6 +26,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Fetch Version
         id: tag
         run: |
@@ -34,24 +35,26 @@ jobs:
           else
             echo "version=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
           fi
+
       - name: Update Tag
         uses: richardsimko/update-tag@v1
         with:
           tag_name: ${{ steps.tag.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate Release Notes
         run: bash scripts/generate-release-notes.sh --version ${{ steps.tag.outputs.version }}
+
       - name: Create Release
         id: create_release
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag: ${{ steps.tag.outputs.version }}
           name: Lite XL ${{ steps.tag.outputs.version }}
+          tag_name: ${{ steps.tag.outputs.version }}
           draft: true
-          bodyFile: release-notes.md
-          generateReleaseNotes: true
-          allowUpdates: true
+          body_path: release-notes.md
+          generate_release_notes: true
 
   build_linux:
     name: Linux
@@ -110,12 +113,10 @@ jobs:
             bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}"
 
       - name: Upload Files
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag: ${{ needs.release.outputs.version }}
-          draft: true
-          allowUpdates: true
-          artifacts: |
+          tag_name: ${{ steps.tag.outputs.version }}
+          files: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
             lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
             LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
@@ -168,12 +169,10 @@ jobs:
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
       - name: Upload Files
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag: ${{ needs.release.outputs.version }}
-          draft: true
-          allowUpdates: true
-          artifacts: |
+          tag_name: ${{ steps.tag.outputs.version }}
+          files: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
 
@@ -218,12 +217,10 @@ jobs:
           bash scripts/make-universal-binaries.sh dmgs-normal "$INSTALL_BASE-universal"
           bash scripts/make-universal-binaries.sh dmgs-addons "$INSTALL_BASE_ADDONS-universal"
       - name: Upload Files
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag: ${{ needs.release.outputs.version }}
-          draft: true
-          allowUpdates: true
-          artifacts: |
+          tag_name: ${{ steps.tag.outputs.version }}
+          files: |
             ${{ env.INSTALL_BASE }}-universal.dmg
             ${{ env.INSTALL_BASE_ADDONS }}-universal.dmg
 
@@ -275,12 +272,10 @@ jobs:
       - name: Build Installer With Addons
         run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF} --addons
       - name: Upload Files
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag: ${{ needs.release.outputs.version }}
-          draft: true
-          allowUpdates: true
-          artifacts: |
+          tag_name: ${{ steps.tag.outputs.version }}
+          files: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip
             LiteXL-${{ env.INSTALL_REF }}-${{ env.BUILD_ARCH }}-setup.exe
