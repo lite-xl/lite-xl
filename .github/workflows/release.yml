@@ -21,6 +21,7 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.tag.outputs.version }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -60,6 +61,7 @@ jobs:
     name: Linux
     needs: release
     runs-on: ubuntu-latest
+
     steps:
       - name: Set Environment Variables
         run: |
@@ -115,7 +117,7 @@ jobs:
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.version }}
+          tag_name: ${{ needs.release.outputs.version }}
           files: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
             lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
@@ -132,6 +134,7 @@ jobs:
     env:
       CC: clang
       CXX: clang++
+
     steps:
       - name: System Information
         run: |
@@ -139,6 +142,7 @@ jobs:
           bash --version
           gcc -v
           xcodebuild -version
+
       - name: Set Environment Variables
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -147,20 +151,25 @@ jobs:
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
       - uses: actions/checkout@v4
+
       - name: Python Setup
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install Dependencies
         run: bash scripts/install-dependencies.sh --debug
+
       - name: Build
         run: |
           bash --version
           bash scripts/build.sh --bundle --debug --forcefallback --release $ARCH
+
       - name: Create DMG Image
         run: |
           bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg --release
           bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --addons --dmg --release
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -168,10 +177,11 @@ jobs:
           path: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
+
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.version }}
+          tag_name: ${{ needs.release.outputs.version }}
           files: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
@@ -180,6 +190,7 @@ jobs:
     name: macOS (Universal)
     needs: [release, build_macos]
     runs-on: macos-11
+
     steps:
       - name: System Information
         run: |
@@ -187,12 +198,15 @@ jobs:
           bash --version
           gcc -v
           xcodebuild -version
+
       - name: Set Environment Variables
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_BASE=lite-xl-${{ needs.release.outputs.version }}-macos" >> "$GITHUB_ENV"
           echo "INSTALL_BASE_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         id: download
@@ -200,26 +214,31 @@ jobs:
           pattern: macOS DMG Images *
           merge-multiple: true
           path: dmgs-original
+
       - name: Python Setup
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install dmgbuild
         run: pip install dmgbuild
+
       - name: Prepare DMG Images
         run: |
           mkdir -p dmgs-addons dmgs-normal
           mv -v "${{ steps.download.outputs.download-path }}/$INSTALL_BASE-"{x86_64,arm64}.dmg dmgs-normal
           mv -v "${{ steps.download.outputs.download-path }}/$INSTALL_BASE_ADDONS-"{x86_64,arm64}.dmg dmgs-addons
+
       - name: Create Universal DMGs
         run: |
           bash --version
           bash scripts/make-universal-binaries.sh dmgs-normal "$INSTALL_BASE-universal"
           bash scripts/make-universal-binaries.sh dmgs-addons "$INSTALL_BASE_ADDONS-universal"
+
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.version }}
+          tag_name: ${{ needs.release.outputs.version }}
           files: |
             ${{ env.INSTALL_BASE }}-universal.dmg
             ${{ env.INSTALL_BASE_ADDONS }}-universal.dmg
@@ -234,6 +253,7 @@ jobs:
     defaults:
       run:
         shell: msys2 {0}
+
     steps:
       - uses: actions/checkout@v4
       - uses: msys2/setup-msys2@v2
@@ -244,6 +264,7 @@ jobs:
             base-devel
             git
             zip
+
       - name: Set Environment Variables
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -257,24 +278,31 @@ jobs:
             echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-i686" >> "$GITHUB_ENV"
             echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-i686" >> "$GITHUB_ENV"
           fi
+
       - name: Install Dependencies
         run: bash scripts/install-dependencies.sh --debug
+
       - name: Build
         run: |
           bash --version
           bash scripts/build.sh -U --debug --forcefallback --release
+
       - name: Package
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
+
       - name: Build Installer
         run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF}
+
       - name: Package With Addons
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
+
       - name: Build Installer With Addons
         run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF} --addons
+
       - name: Upload Files
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.version }}
+          tag_name: ${{ needs.release.outputs.version }}
           files: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip
