@@ -49,13 +49,14 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
           name: Lite XL ${{ steps.tag.outputs.version }}
-          tag_name: ${{ steps.tag.outputs.version }}
+          tag: ${{ steps.tag.outputs.version }}
           draft: true
-          body_path: release-notes.md
-          generate_release_notes: true
+          bodyFile: release-notes.md
+          generateReleaseNotes: true
+          allowUpdates: true
 
   build_linux:
     name: Linux
@@ -116,10 +117,10 @@ jobs:
             bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}"
 
       - name: Upload Files
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
-          files: |
+          tag: ${{ needs.release.outputs.version }}
+          artifacts: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
             lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
             LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
@@ -182,10 +183,10 @@ jobs:
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
 
       - name: Upload Files
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
-          files: |
+          tag: ${{ needs.release.outputs.version }}
+          artifacts: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
 
@@ -239,10 +240,10 @@ jobs:
           bash scripts/make-universal-binaries.sh dmgs-addons "$INSTALL_BASE_ADDONS-universal"
 
       - name: Upload Files
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
-          files: |
+          tag: ${{ needs.release.outputs.version }}
+          artifacts: |
             ${{ env.INSTALL_BASE }}-universal.dmg
             ${{ env.INSTALL_BASE_ADDONS }}-universal.dmg
 
@@ -313,10 +314,10 @@ jobs:
         run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF} --addons
 
       - name: Upload Files
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.release.outputs.version }}
-          files: |
+          tag: ${{ needs.release.outputs.version }}
+          artifacts: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip
             LiteXL-${{ env.INSTALL_REF }}-${{ matrix.config.arch }}-setup.exe
