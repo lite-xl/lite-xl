@@ -116,12 +116,11 @@ jobs:
             bash scripts/appimage.sh --debug --static --version ${INSTALL_REF} --release &&
             bash scripts/appimage.sh --debug --nobuild --addons --version ${INSTALL_REF}"
 
-      - name: Upload Files
-        uses: ncipollo/release-action@v1
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tag: ${{ needs.release.outputs.version }}
-          allowUpdates: true
-          artifacts: |
+          name: Linux Artifacts
+          path: |
             lite-xl-${{ env.INSTALL_REF }}-linux-x86_64-portable.tar.gz
             lite-xl-${{ env.INSTALL_REF }}-addons-linux-x86_64-portable.tar.gz
             LiteXL-${{ env.INSTALL_REF }}-x86_64.AppImage
@@ -183,18 +182,9 @@ jobs:
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
 
-      - name: Upload Files
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ needs.release.outputs.version }}
-          allowUpdates: true
-          artifacts: |
-            ${{ env.INSTALL_NAME }}.dmg
-            ${{ env.INSTALL_NAME_ADDONS }}.dmg
-
   build_macos_universal:
     name: macOS (Universal)
-    needs: [release, build_macos]
+    needs: [build_macos]
     runs-on: macos-11
 
     steps:
@@ -241,12 +231,11 @@ jobs:
           bash scripts/make-universal-binaries.sh dmgs-normal "$INSTALL_BASE-universal"
           bash scripts/make-universal-binaries.sh dmgs-addons "$INSTALL_BASE_ADDONS-universal"
 
-      - name: Upload Files
-        uses: ncipollo/release-action@v1
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tag: ${{ needs.release.outputs.version }}
-          allowUpdates: true
-          artifacts: |
+          name: macOS DMG Images (Universal)
+          path: |
             ${{ env.INSTALL_BASE }}-universal.dmg
             ${{ env.INSTALL_BASE_ADDONS }}-universal.dmg
 
@@ -257,8 +246,8 @@ jobs:
     strategy:
       matrix:
         config:
-          - { msystem: MINGW32, arch: i686}
-          - { msystem: MINGW64, arch: x86_64}
+          - { msystem: MINGW32, arch: i686 }
+          - { msystem: MINGW64, arch: x86_64 }
     defaults:
       run:
         shell: msys2 {0}
@@ -316,13 +305,34 @@ jobs:
       - name: Build Installer With Addons
         run: bash scripts/innosetup/innosetup.sh --debug --version ${INSTALL_REF} --addons
 
-      - name: Upload Files
-        uses: ncipollo/release-action@v1
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tag: ${{ needs.release.outputs.version }}
-          allowUpdates: true
-          artifacts: |
+          name: Windows Builds (${{ matrix.config.msystem }})
+          path: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip
             LiteXL-${{ env.INSTALL_REF }}-${{ matrix.config.arch }}-setup.exe
             LiteXL-${{ env.INSTALL_REF }}-addons-${{ matrix.config.arch }}-setup.exe
+
+  upload_artifacts:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs:
+      [build_linux, build_macos, build_macos_universal, build_windows_msys2]
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Update Release
+        uses: ncipollo/release-action@v1
+        with:
+          omitBodyDuringUpdate: true
+          omitDraftDuringUpdate: true
+          omitNameDuringUpdate: true
+          omitPrereleaseDuringUpdate: true
+          allowUpdates: true
+          artifacts: "*.exe,*.zip,*.tar.gz,*.dmg,*.AppImage"
