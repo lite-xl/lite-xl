@@ -3,11 +3,11 @@ name: CI
 on:
   push:
     branches:
-      - '*'
+      - "*"
 
   pull_request:
     branches:
-      - '*'
+      - "*"
 
   workflow_dispatch:
 
@@ -18,8 +18,8 @@ jobs:
     strategy:
       matrix:
         config:
-        - { name: "GCC", cc: gcc, cxx: g++ }
-        - { name: "clang", cc: clang, cxx: clang++ }
+          - { name: "GCC", cc: gcc, cxx: g++ }
+          - { name: "clang", cc: clang, cxx: clang++ }
     env:
       CC: ${{ matrix.config.cc }}
       CXX: ${{ matrix.config.cxx }}
@@ -38,7 +38,7 @@ jobs:
       - name: Python Setup
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Update Packages
         run: sudo apt-get update
@@ -71,7 +71,7 @@ jobs:
       CXX: clang++
     strategy:
       matrix:
-        arch: ['x86_64', 'arm64']
+        arch: ["x86_64", "arm64"]
 
     steps:
       - name: System Information
@@ -87,17 +87,17 @@ jobs:
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
-      
+
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Python Setup
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
+      # --lhelper will eliminate a warning with arm64 and libusb
       - name: Install Dependencies
-             # --lhelper will eliminate a warning with arm64 and libusb
         run: bash scripts/install-dependencies.sh --debug --lhelper
 
       - name: Build
@@ -136,7 +136,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dmgbuild
         run: pip install dmgbuild
@@ -170,58 +170,58 @@ jobs:
     strategy:
       matrix:
         config:
-          - {msystem: MINGW32, arch: i686}
-          - {msystem: MINGW64, arch: x86_64}
+          - { msystem: MINGW32, arch: i686 }
+          - { msystem: MINGW64, arch: x86_64 }
     defaults:
       run:
         shell: msys2 {0}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: ${{ matrix.config.msystem }}
-        install: >-
-          base-devel
-          git
-          zip
-          mingw-w64-${{ matrix.config.arch }}-gcc
-          mingw-w64-${{ matrix.config.arch }}-meson
-          mingw-w64-${{ matrix.config.arch }}-ninja
-          mingw-w64-${{ matrix.config.arch }}-ca-certificates
-          mingw-w64-${{ matrix.config.arch }}-ntldd
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.config.msystem }}
+          install: >-
+            base-devel
+            git
+            zip
+            mingw-w64-${{ matrix.config.arch }}-gcc
+            mingw-w64-${{ matrix.config.arch }}-meson
+            mingw-w64-${{ matrix.config.arch }}-ninja
+            mingw-w64-${{ matrix.config.arch }}-ca-certificates
+            mingw-w64-${{ matrix.config.arch }}-ntldd
 
-    - name: Set Environment Variables
-      run: |
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-        echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-        if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
-        else
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
-        fi
+      - name: Set Environment Variables
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+          if [[ "${MSYSTEM}" == "MINGW64" ]]; then
+            echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
+          else
+            echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
+          fi
 
-    - name: Install Dependencies
-      if: false
-      run: bash scripts/install-dependencies.sh --debug
+      - name: Install Dependencies
+        if: false
+        run: bash scripts/install-dependencies.sh --debug
 
-    - name: Build
-      run: |
-        bash --version
-        bash scripts/build.sh -U --debug --forcefallback
+      - name: Build
+        run: |
+          bash --version
+          bash scripts/build.sh -U --debug --forcefallback
 
-    - name: Package
-      run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
+      - name: Package
+        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Windows Artifacts (${{ matrix.config.msystem }})
-        path: ${{ env.INSTALL_NAME }}.zip
-        compression-level: 0
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows Artifacts (${{ matrix.config.msystem }})
+          path: ${{ env.INSTALL_NAME }}.zip
+          compression-level: 0
 
   build_windows_msvc:
     name: Windows (MSVC)
@@ -244,7 +244,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install meson and ninja
         run: pip install meson ninja

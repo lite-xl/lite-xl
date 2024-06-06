@@ -77,7 +77,7 @@ jobs:
         if: false
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       # disabled because the container has up-to-date packages
       - name: Update Packages
@@ -106,7 +106,7 @@ jobs:
             bash -c "
             bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release &&
             bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release"
-          
+
       - name: Build AppImages
         uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.1.2
         with:
@@ -151,14 +151,14 @@ jobs:
           echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
           if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
-      
+
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Python Setup
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Dependencies
         run: bash scripts/install-dependencies.sh --debug
@@ -221,7 +221,7 @@ jobs:
       - name: Python Setup
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dmgbuild
         run: pip install dmgbuild
