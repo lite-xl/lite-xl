@@ -252,7 +252,9 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        msystem: [MINGW32, MINGW64]
+        config:
+          - { msystem: MINGW32, arch: i686}
+          - { msystem: MINGW64, arch: x86_64}
     defaults:
       run:
         shell: msys2 {0}
@@ -264,28 +266,33 @@ jobs:
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
-          msystem: ${{ matrix.msystem }}
+          msystem: ${{ matrix.config.msystem }}
           update: true
           install: >-
             base-devel
             git
             zip
+            unzip
+            mingw-w64-${{ matrix.config.arch }}-gcc
+            mingw-w64-${{ matrix.config.arch }}-meson
+            mingw-w64-${{ matrix.config.arch }}-ninja
+            mingw-w64-${{ matrix.config.arch }}-ca-certificates
+            mingw-w64-${{ matrix.config.arch }}-ntldd
 
       - name: Set Environment Variables
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
           if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-            echo "BUILD_ARCH=x86_64" >> "$GITHUB_ENV"
             echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-x86_64" >> "$GITHUB_ENV"
             echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-x86_64" >> "$GITHUB_ENV"
           else
-            echo "BUILD_ARCH=i686" >> "$GITHUB_ENV"
             echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-windows-i686" >> "$GITHUB_ENV"
             echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-windows-i686" >> "$GITHUB_ENV"
           fi
 
       - name: Install Dependencies
+        if: false
         run: bash scripts/install-dependencies.sh --debug
 
       - name: Build
@@ -312,5 +319,5 @@ jobs:
           files: |
             ${{ env.INSTALL_NAME }}.zip
             ${{ env.INSTALL_NAME_ADDONS }}.zip
-            LiteXL-${{ env.INSTALL_REF }}-${{ env.BUILD_ARCH }}-setup.exe
-            LiteXL-${{ env.INSTALL_REF }}-addons-${{ env.BUILD_ARCH }}-setup.exe
+            LiteXL-${{ env.INSTALL_REF }}-${{ matrix.config.arch }}-setup.exe
+            LiteXL-${{ env.INSTALL_REF }}-addons-${{ matrix.config.arch }}-setup.exe
