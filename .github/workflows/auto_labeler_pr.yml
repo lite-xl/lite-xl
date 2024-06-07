@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Apply Type Label
-        uses: actions/labeler@v3
+        uses: actions/labeler@v5
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          sync-labels: ""  # works around actions/labeler#104
+          sync-labels: false
