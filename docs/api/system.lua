@@ -97,6 +97,7 @@ function system.set_window_mode(window, mode) end
 ---Retrieve the window mode.
 ---
 ---@param window renwindow
+---
 ---@return system.windowmode mode
 function system.get_window_mode(window) end
 
@@ -122,6 +123,7 @@ function system.set_window_hit_test(title_height, controls_width, resize_border)
 ---Get the size and coordinates of the window.
 ---
 ---@param window renwindow
+---
 ---@return number width
 ---@return number height
 ---@return number x
@@ -131,6 +133,7 @@ function system.get_window_size(window) end
 ---
 ---Sets the size and coordinates of the window.
 ---
+---@param window renwindow
 ---@param width number
 ---@param height number
 ---@param x number
@@ -141,6 +144,7 @@ function system.set_window_size(window, width, height, x, y) end
 ---Check if the window currently has focus.
 ---
 ---@param window renwindow
+---
 ---@return boolean
 function system.window_has_focus(window) end
 
@@ -304,6 +308,7 @@ function system.fuzzy_match(haystack, needle, file) end
 ---@param window renwindow
 ---@param opacity number A value from 0.0 to 1.0, the lower the value
 ---the less visible the window will be.
+---
 ---@return boolean success True if the operation suceeded.
 function system.set_window_opacity(window, opacity) end
 

@@ -82,12 +82,10 @@ static int f_renwin_persist(lua_State *L) {
 }
 
 static int f_renwin_restore(lua_State *L) {
-  if (!persistant_window)
-  {
+  if (!persistant_window) {
     lua_pushnil(L);
   }
-  else
-  {
+  else {
     RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
     luaL_setmetatable(L, API_TYPE_RENWINDOW);
 

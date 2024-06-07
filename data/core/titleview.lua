@@ -66,7 +66,7 @@ function TitleView:draw_window_title()
   local h = style.font:get_height()
   local ox, oy = self:get_content_offset()
   local color = style.text
-  local x, y = ox +style.padding.x, oy + style.padding.y
+  local x, y = ox + style.padding.x, oy + style.padding.y
   common.draw_text(style.icon_font, icon_colors.bg, "5", nil, x, y, 0, h)
   common.draw_text(style.icon_font, icon_colors.color6, "6", nil, x, y, 0, h)
   common.draw_text(style.icon_font, icon_colors.color7, "7", nil, x, y, 0, h)

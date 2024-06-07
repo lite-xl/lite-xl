@@ -615,8 +615,7 @@ RenWindow* ren_find_window(SDL_Window *window) {
   return NULL;
 }
 
-RenWindow* ren_find_window_from_id(uint32_t id)
-{
+RenWindow* ren_find_window_from_id(uint32_t id) {
   SDL_Window *window = SDL_GetWindowFromID(id);
   return ren_find_window(window);
 }
