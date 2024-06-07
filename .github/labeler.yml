@@ -32,7 +32,7 @@
 "Category: Themes":
 - changed-files:
   - any-glob-to-any-file:
-        - data/colors/*
+    - data/colors/*
 
 "Category: Lua Core":
 - changed-files:
