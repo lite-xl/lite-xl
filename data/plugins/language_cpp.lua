@@ -28,6 +28,15 @@ syntax.add {
     { pattern = "static()%s+()inline",
       type = { "keyword", "normal", "keyword" }
     },
+    { pattern = "static()%s+()constexpr",
+      type = { "keyword", "normal", "keyword" }
+    },
+    { pattern = "static()%s+()constinit",
+      type = { "keyword", "normal", "keyword" }
+    },
+    { pattern = "static()%s+()consteval",
+      type = { "keyword", "normal", "keyword" }
+    },
     { pattern = "static()%s+()const",
       type = { "keyword", "normal", "keyword" }
     },
