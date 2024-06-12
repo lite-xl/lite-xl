@@ -93,6 +93,13 @@ local function cut_or_copy(delete)
   system.set_clipboard(full_text)
 end
 
+local function set_primary_selection(doc)
+  -- Doesn't work on Windows, so avoid spending time getting the text
+  if PLATFORM ~= "Windows" then
+    system.set_primary_selection(doc:get_selection_text())
+  end
+end
+
 local function split_cursor(dv, direction)
   local new_cursors = {}
   local dv_translate = direction < 0
@@ -297,6 +304,15 @@ local commands = {
     end
   end,
 
+  ["doc:paste-primary-selection"] = function(dv, x, y)
+    if type(x) == "number" and type(y) == "number" then
+      set_cursor(dv, x, y, "set")
+      -- Workaround to avoid that a middle mouse drag starts selecting
+      dv.mouse_selecting = nil
+    end
+    dv.doc:text_input(system.get_primary_selection() or "")
+  end,
+
   ["doc:newline"] = function(dv)
     for idx, line, col in dv.doc:get_selections(false, true) do
       local indent = dv.doc.lines[line]:match("^[\t ]*")
@@ -353,6 +369,7 @@ local commands = {
 
   ["doc:select-all"] = function(dv)
     dv.doc:set_selection(1, 1, math.huge, math.huge)
+    set_primary_selection(dv.doc)
     -- avoid triggering DocView:scroll_to_make_visible
     dv.last_line1 = 1
     dv.last_col1 = 1
@@ -365,6 +382,7 @@ local commands = {
       append_line_if_last_line(line2)
       dv.doc:set_selections(idx, line2 + 1, 1, line1, 1)
     end
+    set_primary_selection(dv.doc)
   end,
 
   ["doc:select-word"] = function(dv)
@@ -373,6 +391,7 @@ local commands = {
       local line2, col2 = translate.end_of_word(dv.doc, line1, col1)
       dv.doc:set_selections(idx, line2, col2, line1, col1)
     end
+    set_primary_selection(dv.doc)
   end,
 
   ["doc:join-lines"] = function(dv)
@@ -626,6 +645,7 @@ local commands = {
     local line2, col2 = dv:resolve_screen_position(x, y)
     dv.mouse_selecting = { line1, col1, nil }
     dv.doc:set_selection(line2, col2, line1, col1)
+    set_primary_selection(dv.doc)
   end,
 
   ["doc:create-cursor-previous-line"] = function(dv)
@@ -696,9 +716,16 @@ local translations = {
 }
 
 for name, obj in pairs(translations) do
-  commands["doc:move-to-" .. name] = function(dv) dv.doc:move_to(obj[name:gsub("-", "_")], dv) end
-  commands["doc:select-to-" .. name] = function(dv) dv.doc:select_to(obj[name:gsub("-", "_")], dv) end
-  commands["doc:delete-to-" .. name] = function(dv) dv.doc:delete_to(obj[name:gsub("-", "_")], dv) end
+  commands["doc:move-to-" .. name] = function(dv)
+    dv.doc:move_to(obj[name:gsub("-", "_")], dv)
+  end
+  commands["doc:select-to-" .. name] = function(dv)
+    dv.doc:select_to(obj[name:gsub("-", "_")], dv)
+    set_primary_selection(dv.doc)
+  end
+  commands["doc:delete-to-" .. name] = function(dv)
+    dv.doc:delete_to(obj[name:gsub("-", "_")], dv)
+  end
 end
 
 commands["doc:move-to-previous-char"] = function(dv)
