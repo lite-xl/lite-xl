@@ -15,9 +15,23 @@ syntax.add {
     { pattern = { "/%*", "%*/" },           type = "comment"  },
     { pattern = { '"', '"', '\\' },         type = "string"   },
     { pattern = { "'", "'", '\\' },         type = "string"   },
-    { pattern = "0x%x+[%x']*",              type = "number"   },
-    { pattern = "%d+[%d%.'eE]*f?",          type = "number"   },
-    { pattern = "%.?%d+[%d']*f?",           type = "number"   },
+    -- hex integer
+    { pattern = "0x%x+[%x']*[uUlL]*",       type = "number"   },
+    -- TODO: add hex float
+    -- float 123.456e+78f
+    { pattern = "%d+[%d']*%.[%d']*[eE][%+-]?%d+f?",
+      type = "number"
+    },
+    -- float 123.456f
+    { pattern = "%d+[%d']*%.[%d']*f?",      type = "number"   },
+    -- float .123e+45f
+    { pattern = "%.%d+[%d']*[eE][%+-]?%d+f?",
+      type = "number"
+    },
+    -- float .123f
+    { pattern = "%.%d+[%d']*f?",            type = "number"   },
+    -- decimal or octal integer
+    { pattern = "%d%d*[%d']*[uUlL]*",       type = "number"   },
     { pattern = "[%+%-=/%*%^%%<>!~|:&]",    type = "operator" },
     { pattern = "##",                       type = "operator" },
     { pattern = "struct%s()[%a_][%w_]*",    type = {"keyword", "keyword2"} },
