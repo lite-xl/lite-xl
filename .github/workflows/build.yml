@@ -98,7 +98,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      # --lhelper will eliminate a warning with arm64 and libusb
       # installing md5sha1sum will eliminate a warning with arm64 and libusb
       - name: Install Dependencies
         run: |
