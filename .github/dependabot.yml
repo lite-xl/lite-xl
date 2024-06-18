@@ -5,5 +5,5 @@ updates:
     schedule:
       interval: weekly
     groups:
-      all:
+      github-actions:
         patterns: ["*"]
