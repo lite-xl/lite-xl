@@ -153,6 +153,7 @@ if not get_option('source-only')
     sdl_options += 'use_audio=disabled'
     sdl_options += 'use_cpuinfo=disabled'
     sdl_options += 'use_joystick=disabled'
+    sdl_options += 'use_joystick_xinput=disabled'
     sdl_options += 'use_video_vulkan=disabled'
     sdl_options += 'use_video_offscreen=disabled'
     sdl_options += 'use_power=disabled'
