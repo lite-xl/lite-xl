@@ -189,7 +189,7 @@ jobs:
   build_macos_universal:
     name: macOS (Universal)
     needs: [release, build_macos]
-    runs-on: macos-14
+    runs-on: macos-13
 
     steps:
       - name: System Information
