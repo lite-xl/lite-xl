@@ -123,7 +123,6 @@ if not get_option('source-only')
     sdl_options += 'use_atomic=enabled'
     sdl_options += 'use_threads=enabled'
     sdl_options += 'use_timers=enabled'
-    sdl_options += 'with_main=true'
     # investigate if this is truly needed
     # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
     sdl_options += 'use_events=enabled'
@@ -150,6 +149,7 @@ if not get_option('source-only')
     sdl_options += 'test=false'
     sdl_options += 'use_sensor=disabled'
     sdl_options += 'use_haptic=disabled'
+    sdl_options += 'use_hidapi=disabled'
     sdl_options += 'use_audio=disabled'
     sdl_options += 'use_cpuinfo=disabled'
     sdl_options += 'use_joystick=disabled'
