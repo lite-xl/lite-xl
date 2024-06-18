@@ -192,6 +192,10 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
     lite_bindir = 'Contents/MacOS'
     lite_docdir = 'Contents/Resources'
     lite_datadir = 'Contents/Resources'
+    conf_data.set(
+        'CURRENT_YEAR',
+        run_command('date', '+%Y', capture: true).stdout().strip()
+    )
     install_data('resources/icons/icon.icns', install_dir : 'Contents/Resources')
     configure_file(
         input : 'resources/macos/Info.plist.in',
