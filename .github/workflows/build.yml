@@ -122,7 +122,7 @@ jobs:
 
   build_macos_universal:
     name: macOS (Universal)
-    runs-on: macos-13
+    runs-on: macos-14
     needs: build_macos
 
     steps:
