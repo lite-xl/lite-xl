@@ -270,7 +270,8 @@ main() {
 
   if [[ $bundle == true ]]; then
     # https://eclecticlight.co/2019/01/17/code-signing-for-the-concerned-3-signing-an-app/
-    codesign --force --deep -s - "${dest_dir}"
+    # https://wiki.lazarus.freepascal.org/Code_Signing_for_macOS#Big_Sur_and_later_on_Apple_M1_ARM64_processors
+    codesign --force --deep --digest-algorithm=sha1,sha256 -s - "${dest_dir}"
   fi
 
   echo "Creating a compressed archive ${package_name}"
