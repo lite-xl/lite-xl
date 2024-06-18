@@ -129,10 +129,13 @@ jobs:
   build_macos:
     name: macOS
     needs: release
-    runs-on: macos-11
     strategy:
       matrix:
-        arch: [x86_64, arm64]
+        config:
+          - { arch: x86_64, runner: macos-13 } # macos-13 uses x86_64
+          - { arch: arm64, runner: macos-14 } # macos-14 / latest uses M1
+
+    runs-on: ${{ matrix.config.runner }}
     env:
       CC: clang
       CXX: clang++
@@ -149,9 +152,8 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${{ needs.release.outputs.version }}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
-          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
+          echo "INSTALL_NAME=lite-xl-${{ needs.release.outputs.version }}-macos-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
+          echo "INSTALL_NAME_ADDONS=lite-xl-${{ needs.release.outputs.version }}-addons-macos-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -162,22 +164,24 @@ jobs:
           python-version: "3.11"
 
       - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh --debug
+        run: |
+          brew install bash md5sha1sum
+          pip install meson ninja dmgbuild
 
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback --release $ARCH
+          bash scripts/build.sh --bundle --debug --forcefallback --release
 
       - name: Create DMG Image
         run: |
-          bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg --release
-          bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --addons --dmg --release
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg --release
+          bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --dmg --release
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macOS DMG Images (${{ matrix.arch }})
+          name: macOS DMG Images (${{ matrix.config.arch }})
           path: |
             ${{ env.INSTALL_NAME }}.dmg
             ${{ env.INSTALL_NAME_ADDONS }}.dmg
@@ -185,7 +189,7 @@ jobs:
   build_macos_universal:
     name: macOS (Universal)
     needs: [release, build_macos]
-    runs-on: macos-11
+    runs-on: macos-14
 
     steps:
       - name: System Information
