@@ -65,13 +65,16 @@ jobs:
 
   build_macos:
     name: macOS
-    runs-on: macos-11
+    strategy:
+      matrix:
+        config:
+          - { arch: x86_64, runner: macos-13 } # macos-13 uses x86_64
+          - { arch: arm64, runner: macos-14 } # macos-14 / latest uses M1
+
+    runs-on: ${{ matrix.config.runner }}
     env:
       CC: clang
       CXX: clang++
-    strategy:
-      matrix:
-        arch: ["x86_64", "arm64"]
 
     steps:
       - name: System Information
@@ -85,8 +88,7 @@ jobs:
         run: |
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.arch }}" >> "$GITHUB_ENV"
-          if [[ $(uname -m) != ${{ matrix.arch }} ]]; then echo "ARCH=--cross-arch ${{ matrix.arch }}" >> "$GITHUB_ENV"; fi
+          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -96,28 +98,30 @@ jobs:
         with:
           python-version: "3.11"
 
-      # --lhelper will eliminate a warning with arm64 and libusb
+      # installing md5sha1sum will eliminate a warning with arm64 and libusb
       - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh --debug --lhelper
+        run: |
+          brew install bash md5sha1sum
+          pip install meson ninja dmgbuild
 
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback $ARCH
+          bash scripts/build.sh --bundle --debug --forcefallback
 
       - name: Create DMG Image
-        run: bash scripts/package.sh --version ${INSTALL_REF} $ARCH --debug --dmg
+        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg
 
       - name: Upload DMG Image
         uses: actions/upload-artifact@v4
         with:
-          name: macOS DMG Images (${{ matrix.arch }})
+          name: macOS DMG Images (${{ matrix.config.arch }})
           path: ${{ env.INSTALL_NAME }}.dmg
           compression-level: 0
 
   build_macos_universal:
     name: macOS (Universal)
-    runs-on: macos-11
+    runs-on: macos-14
     needs: build_macos
 
     steps:
