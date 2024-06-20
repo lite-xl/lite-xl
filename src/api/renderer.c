@@ -98,18 +98,24 @@ static int f_font_load(lua_State *L) {
 }
 
 static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
+  bool is_table;
   memset(fonts, 0, sizeof(RenFont*)*FONT_FALLBACK_MAX);
   if (lua_type(L, idx) != LUA_TTABLE) {
     fonts[0] = *(RenFont**)luaL_checkudata(L, idx, API_TYPE_FONT);
-    return false;
+    is_table = false;
+  } else {
+    is_table = true;
+    int len = luaL_len(L, idx); len = len > FONT_FALLBACK_MAX ? FONT_FALLBACK_MAX : len;
+    for (int i = 0; i < len; i++) {
+      lua_rawgeti(L, idx, i+1);
+      fonts[i] = *(RenFont**) luaL_checkudata(L, -1, API_TYPE_FONT);
+      lua_pop(L, 1);
+    }
   }
-  int len = luaL_len(L, idx); len = len > FONT_FALLBACK_MAX ? FONT_FALLBACK_MAX : len;
-  for (int i = 0; i < len; i++) {
-    lua_rawgeti(L, idx, i+1);
-    fonts[i] = *(RenFont**) luaL_checkudata(L, -1, API_TYPE_FONT);
-    lua_pop(L, 1);
-  }
-  return true;
+#ifdef LITE_USE_SDL_RENDERER
+  update_font_scale(window_renderer, fonts);
+#endif
+  return is_table;
 }
 
 static int f_font_copy(lua_State *L) {
