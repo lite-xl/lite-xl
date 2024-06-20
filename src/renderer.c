@@ -68,8 +68,12 @@ typedef struct RenFont {
 #ifdef LITE_USE_SDL_RENDERER
 void update_font_scale(RenWindow *window_renderer, RenFont **fonts) {
   const int surface_scale = renwin_get_surface(window_renderer).scale;
-  if (fonts[0]->scale != surface_scale)
-    ren_font_group_set_size(window_renderer, fonts, fonts[0]->size);
+  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
+    if (fonts[i]->scale != surface_scale) {
+      ren_font_group_set_size(window_renderer, fonts, fonts[0]->size);
+      return;
+    }
+  }
 }
 #endif
 
