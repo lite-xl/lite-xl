@@ -21,6 +21,7 @@ syntax.add {
     { pattern = { '"', '"', '\\' },         type = "string"   },
     { pattern = { "'", "'", '\\' },         type = "string"   },
     { regex   = "0x[0-9a-fA-f]+"..isuf,     type = "number"   },
+    { regex   = "0b[01]+"..isuf,            type = "number"   },
     { regex   = "0()[0-7]+"..isuf,          type = { "keyword", "number" } },
     { pattern = "%d+%.%d*[Ee]%d+"..fsuf,    type = "number"   },
     { pattern = "%d+[Ee]%d+"..fsuf,         type = "number"   },
