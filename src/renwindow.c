@@ -83,12 +83,15 @@ RenSurface renwin_get_surface(RenWindow *ren) {
 #endif
 }
 
-void renwin_resize_surface(UNUSED RenWindow *ren) {
+void renwin_resize_surface(RenWindow *ren) {
 #ifdef LITE_USE_SDL_RENDERER
-  int new_w, new_h;
+  int new_w, new_h, new_scale;
   SDL_GL_GetDrawableSize(ren->window, &new_w, &new_h);
+  new_scale = query_surface_scale(ren);
   /* Note that (w, h) may differ from (new_w, new_h) on retina displays. */
-  if (new_w != ren->rensurface.surface->w || new_h != ren->rensurface.surface->h) {
+  if (new_scale != ren->rensurface.scale ||
+      new_w != ren->rensurface.surface->w ||
+      new_h != ren->rensurface.surface->h) {
     renwin_init_surface(ren);
     renwin_clip_to_surface(ren);
     setup_renderer(ren, new_w, new_h);

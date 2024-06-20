@@ -33,6 +33,9 @@ int ren_font_group_get_tab_size(RenFont **font);
 int ren_font_group_get_height(RenFont **font);
 float ren_font_group_get_size(RenFont **font);
 void ren_font_group_set_size(RenWindow *window_renderer, RenFont **font, float size);
+#ifdef LITE_USE_SDL_RENDERER
+void update_font_scale(RenWindow *window_renderer, RenFont **fonts);
+#endif
 void ren_font_group_set_tab_size(RenFont **font, int n);
 double ren_font_group_get_width(RenWindow *window_renderer, RenFont **font, const char *text, size_t len, int *x_offset);
 double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
