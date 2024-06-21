@@ -18,13 +18,14 @@ renderer = {}
 ---
 ---Represent options that affect a font's rendering.
 ---@class renderer.fontoptions
----@field public antialiasing "none" | "grayscale" | "subpixel"
----@field public hinting "slight" | "none" | "full"
----@field public bold boolean
----@field public italic boolean
----@field public underline boolean
----@field public smoothing boolean
----@field public strikethrough boolean
+---@field public antialiasing "none" | "grayscale" | "subpixel" | nil
+---@field public hinting "slight" | "none" | "full" | nil
+---@field public bold boolean | nil
+---@field public italic boolean | nil
+---@field public underline boolean | nil
+---@field public smoothing boolean | nil
+---@field public strikethrough boolean | nil
+---@field public ligatures boolean | table<string, boolean> | string[] | nil
 
 ---
 ---@class renderer.font
