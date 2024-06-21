@@ -4,8 +4,13 @@ local common = require "core.common"
 local command = require "core.command"
 local style = require "core.style"
 local View = require "core.view"
+local config = require "core.config"
 
 local ToolbarView = View:extend()
+
+config.plugins.toolbarview = common.merge({
+  pocket = "left"
+}, config.plugins.toolbarview)
 
 
 function ToolbarView:new()
@@ -131,7 +136,6 @@ function ToolbarView:on_mouse_moved(px, py, ...)
   end
 end
 
--- The toolbarview pane is not plugged here but it is added in the
--- treeview plugin.
+core.root_view:add_view(ToolbarView(), config.plugins.toolbarview.pocket, "vsplit")
 
 return ToolbarView

@@ -8,26 +8,14 @@ local Node = require "core.node"
 
 
 local t = {
-  ["root:close"] = function(node)
-    node:close_active_view(core.root_view.root_node)
-  end,
-
-  ["root:close-or-quit"] = function(node)
-    if node and (not node:is_empty() or not node.is_primary_node) then
-      node:close_active_view(core.root_view.root_node)
-    else
-      core.quit()
-    end
-  end,
-
   ["root:close-all"] = function()
-    core.confirm_close_docs(core.docs, core.root_view.close_all_docviews, core.root_view)
+    core.confirm_close_docs(core.docs, core.root_view.close_session_views, core.root_view)
   end,
 
   ["root:close-all-others"] = function()
     local active_doc, docs = core.active_view and core.active_view.doc, {}
     for i, v in ipairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
-    core.confirm_close_docs(docs, core.root_view.close_all_docviews, core.root_view, true)
+    core.confirm_close_docs(docs, core.close_session_views, core.root_view, true)
   end,
 
   ["root:move-tab-left"] = function(node)
@@ -72,11 +60,7 @@ end
 
 for _, dir in ipairs { "left", "right", "up", "down" } do
   t["root:split-" .. dir] = function(node)
-    local av = node.active_view
-    node:split(dir)
-    if av:is(DocView) then
-      core.root_view:open_doc(av.doc)
-    end
+    node:split(dir, node.active_view:is(DocView) and DocView(node.active_view.doc) or nil)
   end
 
   t["root:switch-to-" .. dir] = function(node)
@@ -98,9 +82,29 @@ end
 
 command.add(function()
   local node = core.root_view:get_active_node()
-  local sx, sy = node:get_locked_size()
-  return not sx and not sy, node
+  return true, node
 end, t)
+
+command.add(function()
+  local node = core.root_view:get_active_node()
+  return node.active_view and node.active_view.closable, node
+end, {
+  ["root:close"] = function(node)
+    node:close_active_view(core.root_view.root_node)
+  end
+})
+command.add(function()
+  local node = core.root_view:get_active_node()
+  return node.active_view, node
+end, {
+  ["root:close-or-quit"] = function(node)
+    if node and (not node:is_empty() or not node.closable) then
+      node:close_active_view(core.root_view.root_node)
+    else
+      core.quit()
+    end
+  end,
+})
 
 command.add(nil, {
   ["root:scroll"] = function(delta)

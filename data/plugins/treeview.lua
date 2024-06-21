@@ -1,4 +1,4 @@
--- mod-version:3
+-- mod-version:3 -- priority:99
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -12,12 +12,11 @@ local CommandView = require "core.commandview"
 local DocView = require "core.docview"
 
 config.plugins.treeview = common.merge({
-  -- Default treeview width
-  size = 200 * SCALE,
   highlight_focused_file = true,
   expand_dirs_to_focused_file = false,
   scroll_to_focused_file = false,
-  animate_scroll_to_focused_file = true
+  animate_scroll_to_focused_file = true,
+  pocket = "left"
 }, config.plugins.treeview)
 
 local tooltip_offset = style.font:get_height()
@@ -47,22 +46,14 @@ function TreeView:new()
   TreeView.super.new(self)
   self.scrollable = true
   self.visible = true
-  self.init_size = true
   self.target_size = config.plugins.treeview.size
   self.cache = {}
+  self.closable = false
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
   self.last_scroll_y = 0
 
   self.item_icon_width = 0
   self.item_text_spacing = 0
-end
-
-
-function TreeView:set_target_size(axis, value)
-  if axis == "x" then
-    self.target_size = value
-    return true
-  end
 end
 
 
@@ -100,7 +91,7 @@ end
 
 
 function TreeView:get_name()
-  return nil
+  return "Tree"
 end
 
 
@@ -288,16 +279,6 @@ end
 
 function TreeView:update()
   -- update width
-  local dest = self.visible and self.target_size or 0
-  if self.init_size then
-    self.size.x = dest
-    self.init_size = false
-  else
-    self:move_towards(self.size, "x", dest, nil, "treeview")
-  end
-
-  if self.size.x == 0 or self.size.y == 0 or not self.visible then return end
-
   local duration = system.get_time() - self.tooltip.begin
   if self.hovered_item and self.tooltip.x and duration > tooltip_delay then
     self:move_towards(self.tooltip, "alpha", tooltip_alpha, tooltip_alpha_rate, "treeview")
@@ -530,29 +511,7 @@ end
 
 
 -- init
-local view = TreeView()
-local node = core.root_view:get_active_node()
-view.node = node:split("left", view, {x = true}, true)
-
--- The toolbarview plugin is special because it is plugged inside
--- a treeview pane which is itelf provided in a plugin.
--- We therefore break the usual plugin's logic that would require each
--- plugin to be independent of each other. In addition it is not the
--- plugin module that plug itself in the active node but it is plugged here
--- in the treeview node.
-local toolbar_view = nil
-local toolbar_plugin, ToolbarView = pcall(require, "plugins.toolbarview")
-if config.plugins.toolbarview ~= false and toolbar_plugin then
-  toolbar_view = ToolbarView()
-  view.node:split("down", toolbar_view, {y = true})
-  local min_toolbar_width = toolbar_view:get_min_width()
-  view:set_target_size("x", math.max(config.plugins.treeview.size, min_toolbar_width))
-  command.add(nil, {
-    ["toolbar:toggle"] = function()
-      toolbar_view:toggle_visible()
-    end,
-  })
-end
+local view = core.root_view:add_view(TreeView(), config.plugins.treeview.pocket)
 
 -- Add a context menu to the treeview
 local menu = ContextMenu()
@@ -653,9 +612,6 @@ local previous_view = nil
 
 -- Register the TreeView commands and keymap
 command.add(nil, {
-  ["treeview:toggle"] = function()
-    view.visible = not view.visible
-  end,
 
   ["treeview:toggle-focus"] = function()
     if not core.active_view:is(TreeView) then
@@ -953,7 +909,6 @@ command.add(
 
 
 keymap.add {
-  ["ctrl+\\"]     = "treeview:toggle",
   ["up"]          = "treeview:previous",
   ["down"]        = "treeview:next",
   ["left"]        = "treeview:collapse",
@@ -978,28 +933,6 @@ keymap.add {
 
 -- The config specification used by gui generators
 config.plugins.treeview.config_spec = {
-  name = "Treeview",
-  {
-    label = "Size",
-    description = "Default treeview width.",
-    path = "size",
-    type = "number",
-    default = toolbar_view and math.ceil(toolbar_view:get_min_width() / SCALE)
-      or 200 * SCALE,
-    min = toolbar_view and toolbar_view:get_min_width() / SCALE
-      or 200 * SCALE,
-    get_value = function(value)
-      return value / SCALE
-    end,
-    set_value = function(value)
-      return value * SCALE
-    end,
-    on_apply = function(value)
-      view:set_target_size("x", math.max(
-        value, toolbar_view and toolbar_view:get_min_width() or 200 * SCALE
-      ))
-    end
-  },
   {
     label = "Hide on Startup",
     description = "Show or hide the treeview on startup.",
@@ -1012,9 +945,6 @@ config.plugins.treeview.config_spec = {
   }
 }
 
--- Return the treeview with toolbar and contextmenu to allow
--- user or plugin modifications
-view.toolbar = toolbar_view
 view.contextmenu = menu
 
 return view

@@ -1,9 +1,14 @@
 local core = require "core"
 local common = require "core.common"
+local config = require "core.config"
 local style = require "core.style"
 local Node = require "core.node"
 local View = require "core.view"
 local DocView = require "core.docview"
+local StatusView = require "core.statusview"
+local TitleView = require "core.titleview"
+local CommandView = require "core.commandview"
+local NagView = require "core.nagview"
 
 ---@class core.rootview : core.view
 ---@field super core.view
@@ -27,6 +32,21 @@ function RootView:new()
   self.grab = nil -- = {view = nil, button = nil}
   self.overlapping_view = nil
   self.touched_view = nil
+
+  self.pockets = {}
+
+  local defaults_view_placement = {
+    title = core.title_view,
+    nag = core.nag_view,
+    command = core.command_view,
+    status = core.status_view
+  }
+  local primary_node = self.root_node
+  for i,v in ipairs(config.pockets) do
+    self.pockets[v.id], primary_node = primary_node:split(v.direction, defaults_view_placement[v.id], v)
+  end
+  self.pockets.root = primary_node
+  self.pockets.root.pocket = { id = "root", layout = "root" }
 end
 
 
@@ -36,69 +56,24 @@ end
 
 
 ---@return core.node
-function RootView:get_active_node()
-  local node = self.root_node:get_node_for_view(core.active_view)
-  if not node then node = self:get_primary_node() end
-  return node
+function RootView:get_active_node(pocket)
+  local node = (pocket and self.pockets[pocket] or self.root_node):get_node_for_view(core.active_view)
+  return node or self:get_primary_node()
 end
-
-
----@return core.node
-local function get_primary_node(node)
-  if node.is_primary_node then
-    return node
-  end
-  if node.type ~= "leaf" then
-    return get_primary_node(node.a) or get_primary_node(node.b)
-  end
-end
-
-
----@return core.node
-function RootView:get_active_node_default()
-  local node = self.root_node:get_node_for_view(core.active_view)
-  if not node then node = self:get_primary_node() end
-  if node.locked then
-    local default_view = self:get_primary_node().views[1]
-    assert(default_view, "internal error: cannot find original document node.")
-    core.set_active_view(default_view)
-    node = self:get_active_node()
-  end
-  return node
-end
+RootView.get_active_node_default = RootView.get_active_node
 
 
 ---@return core.node
 function RootView:get_primary_node()
-  return get_primary_node(self.root_node)
+  return self.pockets.root
 end
 
-
----@param node core.node
----@return core.node
-local function select_next_primary_node(node)
-  if node.is_primary_node then return end
-  if node.type ~= "leaf" then
-    return select_next_primary_node(node.a) or select_next_primary_node(node.b)
-  else
-    local lx, ly = node:get_locked_size()
-    if not lx and not ly then
-      return node
-    end
-  end
-end
-
-
----@return core.node
-function RootView:select_next_primary_node()
-  return select_next_primary_node(self.root_node)
-end
 
 
 ---@param doc core.doc
 ---@return core.docview
 function RootView:open_doc(doc)
-  local node = self:get_active_node_default()
+  local node = self:get_active_node_default("root")
   for i, view in ipairs(node.views) do
     if view.doc == doc then
       node:set_active_view(node.views[i])
@@ -107,15 +82,9 @@ function RootView:open_doc(doc)
   end
   local view = DocView(doc)
   node:add_view(view)
-  self.root_node:update_layout()
+  self:update()
   view:scroll_to_line(view.doc:get_selection(), true, true)
   return view
-end
-
-
----@param keep_active boolean
-function RootView:close_all_docviews(keep_active)
-  self.root_node:close_all_docviews(keep_active)
 end
 
 
@@ -245,10 +214,10 @@ function RootView:on_mouse_released(button, x, y, ...)
         local node = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
         local dragged_node = self.dragged_node.node
 
-        if node and not node.locked
+        local split_type = node:get_split_type(self.mouse.x, self.mouse.y)
+        if node and node:accepts(self.dragged_node, split_type)
            -- don't do anything if dragging onto own node, with only one view
            and (node ~= dragged_node or #node.views > 1) then
-          local split_type = node:get_split_type(self.mouse.x, self.mouse.y)
           local view = dragged_node.views[self.dragged_node.idx]
 
           if split_type ~= "middle" and split_type ~= "tab" then -- needs splitting
@@ -265,7 +234,7 @@ function RootView:on_mouse_released(button, x, y, ...)
             node:add_view(view, tab_index)
             self.root_node:get_node_for_view(view):set_active_view(view)
           end
-          self.root_node:update_layout()
+          self:update()
           core.redraw = true
         end
       end
@@ -279,16 +248,6 @@ function RootView:on_mouse_released(button, x, y, ...)
   end
 end
 
-
-local function resize_child_node(node, axis, value, delta)
-  local accept_resize = node.a:resize(axis, value)
-  if not accept_resize then
-    accept_resize = node.b:resize(axis, node.size[axis] - value)
-  end
-  if not accept_resize then
-    node.divider = node.divider + delta / node.size[axis]
-  end
-end
 
 
 ---@param x number
@@ -314,10 +273,10 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     local node = self.dragged_divider
     if node.type == "hsplit" then
       x = common.clamp(x - node.position.x, 0, self.root_node.size.x * 0.95)
-      resize_child_node(node, "x", x, dx)
+      node.length = x
     elseif node.type == "vsplit" then
       y = common.clamp(y - node.position.y, 0, self.root_node.size.y * 0.95)
-      resize_child_node(node, "y", y, dy)
+      node.length = y
     end
     node.divider = common.clamp(node.divider, 0.01, 0.99)
     return
@@ -453,9 +412,13 @@ end
 
 
 function RootView:update()
-  Node.copy_position_and_size(self.root_node, self)
+  self.root_node.position = { x = self.position.x, y = self.position.y }
+  self.root_node.size = { x = self.size.x, y = self.size.y }
   self.root_node:update()
-  self.root_node:update_layout()
+  self.root_node:update_layout(self)
+  -- print("BEGIN DUMP")
+  -- self.root_node:dump(0)
+  -- print("END DUMP")
 
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
@@ -499,11 +462,11 @@ end
 function RootView:update_drag_overlay()
   if not (self.dragged_node and self.dragged_node.dragging) then return end
   local over = self.root_node:get_child_overlapping_point(self.mouse.x, self.mouse.y)
-  if over and not over.locked then
+  local split_type = over:get_split_type(self.mouse.x, self.mouse.y)
+  if over and over:accepts(self.dragged_node, split_type) then
     local _, _, _, tab_h = over:get_scroll_button_rect(1)
     local x, y = over.position.x, over.position.y
     local w, h = over.size.x, over.size.y
-    local split_type = over:get_split_type(self.mouse.x, self.mouse.y)
 
     if split_type == "tab" and (over ~= self.dragged_node.node or #over.views > 1) then
       local tab_index, tab_x, tab_y, tab_w, tab_h = over:get_drag_overlay_tab_position(self.mouse.x, self.mouse.y)
@@ -563,6 +526,39 @@ function RootView:draw()
     system.set_cursor(core.cursor_change_req)
     core.cursor_change_req = nil
   end
+end
+
+
+function RootView:add_view(view, pocket, layout)
+  local target
+  if pocket then
+    if pocket == "root" then
+      target = self:get_active_node_default("root")
+    else
+      target = self.pockets[pocket]
+      if not target then
+        core.warn("can't find pocket '%s'; defaulting to primary node", pocket)
+        layout = "tab"
+        target = self:get_primary_node()
+      end
+    end
+  else
+    target = self:get_active_node_default()
+    if target:is_thin() then
+      target = self:get_active_node_default("root")
+    end
+  end
+  target:add_view(view, nil, layout)
+  return view
+end
+
+
+function RootView:close_session_views(keep_active)
+  self.root_node:view_propogate(function(node, view)
+    if view.context == "session" and (not keep_active or view ~= node.active_view) then
+      node:close_view(self.root_node, view)
+    end
+  end)
 end
 
 

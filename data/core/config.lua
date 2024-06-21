@@ -260,6 +260,23 @@ config.max_clicks = 3
 ---@type boolean
 config.skip_plugins_version = false
 
+---Sets up the system of named pockets
+---Additional pockets can be set up, or renamed here.
+---Pockets can have a direction to split off the main view from, and a preference of how to add views.
+---
+---@type table
+config.pockets = {
+  { id = "title", direction = "up", layout = "single" },
+  { id = "nag", direction = "up", layout = "single" },
+  { id = "status", direction = "down", layout = "single" },
+  { id = "command", direction = "down", layout = "single" },
+  { id = "top", direction = "up", layout = "hsplit", length = 200*SCALE },
+  { id = "bottom", direction = "down", layout = "hsplit", length = 200*SCALE, tabbable = true },
+  { id = "left", direction = "left", layout = "primary", length = 240*SCALE, always_show_tabs = false },
+  { id = "right", direction = "right", layout = "primary", length = 200*SCALE },
+  { id = "drawer", direction = "down", layout = "primary", length = 200*SCALE }
+}
+
 -- holds the plugins real config table
 local plugins_config = {}
 

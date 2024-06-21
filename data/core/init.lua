@@ -88,7 +88,7 @@ end
 
 function core.open_folder_project(dir_path_abs)
   if core.set_project_dir(dir_path_abs, core.on_quit_project) then
-    core.root_view:close_all_docviews()
+    core.root_view:close_session_views()
     reload_customizations()
     update_recents_project("add", dir_path_abs)
     core.add_project_directory(dir_path_abs)
@@ -736,28 +736,6 @@ function core.init()
   core.restart_request = false
   core.quit_request = false
 
-  -- We load core views before plugins that may need them.
-  ---@type core.rootview
-  core.root_view = RootView()
-  ---@type core.commandview
-  core.command_view = CommandView()
-  ---@type core.statusview
-  core.status_view = StatusView()
-  ---@type core.nagview
-  core.nag_view = NagView()
-  ---@type core.titleview
-  core.title_view = TitleView()
-
-  -- Some plugins (eg: console) require the nodes to be initialized to defaults
-  local cur_node = core.root_view.root_node
-  cur_node.is_primary_node = true
-  cur_node:split("up", core.title_view, {y = true})
-  cur_node = cur_node.b
-  cur_node:split("up", core.nag_view, {y = true})
-  cur_node = cur_node.b
-  cur_node = cur_node:split("down", core.command_view, {y = true})
-  cur_node = cur_node:split("down", core.status_view, {y = true})
-
   -- Load default commands first so plugins can override them
   command.add_defaults()
 
@@ -785,6 +763,18 @@ function core.init()
       os.exit(1)
     end
   end
+
+  -- We load core views before plugins that may need them.
+  ---@type core.commandview
+  core.command_view = CommandView()
+  ---@type core.statusview
+  core.status_view = StatusView()
+  ---@type core.nagview
+  core.nag_view = NagView()
+  ---@type core.titleview
+  core.title_view = TitleView()
+  ---@type core.rootview
+  core.root_view = RootView()
 
   -- Load core and user plugins giving preference to user ones with same name.
   local plugins_success, plugins_refuse_list = core.load_plugins()
@@ -1205,8 +1195,8 @@ function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
     local s = style.log[level]
-    if core.status_view then
-      core.status_view:show_message(s.icon, s.color, text)
+    if core.root_view.status_view then
+      core.root_view.status_view:show_message(s.icon, s.color, text)
     end
   end
 
