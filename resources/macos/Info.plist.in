@@ -8,8 +8,23 @@
 	<string>lite-xl</string>
 	<key>CFBundleIconFile</key>
 	<string>icon.icns</string>
-  <key>CFBundleIdentifier</key>
-  <string>com.lite-xl</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+			  <string>*</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>NSDocumentClass</key>
+			<string>NSDocument</string>
+			<key>CFBundleTypeName</key>
+			<string>All Files</string>
+		</dict>
+	</array>
+	<key>CFBundleIdentifier</key>
+	<string>com.lite-xl</string>
 	<key>CFBundleName</key>
 	<string>Lite XL</string>
 	<key>CFBundlePackageType</key>
