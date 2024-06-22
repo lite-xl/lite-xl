@@ -753,6 +753,7 @@ static int f_absolute_path(lua_State *L) {
 }
 
 
+// Very likely these high-precision hacks can be replaced by SDL3 when released.
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
   double mtime;
