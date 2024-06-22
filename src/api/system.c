@@ -770,8 +770,12 @@ static int f_get_file_info(lua_State *L) {
   HANDLE hFile = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
   if (hFile != INVALID_HANDLE_VALUE) {
     FILETIME ftCreate, ftAccess, ftWrite;
-    if (GetFileTime(hFile, &ftCreate, &ftAccess, &ftWrite))
-      mtime = (double)(((uint64_t)ftWrite.dwHighDateTime << 32) | (uint64_t)ftWrite.dwLowDateTime);
+    if (GetFileTime(hFile, &ftCreate, &ftAccess, &ftWrite)) {
+      #define TICKS_PER_MILISECOND 10000
+      #define EPOCH_DIFFERENCE 11644473600000LL
+      // https://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
+      mtime = ((double)(((uint64_t)ftWrite.dwHighDateTime << 32) | (uint64_t)ftWrite.dwLowDateTime) / TICKS_PER_MILISECOND - EPOCH_DIFFERENCE)/1000.0;
+    }
     CloseHandle(hFile);
   }
   free(wpath);
