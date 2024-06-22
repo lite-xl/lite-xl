@@ -768,7 +768,7 @@ static int f_get_file_info(lua_State *L) {
   int err = _wstat64(wpath, &s);
   mtime = s.st_mtime;
   HANDLE hFile = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-  if (hFile != INVALID_FILE_HANDLE) {
+  if (hFile != INVALID_HANDLE_VALUE) {
     FILETIME ftCreate, ftAccess, ftWrite;
     if (GetFileTime(hFile, &ftCreate, &ftAccess, &ftWrite))
       mtime = (double)((ftWrite.dwHighDateTime << 32) | ftWrite.dwLowDateTime);
