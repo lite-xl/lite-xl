@@ -23,6 +23,14 @@
 			<string>All Files</string>
 		</dict>
 	</array>
+	<key>LSItemContentTypes</key>
+	<array>
+		<string>public.plain-text</string>
+	</array>
+	<key>NSExportableTypes</key>
+	<array>
+		<string>public.plain-text</string>
+	</array>
 	<key>CFBundleIdentifier</key>
 	<string>com.lite-xl</string>
 	<key>CFBundleName</key>
