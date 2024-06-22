@@ -27,6 +27,7 @@ function RootView:new()
   self.grab = nil -- = {view = nil, button = nil}
   self.overlapping_view = nil
   self.touched_view = nil
+  self.first_update_done = false
 end
 
 
@@ -372,7 +373,28 @@ end
 ---@return boolean
 function RootView:on_file_dropped(filename, x, y)
   local node = self.root_node:get_child_overlapping_point(x, y)
-  return node and node.active_view:on_file_dropped(filename, x, y)
+  local result = node and node.active_view:on_file_dropped(filename, x, y)
+  if result then return result end
+  local info = system.get_file_info(filename)
+  if info and info.type == "dir" then
+    if self.first_update_done then
+      -- first update done, open in new window
+      system.exec(string.format("%q %q", EXEFILE, filename))
+    else
+      -- DND event before first update, this is sent by macOS when folder is dropped into the dock
+      core.confirm_close_docs(core.docs, function(dirpath)
+        core.open_folder_project(dirpath)
+      end, system.absolute_path(filename))
+    end
+  else
+    local ok, doc = core.try(core.open_doc, filename)
+    if ok then
+      local node = core.root_view.root_node:get_child_overlapping_point(x, y)
+      node:set_active_view(node.active_view)
+      core.root_view:open_doc(doc)
+    end
+  end
+  return true
 end
 
 
@@ -460,6 +482,7 @@ function RootView:update()
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
   self:interpolate_drag_overlay(self.drag_overlay_tab)
+  self.first_update_done = true
 end
 
 
