@@ -786,7 +786,7 @@ static int f_get_file_info(lua_State *L) {
   int err = stat(path, &s);
   #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
     mtime = (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0);
-  #elseif __APPLE__
+  #elif __APPLE__
     #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
       mtime = (double)s.st_mtimespec.tv_sec + (s.st_mtimespec.tv_nsec / 1000000000.0);
     #else
