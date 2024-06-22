@@ -830,7 +830,14 @@ static int f_mkdir(lua_State *L) {
 static int f_get_clipboard(lua_State *L) {
   char *text = SDL_GetClipboardText();
   if (!text) { return 0; }
+#ifdef _WIN32
+  // on windows, text-based clipboard formats must terminate with \r\n
+  // we need to convert it to \n for Lite XL to read them properly
+  // https://learn.microsoft.com/en-us/windows/win32/dataxchg/standard-clipboard-formats
+  luaL_gsub(L, text, "\r\n", "\n");
+#else
   lua_pushstring(L, text);
+#endif
   SDL_free(text);
   return 1;
 }

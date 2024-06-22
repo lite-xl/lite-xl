@@ -572,22 +572,22 @@ local config = require "core.config"
 --
 -- Here some examples:
 --
--- "^%." match any file of directory whose basename begins with a dot.
+-- "^%." matches any file of directory whose basename begins with a dot.
 --
--- When there is an '/' or a '/$' at the end the pattern it will only match
+-- When there is an '/' or a '/$' at the end, the pattern will only match
 -- directories. When using such a pattern a final '/' will be added to the name
 -- of any directory entry before checking if it matches.
 --
 -- "^%.git/" matches any directory named ".git" anywhere in the project.
 --
--- If a "/" appears anywhere in the pattern except if it appears at the end or
--- is immediately followed by a '$' then the pattern will be applied to the full
+-- If a "/" appears anywhere in the pattern (except when it appears at the end or
+-- is immediately followed by a '$'), then the pattern will be applied to the full
 -- path of the file or directory. An initial "/" will be prepended to the file's
 -- or directory's path to indicate the project's root.
 --
 -- "^/node_modules/" will match a directory named "node_modules" at the project's root.
--- "^/build.*/" match any top level directory whose name begins with "build"
--- "^/subprojects/.+/" match any directory inside a top-level folder named "subprojects".
+-- "^/build.*/" will match any top level directory whose name begins with "build".
+-- "^/subprojects/.+/" will match any directory inside a top-level folder named "subprojects".
 
 -- You may activate some plugins on a per-project basis to override the user's settings.
 -- config.plugins.trimwitespace = true
@@ -1127,8 +1127,14 @@ function core.show_title_bar(show)
 end
 
 
+local thread_counter = 0
 function core.add_thread(f, weak_ref, ...)
-  local key = weak_ref or #core.threads + 1
+  local key = weak_ref
+  if not key then
+    thread_counter = thread_counter + 1
+    key = thread_counter
+  end
+  assert(core.threads[key] == nil, "Duplicate thread reference")
   local args = {...}
   local fn = function() return core.try(f, table.unpack(args)) end
   core.threads[key] = { cr = coroutine.create(fn), wake = 0 }
@@ -1307,20 +1313,7 @@ function core.on_event(type, ...)
   elseif type == "minimized" or type == "maximized" or type == "restored" then
     core.window_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
-    if not core.root_view:on_file_dropped(...) then
-      local filename, mx, my = ...
-      local info = system.get_file_info(filename)
-      if info and info.type == "dir" then
-        system.exec(string.format("%q %q", EXEFILE, filename))
-      else
-        local ok, doc = core.try(core.open_doc, filename)
-        if ok then
-          local node = core.root_view.root_node:get_child_overlapping_point(mx, my)
-          node:set_active_view(node.active_view)
-          core.root_view:open_doc(doc)
-        end
-      end
-    end
+    core.root_view:on_file_dropped(...)
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
   elseif type == "quit" then
@@ -1402,16 +1395,20 @@ local run_threads = coroutine.wrap(function()
     local max_time = 1 / config.fps - 0.004
     local minimal_time_to_wake = math.huge
 
+    local threads = {}
+    -- We modify core.threads while iterating, both by removing dead threads,
+    -- and by potentially adding more threads while we yielded early,
+    -- so we need to extract the threads list and iterate over that instead.
     for k, thread in pairs(core.threads) do
-      -- run thread
-      if thread.wake < system.get_time() then
+      threads[k] = thread
+    end
+
+    for k, thread in pairs(threads) do
+      -- Run thread if it wasn't deleted externally and it's time to resume it
+      if core.threads[k] and thread.wake < system.get_time() then
         local _, wait = assert(coroutine.resume(thread.cr))
         if coroutine.status(thread.cr) == "dead" then
-          if type(k) == "number" then
-            table.remove(core.threads, k)
-          else
-            core.threads[k] = nil
-          end
+          core.threads[k] = nil
         else
           wait = wait or (1/30)
           thread.wake = system.get_time() + wait

@@ -1,6 +1,6 @@
 project('lite-xl',
     ['c'],
-    version : '2.1.3',
+    version : '2.1.4',
     license : 'MIT',
     meson_version : '>= 0.56',
     default_options : [
@@ -123,7 +123,6 @@ if not get_option('source-only')
     sdl_options += 'use_atomic=enabled'
     sdl_options += 'use_threads=enabled'
     sdl_options += 'use_timers=enabled'
-    sdl_options += 'with_main=true'
     # investigate if this is truly needed
     # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
     sdl_options += 'use_events=enabled'
@@ -150,9 +149,11 @@ if not get_option('source-only')
     sdl_options += 'test=false'
     sdl_options += 'use_sensor=disabled'
     sdl_options += 'use_haptic=disabled'
+    sdl_options += 'use_hidapi=disabled'
     sdl_options += 'use_audio=disabled'
     sdl_options += 'use_cpuinfo=disabled'
     sdl_options += 'use_joystick=disabled'
+    sdl_options += 'use_joystick_xinput=disabled'
     sdl_options += 'use_video_vulkan=disabled'
     sdl_options += 'use_video_offscreen=disabled'
     sdl_options += 'use_power=disabled'
@@ -192,6 +193,10 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
     lite_bindir = 'Contents/MacOS'
     lite_docdir = 'Contents/Resources'
     lite_datadir = 'Contents/Resources'
+    conf_data.set(
+        'CURRENT_YEAR',
+        run_command('date', '+%Y', capture: true).stdout().strip()
+    )
     install_data('resources/icons/icon.icns', install_dir : 'Contents/Resources')
     configure_file(
         input : 'resources/macos/Info.plist.in',
