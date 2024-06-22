@@ -3,6 +3,9 @@
 #include "api.h"
 #include "../renderer.h"
 #include "../rencache.h"
+#ifdef LITE_USE_SDL_RENDERER
+#include "../renwindow.h"
+#endif
 #include "lua.h"
 
 RenWindow *active_window_renderer = NULL;
@@ -116,7 +119,7 @@ static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
     }
   }
 #ifdef LITE_USE_SDL_RENDERER
-  update_font_scale(window_renderer, fonts);
+  update_font_scale(active_window_renderer, fonts);
 #endif
   return is_table;
 }
@@ -226,7 +229,13 @@ static int f_font_get_size(lua_State *L) {
 static int f_font_set_size(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
   float size = luaL_checknumber(L, 2);
-  ren_font_group_set_size(fonts, size);
+  int scale = 1;
+#ifdef LITE_USE_SDL_RENDERER
+  if (active_window_renderer != NULL) {
+    scale = renwin_get_surface(active_window_renderer).scale;
+  }
+#endif
+  ren_font_group_set_size(fonts, size, scale);
   return 0;
 }
 

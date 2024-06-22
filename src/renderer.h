@@ -31,7 +31,7 @@ void ren_font_free(RenFont *font);
 int ren_font_group_get_tab_size(RenFont **font);
 int ren_font_group_get_height(RenFont **font);
 float ren_font_group_get_size(RenFont **font);
-void ren_font_group_set_size(RenFont **font, float size);
+void ren_font_group_set_size(RenFont **font, float size, int surface_scale);
 #ifdef LITE_USE_SDL_RENDERER
 void update_font_scale(RenWindow *window_renderer, RenFont **fonts);
 #endif

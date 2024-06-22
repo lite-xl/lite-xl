@@ -68,10 +68,11 @@ typedef struct RenFont {
 
 #ifdef LITE_USE_SDL_RENDERER
 void update_font_scale(RenWindow *window_renderer, RenFont **fonts) {
+  if (window_renderer == NULL) return;
   const int surface_scale = renwin_get_surface(window_renderer).scale;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     if (fonts[i]->scale != surface_scale) {
-      ren_font_group_set_size(window_renderer, fonts, fonts[0]->size);
+      ren_font_group_set_size(fonts, fonts[0]->size, surface_scale);
       return;
     }
   }
@@ -274,6 +275,9 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   strcpy(font->path, path);
   font->face = face;
   font->size = size;
+#ifdef LITE_USE_SDL_RENDERER
+  font->scale = 1;
+#endif
   font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
   font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
   font->antialiasing = antialiasing;
@@ -344,11 +348,11 @@ float ren_font_group_get_size(RenFont **fonts) {
   return fonts[0]->size;
 }
 
-void ren_font_group_set_size(RenFont **fonts, float size) {
+void ren_font_group_set_size(RenFont **fonts, float size, int surface_scale) {
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     font_clear_glyph_cache(fonts[i]);
     FT_Face face = fonts[i]->face;
-    FT_Set_Pixel_Sizes(face, 0, (int)(size));
+    FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale));
     fonts[i]->size = size;
 #ifdef LITE_USE_SDL_RENDERER
     fonts[i]->scale = surface_scale;
@@ -385,7 +389,11 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
   if (!set_x_offset) {
     *x_offset = 0;
   }
+#ifdef LITE_USE_SDL_RENDERER
+  return width / fonts[0]->scale;
+#else
   return width;
+#endif
 }
 
 double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
@@ -597,6 +605,10 @@ void ren_get_size(RenWindow *window_renderer, int *x, int *y) {
   RenSurface rs = renwin_get_surface(window_renderer);
   *x = rs.surface->w;
   *y = rs.surface->h;
+#ifdef LITE_USE_SDL_RENDERER
+  *x /= rs.scale;
+  *y /= rs.scale;
+#endif
 }
 
 size_t ren_get_window_list(RenWindow ***window_list_dest) {
