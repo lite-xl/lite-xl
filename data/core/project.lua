@@ -81,16 +81,23 @@ local function fileinfo_pass_filter(info, ignore_compiled)
 end
 
 
+
+function Project:is_ignored(info, path)
+  -- info can be not nil but info.type may be nil if is neither a file neither
+  -- a directory, for example for /dev/* entries on linux.
+  if info and info.type then
+    if path then info.filename = path end
+    return not fileinfo_pass_filter(info, self.compiled)
+  end
+  return false
+end
+
 -- compute a file's info entry completed with "filename" to be used
 -- in project scan or falsy if it shouldn't appear in the list.
 function Project:get_file_info(path)
   local info = system.get_file_info(path)
-  -- info can be not nil but info.type may be nil if is neither a file neither
-  -- a directory, for example for /dev/* entries on linux.
-  if info and info.type then
-    info.filename = path
-    return fileinfo_pass_filter(info, self.compiled) and info
-  end
+  if self:is_ignored(info, path) then return nil end
+  return info
 end
 
 

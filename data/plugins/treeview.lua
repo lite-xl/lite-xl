@@ -98,7 +98,8 @@ function TreeView:get_cached(project, path)
       project = project,
       name = basename,
       type = info.type,
-      project = project
+      project = project,
+      ignored = self.show_ignored and project:is_ignored(info, path)
     }
     if self.expanded[path] ~= nil then t.expanded = self.expanded[path] else t.expanded = (info.type == "dir" and #truncated <= 1) end
     if t.expanded then self.watches[project]:watch(path) end
@@ -117,6 +118,7 @@ function TreeView:get_cached(project, path)
       if f and f.type then
         f.name = file
         f.abs_filename = l
+        f.ignored = self.show_ignored and project:is_ignored(f, l)
         table.insert(t.files, f)
       end
       self.cache[l] = nil
@@ -363,6 +365,8 @@ function TreeView:get_item_icon(item, active, hovered)
   local color = style.text
   if active or hovered then
     color = style.accent
+  elseif item.ignored then
+    color = style.dim
   end
   return character, font, color
 end
@@ -373,6 +377,8 @@ function TreeView:get_item_text(item, active, hovered)
   local color = style.text
   if active or hovered then
     color = style.accent
+  elseif item.ignored then
+    color = style.dim
   end
   return text, font, color
 end
