@@ -560,7 +560,7 @@ function DocView:draw_overlay()
     local T = config.blink_period
     for _, line1, col1, line2, col2 in self.doc:get_selections() do
       if line1 >= minline and line1 <= maxline
-      and system.window_has_focus() then
+      and system.window_has_focus(core.window) then
         if ime.editing then
           self:draw_ime_decoration(line1, col1, line2, col2)
         else

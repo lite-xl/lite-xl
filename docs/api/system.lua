@@ -76,8 +76,9 @@ function system.set_cursor(type) end
 ---
 ---Change the window title.
 ---
+---@param window renwindow
 ---@param title string
-function system.set_window_title(title) end
+function system.set_window_title(window, title) end
 
 ---@alias system.windowmode
 ---| "normal"
@@ -88,14 +89,17 @@ function system.set_window_title(title) end
 ---
 ---Change the window mode.
 ---
+---@param window renwindow
 ---@param mode system.windowmode
-function system.set_window_mode(mode) end
+function system.set_window_mode(window, mode) end
 
 ---
----Retrieve the current window mode.
+---Retrieve the window mode.
+---
+---@param window renwindow
 ---
 ---@return system.windowmode mode
-function system.get_window_mode() end
+function system.get_window_mode(window) end
 
 ---
 ---Toggle between bordered and borderless.
@@ -118,32 +122,31 @@ function system.set_window_hit_test(title_height, controls_width, resize_border)
 ---
 ---Get the size and coordinates of the window.
 ---
+---@param window renwindow
+---
 ---@return number width
 ---@return number height
 ---@return number x
 ---@return number y
-function system.get_window_size() end
+function system.get_window_size(window) end
 
 ---
 ---Sets the size and coordinates of the window.
 ---
+---@param window renwindow
 ---@param width number
 ---@param height number
 ---@param x number
 ---@param y number
-function system.set_window_size(width, height, x, y) end
+function system.set_window_size(window, width, height, x, y) end
 
 ---
 ---Check if the window currently has focus.
 ---
+---@param window renwindow
+---
 ---@return boolean
-function system.window_has_focus() end
-
----
----Gets the mode of the window.
----
----@return system.windowmode
-function system.get_window_mode() end
+function system.window_has_focus(window) end
 
 ---
 ---Sets the position of the IME composition window.
@@ -161,7 +164,9 @@ function system.clear_ime() end
 ---
 ---Raise the main window and give it input focus.
 ---Note: may not always be obeyed by the users window manager.
-function system.raise_window() end
+--
+---@param window renwindow
+function system.raise_window(window) end
 
 ---
 ---Opens a message box to display an error message.
@@ -300,10 +305,12 @@ function system.fuzzy_match(haystack, needle, file) end
 ---
 ---Change the opacity (also known as transparency) of the window.
 ---
+---@param window renwindow
 ---@param opacity number A value from 0.0 to 1.0, the lower the value
 ---the less visible the window will be.
+---
 ---@return boolean success True if the operation suceeded.
-function system.set_window_opacity(opacity) end
+function system.set_window_opacity(window, opacity) end
 
 ---
 ---Loads a lua native module using the default Lua API or lite-xl native plugin API.

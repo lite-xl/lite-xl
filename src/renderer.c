@@ -22,7 +22,8 @@
 #define MAX_LOADABLE_GLYPHSETS (MAX_UNICODE / GLYPHSET_SIZE)
 #define SUBPIXEL_BITMAPS_CACHED 3
 
-RenWindow* window_renderer = NULL;
+static RenWindow **window_list = NULL;
+static size_t window_count = 0;
 static FT_Library library;
 
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
@@ -248,7 +249,7 @@ static void font_file_close(FT_Stream stream) {
   }
 }
 
-RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
+RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   RenFont *font = NULL;
   FT_Face face = NULL;
   
@@ -267,8 +268,7 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   if (FT_Open_Face(library, &(FT_Open_Args){ .flags = FT_OPEN_STREAM, .stream = &font->stream }, 0, &face))
     goto failure;
 
-  const int surface_scale = renwin_get_surface(window_renderer).scale;
-  if (FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale)))
+  if (FT_Set_Pixel_Sizes(face, 0, (int)(size)))
     goto failure;
 
   strcpy(font->path, path);
@@ -305,12 +305,12 @@ rwops_failure:
   return NULL;
 }
 
-RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
+RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
   antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
 
-  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style);
+  return ren_font_load(font->path, size, antialiasing, hinting, style);
 }
 
 const char* ren_font_get_path(RenFont *font) {
@@ -344,12 +344,11 @@ float ren_font_group_get_size(RenFont **fonts) {
   return fonts[0]->size;
 }
 
-void ren_font_group_set_size(RenWindow *window_renderer, RenFont **fonts, float size) {
-  const int surface_scale = renwin_get_surface(window_renderer).scale;
+void ren_font_group_set_size(RenFont **fonts, float size) {
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     font_clear_glyph_cache(fonts[i]);
     FT_Face face = fonts[i]->face;
-    FT_Set_Pixel_Sizes(face, 0, (int)(size*surface_scale));
+    FT_Set_Pixel_Sizes(face, 0, (int)(size));
     fonts[i]->size = size;
 #ifdef LITE_USE_SDL_RENDERER
     fonts[i]->scale = surface_scale;
@@ -366,7 +365,7 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
-double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, const char *text, size_t len, int *x_offset) {
+double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, int *x_offset) {
   double width = 0;
   const char* end = text + len;
   GlyphMetric* metric = NULL; GlyphSet* set = NULL;
@@ -383,11 +382,10 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
       *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
     }
   }
-  const int surface_scale = renwin_get_surface(window_renderer).scale;
   if (!set_x_offset) {
     *x_offset = 0;
   }
-  return width / surface_scale;
+  return width;
 }
 
 double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
@@ -519,29 +517,55 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 }
 
 /*************** Window Management ****************/
-RenWindow* ren_init(SDL_Window *win) {
-  assert(win);
-  int error = FT_Init_FreeType( &library );
-  if ( error ) {
-    fprintf(stderr, "internal font error when starting the application\n");
-    return NULL;
+static void ren_add_window(RenWindow *window_renderer) {
+  window_count += 1;
+  window_list = realloc(window_list, window_count);
+  window_list[window_count-1] = window_renderer;
+}
+
+static void ren_remove_window(RenWindow *window_renderer) {
+  for (size_t i = 0; i < window_count; ++i) {
+    if (window_list[i] == window_renderer) {
+      window_count -= 1;
+      memmove(&window_list[i], &window_list[i+1], window_count - i);
+      return;
+    }
   }
+}
+
+int ren_init(void) {
+  int err;
+
+  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
+                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+
+  if ((err = FT_Init_FreeType( &library )))
+    return err;
+
+  return 0;
+}
+
+void ren_free(void) {
+   SDL_FreeSurface(draw_rect_surface);
+}
+
+RenWindow* ren_create(SDL_Window *win) {
+  assert(win);
   RenWindow* window_renderer = calloc(1, sizeof(RenWindow));
 
   window_renderer->window = win;
   renwin_init_surface(window_renderer);
   renwin_init_command_buf(window_renderer);
   renwin_clip_to_surface(window_renderer);
-  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
-                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
 
+  ren_add_window(window_renderer);
   return window_renderer;
 }
 
-void ren_free(RenWindow* window_renderer) {
+void ren_destroy(RenWindow* window_renderer) {
   assert(window_renderer);
+  ren_remove_window(window_renderer);
   renwin_free(window_renderer);
-  SDL_FreeSurface(draw_rect_surface);
   free(window_renderer->command_buf);
   window_renderer->command_buf = NULL;
   window_renderer->command_buf_size = 0;
@@ -553,14 +577,14 @@ void ren_resize_window(RenWindow *window_renderer) {
   renwin_update_scale(window_renderer);
 }
 
-
+// TODO: Does not work nicely with multiple windows
 void ren_update_rects(RenWindow *window_renderer, RenRect *rects, int count) {
   static bool initial_frame = true;
+  renwin_update_rects(window_renderer, rects, count);
   if (initial_frame) {
     renwin_show_window(window_renderer);
     initial_frame = false;
   }
-  renwin_update_rects(window_renderer, rects, count);
 }
 
 
@@ -571,6 +595,27 @@ void ren_set_clip_rect(RenWindow *window_renderer, RenRect rect) {
 
 void ren_get_size(RenWindow *window_renderer, int *x, int *y) {
   RenSurface rs = renwin_get_surface(window_renderer);
-  *x = rs.surface->w / rs.scale;
-  *y = rs.surface->h / rs.scale;
+  *x = rs.surface->w;
+  *y = rs.surface->h;
+}
+
+size_t ren_get_window_list(RenWindow ***window_list_dest) {
+  *window_list_dest = window_list;
+  return window_count;
+}
+
+RenWindow* ren_find_window(SDL_Window *window) {
+  for (size_t i = 0; i < window_count; ++i) {
+    RenWindow* window_renderer = window_list[i];
+    if (window_renderer->window == window) {
+      return window_renderer;
+    }
+  }
+
+  return NULL;
+}
+
+RenWindow* ren_find_window_from_id(uint32_t id) {
+  SDL_Window *window = SDL_GetWindowFromID(id);
+  return ren_find_window(window);
 }
