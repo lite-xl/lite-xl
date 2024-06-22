@@ -287,7 +287,7 @@ local function add_config_files_hooks()
   local doc_save = Doc.save
   local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
   function Doc:save(filename, abs_filename)
-    local module_filename = system.absolute_path(".lite_project.lua")
+    local module_filename = core.project_absolute_path(".lite_project.lua")
     doc_save(self, filename, abs_filename)
     if self.abs_filename == user_filename or self.abs_filename == module_filename then
       reload_customizations()
