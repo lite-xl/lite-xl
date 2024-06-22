@@ -755,6 +755,7 @@ static int f_absolute_path(lua_State *L) {
 
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
+  double mtime;
 
 #ifdef _WIN32
   struct _stat64 s;
@@ -765,10 +766,24 @@ static int f_get_file_info(lua_State *L) {
     return 2;
   }
   int err = _wstat64(wpath, &s);
+  mtime = s.st_mtime;
+  HANDLE hFile = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+  if (hFile != INVALID_FILE_HANDLE) {
+    FILETIME ftCreate, ftAccess, ftWrite;
+    if (GetFileTime(hFile, &ftCreate, &ftAccess, &ftWrite))
+      mtime = (double)((ftWrite.dwHighDateTime << 32) | ftWrite.dwLowDateTime);
+    CloseHandle(hFile);
+  }
   free(wpath);
+
 #else
   struct stat s;
   int err = stat(path, &s);
+  #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
+    mtime = (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0);
+  #else
+    mtime = s.st_mtime;
+  #endif
 #endif
   if (err < 0) {
     lua_pushnil(L);
@@ -777,11 +792,7 @@ static int f_get_file_info(lua_State *L) {
   }
 
   lua_newtable(L);
-  #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
-    lua_pushnumber(L, (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0));
-  #else
-    lua_pushnumber(L, s.st_mtime);
-  #endif
+  lua_pushnumber(L, mtime);
   lua_setfield(L, -2, "modified");
 
   lua_pushinteger(L, s.st_size);
