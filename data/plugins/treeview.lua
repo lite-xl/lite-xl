@@ -1,4 +1,4 @@
--- mod-version:3
+-- mod-version:4
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -434,7 +434,7 @@ function TreeView:draw()
   local _y, _h = self.position.y, self.size.y
 
   local doc = core.active_view.doc
-  local active_filename = doc and system.absolute_path(doc.filename or "")
+  local active_filename = doc and doc.abs_filename or ""
 
   for item, x,y,w,h in self:each_item() do
     if y + h >= _y and y < _y + _h then
@@ -558,7 +558,6 @@ core.add_thread(function()
       v:check(function(directory)
         view.cache[directory] = nil
       end)
-      core.redraw = true
     end
     coroutine.yield(0.01)
   end

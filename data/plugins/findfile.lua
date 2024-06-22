@@ -1,4 +1,4 @@
--- mod-version:3
+-- mod-version:4
 
 local core = require "core"
 local command = require "core.command"
@@ -49,6 +49,6 @@ command.add(nil, {
   end
 })
 
-keymap.add({ 
-  [PLATFORM == "Mac OS X" and "cmd+p" or "ctrl+p"] = "core:find-file" 
+keymap.add({
+  [PLATFORM == "Mac OS X" and "cmd+p" or "ctrl+p"] = "core:find-file"
 })
