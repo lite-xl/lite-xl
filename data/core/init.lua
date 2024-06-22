@@ -1272,20 +1272,7 @@ function core.on_event(type, ...)
   elseif type == "minimized" or type == "maximized" or type == "restored" then
     core.window_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
-    if not core.root_view:on_file_dropped(...) then
-      local filename, mx, my = ...
-      local info = system.get_file_info(filename)
-      if info and info.type == "dir" then
-        system.exec(string.format("%q %q", EXEFILE, filename))
-      else
-        local ok, doc = core.try(core.open_doc, filename)
-        if ok then
-          local node = core.root_view.root_node:get_child_overlapping_point(mx, my)
-          node:set_active_view(node.active_view)
-          core.root_view:open_doc(doc)
-        end
-      end
-    end
+    core.root_view:on_file_dropped(...)
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
   elseif type == "quit" then
