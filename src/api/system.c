@@ -757,14 +757,14 @@ static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
 #ifdef _WIN32
-  struct _stat s;
+  struct _stat64 s;
   LPWSTR wpath = utfconv_utf8towc(path);
   if (wpath == NULL) {
     lua_pushnil(L);
     lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
     return 2;
   }
-  int err = _wstat(wpath, &s);
+  int err = _wstat64(wpath, &s);
   free(wpath);
 #else
   struct stat s;
@@ -777,7 +777,11 @@ static int f_get_file_info(lua_State *L) {
   }
 
   lua_newtable(L);
-  lua_pushinteger(L, s.st_mtime);
+  #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
+    lua_pushnumber(L, (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0));
+  #else
+    lua_pushnumber(L, s.st_mtime);
+  #endif
   lua_setfield(L, -2, "modified");
 
   lua_pushinteger(L, s.st_size);
