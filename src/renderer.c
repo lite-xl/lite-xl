@@ -519,7 +519,7 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 /*************** Window Management ****************/
 static void ren_add_window(RenWindow *window_renderer) {
   window_count += 1;
-  window_list = realloc(window_list, window_count);
+  window_list = realloc(window_list, window_count * sizeof(RenWindow*));
   window_list[window_count-1] = window_renderer;
 }
 
