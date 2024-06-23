@@ -27,7 +27,7 @@ function RootView:new()
   self.grab = nil -- = {view = nil, button = nil}
   self.overlapping_view = nil
   self.touched_view = nil
-  self.first_update_done = false
+  self.first_dnd_processed = false
 end
 
 
@@ -377,7 +377,7 @@ function RootView:on_file_dropped(filename, x, y)
   if result then return result end
   local info = system.get_file_info(filename)
   if info and info.type == "dir" then
-    if self.first_update_done then
+    if self.first_dnd_processed then
       -- first update done, open in new window
       system.exec(string.format("%q %q", EXEFILE, filename))
     else
@@ -385,6 +385,7 @@ function RootView:on_file_dropped(filename, x, y)
       core.confirm_close_docs(core.docs, function(dirpath)
         core.open_folder_project(dirpath)
       end, system.absolute_path(filename))
+      self.first_dnd_processed = true
     end
   else
     local ok, doc = core.try(core.open_doc, filename)
@@ -482,7 +483,9 @@ function RootView:update()
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
   self:interpolate_drag_overlay(self.drag_overlay_tab)
-  self.first_update_done = true
+  -- set this to true because at this point there are no dnd requests
+  -- that are caused by the initial dnd into dock user action
+  self.first_dnd_processed = true
 end
 
 
