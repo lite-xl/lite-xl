@@ -1,7 +1,6 @@
 -- mod-version:3
 local core = require "core"
 local config = require "core.config"
-local style = require "core.style"
 local Doc = require "core.doc"
 local Node = require "core.node"
 local common = require "core.common"
@@ -26,7 +25,7 @@ local times = setmetatable({}, { __mode = "k" })
 local visible = setmetatable({}, { __mode = "k" })
 
 local function get_project_doc_watch(doc)
-  for i, v in ipairs(core.project_directories) do
+  for _, v in ipairs(core.project_directories) do
     if doc.abs_filename:find(v.name, 1, true) == 1 then return v.watch end
   end
   return watch
@@ -41,6 +40,34 @@ local function reload_doc(doc)
   update_time(doc)
   core.redraw = true
   core.log_quiet("Auto-reloaded doc \"%s\"", doc.filename)
+end
+
+
+local timers = setmetatable({}, { __mode = "k" })
+
+local function delayed_reload(doc, mtime)
+  if timers[doc] then
+    -- If mtime remains the same, there's no need to restart the timer
+    -- as we're waiting a full second anyways.
+    if not mtime or timers[doc].mtime ~= mtime then
+      timers[doc] = { last_trigger = system.get_time(), mtime = mtime }
+    end
+    return
+  end
+
+  timers[doc] = { last_trigger = system.get_time(), mtime = mtime }
+  core.add_thread(function()
+    local diff = system.get_time() - timers[doc].last_trigger
+    -- Wait a second before triggering a reload because we're using mtime
+    -- to determine if a file has changed, and on many systems it has a
+    -- resolution of 1 second.
+    while diff < 1 do
+      coroutine.yield(diff)
+      diff = system.get_time() - timers[doc].last_trigger
+    end
+    timers[doc] = nil
+    reload_doc(doc)
+  end)
 end
 
 local function check_prompt_reload(doc)
@@ -71,7 +98,7 @@ function dirwatch:check(change_callback, ...)
         local info = system.get_file_info(doc.filename or "")
         if info and info.type == "file" and times[doc] ~= info.modified then
           if not doc:is_dirty() and not config.plugins.autoreload.always_show_nagview then
-            reload_doc(doc)
+            delayed_reload(doc, info.modified)
           else
             doc.deferred_reload = true
             if doc == core.active_view.doc then check_prompt_reload(doc) end
