@@ -242,7 +242,8 @@ function Doc:set_selection(line1, col1, line2, col2, swap)
 end
 
 function Doc:merge_cursors(idx)
-  for i = (idx or (#self.selections - 3)), (idx or 5), -4 do
+  local table_index = idx and (idx - 1) * 4
+  for i = (table_index or (#self.selections - 3)), (table_index or 5), -4 do
     for j = 1, i - 4, 4 do
       if self.selections[i] == self.selections[j] and
           self.selections[i + 1] == self.selections[j + 1] then
