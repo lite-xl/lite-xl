@@ -542,7 +542,7 @@ end
 
 
 function core.restart()
-  quit_with_function(function()
+  core.exit(function()
     core.restart_request = true
     core.window:_persist()
   end)
