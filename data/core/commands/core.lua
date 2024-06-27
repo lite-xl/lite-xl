@@ -42,7 +42,7 @@ command.add(nil, {
     if fullscreen then
       restore_title_view = core.title_view.visible
     end
-    system.set_window_mode(fullscreen and "fullscreen" or "normal")
+    system.set_window_mode(core.window, fullscreen and "fullscreen" or "normal")
     core.show_title_bar(not fullscreen and restore_title_view)
     core.title_view:configure_hit_test(not fullscreen and restore_title_view)
   end,
