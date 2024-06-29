@@ -13,7 +13,7 @@ show_help() {
   echo
   echo "Available options:"
   echo
-  echo "--version    Use this version instead of git tags or GitHub outputs."
+  echo "--version    The current version used to generate release notes."
   echo "--debug      Debug this script."
   echo "--help       Show this message."
   echo
@@ -21,6 +21,7 @@ show_help() {
 
 main() {
   local version
+  local last_version
 
   for i in "$@"; do
     case $i in
@@ -49,21 +50,20 @@ main() {
   fi
 
   if [[ -z "$version" ]]; then
-    if [[ "$GITHUB_REF" == "refs/tags/"* ]]; then
-      version="${GITHUB_REF##*/}"
-    else
-      version="$(git describe --tags $(git rev-list --tags --max-count=1))"
-      if [[ $? -ne 0 ]]; then version=""; fi
-    fi
+    echo "error: a version must be provided"
+    exit 1
   fi
 
-  if [[ -z "$version" ]]; then
-    echo "error: cannot get latest git tag"
+  # use gh cli to get the last version
+  read -r last_version < <(gh release list --exclude-pre-releases --limit 1 | awk 'BEGIN {FS="\t"}; {print $3}')
+  if [[ -z "$last_version" ]]; then
+    echo "error: cannot get last release git tag"
     exit 1
   fi
 
   export RELEASE_TAG="$version"
-  envsubst '$RELEASE_TAG' > release-notes.md < resources/release-notes.md
+  export LAST_RELEASE_TAG="$last_version"
+  envsubst '$RELEASE_TAG:$LAST_RELEASE_TAG' > release-notes.md < resources/release-notes.md
 }
 
 main "$@"

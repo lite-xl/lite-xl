@@ -25,7 +25,7 @@ For OS requirements, please refer to the relevant section in the [README].
 Please go to [changelog.md] for detailed description of all the changes.
 
 <!-- UPDATE THIS! -->
-**Commits since last version**: https://github.com/lite-xl/lite-xl/compare/v2.1.3...${RELEASE_TAG}
+**Commits since last version**: https://github.com/lite-xl/lite-xl/compare/${LAST_RELEASE_TAG}...${RELEASE_TAG}
 
 
 [win32-setup]:      https://github.com/lite-xl/lite-xl/releases/download/${RELEASE_TAG}/LiteXL-${RELEASE_TAG}-addons-i686-setup.exe
