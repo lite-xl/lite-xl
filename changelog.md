@@ -1,5 +1,88 @@
 # Changes Log
 
+## [2.1.5] - 2024-06-29
+
+This release addresses several bugs from upstream dependencies and
+improves the stability and usability of the program.
+
+### Features
+
+* New macOS installer background
+  ([#1816](https://github.com/lite-xl/lite-xl/pull/1816))
+
+* Improve number highlighting for `language_c`
+  ([#1752](https://github.com/lite-xl/lite-xl/pull/1752))
+
+* Backport number highlighting improvements to `language_cpp`
+  ([#1818](https://github.com/lite-xl/lite-xl/pull/1818))
+
+* Support binary integer literals for `language_cpp`
+  ([#1819](https://github.com/lite-xl/lite-xl/pull/1819))
+
+* Improve syntax highlighting for `language_python`
+  ([#1723](https://github.com/lite-xl/lite-xl/pull/1723))
+
+* Support for drag-and-drop into Dock and "Open with" menu in macOS
+  ([#1822](https://github.com/lite-xl/lite-xl/pull/1822))
+
+* Support `static constexpr` syntax in `language_cpp`
+  ([#1806](https://github.com/lite-xl/lite-xl/pull/1806))
+
+### Fixes
+
+* Fix removing threads when iterating over `core.threads`
+  ([#1794](https://github.com/lite-xl/lite-xl/pull/1794))
+
+* Fix dirmonitor backend selection
+  ([#1790](https://github.com/lite-xl/lite-xl/pull/1790))
+
+* Fix clipboard removing newlines on Windows
+  ([#1788](https://github.com/lite-xl/lite-xl/pull/1788))
+
+* Change co_wait to co_await in `language_cpp`
+  ([#1800](https://github.com/lite-xl/lite-xl/pull/1800))
+
+* Fix font scale on monitor change when `RENDERER` backend is used
+  ([#1650](https://github.com/lite-xl/lite-xl/pull/1650))
+
+* Avoid calling the change callback multiple times in the same notification
+  ([#1824](https://github.com/lite-xl/lite-xl/pull/1824))
+
+* Fix autoreload reloading file too soon and misses some updates
+  ([#1823](https://github.com/lite-xl/lite-xl/pull/1823))
+
+* Fix drag-and-drop multiple folders into Dock icon in macOS
+  ([#1828](https://github.com/lite-xl/lite-xl/pull/1828))
+
+* Fix `Doc:merge_cursors()` accepting selection table index instead of selection index
+  ([#1833](https://github.com/lite-xl/lite-xl/pull/1833))
+
+* Fix `Doc:merge_cursors()` table index calculation
+  ([#1834](https://github.com/lite-xl/lite-xl/pull/1834))
+
+### Other Changes
+
+* Add functionality to generate release notes
+  ([#1774](https://github.com/lite-xl/lite-xl/pull/1774))
+
+* Fix typo in release note template
+  ([#1801](https://github.com/lite-xl/lite-xl/pull/1801))
+
+* Update action dependencies
+  ([#1724](https://github.com/lite-xl/lite-xl/pull/1724))
+
+* Update labeler action config
+  ([#1805](https://github.com/lite-xl/lite-xl/pull/1805))
+
+* Update macOS runner images
+  ([#1804](https://github.com/lite-xl/lite-xl/pull/1804))
+
+* Update macOS copyright notice
+  ([#1815](https://github.com/lite-xl/lite-xl/pull/1815))
+
+* Update SDL2 and PCRE2
+  ([#1812](https://github.com/lite-xl/lite-xl/pull/1812))
+
 ## [2.1.4] - 2024-04-16
 
 This release addresses severe bugs not found in previous releases,
@@ -1504,6 +1587,7 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
+[2.1.5]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.5
 [2.1.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.4
 [2.1.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.3
 [2.1.2]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.2
