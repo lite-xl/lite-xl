@@ -15,7 +15,7 @@ format = defines.get("format", "UDZO")
 # Content options
 files = [(app_path, app_name)]
 symlinks = {"Applications": "/Applications"}
-icon = "resources/icons/icon.icns"
+icon = "resources/macos/dmg-icon.icns"
 icon_locations = {app_name: (170, 140), "Applications": (384, 140)}
 
 # Window options
