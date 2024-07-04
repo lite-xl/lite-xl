@@ -331,6 +331,7 @@ static void font_clear_glyph_cache(RenFont* font) {
     }
     free(font->glyphs.atlas[bitmap_idx]);
     font->glyphs.atlas[bitmap_idx] = NULL;
+    font->glyphs.natlas = 0;
     // clear glyph metric
     for (int glyphmap_row = 0; glyphmap_row < GLYPHMAP_ROW; glyphmap_row++) {
       free(font->glyphs.metrics[bitmap_idx][glyphmap_row]);
