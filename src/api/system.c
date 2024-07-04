@@ -228,8 +228,9 @@ top:
         SDL_GetMouseState(&mx, &my);
         lua_pushstring(L, "filedropped");
         lua_pushstring(L, e.drop.file);
-        lua_pushinteger(L, mx * window_renderer->scale_x);
-        lua_pushinteger(L, my * window_renderer->scale_y);
+        // a DND into dock event fired before a window is created
+        lua_pushinteger(L, mx * (window_renderer ? window_renderer->scale_x : 0));
+        lua_pushinteger(L, my * (window_renderer ? window_renderer->scale_y : 0));
         SDL_free(e.drop.file);
         return 4;
       }
