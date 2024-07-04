@@ -83,7 +83,9 @@ typedef struct {
 
 // maps glyph IDs -> glyph metrics
 typedef struct {
+  // accessed with metrics[bitmap_idx][glyph_id / nrow][glyph_id - (row * ncol)]
   GlyphMetric *metrics[SUBPIXEL_BITMAPS_CACHED][GLYPHMAP_ROW];
+  // accessed with atlas[bitmap_idx][atlas_idx].surfaces[surface_idx]
   GlyphAtlas *atlas[SUBPIXEL_BITMAPS_CACHED];
   size_t natlas;
 } GlyphMap;
@@ -331,13 +333,13 @@ static void font_clear_glyph_cache(RenFont* font) {
     }
     free(font->glyphs.atlas[bitmap_idx]);
     font->glyphs.atlas[bitmap_idx] = NULL;
-    font->glyphs.natlas = 0;
     // clear glyph metric
     for (int glyphmap_row = 0; glyphmap_row < GLYPHMAP_ROW; glyphmap_row++) {
       free(font->glyphs.metrics[bitmap_idx][glyphmap_row]);
       font->glyphs.metrics[bitmap_idx][glyphmap_row] = NULL;
     }
   }
+  font->glyphs.natlas = 0;
 }
 
 // based on https://github.com/libsdl-org/SDL_ttf/blob/2a094959055fba09f7deed6e1ffeb986188982ae/SDL_ttf.c#L1735
