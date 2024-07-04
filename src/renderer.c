@@ -315,7 +315,8 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
   unsigned int glyph_id = 0;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; i++) {
     font = fonts[i]; glyph_id = font_get_glyph_id(fonts[i], codepoint);
-    if (glyph_id) break;
+    // use the first font that has representation for the glyph ID, but for whitespaces always use the first font
+    if (glyph_id || is_whitespace(codepoint)) break;
   }
   // if a glyph doesn't exist and is not whitespace, try using the unicode box drawing character (U+25A1)
   if (!glyph_id && !is_whitespace(codepoint) && codepoint != 0x25A1)
@@ -475,6 +476,7 @@ void ren_font_group_set_size(RenFont **fonts, float size, int surface_scale) {
     fonts[i]->baseline = (short)((face->ascender / (float)face->units_per_EM) * size);
     FT_Load_Char(face, ' ', font_set_load_options(fonts[i]));
     fonts[i]->space_advance = face->glyph->advance.x / 64.0f;
+    fonts[i]->tab_size = 2;
   }
 }
 
@@ -490,16 +492,17 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
   while (text < end) {
     unsigned int codepoint;
     text = utf8_to_codepoint(text, &codepoint);
-    if (codepoint == '\t') {
-      width += fonts[0]->space_advance * fonts[0]->tab_size;
-    } else {
-      GlyphMetric *metric = NULL;
-      RenFont *font = font_group_get_glyph(fonts, codepoint, 0, NULL, &metric);
-      width += metric && metric->xadvance ? metric->xadvance : fonts[0]->space_advance * (codepoint == '\t' ? font->tab_size : 1);
-      if (!set_x_offset && metric) {
-        set_x_offset = true;
-        *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
-      }
+    GlyphMetric *metric = NULL;
+    font_group_get_glyph(fonts, codepoint, 0, NULL, &metric);
+    if (codepoint == '\t')
+      width += fonts[0]->space_advance * (float) fonts[0]->tab_size;
+    else if (metric && metric->xadvance)
+      width += metric->xadvance;
+    else
+      width += fonts[0]->space_advance;
+    if (!set_x_offset && metric) {
+      set_x_offset = true;
+      *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
     }
   }
   if (!set_x_offset)
@@ -601,8 +604,13 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       }
     }
 
-    float adv = metric->xadvance ? metric->xadvance : font->space_advance;
-    if (codepoint == '\t') adv *= font->tab_size;
+    float adv;
+    if (codepoint == '\t')
+      adv = font->space_advance * font->tab_size;
+    else if (metric->xadvance)
+      adv = metric->xadvance;
+    else
+      adv = font->space_advance;
 
     if(!last) last = font;
     else if(font != last || text == end) {
