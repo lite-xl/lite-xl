@@ -596,7 +596,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
           // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          *destination_pixel++ = dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
+          *destination_pixel++ = (unsigned int) dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
         }
       }
     }
