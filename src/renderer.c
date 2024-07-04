@@ -64,6 +64,9 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
 
 // metrics for a loaded glyph
 typedef struct {
+  // 0 is a valid atlas and surface index. To check if a glyph is not loaded,
+  // also check if x == y == 0, because for loaded glyphs with no bitmap,
+  // atlas and surface index is set to BITMAP_NOT_AVAILABLE, and x and y are set to 0.
   unsigned short atlas_idx, surface_idx;
   unsigned int x0, x1, y0, y1;
   int bitmap_left, bitmap_top;
@@ -325,7 +328,7 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
   subpixel_idx = FONT_IS_SUBPIXEL(font) ? subpixel_idx : 0;
   int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
   GlyphMetric *m = font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
-  if (!m || !m->surface_idx) font_load_glyph(font, glyph_id);
+  if (!m || (m->surface_idx == 0 && m->x0 == m->x1)) font_load_glyph(font, glyph_id);
   if (metric && m) *metric = m;
   if (surface && m && m->atlas_idx != BITMAP_NOT_AVAILABLE) *surface = font->glyphs.atlas[subpixel_idx][m->atlas_idx].surfaces[m->surface_idx];
   return font;
