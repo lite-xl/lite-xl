@@ -90,7 +90,7 @@ typedef struct {
   GlyphMetric *metrics[SUBPIXEL_BITMAPS_CACHED][GLYPHMAP_ROW];
   // accessed with atlas[bitmap_idx][atlas_idx].surfaces[surface_idx]
   GlyphAtlas *atlas[SUBPIXEL_BITMAPS_CACHED];
-  size_t natlas;
+  size_t natlas, bytesize;
 } GlyphMap;
 
 typedef struct RenFont {
@@ -253,6 +253,7 @@ static int font_load_glyph(RenFont *font, unsigned int glyph_id) {
           .surfaces = NULL,                            .nsurface = 0,
         };
       }
+      font->glyphs.bytesize += sizeof(GlyphAtlas);
       atlas_idx = font->glyphs.natlas++;
     }
     metric.atlas_idx = atlas_idx;
@@ -272,6 +273,7 @@ static int font_load_glyph(RenFont *font, unsigned int glyph_id) {
       ));
       atlas->offset_y = 0;
       surface_idx = atlas->nsurface++;
+      font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPH_PER_ATLAS * h * bitmaps);
     }
     metric.surface_idx = surface_idx;
     metric.y0 = atlas->offset_y;
@@ -297,8 +299,10 @@ static int font_load_glyph(RenFont *font, unsigned int glyph_id) {
 
 save_metrics:
     // save the metrics
-    if (!font->glyphs.metrics[bitmap_idx][row])
+    if (!font->glyphs.metrics[bitmap_idx][row]) {
       font->glyphs.metrics[bitmap_idx][row] = check_alloc(calloc(sizeof(GlyphMetric), GLYPHMAP_COL));
+      font->glyphs.bytesize += sizeof(GlyphMetric) * GLYPHMAP_COL;
+    }
     font->glyphs.metrics[bitmap_idx][row][col] = metric;
   }
   return 0;
@@ -352,6 +356,7 @@ static void font_clear_glyph_cache(RenFont* font) {
       font->glyphs.metrics[bitmap_idx][glyphmap_row] = NULL;
     }
   }
+  font->glyphs.bytesize = 0;
   font->glyphs.natlas = 0;
 }
 
@@ -531,6 +536,7 @@ void ren_font_dump(RenFont *font) {
       }
     }
   }
+  fprintf(stderr, "%s: %zu bytes\n", font->face->family_name, font->glyphs.bytesize);
 }
 #endif
 
