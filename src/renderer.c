@@ -30,7 +30,7 @@ static FT_Library library = NULL;
 #define check_alloc(P) _check_alloc(P, __FILE__, __LINE__)
 static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
   if (!ptr) {
-    fprintf(stderr, "%s:%ld: memory allocation failed\n", file, ln);
+    fprintf(stderr, "%s:%zu: memory allocation failed\n", file, ln);
     exit(EXIT_FAILURE);
   }
   return ptr;
