@@ -301,6 +301,14 @@ save_metrics:
   return 0;
 }
 
+// https://en.wikipedia.org/wiki/Whitespace_character
+static inline int is_whitespace(unsigned int codepoint) {
+  switch (codepoint) {
+    case 0x20: case 0x85: case 0xA0: case 0x1680: case 0x2028: case 0x2029: case 0x202F: case 0x205F: case 0x3000: return 1;
+  }
+  return (codepoint >= 0x9 && codepoint <= 0xD) || (codepoint >= 0x2000 && codepoint <= 0x200A);
+}
+
 static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, int subpixel_idx, SDL_Surface **surface, GlyphMetric **metric) {
   if (subpixel_idx < 0) subpixel_idx += SUBPIXEL_BITMAPS_CACHED;
   RenFont *font = NULL;
@@ -309,8 +317,9 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
     font = fonts[i]; glyph_id = font_get_glyph_id(fonts[i], codepoint);
     if (glyph_id) break;
   }
-  // if a glyph doesn't exist, try using the unicode box drawing character (U+25A1)
-  if (!glyph_id && codepoint != 0x25A1) return font_group_get_glyph(fonts, 0x25A1, subpixel_idx, surface, metric);
+  // if a glyph doesn't exist and is not whitespace, try using the unicode box drawing character (U+25A1)
+  if (!glyph_id && !is_whitespace(codepoint) && codepoint != 0x25A1)
+    return font_group_get_glyph(fonts, 0x25A1, subpixel_idx, surface, metric);
   // try to load the glyph
   subpixel_idx = FONT_IS_SUBPIXEL(font) ? subpixel_idx : 0;
   int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
@@ -519,14 +528,6 @@ void ren_font_dump(RenFont *font) {
 }
 #endif
 
-// https://en.wikipedia.org/wiki/Whitespace_character
-static inline int is_whitespace(unsigned int codepoint) {
-  switch (codepoint) {
-    case 0x20: case 0x85: case 0xA0: case 0x1680: case 0x2028: case 0x2029: case 0x202F: case 0x205F: case 0x3000: return 1;
-    default: return (codepoint >= 0x9 && codepoint <= 0xD) || (codepoint >= 0x2000 && codepoint <= 0x200A);
-  }
-}
-
 double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
   SDL_Surface *surface = rs->surface;
   SDL_Rect clip;
@@ -556,7 +557,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     int glyph_end = metric->x1, glyph_start = metric->x0;
     if (metric->atlas_idx == BITMAP_NOT_AVAILABLE && !is_whitespace(codepoint))
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
-    if (font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
+    if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line - metric->y0 + y - metric->bitmap_top + (fonts[0]->baseline * surface_scale);
