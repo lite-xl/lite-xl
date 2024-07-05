@@ -18,7 +18,7 @@
 #include "renwindow.h"
 
 // uncomment the line below for more debugging information through printf
-#define RENDERER_DEBUG
+// #define RENDERER_DEBUG
 
 static RenWindow **window_list = NULL;
 static size_t window_count = 0;
