@@ -411,10 +411,8 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   stream->pos = 0;
   stream->size = (unsigned long) SDL_RWsize(file);
 
-  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0)
-    goto stream_failure;
-
-  if (FT_Set_Pixel_Sizes(face, 0, (int) size) != 0)
+  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0
+      || FT_Set_Pixel_Sizes(face, 0, (int) size) != 0)
     goto failure;
 
   font->face = face;
