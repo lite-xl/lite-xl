@@ -192,7 +192,7 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
 #define FONT_IS_SUBPIXEL(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL)
 #define FONT_BITMAP_COUNT(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1)
 
-static void font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
+static SDL_Surface *font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
   // get an atlas with the correct height
   int atlas_idx = -1;
   for (int i = 0; i < font->glyphs.natlas; i++) {
@@ -243,6 +243,7 @@ static void font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap
   metric->y0 = (uintptr_t) atlas->surfaces[surface_idx]->userdata;
   atlas->surfaces[surface_idx]->userdata = (void *) ((uintptr_t) atlas->surfaces[surface_idx]->userdata + metric->y1);
   metric->y1 = (uintptr_t) atlas->surfaces[surface_idx]->userdata;
+  return atlas->surfaces[surface_idx];
 }
 
 static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
@@ -285,8 +286,7 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
     metric.bitmap_top = slot->bitmap_top;
 
     // find the best surface to copy the glyph over, and copy it
-    font_find_glyph_surface(font, slot, bitmap_idx, &metric);
-    SDL_Surface *surface = font->glyphs.atlas[bitmap_idx][metric.atlas_idx].surfaces[metric.surface_idx];
+    SDL_Surface *surface = font_find_glyph_surface(font, slot, bitmap_idx, &metric);
     uint8_t* pixels = surface->pixels;
     for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
       int target_offset = (surface->pitch * (line + metric.y0)) + (metric.x0 * surface->format->BytesPerPixel);
@@ -433,7 +433,6 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
 stream_failure:
   if (file) SDL_RWclose(file);
-  if (stream) free(stream);
 failure:
   if (face) FT_Done_Face(face);
   if (font) free(font);
