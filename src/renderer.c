@@ -9,11 +9,6 @@
 #include FT_OUTLINE_H
 #include FT_SYSTEM_H
 
-#ifdef _WIN32
-#include <windows.h>
-#include "utfconv.h"
-#endif
-
 #include "renderer.h"
 #include "renwindow.h"
 
