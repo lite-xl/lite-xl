@@ -511,12 +511,9 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
     text = utf8_to_codepoint(text, &codepoint);
     GlyphMetric *metric = NULL;
     font_group_get_glyph(fonts, codepoint, 0, NULL, &metric);
-    if (codepoint == '\t')
-      width += fonts[0]->space_advance * (float) fonts[0]->tab_size;
-    else if (metric && metric->xadvance)
-      width += metric->xadvance;
-    else
-      width += fonts[0]->space_advance;
+    width += is_whitespace(codepoint) || !metric || !metric->xadvance // important: fonts can provide xadvances for whitespaces
+      ? fonts[0]->space_advance * (float) (codepoint == '\t' ? fonts[0]->tab_size : 1) // tabs are multiplied by tab size
+      : metric->xadvance;
     if (!set_x_offset && metric) {
       set_x_offset = true;
       *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
@@ -622,13 +619,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       }
     }
 
-    float adv;
-    if (codepoint == '\t')
-      adv = font->space_advance * font->tab_size;
-    else if (metric->xadvance)
-      adv = metric->xadvance;
-    else
-      adv = font->space_advance;
+    float adv = is_whitespace(codepoint) || !metric || !metric->xadvance // important: fonts can provide xadvances for whitespaces
+      ? fonts[0]->space_advance * (float) (codepoint == '\t' ? fonts[0]->tab_size : 1) // tabs are multiplied by tab size
+      : metric->xadvance;
 
     if(!last) last = font;
     else if(font != last || text == end) {
