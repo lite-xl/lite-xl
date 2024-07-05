@@ -250,14 +250,14 @@ static void font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap
   metric->y1 = (uintptr_t) atlas->surfaces[surface_idx]->userdata;
 }
 
-static int font_load_glyph(RenFont *font, unsigned int glyph_id) {
+static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
   unsigned int render_option = font_set_render_options(font);
   unsigned int load_option = font_set_load_options(font);
   // load the font without hinting to fix an issue with monospaced fonts,
   // because freetype doesn't report the correct LSB and RSB delta. Transformation & subpixel positioning don't affect
   // the xadvance, so we can save some time by not doing this step multiple times
   if (FT_Load_Glyph(font->face, glyph_id, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT) != 0)
-    return -1;
+    return;
   double unhinted_xadv = font->face->glyph->advance.x / 64.0f;
   // render the glyph for all bitmap
   int bitmaps = FONT_BITMAP_COUNT(font);
@@ -267,7 +267,7 @@ static int font_load_glyph(RenFont *font, unsigned int glyph_id) {
     if (FT_Load_Glyph(font->face, glyph_id, load_option | FT_LOAD_BITMAP_METRICS_ONLY) != 0
       || font_set_style(&slot->outline, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
       || FT_Render_Glyph(slot, render_option) != 0)
-    return -1;
+    return;
 
     GlyphMetric metric = {0};
     metric.surface_idx = metric.atlas_idx = BITMAP_NOT_AVAILABLE; // overridden later
@@ -315,7 +315,6 @@ save_metrics:
     }
     font->glyphs.metrics[bitmap_idx][row][col] = metric;
   }
-  return 0;
 }
 
 // https://en.wikipedia.org/wiki/Whitespace_character
