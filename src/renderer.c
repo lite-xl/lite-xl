@@ -407,17 +407,16 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 #endif
 
   stream = check_alloc(calloc(1, sizeof(FT_StreamRec)));
-  if (!stream) goto failure;
+  if (!stream) goto stream_failure;
   stream->read = &font_file_read;
   stream->close = &font_file_close;
   stream->descriptor.pointer = file;
   stream->pos = 0;
   stream->size = (unsigned long) SDL_RWsize(file);
 
-  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0) {
-    free(stream);
-    return NULL;
-  }
+  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0)
+    goto stream_failure;
+
   if (FT_Set_Pixel_Sizes(face, 0, (int) size) != 0)
     goto failure;
 
@@ -437,9 +436,11 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->tab_size = 2;
   return font;
 
+stream_failure:
+  if (file) SDL_RWclose(file);
+  if (stream) free(stream);
 failure:
   if (face) FT_Done_Face(face);
-  if (file) SDL_RWclose(file);
   if (font) free(font);
   return NULL;
 }
