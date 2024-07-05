@@ -18,7 +18,7 @@
 #include "renwindow.h"
 
 // uncomment the line below for more debugging information through printf
-// #define RENDERER_DEBUG
+#define RENDERER_DEBUG
 
 static RenWindow **window_list = NULL;
 static size_t window_count = 0;
@@ -81,7 +81,7 @@ typedef struct {
 // a bitmap atlas with a fixed width, each surface acting as a bump allocator
 typedef struct {
   SDL_Surface **surfaces;
-  unsigned int width, nsurface, offset_y;
+  unsigned int width, nsurface;
 } GlyphAtlas;
 
 // maps glyph IDs -> glyph metrics
@@ -197,6 +197,59 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
 #define FONT_IS_SUBPIXEL(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL)
 #define FONT_BITMAP_COUNT(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1)
 
+static void font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
+  // get an atlas with the correct height
+  int atlas_idx = -1;
+  for (int i = 0; i < font->glyphs.natlas; i++) {
+    if (font->glyphs.atlas[bitmap_idx][i].width >= metric->x1) {
+      atlas_idx = i;
+      break;
+    }
+  }
+  if (atlas_idx < 0) {
+    // create a new atlas with the correct width, for each subpixel bitmap  
+    for (int i = 0; i < FONT_BITMAP_COUNT(font); i++) {
+      font->glyphs.atlas[i] = check_alloc(realloc(font->glyphs.atlas[i], sizeof(GlyphAtlas) * (font->glyphs.natlas + 1)));
+      font->glyphs.atlas[i][font->glyphs.natlas] = (GlyphAtlas) {
+        .width = metric->x1 + FONT_WIDTH_OVERFLOW_PX, .nsurface = 0,
+        .surfaces = NULL,
+      };
+    }
+    font->glyphs.bytesize += sizeof(GlyphAtlas);
+    atlas_idx = font->glyphs.natlas++;
+  }
+  metric->atlas_idx = atlas_idx;
+  GlyphAtlas *atlas = &font->glyphs.atlas[bitmap_idx][atlas_idx];
+
+  // find the surface with the minimum width that can fit the glyph (limited to last 100 surfaces)
+  int surface_idx = -1, max_surface_idx = (int) atlas->nsurface - 100, min_waste = INT_MAX;
+  for (int i = atlas->nsurface - 1; i >= 0 && i > max_surface_idx; i--) {
+    int new_min_waste = (int) atlas->surfaces[i]->h - (intptr_t) atlas->surfaces[i]->userdata;
+    if (new_min_waste >= 0 && new_min_waste < min_waste) {
+      surface_idx = i;
+      min_waste = new_min_waste;
+    }
+  }
+  if (surface_idx < 0) {
+    // allocate a new surface array, and a surface
+    int h = FONT_HEIGHT_OVERFLOW_PX + (double) font->face->size->metrics.height / 64.0f;
+    if (h <= FONT_HEIGHT_OVERFLOW_PX) h += slot->bitmap.rows;
+    if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
+    atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
+    atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateRGBSurface(
+      0, atlas->width, GLYPH_PER_ATLAS * h, FONT_BITMAP_COUNT(font) * 8,
+      0, 0, 0, 0
+    ));
+    atlas->surfaces[atlas->nsurface]->userdata = 0;
+    surface_idx = atlas->nsurface++;
+    font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPH_PER_ATLAS * h * FONT_BITMAP_COUNT(font));
+  }
+  metric->surface_idx = surface_idx;
+  metric->y0 = (uintptr_t) atlas->surfaces[surface_idx]->userdata;
+  atlas->surfaces[surface_idx]->userdata += metric->y1;
+  metric->y1 = (uintptr_t) atlas->surfaces[surface_idx]->userdata;
+}
+
 static int font_load_glyph(RenFont *font, unsigned int glyph_id) {
   unsigned int render_option = font_set_render_options(font);
   unsigned int load_option = font_set_load_options(font);
@@ -236,52 +289,9 @@ static int font_load_glyph(RenFont *font, unsigned int glyph_id) {
     metric.bitmap_left = slot->bitmap_left;
     metric.bitmap_top = slot->bitmap_top;
 
-    // get an atlas with the correct height
-    int atlas_idx = -1;
-    for (int i = 0; i < font->glyphs.natlas; i++) {
-      if (font->glyphs.atlas[bitmap_idx][i].width >= metric.x1) {
-        atlas_idx = i;
-        break;
-      }
-    }
-    if (atlas_idx < 0) {
-      // create a new atlas with the correct width, for each subpixel bitmap  
-      for (int i = 0; i < bitmaps; i++) {
-        font->glyphs.atlas[i] = check_alloc(realloc(font->glyphs.atlas[i], sizeof(GlyphAtlas) * (font->glyphs.natlas + 1)));
-        font->glyphs.atlas[i][font->glyphs.natlas] = (GlyphAtlas) {
-          .width = metric.x1 + FONT_WIDTH_OVERFLOW_PX, .offset_y = 0,
-          .surfaces = NULL,                            .nsurface = 0,
-        };
-      }
-      font->glyphs.bytesize += sizeof(GlyphAtlas);
-      atlas_idx = font->glyphs.natlas++;
-    }
-    metric.atlas_idx = atlas_idx;
-    GlyphAtlas *atlas = &font->glyphs.atlas[bitmap_idx][atlas_idx];
-
-    // check if the surface can fit the glyph
-    int surface_idx = atlas->nsurface - 1;
-    if (!atlas->nsurface || metric.y1 > atlas->surfaces[surface_idx]->h - atlas->offset_y) {
-      // allocate a new surface array
-      int h = FONT_HEIGHT_OVERFLOW_PX + (double) font->face->size->metrics.height / 64.0f;
-      if (h <= FONT_HEIGHT_OVERFLOW_PX) h += slot->bitmap.rows;
-      if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
-      atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
-      atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateRGBSurface(
-        0, atlas->width, GLYPH_PER_ATLAS * h, bitmaps * 8,
-        0, 0, 0, 0
-      ));
-      atlas->offset_y = 0;
-      surface_idx = atlas->nsurface++;
-      font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPH_PER_ATLAS * h * bitmaps);
-    }
-    metric.surface_idx = surface_idx;
-    metric.y0 = atlas->offset_y;
-    atlas->offset_y += metric.y1;
-    metric.y1 = atlas->offset_y;
-
-    // copy the glyph to surface
-    SDL_Surface *surface = atlas->surfaces[metric.surface_idx];
+    // find the best surface to copy the glyph over, and copy it
+    font_find_glyph_surface(font, slot, bitmap_idx, &metric);
+    SDL_Surface *surface = font->glyphs.atlas[bitmap_idx][metric.atlas_idx].surfaces[metric.surface_idx];
     uint8_t* pixels = surface->pixels;
     for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
       int target_offset = (surface->pitch * (line + metric.y0)) + (metric.x0 * surface->format->BytesPerPixel);
@@ -709,6 +719,9 @@ void ren_free(void) {
 
 RenWindow* ren_create(SDL_Window *win) {
   assert(win);
+  // we store offset_y in SDL_Surface->userdata, so it has to be able to fit an unsigned int
+  static_assert(sizeof(((SDL_Surface *) 0)->userdata) >= sizeof(unsigned int),
+    "SDL_surface.userdata cannot store offset_y");
   RenWindow* window_renderer = calloc(1, sizeof(RenWindow));
 
   window_renderer->window = win;
