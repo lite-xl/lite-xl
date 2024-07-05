@@ -25,6 +25,9 @@ local Scrollbar = Object:extend()
 ---@field force_status "expanded" | "contracted" | false @Force the scrollbar status
 ---@field expanded_size number? @Override the default value specified by `style.expanded_scrollbar_size`
 ---@field contracted_size number? @Override the default value specified by `style.scrollbar_size`
+---@field minimum_thumb_size number? @Override the default value specified by `style.minimum_thumb_size`
+---@field contracted_margin number? @Override the default value specified by `style.contracted_scrollbar_margin`
+---@field expanded_margin number? @Override the default value specified by `style.expanded_scrollbar_margin`
 
 ---@param options ScrollbarOptions
 function Scrollbar:new(options)
@@ -62,6 +65,12 @@ function Scrollbar:new(options)
   self.contracted_size = options.contracted_size
   ---@type number? @Override the default value specified by `style.expanded_scrollbar_size`
   self.expanded_size = options.expanded_size
+  ---@type number? @Override the default value specified by `style.minimum_thumb_size`
+  self.minimum_thumb_size = options.minimum_thumb_size
+  ---@type number? @Override the default value specified by `style.contracted_scrollbar_margin`
+  self.contracted_margin = options.contracted_margin
+  ---@type number? @Override the default value specified by `style.expanded_scrollbar_margin`
+  self.expanded_margin = options.expanded_margin
 end
 
 
@@ -116,7 +125,7 @@ function Scrollbar:_get_thumb_rect_normal()
   end
   local scrollbar_size = self.contracted_size or style.scrollbar_size
   local expanded_scrollbar_size = self.expanded_size or style.expanded_scrollbar_size
-  local along_size = math.max(20, nr.along_size * nr.along_size / sz)
+  local along_size = math.max(self.minimum_thumb_size or style.minimum_thumb_size, nr.along_size * nr.along_size / sz)
   local across_size = scrollbar_size
   across_size = across_size + (expanded_scrollbar_size - scrollbar_size) * self.expand_percent
   return
@@ -159,13 +168,14 @@ end
 
 function Scrollbar:_overlaps_normal(x, y)
   local sx, sy, sw, sh = self:_get_thumb_rect_normal()
-  local scrollbar_size = self.contracted_size or style.scrollbar_size
+  local scrollbar_margin =      self.expand_percent  * (self.expanded_margin or style.expanded_scrollbar_margin) +
+                           (1 - self.expand_percent) * (self.contracted_margin or style.contracted_scrollbar_margin)
   local result
-  if x >= sx - scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
+  if x >= sx - scrollbar_margin and x <= sx + sw and y >= sy and y <= sy + sh then
     result = "thumb"
   else
     sx, sy, sw, sh = self:_get_track_rect_normal()
-    if x >= sx - scrollbar_size * 3 and x <= sx + sw and y >= sy and y <= sy + sh then
+    if x >= sx - scrollbar_margin and x <= sx + sw and y >= sy and y <= sy + sh then
       result = "track"
     end
   end
