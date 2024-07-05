@@ -246,7 +246,7 @@ static void font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap
   }
   metric->surface_idx = surface_idx;
   metric->y0 = (uintptr_t) atlas->surfaces[surface_idx]->userdata;
-  atlas->surfaces[surface_idx]->userdata += metric->y1;
+  atlas->surfaces[surface_idx]->userdata = (void *) ((uintptr_t) atlas->surfaces[surface_idx]->userdata + metric->y1);
   metric->y1 = (uintptr_t) atlas->surfaces[surface_idx]->userdata;
 }
 
