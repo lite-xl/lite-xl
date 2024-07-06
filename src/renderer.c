@@ -393,6 +393,26 @@ static void font_file_close(FT_Stream stream) {
   free(stream);
 }
 
+static int font_set_face_metrics(RenFont *font, FT_Face face) {
+  FT_Error err;
+  if ((err = FT_Set_Pixel_Sizes(face, 0, (int) font->size)) != 0)
+    return err;
+
+  font->face = face;
+  font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
+  font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
+
+  if(FT_IS_SCALABLE(face))
+    font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
+  if(!font->underline_thickness)
+    font->underline_thickness = ceil((double) font->height / 14.0);
+
+  if ((err = FT_Load_Char(face, ' ', (font_set_load_options(font) | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)) != 0)
+    return err;
+  font->space_advance = face->glyph->advance.x / 64.0f;
+  return 0;
+}
+
 RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   SDL_RWops *file = NULL; RenFont *font = NULL;
   FT_Face face = NULL; FT_Stream stream = NULL;
@@ -407,6 +427,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->antialiasing = antialiasing;
   font->hinting = hinting;
   font->style = style;
+  font->tab_size = 2;
 #ifdef LITE_USE_SDL_RENDERER
   font->scale = 1;
 #endif
@@ -419,24 +440,10 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   stream->pos = 0;
   stream->size = (unsigned long) SDL_RWsize(file);
 
-  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0
-      || FT_Set_Pixel_Sizes(face, 0, (int) size) != 0)
+  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0)
     goto failure;
-
-  font->face = face;
-  font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
-  font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
-
-  if(FT_IS_SCALABLE(face))
-    font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
-  if(!font->underline_thickness)
-    font->underline_thickness = ceil((double) font->height / 14.0);
-
-  if (FT_Load_Char(face, ' ', font_set_load_options(font)))
+  if (font_set_face_metrics(font, face) != 0)
     goto failure;
-
-  font->space_advance = face->glyph->advance.x / 64.0f;
-  font->tab_size = 2;
   return font;
 
 stream_failure:
@@ -486,17 +493,12 @@ float ren_font_group_get_size(RenFont **fonts) {
 void ren_font_group_set_size(RenFont **fonts, float size, int surface_scale) {
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     font_clear_glyph_cache(fonts[i]);
-    FT_Set_Pixel_Sizes(fonts[i]->face, 0, (int)(size * surface_scale));
     fonts[i]->size = size;
-#ifdef LITE_USE_SDL_RENDERER
-    fonts[i]->scale = surface_scale;
-#endif
-    FT_Face face = fonts[i]->face;
-    fonts[i]->height = (short)((face->height / (float)face->units_per_EM) * size);
-    fonts[i]->baseline = (short)((face->ascender / (float)face->units_per_EM) * size);
-    FT_Load_Char(face, ' ', font_set_load_options(fonts[i]));
-    fonts[i]->space_advance = face->glyph->advance.x / 64.0f;
     fonts[i]->tab_size = 2;
+    #ifdef LITE_USE_SDL_RENDERER
+    fonts[i]->scale = surface_scale;
+    #endif
+    font_set_face_metrics(fonts[i], fonts[i]->face);
   }
 }
 
