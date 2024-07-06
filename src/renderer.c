@@ -324,6 +324,11 @@ static inline int is_whitespace(unsigned int codepoint) {
   return (codepoint >= 0x9 && codepoint <= 0xD) || (codepoint >= 0x2000 && codepoint <= 0x200A);
 }
 
+static inline GlyphMetric *font_get_glyph(RenFont *font, unsigned int glyph_id, int subpixel_idx) {
+  int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
+  return font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
+}
+
 static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, int subpixel_idx, SDL_Surface **surface, GlyphMetric **metric) {
   if (subpixel_idx < 0) subpixel_idx += SUBPIXEL_BITMAPS_CACHED;
   RenFont *font = NULL;
@@ -335,14 +340,13 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
   }
   // load the glyph if it is not loaded
   subpixel_idx = FONT_IS_SUBPIXEL(font) ? subpixel_idx : 0;
-  int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
-  GlyphMetric *m = font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
+  GlyphMetric *m = font_get_glyph(font, glyph_id, subpixel_idx);
   if (!m || !(m->flags & EGlyphLoaded)) font_load_glyph(font, glyph_id);
   // if the glyph ID (possibly 0) is not available and we are not trying to load whitespace, try to load U+25A1 (box character)
   if ((!m || !(m->flags & EGlyphLoaded)) && codepoint != 0x25A1 && !is_whitespace(codepoint))
     return font_group_get_glyph(fonts, 0x25A1, subpixel_idx, surface, metric);
   // fetch the glyph metrics again and save it
-  m = font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
+  m = font_get_glyph(font, glyph_id, subpixel_idx);
   if (metric && m) *metric = m;
   if (surface && m && m->flags & EGlyphBitmap) *surface = font->glyphs.atlas[subpixel_idx][m->atlas_idx].surfaces[m->surface_idx];
   return font;
