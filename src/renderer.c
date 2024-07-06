@@ -194,7 +194,7 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
 #define FONT_IS_SUBPIXEL(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL)
 #define FONT_BITMAP_COUNT(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1)
 
-static SDL_Surface *font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
+static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
   // get an atlas with the correct width
   int atlas_idx = -1;
   for (int i = 0; i < font->glyphs.natlas; i++) {
@@ -218,7 +218,7 @@ static SDL_Surface *font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, in
   metric->atlas_idx = atlas_idx;
   GlyphAtlas *atlas = &font->glyphs.atlas[bitmap_idx][atlas_idx];
 
-  // find the surface with the minimum width that can fit the glyph (limited to last 100 surfaces)
+  // find the surface with the minimum height that can fit the glyph (limited to last 100 surfaces)
   int surface_idx = -1, max_surface_idx = (int) atlas->nsurface - 100, min_waste = INT_MAX;
   for (int i = atlas->nsurface - 1; i >= 0 && i > max_surface_idx; i--) {
     assert(atlas->surfaces[i]->userdata);
@@ -298,7 +298,7 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
     metric->flags |= (EGlyphBitmap | EGlyphDualSource);
 
     // find the best surface to copy the glyph over, and copy it
-    SDL_Surface *surface = font_find_glyph_surface(font, slot, bitmap_idx, metric);
+    SDL_Surface *surface = font_allocate_glyph_surface(font, slot, bitmap_idx, metric);
     uint8_t* pixels = surface->pixels;
     for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
       int target_offset = surface->pitch * (line + metric->y0); // x0 is always assumed to be 0
