@@ -54,16 +54,18 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
 // number of subpixel bitmaps
 #define SUBPIXEL_BITMAPS_CACHED 3
 
-// special indexes that is used for glyph and atlas index
-#define BITMAP_NOT_AVAILABLE ((unsigned short) -1)
+typedef enum {
+  EGlyphNone = 0,
+  EGlyphLoaded = (1 << 0L),
+  EGlyphBitmap = (1 << 1L),
+  // currently no-op because blits are always assumed to be dual source
+  EGlyphDualSource = (1 << 2L),
+} ERenGlyphFlags;
 
 // metrics for a loaded glyph
 typedef struct {
-  // 0 is a valid atlas and surface index. To check if a glyph is not loaded,
-  // also check if x == y == 0, because for loaded glyphs with no bitmap,
-  // atlas and surface index is set to BITMAP_NOT_AVAILABLE, and x and y are set to 0.
   unsigned short atlas_idx, surface_idx;
-  unsigned int x0, x1, y0, y1;
+  unsigned int x1, y0, y1, flags;
   int bitmap_left, bitmap_top;
   float xadvance;
 } GlyphMetric;
@@ -266,7 +268,7 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
     return;
 
     GlyphMetric metric = {0};
-    metric.surface_idx = metric.atlas_idx = BITMAP_NOT_AVAILABLE; // overridden later
+    metric.flags = EGlyphLoaded;
     metric.xadvance = unhinted_xadv;
 
     // if this bitmap is empty, or has a format we don't support, just store the xadvance
@@ -284,12 +286,13 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
     metric.y1 = slot->bitmap.rows;
     metric.bitmap_left = slot->bitmap_left;
     metric.bitmap_top = slot->bitmap_top;
+    metric.flags |= (EGlyphBitmap | EGlyphDualSource);
 
     // find the best surface to copy the glyph over, and copy it
     SDL_Surface *surface = font_find_glyph_surface(font, slot, bitmap_idx, &metric);
     uint8_t* pixels = surface->pixels;
     for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
-      int target_offset = (surface->pitch * (line + metric.y0)) + (metric.x0 * surface->format->BytesPerPixel);
+      int target_offset = surface->pitch * (line + metric.y0); // x0 is always assumed to be 0
       int source_offset = line * slot->bitmap.pitch;  
       if (font->antialiasing == FONT_ANTIALIASING_NONE) {
         for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
@@ -333,14 +336,14 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
   subpixel_idx = FONT_IS_SUBPIXEL(font) ? subpixel_idx : 0;
   int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
   GlyphMetric *m = font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
-  if (!m || (m->surface_idx == 0 && m->x0 == m->x1)) font_load_glyph(font, glyph_id);
+  if (!m || !(m->flags & EGlyphLoaded)) font_load_glyph(font, glyph_id);
   // if the glyph ID (possibly 0) is not available and we are not trying to load whitespace, try to load U+25A1 (box character)
-  if ((!m || (m->surface_idx == 0 && m->x0 == m->x1)) && codepoint != 0x25A1 && !is_whitespace(codepoint))
+  if ((!m || !(m->flags & EGlyphLoaded)) && codepoint != 0x25A1 && !is_whitespace(codepoint))
     return font_group_get_glyph(fonts, 0x25A1, subpixel_idx, surface, metric);
   // fetch the glyph metrics again and save it
   m = font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
   if (metric && m) *metric = m;
-  if (surface && m && m->atlas_idx != BITMAP_NOT_AVAILABLE) *surface = font->glyphs.atlas[subpixel_idx][m->atlas_idx].surfaces[m->surface_idx];
+  if (surface && m && m->flags & EGlyphBitmap) *surface = font->glyphs.atlas[subpixel_idx][m->atlas_idx].surfaces[m->surface_idx];
   return font;
 }
 
@@ -566,9 +569,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     if (!metric)
       break;
     int start_x = floor(pen_x) + metric->bitmap_left;
-    int end_x = (metric->x1 - metric->x0) + start_x;
-    int glyph_end = metric->x1, glyph_start = metric->x0;
-    if (metric->atlas_idx == BITMAP_NOT_AVAILABLE && !is_whitespace(codepoint))
+    int end_x = metric->x1 + start_x; // x0 is assumed to be 0
+    int glyph_end = metric->x1, glyph_start = 0;
+    if (!(metric->flags & EGlyphBitmap) && !is_whitespace(codepoint))
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
