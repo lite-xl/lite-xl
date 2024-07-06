@@ -333,7 +333,7 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
     // use the first font that has representation for the glyph ID, but for whitespaces always use the first font
     if (glyph_id || is_whitespace(codepoint)) break;
   }
-  // // load the glyph if it is not loaded
+  // load the glyph if it is not loaded
   subpixel_idx = FONT_IS_SUBPIXEL(font) ? subpixel_idx : 0;
   int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
   GlyphMetric *m = font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
