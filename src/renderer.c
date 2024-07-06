@@ -195,7 +195,7 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
 #define FONT_BITMAP_COUNT(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1)
 
 static SDL_Surface *font_find_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
-  // get an atlas with the correct height
+  // get an atlas with the correct width
   int atlas_idx = -1;
   for (int i = 0; i < font->glyphs.natlas; i++) {
     if (font->glyphs.atlas[bitmap_idx][i].width >= metric->x1) {
