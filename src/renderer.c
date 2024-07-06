@@ -281,7 +281,7 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
     metric->xadvance = unhinted_xadv;
 
     // if this bitmap is empty, or has a format we don't support, just store the xadvance
-    if (!slot->bitmap.width || !slot->bitmap.rows ||
+    if (!slot->bitmap.width || !slot->bitmap.rows || !slot->bitmap.buffer ||
         (slot->bitmap.pixel_mode != FT_PIXEL_MODE_MONO
           && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY
           && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD))
