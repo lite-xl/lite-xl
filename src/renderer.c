@@ -586,7 +586,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = metric->x1 + start_x; // x0 is assumed to be 0
     int glyph_end = metric->x1, glyph_start = 0;
-    if (!(metric->flags & EGlyphBitmap) && !is_whitespace(codepoint))
+    if (!font_surface && !is_whitespace(codepoint))
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
