@@ -481,12 +481,7 @@ end
 ---@return string
 function common.home_encode(text)
   if HOME and string.find(text, HOME, 1, true) == 1 then
-    local dir_pos = #HOME + 1
-    -- ensure we don't replace if the text is just "$HOME" or "$HOME/" so
-    -- it must have a "/" following the $HOME and some characters following.
-    if string.find(text, PATHSEP, dir_pos, true) == dir_pos and #text > dir_pos then
-      return "~" .. text:sub(dir_pos)
-    end
+    return "~" .. text:sub(#HOME + 1)
   end
   return text
 end
