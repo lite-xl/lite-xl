@@ -224,7 +224,7 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     assert(atlas->surfaces[i]->userdata);
     GlyphMetric *m = (GlyphMetric *) atlas->surfaces[i]->userdata;
     int new_min_waste = (int) atlas->surfaces[i]->h - (int) m->y1;
-    if (new_min_waste >= 0 && new_min_waste < min_waste) {
+    if (new_min_waste >= metric->y1 && new_min_waste < min_waste) {
       surface_idx = i;
       min_waste = new_min_waste;
     }
