@@ -355,7 +355,7 @@ static bool signal_process(process_t* proc, signal_e sig) {
 }
 
 static int process_start(lua_State* L) {
-  int r, retval = 1;
+  int retval = 1;
   process_t *self = NULL;
   int deadline = 10, detach = false, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
 
@@ -366,7 +366,7 @@ static int process_start(lua_State* L) {
 #endif
 
   lua_settop(L, 3);
-  lxl_arena A; lxl_arena_init(L, &A);
+  lxl_arena *A = lxl_arena_init(L);
   // copy command line arguments
 #ifdef _WIN32
   if ( !(commandline = utfconv_fromutf8(&A, luaL_checkstring(L, 1))) )
@@ -374,9 +374,9 @@ static int process_start(lua_State* L) {
 #else
   luaL_checktype(L, 1, LUA_TTABLE);
   int len = luaL_len(L, 1);
-  cmd = lxl_arena_zero(&A, (len + 1) * sizeof(char *));
+  cmd = lxl_arena_zero(A, (len + 1) * sizeof(char *));
   for (int i = 0; i < len; i++) {
-    cmd[i] = lxl_arena_strdup(&A, (lua_rawgeti(L, 1, i+1), luaL_checkstring(L, -1)));
+    cmd[i] = lxl_arena_strdup(A, (lua_rawgeti(L, 1, i+1), luaL_checkstring(L, -1)));
   }
 #endif
 
@@ -401,7 +401,7 @@ static int process_start(lua_State* L) {
         if (!env) return (FreeEnvironmentStringsW(system_env), luaL_error(L, "%s", UTFCONV_ERROR_INVALID_CONVERSION));
         if (!eq) return (FreeEnvironmentStringsW(system_env), luaL_error(L, "invalid environment variable"));
         lua_pushlstring(L, env, eq - env); lua_pushstring(L, eq+1);
-        lxl_arena_free(&A, (void *) env);
+        lxl_arena_free(A, (void *) env);
         lua_rawset(L, -3);
         envp += wcslen(envp) + 1;
       }
@@ -421,9 +421,9 @@ static int process_start(lua_State* L) {
       lua_newtable(L);
       lua_call(L, 1, 1);
       size_t len = 0; env = lua_tolstring(L, -1, &len);
-      env = lxl_arena_copy(&A, (void *) env, len+1);
+      env = lxl_arena_copy(A, (void *) env, len+1);
     }
-    cwd = lxl_arena_strdup(&A, (lua_getfield(L, 2, "cwd"), luaL_optstring(L, -1, NULL)));
+    cwd = lxl_arena_strdup(A, (lua_getfield(L, 2, "cwd"), luaL_optstring(L, -1, NULL)));
     lua_pop(L, 2);
 #endif
   }
