@@ -10,12 +10,9 @@
 
 #include <lua.h>
 
-typedef struct lxl_arena {
-  lua_State *L;
-  int ref;
-} lxl_arena;
+typedef struct lxl_arena lxl_arena;
 
-void lxl_arena_init(lua_State *L, lxl_arena *arena);
+lxl_arena *lxl_arena_init(lua_State *L);
 void *lxl_arena_malloc(lxl_arena *arena, size_t size);
 void *lxl_arena_zero(lxl_arena *arena, size_t size);
 char *lxl_arena_copy(lxl_arena *arena, void *ptr, size_t len);
