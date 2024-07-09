@@ -3,9 +3,17 @@
 #include <string.h>
 #include <lauxlib.h>
 
-void lxl_arena_init(lua_State *L, lxl_arena *arena) {
+struct lxl_arena {
+  lua_State *L;
+  int ref;
+};
+
+lxl_arena *lxl_arena_init(lua_State *L) {
   lua_newtable(L);
-  arena->L = L; arena->ref = lua_gettop(L);
+  lxl_arena *arena = lua_newuserdata(L, sizeof(lxl_arena));
+  arena->L = L; arena->ref = lua_gettop(L)-1;
+  lua_rawseti(L, -2, 1);
+  return arena;
 }
 
 void *lxl_arena_malloc(lxl_arena *arena, size_t size) {
