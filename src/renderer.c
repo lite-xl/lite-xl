@@ -119,7 +119,7 @@ void update_font_scale(RenWindow *window_renderer, RenFont **fonts) {
 }
 #endif
 
-static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
+static const char* utf8_to_codepoint(const char *p, const char *endp, unsigned *dst) {
   const unsigned char *up = (unsigned char*)p;
   unsigned res, n;
   switch (*p & 0xf0) {
@@ -129,7 +129,7 @@ static const char* utf8_to_codepoint(const char *p, unsigned *dst) {
     case 0xc0 :  res = *up & 0x1f;  n = 1;  break;
     default   :  res = *up;         n = 0;  break;
   }
-  while (n--) {
+  while (up < endp && n--) {
     res = (res << 6) | (*(++up) & 0x3f);
   }
   *dst = res;
@@ -523,7 +523,7 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
   bool set_x_offset = x_offset == NULL;
   while (text < end) {
     unsigned int codepoint;
-    text = utf8_to_codepoint(text, &codepoint);
+    text = utf8_to_codepoint(text, end, &codepoint);
     GlyphMetric *metric = NULL;
     font_group_get_glyph(fonts, codepoint, 0, NULL, &metric);
     width += FONT_GET_XADVANCE(fonts[0], codepoint, metric);
@@ -578,7 +578,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
 
   while (text < end) {
     unsigned int codepoint, r, g, b;
-    text = utf8_to_codepoint(text, &codepoint);
+    text = utf8_to_codepoint(text, end,  &codepoint);
     SDL_Surface *font_surface = NULL; GlyphMetric *metric = NULL;
     RenFont* font = font_group_get_glyph(fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &font_surface, &metric);
     if (!metric)
