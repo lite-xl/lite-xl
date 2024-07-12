@@ -13,12 +13,44 @@ RenWindow *active_window_renderer = NULL;
 // a reference index to a table that stores the fonts
 static int RENDERER_FONT_REF = LUA_NOREF;
 
+unsigned char default_features[][4] = {
+  { 'r', 'v', 'r', 'n' },
+  { 'c', 'c', 'm', 'p' },
+  { 'r', 'l', 'i', 'g' },
+  { ' ', 'R', 'Q', 'D' },
+};
+
+unsigned char default_ligature_features[][4] = {
+  { 'c', 'a', 'l', 't' },
+  { 'l', 'i', 'g', 'a' },
+  { 'c', 'l', 'i', 'g' },
+  { 'd', 'l', 'i', 'g' },
+};
+
+#define n_default_features (sizeof(default_features) / sizeof(default_features[0]))
+#define n_default_ligature_features (sizeof(default_ligature_features) / sizeof(default_ligature_features[0]))
+
+static size_t get_table_size(lua_State *L, int index) {
+  if (index < 0)
+    index = lua_gettop(L) + index + 1;
+  size_t counter = 0;
+  lua_pushnil(L);
+  while (lua_next(L, index) != 0) {
+    counter++;
+    lua_pop(L, 1); // pop value
+  }
+  return counter;
+}
+
 static int font_get_options(
   lua_State *L,
   ERenFontAntialiasing *antialiasing,
   ERenFontHinting *hinting,
-  int *style
+  int *style,
+  RenFontLigatureOptions *liga_options
 ) {
+
+
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
     if (lua_isstring(L, -1)) {
@@ -75,7 +107,68 @@ static int font_get_options(
     if (lua_toboolean(L, -1))
       style_local |= FONT_STYLE_STRIKETHROUGH;
 
-    lua_pop(L, 5);
+    lua_getfield(L, 3, "ligatures");
+    if (lua_istable(L, -1)) {
+      liga_options->n_features = 0;
+      size_t n_features = n_default_features + n_default_ligature_features + get_table_size(L, -1);
+      liga_options->features = calloc(n_features, sizeof(unsigned char [4]));
+      // Handle default features
+      for (size_t i = 0; i < n_default_features; i++) {
+        char tagstr[5];
+        memcpy(tagstr, default_features[i], sizeof(unsigned char [4]));
+        tagstr[4] = '\0';
+        lua_getfield(L, -1, tagstr);
+        if (lua_isnoneornil(L, -1)) { // The tag isn't explicitly set/unset, so include it
+          memcpy(&liga_options->features[liga_options->n_features++], default_features[i], sizeof(unsigned char [4]));
+        }
+        lua_pop(L, 1);
+      }
+      // Handle default ligature features
+      for (size_t i = 0; i < n_default_ligature_features; i++) {
+        char tagstr[5];
+        memcpy(tagstr, default_ligature_features[i], sizeof(unsigned char [4]));
+        tagstr[4] = '\0';
+        lua_getfield(L, -1, tagstr);
+        if (lua_isnoneornil(L, -1)) { // The tag isn't explicitly set/unset, so include it
+          memcpy(&liga_options->features[liga_options->n_features++], default_ligature_features[i], sizeof(unsigned char [4]));
+        }
+        lua_pop(L, 1);
+      }
+
+      // Handle custom features
+      lua_pushnil(L);
+      while (lua_next(L, -2) != 0) {
+        size_t taglen;
+        const char* tagname;
+        if (lua_isinteger(L, -2)) {
+          tagname = luaL_checklstring(L, -1, &taglen);
+        } else {
+          tagname = luaL_checklstring(L, -2, &taglen);
+        }
+        if (taglen != 4) {
+          return luaL_error(
+            L,
+            "error in font options, wrong tag size: \"%s\", expected 4, got %d",
+            tagname, taglen
+          );
+        }
+        if (lua_toboolean(L, -1)) {
+          memcpy(&liga_options->features[liga_options->n_features++], tagname, sizeof(unsigned char [4]));
+        }
+        lua_pop(L, 1); // pop value
+      }
+    } else if(lua_toboolean(L, -1)) {
+      size_t n_features = n_default_features + n_default_ligature_features;
+      liga_options->features = malloc(n_features * sizeof(unsigned char [4]));
+      memcpy(liga_options->features, default_features, n_default_features * sizeof(unsigned char [4]));
+      liga_options->n_features = n_default_features;
+      memcpy(&liga_options->features[n_default_features],
+             default_ligature_features,
+             n_default_ligature_features * sizeof(unsigned char [4]));
+      liga_options->n_features += n_default_ligature_features;
+    }
+
+    lua_pop(L, 8);
 
     if (style_local != 0)
       *style = style_local;
@@ -90,15 +183,25 @@ static int f_font_load(lua_State *L) {
   int style = 0;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
   ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
+  RenFontLigatureOptions ligopt = {0};
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &ligopt);
   if (ret_code > 0)
     return ret_code;
+  if (ligopt.features == NULL) {
+    ligopt.script = NULL;
+    ligopt.language = NULL;
+    ligopt.features = malloc(n_default_features * sizeof(unsigned char [4]));
+    memcpy(ligopt.features, default_features, n_default_features * sizeof(unsigned char [4]));
+    ligopt.n_features = n_default_features;
+  }
 
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-  *font = ren_font_load(filename, size, antialiasing, hinting, style);
-  if (!*font)
+  *font = ren_font_load(filename, size, antialiasing, hinting, style, ligopt);
+  if (!*font) {
+    free(ligopt.features);
     return luaL_error(L, "failed to load font");
+  }
   luaL_setmetatable(L, API_TYPE_FONT);
   return 1;
 }
@@ -131,8 +234,9 @@ static int f_font_copy(lua_State *L) {
   int style = -1;
   ERenFontHinting hinting = -1;
   ERenFontAntialiasing antialiasing = -1;
+  RenFontLigatureOptions ligopt = {0};
 
-  int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
+  int ret_code = font_get_options(L, &antialiasing, &hinting, &style, &ligopt);
   if (ret_code > 0)
     return ret_code;
 
@@ -140,11 +244,14 @@ static int f_font_copy(lua_State *L) {
     lua_newtable(L);
     luaL_setmetatable(L, API_TYPE_FONT);
   }
+  RenFontLigatureOptions *ligopt_ptr = ligopt.features == NULL ? NULL : &ligopt;
   for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
-    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style);
-    if (!*font)
+    *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style, ligopt_ptr);
+    if (!*font) {
+      if (!ligopt_ptr) free(ligopt_ptr->features);
       return luaL_error(L, "failed to copy font");
+    }
     luaL_setmetatable(L, API_TYPE_FONT);
     if (table)
       lua_rawseti(L, -2, i+1);

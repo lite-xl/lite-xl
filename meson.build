@@ -113,6 +113,9 @@ if not get_option('source-only')
         default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
     )
 
+    libatures_dep = dependency('libatures',
+        default_options: default_fallback_options + ['default_library=static', 'no_tests=true']
+    )
 
     sdl_options = ['default_library=static']
 
@@ -174,7 +177,7 @@ if not get_option('source-only')
         assert(not sdlmain_dep.found(), 'checking if fake dependency has been found')
     endif
 
-    lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libm, libdl]
+    lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libatures_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration

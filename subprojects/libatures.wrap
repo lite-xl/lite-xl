@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/Guldoman/libatures.git
+revision = HEAD
+depth = 1
+
+[provide]
+libatures = libatures_dep
