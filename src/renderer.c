@@ -34,7 +34,7 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
 /************************* Fonts *************************/
 
 // approximate number of glyphs per atlas surface
-#define GLYPH_PER_ATLAS 256
+#define GLYPHS_PER_ATLAS 256
 // some padding to add to atlas surface to store more glyphs
 #define FONT_HEIGHT_OVERFLOW_PX 6
 #define FONT_WIDTH_OVERFLOW_PX 6
