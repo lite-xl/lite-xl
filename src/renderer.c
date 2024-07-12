@@ -236,12 +236,12 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
     atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
     atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateRGBSurface(
-      0, atlas->width, GLYPH_PER_ATLAS * h, FONT_BITMAP_COUNT(font) * 8,
+      0, atlas->width, GLYPHS_PER_ATLAS * h, FONT_BITMAP_COUNT(font) * 8,
       0, 0, 0, 0
     ));
     atlas->surfaces[atlas->nsurface]->userdata = NULL;
     surface_idx = atlas->nsurface++;
-    font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPH_PER_ATLAS * h * FONT_BITMAP_COUNT(font));
+    font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPHS_PER_ATLAS * h * FONT_BITMAP_COUNT(font));
   }
   metric->surface_idx = surface_idx;
   if (atlas->surfaces[surface_idx]->userdata) {
