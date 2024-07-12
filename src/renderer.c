@@ -267,9 +267,9 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
   for (int bitmap_idx = 0; bitmap_idx < bitmaps; bitmap_idx++) {
     FT_GlyphSlot slot = font->face->glyph;
     if (FT_Load_Glyph(font->face, glyph_id, load_option | FT_LOAD_BITMAP_METRICS_ONLY) != 0
-      || font_set_style(&slot->outline, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
-      || FT_Render_Glyph(slot, render_option) != 0)
-    return;
+        || font_set_style(&slot->outline, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
+        || FT_Render_Glyph(slot, render_option) != 0)
+      return;
 
     // save the metrics
     if (!font->glyphs.metrics[bitmap_idx][row]) {
