@@ -129,7 +129,7 @@ static const char* utf8_to_codepoint(const char *p, const char *endp, unsigned *
     case 0xc0 :  res = *up & 0x1f;  n = 1;  break;
     default   :  res = *up;         n = 0;  break;
   }
-  while (up < endp && n--) {
+  while (up < (const unsigned char *)endp && n--) {
     res = (res << 6) | (*(++up) & 0x3f);
   }
   *dst = res;
