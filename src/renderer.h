@@ -13,11 +13,14 @@
 
 
 #define FONT_FALLBACK_MAX 10
+#define MAX_POLY_POINTS 0xFFFF
 typedef struct RenFont RenFont;
 typedef enum { FONT_HINTING_NONE, FONT_HINTING_SLIGHT, FONT_HINTING_FULL } ERenFontHinting;
 typedef enum { FONT_ANTIALIASING_NONE, FONT_ANTIALIASING_GRAYSCALE, FONT_ANTIALIASING_SUBPIXEL } ERenFontAntialiasing;
 typedef enum { FONT_STYLE_BOLD = 1, FONT_STYLE_ITALIC = 2, FONT_STYLE_UNDERLINE = 4, FONT_STYLE_SMOOTH = 8, FONT_STYLE_STRIKETHROUGH = 16 } ERenFontStyle;
+typedef enum { POLY_CONTROL_CONIC = 0, POLY_CONTROL_CUBIC = 0b10, POLY_NORMAL = 0b01 } ERenBezierPointType;
 typedef struct { uint8_t b, g, r, a; } RenColor;
+typedef struct { int x, y; ERenBezierPointType tag; } RenPoint;
 typedef struct { int x, y, width, height; } RenRect;
 typedef struct { SDL_Surface *surface; int scale; } RenSurface;
 
@@ -40,6 +43,10 @@ double ren_font_group_get_width(RenFont **font, const char *text, size_t len, in
 double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
+
+// function to draw polygons and curves
+int ren_poly_cbox(RenPoint *points, int npoints, RenRect *cbox);
+void ren_draw_poly(RenSurface *rs, RenPoint *points, unsigned short npoints, RenColor color);
 
 int ren_init(void);
 void ren_free(void);
