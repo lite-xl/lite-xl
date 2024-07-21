@@ -58,14 +58,17 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
 typedef enum {
   EGlyphFormatGrayscale, // 8bit graysclae
   EGlyphFormatSubpixel,  // 24bit subpixel
+  EGlyphFormatFullColor, // 32bit BGRA bitmap
   EGlyphFormatSize
 } ERenGlyphFormat;
 
 // extra flags to store glyph info
 typedef enum {
-  EGlyphNone = 0,             // glyph is not loaded
-  EGlyphXAdvance = (1 << 0L), // xadvance is loaded
-  EGlyphBitmap = (1 << 1L)    // bitmap is loaded
+  EGlyphNone = 0,              // glyph is not loaded
+  EGlyphXAdvance = (1 << 0L),  // xadvance is loaded
+  EGlyphBitmap = (1 << 1L),    // bitmap is loaded
+  EGlyphAlpha = (1 << 2L),     // blend with alpha blending
+  EGlyphDualSource = (1 << 3L) // blend with dual source blending
 } ERenGlyphFlags;
 
 // metrics for a loaded glyph
@@ -106,7 +109,7 @@ typedef struct RenFont {
 #ifdef LITE_USE_SDL_RENDERER
   int scale;
 #endif
-  float size, space_advance;
+  float size, space_advance, bitmap_scale;
   unsigned short baseline, height, tab_size;
   unsigned short underline_thickness;
   ERenFontAntialiasing antialiasing;
@@ -149,7 +152,7 @@ static int font_set_load_options(RenFont* font) {
   int load_target = font->antialiasing == FONT_ANTIALIASING_NONE ? FT_LOAD_TARGET_MONO
     : (font->hinting == FONT_HINTING_SLIGHT ? FT_LOAD_TARGET_LIGHT : FT_LOAD_TARGET_NORMAL);
   int hinting = font->hinting == FONT_HINTING_NONE ? FT_LOAD_NO_HINTING : FT_LOAD_FORCE_AUTOHINT;
-  return load_target | hinting;
+  return load_target | hinting | FT_LOAD_COLOR;
 }
 
 static int font_set_render_options(RenFont* font) {
@@ -173,23 +176,23 @@ static int font_set_render_options(RenFont* font) {
   return 0;
 }
 
-static int font_set_style(FT_Outline* outline, int x_translation, unsigned char style) {
-  FT_Outline_Translate(outline, x_translation, 0 );
+static int font_set_style(FT_GlyphSlot slot, int x_translation, unsigned char style) {
+  if (slot->format != FT_GLYPH_FORMAT_OUTLINE) return 0;
+  FT_Outline_Translate(&slot->outline, x_translation, 0 );
   if (style & FONT_STYLE_SMOOTH)
-    FT_Outline_Embolden(outline, 1 << 5);
+    FT_Outline_Embolden(&slot->outline, 1 << 5);
   if (style & FONT_STYLE_BOLD)
-    FT_Outline_EmboldenXY(outline, 1 << 5, 0);
+    FT_Outline_EmboldenXY(&slot->outline, 1 << 5, 0);
   if (style & FONT_STYLE_ITALIC) {
     FT_Matrix matrix = { 1 << 16, 1 << 14, 0, 1 << 16 };
-    FT_Outline_Transform(outline, &matrix);
+    FT_Outline_Transform(&slot->outline, &matrix);
   }
   return 0;
 }
 
 static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
   if (codepoint > MAX_UNICODE) return 0;
-  size_t row = codepoint / CHARMAP_COL;
-  size_t col = codepoint - (row * CHARMAP_COL);
+  size_t row = codepoint / CHARMAP_COL, col = codepoint - (row * CHARMAP_COL);
   if (!font->charmap.rows[row]) font->charmap.rows[row] = check_alloc(calloc(sizeof(unsigned int), CHARMAP_COL));
   if (font->charmap.rows[row][col] == 0) {
     unsigned int glyph_id = FT_Get_Char_Index(font->face, codepoint);
@@ -202,19 +205,29 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
 
 #define FONT_IS_SUBPIXEL(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL)
 #define FONT_BITMAP_COUNT(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1)
-#define SLOT_BITMAP_TYPE(B) ((B).pixel_mode == FT_PIXEL_MODE_LCD ? EGlyphFormatSubpixel : EGlyphFormatGrayscale)
 
-static inline SDL_PixelFormatEnum glyphformat_to_pixelformat(ERenGlyphFormat format, int *depth) {
+static inline ERenGlyphFormat pixelmode_to_glyphformat(RenFont *font, int mode) {
+  if (font->bitmap_scale != 0) return EGlyphFormatFullColor; // we need a 32-bit bitmap to call SDL_SoftStretchLinear
+  switch (mode) {
+    case FT_PIXEL_MODE_LCD:  return EGlyphFormatSubpixel;
+    case FT_PIXEL_MODE_BGRA: return EGlyphFormatFullColor;
+    case FT_PIXEL_MODE_GRAY: case FT_PIXEL_MODE_MONO: return EGlyphFormatGrayscale;
+  }
+  return EGlyphFormatGrayscale;
+}
+
+static inline SDL_PixelFormatEnum glyphformat_to_pixelformat(RenFont *font, ERenGlyphFormat format, int *depth) {
   switch (format) {
     case EGlyphFormatSubpixel:  *depth = 24; return SDL_PIXELFORMAT_RGB24;
     case EGlyphFormatGrayscale: *depth = 8;  return SDL_PIXELFORMAT_INDEX8;
+    case EGlyphFormatFullColor: *depth = 32; return SDL_PIXELFORMAT_RGBA32;
     default: return SDL_PIXELFORMAT_UNKNOWN;
   }
 }
 
 static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
   // get an atlas with the correct width
-  ERenGlyphFormat glyph_format = SLOT_BITMAP_TYPE(slot->bitmap);
+  ERenGlyphFormat glyph_format = pixelmode_to_glyphformat(font, slot->bitmap.pixel_mode);
   int atlas_idx = -1;
   for (int i = 0; i < font->glyphs.natlas[glyph_format]; i++) {
     if (font->glyphs.atlas[glyph_format][i].width >= metric->x1) {
@@ -252,7 +265,7 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     int h = FONT_HEIGHT_OVERFLOW_PX + (double) font->face->size->metrics.height / 64.0f;
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += slot->bitmap.rows;
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
-    int depth = 0; SDL_PixelFormatEnum format = glyphformat_to_pixelformat(glyph_format, &depth);
+    int depth = 0; SDL_PixelFormatEnum format = glyphformat_to_pixelformat(font, glyph_format, &depth);
     atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
     atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateRGBSurfaceWithFormat(0, atlas->width, GLYPHS_PER_ATLAS * h, depth, format));
     atlas->surfaces[atlas->nsurface]->userdata = NULL;
@@ -288,7 +301,7 @@ static GlyphMetric *font_load_glyph_metric(RenFont *font, unsigned int glyph_id,
       }
       GlyphMetric *metric = &font->glyphs.metrics[i][row][col];
       metric->flags |= EGlyphXAdvance;
-      metric->xadvance = font->face->glyph->advance.x / 64.0f;
+      metric->xadvance = font->bitmap_scale == 0 ? font->face->glyph->advance.x / 64.0f : font->face->glyph->advance.x / 64.0f * font->bitmap_scale;
     }
   }
   return &font->glyphs.metrics[bitmap_idx][row][col];
@@ -302,8 +315,8 @@ static SDL_Surface *font_load_glyph_bitmap(RenFont *font, unsigned int glyph_id,
   // render the glyph for a bitmap_idx
   unsigned int load_option = font_set_load_options(font), render_option = font_set_render_options(font);
   FT_GlyphSlot slot = font->face->glyph;
-  if (FT_Load_Glyph(font->face, glyph_id, load_option | FT_LOAD_BITMAP_METRICS_ONLY) != 0
-      || font_set_style(&slot->outline, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
+  if (FT_Load_Glyph(font->face, glyph_id, load_option) != 0
+      || font_set_style(slot, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
       || FT_Render_Glyph(slot, render_option) != 0)
     return NULL;
 
@@ -311,36 +324,67 @@ static SDL_Surface *font_load_glyph_bitmap(RenFont *font, unsigned int glyph_id,
   if (!slot->bitmap.width || !slot->bitmap.rows || !slot->bitmap.buffer ||
       (slot->bitmap.pixel_mode != FT_PIXEL_MODE_MONO
         && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY
-        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD))
+        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD
+        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_BGRA))
     return NULL;
 
-  unsigned int glyph_width = slot->bitmap.width / FONT_BITMAP_COUNT(font);
-  // FT_PIXEL_MODE_MONO uses 1 bit per pixel packed bitmap
-  if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) glyph_width *= 8;
+  unsigned int glyph_width = slot->bitmap.width;
+  if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_LCD) glyph_width /= SUBPIXEL_BITMAPS_CACHED; // subpixel bitmaps are thrice as wide
 
-  metric->x1 = glyph_width;
-  metric->y1 = slot->bitmap.rows;
-  metric->bitmap_left = slot->bitmap_left;
-  metric->bitmap_top = slot->bitmap_top;
-  metric->flags |= EGlyphBitmap;
-  metric->format = SLOT_BITMAP_TYPE(slot->bitmap);
+  metric->x1 = font->bitmap_scale == 0          ? glyph_width       : (float) glyph_width * font->bitmap_scale;
+  metric->y1 = font->bitmap_scale == 0          ? slot->bitmap.rows : (float) slot->bitmap.rows * font->bitmap_scale;
+  metric->bitmap_left = font->bitmap_scale == 0 ? slot->bitmap_left : (float) slot->bitmap_left * font->bitmap_scale;
+  metric->bitmap_top = font->bitmap_scale == 0  ? slot->bitmap_top  : (float) slot->bitmap_top * font->bitmap_scale;
 
   // find the best surface to copy the glyph over, and copy it
   SDL_Surface *surface = font_allocate_glyph_surface(font, slot, bitmap_idx, metric);
-  uint8_t* pixels = surface->pixels;
-  for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
-    int target_offset = surface->pitch * (line + metric->y0); // x0 is always assumed to be 0
-    int source_offset = line * slot->bitmap.pitch;
-    if (font->antialiasing == FONT_ANTIALIASING_NONE) {
-      for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
-        int current_source_offset = source_offset + (column / 8);
-        int source_pixel = slot->bitmap.buffer[current_source_offset];
-        pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) * 0xFF;
+  if (font->bitmap_scale == 0 && slot->bitmap.pixel_mode != FT_PIXEL_MODE_BGRA) {
+    // no scaling and the pixel format isn't BGRA, use fast path to copy it
+    uint8_t* pixels = surface->pixels;
+    for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
+      int target_offset = surface->pitch * (line + metric->y0); // x0 is always assumed to be 0
+      int source_offset = line * slot->bitmap.pitch;
+      if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) {
+        for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
+          int current_source_offset = source_offset + (column / 8);
+          int source_pixel = slot->bitmap.buffer[current_source_offset];
+          pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) * 0xFF;
+        }
+      } else {
+        memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
       }
-    } else {
-      memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
     }
+  } else {
+    // use BlitSurface or SoftStretchLinear to perform color format conversion and scaling
+    SDL_PixelFormatEnum src_format = SDL_PIXELFORMAT_UNKNOWN; int depth = 0;
+    switch (slot->bitmap.pixel_mode) {
+      case FT_PIXEL_MODE_LCD:  depth = 24; src_format = SDL_PIXELFORMAT_RGB24;     break;
+      case FT_PIXEL_MODE_BGRA: depth = 32; src_format = SDL_PIXELFORMAT_BGRA32;    break;
+      case FT_PIXEL_MODE_GRAY: depth = 8;  src_format = SDL_PIXELFORMAT_INDEX8;    break;
+      case FT_PIXEL_MODE_MONO: depth = 8;  src_format = SDL_PIXELFORMAT_INDEX1MSB; break;
+    }
+    SDL_Surface *glyph_surface = SDL_CreateRGBSurfaceWithFormatFrom(slot->bitmap.buffer, slot->bitmap.width, slot->bitmap.rows, depth, slot->bitmap.pitch, src_format);
+    if (!glyph_surface) return NULL;
+    if (src_format == SDL_PIXELFORMAT_INDEX1MSB) {
+      static SDL_Color monochrome_palette[] = { { 0, 0, 0, 0 }, { 0xFF, 0xFF, 0xFF, 0xFF } };
+      SDL_SetPaletteColors(glyph_surface->format->palette, monochrome_palette, 0, sizeof(monochrome_palette)/sizeof(*monochrome_palette));
+    }
+    if (SDL_ISPIXELFORMAT_INDEXED(src_format) || glyph_surface->format->format != surface->format->format) {
+      // ensure that surface are in the same pixel format before blitting
+      SDL_Surface *intermediate_surface = SDL_ConvertSurface(glyph_surface, surface->format, 0);
+      SDL_FreeSurface(glyph_surface);
+      if (!intermediate_surface) return NULL;
+      glyph_surface = intermediate_surface;
+    }
+    if (font->bitmap_scale == 0)
+      SDL_BlitSurface(glyph_surface, NULL, surface, &(SDL_Rect) { 0, metric->y0, metric->x1, metric->y1-metric->y0 });
+    else
+      SDL_SoftStretchLinear(glyph_surface, NULL, surface, &(SDL_Rect) { 0, metric->y0, metric->x1, metric->y1-metric->y0 });
+    SDL_FreeSurface(glyph_surface);
   }
+  // we don't want to alpha-blend all RBGA bitmaps automatically, because you can have scaled up mono/grayscale fonts
+  metric->flags |= EGlyphBitmap | (slot->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA ? EGlyphAlpha : EGlyphDualSource);
+  metric->format = pixelmode_to_glyphformat(font, slot->bitmap.pixel_mode);
   return surface;
 }
 
@@ -416,26 +460,36 @@ static void font_file_close(FT_Stream stream) {
 
 static int font_set_face_metrics(RenFont *font, FT_Face face) {
   FT_Error err;
-  if ((err = FT_Set_Pixel_Sizes(face, 0, (int) font->size)) != 0)
-    return err;
-
   font->face = face;
-  if(FT_IS_SCALABLE(face)) {
-  font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
-  font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
+  if ((err = FT_Set_Pixel_Sizes(face, 0, (int) font->size)) != 0) {
+    if (!face->num_fixed_sizes) return err;
+    // find a strike that is slightly bigger or smaller than our target height
+    float min_size_dev = FLT_MAX; int idx = 0;
+    for (int i = 0; i < face->num_fixed_sizes; i++) {
+      float dev = face->available_sizes[i].height - font->size;
+      if ((dev >= 0 && dev < min_size_dev) || (dev < 0 && dev > min_size_dev)) {
+        min_size_dev = dev, idx = i;
+      }
+    }
+    if ((err = FT_Select_Size(face, idx)) != 0) return err;
+    font->bitmap_scale = font->size / (float) face->available_sizes[idx].height;
+  }
 
-  if(FT_IS_SCALABLE(face))
+  if (FT_IS_SCALABLE(face)) {
+    font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
+    font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
   } else {
-    font->height = (short) font->face->size->metrics.height / 64.0f;
-    font->baseline = (short) font->face->size->metrics.ascender / 64.0f;
+    font->height = font->bitmap_scale == 0 ? (short) font->face->size->metrics.height / 64.0f :  (short) font->face->size->metrics.height / 64.0f * font->bitmap_scale;
+    font->baseline = font->bitmap_scale == 0 ? (short) font->face->size->metrics.ascender / 64.0f : (short) font->face->size->metrics.ascender / 64.0f * font->bitmap_scale;
   }
+
   if(!font->underline_thickness)
     font->underline_thickness = ceil((double) font->height / 14.0);
 
   if ((err = FT_Load_Char(face, ' ', (font_set_load_options(font) | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)) != 0)
     return err;
-  font->space_advance = face->glyph->advance.x / 64.0f;
+  font->space_advance = font->bitmap_scale == 0 ? face->glyph->advance.x / 64.0f : face->glyph->advance.x / 64.0f * font->bitmap_scale;
   return 0;
 }
 
@@ -631,20 +685,28 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
           SDL_Color src;
 
-          if (metric->format == EGlyphFormatSubpixel) {
-            src.r = *(source_pixel++);
-            src.g = *(source_pixel++);
-          } else {
+          if (metric->format == EGlyphFormatGrayscale) {
             src.r = *(source_pixel);
             src.g = *(source_pixel);
+          } else {
+            src.r = *(source_pixel++);
+            src.g = *(source_pixel++);
+          }
+          src.b = *(source_pixel++);
+          src.a = metric->format == EGlyphFormatFullColor ? *(source_pixel++) : 0xFF;
+
+          if (metric->flags & EGlyphDualSource) {
+            r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
+            g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
+            b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
+          } else if (metric->flags & EGlyphAlpha) {
+            // use normal alpha blending
+            src.a = (src.a * color.a) >> 8; int ia = 0xFF - src.a;
+            r = ((src.r * src.a) + (dst.r * ia)) >> 8;
+            g = ((src.g * src.a) + (dst.g * ia)) >> 8;
+            b = ((src.b * src.a) + (dst.b * ia)) >> 8;
           }
 
-          src.b = *(source_pixel++);
-          src.a = 0xFF;
-
-          r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
-          g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
-          b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
           // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
           *destination_pixel++ = (unsigned int) dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
         }
