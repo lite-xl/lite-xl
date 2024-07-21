@@ -677,10 +677,10 @@ end
 function common.rm(path, recursively)
   local stat = system.get_file_info(path)
   if not stat or (stat.type ~= "file" and stat.type ~= "dir") then
-    return false, "invalid path given", path
+    return false, "invalid path", path
   end
 
-  if stat.type == "file" then
+  if stat.type == "file" or stat.symlink then
     local removed, error = os.remove(path)
     if not removed then
       return false, error, path
@@ -692,23 +692,9 @@ function common.rm(path, recursively)
     end
 
     for _, item in pairs(contents) do
-      local item_path = path .. PATHSEP .. item
-      local item_stat = system.get_file_info(item_path)
-
-      if not item_stat then
-        return false, "invalid file encountered", item_path
-      end
-
-      if item_stat.type == "dir" then
-        local deleted, error, ipath = common.rm(item_path, recursively)
-        if not deleted then
-          return false, error, ipath
-        end
-      elseif item_stat.type == "file" then
-        local removed, error = os.remove(item_path)
-        if not removed then
-          return false, error, item_path
-        end
+      local removed, error, error_path = common.rm(path .. PATHSEP .. item, recursively)
+      if not removed then
+        return false, error, error_path
       end
     end
 
