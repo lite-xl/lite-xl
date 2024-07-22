@@ -15,6 +15,23 @@ renderer = {}
 ---@field public b number Blue
 ---@field public a number Alpha
 
+---Represent a point in a poly line, in the form of { x, y }.
+---@alias renderer.normal_point integer[]
+
+---Represent a conic / quadratic bezier curve with a single control point,
+---in the form of { start_x, start_y, cp1_x, cp1_y, end_x, end_y }.
+---@alias renderer.conic_bezier integer[]
+
+---Represent a cubic bezier curve with two control points,
+---in the form of { start_x, start_y, cp1_x, cp1_y, cp2_x, cp2_y, end_x, end_y }.
+---@alias renderer.cubic_bezier integer[]
+
+---Represent all types accepted by the renderer.draw_poly function.
+---@alias renderer.poly_object
+---|renderer.normal_point
+---|renderer.conic_bezier
+---|renderer.cubic_bezier
+
 ---
 ---Represent options that affect a font's rendering.
 ---@class renderer.fontoptions
@@ -155,6 +172,24 @@ function renderer.draw_rect(x, y, width, height, color) end
 ---
 ---@return number x
 function renderer.draw_text(font, text, x, y, color) end
+
+
+---
+---Draws a filled polygon, consisting of curves and points.
+---The polygon is filled using the non-zero winding rule in clockwise direction.
+---
+---The function returns the control box of the polygon,
+---which is greater than or equal to the dimensions of the rendered polygon.
+---It is not guaranteed to the exact dimension of the rendered polygon.
+---
+---@param poly renderer.poly_object[] the lines or curves to draw, up to 65535 points.
+---@param color renderer.color
+---
+---@return number x the X coordinate of top left corner of the control box.
+---@return number y the Y coordinate of the top left corner of the control box.
+---@return number w the width of the control box.
+---@return number h the height of the control box.
+function renderer.draw_poly(poly, color) end
 
 
 return renderer
