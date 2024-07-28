@@ -4,25 +4,20 @@
 #include "../renderer.h"
 #include "../rencache.h"
 #ifdef LITE_USE_SDL_RENDERER
-#include "../renwindow.h"
+  #include "../renwindow.h"
 #endif
 #include "lua.h"
 
-RenWindow *active_window_renderer = NULL;
+RenWindow* active_window_renderer = NULL;
 
 // a reference index to a table that stores the fonts
 static int RENDERER_FONT_REF = LUA_NOREF;
 
-static int font_get_options(
-  lua_State *L,
-  ERenFontAntialiasing *antialiasing,
-  ERenFontHinting *hinting,
-  int *style
-) {
+static int font_get_options(lua_State* L, ERenFontAntialiasing* antialiasing, ERenFontHinting* hinting, int* style) {
   if (lua_gettop(L) > 2 && lua_istable(L, 3)) {
     lua_getfield(L, 3, "antialiasing");
     if (lua_isstring(L, -1)) {
-      const char *antialiasing_str = lua_tostring(L, -1);
+      const char* antialiasing_str = lua_tostring(L, -1);
       if (antialiasing_str) {
         if (strcmp(antialiasing_str, "none") == 0) {
           *antialiasing = FONT_ANTIALIASING_NONE;
@@ -31,17 +26,13 @@ static int font_get_options(
         } else if (strcmp(antialiasing_str, "subpixel") == 0) {
           *antialiasing = FONT_ANTIALIASING_SUBPIXEL;
         } else {
-          return luaL_error(
-            L,
-            "error in font options, unknown antialiasing option: \"%s\"",
-            antialiasing_str
-          );
+          return luaL_error(L, "error in font options, unknown antialiasing option: \"%s\"", antialiasing_str);
         }
       }
     }
     lua_getfield(L, 3, "hinting");
     if (lua_isstring(L, -1)) {
-      const char *hinting_str = lua_tostring(L, -1);
+      const char* hinting_str = lua_tostring(L, -1);
       if (hinting_str) {
         if (strcmp(hinting_str, "slight") == 0) {
           *hinting = FONT_HINTING_SLIGHT;
@@ -50,11 +41,7 @@ static int font_get_options(
         } else if (strcmp(hinting_str, "full") == 0) {
           *hinting = FONT_HINTING_FULL;
         } else {
-          return luaL_error(
-            L,
-            "error in font options, unknown hinting option: \"%s\"",
-            hinting
-          );
+          return luaL_error(L, "error in font options, unknown hinting option: \"%s\"", hinting);
         }
       }
     }
@@ -84,8 +71,8 @@ static int font_get_options(
   return 0;
 }
 
-static int f_font_load(lua_State *L) {
-  const char *filename  = luaL_checkstring(L, 1);
+static int f_font_load(lua_State* L) {
+  const char* filename = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);
   int style = 0;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
@@ -105,15 +92,16 @@ static int f_font_load(lua_State *L) {
 
 static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
   bool is_table;
-  memset(fonts, 0, sizeof(RenFont*)*FONT_FALLBACK_MAX);
+  memset(fonts, 0, sizeof(RenFont*) * FONT_FALLBACK_MAX);
   if (lua_type(L, idx) != LUA_TTABLE) {
-    fonts[0] = *(RenFont**)luaL_checkudata(L, idx, API_TYPE_FONT);
+    fonts[0] = *(RenFont**) luaL_checkudata(L, idx, API_TYPE_FONT);
     is_table = false;
   } else {
     is_table = true;
-    int len = luaL_len(L, idx); len = len > FONT_FALLBACK_MAX ? FONT_FALLBACK_MAX : len;
+    int len = luaL_len(L, idx);
+    len = len > FONT_FALLBACK_MAX ? FONT_FALLBACK_MAX : len;
     for (int i = 0; i < len; i++) {
-      lua_rawgeti(L, idx, i+1);
+      lua_rawgeti(L, idx, i + 1);
       fonts[i] = *(RenFont**) luaL_checkudata(L, -1, API_TYPE_FONT);
       lua_pop(L, 1);
     }
@@ -124,7 +112,7 @@ static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
   return is_table;
 }
 
-static int f_font_copy(lua_State *L) {
+static int f_font_copy(lua_State* L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
   bool table = font_retrieve(L, fonts, 1);
   float size = lua_gettop(L) >= 2 ? luaL_checknumber(L, 2) : ren_font_group_get_height(fonts);
@@ -147,7 +135,7 @@ static int f_font_copy(lua_State *L) {
       return luaL_error(L, "failed to copy font");
     luaL_setmetatable(L, API_TYPE_FONT);
     if (table)
-      lua_rawseti(L, -2, i+1);
+      lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
@@ -173,7 +161,7 @@ static int f_font_group(lua_State* L) {
   return 1;
 }
 
-static int f_font_get_path(lua_State *L) {
+static int f_font_get_path(lua_State* L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
   bool table = font_retrieve(L, fonts, 1);
 
@@ -184,20 +172,22 @@ static int f_font_get_path(lua_State *L) {
     const char* path = ren_font_get_path(fonts[i]);
     lua_pushstring(L, path);
     if (table)
-      lua_rawseti(L, -2, i+1);
+      lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
 
-static int f_font_set_tab_size(lua_State *L) {
-  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
+static int f_font_set_tab_size(lua_State* L) {
+  RenFont* fonts[FONT_FALLBACK_MAX];
+  font_retrieve(L, fonts, 1);
   int n = luaL_checknumber(L, 2);
   ren_font_group_set_tab_size(fonts, n);
   return 0;
 }
 
-static int f_font_gc(lua_State *L) {
-  if (lua_istable(L, 1)) return 0; // do not run if its FontGroup
+static int f_font_gc(lua_State* L) {
+  if (lua_istable(L, 1))
+    return 0; // do not run if its FontGroup
   RenFont** self = luaL_checkudata(L, 1, API_TYPE_FONT);
   ren_font_free(*self);
 
@@ -205,29 +195,33 @@ static int f_font_gc(lua_State *L) {
 }
 
 
-static int f_font_get_width(lua_State *L) {
-  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
+static int f_font_get_width(lua_State* L) {
+  RenFont* fonts[FONT_FALLBACK_MAX];
+  font_retrieve(L, fonts, 1);
   size_t len;
-  const char *text = luaL_checklstring(L, 2, &len);
+  const char* text = luaL_checklstring(L, 2, &len);
 
   lua_pushnumber(L, ren_font_group_get_width(fonts, text, len, NULL));
   return 1;
 }
 
-static int f_font_get_height(lua_State *L) {
-  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
+static int f_font_get_height(lua_State* L) {
+  RenFont* fonts[FONT_FALLBACK_MAX];
+  font_retrieve(L, fonts, 1);
   lua_pushnumber(L, ren_font_group_get_height(fonts));
   return 1;
 }
 
-static int f_font_get_size(lua_State *L) {
-  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
+static int f_font_get_size(lua_State* L) {
+  RenFont* fonts[FONT_FALLBACK_MAX];
+  font_retrieve(L, fonts, 1);
   lua_pushnumber(L, ren_font_group_get_size(fonts));
   return 1;
 }
 
-static int f_font_set_size(lua_State *L) {
-  RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
+static int f_font_set_size(lua_State* L) {
+  RenFont* fonts[FONT_FALLBACK_MAX];
+  font_retrieve(L, fonts, 1);
   float size = luaL_checknumber(L, 2);
   int scale = 1;
 #ifdef LITE_USE_SDL_RENDERER
@@ -239,7 +233,7 @@ static int f_font_set_size(lua_State *L) {
   return 0;
 }
 
-static int color_value_error(lua_State *L, int idx, int table_idx) {
+static int color_value_error(lua_State* L, int idx, int table_idx) {
   const char *type, *msg;
   // generate an appropriate error message
   if (luaL_getmetafield(L, -1, "__name") == LUA_TSTRING) {
@@ -255,12 +249,12 @@ static int color_value_error(lua_State *L, int idx, int table_idx) {
   return luaL_argerror(L, idx, msg);
 }
 
-static int get_color_value(lua_State *L, int idx, int table_idx) {
+static int get_color_value(lua_State* L, int idx, int table_idx) {
   lua_rawgeti(L, idx, table_idx);
   return lua_isnumber(L, -1) ? lua_tonumber(L, -1) : color_value_error(L, idx, table_idx);
 }
 
-static int get_color_value_opt(lua_State *L, int idx, int table_idx, int default_value) {
+static int get_color_value_opt(lua_State* L, int idx, int table_idx, int default_value) {
   lua_rawgeti(L, idx, table_idx);
   if (lua_isnoneornil(L, -1))
     return default_value;
@@ -270,7 +264,7 @@ static int get_color_value_opt(lua_State *L, int idx, int table_idx, int default
     return color_value_error(L, idx, table_idx);
 }
 
-static RenColor checkcolor(lua_State *L, int idx, int def) {
+static RenColor checkcolor(lua_State* L, int idx, int def) {
   RenColor color;
   if (lua_isnoneornil(L, idx)) {
     return (RenColor) { def, def, def, 255 };
@@ -285,14 +279,14 @@ static RenColor checkcolor(lua_State *L, int idx, int def) {
 }
 
 
-static int f_show_debug(lua_State *L) {
+static int f_show_debug(lua_State* L) {
   luaL_checkany(L, 1);
   rencache_show_debug(lua_toboolean(L, 1));
   return 0;
 }
 
 
-static int f_get_size(lua_State *L) {
+static int f_get_size(lua_State* L) {
   int w = 0, h = 0;
   if (active_window_renderer)
     ren_get_size(active_window_renderer, &w, &h);
@@ -302,15 +296,15 @@ static int f_get_size(lua_State *L) {
 }
 
 
-static int f_begin_frame(UNUSED lua_State *L) {
+static int f_begin_frame(UNUSED lua_State* L) {
   assert(active_window_renderer == NULL);
-  active_window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  active_window_renderer = *(RenWindow**) luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   rencache_begin_frame(active_window_renderer);
   return 0;
 }
 
 
-static int f_end_frame(UNUSED lua_State *L) {
+static int f_end_frame(UNUSED lua_State* L) {
   assert(active_window_renderer != NULL);
   rencache_end_frame(active_window_renderer);
   active_window_renderer = NULL;
@@ -324,11 +318,11 @@ static int f_end_frame(UNUSED lua_State *L) {
 static RenRect rect_to_grid(lua_Number x, lua_Number y, lua_Number w, lua_Number h) {
   int x1 = (int) (x + 0.5), y1 = (int) (y + 0.5);
   int x2 = (int) (x + w + 0.5), y2 = (int) (y + h + 0.5);
-  return (RenRect) {x1, y1, x2 - x1, y2 - y1};
+  return (RenRect) { x1, y1, x2 - x1, y2 - y1 };
 }
 
 
-static int f_set_clip_rect(lua_State *L) {
+static int f_set_clip_rect(lua_State* L) {
   assert(active_window_renderer != NULL);
   lua_Number x = luaL_checknumber(L, 1);
   lua_Number y = luaL_checknumber(L, 2);
@@ -340,7 +334,7 @@ static int f_set_clip_rect(lua_State *L) {
 }
 
 
-static int f_draw_rect(lua_State *L) {
+static int f_draw_rect(lua_State* L) {
   assert(active_window_renderer != NULL);
   lua_Number x = luaL_checknumber(L, 1);
   lua_Number y = luaL_checknumber(L, 2);
@@ -352,15 +346,14 @@ static int f_draw_rect(lua_State *L) {
   return 0;
 }
 
-static int f_draw_text(lua_State *L) {
+static int f_draw_text(lua_State* L) {
   assert(active_window_renderer != NULL);
   RenFont* fonts[FONT_FALLBACK_MAX];
   font_retrieve(L, fonts, 1);
 
   // stores a reference to this font to the reference table
   lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
-  if (lua_istable(L, -1))
-  {
+  if (lua_istable(L, -1)) {
     lua_pushvalue(L, 1);
     lua_pushboolean(L, 1);
     lua_rawset(L, -3);
@@ -370,7 +363,7 @@ static int f_draw_text(lua_State *L) {
   lua_pop(L, 1);
 
   size_t len;
-  const char *text = luaL_checklstring(L, 2, &len);
+  const char* text = luaL_checklstring(L, 2, &len);
   double x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
@@ -380,31 +373,31 @@ static int f_draw_text(lua_State *L) {
 }
 
 static const luaL_Reg lib[] = {
-  { "show_debug",         f_show_debug         },
-  { "get_size",           f_get_size           },
-  { "begin_frame",        f_begin_frame        },
-  { "end_frame",          f_end_frame          },
-  { "set_clip_rect",      f_set_clip_rect      },
-  { "draw_rect",          f_draw_rect          },
-  { "draw_text",          f_draw_text          },
-  { NULL,                 NULL                 }
+  { "show_debug",    f_show_debug    },
+  { "get_size",      f_get_size      },
+  { "begin_frame",   f_begin_frame   },
+  { "end_frame",     f_end_frame     },
+  { "set_clip_rect", f_set_clip_rect },
+  { "draw_rect",     f_draw_rect     },
+  { "draw_text",     f_draw_text     },
+  { NULL,            NULL            }
 };
 
 static const luaL_Reg fontLib[] = {
-  { "__gc",               f_font_gc                 },
-  { "load",               f_font_load               },
-  { "copy",               f_font_copy               },
-  { "group",              f_font_group              },
-  { "set_tab_size",       f_font_set_tab_size       },
-  { "get_width",          f_font_get_width          },
-  { "get_height",         f_font_get_height         },
-  { "get_size",           f_font_get_size           },
-  { "set_size",           f_font_set_size           },
-  { "get_path",           f_font_get_path           },
-  { NULL, NULL }
+  { "__gc",         f_font_gc           },
+  { "load",         f_font_load         },
+  { "copy",         f_font_copy         },
+  { "group",        f_font_group        },
+  { "set_tab_size", f_font_set_tab_size },
+  { "get_width",    f_font_get_width    },
+  { "get_height",   f_font_get_height   },
+  { "get_size",     f_font_get_size     },
+  { "set_size",     f_font_set_size     },
+  { "get_path",     f_font_get_path     },
+  { NULL,           NULL                }
 };
 
-int luaopen_renderer(lua_State *L) {
+int luaopen_renderer(lua_State* L) {
   // gets a reference on the registry to store font data
   lua_newtable(L);
   RENDERER_FONT_REF = luaL_ref(L, LUA_REGISTRYINDEX);

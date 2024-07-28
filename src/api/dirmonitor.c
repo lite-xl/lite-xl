@@ -32,7 +32,8 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   lua_rawgeti(L, 4, watch_id);
   bool skip = !lua_isnoneornil(L, -1);
   lua_pop(L, 1);
-  if (skip) return 0;
+  if (skip)
+    return 0;
 
   // Set watch as notified
   lua_pushboolean(L, true);
@@ -96,7 +97,7 @@ static int f_dirmonitor_gc(lua_State* L) {
 }
 
 
-static int f_dirmonitor_watch(lua_State *L) {
+static int f_dirmonitor_watch(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
   lua_pushnumber(L, add_dirmonitor(monitor->internal, luaL_checkstring(L, 2)));
   if (!monitor->thread)
@@ -105,13 +106,15 @@ static int f_dirmonitor_watch(lua_State *L) {
 }
 
 
-static int f_dirmonitor_unwatch(lua_State *L) {
-  remove_dirmonitor(((struct dirmonitor*)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR))->internal, lua_tonumber(L, 2));
+static int f_dirmonitor_unwatch(lua_State* L) {
+  remove_dirmonitor(((struct dirmonitor*) luaL_checkudata(L, 1, API_TYPE_DIRMONITOR))->internal, lua_tonumber(L, 2));
   return 0;
 }
 
 
-static int f_noop(lua_State *L) { return 0; }
+static int f_noop(lua_State* L) {
+  return 0;
+}
 
 
 static int f_dirmonitor_check(lua_State* L) {
@@ -153,13 +156,13 @@ static int f_dirmonitor_mode(lua_State* L) {
 
 
 static const luaL_Reg dirmonitor_lib[] = {
-  { "new",      f_dirmonitor_new         },
-  { "__gc",     f_dirmonitor_gc          },
-  { "watch",    f_dirmonitor_watch       },
-  { "unwatch",  f_dirmonitor_unwatch     },
-  { "check",    f_dirmonitor_check       },
-  { "mode",     f_dirmonitor_mode        },
-  {NULL, NULL}
+  { "new",     f_dirmonitor_new     },
+  { "__gc",    f_dirmonitor_gc      },
+  { "watch",   f_dirmonitor_watch   },
+  { "unwatch", f_dirmonitor_unwatch },
+  { "check",   f_dirmonitor_check   },
+  { "mode",    f_dirmonitor_mode    },
+  { NULL,      NULL                 }
 };
 
 

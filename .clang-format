@@ -1,0 +1,77 @@
+# Format Style Options - Created with Clang Power Tools
+---
+AlignArrayOfStructures: Left
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: Align
+AlignTrailingComments: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowAllArgumentsOnNextLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCaseColons: false
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakBeforeMultilineStrings: false
+BasedOnStyle: Google
+BinPackArguments: false
+BinPackParameters: false
+BraceWrapping: 
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterObjCDeclaration: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Attach
+BreakBeforeTernaryOperators: true
+BreakStringLiterals: false
+AlignAfterOpenBracket: BlockIndent
+ColumnLimit: 130
+ContinuationIndentWidth: 2
+Cpp11BracedListStyle: false
+DeriveLineEnding: false
+DerivePointerAlignment: false
+IncludeBlocks: Preserve
+IndentCaseBlocks: true
+IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
+LineEnding: LF
+MaxEmptyLinesToKeep: 2
+PenaltyBreakAssignment: 300
+PenaltyBreakBeforeFirstCallParameter: 100
+PointerAlignment: Left
+ReflowComments: false
+SortIncludes: false
+SpaceAfterCStyleCast: true
+SpaceAroundPointerQualifiers: Before
+SpaceBeforeCpp11BracedList: true
+SpacesBeforeTrailingComments: 1
+StatementAttributeLikeMacros: 
+  - Q_UNUSED
+  - QT_REQUIRE_VERSION
+StatementMacros: 
+  - Q_UNUSED
+  - QT_REQUIRE_VERSION
+TabWidth: 2
+UseTab: Never
+...

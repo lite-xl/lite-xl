@@ -26,7 +26,7 @@ void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
   struct timespec ts = { 0, 100 * 1000000 }; // 100 ms
 
-  int nev = kevent(monitor->fd, NULL, 0, (struct kevent*)buffer, buffer_size / sizeof(kevent), &ts);
+  int nev = kevent(monitor->fd, NULL, 0, (struct kevent*) buffer, buffer_size / sizeof(kevent), &ts);
   if (nev == -1)
     return -1;
   if (nev <= 0)
@@ -35,8 +35,11 @@ int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, in
 }
 
 
-int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size, int (*change_callback)(int, const char*, void*), void* data) {
-  for (struct kevent* info = (struct kevent*)buffer; (char*)info < buffer + buffer_size; info = (struct kevent*)(((char*)info) + sizeof(kevent)))
+int translate_changes_dirmonitor(
+  struct dirmonitor_internal* monitor, char* buffer, int buffer_size, int (*change_callback)(int, const char*, void*), void* data
+) {
+  for (struct kevent* info = (struct kevent*) buffer; (char*) info < buffer + buffer_size;
+       info = (struct kevent*) (((char*) info) + sizeof(kevent)))
     change_callback(info->ident, NULL, data);
   return 0;
 }
@@ -49,7 +52,15 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   // a timeout of zero should make kevent return immediately
   struct timespec ts = { 0, 0 }; // 0 s
 
-  EV_SET(&change, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_LINK | NOTE_RENAME, 0, (void*)path);
+  EV_SET(
+    &change,
+    fd,
+    EVFILT_VNODE,
+    EV_ADD | EV_CLEAR,
+    NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_LINK | NOTE_RENAME,
+    0,
+    (void*) path
+  );
   kevent(monitor->fd, &change, 1, NULL, 0, &ts);
 
   return fd;
@@ -61,4 +72,6 @@ void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
 }
 
 
-int get_mode_dirmonitor() { return 2; }
+int get_mode_dirmonitor() {
+  return 2;
+}

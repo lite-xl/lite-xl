@@ -32,9 +32,7 @@ struct dirmonitor_internal* init_dirmonitor() {
 static void stop_monitor_stream(struct dirmonitor_internal* monitor) {
   if (monitor->stream) {
     FSEventStreamStop(monitor->stream);
-    FSEventStreamUnscheduleFromRunLoop(
-      monitor->stream, main_run_loop, kCFRunLoopDefaultMode
-    );
+    FSEventStreamUnscheduleFromRunLoop(monitor->stream, main_run_loop, kCFRunLoopDefaultMode);
     FSEventStreamInvalidate(monitor->stream);
     FSEventStreamRelease(monitor->stream);
     monitor->stream = NULL;
@@ -44,7 +42,7 @@ static void stop_monitor_stream(struct dirmonitor_internal* monitor) {
     close(monitor->fds[0]);
     close(monitor->fds[1]);
     if (monitor->count > 0) {
-      for (size_t i = 0; i<monitor->count; i++) {
+      for (size_t i = 0; i < monitor->count; i++) {
         free(monitor->changes[i]);
       }
       free(monitor->changes);
@@ -69,8 +67,7 @@ static void stream_callback(
   void* eventPaths,
   const FSEventStreamEventFlags eventFlags[],
   const FSEventStreamEventId eventIds[]
-)
-{
+) {
   if (numEvents <= 0) {
     return;
   }
@@ -85,14 +82,11 @@ static void stream_callback(
     monitor->changes = calloc(numEvents, sizeof(char*));
   } else {
     total = monitor->count + numEvents;
-    monitor->changes = realloc(
-      monitor->changes,
-      sizeof(char*) * total
-    );
+    monitor->changes = realloc(monitor->changes, sizeof(char*) * total);
   }
   for (size_t idx = monitor->count; idx < total; idx++) {
     size_t pidx = idx - monitor->count;
-    monitor->changes[idx] = malloc(strlen(path_list[pidx])+1);
+    monitor->changes[idx] = malloc(strlen(path_list[pidx]) + 1);
     strcpy(monitor->changes[idx], path_list[pidx]);
   }
   monitor->count = total;
@@ -103,11 +97,7 @@ static void stream_callback(
 }
 
 
-int get_changes_dirmonitor(
-  struct dirmonitor_internal* monitor,
-  char* buffer,
-  int buffer_size
-) {
+int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
   char response[1];
   read(monitor->fds[0], response, 1);
 
@@ -121,15 +111,11 @@ int get_changes_dirmonitor(
 
 
 int translate_changes_dirmonitor(
-  struct dirmonitor_internal* monitor,
-  char* buffer,
-  int buffer_size,
-  int (*change_callback)(int, const char*, void*),
-  void* L
+  struct dirmonitor_internal* monitor, char* buffer, int buffer_size, int (*change_callback)(int, const char*, void*), void* L
 ) {
   SDL_LockMutex(monitor->lock);
   if (monitor->count > 0) {
-    for (size_t i = 0; i<monitor->count; i++) {
+    for (size_t i = 0; i < monitor->count; i++) {
       change_callback(strlen(monitor->changes[i]), monitor->changes[i], L);
       free(monitor->changes[i]);
     }
@@ -148,33 +134,21 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   monitor->lock = SDL_CreateMutex();
   pipe(monitor->fds);
 
-  FSEventStreamContext context = {
-    .info = monitor,
-    .retain = NULL,
-    .release = NULL,
-    .copyDescription = NULL,
-    .version = 0
-  };
+  FSEventStreamContext context = { .info = monitor, .retain = NULL, .release = NULL, .copyDescription = NULL, .version = 0 };
 
-  CFStringRef paths[] = {
-    CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8)
-  };
+  CFStringRef paths[] = { CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8) };
 
   monitor->stream = FSEventStreamCreate(
     NULL,
     stream_callback,
     &context,
-    CFArrayCreate(NULL, (const void **)&paths, 1, NULL),
+    CFArrayCreate(NULL, (const void**) &paths, 1, NULL),
     kFSEventStreamEventIdSinceNow,
     0,
-    kFSEventStreamCreateFlagNone
-      | kFSEventStreamCreateFlagWatchRoot
-      | kFSEventStreamCreateFlagFileEvents
+    kFSEventStreamCreateFlagNone | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagFileEvents
   );
 
-  FSEventStreamScheduleWithRunLoop(
-    monitor->stream, main_run_loop, kCFRunLoopDefaultMode
-  );
+  FSEventStreamScheduleWithRunLoop(monitor->stream, main_run_loop, kCFRunLoopDefaultMode);
 
   if (!FSEventStreamStart(monitor->stream)) {
     stop_monitor_stream(monitor);
@@ -190,4 +164,6 @@ void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
 }
 
 
-int get_mode_dirmonitor() { return 1; }
+int get_mode_dirmonitor() {
+  return 1;
+}
