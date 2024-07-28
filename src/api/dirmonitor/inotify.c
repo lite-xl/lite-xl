@@ -30,14 +30,20 @@ void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
 
 
 int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
-  struct pollfd fds[2] = { { .fd = monitor->fd, .events = POLLIN | POLLERR, .revents = 0 }, { .fd = monitor->sig[0], .events = POLLIN | POLLERR, .revents = 0 } };
+  struct pollfd fds[2] = {
+    { .fd = monitor->fd,     .events = POLLIN | POLLERR, .revents = 0 },
+    { .fd = monitor->sig[0], .events = POLLIN | POLLERR, .revents = 0 }
+  };
   poll(fds, 2, -1);
   return read(monitor->fd, buffer, length);
 }
 
 
-int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length, int (*change_callback)(int, const char*, void*), void* data) {
-  for (struct inotify_event* info = (struct inotify_event*)buffer; (char*)info < buffer + length; info = (struct inotify_event*)((char*)info + sizeof(struct inotify_event)))
+int translate_changes_dirmonitor(
+  struct dirmonitor_internal* monitor, char* buffer, int length, int (*change_callback)(int, const char*, void*), void* data
+) {
+  for (struct inotify_event* info = (struct inotify_event*) buffer; (char*) info < buffer + length;
+       info = (struct inotify_event*) ((char*) info + sizeof(struct inotify_event)))
     change_callback(info->wd, NULL, data);
   return 0;
 }
@@ -53,4 +59,6 @@ void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
 }
 
 
-int get_mode_dirmonitor() { return 2; }
+int get_mode_dirmonitor() {
+  return 2;
+}
