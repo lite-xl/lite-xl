@@ -48,6 +48,7 @@ function TreeView:new()
   self.scrollable = true
   self.visible = true
   self.init_size = true
+  self.scroll_width = 0
   self.target_size = config.plugins.treeview.size
   self.cache = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
@@ -262,11 +263,11 @@ function TreeView:on_mouse_moved(px, py, ...)
 
   local item_changed, tooltip_changed
   for item, x,y,w,h in self:each_item() do
-    if px > x and py > y and px <= x + w and py <= y + h then
+    if px > x and py > y and px <= self.size.x and py <= y + h then
       item_changed = true
       self.hovered_item = item
 
-      x,y,w,h = self:get_text_bounding_box(item, x,y,w,h)
+      x = math.max(x, self.position.x)
       if px > x and py > y and px <= x + w and py <= y + h then
         tooltip_changed = true
         self.tooltip.x, self.tooltip.y = px, py
@@ -344,6 +345,14 @@ function TreeView:get_scrollable_size()
 end
 
 
+function TreeView:get_h_scrollable_size()
+  local _, _, v_scroll_w = self.v_scrollbar:get_thumb_rect()
+  return self.scroll_width + (
+    self.size.x > self.scroll_width + v_scroll_w and 0 or style.padding.x
+  )
+end
+
+
 function TreeView:draw_tooltip()
   local text = common.home_encode(self.hovered_item.abs_filename)
   local w, h = style.font:get_width(text), style.font:get_height(text)
@@ -389,7 +398,7 @@ end
 
 function TreeView:draw_item_text(item, active, hovered, x, y, w, h)
   local item_text, item_font, item_color = self:get_item_text(item, active, hovered)
-  common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
+  return common.draw_text(item_font, item_color, item_text, nil, x, y, 0, h)
 end
 
 
@@ -402,7 +411,7 @@ end
 
 function TreeView:draw_item_body(item, active, hovered, x, y, w, h)
     x = x + self:draw_item_icon(item, active, hovered, x, y, w, h)
-    self:draw_item_text(item, active, hovered, x, y, w, h)
+    return self:draw_item_text(item, active, hovered, x, y, w, h)
 end
 
 
@@ -420,9 +429,9 @@ function TreeView:draw_item_background(item, active, hovered, x, y, w, h)
   if hovered then
     local hover_color = { table.unpack(style.line_highlight) }
     hover_color[4] = 160
-    renderer.draw_rect(x, y, w, h, hover_color)
+    renderer.draw_rect(self.position.x, y, self.size.x, h, hover_color)
   elseif active then
-    renderer.draw_rect(x, y, w, h, style.line_highlight)
+    renderer.draw_rect(self.position.x, y, self.size.x, h, style.line_highlight)
   end
 end
 
@@ -433,7 +442,7 @@ function TreeView:draw_item(item, active, hovered, x, y, w, h)
   x = x + item.depth * style.padding.x + style.padding.x
   x = x + self:draw_item_chevron(item, active, hovered, x, y, w, h)
 
-  self:draw_item_body(item, active, hovered, x, y, w, h)
+  return self:draw_item_body(item, active, hovered, x, y, w, h)
 end
 
 
@@ -445,13 +454,27 @@ function TreeView:draw()
   local doc = core.active_view.doc
   local active_filename = doc and system.absolute_path(doc.filename or "")
 
+  local ox = math.abs(self:get_content_offset())
+  local sw, ox = 0, math.abs(self:get_content_offset())
   for item, x,y,w,h in self:each_item() do
     if y + h >= _y and y < _y + _h then
-      self:draw_item(item,
+      local w = self:draw_item(
+        item,
         item == self.selected_item,
         item == self.hovered_item,
-        x, y, w, h)
+        x, y, w, h
+      ) + ox
+      sw = math.max(w, sw)
     end
+  end
+  local ss = self:get_h_scrollable_size()
+  if sw > self.scroll_width then
+    -- We can increase the scrollable size without issues
+    self.scroll_width = sw
+  elseif ss > self.scroll.x + self.size.x and not self.h_scrollbar.dragging then
+    -- We can decrease it only up to the current scroll position
+    local so = ss - self.scroll_width -- Keep track of the vertical scrollbar offset
+    self.scroll_width = math.max(sw + so, self.scroll.x + self.size.x) - so
   end
 
   self:draw_scrollbar()
