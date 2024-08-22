@@ -226,7 +226,7 @@ function common.path_suggest(text, root)
   if root and root:sub(-1) ~= PATHSEP then
     root = root .. PATHSEP
   end
-  local path, name = text:match("^(.-)([^"..PATHSEP.."]*)$")
+  local path, name = text:match("^(.-)([^"..PATHSEP.."/]*)$")
   local clean_dotslash = false
   -- ignore root if path is absolute
   local is_absolute = common.is_absolute_path(text)
