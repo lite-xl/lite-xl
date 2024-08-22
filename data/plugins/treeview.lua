@@ -850,10 +850,7 @@ command.add(
     core.command_view:enter("Rename", {
       text = old_filename,
       submit = function(filename)
-        local abs_filename = filename
-        if not common.is_absolute_path(filename) then
-          abs_filename = item.project.path .. PATHSEP .. filename
-        end
+        local abs_filename = item.project:absoute_path(filename)
         local res, err = os.rename(old_abs_filename, abs_filename)
         if res then -- successfully renamed
           for _, doc in ipairs(core.docs) do
@@ -869,23 +866,16 @@ command.add(
         end
       end,
       suggest = function(text)
-        return common.path_suggest(text)
+        return common.path_suggest(text, item.project and item.project.path)
       end
     })
   end,
 
   ["treeview:new-file"] = function(item)
-    local text, path
-    if not is_project_folder(item) then
-      text = item.filename .. PATHSEP
-      path = common.dirname(item.abs_filename)
-    else
-      path = item.project.path
-    end
     core.command_view:enter("Filename", {
-      text = text,
+      text = not is_project_folder(item) and item.filename .. PATHSEP or "",
       submit = function(filename)
-        local doc_filename = path .. PATHSEP .. filename
+        local doc_filename = item.project:absolute_path(filename)
         local file = io.open(doc_filename, "a+")
         file:write("")
         file:close()
@@ -893,28 +883,21 @@ command.add(
         core.log("Created %s", doc_filename)
       end,
       suggest = function(text)
-        return common.path_suggest(text, item.abs_filename)
+        return common.path_suggest(text, item.project and item.project.path)
       end
     })
   end,
 
   ["treeview:new-folder"] = function(item)
-    local text, path
-    if not is_project_folder(item) then
-      text = item.filename .. PATHSEP
-      path = common.dirname(item.abs_filename)
-    else
-      path = item.project.path
-    end
     core.command_view:enter("Folder Name", {
-      text = text,
+      text = not is_project_folder(item) and item.filename .. PATHSEP or "",
       submit = function(filename)
-        local dir_path = path .. PATHSEP .. filename
+        local dir_path = item.project:absolute_path(filename)
         common.mkdirp(dir_path)
         core.log("Created %s", dir_path)
       end,
       suggest = function(text)
-        return common.path_suggest(text, item.abs_filename)
+        return common.path_suggest(text, item.project and item.project.path)
       end
     })
   end,
