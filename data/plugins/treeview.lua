@@ -850,7 +850,7 @@ command.add(
     core.command_view:enter("Rename", {
       text = old_filename,
       submit = function(filename)
-        local abs_filename = item.project:absoute_path(filename)
+        local abs_filename = item.project:absolute_path(filename)
         local res, err = os.rename(old_abs_filename, abs_filename)
         if res then -- successfully renamed
           for _, doc in ipairs(core.docs) do
