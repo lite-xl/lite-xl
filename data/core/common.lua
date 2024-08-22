@@ -258,7 +258,6 @@ function common.path_suggest(text, root)
         local s, e = file:find(root, nil, true)
         if s == 1 then
           file = file:sub(e + 1)
-          table.insert(res, file)
         end
       elseif clean_dotslash then
         -- remove added dot slash

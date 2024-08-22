@@ -111,14 +111,14 @@ command.add(nil, {
     core.command_view:enter("Open File", {
       text = text,
       submit = function(text)
-        local filename = system.absolute_path(common.home_expand(text))
+        local filename = core.project_absolute_path(common.home_expand(text))
         core.root_view:open_doc(core.open_doc(filename))
       end,
       suggest = function (text)
-          return common.home_encode_list(common.path_suggest(common.home_expand(text)))
-        end,
+        return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project() and core.root_project().path))
+      end,
       validate = function(text)
-          local filename = common.home_expand(text)
+          local filename = core.project_absolute_path(common.home_expand(text))
           local path_stat, err = system.get_file_info(filename)
           if err then
             if err:find("No such file", 1, true) then

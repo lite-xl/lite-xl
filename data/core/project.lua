@@ -118,9 +118,6 @@ local function find_files_rec(project, path)
 end
 
 
-
-
-
 function Project:files()
   return coroutine.wrap(function()
     find_files_rec(self, self.path)

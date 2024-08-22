@@ -785,7 +785,7 @@ end
 -- legacy interface
 function core.root_project() return core.projects[1] end
 function core.normalize_to_project_dir(path) return core.root_project():normalize_path(path) end
-function core.project_absolute_path(path) return core.root_project():absolute_path(path) end
+function core.project_absolute_path(path) return core.root_project() and core.root_project():absolute_path(path) or system.absolute_path(path) end
 
 function core.open_doc(filename)
   local new_file = true
