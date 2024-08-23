@@ -20,7 +20,8 @@ config.plugins.treeview = common.merge({
   scroll_to_focused_file = false,
   animate_scroll_to_focused_file = true,
   show_hidden = false,
-  show_ignored = true
+  show_ignored = true,
+  visible = true
 }, config.plugins.treeview)
 
 local tooltip_offset = style.font:get_height()
@@ -53,7 +54,7 @@ local TreeView = View:extend()
 function TreeView:new()
   TreeView.super.new(self)
   self.scrollable = true
-  self.visible = true
+  self.visible = config.plugins.treeview.visible
   self.init_size = true
   self.target_size = config.plugins.treeview.size
   self.show_hidden = config.plugins.treeview.show_hidden
