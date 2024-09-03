@@ -260,6 +260,13 @@ config.max_clicks = 3
 ---@type boolean
 config.skip_plugins_version = false
 
+---Increases the performance of the editor and its user.
+---Do not change this unless you know what you are doing.
+---
+---Defaults to true.
+---@type boolean | { font: renderer.font, icon: string } | nil
+config.stonks = true
+
 -- holds the plugins real config table
 local plugins_config = {}
 
