@@ -17,10 +17,10 @@
   #include <sys/sysctl.h>
 #endif
 
-static void get_exe_filename(char *buf, int sz) {
+static void get_exe_filename(char* buf, int sz) {
 #if _WIN32
   int len;
-  wchar_t *buf_w = malloc(sizeof(wchar_t) * sz);
+  wchar_t* buf_w = malloc(sizeof(wchar_t) * sz);
   if (buf_w) {
     len = GetModuleFileNameW(NULL, buf_w, sz - 1);
     buf_w[len] = L'\0';
@@ -54,20 +54,20 @@ static void get_exe_filename(char *buf, int sz) {
 }
 
 #ifdef _WIN32
-#define LITE_OS_HOME "USERPROFILE"
-#define LITE_PATHSEP_PATTERN "\\\\"
-#define LITE_NONPATHSEP_PATTERN "[^\\\\]+"
+  #define LITE_OS_HOME "USERPROFILE"
+  #define LITE_PATHSEP_PATTERN "\\\\"
+  #define LITE_NONPATHSEP_PATTERN "[^\\\\]+"
 #else
-#define LITE_OS_HOME "HOME"
-#define LITE_PATHSEP_PATTERN "/"
-#define LITE_NONPATHSEP_PATTERN "[^/]+"
+  #define LITE_OS_HOME "HOME"
+  #define LITE_PATHSEP_PATTERN "/"
+  #define LITE_NONPATHSEP_PATTERN "[^/]+"
 #endif
 
 #ifdef __APPLE__
 void enable_momentum_scroll();
-#ifdef MACOS_USE_BUNDLE
-void set_macos_bundle_resources(lua_State *L);
-#endif
+  #ifdef MACOS_USE_BUNDLE
+void set_macos_bundle_resources(lua_State* L);
+  #endif
 #endif
 
 #ifndef LITE_ARCH_TUPLE
@@ -76,7 +76,7 @@ void set_macos_bundle_resources(lua_State *L);
     #define ARCH_PROCESSOR "x86_64"
   #elif defined(__i386__) || defined(_M_IX86) || defined(__MINGW32__)
     #define ARCH_PROCESSOR "x86"
-  #elif defined(__aarch64__) || defined(_M_ARM64) || defined (_M_ARM64EC)
+  #elif defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
     #define ARCH_PROCESSOR "aarch64"
   #elif defined(__arm__) || defined(_M_ARM)
     #define ARCH_PROCESSOR "arm"
@@ -102,7 +102,7 @@ void set_macos_bundle_resources(lua_State *L);
   #define LITE_ARCH_TUPLE ARCH_PROCESSOR "-" ARCH_PLATFORM
 #endif
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
 #ifndef _WIN32
   signal(SIGPIPE, SIG_IGN);
 #endif
@@ -145,11 +145,11 @@ int main(int argc, char **argv) {
 
   SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
 
-  if ( ren_init() ) {
+  if (ren_init()) {
     fprintf(stderr, "internal font error when starting the application\n");
   }
 
-  lua_State *L;
+  lua_State* L;
 init_lua:
   L = luaL_newstate();
   luaL_openlibs(L);
@@ -182,13 +182,13 @@ init_lua:
 #ifdef __APPLE__
   enable_momentum_scroll();
   #ifdef MACOS_USE_BUNDLE
-    set_macos_bundle_resources(L);
+  set_macos_bundle_resources(L);
   #endif
 #endif
   SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
   SDL_EventState(SDL_TEXTEDITING, SDL_ENABLE);
 
-  const char *init_lite_code = \
+  const char* init_lite_code =
     "local core\n"
     "local os_exit = os.exit\n"
     "os.exit = function(code, close)\n"
