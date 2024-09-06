@@ -92,7 +92,7 @@ jobs:
           sudo apt-get install -y ccache
 
       - name: Build Portable
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.2.0
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3.0.2
         with:
           entrypoint: /entrypoint.sh
           args: |
@@ -100,7 +100,7 @@ jobs:
             bash scripts/build.sh --debug --forcefallback --portable --release
 
       - name: Package Portables
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.2.0
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3.0.2
         with:
           entrypoint: /entrypoint.sh
           args: |
@@ -108,7 +108,7 @@ jobs:
             bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
 
       - name: Build AppImages
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box:v2.2.0
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3.0.2
         with:
           entrypoint: /entrypoint.sh
           args: |
