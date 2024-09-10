@@ -329,7 +329,6 @@ static RenRect rect_to_grid(lua_Number x, lua_Number y, lua_Number w, lua_Number
 
 
 static int f_set_clip_rect(lua_State *L) {
-  assert(active_window_renderer != NULL);
   lua_Number x = luaL_checknumber(L, 1);
   lua_Number y = luaL_checknumber(L, 2);
   lua_Number w = luaL_checknumber(L, 3);
@@ -341,7 +340,6 @@ static int f_set_clip_rect(lua_State *L) {
 
 
 static int f_draw_rect(lua_State *L) {
-  assert(active_window_renderer != NULL);
   lua_Number x = luaL_checknumber(L, 1);
   lua_Number y = luaL_checknumber(L, 2);
   lua_Number w = luaL_checknumber(L, 3);
@@ -353,7 +351,6 @@ static int f_draw_rect(lua_State *L) {
 }
 
 static int f_draw_text(lua_State *L) {
-  assert(active_window_renderer != NULL);
   RenFont* fonts[FONT_FALLBACK_MAX];
   font_retrieve(L, fonts, 1);
 
