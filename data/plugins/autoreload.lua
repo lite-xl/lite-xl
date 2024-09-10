@@ -84,29 +84,6 @@ local function doc_changes_visiblity(doc, visibility)
   end
 end
 
-<<<<<<< HEAD
-local on_check = dirwatch.check
-function dirwatch:check(change_callback, ...)
-  on_check(self, function(dir)
-    for _, doc in ipairs(core.docs) do
-      if doc.abs_filename and (dir == common.dirname(doc.abs_filename) or dir == doc.abs_filename) then
-        local info = system.get_file_info(doc.filename or "")
-        if info and info.type == "file" and times[doc] ~= info.modified then
-          if not doc:is_dirty() and not config.plugins.autoreload.always_show_nagview then
-            delayed_reload(doc, info.modified)
-          else
-            doc.deferred_reload = true
-            if doc == core.active_view.doc then check_prompt_reload(doc) end
-          end
-        end
-      end
-    end
-    change_callback(dir)
-  end, ...)
-end
-
-=======
->>>>>>> 4051e612 (Initial commit to clean up projects; spun off find-file to its own plugin, removed project limit, removed the concept of a project maintaining an ordered list of files, and allowed treeview to see things like hidden files and files not actually in the project.)
 local core_set_active_view = core.set_active_view
 function core.set_active_view(view)
   core_set_active_view(view)
