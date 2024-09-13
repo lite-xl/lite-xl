@@ -897,6 +897,28 @@ static int f_set_clipboard(lua_State *L) {
 }
 
 
+static int f_get_primary_selection(lua_State *L) {
+#if SDL_VERSION_ATLEAST(2, 26, 0)
+  char *text = SDL_GetPrimarySelectionText();
+  if (!text) { return 0; }
+  lua_pushstring(L, text);
+  SDL_free(text);
+  return 1;
+#else
+  return 0;
+#endif
+}
+
+
+static int f_set_primary_selection(lua_State *L) {
+#if SDL_VERSION_ATLEAST(2, 26, 0)
+  const char *text = luaL_checkstring(L, 1);
+  SDL_SetPrimarySelectionText(text);
+#endif
+  return 0;
+}
+
+
 static int f_get_process_id(lua_State *L) {
 #ifdef _WIN32
   lua_pushinteger(L, GetCurrentProcessId());
@@ -1227,40 +1249,42 @@ static int f_setenv(lua_State* L) {
 
 
 static const luaL_Reg lib[] = {
-  { "poll_event",          f_poll_event          },
-  { "wait_event",          f_wait_event          },
-  { "set_cursor",          f_set_cursor          },
-  { "set_window_title",    f_set_window_title    },
-  { "set_window_mode",     f_set_window_mode     },
-  { "get_window_mode",     f_get_window_mode     },
-  { "set_window_bordered", f_set_window_bordered },
-  { "set_window_hit_test", f_set_window_hit_test },
-  { "get_window_size",     f_get_window_size     },
-  { "set_window_size",     f_set_window_size     },
-  { "set_text_input_rect", f_set_text_input_rect },
-  { "clear_ime",           f_clear_ime           },
-  { "window_has_focus",    f_window_has_focus    },
-  { "raise_window",        f_raise_window        },
-  { "show_fatal_error",    f_show_fatal_error    },
-  { "rmdir",               f_rmdir               },
-  { "chdir",               f_chdir               },
-  { "mkdir",               f_mkdir               },
-  { "list_dir",            f_list_dir            },
-  { "absolute_path",       f_absolute_path       },
-  { "get_file_info",       f_get_file_info       },
-  { "get_clipboard",       f_get_clipboard       },
-  { "set_clipboard",       f_set_clipboard       },
-  { "get_process_id",      f_get_process_id      },
-  { "get_time",            f_get_time            },
-  { "sleep",               f_sleep               },
-  { "exec",                f_exec                },
-  { "fuzzy_match",         f_fuzzy_match         },
-  { "set_window_opacity",  f_set_window_opacity  },
-  { "load_native_plugin",  f_load_native_plugin  },
-  { "path_compare",        f_path_compare        },
-  { "get_fs_type",         f_get_fs_type         },
-  { "text_input",          f_text_input          },
-  { "setenv",              f_setenv              },
+  { "poll_event",            f_poll_event            },
+  { "wait_event",            f_wait_event            },
+  { "set_cursor",            f_set_cursor            },
+  { "set_window_title",      f_set_window_title      },
+  { "set_window_mode",       f_set_window_mode       },
+  { "get_window_mode",       f_get_window_mode       },
+  { "set_window_bordered",   f_set_window_bordered   },
+  { "set_window_hit_test",   f_set_window_hit_test   },
+  { "get_window_size",       f_get_window_size       },
+  { "set_window_size",       f_set_window_size       },
+  { "set_text_input_rect",   f_set_text_input_rect   },
+  { "clear_ime",             f_clear_ime             },
+  { "window_has_focus",      f_window_has_focus      },
+  { "raise_window",          f_raise_window          },
+  { "show_fatal_error",      f_show_fatal_error      },
+  { "rmdir",                 f_rmdir                 },
+  { "chdir",                 f_chdir                 },
+  { "mkdir",                 f_mkdir                 },
+  { "list_dir",              f_list_dir              },
+  { "absolute_path",         f_absolute_path         },
+  { "get_file_info",         f_get_file_info         },
+  { "get_clipboard",         f_get_clipboard         },
+  { "set_clipboard",         f_set_clipboard         },
+  { "get_primary_selection", f_get_primary_selection },
+  { "set_primary_selection", f_set_primary_selection },
+  { "get_process_id",        f_get_process_id        },
+  { "get_time",              f_get_time              },
+  { "sleep",                 f_sleep                 },
+  { "exec",                  f_exec                  },
+  { "fuzzy_match",           f_fuzzy_match           },
+  { "set_window_opacity",    f_set_window_opacity    },
+  { "load_native_plugin",    f_load_native_plugin    },
+  { "path_compare",          f_path_compare          },
+  { "get_fs_type",           f_get_fs_type           },
+  { "text_input",            f_text_input            },
+  { "setenv",                f_setenv                },
   { NULL, NULL }
 };
 

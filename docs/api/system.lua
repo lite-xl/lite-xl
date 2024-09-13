@@ -261,6 +261,18 @@ function system.get_clipboard() end
 function system.set_clipboard(text) end
 
 ---
+---Retrieve the text currently stored in the primary selection.
+---
+---@return string
+function system.get_primary_selection() end
+
+---
+---Set the content of the primary selection.
+---
+---@param text string
+function system.set_primary_selection(text) end
+
+---
 ---Get the process id of lite-xl itself.
 ---
 ---@return integer
