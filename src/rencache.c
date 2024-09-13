@@ -128,8 +128,9 @@ static bool expand_command_buffer(RenWindow *window_renderer) {
 }
 
 static void* push_command(RenWindow *window_renderer, enum CommandType type, int size) {
-  if (resize_issue) {
+  if (!window_renderer || resize_issue) {
     // Don't push new commands as we had problems resizing the command buffer.
+    // Or, we don't have an active buffer.
     // Let's wait for the next frame.
     return NULL;
   }
