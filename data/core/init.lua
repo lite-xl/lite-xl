@@ -30,10 +30,7 @@ local function save_session()
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size(core.window))),
       ", window_mode=", common.serialize(system.get_window_mode(core.window)),
-      ", previous_find=", common.serialize(core.previous_find),
-      ", previous_replace=", common.serialize(core.previous_replace),
-      "}\n")
-    fp:close()
+      "}\n"):close()
   end
 end
 
@@ -320,21 +317,8 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
-  core.window = renwindow._restore()
-  if core.window == nil then
-    core.window = renwindow.create("")
-  end
-  do
-    local session = load_session()
-    if session.window_mode == "normal" then
-      system.set_window_size(core.window, table.unpack(session.window))
-    elseif session.window_mode == "maximized" then
-      system.set_window_mode(core.window, "maximized")
-    end
-    core.recent_projects = session.recents or {}
-    core.previous_find = session.previous_find or {}
-    core.previous_replace = session.previous_replace or {}
-  end
+  local session = load_session()
+  core.recent_projects = session.recents or {}
 
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
@@ -424,6 +408,14 @@ function core.init()
 
   -- Load core and user plugins giving preference to user ones with same name.
   local plugins_success, plugins_refuse_list = core.load_plugins()
+
+  core.window = core.window or renwindow._restore() or renwindow.create("")
+  if session.window_mode == "normal" then
+    system.set_window_size(core.window, table.unpack(session.window))
+  elseif session.window_mode == "maximized" then
+    system.set_window_mode(core.window, "maximized")
+  end
+
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")

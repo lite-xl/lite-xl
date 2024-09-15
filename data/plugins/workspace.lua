@@ -182,7 +182,7 @@ local function save_workspace()
     id = id + 1
   end
   local root = get_unlocked_root(core.root_view.root_node)
-  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories() })
+  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories(), previous_find = core.previous_find, previous_replace = core.previous_replace })
 end
 
 
@@ -197,6 +197,8 @@ local function load_workspace()
     for i, dir_name in ipairs(workspace.directories) do
       core.add_project(system.absolute_path(dir_name))
     end
+    core.previous_find = workspace.previous_find or {}
+    core.previous_replace = workspace.previous_replace or {}
   end
 end
 
