@@ -282,6 +282,8 @@ function core.init()
 
   local session = load_session()
   core.recent_projects = session.recents or {}
+  core.previous_find = {}
+  core.previous_replace = {}
 
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
