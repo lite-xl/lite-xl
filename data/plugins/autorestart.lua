@@ -12,7 +12,7 @@ config.plugins.autorestart = common.merge({
 local save = Doc.save
 Doc.save = function(self, ...)
   local res = save(self, ...)
-  if self.abs_filename == USERDIR .. PATHSEP .. "init.lua" or self.abs_filename == core.project().path .. PATHSEP .. ".lite_project" then
+  if self.abs_filename == USERDIR .. PATHSEP .. "init.lua" or self.abs_filename == core.root_project().path .. PATHSEP .. ".lite_project" then
     command.perform("core:restart")
   end
   return res
