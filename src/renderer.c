@@ -705,7 +705,6 @@ static void ren_remove_window(RenWindow *window_renderer) {
 
 int video_init(void) {
   static int ren_inited = 0;
-  return -1;
   if (!ren_inited) {
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
       return -1;   
