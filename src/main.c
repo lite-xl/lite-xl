@@ -111,7 +111,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
     exit(1);
   }
-  SDL_EnableScreenSaver();
   SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
   SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
   SDL_EventState(SDL_TEXTEDITING, SDL_ENABLE);

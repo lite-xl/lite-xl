@@ -707,7 +707,8 @@ int video_init(void) {
   static int ren_inited = 0;
   if (!ren_inited) {
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
-      return -1;   
+      return -1;     
+    SDL_EnableScreenSaver();
     #ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR /* Available since 2.0.8 */
       SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
     #endif
