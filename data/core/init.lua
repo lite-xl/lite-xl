@@ -55,6 +55,7 @@ end
 function core.add_project(project)
   project = type(project) == "string" and Project.new(common.normalize_volume(project)) or project
   table.insert(core.projects, project)
+  update_recents_project("add", project.path)
   core.redraw = true
   return project
 end
@@ -74,7 +75,8 @@ end
 
 function core.set_project(project)
   while #core.projects > 0 do core.remove_project(core.projects[#core.projects], true) end
-  return core.add_project(project)
+  local project = core.add_project(project)
+  return project
 end
 
 
@@ -82,6 +84,7 @@ function core.open_project(project)
   local project = core.set_project(project)
   core.root_view:close_all_docviews()
   update_recents_project("add", project.path)
+  command.perform("core:restart")
 end
 
 
@@ -588,7 +591,7 @@ function core.load_plugins()
   }
   local files, ordered = {}, {
     { priority = -2, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
-    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project", name = "Project Module"  },
+    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project", name = "Project Module" }
   }
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
