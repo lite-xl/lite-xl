@@ -591,7 +591,7 @@ function core.load_plugins()
   }
   local files, ordered = {}, {
     { priority = -2, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
-    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project", name = "Project Module" }
+    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
   }
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
