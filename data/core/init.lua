@@ -616,7 +616,7 @@ function core.load_plugins()
         "Version mismatch for plugin %q[%s] from %s",
         plugin.name,
         plugin.version_string,
-        plugin.dir
+        common.dirname(plugin.file)
       )
       local rlist = plugin.dir:find(USERDIR, 1, true) == 1
         and 'userdir' or 'datadir'
