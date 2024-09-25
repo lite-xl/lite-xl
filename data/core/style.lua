@@ -4,6 +4,9 @@ local style = {}
 style.divider_size = common.round(1 * SCALE)
 style.scrollbar_size = common.round(4 * SCALE)
 style.expanded_scrollbar_size = common.round(12 * SCALE)
+style.minimum_thumb_size = common.round(20 * SCALE)
+style.contracted_scrollbar_margin = common.round(8 * SCALE)
+style.expanded_scrollbar_margin = common.round(12 * SCALE)
 style.caret_width = common.round(2 * SCALE)
 style.tab_width = common.round(170 * SCALE)
 
