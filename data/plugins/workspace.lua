@@ -182,7 +182,7 @@ local function save_workspace()
     id = id + 1
   end
   local root = get_unlocked_root(core.root_view.root_node)
-  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.project_dir, documents = save_node(root), directories = save_directories() })
+  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories() })
 end
 
 
