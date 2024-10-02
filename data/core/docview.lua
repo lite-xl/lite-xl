@@ -446,7 +446,7 @@ function DocView:draw_line_text(line, x, y)
   local last_token = nil
   local tokens = self.doc.highlighter:get_line(line).tokens
   local tokens_count = #tokens
-  if string.sub(tokens[tokens_count], -1) == "\n" then
+  if tokens_count > 0 and string.sub(tokens[tokens_count], -1) == "\n" then
     last_token = tokens_count - 1
   end
   for tidx, type, text in self.doc.highlighter:each_token(line) do
