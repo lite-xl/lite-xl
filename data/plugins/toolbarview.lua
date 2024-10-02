@@ -3,6 +3,7 @@ local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
 local style = require "core.style"
+local keymap = require "core.keymap"
 local View = require "core.view"
 
 local ToolbarView = View:extend()
@@ -120,7 +121,9 @@ function ToolbarView:on_mouse_moved(px, py, ...)
     y_min, y_max = y, y + h
     if px > x and py > y and px <= x + w and py <= y + h then
       self.hovered_item = item
-      core.status_view:show_tooltip(command.prettify_name(item.command))
+      local binding = keymap.get_binding(item.command)
+      local name = command.prettify_name(item.command)
+      core.status_view:show_tooltip(binding and { name, style.dim, "  ", binding } or { name })
       self.tooltip = true
       return
     end
