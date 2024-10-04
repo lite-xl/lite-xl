@@ -403,7 +403,7 @@ function core.init()
       if #entry.plugins > 0 then
         local msg_list = {}
         for _, p in pairs(entry.plugins) do
-          table.insert(msg_list, string.format("%s[%s]", p.file, p.version_string))
+          table.insert(msg_list, string.format("%s[%s]", p.name, p.version_string))
         end
         msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(msg_list, "\n"))
       end
@@ -544,6 +544,7 @@ function core.parse_plugin_details(path, file, mod_version_regex, priority_regex
   f:close()
   local version = major and {major, minor, patch} or {}
   return {
+    path = path,
     name = common.basename(path),
     file = file,
     version_match = version_match,
@@ -618,7 +619,7 @@ function core.load_plugins()
         plugin.version_string,
         common.dirname(plugin.file)
       )
-      local rlist = plugin.dir:find(USERDIR, 1, true) == 1
+      local rlist = plugin.path:find(USERDIR, 1, true) == 1
         and 'userdir' or 'datadir'
       table.insert(refused_list[rlist].plugins, plugin)
     elseif config.plugins[plugin.name] ~= false then
