@@ -156,7 +156,7 @@ jobs:
         run: $BUILDER scripts/build.sh --addons --debug --forcefallback --portable -b build
         
       - name: Package Linux (Portable)
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-${{ matrix.config.type }}.tar.gz lite-xl && cd ..
+        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl && cd ..
 
       - name: Package Linux (AppImage)
         run: $BUILDER scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
