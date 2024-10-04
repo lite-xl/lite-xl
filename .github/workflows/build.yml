@@ -128,10 +128,10 @@ jobs:
           done
           cp lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-bundle/Info.plist lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle/Info.plist
           
-      - name: Package Mac (Universal DMG Image)
+      - name: Package Darwin (Universal DMG Image)
         run: scripts/package-dmg.sh lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle lite-xl-${{ needs.version.outputs.ref }}-universal-darwin
         
-      - name: Package Mac (Universal Portable)
+      - name: Package Darwin (Universal Portable)
         run: cd lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable && tar -zcvf ../lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz *
 
       - name: Upload (Release)
