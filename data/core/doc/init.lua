@@ -274,7 +274,15 @@ function Doc:get_selections(sort_intra, idx_reverse)
       idx_reverse == true and ((#self.selections / 4) + 1) or ((idx_reverse or -1) + 1)
 end
 
--- End of cursor seciton.
+--- Calls the provided function for each selection in the document
+---@param func fun(sidx: number, line1: number, col1: number, line2:number, col2: number)
+function Doc:for_each_selection(func, sort_intra, idx_reverse)
+  for idx, l1, c1, l2, c2 in self:get_selections(sort_intra, idx_reverse) do
+    func(idx, l1, c1, l2, c2)
+  end
+end
+
+-- End of cursor section.
 
 function Doc:sanitize_position(line, col)
   local nlines = #self.lines
