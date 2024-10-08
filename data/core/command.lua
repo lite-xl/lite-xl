@@ -114,12 +114,13 @@ end
 ---@return core.command.command_name[]
 function command.get_all_valid()
   local res = {}
-  local memoized_predicates = {}
+  local memorized_predicates = {}
+  -- get valid commands
   for name, cmd in pairs(command.map) do
-    if memoized_predicates[cmd.predicate] == nil then
-      memoized_predicates[cmd.predicate] = cmd.predicate()
+    if memorized_predicates[cmd.predicate] == nil then
+      memorized_predicates[cmd.predicate] = cmd.predicate()
     end
-    if memoized_predicates[cmd.predicate] then
+    if memorized_predicates[cmd.predicate] then
       table.insert(res, name)
     end
   end
