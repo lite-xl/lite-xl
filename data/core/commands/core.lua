@@ -73,8 +73,12 @@ command.add(nil, {
         end
       end,
       suggest = function(text)
-        local res = common.fuzzy_match(commands, text)
-        for i, name in ipairs(res) do
+        local matched_commands
+        if text ~= "" then
+          matched_commands = common.fuzzy_match(commands, text)
+        end
+        local res
+        for i, name in ipairs(matched_commands and matched_commands or commands) do
           res[i] = {
             text = command.prettify_name(name),
             info = keymap.get_binding(name),
