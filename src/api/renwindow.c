@@ -3,8 +3,6 @@
 #include "lua.h"
 #include <SDL.h>
 
-static RenWindow *persistant_window = NULL;
-
 static void init_window_icon(SDL_Window *window) {
 #if !defined(_WIN32) && !defined(__APPLE__)
   #include "../resources/icons/icon.inl"
@@ -59,11 +57,10 @@ static int f_renwin_create(lua_State *L) {
 
 static int f_renwin_gc(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  if (window_renderer != persistant_window)
-    ren_destroy(window_renderer);
-
+  ren_destroy(window_renderer);
   return 0;
 }
+
 
 static int f_renwin_get_size(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
@@ -74,33 +71,11 @@ static int f_renwin_get_size(lua_State *L) {
   return 2;
 }
 
-static int f_renwin_persist(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-
-  persistant_window = window_renderer;
-  return 0;
-}
-
-static int f_renwin_restore(lua_State *L) {
-  if (!persistant_window) {
-    lua_pushnil(L);
-  }
-  else {
-    RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
-    luaL_setmetatable(L, API_TYPE_RENWINDOW);
-
-    *window_renderer = persistant_window;
-  }
-
-  return 1;
-}
 
 static const luaL_Reg renwindow_lib[] = {
   { "create",     f_renwin_create     },
   { "__gc",       f_renwin_gc         },
   { "get_size",   f_renwin_get_size   },
-  { "_persist",   f_renwin_persist    },
-  { "_restore",   f_renwin_restore    },
   {NULL, NULL}
 };
 
