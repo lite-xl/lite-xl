@@ -655,6 +655,15 @@ local previous_view = nil
 command.add(nil, {
   ["treeview:toggle"] = function()
     view.visible = not view.visible
+    if not view.visible and core.active_view:is(TreeView) then
+      local previous_view
+      if core.last_active_view:is(CommandView) then
+        previous_view = core.root_view:get_primary_node().active_view
+      else
+        previous_view = core.last_active_view
+      end
+      core.set_active_view(previous_view)
+    end
   end,
 
   ["treeview:toggle-focus"] = function()
