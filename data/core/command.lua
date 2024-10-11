@@ -156,9 +156,7 @@ function command.add(predicate, map)
     if command.map[name] then
       core.log_quiet("Replacing existing command \"%s\"", name)
     end
-    -- store the command info in the map
     command.map[name] = { predicate = predicate, perform = fn }
-    -- add the command to the linked list
     command_history:insert(name)
   end
 end
@@ -195,7 +193,6 @@ function command.get_all_valid()
     if evaluated_predicates[cmd.predicate] then
       table.insert(res, command_name)
     end
-    command_name = command_history[command_name].next
   end
   return res
 end
