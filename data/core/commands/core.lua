@@ -70,6 +70,7 @@ command.add(nil, {
       submit = function(text, item)
         if item then
           command.perform(item.command)
+          command.command_history:update(item.command)
         end
       end,
       suggest = function(text)
@@ -77,7 +78,7 @@ command.add(nil, {
         if text ~= "" then
           matched_commands = common.fuzzy_match(commands, text)
         end
-        local res
+        local res = {}
         for i, name in ipairs(matched_commands and matched_commands or commands) do
           res[i] = {
             text = command.prettify_name(name),
