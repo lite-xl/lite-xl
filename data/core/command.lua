@@ -39,7 +39,6 @@ local command = {}
 ---@type { [string]: core.command.command }
 command.map = {}
 
--- DLL table
 local command_history = {
   -- ["command_name"] = {
   --    next = "next_command_name",
@@ -50,7 +49,6 @@ local command_history = {
 command.command_history = command_history
 command_history._start = nil
 command_history._end = nil
-
 
 --- inserts the provided command into the command_history
 ---@param command_name string
@@ -102,8 +100,6 @@ function command_history:update(command_name)
   node_to_update.prev = nil
   command_history._start = command_name
 end
-
-
 
 --- yields the ordered command names according to command history
 function command_history:get_history()
