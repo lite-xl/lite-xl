@@ -51,6 +51,9 @@ command.command_history = command_history
 command_history._start = nil
 command_history._end = nil
 
+
+--- inserts the provided command into the command_history
+---@param command_name string
 function command_history:insert(command_name)
   -- if command already in list do nothing
   if not command_history[command_name] then
@@ -69,6 +72,8 @@ function command_history:insert(command_name)
   end
 end
 
+--- updates the command history, moving the provided command to the front
+---@param command_name string
 function command_history:update(command_name)
   if command_history._start == nil then return end
   if not command_history[command_name] then
@@ -98,6 +103,9 @@ function command_history:update(command_name)
   command_history._start = command_name
 end
 
+
+
+--- yields the ordered command names according to command history
 function command_history:get_history()
   return coroutine.wrap(function()
     local command_name = command_history._start
