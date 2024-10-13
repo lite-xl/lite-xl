@@ -1248,6 +1248,53 @@ static int f_setenv(lua_State* L) {
 }
 
 
+static void transfer_lua(lua_State* from, lua_State* to) {
+  switch (lua_type(from, -1)) {
+    case LUA_TLIGHTUSERDATA: lua_pushlightuserdata(to, lua_touserdata(from, -1)); break;
+    case LUA_TNIL: lua_pushnil(to); break;
+    case LUA_TBOOLEAN: lua_pushboolean(to, lua_toboolean(from, -1)); break;
+    case LUA_TSTRING: {
+      size_t len;
+      const char* buffer = lua_tolstring(from, -1, &len);
+      lua_pushlstring(to, buffer, len);
+    } break;
+    case LUA_TNUMBER: {
+      if (lua_isinteger(from, -1))
+        lua_pushinteger(to, lua_tointeger(from, -1)); 
+      else
+        lua_pushnumber(to, lua_tonumber(from, -1)); 
+    } break;
+    case LUA_TUSERDATA: { // Strip userdata of metadata, and store it.
+      void* ud = lua_newuserdata(to, lua_rawlen(from, -1));
+      memcpy(ud, lua_touserdata(from, -1), lua_rawlen(from, -1));
+      luaL_getmetafield(from, -1, "__name");
+      luaL_newmetatable(to, lua_tostring(from, -1));
+      lua_setmetatable(to, -2);
+      lua_pop(from, 1);
+      lua_pushnil(from);
+      lua_setmetatable(from, -2);
+    } break;
+  }
+}
+
+
+static int f_persist(lua_State* L) {
+  static lua_State* pL = NULL;
+  if (!pL)
+    pL = luaL_newstate();
+  lua_pushstring(pL, luaL_checkstring(L, 1));
+  if (lua_gettop(L) == 2) { // Save
+    transfer_lua(L, pL);
+    lua_rawset(pL, LUA_REGISTRYINDEX);
+    return 0;
+  } else { // Load
+    lua_rawget(pL, LUA_REGISTRYINDEX);
+    transfer_lua(pL, L);
+    return 1;
+  }
+}
+
+
 static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
   { "wait_event",            f_wait_event            },
@@ -1285,6 +1332,7 @@ static const luaL_Reg lib[] = {
   { "get_fs_type",           f_get_fs_type           },
   { "text_input",            f_text_input            },
   { "setenv",                f_setenv                },
+  { "persist",               f_persist               },
   { NULL, NULL }
 };
 

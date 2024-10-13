@@ -155,7 +155,6 @@ init_lua:
   luaL_openlibs(L);
   api_load_libs(L);
 
-
   lua_newtable(L);
   for (int i = 0; i < argc; i++) {
     lua_pushstring(L, argv[i]);

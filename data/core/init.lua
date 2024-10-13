@@ -689,10 +689,7 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
-  core.window = renwindow._restore()
-  if core.window == nil then
-    core.window = renwindow.create("")
-  end
+  core.window = system.persist("WINDOW") or renwindow.create("")
   do
     local session = load_session()
     if session.window_mode == "normal" then
@@ -708,19 +705,21 @@ function core.init()
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
   local files = {}
-  for i = 2, #ARGS do
-    local arg_filename = strip_trailing_slash(ARGS[i])
-    local info = system.get_file_info(arg_filename) or {}
-    if info.type == "dir" then
-      project_dir = arg_filename
-      project_dir_explicit = true
-    else
-      -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
-      if not ARGS[i]:match("^-psn") then
-        local file_abs = core.project_absolute_path(arg_filename)
-        if file_abs then
-          table.insert(files, file_abs)
-          project_dir = file_abs:match("^(.+)[/\\].+$")
+  if not system.persist("RESTARTED") then
+    for i = 2, #ARGS do
+      local arg_filename = strip_trailing_slash(ARGS[i])
+      local info = system.get_file_info(arg_filename) or {}
+      if info.type == "dir" then
+        project_dir = arg_filename
+        project_dir_explicit = true
+      else
+        -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
+        if not ARGS[i]:match("^-psn") then
+          local file_abs = core.project_absolute_path(arg_filename)
+          if file_abs then
+            table.insert(files, file_abs)
+            project_dir = file_abs:match("^(.+)[/\\].+$")
+          end
         end
       end
     end
@@ -928,7 +927,8 @@ end
 function core.restart()
   quit_with_function(function()
     core.restart_request = true
-    core.window:_persist()
+    system.persist("RESTARTED", true)
+    system.persist("WINDOW", core.window)
   end)
 end
 
@@ -1361,6 +1361,7 @@ function core.step()
       did_keymap = res or did_keymap
     end
     core.redraw = true
+    if core.restart_request or core.quit_request then return false end
   end
 
   local width, height = core.window:get_size()
