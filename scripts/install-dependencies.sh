@@ -14,19 +14,15 @@ show_help() {
   echo
   echo "Available options:"
   echo
-  echo "-l --lhelper              Install tools required by LHelper and doesn't"
-  echo "                          install external libraries."
   echo "   --debug                Debug this script."
   echo
 }
 
 main() {
-  local lhelper=false
-
   for i in "$@"; do
     case $i in
       -s|--lhelper)
-        lhelper=true
+        echo "--lhelper has been deprecated and will be removed in a future release"
         shift
         ;;
       --debug)
@@ -45,27 +41,14 @@ main() {
   fi
 
   if [[ "$OSTYPE" == "linux"* ]]; then
-    if [[ $lhelper == true ]]; then
-      sudo apt-get install -qq ninja-build
-    else
-      sudo apt-get install -qq libfuse2 ninja-build wayland-protocols libsdl2-dev libfreetype6
-    fi
+    sudo apt-get install -qq libfuse2 ninja-build wayland-protocols libsdl2-dev libfreetype6
     pip3 install meson
   elif [[ "$OSTYPE" == "darwin"* ]]; then
-    if [[ $lhelper == true ]]; then
-      brew install bash md5sha1sum ninja
-    else
-      brew install bash ninja sdl2
-    fi
+    brew install bash ninja sdl2
     pip3 install meson dmgbuild
   elif [[ "$OSTYPE" == "msys" ]]; then
-    if [[ $lhelper == true ]]; then
-      pacman --noconfirm -S \
-        ${MINGW_PACKAGE_PREFIX}-{ca-certificates,gcc,meson,ninja,ntldd,pkg-config,mesa} unzip
-    else
-      pacman --noconfirm -S \
-        ${MINGW_PACKAGE_PREFIX}-{ca-certificates,gcc,meson,ninja,ntldd,pkg-config,mesa,freetype,pcre2,SDL2} unzip
-    fi
+    pacman --noconfirm -S \
+      ${MINGW_PACKAGE_PREFIX}-{ca-certificates,gcc,meson,ninja,ntldd,pkg-config,mesa,freetype,pcre2,SDL2} unzip
   fi
 }
 
