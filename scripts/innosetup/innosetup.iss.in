@@ -78,7 +78,7 @@ Name: "portablemode"; Description: "Portable Mode"; Flags: unchecked
 Name: "envPath"; Description: "Add lite-xl to the PATH variable, allowing it to be run from a command line."
 
 [Files]
-Source: "{#SourceDir}/lite-xl/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+Source: "{#BuildDir}/lite-xl/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

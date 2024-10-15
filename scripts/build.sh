@@ -18,14 +18,15 @@ show_help() {
   echo "   --debug                    Debug this script."
   echo "-f --forcefallback            Force to build dependencies statically."
   echo "-h --help                     Show this help and exit."
+  echo "-d --debug-build              Builds a debug build."
   echo "-p --prefix PREFIX            Install directory prefix. Default: '/'."
   echo "-B --bundle                   Create an App bundle (macOS only)"
+  echo "-A --addons                   Add in addons"
   echo "-P --portable                 Create a portable binary package."
   echo "-O --pgo                      Use profile guided optimizations (pgo)."
   echo "-U --windows-lua-utf          Use the UTF8 patch for Lua."
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
-  echo "-r --release                  Compile in release mode."
   echo "   --cross-platform PLATFORM  Cross compile for this platform."
   echo "                              The script will find the appropriate"
   echo "                              cross file in 'resources/cross'."
@@ -39,9 +40,11 @@ show_help() {
 main() {
   local platform="$(get_platform_name)"
   local arch="$(get_platform_arch)"
-  local build_dir="$(get_default_build_dir)"
-  local build_type="debug"
+  local build_dir
+  local plugins="welcome"
   local prefix=/
+  local addons
+  local build_type="release"
   local force_fallback
   local bundle
   local portable
@@ -65,6 +68,10 @@ main() {
         shift
         shift
         ;;
+      -d|--debug-build)
+        build_type="debug"
+        shift
+        ;;
       --debug)
         set -x
         shift
@@ -78,8 +85,12 @@ main() {
         shift
         shift
         ;;
+      -A|--addons)
+        addons="1"
+        shift
+        ;;
       -B|--bundle)
-        if [[ "$platform" != "macos" ]]; then
+        if [[ "$platform" != "darwin" ]]; then
           echo "Warning: ignoring --bundle option, works only under macOS."
         else
           bundle="-Dbundle=true"
@@ -114,10 +125,6 @@ main() {
         cross="true"
         cross_file="$2"
         shift
-        shift
-        ;;
-      -r|--release)
-        build_type="release"
         shift
         ;;
       *)
@@ -157,9 +164,13 @@ main() {
     fi
     platform="${cross_platform:-$platform}"
     arch="${cross_arch:-$arch}"
-    cross_file=("--cross-file" "${cross_file:-resources/cross/$platform-$arch.txt}")
+    cross_file="--cross-file ${cross_file:-resources/cross/$platform-$arch.txt}"
     # reload build_dir because platform and arch might change
-    build_dir="$(get_default_build_dir "$platform" "$arch")"
+    if [[ "$build_dir" == "" ]]; then
+      build_dir="$(get_default_build_dir "$platform" "$arch")"
+    fi
+  elif [[ "$build_dir" == "" ]]; then
+    build_dir="$(get_default_build_dir)"
   fi
 
   # arch and platform specific stuff
@@ -188,24 +199,34 @@ main() {
   fi
 
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
-    --buildtype=$build_type \
+    "${build_dir}" \
+    --buildtype "$build_type" \
     --prefix "$prefix" \
-    "${cross_file[@]}" \
+    $cross_file \
     $force_fallback \
     $bundle \
     $portable \
     $pgo \
-    "${build_dir}"
 
   meson compile -C "${build_dir}"
 
+  cp -r data "${build_dir}/src"
+
   if [[ $pgo != "" ]]; then
-    cp -r data "${build_dir}/src"
     "${build_dir}/src/lite-xl"
     meson configure -Db_pgo=use "${build_dir}"
     meson compile -C "${build_dir}"
     rm -fr "${build_dir}/data"
   fi
+
+  rm -fr $build_dir/src/lite-xl.*p $build_dir/src/*.o
+
+  if [[ $addons != "" ]]; then
+    [[ ! -e "$build_dir/lpm" ]] && curl --insecure -L "https://github.com/lite-xl/lite-xl-plugin-manager/releases/download/latest/lpm.$(get_platform_tuple)$(get_executable_extension)" -o "$build_dir/lpm$(get_executable_extension)" && chmod +x "$build_dir/lpm$(get_executable_extension)"
+    "$build_dir/lpm$(get_executable_extension)" install --datadir ${build_dir}/src/data --userdir ${build_dir}/src/data --arch $(get_platform_tuple) $plugins --assume-yes; "$build_dir/lpm$(get_executable_extension)" purge --datadir ${build_dir}/src/data --userdir ${build_dir}/src/data && chmod -R a+r ${build_dir}
+  fi
+
+  mv "${build_dir}/src" "${build_dir}/lite-xl"
 }
 
 main "$@"
