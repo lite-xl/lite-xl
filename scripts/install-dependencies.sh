@@ -22,8 +22,8 @@ main() {
   for i in "$@"; do
     case $i in
       -s|--lhelper)
-        echo "--lhelper has been deprecated and will be removed in a future release"
-        shift
+        echo "error: support for lhelper has been deprecated" >> /dev/stderr
+        exit 1
         ;;
       --debug)
         set -x
