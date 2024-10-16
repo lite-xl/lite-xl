@@ -1,0 +1,16 @@
+diff --git a/src/luaconf.h b/src/luaconf.h
+index 137103e..24fa4f0 100644
+--- a/src/luaconf.h
++++ b/src/luaconf.h
+@@ -789,5 +789,11 @@
+ 
+ 
+ 
++#if defined(lua_c) || defined(luac_c) || (defined(LUA_LIB) && \
++    (defined(lauxlib_c) || defined(liolib_c) || \
++     defined(loadlib_c) || defined(loslib_c)))
++#include "utf8_wrappers.h"
++#endif
++
+ #endif
+ 

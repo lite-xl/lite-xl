@@ -1,0 +1,12 @@
+option(
+  'loadlib', type: 'feature',
+  description: 'Allow Lua to "require" C extension modules'
+)
+option(
+  'line_editing', type: 'feature',
+  description: 'Link with GNU readline (or libedit) to add history to the Lua interpreter.'
+)
+option(
+  'interpreter', type: 'boolean', value: true,
+  description: 'Build the Lua interpreter.'
+)
