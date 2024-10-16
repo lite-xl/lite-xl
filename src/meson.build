@@ -9,6 +9,7 @@ lite_sources = [
     'renderer.c',
     'renwindow.c',
     'rencache.c',
+    'luapool.c',
     'main.c',
 ]
 
