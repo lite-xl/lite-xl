@@ -703,15 +703,53 @@ static void ren_remove_window(RenWindow *window_renderer) {
   }
 }
 
+int video_init(void) {
+  static int ren_inited = 0;
+  if (!ren_inited) {
+    if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
+      return -1;     
+    SDL_EnableScreenSaver();
+    #ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR /* Available since 2.0.8 */
+      SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+    #endif
+    #if SDL_VERSION_ATLEAST(2, 0, 5)
+      SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+    #endif
+    #if SDL_VERSION_ATLEAST(2, 0, 18)
+      SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
+    #endif
+    #if SDL_VERSION_ATLEAST(2, 0, 22)
+      SDL_SetHint(SDL_HINT_IME_SUPPORT_EXTENDED_TEXT, "1");
+    #endif
+
+    #if SDL_VERSION_ATLEAST(2, 0, 8)
+      /* This hint tells SDL to respect borderless window as a normal window.
+      ** For example, the window will sit right on top of the taskbar instead
+      ** of obscuring it. */
+      SDL_SetHint("SDL_BORDERLESS_WINDOWED_STYLE", "1");
+    #endif
+    #if SDL_VERSION_ATLEAST(2, 0, 12)
+      /* This hint tells SDL to allow the user to resize a borderless windoow.
+      ** It also enables aero-snap on Windows apparently. */
+      SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
+    #endif
+    #if SDL_VERSION_ATLEAST(2, 0, 9)
+      SDL_SetHint("SDL_MOUSE_DOUBLE_CLICK_RADIUS", "4");
+    #endif
+
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+    ren_inited = 1;
+  }
+  return 0;
+}
+
 int ren_init(void) {
   int err;
-
   draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
-                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+                      0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
 
   if ((err = FT_Init_FreeType(&library)) != 0)
-    return err;
-
+    return err; 
   return 0;
 }
 
