@@ -397,7 +397,7 @@ static int process_start(lua_State* L) {
       lua_newtable(L);
       LPWCH system_env = GetEnvironmentStringsW(), envp = system_env;
       while (wcslen(envp) > 0) {
-        const char *env = utfconv_fromwstr(&A, envp), *eq = env ? strchr(env, '=') : NULL;
+        const char *env = utfconv_fromwstr(A, envp), *eq = env ? strchr(env, '=') : NULL;
         if (!env) return (FreeEnvironmentStringsW(system_env), luaL_error(L, "%s", UTFCONV_ERROR_INVALID_CONVERSION));
         if (!eq) return (FreeEnvironmentStringsW(system_env), luaL_error(L, "invalid environment variable"));
         lua_pushlstring(L, env, eq - env); lua_pushstring(L, eq+1);
@@ -408,11 +408,11 @@ static int process_start(lua_State* L) {
       FreeEnvironmentStringsW(system_env);
       lua_call(L, 1, 1);
       size_t len = 0; const char *env_mb = luaL_checklstring(L, -1, &len);
-      if (!(env = utfconv_fromlutf8(&A, env_mb, len)))
+      if (!(env = utfconv_fromlutf8(A, env_mb, len)))
         return luaL_error(L, "%s", UTFCONV_ERROR_INVALID_CONVERSION);
     }
     if (lua_getfield(L, 2, "cwd"), luaL_optstring(L, -1, NULL)) {
-      if ( !(cwd = utfconv_fromutf8(&A, lua_tostring(L, -1))) )
+      if ( !(cwd = utfconv_fromutf8(A, lua_tostring(L, -1))) )
         return luaL_error(L, UTFCONV_ERROR_INVALID_CONVERSION);
     }
     lua_pop(L, 2);
