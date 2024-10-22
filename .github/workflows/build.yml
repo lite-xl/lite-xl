@@ -2,80 +2,67 @@ name: CI
 
 on:
   push:
-    branches:
-      - "*"
-
   pull_request:
     branches:
-      - "*"
-
+      - '*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release Version
+        required: false
 
+# Builds & Uploads:
+# * Linux x86_64 Portable
+# * Linux App Image
+# * Mac Universal Portable
+# * Mac Universal DMG
+# * Windows x86_64 Portable
+# * Windows x86_64 Installer
 jobs:
-  build_linux:
-    name: Linux
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        config:
-          - { name: "GCC", cc: gcc, cxx: g++ }
-          - { name: "clang", cc: clang, cxx: clang++ }
+  # Checks to see if we have an input, and stamps that onto the repo.
+  # Determines if this is a release, and determines the official ref.
+  version:
+    name: Compute Version & Check for Release
+    runs-on: ubuntu-latest
     env:
-      CC: ${{ matrix.config.cc }}
-      CXX: ${{ matrix.config.cxx }}
-
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      release: ${{ steps.check_release.outputs.release }}
+      ref: ${{ steps.check_release.outputs.ref }}
     steps:
-      - name: Set Environment Variables
-        if: ${{ matrix.config.cc == 'gcc' }}
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-linux-$(uname -m)-portable" >> "$GITHUB_ENV"
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Python Setup
-        uses: actions/setup-python@v5
+      - name: Update Tag
+        uses: richardsimko/update-tag@v1
+        if: ${{ github.event.inputs.version }}
         with:
-          python-version: "3.11"
-
-      - name: Update Packages
-        run: sudo apt-get update
-
-      - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh --debug
-
-      - name: Build
-        run: |
-          bash --version
-          bash scripts/build.sh --debug --forcefallback --portable
-
-      - name: Package
-        if: ${{ matrix.config.cc == 'gcc' }}
-        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        if: ${{ matrix.config.cc == 'gcc' }}
+          tag_name: ${{ github.event.inputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
         with:
-          name: Linux Artifacts
-          path: ${{ env.INSTALL_NAME }}.tar.gz
-          compression-level: 0
-
-  build_macos:
-    name: macOS
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Check Release
+        id: check_release
+        run: |
+          export REF=`git describe --match v[0-9]* HEAD --tags`
+          echo "Build Version: $REF"
+          [[ "$REF" != "" ]] && echo "ref=$REF" >> $GITHUB_OUTPUT
+          if [[ `git describe --exact-match --match v[0-9]* HEAD --tags` ]]; then
+            echo "release=$REF" >> $GITHUB_OUTPUT
+            echo "Release Version: $REF"
+          fi
+          
+  build_darwin:
+    name: Darwin
+    needs: [version]
     strategy:
       matrix:
         config:
-          - { arch: x86_64, runner: macos-13 } # macos-13 uses x86_64
-          - { arch: arm64, runner: macos-14 } # macos-14 / latest uses M1
-
+          - { runner: macos-13, type: bundle,   arch: x86_64-darwin }
+          - { runner: macos-13, type: portable, arch: x86_64-darwin }
+          - { runner: macos-14, type: bundle,   arch: aarch64-darwin }
+          - { runner: macos-14, type: portable, arch: aarch64-darwin }
     runs-on: ${{ matrix.config.runner }}
-    env:
-      CC: clang
-      CXX: clang++
-
     steps:
       - name: System Information
         run: |
@@ -83,204 +70,231 @@ jobs:
           bash --version
           gcc -v
           xcodebuild -version
+          
+      - uses: actions/checkout@v4
+        
+      - name: Python Setup
+        uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+        
+      - name: Install Dependencies
+        run: scripts/install-dependencies.sh
+        
+      - name: Build
+        run: scripts/build.sh --addons --debug --forcefallback --${{ matrix.config.type }} -b build
+        
+      - name: Package Mac (Bundle)
+        if: ${{ matrix.config.type == 'bundle' }}
+        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl Info.plist
 
-      - name: Set Environment Variables
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-${{ matrix.config.arch }}" >> "$GITHUB_ENV"
+      - name: Package Mac (Portable)
+        if: ${{ matrix.config.type == 'portable' }}
+        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl
+        
+      - name: Upload (Intermediate)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-${{ matrix.config.type }}
+          path: |
+            *.tar.gz
+ 
 
-      - name: Checkout code
-        uses: actions/checkout@v4
+  build_darwin_universal:
+    name: Darwin (Universal)
+    needs: [version, build_darwin]
+    runs-on: macos-14
+    steps:          
+      - uses: actions/checkout@v4
 
       - name: Python Setup
         uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+        with: { python-version: "3.11" }
 
-      # installing md5sha1sum will eliminate a warning with arm64 and libusb
       - name: Install Dependencies
-        run: |
-          brew install bash md5sha1sum
-          pip install meson ninja dmgbuild
-
-      - name: Build
-        run: |
-          bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback
-
-      - name: Create DMG Image
-        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --dmg
-
-      - name: Upload DMG Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: macOS DMG Images (${{ matrix.config.arch }})
-          path: ${{ env.INSTALL_NAME }}.dmg
-          compression-level: 0
-
-  build_macos_universal:
-    name: macOS (Universal)
-    runs-on: macos-14
-    needs: build_macos
-
-    steps:
-      - name: System Information
-        run: |
-          system_profiler SPSoftwareDataType
-          bash --version
-          gcc -v
-          xcodebuild -version
-
-      - name: Set Environment Variables
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-macos-universal" >> "$GITHUB_ENV"
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dmgbuild
-        run: pip install dmgbuild
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download artifacts
+        run: scripts/install-dependencies.sh
+      
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
-        id: download
         with:
-          pattern: macOS DMG Images *
-          merge-multiple: true
-          path: dmgs-original
+          pattern: '*darwin*'
 
-      - name: Make universal bundles
+      - name: Create Universal Binaries
         run: |
-          bash --version
-          bash scripts/make-universal-binaries.sh ${{ steps.download.outputs.download-path }} "${INSTALL_NAME}"
+          for TYPE in bundle portable; do
+            mkdir -p lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl
+            cd lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-$TYPE && tar -zxvf *.tar.gz && cd .. && cd lite-xl-${{ needs.version.outputs.ref }}-aarch64-darwin-$TYPE && tar -zxvf *.tar.gz && cd ..
+            cp -r lite-xl-${{ needs.version.outputs.ref }}-*-$TYPE/lite-xl/data lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl
+            lipo -create -output lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl/lite-xl lite-xl-${{ needs.version.outputs.ref }}-*-darwin-$TYPE/lite-xl/lite-xl
+          done
+          cp lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-bundle/Info.plist lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle/Info.plist
+          
+      - name: Package Darwin (Universal DMG Image)
+        run: scripts/package-dmg.sh lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle lite-xl-${{ needs.version.outputs.ref }}-universal-darwin
+        
+      - name: Package Darwin (Universal Portable)
+        run: cd lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable && tar -zcvf ../lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz *
 
-      - name: Upload DMG Image
+      - name: Upload (Release)
         uses: actions/upload-artifact@v4
         with:
-          name: macOS DMG Images (Universal)
-          path: ${{ env.INSTALL_NAME }}.dmg
-          compression-level: 0
+          name: lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-release
+          path: |
+            *.dmg
+            *.tar.gz
 
-  build_windows_msys2:
-    name: Windows
+
+  build_linux:
+    name: Linux (x86_64)
+    needs: [version]
+    runs-on: ubuntu-latest
+    env: 
+      BUILDER: docker run -v .:/build -w /build ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3.0.2 -- /entrypoint.sh
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Build
+        run: $BUILDER scripts/build.sh --addons --debug --forcefallback --portable -b build
+        
+      - name: Package Linux (Portable)
+        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl && cd ..
+
+      - name: Package Linux (AppImage)
+        run: $BUILDER scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
+        
+      - name: Upload (Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable-release
+          path: |
+            *.tar.gz
+            *.AppImage
+               
+
+  build_windows:
+    name: Windows (x86_64) (MSYS)
     runs-on: windows-2019
-    strategy:
-      matrix:
-        config:
-          - { msystem: MINGW32, arch: i686 }
-          - { msystem: MINGW64, arch: x86_64 }
-    defaults:
+    defaults: 
       run:
         shell: msys2 {0}
-
+    needs: [version]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: ${{ matrix.config.msystem }}
-          install: >-
-            base-devel
-            git
-            zip
-            mingw-w64-${{ matrix.config.arch }}-gcc
-            mingw-w64-${{ matrix.config.arch }}-meson
-            mingw-w64-${{ matrix.config.arch }}-ninja
-            mingw-w64-${{ matrix.config.arch }}-ca-certificates
-            mingw-w64-${{ matrix.config.arch }}-ntldd
-
-      - name: Set Environment Variables
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "INSTALL_REF=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
-          if [[ "${MSYSTEM}" == "MINGW64" ]]; then
-            echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-x86_64" >> "$GITHUB_ENV"
-          else
-            echo "INSTALL_NAME=lite-xl-${GITHUB_REF##*/}-windows-i686" >> "$GITHUB_ENV"
-          fi
-
+      - uses: msys2/setup-msys2@v2
+        with: { msystem: MINGW64 }
+        
+      - uses: actions/checkout@v4
+        
       - name: Install Dependencies
-        if: false
-        run: bash scripts/install-dependencies.sh --debug
-
+        run: bash scripts/install-dependencies.sh
+        
       - name: Build
-        run: |
-          bash --version
-          bash scripts/build.sh -U --debug --forcefallback
+        run: bash scripts/build.sh -U --addons --debug --forcefallback --portable -b build
 
-      - name: Package
-        run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary
-
-      - name: Upload Artifacts
+      - name: Package Windows (Portable)
+        run: cd build && zip -r ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable.zip lite-xl && cd ..
+        
+      - name: Package Windows (InnoSetup)
+        run: bash scripts/package-innosetup.sh --debug --version ${{ needs.version.outputs.ref }} -b build
+        
+      - name: Upload (Release)
         uses: actions/upload-artifact@v4
         with:
-          name: Windows Artifacts (${{ matrix.config.msystem }})
-          path: ${{ env.INSTALL_NAME }}.zip
-          compression-level: 0
+          name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable-release
+          path: |
+            *.zip
+            *.exe
 
   build_windows_msvc:
-    name: Windows (MSVC)
+    name: Windows (x86_64) (MSVC)
+    needs: [version]
     runs-on: windows-2019
-    strategy:
-      matrix:
-        arch:
-          - { target: x86, name: i686 }
-          - { target: x64, name: x86_64 }
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.arch.target }}
+          arch: x86_64
 
       - name: Setup Python
         uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+        with: { python-version: "3.11" }
 
       - name: Install meson and ninja
         run: pip install meson ninja
 
       - name: Set up environment variables
         run: |
-          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
-          "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
           "LUA_SUBPROJECT_PATH=subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)" >> $env:GITHUB_ENV
 
-      - name: Download and patch subprojects
+      - name: Download subprojects
         shell: bash
         run: |
           meson subprojects download
           cat resources/windows/001-lua-unicode.diff | patch -Np1 -d "$LUA_SUBPROJECT_PATH"
 
       - name: Configure
-        run: |
-          meson setup --wrap-mode=forcefallback build
+        run: meson setup --wrap-mode=forcefallback build
 
       - name: Build
-        run: |
-          meson install -C build --destdir="../lite-xl"
+        run: meson install -C build --destdir="../lite-xl"
 
       - name: Package
         run: |
           Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
-          Compress-Archive -Path lite-xl -DestinationPath "$env:INSTALL_NAME.zip"
+          Compress-Archive -Path lite-xl -DestinationPath "lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip"
 
-      - name: Upload Artifacts
+      - name: Upload Artifacts (Intermediate)
         uses: actions/upload-artifact@v4
         with:
-          name: Windows Artifacts (MSVC ${{ matrix.arch.target }})
-          path: ${{ env.INSTALL_NAME }}.zip
+          name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows (MSVC)
           compression-level: 0
+          path: |
+            *.zip
+
+
+  release:
+    name: Create Release
+    needs: [version, build_linux, build_windows, build_darwin_universal]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lite-xl-*-release
+          path: .
+      - name: Versioned Release
+        uses: softprops/action-gh-release@v1
+        if: ${{ needs.version.outputs.release }}
+        with:
+          tag_name: ${{ needs.version.outputs.release }}
+          name: Lite XL ${{ needs.version.outputs.release }}
+          draft: true
+          body_path: changelog.md
+          generate_release_notes: true
+          files: |
+            */*.tar.gz
+            */*.zip
+            */*.exe
+            */*.dmg
+            */*.AppImage
+      - name: Update Tag
+        uses: richardsimko/update-tag@v1
+        if: github.ref == 'refs/heads/master'
+        with:
+          tag_name: continuous
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Continuous Release
+        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/master'
+        with:
+          name: Lite XL Continuous Release
+          tag_name: continuous
+          prerelease: true
+          files: |
+            */*.tar.gz
+            */*.zip
+            */*.exe
+            */*.dmg
+            */*.AppImage
