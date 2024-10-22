@@ -369,7 +369,7 @@ static int process_start(lua_State* L) {
   lxl_arena *A = lxl_arena_init(L);
   // copy command line arguments
 #ifdef _WIN32
-  if ( !(commandline = utfconv_fromutf8(&A, luaL_checkstring(L, 1))) )
+  if ( !(commandline = utfconv_fromutf8(A, luaL_checkstring(L, 1))) )
     return luaL_error(L, "%s", UTFCONV_ERROR_INVALID_CONVERSION);
 #else
   luaL_checktype(L, 1, LUA_TTABLE);
