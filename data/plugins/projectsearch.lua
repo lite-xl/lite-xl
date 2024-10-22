@@ -15,6 +15,7 @@ function ResultsView:new(path, text, fn)
   ResultsView.super.new(self)
   self.scrollable = true
   self.brightness = 0
+  self.max_h_scroll = 0
   self:begin_search(path, text, fn)
 end
 
@@ -34,7 +35,9 @@ local function find_all_matches_in_file(t, filename, fn)
       -- Insert maximum 256 characters. If we insert more, for compiled files, which can have very long lines
       -- things tend to get sluggish. If our line is longer than 80 characters, begin to truncate the thing.
       local start_index = math.max(s - 80, 1)
-      table.insert(t, { file = filename, text = (start_index > 1 and "..." or "") .. line:sub(start_index, 256 + start_index), line = n, col = s })
+      local text = (start_index > 1 and "..." or "") .. line:sub(start_index, 256 + start_index)
+      if #line > 256 + start_index then text = text .. "..." end
+      table.insert(t, { file = filename, text = text, line = n, col = s })
       core.redraw = true
     end
     if n % 100 == 0 then coroutine.yield(0) end
@@ -133,10 +136,16 @@ function ResultsView:get_scrollable_size()
 end
 
 
+function ResultsView:get_h_scrollable_size()
+  return self.max_h_scroll
+end
+
+
 function ResultsView:get_visible_results_range()
   local lh = self:get_line_height()
   local oy = self:get_results_yoffset()
-  local min = math.max(1, math.floor((self.scroll.y - oy) / lh))
+  local min = self.scroll.y+oy-style.font:get_height()
+  min = math.max(1, math.floor(min / lh))
   return min, min + math.floor(self.size.y / lh) + 1
 end
 
@@ -150,7 +159,8 @@ function ResultsView:each_visible_result()
     for i = min, max do
       local item = self.results[i]
       if not item then break end
-      coroutine.yield(i, item, x, y, self.size.x, lh)
+      local _, _, w = self:get_content_bounds()
+      coroutine.yield(i, item, x, y, w, lh)
       y = y + lh
     end
   end)
@@ -159,9 +169,9 @@ end
 
 function ResultsView:scroll_to_make_selected_visible()
   local h = self:get_line_height()
-  local y = self:get_results_yoffset() + h * (self.selected_idx - 1)
+  local y = h * (self.selected_idx - 1)
   self.scroll.to.y = math.min(self.scroll.to.y, y)
-  self.scroll.to.y = math.max(self.scroll.to.y, y + h - self.size.y)
+  self.scroll.to.y = math.max(self.scroll.to.y, y + h - self.size.y + self:get_results_yoffset())
 end
 
 
@@ -169,7 +179,13 @@ function ResultsView:draw()
   self:draw_background(style.background)
 
   -- status
-  local ox, oy = self:get_content_offset()
+  local ox, oy = self.position.x, self.position.y
+  local yoffset = self:get_results_yoffset()
+  renderer.draw_rect(self.position.x, self.position.y, self.size.x, yoffset, style.background)
+  if self.scroll.y ~= 0 then
+    renderer.draw_rect(self.position.x, self.position.y+yoffset, self.size.x, style.divider_size, style.divider)
+  end
+
   local x, y = ox + style.padding.x, oy + style.padding.y
   local files_number = core.project_files_number()
   local per = common.clamp(files_number and self.last_file_idx / files_number or 1, 0, 1)
@@ -191,7 +207,6 @@ function ResultsView:draw()
   renderer.draw_text(style.font, text, x, y, color)
 
   -- horizontal line
-  local yoffset = self:get_results_yoffset()
   local x = ox + style.padding.x
   local w = self.size.x - style.padding.x * 2
   local h = style.divider_size
@@ -202,6 +217,8 @@ function ResultsView:draw()
   end
 
   -- results
+  local _, _, bw = self:get_content_bounds()
+  core.push_clip_rect(ox, oy+yoffset + style.divider_size, bw, self.size.y-yoffset)
   local y1, y2 = self.position.y, self.position.y + self.size.y
   for i, item, x,y,w,h in self:each_visible_result() do
     local color = style.text
@@ -213,7 +230,9 @@ function ResultsView:draw()
     local text = string.format("%s at line %d (col %d): ", item.file, item.line, item.col)
     x = common.draw_text(style.font, style.dim, text, "left", x, y, w, h)
     x = common.draw_text(style.code_font, color, item.text, "left", x, y, w, h)
+    self.max_h_scroll = math.max(self.max_h_scroll, x)
   end
+  core.pop_clip_rect()
 
   self:draw_scrollbar()
 end
