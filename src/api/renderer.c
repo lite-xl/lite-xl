@@ -8,8 +8,6 @@
 #endif
 #include "lua.h"
 
-RenWindow *active_window_renderer = NULL;
-
 // a reference index to a table that stores the fonts
 static int RENDERER_FONT_REF = LUA_NOREF;
 
@@ -119,7 +117,7 @@ static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
     }
   }
 #ifdef LITE_USE_SDL_RENDERER
-  update_font_scale(active_window_renderer, fonts);
+  update_font_scale(ren_get_target_window(), fonts);
 #endif
   return is_table;
 }
@@ -231,8 +229,9 @@ static int f_font_set_size(lua_State *L) {
   float size = luaL_checknumber(L, 2);
   int scale = 1;
 #ifdef LITE_USE_SDL_RENDERER
-  if (active_window_renderer != NULL) {
-    scale = renwin_get_surface(active_window_renderer).scale;
+  RenWindow *window = ren_get_target_window();
+  if (window != NULL) {
+    scale = renwin_get_surface(window).scale;
   }
 #endif
   ren_font_group_set_size(fonts, size, scale);
@@ -294,8 +293,9 @@ static int f_show_debug(lua_State *L) {
 
 static int f_get_size(lua_State *L) {
   int w = 0, h = 0;
-  if (active_window_renderer)
-    ren_get_size(active_window_renderer, &w, &h);
+  RenWindow *window = ren_get_target_window();
+  if (window)
+    ren_get_size(window, &w, &h);
   lua_pushnumber(L, w);
   lua_pushnumber(L, h);
   return 2;
@@ -303,17 +303,19 @@ static int f_get_size(lua_State *L) {
 
 
 static int f_begin_frame(UNUSED lua_State *L) {
-  assert(active_window_renderer == NULL);
-  active_window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  rencache_begin_frame(active_window_renderer);
+  assert(ren_get_target_window() == NULL);
+  RenWindow *window = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  ren_set_target_window(window);
+  rencache_begin_frame(window);
   return 0;
 }
 
 
 static int f_end_frame(UNUSED lua_State *L) {
-  assert(active_window_renderer != NULL);
-  rencache_end_frame(active_window_renderer);
-  active_window_renderer = NULL;
+  RenWindow *window = ren_get_target_window();
+  assert(window != NULL);
+  rencache_end_frame(window);
+  ren_set_target_window(NULL);
   // clear the font reference table
   lua_newtable(L);
   lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
@@ -334,7 +336,7 @@ static int f_set_clip_rect(lua_State *L) {
   lua_Number w = luaL_checknumber(L, 3);
   lua_Number h = luaL_checknumber(L, 4);
   RenRect rect = rect_to_grid(x, y, w, h);
-  rencache_set_clip_rect(active_window_renderer, rect);
+  rencache_set_clip_rect(ren_get_target_window(), rect);
   return 0;
 }
 
@@ -346,7 +348,7 @@ static int f_draw_rect(lua_State *L) {
   lua_Number h = luaL_checknumber(L, 4);
   RenRect rect = rect_to_grid(x, y, w, h);
   RenColor color = checkcolor(L, 5, 255);
-  rencache_draw_rect(active_window_renderer, rect, color);
+  rencache_draw_rect(ren_get_target_window(), rect, color);
   return 0;
 }
 
@@ -371,7 +373,7 @@ static int f_draw_text(lua_State *L) {
   double x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(active_window_renderer, fonts, text, len, x, y, color);
+  x = rencache_draw_text(ren_get_target_window(), fonts, text, len, x, y, color);
   lua_pushnumber(L, x);
   return 1;
 }
