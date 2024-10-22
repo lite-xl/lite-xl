@@ -8,6 +8,7 @@ patch_url = https://wrapdb.mesonbuild.com/v2/lua_5.4.6-4/get_patch
 patch_hash = b5a8c9b3673fbe58afaf842041bc9551f1f742c363fd3be8d47db2e6a483b54c
 source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/lua_5.4.6-4/lua-5.4.6.tar.gz
 wrapdb_version = 5.4.6-4
+diff_files = lua/lua-unicode.diff
 
 [provide]
 lua-5.4 = lua_dep
