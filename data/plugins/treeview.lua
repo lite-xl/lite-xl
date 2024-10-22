@@ -440,9 +440,6 @@ function TreeView:draw()
   self:draw_background(style.background2)
   local _y, _h = self.position.y, self.size.y
 
-  local doc = core.active_view.doc
-  local active_filename = doc and doc.abs_filename or ""
-
   for item, x,y,w,h in self:each_item() do
     if y + h >= _y and y < _y + _h then
       self:draw_item(item,
