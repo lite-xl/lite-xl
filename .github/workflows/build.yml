@@ -230,7 +230,6 @@ jobs:
         shell: bash
         run: |
           meson subprojects download
-          cat resources/windows/001-lua-unicode.diff | patch -Np1 -d "$LUA_SUBPROJECT_PATH"
 
       - name: Configure
         run: meson setup --wrap-mode=forcefallback build

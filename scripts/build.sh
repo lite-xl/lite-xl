@@ -192,10 +192,6 @@ main() {
     # download the subprojects so we can start patching before configure.
     # this will prevent reconfiguring the project.
     meson subprojects download
-    lua_subproject_path="subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)"
-    if [[ -d $lua_subproject_path ]]; then
-      patch -d $lua_subproject_path -p1 --forward < resources/windows/001-lua-unicode.diff
-    fi
   fi
 
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
