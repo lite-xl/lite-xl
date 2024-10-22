@@ -340,18 +340,29 @@ function Doc:position_offset(line, col, ...)
   end
 end
 
-function Doc:get_text(line1, col1, line2, col2)
+---Returns the content of the doc between two positions. </br>
+---The positions will be sanitized and sorted. </br>
+---The character at the "end" position is not included by default.
+---@see core.doc.sanitize_position
+---@param line1 integer
+---@param col1 integer
+---@param line2 integer
+---@param col2 integer
+---@param inclusive boolean? Whether or not to return the character at the last position
+---@return string
+function Doc:get_text(line1, col1, line2, col2, inclusive)
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
   line1, col1, line2, col2 = sort_positions(line1, col1, line2, col2)
+  local col2_offset = inclusive and 0 or 1
   if line1 == line2 then
-    return self.lines[line1]:sub(col1, col2 - 1)
+    return self.lines[line1]:sub(col1, col2 - col2_offset)
   end
   local lines = { self.lines[line1]:sub(col1) }
   for i = line1 + 1, line2 - 1 do
     table.insert(lines, self.lines[i])
   end
-  table.insert(lines, self.lines[line2]:sub(1, col2 - 1))
+  table.insert(lines, self.lines[line2]:sub(1, col2 - col2_offset))
   return table.concat(lines)
 end
 
