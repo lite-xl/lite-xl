@@ -159,7 +159,7 @@ if not get_option('source-only')
     sdl_options += 'use_power=disabled'
     sdl_options += 'system_iconv=disabled'
 
-    sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
+    sdl_dep = dependency('sdl3', fallback: ['sdl3', 'sdl3_dep'],
         default_options: default_fallback_options + sdl_options
     )
 
