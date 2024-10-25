@@ -867,30 +867,18 @@ static int f_get_fs_type(lua_State *L) {
 
 
 static int f_ftruncate(lua_State *L) {
-#ifndef LUA_FILEHANDLE
-  lua_pushboolean(L, 0);
-  lua_pushliteral(L, "LUA_FILEHANDLE and luaL_Stream is not supported");
-#else
+#ifdef LUA_FILEHANDLE
   luaL_Stream *stream = luaL_checkudata(L, 1, LUA_FILEHANDLE);
   lua_Integer len = luaL_optinteger(L, 2, 0);
-#ifdef _WIN32
-  HANDLE handle = (HANDLE) _get_osfhandle(fileno(stream->f));
-  if (SetFilePointer(handle, len, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
-    lua_pushboolean(L, 0);
-    push_win32_error(L, GetLastError());
-  }
-  if (SetEndOfFile(handle) == 0) {
-    lua_pushboolean(L, 0);
-    push_win32_error(L, GetLastError());
-  }
-#else
   if (ftruncate(fileno(stream->f), len) != 0) {
     lua_pushboolean(L, 0);
     lua_pushfstring(L, "ftruncate(): %s", strerror(errno));
     return 2;
   }
-#endif // _WIN32
-#endif // LUA_FILEHANDLE
+#else
+  lua_pushboolean(L, 0);
+  lua_pushliteral(L, "LUA_FILEHANDLE and luaL_Stream is not supported");
+#endif
 
   lua_pushboolean(L, 1);
   return 1;
