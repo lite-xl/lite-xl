@@ -889,8 +889,8 @@ static int f_ftruncate(lua_State *L) {
     lua_pushfstring(L, "ftruncate(): %s", strerror(errno));
     return 2;
   }
-#endif
-#endif
+#endif // _WIN32
+#endif // LUA_FILEHANDLE
 
   lua_pushboolean(L, 1);
   return 1;
