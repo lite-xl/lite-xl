@@ -222,7 +222,7 @@ main() {
     "$build_dir/lpm$(get_executable_extension)" install --datadir ${build_dir}/src/data --userdir ${build_dir}/src/data --arch $(get_platform_tuple) $plugins --assume-yes; "$build_dir/lpm$(get_executable_extension)" purge --datadir ${build_dir}/src/data --userdir ${build_dir}/src/data && chmod -R a+r ${build_dir}
   fi
 
-  mv "${build_dir}/src" "${build_dir}/lite-xl"
+  DESTDIR="lite-xl" meson install -C "${build_dir}" --skip-subprojects
 }
 
 main "$@"
