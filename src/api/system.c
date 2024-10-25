@@ -867,7 +867,11 @@ static int f_get_fs_type(lua_State *L) {
 
 
 static int f_ftruncate(lua_State *L) {
-#ifdef LUA_FILEHANDLE
+#ifndef LUA_FILEHANDLE
+  lua_pushboolean(L, 0);
+  lua_pushliteral(L, "LUA_FILEHANDLE and luaL_Stream is not supported");
+  return 2;
+#endif
   luaL_Stream *stream = luaL_checkudata(L, 1, LUA_FILEHANDLE);
   lua_Integer len = luaL_optinteger(L, 2, 0);
   if (ftruncate(fileno(stream->f), len) != 0) {
@@ -875,11 +879,6 @@ static int f_ftruncate(lua_State *L) {
     lua_pushfstring(L, "ftruncate(): %s", strerror(errno));
     return 2;
   }
-#else
-  lua_pushboolean(L, 0);
-  lua_pushliteral(L, "LUA_FILEHANDLE and luaL_Stream is not supported");
-#endif
-
   lua_pushboolean(L, 1);
   return 1;
 }
