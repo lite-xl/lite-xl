@@ -81,12 +81,12 @@ static int checkcontrol(lua_State *L, const char *msg, int tocont) {
   if (strcmp(msg, "off") == 0)
     lua_setwarnf(L, warnoff, L); // disable warning
   else if (strcmp(msg, "on") == 0)
-    lua_setwarnf(L, lxl_log_lua_warnf, L); // enable warning
+    lua_setwarnf(L, lxl_log_setwarnf, L); // enable warning
   return 1;
 }
 
 // warn handler when warning is turned on (default)
-void lxl_log_lua_warnf(void *ud, const char *msg, int tocont) {
+void lxl_log_setwarnf(void *ud, const char *msg, int tocont) {
   lua_State *L = (lua_State*) ud;
 
   if (checkcontrol(L, msg, tocont))

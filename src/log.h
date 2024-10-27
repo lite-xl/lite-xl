@@ -4,7 +4,7 @@
 void lxl_log_init();
 
 // call lua_setwarnf with this function and the lua_State as userdata
-void lxl_log_lua_warnf(void *ud, const char *msg, int tocont);
+void lxl_log_setwarnf(void *ud, const char *msg, int tocont);
 
 void lxl_log_verbose(const char *fmt, ...);
 void lxl_log_info(const char *fmt, ...);
