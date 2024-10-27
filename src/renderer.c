@@ -11,6 +11,7 @@
 
 #include "renderer.h"
 #include "renwindow.h"
+#include "font/font.h"
 
 // uncomment the line below for more debugging information through printf
 // #define RENDERER_DEBUG
@@ -21,7 +22,6 @@ static size_t window_count = 0;
 
 // draw_rect_surface is used as a 1x1 surface to simplify ren_draw_rect with blending
 static SDL_Surface *draw_rect_surface = NULL;
-static FT_Library library = NULL;
 
 #define check_alloc(P) _check_alloc(P, __FILE__, __LINE__)
 static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
@@ -92,7 +92,7 @@ typedef struct {
 } GlyphMap;
 
 typedef struct RenFont {
-  FT_Face face;
+  font_face* face;
   CharMap charmap;
   GlyphMap glyphs;
 #ifdef LITE_USE_SDL_RENDERER
@@ -137,34 +137,6 @@ static const char* utf8_to_codepoint(const char *p, const char *endp, unsigned *
   return (const char*)up + 1;
 }
 
-static int font_set_load_options(RenFont* font) {
-  int load_target = font->antialiasing == FONT_ANTIALIASING_NONE ? FT_LOAD_TARGET_MONO
-    : (font->hinting == FONT_HINTING_SLIGHT ? FT_LOAD_TARGET_LIGHT : FT_LOAD_TARGET_NORMAL);
-  int hinting = font->hinting == FONT_HINTING_NONE ? FT_LOAD_NO_HINTING : FT_LOAD_FORCE_AUTOHINT;
-  return load_target | hinting;
-}
-
-static int font_set_render_options(RenFont* font) {
-  if (font->antialiasing == FONT_ANTIALIASING_NONE)
-    return FT_RENDER_MODE_MONO;
-  if (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL) {
-    unsigned char weights[] = { 0x10, 0x40, 0x70, 0x40, 0x10 } ;
-    switch (font->hinting) {
-      case FONT_HINTING_NONE: FT_Library_SetLcdFilter(library, FT_LCD_FILTER_NONE); break;
-      case FONT_HINTING_SLIGHT:
-      case FONT_HINTING_FULL: FT_Library_SetLcdFilterWeights(library, weights); break;
-    }
-    return FT_RENDER_MODE_LCD;
-  } else {
-    switch (font->hinting) {
-      case FONT_HINTING_NONE:   return FT_RENDER_MODE_NORMAL; break;
-      case FONT_HINTING_SLIGHT: return FT_RENDER_MODE_LIGHT; break;
-      case FONT_HINTING_FULL:   return FT_RENDER_MODE_LIGHT; break;
-    }
-  }
-  return 0;
-}
-
 static int font_set_style(FT_Outline* outline, int x_translation, unsigned char style) {
   FT_Outline_Translate(outline, x_translation, 0 );
   if (style & FONT_STYLE_SMOOTH)
@@ -184,7 +156,7 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
   size_t col = codepoint - (row * CHARMAP_COL);
   if (!font->charmap.rows[row]) font->charmap.rows[row] = check_alloc(calloc(sizeof(unsigned int), CHARMAP_COL));
   if (font->charmap.rows[row][col] == 0) {
-    unsigned int glyph_id = FT_Get_Char_Index(font->face, codepoint);
+    unsigned int glyph_id = font_get_char_index(font->face, codepoint);
     // use -1 as a sentinel value for "glyph not available", a bit risky, but OpenType
     // uses uint16 to store glyph IDs. In theory this cannot ever be reached
     font->charmap.rows[row][col] = glyph_id ? glyph_id : (unsigned int) -1;
@@ -232,7 +204,7 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
   }
   if (surface_idx < 0) {
     // allocate a new surface array, and a surface
-    int h = FONT_HEIGHT_OVERFLOW_PX + (double) font->face->size->metrics.height / 64.0f;
+    int h = FONT_HEIGHT_OVERFLOW_PX + (double) font_face_get_height(font->face);
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += slot->bitmap.rows;
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
     atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
@@ -253,23 +225,21 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
   return atlas->surfaces[surface_idx];
 }
 
-static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
-  unsigned int render_option = font_set_render_options(font);
-  unsigned int load_option = font_set_load_options(font);
+static void renfont_load_glyph(RenFont *font, unsigned int glyph_id) {
   // load the font without hinting to fix an issue with monospaced fonts,
   // because freetype doesn't report the correct LSB and RSB delta. Transformation & subpixel positioning don't affect
   // the xadvance, so we can save some time by not doing this step multiple times
-  if (FT_Load_Glyph(font->face, glyph_id, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT) != 0)
+  if (font_load_glyph(font, (void*)font->face, glyph_id))
     return;
-  double unhinted_xadv = font->face->glyph->advance.x / 64.0f;
+  double unhinted_xadv = font_face_get_advanced_width(font->face);
   // render the glyph for all bitmap
   int bitmaps = FONT_BITMAP_COUNT(font);
   int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
   for (int bitmap_idx = 0; bitmap_idx < bitmaps; bitmap_idx++) {
-    FT_GlyphSlot slot = font->face->glyph;
-    if (FT_Load_Glyph(font->face, glyph_id, load_option | FT_LOAD_BITMAP_METRICS_ONLY) != 0
+    FT_GlyphSlot slot = font_face_get_glyph(font->face);
+    if (font_load_glyph(font, font->face, glyph_id) != 0
         || font_set_style(&slot->outline, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
-        || FT_Render_Glyph(slot, render_option) != 0)
+        || font_render_glyph(font, slot) != 0)
       return;
 
     // save the metrics
@@ -342,7 +312,7 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
   // load the glyph if it is not loaded
   subpixel_idx = FONT_IS_SUBPIXEL(font) ? subpixel_idx : 0;
   GlyphMetric *m = font_get_glyph(font, glyph_id, subpixel_idx);
-  if (!m || !(m->flags & EGlyphLoaded)) font_load_glyph(font, glyph_id);
+  if (!m || !(m->flags & EGlyphLoaded)) renfont_load_glyph(font, glyph_id);
   // if the glyph ID (possibly 0) is not available and we are not trying to load whitespace, try to load U+25A1 (box character)
   if ((!m || !(m->flags & EGlyphLoaded)) && codepoint != 0x25A1 && !is_whitespace(codepoint))
     return font_group_get_glyph(fonts, 0x25A1, subpixel_idx, surface, metric);
@@ -375,54 +345,33 @@ static void font_clear_glyph_cache(RenFont* font) {
   font->glyphs.natlas = 0;
 }
 
-// based on https://github.com/libsdl-org/SDL_ttf/blob/2a094959055fba09f7deed6e1ffeb986188982ae/SDL_ttf.c#L1735
-static unsigned long font_file_read(FT_Stream stream, unsigned long offset, unsigned char *buffer, unsigned long count) {
-  uint64_t amount;
-  SDL_RWops *file = (SDL_RWops *) stream->descriptor.pointer;
-  SDL_RWseek(file, (int) offset, RW_SEEK_SET);
-  if (count == 0)
-    return 0;
-  amount = SDL_RWread(file, buffer, sizeof(char), count);
-  if (amount <= 0)
-    return 0;
-  return (unsigned long) amount;
-}
-
-static void font_file_close(FT_Stream stream) {
-  if (stream && stream->descriptor.pointer)
-    SDL_RWclose((SDL_RWops *) stream->descriptor.pointer);
-  free(stream);
-}
-
-static int font_set_face_metrics(RenFont *font, FT_Face face) {
+static int font_set_face_metrics(RenFont *font, font_face* face) {
   FT_Error err;
-  if ((err = FT_Set_Pixel_Sizes(face, 0, (int) font->size)) != 0)
+  if ((err = font_face_set_pixel_size(face, 0, (int) font->size)) != 0)
     return err;
 
   font->face = face;
-  if(FT_IS_SCALABLE(face)) {
-    font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
-    font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
-    font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
+  if(font_face_is_scalable(face)) {
+    font->height = (short)(font_face_get_height(face) * font->size);
+    font->baseline = (short)(font_face_get_ascender(face) * font->size);
+    font->underline_thickness = (unsigned short)(font_face_underline_thickness(face) * font->size);
   } else {
-    font->height = (short) font->face->size->metrics.height / 64.0f;
-    font->baseline = (short) font->face->size->metrics.ascender / 64.0f;
-  }   
+    font->height = (short)font_face_get_height(face);
+    font->baseline = (short)font_face_get_ascender(face);
+  }
+
   if(!font->underline_thickness)
     font->underline_thickness = ceil((double) font->height / 14.0);
 
-  if ((err = FT_Load_Char(face, ' ', (font_set_load_options(font) | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)) != 0)
+  if ((err = font_face_load_char(font, face, ' ')) != 0)
     return err;
-  font->space_advance = face->glyph->advance.x / 64.0f;
+  font->space_advance = font_face_get_advanced_width(face);
   return 0;
 }
 
 RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
-  SDL_RWops *file = NULL; RenFont *font = NULL;
-  FT_Face face = NULL; FT_Stream stream = NULL;
-
-  file = SDL_RWFromFile(path, "rb");
-  if (!file) return NULL;
+  RenFont *font = NULL;
+  font_face* face = NULL;
   
   int len = strlen(path);
   font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
@@ -436,24 +385,14 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->scale = 1;
 #endif
 
-  stream = check_alloc(calloc(1, sizeof(FT_StreamRec)));
-  if (!stream) goto stream_failure;
-  stream->read = &font_file_read;
-  stream->close = &font_file_close;
-  stream->descriptor.pointer = file;
-  stream->pos = 0;
-  stream->size = (unsigned long) SDL_RWsize(file);
-
-  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0)
+  if (font_face_open(path, &face))
     goto failure;
   if (font_set_face_metrics(font, face) != 0)
     goto failure;
   return font;
 
-stream_failure:
-  if (file) SDL_RWclose(file);
 failure:
-  if (face) FT_Done_Face(face);
+  if (face) font_face_close(face);
   if (font) free(font);
   return NULL;
 }
@@ -470,13 +409,25 @@ const char* ren_font_get_path(RenFont *font) {
   return font->path;
 }
 
+ERenFontHinting ren_font_get_hinting(RenFont *font) {
+  return font->hinting;
+}
+
+ERenFontAntialiasing ren_font_get_antialiasing(RenFont *font) {
+  return font->antialiasing;
+}
+
+ERenFontStyle ren_font_get_style(RenFont *font) {
+  return font->style;
+}
+
 void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
   // free codepoint cache as well
   for (int i = 0; i < CHARMAP_ROW; i++) {
     free(font->charmap.rows[i]);
   }
-  FT_Done_Face(font->face);
+  font_face_close(font->face);
   free(font);
 }
 
@@ -549,12 +500,12 @@ void ren_font_dump(RenFont *font) {
     for (int atlas_idx = 0; atlas_idx < font->glyphs.natlas; atlas_idx++) {
       GlyphAtlas *atlas = &font->glyphs.atlas[bitmap_idx][atlas_idx];
       for (int surface_idx = 0; surface_idx < atlas->nsurface; surface_idx++) {
-        snprintf(filename, 1024, "%s-%d-%d-%d.bmp", font->face->family_name, bitmap_idx, atlas_idx, surface_idx);
+        snprintf(filename, 1024, "%s-%d-%d-%d.bmp", font_face_get_family_name(font->face), bitmap_idx, atlas_idx, surface_idx);
         SDL_SaveBMP(atlas->surfaces[surface_idx], filename);
       }
     }
   }
-  fprintf(stderr, "%s: %zu bytes\n", font->face->family_name, font->glyphs.bytesize);
+  fprintf(stderr, "%s: %zu bytes\n", font_face_get_family_name(font->face), font->glyphs.bytesize);
 }
 #endif
 
@@ -708,7 +659,7 @@ int ren_init(void) {
   draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
                        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
 
-  if ((err = FT_Init_FreeType(&library)) != 0)
+  if ((err = font_init()) != 0)
     return err;
 
   return 0;
@@ -716,7 +667,7 @@ int ren_init(void) {
 
 void ren_free(void) {
   SDL_FreeSurface(draw_rect_surface);
-  FT_Done_FreeType(library);    
+  font_done();
 }
 
 RenWindow* ren_create(SDL_Window *win) {
