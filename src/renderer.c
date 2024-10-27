@@ -399,10 +399,8 @@ static int font_set_face_metrics(RenFont *font, FT_Face face) {
 
   font->face = face;
   if(FT_IS_SCALABLE(face)) {
-  font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
-  font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
-
-  if(FT_IS_SCALABLE(face))
+    font->height = (short)((face->height / (float)face->units_per_EM) * font->size);
+    font->baseline = (short)((face->ascender / (float)face->units_per_EM) * font->size);
     font->underline_thickness = (unsigned short)((face->underline_thickness / (float)face->units_per_EM) * font->size);
   } else {
     font->height = (short) font->face->size->metrics.height / 64.0f;
