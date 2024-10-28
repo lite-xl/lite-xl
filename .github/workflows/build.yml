@@ -263,7 +263,7 @@ jobs:
           pattern: lite-xl-*-release
           path: .
       - name: Versioned Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: ${{ needs.version.outputs.release }}
         with:
           tag_name: ${{ needs.version.outputs.release }}
@@ -285,7 +285,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Continuous Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/master'
         with:
           name: Lite XL Continuous Release
