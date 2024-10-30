@@ -677,7 +677,7 @@ command.add(nil, {
         previous_view = core.root_view:get_primary_node().active_view
       end
       core.set_active_view(view)
-      if(not view.visible)then
+      if not view.visible then
         view.visible = true
       end
       if not view.selected_item then
