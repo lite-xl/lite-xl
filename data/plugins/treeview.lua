@@ -860,7 +860,7 @@ command.add(
         text = item.filename .. PATHSEP
       elseif item.type == "file" then
         local parent_dir = common.dirname(item.filename)
-        text = parent_dir and  parent_dir .. PATHSEP
+        text = parent_dir and parent_dir .. PATHSEP
       end
     end
     core.command_view:enter("Filename", {
