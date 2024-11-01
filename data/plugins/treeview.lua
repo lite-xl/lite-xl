@@ -875,7 +875,8 @@ command.add(
       text = text,
       submit = function(filename)
         local doc_filename = item.dir_name .. PATHSEP .. filename
-        if filename:sub(#filename) == PATHSEP then
+        local lastChar = filename:sub(#filename)
+        if lastChar == "/" or lastChar == "\\" then
           create_new_folder(filename)
         else
           create_new_file(doc_filename)
