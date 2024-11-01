@@ -210,21 +210,64 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
         install_dir : 'Contents'
     )
 else
-    message()
     lite_bindir = 'bin'
     lite_docdir = get_option('datadir') / 'doc' / 'lite-xl'
     lite_datadir = get_option('datadir') / 'lite-xl'
     lpm_userdir = 'lite-xl'
     lpm_install_dir = get_option('datadir')
     if host_machine.system() == 'linux'
+        git_command = find_program('git', required : false)
+
+        if git_command.found()
+            git_tags = run_command(
+                [git_command, 'tag', '-l', '--sort=-version:refname', '--format=%(refname:strip=2) %(creatordate:short)'],
+                check : false
+            ).stdout().split('\n')
+
+            releases = []
+
+            foreach tag : git_tags
+                taga = tag.split(' ')
+                if taga.length() != 2
+                    continue
+                endif
+
+                ref = taga[0]
+                date = taga[1]
+                if not ref.startswith('v') or ref.contains('-')
+                    continue
+                endif
+
+                if ref.startswith('v1.0')
+                    # releases 1.01 to 1.09 used an invalid versioning scheme so we ignore them
+                    continue
+                endif
+
+                releases += '<release version="@0@" date="@1@" />'.format(ref, date)
+            endforeach
+
+            releases_tag = ''
+            if releases.length() > 0
+                releases_tag = '<releases>\n@0@\n</releases>'.format('\n'.join(releases))
+            endif
+
+            conf_data.set('METAINFO_RELEASES', releases_tag)
+        else
+            conf_data.set('METAINFO_RELEASES', '')
+        endif
+
         install_data('resources' / 'icons' / 'lite-xl.svg',
             install_dir : get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps'
         )
         install_data('resources' / 'linux' / 'com.lite_xl.LiteXL.desktop',
             install_dir : get_option('datadir') / 'applications'
         )
-        install_data('resources' / 'linux' / 'com.lite_xl.LiteXL.appdata.xml',
-            install_dir : get_option('datadir') / 'metainfo'
+        configure_file(
+            input : 'resources' / 'linux' / 'com.lite_xl.LiteXL.metainfo.xml.in',
+            output : 'com.lite_xl.LiteXL.metainfo.xml',
+            configuration : conf_data,
+            install : true,
+            install_dir : 'share/metainfo'
         )
     endif
 endif
