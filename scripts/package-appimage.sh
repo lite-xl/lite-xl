@@ -76,7 +76,6 @@ generate_appimage() {
 	echo "Creating LiteXL.AppDir..."
 
 	DESTDIR="$(realpath LiteXL.AppDir)" meson install -C ${BUILD_DIR}
-	mv AppRun LiteXL.AppDir/
 
 	cp resources/icons/lite-xl.svg LiteXL.AppDir/
 	cp resources/linux/com.lite_xl.LiteXL.desktop LiteXL.AppDir/
