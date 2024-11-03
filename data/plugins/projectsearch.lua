@@ -172,7 +172,6 @@ function ResultsView:draw()
   -- status
   local ox, oy = self:get_content_offset()
   local x, y = ox + style.padding.x, oy + style.padding.y
-  local per = common.clamp(1, 0, 1)
   local text
   if self.searching then
     text = string.format("Searching (%d files, %d matches) for %q...",
@@ -192,7 +191,7 @@ function ResultsView:draw()
   local color = common.lerp(style.dim, style.text, self.brightness / 100)
   renderer.draw_rect(x, oy + yoffset - style.padding.y, w, h, color)
   if self.searching then
-    renderer.draw_rect(x, oy + yoffset - style.padding.y, w * per, h, style.text)
+    renderer.draw_rect(x, oy + yoffset - style.padding.y, w, h, style.text)
   end
 
   -- results
