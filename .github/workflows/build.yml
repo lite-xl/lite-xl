@@ -85,7 +85,7 @@ jobs:
         
       - name: Package Mac (Bundle)
         if: ${{ matrix.config.type == 'bundle' }}
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl Info.plist
+        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl
 
       - name: Package Mac (Portable)
         if: ${{ matrix.config.type == 'portable' }}
