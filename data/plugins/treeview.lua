@@ -100,7 +100,11 @@ function TreeView:get_cached(project, path)
       project = project,
       ignored = self.show_ignored and project:is_ignored(info, path)
     }
-    if self.expanded[path] ~= nil then t.expanded = self.expanded[path] else t.expanded = (info.type == "dir" and #truncated <= 1) end
+    if self.expanded[path] ~= nil then 
+      t.expanded = self.expanded[path]
+    else 
+      t.expanded = (info.type == "dir" and #truncated <= 1) 
+    end
     if t.expanded then self.watches[project]:watch(path) end
     self.cache[path] = t
   end
