@@ -237,6 +237,7 @@ init_lua:
   if (lua_toboolean(L, -1)) {
     lua_close(L);
     rencache_invalidate();
+    has_restarted = 1;
     goto init_lua;
   }
 

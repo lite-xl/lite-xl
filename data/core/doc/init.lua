@@ -103,7 +103,7 @@ function Doc:save(filename, abs_filename)
   else
     assert(self.filename or abs_filename, "calling save on unnamed doc without absolute path")
   end
-  local fp = assert( io.open(abs_filename, "wb") )
+  local fp = assert(io.open(abs_filename, "wb"))
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)
