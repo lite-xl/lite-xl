@@ -48,7 +48,7 @@ main() {
     pip3 install meson dmgbuild
   elif [[ "$OSTYPE" == "msys" ]]; then
     pacman --noconfirm -S \
-      ${MINGW_PACKAGE_PREFIX}-{ca-certificates,gcc,meson,ninja,ntldd,pkg-config,mesa,freetype,pcre2,SDL2} unzip
+      ${MINGW_PACKAGE_PREFIX}-{ca-certificates,gcc,meson,ninja,ntldd,pkg-config,mesa,freetype,pcre2,SDL2} unzip patch zip
   fi
 }
 

@@ -284,7 +284,8 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     -- continue trying to match the end pattern of a pair if we have a state set
     if current_pattern_idx > 0 then
       local p = current_syntax.patterns[current_pattern_idx]
-      local s, e = find_text(text, p, i, false, true)
+      local find_results = { find_text(text, p, i, false, true) }
+      local s, e = find_results[1], find_results[2]
       -- Use the first token type specified in the type table for the "middle"
       -- part of the subsyntax.
       local token_type = type(p.type) == "table" and p.type[1] or p.type
@@ -309,7 +310,12 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
       -- continue on as normal.
       if cont then
         if s then
-          push_token(res, token_type, text:usub(i, e))
+          -- Push remaining token before the end delimiter
+          if s > i then
+            push_token(res, token_type, text:usub(i, s - 1))
+          end
+          -- Push the end delimiter
+          push_tokens(res, current_syntax, p, text, find_results)
           set_subsyntax_pattern_idx(0)
           i = e + 1
         else

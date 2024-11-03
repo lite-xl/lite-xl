@@ -7,6 +7,14 @@ local View = require "core.view"
 ---@field super core.view
 local EmptyView = View:extend()
 
+function EmptyView:get_name()
+  return "Get Started"
+end
+
+function EmptyView:get_filename()
+  return ""
+end
+
 local function draw_text(x, y, color)
   local lines = {
     { fmt = "%s to run a command", cmd = "core:find-command" },
