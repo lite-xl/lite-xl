@@ -107,12 +107,13 @@ int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
 #endif
 
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    fprintf(stderr, "Error initializing SDL: %s\n", SDL_GetError());
+  if (SDL_Init(SDL_INIT_EVENTS) != 0) {
+    fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
     exit(1);
   }
-  SDL_EnableScreenSaver();
   SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+  SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
+  SDL_EventState(SDL_TEXTEDITING, SDL_ENABLE);
   atexit(SDL_Quit);
 
 #ifdef SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR /* Available since 2.0.8 */
@@ -151,12 +152,12 @@ int main(int argc, char **argv) {
 
   int has_restarted = 0;
   lua_State *L;
+
 init_lua:
   L = luaL_newstate();
   luaL_openlibs(L);
   api_load_libs(L);
-
-
+  
   lua_newtable(L);
   for (int i = 0; i < argc; i++) {
     lua_pushstring(L, argv[i]);
@@ -189,8 +190,6 @@ init_lua:
     set_macos_bundle_resources(L);
   #endif
 #endif
-  SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
-  SDL_EventState(SDL_TEXTEDITING, SDL_ENABLE);
 
   const char *init_lite_code = \
     "local core\n"

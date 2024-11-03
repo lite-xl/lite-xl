@@ -30,10 +30,7 @@ local function save_session()
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size(core.window))),
       ", window_mode=", common.serialize(system.get_window_mode(core.window)),
-      ", previous_find=", common.serialize(core.previous_find),
-      ", previous_replace=", common.serialize(core.previous_replace),
-      "}\n")
-    fp:close()
+      "}\n"):close()
   end
 end
 
@@ -55,30 +52,10 @@ local function update_recents_project(action, dir_path_abs)
 end
 
 
-local function reload_customizations()
-  local user_error = not core.load_user_directory()
-  local project_error = not core.load_project_module()
-  if user_error or project_error then
-    -- Use core.add_thread to delay opening the LogView, as opening
-    -- it directly here disturbs the normal save operations.
-    core.add_thread(function()
-      local LogView = require "core.logview"
-      local rn = core.root_view.root_node
-      for _,v in pairs(core.root_view.root_node:get_children()) do
-        if v:is(LogView) then
-          rn:get_node_for_view(v):set_active_view(v)
-          return
-        end
-      end
-      command.perform("core:open-log")
-    end)
-  end
-end
-
-
 function core.add_project(project)
   project = type(project) == "string" and Project(common.normalize_volume(project)) or project
   table.insert(core.projects, project)
+  update_recents_project("add", project.path)
   core.redraw = true
   return project
 end
@@ -98,15 +75,16 @@ end
 
 function core.set_project(project)
   while #core.projects > 0 do core.remove_project(core.projects[#core.projects], true) end
-  return core.add_project(project)
+  local project = core.add_project(project)
+  return project
 end
 
 
 function core.open_project(project)
   local project = core.set_project(project)
   core.root_view:close_all_docviews()
-  reload_customizations()
   update_recents_project("add", project.path)
+  command.perform("core:restart")
 end
 
 
@@ -254,20 +232,17 @@ local config = require "core.config"
 
 -- You may activate some plugins on a per-project basis to override the user's settings.
 -- config.plugins.trimwitespace = true
-]])
-  init_file:close()
+]]):close()
 end
 
 
-function core.load_user_directory()
+function core.ensure_user_directory()
   return core.try(function()
-    local stat_dir = system.get_file_info(USERDIR)
-    if not stat_dir then
+    if not system.get_file_info(USERDIR) then
       create_user_directory()
     end
     local init_filename = USERDIR .. PATHSEP .. "init.lua"
-    local stat_file = system.get_file_info(init_filename)
-    if not stat_file then
+    if not system.get_file_info(init_filename) then
       write_user_init_file(init_filename)
     end
     dofile(init_filename)
@@ -279,21 +254,6 @@ function core.configure_borderless_window()
   system.set_window_bordered(not config.borderless)
   core.title_view:configure_hit_test(config.borderless)
   core.title_view.visible = config.borderless
-end
-
-
-local function add_config_files_hooks()
-  -- auto-realod style when user's module is saved by overriding Doc:Save()
-  local doc_save = Doc.save
-  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  function Doc:save(filename, abs_filename)
-    local module_filename = core.project_absolute_path(".lite_project.lua")
-    doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename or self.abs_filename == module_filename then
-      reload_customizations()
-      core.configure_borderless_window()
-    end
-  end
 end
 
 
@@ -320,21 +280,10 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
-  core.window = renwindow._restore()
-  if core.window == nil then
-    core.window = renwindow.create("")
-  end
-  do
-    local session = load_session()
-    if session.window_mode == "normal" then
-      system.set_window_size(core.window, table.unpack(session.window))
-    elseif session.window_mode == "maximized" then
-      system.set_window_mode(core.window, "maximized")
-    end
-    core.recent_projects = session.recents or {}
-    core.previous_find = session.previous_find or {}
-    core.previous_replace = session.previous_replace or {}
-  end
+  local session = load_session()
+  core.recent_projects = session.recents or {}
+  core.previous_find = {}
+  core.previous_replace = {}
 
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
@@ -358,6 +307,8 @@ function core.init()
       end
     end
   end
+  -- Ensure that we have a user directory.
+  core.ensure_user_directory()
 
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
@@ -399,14 +350,10 @@ function core.init()
   -- Load default commands first so plugins can override them
   command.add_defaults()
 
-  -- Load user module, plugins and project module
-  local got_user_error, got_project_error = not core.load_user_directory()
-
   local project_dir_abs = system.absolute_path(project_dir)
   -- We prevent set_project below to effectively add and scan the directory because the
   -- project module and its ignore files is not yet loaded.
   if project_dir_abs and pcall(core.set_project, project_dir_abs) then
-    got_project_error = not core.load_project_module()
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
     end
@@ -415,23 +362,30 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    core.set_project(project_dir_abs)
-    got_project_error = not core.load_project_module()
+    local status, err = pcall(core.set_project, project_dir_abs)
   end
 
   -- Load core and user plugins giving preference to user ones with same name.
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
+  core.window = core.window or renwindow._restore() or renwindow.create("")
+  if session.window_mode == "normal" then
+    system.set_window_size(core.window, table.unpack(session.window))
+  elseif session.window_mode == "maximized" then
+    system.set_window_mode(core.window, "maximized")
+  end
+
+
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %s", pname, pdir)
+    core.log_quiet("Opening project %q from directory %s", pname, pdir)
   end
 
   for _, filename in ipairs(files) do
     core.root_view:open_doc(core.open_doc(filename))
   end
 
-  if not plugins_success or got_user_error or got_project_error then
+  if not plugins_success then
     -- defer LogView to after everything is initialized,
     -- so that EmptyView won't be added after LogView.
     core.add_thread(function()
@@ -466,8 +420,6 @@ function core.init()
         if item.text == "Exit" then os.exit(1) end
       end)
   end
-
-  add_config_files_hooks()
 end
 
 
@@ -546,16 +498,18 @@ function core.restart()
 end
 
 
-local mod_version_regex =
-  regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
-local function get_plugin_details(filename)
-  local info = system.get_file_info(filename)
-  if info ~= nil and info.type == "dir" then
-    filename = filename .. PATHSEP .. "init.lua"
-    info = system.get_file_info(filename)
-  end
-  if not info or not filename:match("%.lua$") then return false end
-  local f = io.open(filename, "r")
+local function require_lua_plugin(plugin)
+  return require("plugins." .. plugin.name)
+end
+
+
+local function load_lua_plugin_if_exists(plugin)
+  return system.get_file_info(plugin.file) and dofile(plugin.file)
+end
+
+
+function core.parse_plugin_details(path, file, mod_version_regex, priority_regex)
+  local f = io.open(file, "r")
   if not f then return false end
   local priority = false
   local version_match = false
@@ -581,7 +535,7 @@ local function get_plugin_details(filename)
     end
 
     if not priority then
-      priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
+      priority = priority_regex:match(line)
       if priority then priority = tonumber(priority) end
     end
 
@@ -590,11 +544,46 @@ local function get_plugin_details(filename)
     end
   end
   f:close()
-  return true, {
+  local version = major and {major, minor, patch} or {}
+  return {
+    name = common.basename(path),
+    file = file,
     version_match = version_match,
-    version = major and {major, minor, patch} or {},
-    priority = priority or 100
+    version = version,
+    priority = priority or 100,
+    version_string = major and table.concat(version, ".") or "unknown"
   }
+end
+
+
+local mod_version_regex =
+  regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
+local priority_regex = regex.compile([[\-\-.*priority\s*:\s*([\d\.]+)]])
+function core.get_plugin_details(path)
+  local info = system.get_file_info(path)
+  local file = path
+  if info ~= nil and info.type == "dir" then
+    file = path .. PATHSEP .. "init.lua"
+    info = system.get_file_info(file)
+  end
+  local details = info and core.parse_plugin_details(path:gsub("%.lua$", ""), file, mod_version_regex, priority_regex)
+  if details then details.load = require_lua_plugin end
+  return details
+end
+
+
+core.plugin_list = {}
+-- Can be called from within plugins; don't insert things lower than your own priority.
+function core.add_plugins(plugins)
+  for i,v in ipairs(plugins) do table.insert(core.plugin_list, v) end
+
+  -- sort by priority or name for plugins that have same priority
+  table.sort(core.plugin_list, function(a, b)
+    if a.priority ~= b.priority then
+      return a.priority < b.priority
+    end
+    return a.name < b.name
+  end)
 end
 
 
@@ -604,77 +593,56 @@ function core.load_plugins()
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
   }
-  local files, ordered = {}, {}
+  local files, ordered = {}, {
+    { priority = -2, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
+    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
+  }
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
       if not files[filename] then
-        table.insert(
-          ordered, {file = filename}
-        )
+        local details = core.get_plugin_details(plugin_dir .. PATHSEP .. filename)
+        if details then table.insert(ordered, details) end
       end
       -- user plugins will always replace system plugins
       files[filename] = plugin_dir
     end
   end
-
-  for _, plugin in ipairs(ordered) do
-    local dir = files[plugin.file]
-    local name = plugin.file:match("(.-)%.lua$") or plugin.file
-    local is_lua_file, details = get_plugin_details(dir .. PATHSEP .. plugin.file)
-
-    plugin.valid = is_lua_file
-    plugin.name = name
-    plugin.dir = dir
-    plugin.priority = details and details.priority or 100
-    plugin.version_match = details and details.version_match or false
-    plugin.version = details and details.version or {}
-    plugin.version_string = #plugin.version > 0 and table.concat(plugin.version, ".") or "unknown"
-  end
-
-  -- sort by priority or name for plugins that have same priority
-  table.sort(ordered, function(a, b)
-    if a.priority ~= b.priority then
-      return a.priority < b.priority
-    end
-    return a.name < b.name
-  end)
+  core.add_plugins(ordered)
 
   local load_start = system.get_time()
-  for _, plugin in ipairs(ordered) do
-    if plugin.valid then
-      if not config.skip_plugins_version and not plugin.version_match then
-        core.log_quiet(
-          "Version mismatch for plugin %q[%s] from %s",
-          plugin.name,
-          plugin.version_string,
-          plugin.dir
-        )
-        local rlist = plugin.dir:find(USERDIR, 1, true) == 1
-          and 'userdir' or 'datadir'
-        local list = refused_list[rlist].plugins
-        table.insert(list, plugin)
-      elseif config.plugins[plugin.name] ~= false then
-        local start = system.get_time()
-        local ok, loaded_plugin = core.try(require, "plugins." .. plugin.name)
-        if ok then
-          local plugin_version = ""
-          if plugin.version_string ~= MOD_VERSION_STRING then
-            plugin_version = "["..plugin.version_string.."]"
-          end
-          core.log_quiet(
-            "Loaded plugin %q%s from %s in %.1fms",
-            plugin.name,
-            plugin_version,
-            plugin.dir,
-            (system.get_time() - start) * 1000
-          )
+  for i = 1, #core.plugin_list do
+    local plugin = core.plugin_list[i]
+    if not config.skip_plugins_version and not plugin.version_match then
+      core.log_quiet(
+        "Version mismatch for plugin %q[%s] from %s",
+        plugin.name,
+        plugin.version_string,
+        common.dirname(plugin.file)
+      )
+      local rlist = plugin.dir:find(USERDIR, 1, true) == 1
+        and 'userdir' or 'datadir'
+      table.insert(refused_list[rlist].plugins, plugin)
+    elseif config.plugins[plugin.name] ~= false then
+      local start = system.get_time()
+      local ok, loaded_plugin = core.try(plugin.load, plugin)
+      if ok then
+        local plugin_version = ""
+        if plugin.version_string and  plugin.version_string ~= MOD_VERSION_STRING then
+          plugin_version = "["..plugin.version_string.."]"
         end
-        if not ok then
-          no_errors = false
-        elseif config.plugins[plugin.name].onload then
+        core.log_quiet(
+          "Loaded plugin %q%s from %s in %.1fms",
+          plugin.name,
+          plugin_version,
+          common.dirname(plugin.file),
+          (system.get_time() - start) * 1000
+        )
+        if config.plugins[plugin.name].onload then
           core.try(config.plugins[plugin.name].onload, loaded_plugin)
         end
+      else
+        no_errors = false
       end
     end
   end
@@ -683,21 +651,6 @@ function core.load_plugins()
     (system.get_time() - load_start) * 1000
   )
   return no_errors, refused_list
-end
-
-
-function core.load_project_module()
-  local filename = core.root_project():absolute_path(".lite_project.lua")
-  
-  if system.get_file_info(filename) then
-    return core.try(function()
-      local fn, err = loadfile(filename)
-      if not fn then error("Error when loading project module:\n\t" .. err) end
-      fn()
-      core.log_quiet("Loaded project module")
-    end)
-  end
-  return true
 end
 
 
