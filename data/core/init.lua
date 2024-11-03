@@ -77,7 +77,7 @@ end
 
 
 function core.add_project(project)
-  project = type(project) == "string" and Project.new(common.normalize_volume(project)) or project
+  project = type(project) == "string" and Project(common.normalize_volume(project)) or project
   table.insert(core.projects, project)
   core.redraw = true
   return project

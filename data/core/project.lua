@@ -1,5 +1,6 @@
-local Project = {}
-function Project.__index(self, k) return Project[k] end
+local Object = require "core.object"
+
+local Project = Object:extend()
 
 local core = require "core"
 local common = require "core.common"
@@ -26,8 +27,11 @@ local function compile_ignore_files()
 end
 
 
-function Project.new(path)
-  return setmetatable({ path = path, name = common.basename(path), compiled = compile_ignore_files() }, Project)
+function Project:new(path)
+  self.path = path
+  self.name = common.basename(path)
+  self.compiled = compile_ignore_files()
+  return self
 end
 
 
