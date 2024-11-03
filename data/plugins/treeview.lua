@@ -34,10 +34,8 @@ local tooltip_alpha_rate = 1
 local function get_depth(filename)
   if filename == "" then return 0 end
   local n = 1
-  for sep in filename:gmatch("\\*" .. PATHSEP) do
-    if #sep % 2 == 1 then
-      n = n + 1
-    end
+  for _ in filename:gmatch(PATHSEP) do
+    n = n + 1
   end
   return n
 end
