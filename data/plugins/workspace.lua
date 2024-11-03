@@ -3,18 +3,26 @@ local core = require "core"
 local common = require "core.common"
 local DocView = require "core.docview"
 local LogView = require "core.logview"
-local storage = require "core.storage"
 
-local STORAGE_MODULE = "ws"
 
-local function workspace_keys_for(project_dir)
+local function workspace_files_for(project_dir)
   local basename = common.basename(project_dir)
+  local workspace_dir = USERDIR .. PATHSEP .. "ws"
+  local info_wsdir = system.get_file_info(workspace_dir)
+  if not info_wsdir then
+    local ok, err = system.mkdir(workspace_dir)
+    if not ok then
+      error("cannot create workspace directory: \"" .. err .. "\"")
+    end
+  end
   return coroutine.wrap(function()
-    for _, key in ipairs(storage.keys(STORAGE_MODULE) or {}) do
-      if key:sub(1, #basename) == basename then
-        local id = tonumber(key:sub(#basename + 1):match("^-(%d+)$"))
+    local files = system.list_dir(workspace_dir) or {}
+    local n = #basename
+    for _, file in ipairs(files) do
+      if file:sub(1, n) == basename then
+        local id = tonumber(file:sub(n + 1):match("^-(%d+)$"))
         if id then
-          coroutine.yield(key, id)
+          coroutine.yield(workspace_dir .. PATHSEP .. file, id)
         end
       end
     end
@@ -22,14 +30,29 @@ local function workspace_keys_for(project_dir)
 end
 
 
-local function consume_workspace(project_dir)
-  for key, id in workspace_keys_for(project_dir) do
-    local workspace = storage.load(STORAGE_MODULE, key)
+local function consume_workspace_file(project_dir)
+  for filename, id in workspace_files_for(project_dir) do
+    local load_f = loadfile(filename)
+    local workspace = load_f and load_f()
     if workspace and workspace.path == project_dir then
-      storage.clear(STORAGE_MODULE, key)
+      os.remove(filename)
       return workspace
     end
   end
+end
+
+
+local function get_workspace_filename(project_dir)
+  local id_list = {}
+  for filename, id in workspace_files_for(project_dir) do
+    id_list[id] = true
+  end
+  local id = 1
+  while id_list[id] do
+    id = id + 1
+  end
+  local basename = common.basename(project_dir)
+  return USERDIR .. PATHSEP .. "ws" .. PATHSEP .. basename .. "-" .. tostring(id)
 end
 
 
@@ -172,17 +195,15 @@ end
 
 
 local function save_workspace()
-  local project_dir = common.basename(core.root_project().path)
-  local id_list = {}
-  for filename, id in workspace_keys_for(project_dir) do
-    id_list[id] = true
+  local project_dir = core.root_project().path
+  local workspace_filename = get_workspace_filename(project_dir)
+  local fp = io.open(workspace_filename, "w")
+  if fp then
+    local node_text = common.serialize(save_node(root))
+    local dir_text = common.serialize(save_directories())
+    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.project_dir, node_text, dir_text))
+    fp:close()
   end
-  local id = 1
-  while id_list[id] do
-    id = id + 1
-  end
-  local root = get_unlocked_root(core.root_view.root_node)
-  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories() })
 end
 
 
