@@ -415,13 +415,8 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    local status, err = pcall(core.set_project, project_dir_abs)
-    if status then
-      got_project_error = not core.load_project_module()
-    else
-      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
-      os.exit(1)
-    end
+    core.set_project(project_dir_abs)
+    got_project_error = not core.load_project_module()
   end
 
   -- Load core and user plugins giving preference to user ones with same name.
