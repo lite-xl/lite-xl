@@ -203,7 +203,7 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
         output : 'Info.plist',
         configuration : conf_data,
         install : true,
-        install_dir : 'Contents'
+        install_dir : 'Contents/Resources'
     )
 else
     lite_bindir = 'bin'
@@ -236,6 +236,16 @@ configure_file(
     configuration : conf_data,
     install_dir : join_paths(lite_datadir, 'core'),
 )
+
+fs = import('fs')
+if get_option('plugins') != ''
+    if not fs.exists(meson.current_build_dir() + '/lpm')
+        run_command('curl', '--insecure', '-L', 'https://github.com/lite-xl/lite-xl-plugin-manager/releases/download/v1.2.9/lpm.x86_64-linux', '-o', meson.current_build_dir() + '/' + 'lpm', check: true)
+        run_command('chmod', '+x', meson.current_build_dir() + '/lpm', check: true)
+        run_command(meson.current_build_dir() + '/lpm', 'install', '--datadir', lite_datadir, '--userdir', lite_datadir, '--arch', 'x86_64-linux', get_option('plugins'), '--assume-yes', check: true) 
+        run_command(meson.current_build_dir() + '/lpm', 'purge', '--datadir', lite_datadir, '--userdir', lite_datadir, check: true)
+    endif
+endif
 
 if not get_option('source-only')
     subdir('src')
