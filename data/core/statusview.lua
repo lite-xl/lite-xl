@@ -367,8 +367,7 @@ function StatusView:register_command_items()
     alignment = StatusView.Item.RIGHT,
     get_item = function()
       return {
-        style.icon_font, "g",
-        style.font, style.dim, self.separator2
+        style.icon_font, "g"
       }
     end
   })
