@@ -42,6 +42,7 @@ double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t le
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
 
+int video_init(void);
 int ren_init(void);
 void ren_free(void);
 RenWindow* ren_create(SDL_Window *win);
