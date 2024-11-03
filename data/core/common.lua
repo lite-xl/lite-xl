@@ -281,7 +281,7 @@ end
 ---@return string[]
 function common.dir_path_suggest(text, root)
   local path, name = text:match("^(.-)([^"..PATHSEP.."]*)$")
-  local files = system.list_dir(path == "" and (root or ".") or path) or {}
+  local files = system.list_dir(path == "" and root or path) or {}
   local res = {}
   for _, file in ipairs(files) do
     file = path .. file
