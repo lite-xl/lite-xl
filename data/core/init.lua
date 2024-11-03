@@ -687,7 +687,7 @@ end
 
 
 function core.load_project_module()
-  local filename = core.project_absolute_path(".lite_project.lua")
+  local filename = core.root_project():absolute_path(".lite_project.lua")
   
   if system.get_file_info(filename) then
     return core.try(function()
@@ -780,10 +780,16 @@ function core.pop_clip_rect()
   renderer.set_clip_rect(x, y, w, h)
 end
 
--- legacy interface
 function core.root_project() return core.projects[1] end
-function core.normalize_to_project_dir(path) return core.root_project():normalize_path(path) end
-function core.project_absolute_path(path) return core.root_project() and core.root_project():absolute_path(path) or system.absolute_path(path) end
+function core.project_for_path(path)
+  for i, project in ipairs(core.projects) do
+    if project.path:find(path, 1, true) then return project end
+  end
+  return nil
+end
+-- Legacy interface; do not use. Use a specific project instead. When in doubt, use root_project.
+function core.normalize_to_project_dir(path) core.warn("Using deprecated function core.normalize_to_project_dir") return core.root_project():normalize_path(path) end
+function core.project_absolute_path(path) core.warn("Using deprecated function core.project_absolute_path") return core.root_project() and core.root_project():absolute_path(path) or system.absolute_path(path) end
 
 function core.open_doc(filename)
   local new_file = true
