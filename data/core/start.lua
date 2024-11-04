@@ -31,7 +31,7 @@ if ALL_IN_ONE then
   io.open = function(path, mode)
     if type(path) == 'string' and mode:find('r') then
       local f = system.packaged_file(path)
-      if f then return { _contents = f, lines = function(self) return self._contents:gmatch('([^\\n]*)\\n?') end, close = function() end } end
+      if f then return { _contents = f, lines = function(self) return self._contents:gmatch('([^\n]*)\n?') end, close = function() end } end
     end
     return _io_open(path, mode)
   end
