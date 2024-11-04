@@ -21,7 +21,7 @@ USERDIR = (system.get_file_info(EXEDIR .. PATHSEP .. 'user') and (EXEDIR .. PATH
        or (HOME and (HOME .. PATHSEP .. '.config' .. PATHSEP .. 'lite-xl'))
 
 if ALL_IN_ONE then 
-  DATADIR = '' 
+  DATADIR = '%INTERNAL%'
   local _list_dir, _get_file_info, _io_open = system.list_dir, system.get_file_info, io.open
   system.list_dir = function(dir) return system.packaged_dir(dir) or _list_dir(dir) end
   system.get_file_info = function(file)
@@ -65,14 +65,14 @@ if ALL_IN_ONE then
   table.insert(package.searchers, function(modname)
     local modpath = modname:gsub('%.', PATHSEP)
     for path in package.path:gsub('%?', modpath):gmatch('[^;]+') do
-      local contents = system.packaged_file(path)
-      if contents then return function() return load(contents, "=" .. path)() end end
+      local contents = path:sub(1, #DATADIR) == DATADIR and system.packaged_file(path)
+      if contents then return function() return load(contents, "=" .. path:sub(#DATADIR))() end end
     end
   end)
   table.insert(package.searchers, function(modname)
     local modpath = modname:gsub('%.', PATHSEP)
     for path in package.cpath:gsub('%?', modpath):gmatch('[^;]+') do
-      local contents = system.packaged_file(path:sub(#DATADIR + 1))
+      local contents = path:sub(1, #DATADIR) == DATADIR and system.packaged_file(path:sub(#DATADIR + 1))
       if contents then 
         local tmp_path = (os.getenv('TMPDIR') or '/tmp/') .. common.basename(path)
         io.open(tmp_path, 'wb'):write(contents):close()

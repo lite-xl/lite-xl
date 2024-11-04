@@ -1273,7 +1273,7 @@ static int f_setenv(lua_State* L) {
 #ifdef LITE_ALL_IN_ONE
   extern const char* packaged_files[];
   const char* retrieve_packaged_file(const char* path, size_t* size) {
-    if (path[0] != '/') return NULL;
+    if (path[0] != '%') return NULL;
     for (int i = 0; packaged_files[i]; i += 3) {
       if (strcmp(path, packaged_files[i]) == 0) {
         *size = (size_t)(long int)packaged_files[i+2];

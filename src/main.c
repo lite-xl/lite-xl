@@ -201,7 +201,7 @@ init_lua:
     "  local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
     #ifdef LITE_ALL_IN_ONE
     "  ALL_IN_ONE = 1\n"
-    "  load(system.packaged_file('/core/start.lua'), '=/core/start.lua')()\n"
+    "  load(system.packaged_file('%INTERNAL%/core/start.lua'), '=/core/start.lua')()\n"
     #else
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
     #endif
