@@ -419,11 +419,20 @@ static int font_set_face_metrics(RenFont *font, FT_Face face) {
   return 0;
 }
 
+extern const char* retrieve_packaged_file(const char* path, size_t* size);
+
 RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   SDL_RWops *file = NULL; RenFont *font = NULL;
   FT_Face face = NULL; FT_Stream stream = NULL;
 
-  file = SDL_RWFromFile(path, "rb");
+  #ifdef LITE_ALL_IN_ONE
+    size_t internal_file_size;
+    const char* internal_file = retrieve_packaged_file(path, &internal_file_size);
+    if (internal_file)
+      file = SDL_RWFromConstMem(internal_file, internal_file_size);
+  #endif
+  if (!file)
+    file = SDL_RWFromFile(path, "rb");
   if (!file) return NULL;
   
   int len = strlen(path);

@@ -1270,6 +1270,42 @@ static int f_setenv(lua_State* L) {
   return 1;
 }
 
+#ifdef LITE_ALL_IN_ONE
+  extern const char* packaged_files[];
+  const char* retrieve_packaged_file(const char* path, size_t* size) {
+    if (path[0] != '%') return NULL;
+    for (int i = 0; packaged_files[i]; i += 3) {
+      if (strcmp(path, packaged_files[i]) == 0) {
+        *size = (size_t)(long int)packaged_files[i+2];
+        return packaged_files[i+1];
+      }
+    }
+    return NULL;
+  }
+  
+  static int f_packaged_file(lua_State* L) {
+    size_t size;
+    const char* file = retrieve_packaged_file(luaL_checkstring(L, 1), &size);
+    if (!file)
+      return 0;
+    lua_pushlstring(L, file, size);
+    return 1;
+  }
+
+  static int f_packaged_dir(lua_State* L) {
+    int files = 0;
+    size_t path_len;
+    const char* path = luaL_checklstring(L, 1, &path_len);
+    lua_newtable(L);
+    for (int i = 0; packaged_files[i]; i += 3) {
+      if (strncmp(path, packaged_files[i], path_len) == 0 && !strstr(&packaged_files[i][path_len+1], "/")) {
+        lua_pushstring(L, &packaged_files[i][path_len+1]);
+        lua_rawseti(L, -2, ++files);
+      }
+    }
+    return files ? 1 : 0;
+  }
+#endif
 
 static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
@@ -1309,6 +1345,10 @@ static const luaL_Reg lib[] = {
   { "text_input",            f_text_input            },
   { "setenv",                f_setenv                },
   { "ftruncate",             f_ftruncate             },
+#ifdef LITE_ALL_IN_ONE
+  { "packaged_file",         f_packaged_file         },
+  { "packaged_dir",          f_packaged_dir          },
+#endif
   { NULL, NULL }
 };
 
