@@ -21,7 +21,7 @@ if get_option('all-in-one')
     find_program('find', required: true)
     all_in_one = custom_target(
         output: 'all-in-one.c',
-        command: [sh, '-c', 'lua generate-all-in-one.lua `find data -type f`']
+        command: [sh, '-c', 'lua ' + meson.current_source_dir() + '/../scripts/' + 'generate-all-in-one.lua `find data -type f`']
     )
     lite_sources += all_in_one
 endif

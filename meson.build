@@ -181,13 +181,6 @@ endif
 #===============================================================================
 if get_option('all-in-one')
     cp = find_program('cp', required: true)
-    custom_target('copy script',
-        input : 'scripts/generate-all-in-one.lua',
-        output : 'generate-all-in-one.lua',
-        command : [cp, '@INPUT@', '@OUTPUT@'],
-        install : false,
-        build_by_default : true
-    )
     run_command(cp, '-r', 'data', meson.current_build_dir())
     lite_cargs += '-DLITE_ALL_IN_ONE'
 endif
