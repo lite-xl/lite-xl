@@ -151,6 +151,8 @@ function get_current_require_path()
   return require_stack[#require_stack]
 end
 
+bit32 = bit32 or require "core.bit"
+
 require "core.utf8string"
 require "core.process"
 
