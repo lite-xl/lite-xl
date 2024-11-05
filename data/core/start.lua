@@ -21,6 +21,7 @@ USERDIR = (system.get_file_info(EXEDIR .. PATHSEP .. 'user') and (EXEDIR .. PATH
        or (HOME and (HOME .. PATHSEP .. '.config' .. PATHSEP .. 'lite-xl'))
 
 if ALL_IN_ONE then 
+  VERSION = BINARY_VERSION
   DATADIR = '%INTERNAL%'
   local _list_dir, _get_file_info, _io_open = system.list_dir, system.get_file_info, io.open
   system.list_dir = function(dir) return system.packaged_dir(dir) or _list_dir(dir) end

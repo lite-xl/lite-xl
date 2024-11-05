@@ -169,6 +169,11 @@ init_lua:
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
 
+#ifdef LITE_VERSION
+  lua_pushstring(L, LITE_VERSION);
+  lua_setglobal(L, "BINARY_VERSION");
+#endif
+
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
   if (*exename) {
