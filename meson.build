@@ -207,17 +207,17 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
     )
 else
     lite_bindir = 'bin'
-    lite_docdir = 'share/doc/lite-xl'
-    lite_datadir = 'share/lite-xl'
+    lite_docdir = get_option('datadir') + '/doc/lite-xl'
+    lite_datadir = get_option('datadir') + '/lite-xl'
     if host_machine.system() == 'linux'
         install_data('resources/icons/lite-xl.svg',
-            install_dir : 'share/icons/hicolor/scalable/apps'
+            install_dir : get_option('datadir') + '/icons/hicolor/scalable/apps'
         )
         install_data('resources/linux/org.lite_xl.lite_xl.desktop',
-            install_dir : 'share/applications'
+            install_dir : get_option('datadir') + '/applications'
         )
         install_data('resources/linux/org.lite_xl.lite_xl.appdata.xml',
-            install_dir : 'share/metainfo'
+            install_dir : get_option('datadir') + '/metainfo'
         )
     endif
 endif
