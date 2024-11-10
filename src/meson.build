@@ -36,22 +36,22 @@ else
 endif
 
 if dirmonitor_backend == 'inotify'
-    lite_sources += 'api/dirmonitor/inotify.c'
+    lite_sources += 'api' / 'dirmonitor' / 'inotify.c'
 elif dirmonitor_backend == 'fsevents'
-    lite_sources += 'api/dirmonitor/fsevents.c'
+    lite_sources += 'api' / 'dirmonitor' / 'fsevents.c'
 elif dirmonitor_backend == 'kqueue'
-    lite_sources += 'api/dirmonitor/kqueue.c'
+    lite_sources += 'api' / 'dirmonitor' / 'kqueue.c'
     libkqueue_dep = dependency('libkqueue', required : false)
     if libkqueue_dep.found()
         lite_deps += libkqueue_dep
     endif
 elif dirmonitor_backend == 'inodewatcher'
     add_languages('cpp')
-    lite_sources += 'api/dirmonitor/inodewatcher.cpp'
+    lite_sources += 'api' / 'dirmonitor' / 'inodewatcher.cpp'
 elif dirmonitor_backend == 'win32'
-    lite_sources += 'api/dirmonitor/win32.c'
+    lite_sources += 'api' / 'dirmonitor' / 'win32.c'
 else
-    lite_sources += 'api/dirmonitor/dummy.c'
+    lite_sources += 'api' / 'dirmonitor' / 'dummy.c'
 endif
 
 message('dirmonitor_backend: @0@'.format(dirmonitor_backend))
@@ -59,8 +59,8 @@ message('dirmonitor_backend: @0@'.format(dirmonitor_backend))
 lite_rc = []
 if host_machine.system() == 'windows'
     windows = import('windows')
-    lite_rc += windows.compile_resources('../resources/icons/icon.rc')
-    lite_rc += windows.compile_resources('../resources/windows/manifest.rc')
+    lite_rc += windows.compile_resources('..' / 'resources' / 'icons' / 'icon.rc')
+    lite_rc += windows.compile_resources('..' / 'resources' / 'windows' / 'manifest.rc')
 elif host_machine.system() == 'darwin'
     lite_sources += 'bundle_open.m'
 endif
