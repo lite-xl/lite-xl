@@ -510,12 +510,14 @@ int ren_font_group_get_height(RenFont **fonts) {
   return fonts[0]->height;
 }
 
+#define TAB_WIDTH(F, O) ((F)->tab_size - (O % ((F)->tab_size)))
+
 // some fonts provide xadvance for whitespaces (e.g. Unifont), which we need to ignore
-#define FONT_GET_XADVANCE(F, C, M) (is_whitespace((C)) || !(M) || !(M)->xadvance \
-  ? (F)->space_advance * (float) ((C) == '\t' ? (F)->tab_size : 1) \
+#define FONT_GET_XADVANCE(F, C, M, O) (is_whitespace((C)) || !(M) || !(M)->xadvance \
+  ? (F)->space_advance * (float) ((C) == '\t' ? TAB_WIDTH(F, O) : 1) \
   : (M)->xadvance)
 
-double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, int *x_offset) {
+double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, int pos, int *x_offset) {
   double width = 0;
   const char* end = text + len;
 
@@ -525,7 +527,12 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
     text = utf8_to_codepoint(text, end, &codepoint);
     GlyphMetric *metric = NULL;
     font_group_get_glyph(fonts, codepoint, 0, NULL, &metric);
-    width += FONT_GET_XADVANCE(fonts[0], codepoint, metric);
+    width += FONT_GET_XADVANCE(fonts[0], codepoint, metric, pos);
+    if (codepoint == '\t')
+      pos += TAB_WIDTH(fonts[0], pos);
+    else
+      pos += 1;
+
     if (!set_x_offset && metric) {
       set_x_offset = true;
       *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
@@ -567,6 +574,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   double pen_x = x * surface_scale;
   y *= surface_scale;
   const char* end = text + len;
+  int pos = 0;
   uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
@@ -631,7 +639,12 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       }
     }
 
-    float adv = FONT_GET_XADVANCE(fonts[0], codepoint, metric);
+
+    float adv = FONT_GET_XADVANCE(fonts[0], codepoint, metric, pos);
+    if (codepoint == '\t')
+      pos += TAB_WIDTH(fonts[0], pos);
+    else
+      pos += 1;
 
     if(!last) last = font;
     else if(font != last || text == end) {

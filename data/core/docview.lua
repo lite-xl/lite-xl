@@ -184,11 +184,13 @@ function DocView:get_col_x_offset(line, col)
         return xoffset
       end
     else
+      local pos = 0
       for char in common.utf8_chars(text) do
         if column >= col then
           return xoffset
         end
-        xoffset = xoffset + font:get_width(char)
+        xoffset = xoffset + font:get_width(char, pos)
+        pos = pos + 1
         column = column + #char
       end
     end

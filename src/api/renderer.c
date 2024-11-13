@@ -207,8 +207,9 @@ static int f_font_get_width(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
   size_t len;
   const char *text = luaL_checklstring(L, 2, &len);
+  const int pos = luaL_optinteger(L, 3, 0);
 
-  lua_pushnumber(L, ren_font_group_get_width(fonts, text, len, NULL));
+  lua_pushnumber(L, ren_font_group_get_width(fonts, text, len, pos, NULL));
   return 1;
 }
 
