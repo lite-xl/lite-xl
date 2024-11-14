@@ -28,6 +28,8 @@ if get_option('dirmonitor_backend') == ''
         dirmonitor_backend = 'kqueue'
     elif host_machine.system() == 'windows'
         dirmonitor_backend = 'win32'
+    elif cc.has_header('sys/stat.h')
+        dirmonitor_backend = 'posix_polling'
     else
         dirmonitor_backend = 'dummy'
         warning('no suitable backend found, defaulting to dummy backend')
@@ -51,6 +53,8 @@ elif dirmonitor_backend == 'inodewatcher'
     lite_sources += 'api/dirmonitor/inodewatcher.cpp'
 elif dirmonitor_backend == 'win32'
     lite_sources += 'api/dirmonitor/win32.c'
+elif dirmonitor_backend == 'posix_polling'
+    lite_sources += 'api/dirmonitor/posix_polling.c'
 else
     lite_sources += 'api/dirmonitor/dummy.c'
 endif
