@@ -1,3 +1,4 @@
+#include <math.h>
 #include <string.h>
 #include <assert.h>
 #include "api.h"
@@ -204,7 +205,7 @@ static int f_font_gc(lua_State *L) {
 
 
 static RenTab checktab(lua_State *L, int idx) {
-  RenTab tab = {.enabled = false, .offset = 0};
+  RenTab tab = {.offset = NAN};
   if (lua_isnoneornil(L, idx)) {
     return tab;
   }
@@ -213,7 +214,6 @@ static RenTab checktab(lua_State *L, int idx) {
     return tab;
   }
   tab.offset = luaL_checknumber(L, -1);
-  tab.enabled = true;
   return tab;
 }
 

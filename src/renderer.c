@@ -519,7 +519,7 @@ float font_get_xadvance(RenFont *font, unsigned int codepoint, GlyphMetric *metr
     return font->space_advance;
   }
   float tab_size = font->space_advance * font->tab_size;
-  if (!tab.enabled) {
+  if (isnan(tab.offset)) {
     return tab_size;
   }
   double offset = fmodl(curr_x + tab.offset, tab_size);

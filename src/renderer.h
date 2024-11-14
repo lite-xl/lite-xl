@@ -19,7 +19,7 @@ typedef enum { FONT_ANTIALIASING_NONE, FONT_ANTIALIASING_GRAYSCALE, FONT_ANTIALI
 typedef enum { FONT_STYLE_BOLD = 1, FONT_STYLE_ITALIC = 2, FONT_STYLE_UNDERLINE = 4, FONT_STYLE_SMOOTH = 8, FONT_STYLE_STRIKETHROUGH = 16 } ERenFontStyle;
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
-typedef struct { bool enabled; double offset; } RenTab;
+typedef struct { double offset; } RenTab;
 typedef struct { SDL_Surface *surface; int scale; } RenSurface;
 
 struct RenWindow;
