@@ -209,8 +209,7 @@ static RenTab checktab(lua_State *L, int idx) {
     return tab;
   }
   luaL_checktype(L, idx, LUA_TTABLE);
-  lua_getfield(L, idx, "tab_offset");
-  if (lua_isnoneornil(L, -1)) {
+  if (lua_getfield(L, idx, "tab_offset") == LUA_TNIL) {
     return tab;
   }
   tab.offset = luaL_checknumber(L, -1);
