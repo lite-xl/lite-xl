@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-export APPIMAGE_EXTRACT_AND_RUN=1
-
 if [ ! -e "src/api/api.h" ]; then
   echo "Please run this script from the root directory of Lite XL."
   exit 1
@@ -100,7 +98,7 @@ generate_appimage() {
     version="-$VERSION"
   fi
 
-  ./appimagetool LiteXL.AppDir LiteXL${version}-${ARCH}-linux.AppImage
+  APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool LiteXL.AppDir LiteXL${version}-${ARCH}-linux.AppImage
   rm -rf LiteXL.AppDir
 }
 
