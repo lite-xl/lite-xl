@@ -41,7 +41,7 @@ main() {
   fi
 
   if [[ "$OSTYPE" == "linux"* ]]; then
-    sudo apt-get install -qq libfuse2 ninja-build wayland-protocols libsdl2-dev libfreetype6
+    sudo apt-get install -qq libfuse2 ninja-build wayland-protocols libsdl2-dev libfreetype6 desktop-file-utils
     pip3 install meson
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     brew install bash ninja sdl2
