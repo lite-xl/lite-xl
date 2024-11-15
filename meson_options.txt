@@ -2,6 +2,6 @@ option('bundle', type : 'boolean', value : false, description: 'Build a macOS bu
 option('source-only', type : 'boolean', value : false, description: 'Configure source files only, doesn\'t checks for dependencies')
 option('portable', type : 'boolean', value : false, description: 'Portable install')
 option('renderer', type : 'boolean', value : false, description: 'Use SDL renderer')
-option('dirmonitor_backend', type : 'combo', value : '', choices : ['', 'inotify', 'fsevents', 'kqueue', 'win32', 'dummy'], description: 'define what dirmonitor backend to use')
+option('dirmonitor_backend', type : 'combo', value : '', choices : ['', 'inotify', 'fsevents', 'kqueue', 'win32', 'posix_polling', 'dummy'], description: 'define what dirmonitor backend to use')
 option('arch_tuple', type : 'string', value : '', description: 'Specify a custom architecture tuple')
 option('use_system_lua', type : 'boolean', value : false, description: 'Prefer System Lua over a the meson wrap')
