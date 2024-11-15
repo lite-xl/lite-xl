@@ -269,6 +269,7 @@ jobs:
           tag: ${{ needs.version.outputs.release }}
           name: Lite XL ${{ needs.version.outputs.release }}
           draft: true
+          allowUpdates: true
           bodyFile: release-notes.md
           artifacts: "releases/*.*"
       - name: Update Tag
@@ -285,6 +286,7 @@ jobs:
           name: Lite XL Continuous Release
           tag: continuous
           prerelease: true
+          allowUpdates: true
           removeArtifacts: false
           generateReleaseNotes: true
           artifacts: "releases/*.*"
