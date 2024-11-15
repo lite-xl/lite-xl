@@ -169,6 +169,11 @@ init_lua:
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
 
+#ifdef LITE_VERSION
+  lua_pushstring(L, LITE_VERSION);
+  lua_setglobal(L, "BINARY_VERSION");
+#endif
+
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
   if (*exename) {
@@ -188,7 +193,7 @@ init_lua:
   SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
   SDL_EventState(SDL_TEXTEDITING, SDL_ENABLE);
 
-  const char *init_lite_code = \
+  const char *init_lite_code =
     "local core\n"
     "local os_exit = os.exit\n"
     "os.exit = function(code, close)\n"
@@ -199,7 +204,12 @@ init_lua:
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
     "  local exedir = match(EXEFILE, '^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
     "  local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
+    #ifdef LITE_ALL_IN_ONE
+    "  ALL_IN_ONE = 1\n"
+    "  load(system.packaged_file('%INTERNAL%/core/start.lua'), '=/core/start.lua')()\n"
+    #else
     "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
+    #endif
     "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
     "  core.run()\n"

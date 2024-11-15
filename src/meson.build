@@ -14,6 +14,18 @@ lite_sources = [
 ]
 
 lite_sources += 'api/dirmonitor.c'
+
+if get_option('all-in-one')
+    sh = find_program('sh', required: true)
+    find_program('lua', required: true)
+    find_program('find', required: true)
+    all_in_one = custom_target(
+        output: 'all-in-one.c',
+        command: [sh, '-c', 'lua ' + meson.current_source_dir() + '/../scripts/' + 'generate-all-in-one.lua `find data -type f`']
+    )
+    lite_sources += all_in_one
+endif
+
 # dirmonitor backend
 if get_option('dirmonitor_backend') == ''
     if cc.has_function('inotify_init', prefix : '#include<sys/inotify.h>')

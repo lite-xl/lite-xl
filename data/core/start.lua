@@ -20,6 +20,24 @@ USERDIR = (system.get_file_info(EXEDIR .. PATHSEP .. 'user') and (EXEDIR .. PATH
        or ((os.getenv("XDG_CONFIG_HOME") and os.getenv("XDG_CONFIG_HOME") .. PATHSEP .. "lite-xl"))
        or (HOME and (HOME .. PATHSEP .. '.config' .. PATHSEP .. 'lite-xl'))
 
+if ALL_IN_ONE then 
+  VERSION = BINARY_VERSION
+  DATADIR = '%INTERNAL%'
+  local _list_dir, _get_file_info, _io_open = system.list_dir, system.get_file_info, io.open
+  system.list_dir = function(dir) return system.packaged_dir(dir) or _list_dir(dir) end
+  system.get_file_info = function(file)
+    local f = system.packaged_file(file)
+    return f and { mtime = 0, size = #f, type = 'file' } or _get_file_info(file)
+  end
+  io.open = function(path, mode)
+    if type(path) == 'string' and mode:find('r') then
+      local f = system.packaged_file(path)
+      if f then return { _contents = f, lines = function(self) return self._contents:gmatch('([^\n]*)\n?') end, close = function() end } end
+    end
+    return _io_open(path, mode)
+  end
+end
+
 package.path = DATADIR .. '/?.lua;'
 package.path = DATADIR .. '/?/init.lua;' .. package.path
 package.path = USERDIR .. '/?.lua;' .. package.path
@@ -42,6 +60,28 @@ package.searchers = { package.searchers[1], package.searchers[2], function(modna
   if not path then return err end
   return system.load_native_plugin, path
 end }
+
+
+if ALL_IN_ONE then
+  table.insert(package.searchers, function(modname)
+    local modpath = modname:gsub('%.', PATHSEP)
+    for path in package.path:gsub('%?', modpath):gmatch('[^;]+') do
+      local contents = path:sub(1, #DATADIR) == DATADIR and system.packaged_file(path)
+      if contents then return function() return load(contents, "=" .. path:sub(#DATADIR))() end end
+    end
+  end)
+  table.insert(package.searchers, function(modname)
+    local modpath = modname:gsub('%.', PATHSEP)
+    for path in package.cpath:gsub('%?', modpath):gmatch('[^;]+') do
+      local contents = path:sub(1, #DATADIR) == DATADIR and system.packaged_file(path:sub(#DATADIR + 1))
+      if contents then 
+        local tmp_path = (os.getenv('TMPDIR') or '/tmp/') .. common.basename(path)
+        io.open(tmp_path, 'wb'):write(contents):close()
+        return system.load_native_plugin, tmp_path 
+      end
+    end
+  end)
+end
 
 table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
