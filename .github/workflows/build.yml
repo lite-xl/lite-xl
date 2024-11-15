@@ -222,25 +222,15 @@ jobs:
       - name: Install meson and ninja
         run: pip install meson ninja
 
-      - name: Set up environment variables
-        run: |
-          "LUA_SUBPROJECT_PATH=subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)" >> $env:GITHUB_ENV
-
-      - name: Download subprojects
-        shell: bash
-        run: |
-          meson subprojects download
-
       - name: Configure
         run: meson setup --wrap-mode=forcefallback build
 
       - name: Build
-        run: meson install -C build --destdir="../lite-xl"
+        run: meson install -C build --skip-subprojects --destdir="../lite-xl"
 
       - name: Package
-        run: |
-          Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
-          Compress-Archive -Path lite-xl -DestinationPath "lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip"
+        shell: powershell {0}
+        run: Compress-Archive -Path lite-xl -DestinationPath "lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip"
 
       - name: Upload Artifacts (Intermediate)
         uses: actions/upload-artifact@v4

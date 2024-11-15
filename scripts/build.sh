@@ -24,7 +24,6 @@ show_help() {
   echo "-A --addons                   Add in addons"
   echo "-P --portable                 Create a portable binary package."
   echo "-O --pgo                      Use profile guided optimizations (pgo)."
-  echo "-U --windows-lua-utf          Use the UTF8 patch for Lua."
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
   echo "   --cross-platform PLATFORM  Cross compile for this platform."
@@ -49,7 +48,6 @@ main() {
   local bundle
   local portable
   local pgo
-  local patch_lua
   local cross
   local cross_platform
   local cross_arch
@@ -103,10 +101,6 @@ main() {
         ;;
       -O|--pgo)
         pgo="-Db_pgo=generate"
-        shift
-        ;;
-      -U|--windows-lua-utf)
-        patch_lua="true"
         shift
         ;;
       --cross-arch)
@@ -187,12 +181,6 @@ main() {
   fi
 
   rm -rf "${build_dir}"
-
-  if [[ $patch_lua == "true" ]] && [[ ! -z $force_fallback ]]; then
-    # download the subprojects so we can start patching before configure.
-    # this will prevent reconfiguring the project.
-    meson subprojects download
-  fi
 
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
     "${build_dir}" \
