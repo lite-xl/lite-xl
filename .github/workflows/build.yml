@@ -287,6 +287,6 @@ jobs:
           tag: continuous
           prerelease: true
           allowUpdates: true
-          removeArtifacts: false
+          removeArtifacts: true
           generateReleaseNotes: true
           artifacts: "releases/*.*"
