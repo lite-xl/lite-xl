@@ -252,6 +252,9 @@ jobs:
         with:
           pattern: lite-xl-*-release
           path: .
+      - name: Generate Release Notes
+        if: needs.version.outputs.release
+        run: bash scripts/generate-release-notes.sh --version ${{ needs.version.outputs.release }}
       - name: Versioned Release
         uses: softprops/action-gh-release@v2
         if: ${{ needs.version.outputs.release }}
@@ -259,7 +262,7 @@ jobs:
           tag_name: ${{ needs.version.outputs.release }}
           name: Lite XL ${{ needs.version.outputs.release }}
           draft: true
-          body_path: changelog.md
+          body_path: release-notes.md
           generate_release_notes: true
           files: |
             */*.tar.gz
