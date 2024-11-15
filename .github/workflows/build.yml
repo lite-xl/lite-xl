@@ -255,27 +255,22 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: lite-xl-*-release
-          path: .
+          merge-multiple: true
+          path: releases
       - name: Generate Release Notes
         if: needs.version.outputs.release
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash scripts/generate-release-notes.sh --version ${{ needs.version.outputs.release }}
       - name: Versioned Release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         if: ${{ needs.version.outputs.release }}
         with:
-          tag_name: ${{ needs.version.outputs.release }}
+          tag: ${{ needs.version.outputs.release }}
           name: Lite XL ${{ needs.version.outputs.release }}
           draft: true
-          body_path: release-notes.md
-          generate_release_notes: true
-          files: |
-            */*.tar.gz
-            */*.zip
-            */*.exe
-            */*.dmg
-            */*.AppImage
+          bodyFile: release-notes.md
+          artifacts: "releases/*.*"
       - name: Update Tag
         uses: richardsimko/update-tag@v1
         if: github.ref == 'refs/heads/master'
@@ -284,17 +279,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Continuous Release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         if: github.ref == 'refs/heads/master'
         with:
           name: Lite XL Continuous Release
-          tag_name: continuous
+          tag: continuous
           prerelease: true
-          append_body: false
-          generate_release_notes: true
-          files: |
-            */*.tar.gz
-            */*.zip
-            */*.exe
-            */*.dmg
-            */*.AppImage
+          removeArtifacts: false
+          generateReleaseNotes: true
+          artifacts: "releases/*.*"
