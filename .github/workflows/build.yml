@@ -29,6 +29,8 @@ jobs:
     outputs:
       release: ${{ steps.check_release.outputs.release }}
       ref: ${{ steps.check_release.outputs.ref }}
+    permissions:
+      contents: write
     steps:
       - name: Update Tag
         uses: richardsimko/update-tag@v1
@@ -245,6 +247,8 @@ jobs:
     name: Create Release
     needs: [version, build_linux, build_windows, build_darwin_universal]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Download Artifacts
@@ -254,6 +258,8 @@ jobs:
           path: .
       - name: Generate Release Notes
         if: needs.version.outputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash scripts/generate-release-notes.sh --version ${{ needs.version.outputs.release }}
       - name: Versioned Release
         uses: softprops/action-gh-release@v2
