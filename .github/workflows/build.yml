@@ -187,7 +187,7 @@ jobs:
         run: bash scripts/install-dependencies.sh
         
       - name: Build
-        run: bash scripts/build.sh -U --addons --debug --forcefallback --portable -b build
+        run: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
 
       - name: Package Windows (Portable)
         run: cd build && zip -r ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable.zip lite-xl && cd ..

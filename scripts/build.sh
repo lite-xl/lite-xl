@@ -53,8 +53,6 @@ main() {
   local cross_arch
   local cross_file
 
-  local lua_subproject_path
-
   for i in "$@"; do
     case $i in
       -h|--help)
