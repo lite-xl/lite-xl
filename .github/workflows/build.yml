@@ -281,6 +281,8 @@ jobs:
           name: Lite XL Continuous Release
           tag_name: continuous
           prerelease: true
+          append_body: false
+          generate_release_notes: true
           files: |
             */*.tar.gz
             */*.zip
