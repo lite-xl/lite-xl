@@ -29,6 +29,8 @@ jobs:
     outputs:
       release: ${{ steps.check_release.outputs.release }}
       ref: ${{ steps.check_release.outputs.ref }}
+    permissions:
+      contents: write
     steps:
       - name: Update Tag
         uses: richardsimko/update-tag@v1
@@ -58,10 +60,8 @@ jobs:
     strategy:
       matrix:
         config:
-          - { runner: macos-13, type: bundle,   arch: x86_64-darwin }
-          - { runner: macos-13, type: portable, arch: x86_64-darwin }
-          - { runner: macos-14, type: bundle,   arch: aarch64-darwin }
-          - { runner: macos-14, type: portable, arch: aarch64-darwin }
+          - { runner: macos-13, arch: x86_64-darwin }
+          - { runner: macos-14, arch: aarch64-darwin }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - name: System Information
@@ -80,24 +80,23 @@ jobs:
       - name: Install Dependencies
         run: scripts/install-dependencies.sh
         
-      - name: Build
-        run: scripts/build.sh --addons --debug --forcefallback --${{ matrix.config.type }} -b build
-        
-      - name: Package Mac (Bundle)
-        if: ${{ matrix.config.type == 'bundle' }}
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl Info.plist
+      - name: Build & Package Mac (Bundle)
+        run: |
+          scripts/build.sh --addons --debug --forcefallback --reconfigure --bundle -b build
+          tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz lite-xl Info.plist
 
-      - name: Package Mac (Portable)
-        if: ${{ matrix.config.type == 'portable' }}
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl
+      - name: Build & Package Mac (Portable)
+        run: |
+          scripts/build.sh --addons --debug --forcefallback --reconfigure --portable -b build
+          tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl
         
       - name: Upload (Intermediate)
         uses: actions/upload-artifact@v4
         with:
-          name: lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-${{ matrix.config.type }}
+          name: lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}
           path: |
             *.tar.gz
- 
+
 
   build_darwin_universal:
     name: Darwin (Universal)
@@ -117,12 +116,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: '*darwin*'
+          merge-multiple: true
 
       - name: Create Universal Binaries
         run: |
           for TYPE in bundle portable; do
-            mkdir -p lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl
-            cd lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-$TYPE && tar -zxvf *.tar.gz && cd .. && cd lite-xl-${{ needs.version.outputs.ref }}-aarch64-darwin-$TYPE && tar -zxvf *.tar.gz && cd ..
+            mkdir -p lite-xl-${{ needs.version.outputs.ref }}-{x86_64,aarch64,universal}-darwin-$TYPE/lite-xl
+            tar -C lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-$TYPE -zxvf lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-$TYPE.tar.gz
+            tar -C lite-xl-${{ needs.version.outputs.ref }}-aarch64-darwin-$TYPE -zxvf lite-xl-${{ needs.version.outputs.ref }}-aarch64-darwin-$TYPE.tar.gz
             cp -r lite-xl-${{ needs.version.outputs.ref }}-*-$TYPE/lite-xl/data lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl
             lipo -create -output lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl/lite-xl lite-xl-${{ needs.version.outputs.ref }}-*-darwin-$TYPE/lite-xl/lite-xl
           done
@@ -139,8 +140,8 @@ jobs:
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-release
           path: |
-            *.dmg
-            *.tar.gz
+            lite-xl-${{ needs.version.outputs.ref }}-universal-darwin.dmg
+            lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz
 
 
   build_linux:
@@ -187,7 +188,7 @@ jobs:
         run: bash scripts/install-dependencies.sh
         
       - name: Build
-        run: bash scripts/build.sh -U --addons --debug --forcefallback --portable -b build
+        run: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
 
       - name: Package Windows (Portable)
         run: cd build && zip -r ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable.zip lite-xl && cd ..
@@ -202,6 +203,7 @@ jobs:
           path: |
             *.zip
             *.exe
+
 
   build_windows_msvc:
     name: Windows (x86_64) (MSVC)
@@ -222,25 +224,15 @@ jobs:
       - name: Install meson and ninja
         run: pip install meson ninja
 
-      - name: Set up environment variables
-        run: |
-          "LUA_SUBPROJECT_PATH=subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)" >> $env:GITHUB_ENV
-
-      - name: Download subprojects
-        shell: bash
-        run: |
-          meson subprojects download
-
       - name: Configure
         run: meson setup --wrap-mode=forcefallback build
 
       - name: Build
-        run: meson install -C build --destdir="../lite-xl"
+        run: meson install -C build --skip-subprojects --destdir="../lite-xl"
 
       - name: Package
-        run: |
-          Remove-Item -Recurse -Force -Path "lite-xl/lib","lite-xl/include"
-          Compress-Archive -Path lite-xl -DestinationPath "lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip"
+        shell: powershell {0}
+        run: Compress-Archive -Path lite-xl -DestinationPath "lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip"
 
       - name: Upload Artifacts (Intermediate)
         uses: actions/upload-artifact@v4
@@ -255,28 +247,31 @@ jobs:
     name: Create Release
     needs: [version, build_linux, build_windows, build_darwin_universal]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: lite-xl-*-release
-          path: .
+          merge-multiple: true
+          path: releases
+      - name: Generate Release Notes
+        if: needs.version.outputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/generate-release-notes.sh --version ${{ needs.version.outputs.release }}
       - name: Versioned Release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         if: ${{ needs.version.outputs.release }}
         with:
-          tag_name: ${{ needs.version.outputs.release }}
+          tag: ${{ needs.version.outputs.release }}
           name: Lite XL ${{ needs.version.outputs.release }}
           draft: true
-          body_path: changelog.md
-          generate_release_notes: true
-          files: |
-            */*.tar.gz
-            */*.zip
-            */*.exe
-            */*.dmg
-            */*.AppImage
+          allowUpdates: true
+          bodyFile: release-notes.md
+          artifacts: "releases/*.*"
       - name: Update Tag
         uses: richardsimko/update-tag@v1
         if: github.ref == 'refs/heads/master'
@@ -285,15 +280,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Continuous Release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         if: github.ref == 'refs/heads/master'
         with:
           name: Lite XL Continuous Release
-          tag_name: continuous
+          tag: continuous
           prerelease: true
-          files: |
-            */*.tar.gz
-            */*.zip
-            */*.exe
-            */*.dmg
-            */*.AppImage
+          allowUpdates: true
+          removeArtifacts: true
+          generateReleaseNotes: true
+          artifacts: "releases/*.*"

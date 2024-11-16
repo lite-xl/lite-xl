@@ -23,8 +23,9 @@ show_help() {
   echo "-B --bundle                   Create an App bundle (macOS only)"
   echo "-A --addons                   Add in addons"
   echo "-P --portable                 Create a portable binary package."
+  echo "-r --reconfigure              Tries to reuse the meson build directory, if possible."
+  echo "                              Default: Deletes the build directory and recreates it."
   echo "-O --pgo                      Use profile guided optimizations (pgo)."
-  echo "-U --windows-lua-utf          Use the UTF8 patch for Lua."
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
   echo "   --cross-platform PLATFORM  Cross compile for this platform."
@@ -49,13 +50,12 @@ main() {
   local bundle
   local portable
   local pgo
-  local patch_lua
   local cross
   local cross_platform
   local cross_arch
   local cross_file
-
-  local lua_subproject_path
+  local reconfigure
+  local should_reconfigure
 
   for i in "$@"; do
     case $i in
@@ -70,6 +70,10 @@ main() {
         ;;
       -d|--debug-build)
         build_type="debug"
+        shift
+        ;;
+      -r|--reconfigure)
+        should_reconfigure=true
         shift
         ;;
       --debug)
@@ -103,10 +107,6 @@ main() {
         ;;
       -O|--pgo)
         pgo="-Db_pgo=generate"
-        shift
-        ;;
-      -U|--windows-lua-utf)
-        patch_lua="true"
         shift
         ;;
       --cross-arch)
@@ -186,12 +186,10 @@ main() {
     export LDFLAGS="-mmacosx-version-min=$macos_version_min"
   fi
 
-  rm -rf "${build_dir}"
-
-  if [[ $patch_lua == "true" ]] && [[ ! -z $force_fallback ]]; then
-    # download the subprojects so we can start patching before configure.
-    # this will prevent reconfiguring the project.
-    meson subprojects download
+  if [[ $should_reconfigure == true ]] && [[ -d "${build_dir}" ]]; then
+    reconfigure="--reconfigure"
+  elif [[ -d "${build_dir}" ]]; then
+    rm -rf "${build_dir}"
   fi
 
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
@@ -203,6 +201,7 @@ main() {
     $bundle \
     $portable \
     $pgo \
+    $reconfigure
 
   meson compile -C "${build_dir}"
 
