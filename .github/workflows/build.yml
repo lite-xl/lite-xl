@@ -116,6 +116,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: '*darwin*'
+          merge-multiple: true
 
       - name: Create Universal Binaries
         run: |
