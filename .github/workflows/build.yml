@@ -140,8 +140,8 @@ jobs:
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-release
           path: |
-            *.dmg
-            *.tar.gz
+            lite-xl-${{ needs.version.outputs.ref }}-universal-darwin.dmg
+            lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz
 
 
   build_linux:
