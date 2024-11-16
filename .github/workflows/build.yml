@@ -83,12 +83,12 @@ jobs:
       - name: Build & Package Mac (Bundle)
         run: |
           scripts/build.sh --addons --debug --forcefallback --reconfigure --bundle -b build
-          tar -C build -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz lite-xl Info.plist
+          tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz lite-xl Info.plist
 
       - name: Build & Package Mac (Portable)
         run: |
           scripts/build.sh --addons --debug --forcefallback --reconfigure --portable -b build
-          tar -C build -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl
+          tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl
         
       - name: Upload (Intermediate)
         uses: actions/upload-artifact@v4
