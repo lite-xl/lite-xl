@@ -60,10 +60,8 @@ jobs:
     strategy:
       matrix:
         config:
-          - { runner: macos-13, type: bundle,   arch: x86_64-darwin }
-          - { runner: macos-13, type: portable, arch: x86_64-darwin }
-          - { runner: macos-14, type: bundle,   arch: aarch64-darwin }
-          - { runner: macos-14, type: portable, arch: aarch64-darwin }
+          - { runner: macos-13, arch: x86_64-darwin }
+          - { runner: macos-14, arch: aarch64-darwin }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - name: System Information
@@ -82,24 +80,23 @@ jobs:
       - name: Install Dependencies
         run: scripts/install-dependencies.sh
         
-      - name: Build
-        run: scripts/build.sh --addons --debug --forcefallback --${{ matrix.config.type }} -b build
-        
-      - name: Package Mac (Bundle)
-        if: ${{ matrix.config.type == 'bundle' }}
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl Info.plist
+      - name: Build & Package Mac (Bundle)
+        run: |
+          scripts/build.sh --addons --debug --forcefallback --reconfigure --bundle -b build
+          tar -C build -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz lite-xl Info.plist
 
-      - name: Package Mac (Portable)
-        if: ${{ matrix.config.type == 'portable' }}
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}}-${{ matrix.config.type }}.tar.gz lite-xl
+      - name: Package & Package Mac (Portable)
+        run: |
+          scripts/build.sh --addons --debug --forcefallback --reconfigure --portable -b build
+          tar -C build -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl
         
       - name: Upload (Intermediate)
         uses: actions/upload-artifact@v4
         with:
-          name: lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-${{ matrix.config.type }}
+          name: lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}
           path: |
             *.tar.gz
- 
+
 
   build_darwin_universal:
     name: Darwin (Universal)
@@ -204,6 +201,7 @@ jobs:
           path: |
             *.zip
             *.exe
+
 
   build_windows_msvc:
     name: Windows (x86_64) (MSVC)

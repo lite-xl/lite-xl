@@ -23,6 +23,8 @@ show_help() {
   echo "-B --bundle                   Create an App bundle (macOS only)"
   echo "-A --addons                   Add in addons"
   echo "-P --portable                 Create a portable binary package."
+  echo "-r --reconfigure              Tries to reuse the meson build directory, if possible."
+  echo "                              Default: Deletes the build directory and recreates it."
   echo "-O --pgo                      Use profile guided optimizations (pgo)."
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
@@ -52,6 +54,8 @@ main() {
   local cross_platform
   local cross_arch
   local cross_file
+  local reconfigure
+  local should_reconfigure
 
   for i in "$@"; do
     case $i in
@@ -66,6 +70,10 @@ main() {
         ;;
       -d|--debug-build)
         build_type="debug"
+        shift
+        ;;
+      -r|--reconfigure)
+        should_reconfigure=true
         shift
         ;;
       --debug)
@@ -178,7 +186,11 @@ main() {
     export LDFLAGS="-mmacosx-version-min=$macos_version_min"
   fi
 
-  rm -rf "${build_dir}"
+  if [[ $should_reconfigure = true -a -d "${build_dir}" ]]; then
+    reconfigure="--reconfigure"
+  elif [[ -d "${build_dir}" ]]; then
+    rm -rf "${build_dir}"
+  fi
 
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
     "${build_dir}" \
@@ -189,6 +201,7 @@ main() {
     $bundle \
     $portable \
     $pgo \
+    $reconfigure
 
   meson compile -C "${build_dir}"
 
