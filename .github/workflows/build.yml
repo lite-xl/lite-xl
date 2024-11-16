@@ -85,7 +85,7 @@ jobs:
           scripts/build.sh --addons --debug --forcefallback --reconfigure --bundle -b build
           tar -C build -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz lite-xl Info.plist
 
-      - name: Package & Package Mac (Portable)
+      - name: Build & Package Mac (Portable)
         run: |
           scripts/build.sh --addons --debug --forcefallback --reconfigure --portable -b build
           tar -C build -czvf ../lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl

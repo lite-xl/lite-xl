@@ -186,7 +186,7 @@ main() {
     export LDFLAGS="-mmacosx-version-min=$macos_version_min"
   fi
 
-  if [[ $should_reconfigure = true -a -d "${build_dir}" ]]; then
+  if [[ $should_reconfigure == true ]] && [[ -d "${build_dir}" ]]; then
     reconfigure="--reconfigure"
   elif [[ -d "${build_dir}" ]]; then
     rm -rf "${build_dir}"
