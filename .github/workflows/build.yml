@@ -120,8 +120,9 @@ jobs:
       - name: Create Universal Binaries
         run: |
           for TYPE in bundle portable; do
-            mkdir -p lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl
-            cd lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-$TYPE && tar -zxvf *.tar.gz && cd .. && cd lite-xl-${{ needs.version.outputs.ref }}-aarch64-darwin-$TYPE && tar -zxvf *.tar.gz && cd ..
+            mkdir -p lite-xl-${{ needs.version.outputs.ref }}-{x86_64,aarch64,universal}-darwin-$TYPE/lite-xl
+            tar -C lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-$TYPE -zxvf lite-xl-${{ needs.version.outputs.ref }}-x86_64-darwin-$TYPE.tar.gz
+            tar -C lite-xl-${{ needs.version.outputs.ref }}-aarch64-darwin-$TYPE -zxvf lite-xl-${{ needs.version.outputs.ref }}-aarch64-darwin-$TYPE.tar.gz
             cp -r lite-xl-${{ needs.version.outputs.ref }}-*-$TYPE/lite-xl/data lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl
             lipo -create -output lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-$TYPE/lite-xl/lite-xl lite-xl-${{ needs.version.outputs.ref }}-*-darwin-$TYPE/lite-xl/lite-xl
           done
