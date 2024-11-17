@@ -6,24 +6,26 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "dirmonitor.h"
+
 struct dirmonitor_internal {
   int fd;
 };
 
 
-struct dirmonitor_internal* init_dirmonitor() {
+static struct dirmonitor_internal* init_dirmonitor() {
   struct dirmonitor_internal* monitor = calloc(1, sizeof(struct dirmonitor_internal));
   monitor->fd = kqueue();
   return monitor;
 }
 
 
-void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
+static void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
   close(monitor->fd);
 }
 
 
-int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
+static int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size) {
   struct timespec ts = { 0, 100 * 1000000 }; // 100 ms
 
   int nev = kevent(monitor->fd, NULL, 0, (struct kevent*)buffer, buffer_size / sizeof(kevent), &ts);
@@ -35,14 +37,14 @@ int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, in
 }
 
 
-int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size, int (*change_callback)(int, const char*, void*), void* data) {
+static int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int buffer_size, int (*change_callback)(int, const char*, void*), void* data) {
   for (struct kevent* info = (struct kevent*)buffer; (char*)info < buffer + buffer_size; info = (struct kevent*)(((char*)info) + sizeof(kevent)))
     change_callback(info->ident, NULL, data);
   return 0;
 }
 
 
-int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
+static int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   int fd = open(path, O_RDONLY);
   struct kevent change;
 
@@ -56,9 +58,20 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
 }
 
 
-void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
+static void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   close(fd);
 }
 
 
-int get_mode_dirmonitor() { return 2; }
+static int get_mode_dirmonitor() { return 2; }
+
+struct dirmonitor_backend dirmonitor_kqueue = {
+  .name = "kqueue",
+  .init = init_dirmonitor,
+  .deinit = deinit_dirmonitor,
+  .get_changes = get_changes_dirmonitor,
+  .translate_changes = translate_changes_dirmonitor,
+  .add = add_dirmonitor,
+  .remove = remove_dirmonitor,
+  .get_mode = get_mode_dirmonitor,
+};

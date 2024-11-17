@@ -1,5 +1,6 @@
 lite_sources = [
     'api/api.c',
+    'api/dirmonitor.c',
     'api/renderer.c',
     'api/renwindow.c',
     'api/regex.c',
@@ -122,49 +123,68 @@ endif
 
 lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libm, libdl]
 
-lite_sources += 'api/dirmonitor.c'
 # dirmonitor backend
-if get_option('dirmonitor_backend') == ''
+dirmonitor_backends = get_option('dirmonitor_backends')
+
+if dirmonitor_backends.length() == 0
     if cc.has_function('inotify_init', prefix : '#include<sys/inotify.h>')
-        dirmonitor_backend = 'inotify'
-    elif host_machine.system() == 'darwin' and cc.check_header('CoreServices/CoreServices.h')
-        dirmonitor_backend = 'fsevents'
-    elif cc.has_function('kqueue', prefix : '#include<sys/event.h>')
-        dirmonitor_backend = 'kqueue'
-    elif cc.has_function('create_inode_watcher', prefix : '#include<fcntl.h>')
-        dirmonitor_backend = 'inodewatcher'
-    elif dependency('libkqueue', required : false).found()
-        dirmonitor_backend = 'kqueue'
-    elif host_machine.system() == 'windows'
-        dirmonitor_backend = 'win32'
+        dirmonitor_backends += 'inotify'
+    endif
+    if host_machine.system() == 'darwin' and cc.check_header('CoreServices/CoreServices.h')
+        dirmonitor_backends += 'fsevents'
+    endif
+
+    if cc.has_function('kqueue', prefix : '#include<sys/event.h>')
+        dirmonitor_backends += 'kqueue'
+    endif
+
+    if cc.has_function('create_inode_watcher', prefix : '#include<fcntl.h>')
+        dirmonitor_backends += 'inodewatcher'
+    endif
+
+    if dependency('libkqueue', required : false).found()
+        dirmonitor_backends += 'kqueue'
+    endif
+
+    if host_machine.system() == 'windows'
+        dirmonitor_backends += 'win32'
+    endif
+
+    dirmonitor_backends += 'dummy'
+endif
+
+lite_sources += 'api' / 'dirmonitor' / 'inotify.c'
+
+foreach backend : dirmonitor_backends
+    if backend == 'inotify'
+        lite_sources += 'api' / 'dirmonitor' / 'inotify.c'
+        lite_cargs += '-DDIRMONITOR_INOTIFY'
+    elif backend == 'fsevents'
+        lite_sources += 'api' / 'dirmonitor' / 'fsevents.c'
+        lite_cargs += '-DDIRMONITOR_FSEVENTS'
+    elif backend == 'kqueue'
+        lite_sources += 'api' / 'dirmonitor' / 'kqueue.c'
+        libkqueue_dep = dependency('libkqueue', required : false)
+        if libkqueue_dep.found()
+            lite_deps += libkqueue_dep
+        endif
+        lite_cargs += '-DDIRMONITOR_KQUEUE'
+    elif backend == 'inodewatcher'
+        add_languages('cpp')
+        lite_sources += 'api' / 'dirmonitor' / 'inodewatcher.cpp'
+        lite_cargs += '-DDIRMONITOR_INODEWATCHER'
+    elif backend == 'win32'
+        lite_sources += 'api' / 'dirmonitor' / 'win32.c'
+        lite_cargs += '-DDIRMONITOR_WIN32'
+    elif backend == 'dummy'
+        lite_sources += 'api' / 'dirmonitor' / 'dummy.c'
+        lite_cargs += '-DDIRMONITOR_DUMMY'
     else
-        dirmonitor_backend = 'dummy'
-        warning('no suitable backend found, defaulting to dummy backend')
+        error('Unknown dirmonitor backend @0@'.format(backend))
     endif
-else
-    dirmonitor_backend = get_option('dirmonitor_backend')
-endif
+endforeach
 
-if dirmonitor_backend == 'inotify'
-    lite_sources += 'api' / 'dirmonitor' / 'inotify.c'
-elif dirmonitor_backend == 'fsevents'
-    lite_sources += 'api' / 'dirmonitor' / 'fsevents.c'
-elif dirmonitor_backend == 'kqueue'
-    lite_sources += 'api' / 'dirmonitor' / 'kqueue.c'
-    libkqueue_dep = dependency('libkqueue', required : false)
-    if libkqueue_dep.found()
-        lite_deps += libkqueue_dep
-    endif
-elif dirmonitor_backend == 'inodewatcher'
-    add_languages('cpp')
-    lite_sources += 'api' / 'dirmonitor' / 'inodewatcher.cpp'
-elif dirmonitor_backend == 'win32'
-    lite_sources += 'api' / 'dirmonitor' / 'win32.c'
-else
-    lite_sources += 'api' / 'dirmonitor' / 'dummy.c'
-endif
-
-message('dirmonitor_backend: @0@'.format(dirmonitor_backend))
+summary('dirmonitor backends', dirmonitor_backends)
 
 lite_rc = []
 if host_machine.system() == 'windows'

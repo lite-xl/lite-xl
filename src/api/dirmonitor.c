@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "dirmonitor/dirmonitor.h"
+
 static unsigned int DIR_EVENT_TYPE = 0;
 
 struct dirmonitor {
@@ -12,18 +14,45 @@ struct dirmonitor {
   SDL_mutex* mutex;
   char buffer[64512];
   volatile int length;
+  struct dirmonitor_backend* backend;
   struct dirmonitor_internal* internal;
 };
 
 
-struct dirmonitor_internal* init_dirmonitor();
-void deinit_dirmonitor(struct dirmonitor_internal*);
-int get_changes_dirmonitor(struct dirmonitor_internal*, char*, int);
-int translate_changes_dirmonitor(struct dirmonitor_internal*, char*, int, int (*)(int, const char*, void*), void*);
-int add_dirmonitor(struct dirmonitor_internal*, const char*);
-void remove_dirmonitor(struct dirmonitor_internal*, int);
-int get_mode_dirmonitor();
+static struct dirmonitor_backend* const backends[] = {
+#ifdef DIRMONITOR_INOTIFY
+  &dirmonitor_inotify,
+#endif
+#ifdef DIRMONITOR_FSEVENTS
+  &dirmonitor_fsevents,
+#endif
+#ifdef DIRMONITOR_KQUEUE
+  &dirmonitor_kqueue,
+#endif
+#ifdef DIRMONITOR_INODEWATCHER
+  &dirmonitor_inodewatcher,
+#endif
+#ifdef DIRMONITOR_WIN32
+  &dirmonitor_win32,
+#endif
+#ifdef DIRMONITOR_DUMMY
+  &dirmonitor_dummy,
+#endif
+  NULL
+};
 
+static struct dirmonitor_backend* find_backend(const char* name)
+{
+  struct dirmonitor_backend* const * backend = backends;
+  while (*backend)
+  {
+    if (!name || !strcmp((*backend)->name, name))
+      return *backend;
+    ++backend;
+  }
+
+  return NULL;
+}
 
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   // using absolute indices from f_dirmonitor_check (2: callback, 3: error_callback, 4: watch_id notified table)
@@ -57,7 +86,7 @@ static int dirmonitor_check_thread(void* data) {
   struct dirmonitor* monitor = data;
   while (monitor->length >= 0) {
     if (monitor->length == 0) {
-      int result = get_changes_dirmonitor(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
+      int result = monitor->backend->get_changes(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
       SDL_LockMutex(monitor->mutex);
       if (monitor->length == 0)
         monitor->length = result;
@@ -74,11 +103,16 @@ static int dirmonitor_check_thread(void* data) {
 static int f_dirmonitor_new(lua_State* L) {
   if (DIR_EVENT_TYPE == 0)
     DIR_EVENT_TYPE = SDL_RegisterEvents(1);
+  const char* name = luaL_optstring(L, 1, NULL);
+  struct dirmonitor_backend* backend = find_backend(name);
+  if (!backend)
+    return luaL_error(L, "Unable to find dirmonitor '%s'", name);
   struct dirmonitor* monitor = lua_newuserdata(L, sizeof(struct dirmonitor));
   luaL_setmetatable(L, API_TYPE_DIRMONITOR);
   memset(monitor, 0, sizeof(struct dirmonitor));
   monitor->mutex = SDL_CreateMutex();
-  monitor->internal = init_dirmonitor();
+  monitor->backend = backend;
+  monitor->internal = monitor->backend->init();
   return 1;
 }
 
@@ -87,7 +121,7 @@ static int f_dirmonitor_gc(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
   SDL_LockMutex(monitor->mutex);
   monitor->length = -1;
-  deinit_dirmonitor(monitor->internal);
+  monitor->backend->deinit(monitor->internal);
   SDL_UnlockMutex(monitor->mutex);
   SDL_WaitThread(monitor->thread, NULL);
   free(monitor->internal);
@@ -98,7 +132,7 @@ static int f_dirmonitor_gc(lua_State* L) {
 
 static int f_dirmonitor_watch(lua_State *L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
-  lua_pushnumber(L, add_dirmonitor(monitor->internal, luaL_checkstring(L, 2)));
+  lua_pushnumber(L, monitor->backend->add(monitor->internal, luaL_checkstring(L, 2)));
   if (!monitor->thread)
     monitor->thread = SDL_CreateThread(dirmonitor_check_thread, "dirmonitor_check_thread", monitor);
   return 1;
@@ -106,7 +140,8 @@ static int f_dirmonitor_watch(lua_State *L) {
 
 
 static int f_dirmonitor_unwatch(lua_State *L) {
-  remove_dirmonitor(((struct dirmonitor*)luaL_checkudata(L, 1, API_TYPE_DIRMONITOR))->internal, lua_tonumber(L, 2));
+  struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  monitor->backend->remove(monitor->internal, lua_tonumber(L, 2));
   return 0;
 }
 
@@ -132,7 +167,7 @@ static int f_dirmonitor_check(lua_State* L) {
     // Create a table for keeping track of what watch ids were notified in this check,
     // so that we avoid notifying multiple times.
     lua_newtable(L);
-    if (translate_changes_dirmonitor(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
+    if (monitor->backend->translate_changes(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
       monitor->length = 0;
     lua_pushboolean(L, 1);
   } else
@@ -143,7 +178,8 @@ static int f_dirmonitor_check(lua_State* L) {
 
 
 static int f_dirmonitor_mode(lua_State* L) {
-  int mode = get_mode_dirmonitor();
+  struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  int mode = monitor->backend->get_mode();
   if (mode == 1)
     lua_pushstring(L, "single");
   else

@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <poll.h>
 
+#include "dirmonitor.h"
+
 extern "C" {
 struct dirmonitor_internal* init_dirmonitor();
 void deinit_dirmonitor(struct dirmonitor_internal*);
@@ -24,7 +26,7 @@ struct dirmonitor_internal {
 };
 
 
-struct dirmonitor_internal* init_dirmonitor() {
+static struct dirmonitor_internal* init_dirmonitor() {
   struct dirmonitor_internal* monitor = (struct dirmonitor_internal*)calloc(sizeof(struct dirmonitor_internal), 1);
   monitor->fd = create_inode_watcher(0);
   pipe(monitor->sig);
@@ -34,7 +36,7 @@ struct dirmonitor_internal* init_dirmonitor() {
 }
 
 
-void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
+static void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
   close(monitor->fd);
   close(monitor->sig[0]);
   close(monitor->sig[1]);
@@ -42,21 +44,21 @@ void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
 
 
 
-int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
+static int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
   struct pollfd fds[2] = { { .fd = monitor->fd, .events = POLLIN | POLLERR, .revents = 0 }, { .fd = monitor->sig[0], .events = POLLIN | POLLERR, .revents = 0 } };
   poll(fds, 2, -1);
   return read(monitor->fd, buffer, length);
 }
 
 
-int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length, int (*change_callback)(int, const char*, void*), void* data) {
+static int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length, int (*change_callback)(int, const char*, void*), void* data) {
   InodeWatcherEvent* event = (InodeWatcherEvent*)buffer;
   change_callback(event->watch_descriptor, NULL, data);
   return 0;
 }
 
 
-int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
+static int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   return inode_watcher_add_watch(monitor->fd, path, strlen(path),
       static_cast<unsigned>(
         InodeWatcherEvent::Type::MetadataModified |
@@ -68,8 +70,19 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
 }
 
 
-void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
+static void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   inode_watcher_remove_watch(monitor->fd, fd);
 }
 
-int get_mode_dirmonitor() { return 2; }
+static int get_mode_dirmonitor() { return 2; }
+
+struct dirmonitor_backend dirmonitor_inodewatcher = {
+  .name = "inodewatcher"
+  .init = init_dirmonitor,
+  .deinit = deinit_dirmonitor,
+  .get_changes = get_changes_dirmonitor,
+  .translate_changes = translate_changes_dirmonitor,
+  .add = add_dirmonitor,
+  .remove = remove_dirmonitor,
+  .get_mode = get_mode_dirmonitor,
+};
