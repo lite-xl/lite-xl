@@ -192,9 +192,8 @@ jobs:
           msystem: MINGW64
           install: >-
             git
-            unzip
             zip
-            curl
+            patch
           pacboy: >-
             gcc:p
             meson:p
