@@ -133,7 +133,7 @@ jobs:
 
       - name: Package Darwin (Universal DMG Image)
         run: dmgbuild -s resources/macos/lite-xl-dmg.py \
-          -D app_path="lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle" \
+          -D "app_path=lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle/Lite XL.app" \
           "Lite XL" "lite-xl-${{ needs.version.outputs.ref }}-universal-darwin.dmg"
         
       - name: Package Darwin (Universal Portable)
