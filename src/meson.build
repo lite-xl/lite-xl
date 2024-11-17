@@ -153,8 +153,6 @@ if dirmonitor_backends.length() == 0
     dirmonitor_backends += 'dummy'
 endif
 
-lite_sources += 'api' / 'dirmonitor' / 'inotify.c'
-
 foreach backend : dirmonitor_backends
     if backend == 'inotify'
         lite_sources += 'api' / 'dirmonitor' / 'inotify.c'
