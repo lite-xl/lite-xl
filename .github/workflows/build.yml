@@ -78,7 +78,9 @@ jobs:
         with: { python-version: "3.11" }
         
       - name: Install Dependencies
-        run: scripts/install-dependencies.sh
+        run: |
+          brew install bash
+          pip3 install meson ninja
         
       - name: Build & Package Mac (Bundle)
         run: |
@@ -110,7 +112,9 @@ jobs:
         with: { python-version: "3.11" }
 
       - name: Install Dependencies
-        run: scripts/install-dependencies.sh
+        run: |
+          brew install bash
+          pip3 install dmgbuild
       
       - name: Download Artifacts
         uses: actions/download-artifact@v4
@@ -180,12 +184,20 @@ jobs:
     needs: [version]
     steps:
       - uses: msys2/setup-msys2@v2
-        with: { msystem: MINGW64 }
+        with:
+          msystem: MINGW64
+          install: >-
+            git
+            unzip
+            zip
+            curl
+          pacboy: >-
+            gcc:p
+            meson:p
+            ninja:p
+            pkg-config:p
         
       - uses: actions/checkout@v4
-        
-      - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh
         
       - name: Build
         run: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
