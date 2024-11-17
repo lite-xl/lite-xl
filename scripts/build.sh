@@ -46,8 +46,8 @@ main() {
   local prefix=/
   local build_type="release"
   local force_fallback
-  local bundle
-  local portable
+  local bundle="-Dbundle=false"
+  local portable="-Dportable=false"
   local pgo
   local cross
   local cross_platform
@@ -145,7 +145,7 @@ main() {
     exit 1
   fi
 
-  if [[ $platform == "macos" && -n $bundle && -n $portable ]]; then
+  if [[ $platform == "macos" && $bundle == "-Dbundle=true" && $portable == "-Dportable=true" ]]; then
       echo "Warning: \"bundle\" and \"portable\" specified; excluding portable package."
       portable=""
   fi
