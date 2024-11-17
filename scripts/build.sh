@@ -21,7 +21,11 @@ show_help() {
   echo "-d --debug-build              Builds a debug build."
   echo "-p --prefix PREFIX            Install directory prefix. Default: '/'."
   echo "-B --bundle                   Create an App bundle (macOS only)"
-  echo "-A --addons                   Add in addons"
+  echo "-A --addons                   Install extra plugins."
+  echo "                              Default: If specified, install the welcome plugin."
+  echo "                              An comma-separated list can be specified after this flag"
+  echo "                              to specify a list of plugins to install."
+  echo "                              If this option is not specified, no extra plugins will be installed."
   echo "-P --portable                 Create a portable binary package."
   echo "-r --reconfigure              Tries to reuse the meson build directory, if possible."
   echo "                              Default: Deletes the build directory and recreates it."
@@ -42,7 +46,7 @@ main() {
   local platform="$(get_platform_name)"
   local arch="$(get_platform_arch)"
   local build_dir
-  local plugins
+  local plugins="-Dbundle_plugins="
   local prefix=/
   local build_type="release"
   local force_fallback
