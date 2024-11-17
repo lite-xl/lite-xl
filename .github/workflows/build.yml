@@ -83,7 +83,7 @@ jobs:
       - name: Build & Package Mac (Bundle)
         run: |
           scripts/build.sh --addons --debug --forcefallback --reconfigure --bundle -b build
-          tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz lite-xl Info.plist
+          tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz "Lite XL.app"
 
       - name: Build & Package Mac (Portable)
         run: |
