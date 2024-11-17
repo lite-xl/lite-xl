@@ -66,7 +66,6 @@ main() {
         ;;
       -b|--builddir)
         build_dir="$2"
-        destdir="Lite XL.app"
         shift
         shift
         ;;
@@ -105,6 +104,7 @@ main() {
           echo "Warning: ignoring --bundle option, works only under macOS."
         else
           bundle="-Dbundle=true"
+          destdir="Lite XL.app"
         fi
         shift
         ;;
