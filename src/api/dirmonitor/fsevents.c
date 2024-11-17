@@ -1,6 +1,8 @@
 #include <SDL.h>
 #include <CoreServices/CoreServices.h>
 
+#include "dirmonitor.h"
+
 struct dirmonitor_internal {
   SDL_mutex* lock;
   char** changes;
@@ -12,7 +14,7 @@ struct dirmonitor_internal {
 CFRunLoopRef main_run_loop;
 
 
-struct dirmonitor_internal* init_dirmonitor() {
+static struct dirmonitor_internal* init_dirmonitor() {
   static bool mainloop_registered = false;
   if (!mainloop_registered) {
     main_run_loop = CFRunLoopGetCurrent();
@@ -57,7 +59,7 @@ static void stop_monitor_stream(struct dirmonitor_internal* monitor) {
 }
 
 
-void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
+static void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
   stop_monitor_stream(monitor);
 }
 
@@ -103,7 +105,7 @@ static void stream_callback(
 }
 
 
-int get_changes_dirmonitor(
+static int get_changes_dirmonitor(
   struct dirmonitor_internal* monitor,
   char* buffer,
   int buffer_size
@@ -120,7 +122,7 @@ int get_changes_dirmonitor(
 }
 
 
-int translate_changes_dirmonitor(
+static int translate_changes_dirmonitor(
   struct dirmonitor_internal* monitor,
   char* buffer,
   int buffer_size,
@@ -142,7 +144,7 @@ int translate_changes_dirmonitor(
 }
 
 
-int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
+static int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   stop_monitor_stream(monitor);
 
   monitor->lock = SDL_CreateMutex();
@@ -185,9 +187,20 @@ int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
 }
 
 
-void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
+static void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   stop_monitor_stream(monitor);
 }
 
 
-int get_mode_dirmonitor() { return 1; }
+static int get_mode_dirmonitor() { return 1; }
+
+struct dirmonitor_backend dirmonitor_fsevents = {
+  .name = "fsevents",
+  .init = init_dirmonitor,
+  .deinit = deinit_dirmonitor,
+  .get_changes = get_changes_dirmonitor,
+  .translate_changes = translate_changes_dirmonitor,
+  .add = add_dirmonitor,
+  .remove = remove_dirmonitor,
+  .get_mode = get_mode_dirmonitor,
+};
