@@ -197,7 +197,7 @@ main() {
     rm -rf "${build_dir}"
   fi
 
-  if [[ -n "$plugins" ]] && [[ -z `command -v lpm` ]] then
+  if [[ -n "$plugins" ]] && [[ -z `command -v lpm` ]]; then
     mkdir -p "${build_dir}"
     lpm_path="$(pwd)/${build_dir}/lpm$(get_executable_extension)"
     if [[ ! -e "$lpm_path" ]]; then
