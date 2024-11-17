@@ -1,0 +1,4 @@
+[wrap-git]
+url = https://github.com/lite-xl/lite-xl-plugin-manager.git
+revision = HEAD
+depth = 1
