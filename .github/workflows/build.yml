@@ -126,8 +126,8 @@ jobs:
             tar -C package-$TYPE/x86_64 -zxvf $REF-x86_64-darwin-$TYPE.tar.gz
             tar -C package-$TYPE/aarch64 -zxvf $REF-aarch64-darwin-$TYPE.tar.gz
             cp -a package-$TYPE/*/* $REF-universal-darwin-$TYPE
-            lipo -create -output `find $REF-universal-darwin-$TYPE -type f -name lite-xl -perm +111` \
-              `find package-$TYPE -type f -name lite-xl -perm +111`
+            find package-$TYPE -type f -name lite-xl -perm +111 -print0 | \
+              xargs -0 lipo -create -output "$(find $REF-universal-darwin-$TYPE -type f -name lite-xl -perm +111)"
           done
           cp package-bundle/aarch64/Info.plist $REF-universal-darwin-bundle/Info.plist
 
