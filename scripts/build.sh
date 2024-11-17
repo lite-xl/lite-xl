@@ -231,9 +231,8 @@ main() {
     rm -fr "${build_dir}/src/data"
   fi
 
-  rm -fr $build_dir/src/lite-xl.*p $build_dir/src/*.o
-
-  mv "${build_dir}/src" "${build_dir}/lite-xl"
+  meson install -C "${build_dir}" --destdir "lite-xl" \
+    --skip-subprojects=freetype2,lua,pcre2,sdl2 --no-rebuild
 }
 
 main "$@"
