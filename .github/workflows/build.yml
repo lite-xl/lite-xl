@@ -152,19 +152,21 @@ jobs:
     name: Linux (x86_64)
     needs: [version]
     runs-on: ubuntu-latest
-    env: 
-      BUILDER: docker run -v .:/build -w /build ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3.0.2 -- /entrypoint.sh
     steps:
       - uses: actions/checkout@v4
         
       - name: Build
-        run: $BUILDER scripts/build.sh --addons --debug --forcefallback --portable -b build
+        uses: lite-xl/lite-xl-build-box@v3
+        with:
+          run: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
         
       - name: Package Linux (Portable)
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl && cd ..
+        run: tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl
 
       - name: Package Linux (AppImage)
-        run: $BUILDER scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
+        uses: lite-xl/lite-xl-build-box@v3
+        with:
+          run: bash scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
         
       - name: Upload (Release)
         uses: actions/upload-artifact@v4
@@ -196,7 +198,7 @@ jobs:
             meson:p
             ninja:p
             pkg-config:p
-        
+
       - uses: actions/checkout@v4
         
       - name: Build
