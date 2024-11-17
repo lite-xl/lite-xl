@@ -183,6 +183,8 @@ if get_option('portable') or host_machine.system() == 'windows'
     lite_bindir = '/'
     lite_docdir = '/doc'
     lite_datadir = '/data'
+    lpm_userdir = 'data'
+    lpm_install_dir = '/'
     configure_file(
         input: 'resources' / 'windows' / 'lite-xl.exe.manifest.in',
         output: 'lite-xl.exe.manifest',
@@ -193,6 +195,8 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
     lite_bindir = 'Contents' / 'MacOS'
     lite_docdir = 'Contents' / 'Resources'
     lite_datadir = 'Contents' / 'Resources'
+    lpm_userdir = 'Resources'
+    lpm_install_dir = 'Contents'
     conf_data.set(
         'CURRENT_YEAR',
         run_command('date', '+%Y', capture: true).stdout().strip()
@@ -210,6 +214,8 @@ else
     lite_bindir = 'bin'
     lite_docdir = get_option('datadir') / 'doc' / 'lite-xl'
     lite_datadir = get_option('datadir') / 'lite-xl'
+    lpm_userdir = 'lite-xl'
+    lpm_install_dir = get_option('datadir')
     if host_machine.system() == 'linux'
         install_data('resources' / 'icons' / 'lite-xl.svg',
             install_dir : get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps'
@@ -241,4 +247,5 @@ configure_file(
 if not get_option('source-only')
     subdir('src')
     subdir('scripts')
+    subdir('data')
 endif
