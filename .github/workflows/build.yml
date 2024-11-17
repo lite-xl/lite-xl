@@ -129,7 +129,6 @@ jobs:
             find package-$TYPE -type f -name lite-xl -perm +111 -print0 | \
               xargs -0 lipo -create -output "$(find $REF-universal-darwin-$TYPE -type f -name lite-xl -perm +111)"
           done
-          cp "package-bundle/aarch64/Lite XL.app/Contents/Info.plist" "$REF-universal-darwin-bundle/Lite XL.app/Contents/Info.plist"
 
       - name: Package Darwin (Universal DMG Image)
         run: |
