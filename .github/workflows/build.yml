@@ -132,9 +132,9 @@ jobs:
           cp "package-bundle/aarch64/Lite XL.app/Contents/Info.plist" "$REF-universal-darwin-bundle/Lite XL.app/Contents/Info.plist"
 
       - name: Package Darwin (Universal DMG Image)
-        run: |
-          cd lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle
-          dmgbuild -s ../resources/macos/lite-xl-dmg.py "Lite XL" lite-xl-${{ needs.version.outputs.ref }}-universal-darwin.dmg
+        run: dmgbuild -s resources/macos/lite-xl-dmg.py "Lite XL" \
+          -D app_path="lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle" \
+          lite-xl-${{ needs.version.outputs.ref }}-universal-darwin.dmg
         
       - name: Package Darwin (Universal Portable)
         run: tar -C lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable -zcvf lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz .
