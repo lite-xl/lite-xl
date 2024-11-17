@@ -56,6 +56,7 @@ main() {
   local reconfigure
   local lpm_path
   local should_reconfigure
+  local destdir="lite-xl"
 
   for i in "$@"; do
     case $i in
@@ -65,6 +66,7 @@ main() {
         ;;
       -b|--builddir)
         build_dir="$2"
+        destdir="Lite XL.app"
         shift
         shift
         ;;
@@ -231,7 +233,7 @@ main() {
     rm -fr "${build_dir}/src/data"
   fi
 
-  meson install -C "${build_dir}" --destdir "lite-xl" \
+  meson install -C "${build_dir}" --destdir "$destdir" \
     --skip-subprojects=freetype2,lua,pcre2,sdl2 --no-rebuild
 }
 
