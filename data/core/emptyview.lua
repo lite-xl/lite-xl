@@ -43,25 +43,23 @@ function EmptyView:draw()
   end
   local cmd_h = style.font:get_height() + style.padding.y
   local cmds_y = y - ((cmd_h * #displayed_cmds)/2)
-  for i, line in ipairs(displayed_cmds) do
-    local text = string.format(line.fmt, line.keybinding)
-    renderer.draw_text(style.font, text, cmds_x, cmds_y + (i-1)*cmd_h, style.dim)
+  for i, cmd in ipairs(displayed_cmds) do
+    local cmd_text = string.format(cmd.fmt, cmd.keybinding)
+    renderer.draw_text(style.font, cmd_text, cmds_x, cmds_y + cmd_h*(i-1), style.dim)
   end
 
   local title = "Lite XL"
   local version = VERSION
   local logo_h = style.big_font:get_height(title)
-  local logo_w = style.big_font:get_width(title)
   local logo_y = y - logo_h + logo_h/4
-  local logo_x = logo_r - style.big_font:get_width(title)
-  local vers_x = logo_r - style.font:get_width(version)
+  local logo_x = logo_right_side - style.big_font:get_width(title)
+  local vers_x = logo_right_side - style.font:get_width(version)
   renderer.draw_text(style.big_font, title, logo_x, logo_y, style.dim)
   renderer.draw_text(style.font, version, vers_x, y, style.dim)
 
-  local divider_y =  math.min(cmds_y-style.padding.y, logo_y-style.padding.y)
+  local divider_y =  math.min(cmds_y, logo_y) - style.padding.y
   local divider_h = (y - divider_y)*2
-  renderer.draw_rect(x - div_w/2,divider_y, div_w, divider_h, style.dim)
+  renderer.draw_rect(x - divider_w/2, divider_y, divider_w, divider_h, style.dim)
 end
-
 
 return EmptyView
