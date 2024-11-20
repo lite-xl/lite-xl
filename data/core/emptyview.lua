@@ -27,9 +27,9 @@ function EmptyView:draw()
   -- x,y center-point
   local x = self.position.x + self.size.x / 2
   local y = self.position.y + self.size.y / 2
-  local div_w = math.ceil(1 * SCALE)
-  local cmds_x = x + (div_w /2) + style.padding.x
-  local logo_r = x - (div_w/2) - style.padding.x
+  local divider_w = math.ceil(1 * SCALE)
+  local cmds_x = x + math.ceil(divider_w /2) + style.padding.x
+  local logo_right_side = x - math.ceil(divider_w/2) - style.padding.x
 
   local displayed_cmds = {}
   for _, command in ipairs(self.commands) do
