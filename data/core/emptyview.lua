@@ -54,8 +54,9 @@ function EmptyView:draw()
   local logo_y = y - logo_h + logo_h/4
   local logo_x = logo_right_side - style.big_font:get_width(title)
   local vers_x = logo_right_side - style.font:get_width(version)
+  local vers_y = y + logo_h/8
   renderer.draw_text(style.big_font, title, logo_x, logo_y, style.dim)
-  renderer.draw_text(style.font, version, vers_x, y, style.dim)
+  renderer.draw_text(style.font, version, vers_x, vers_y, style.dim)
 
   local divider_y =  math.min(cmds_y, logo_y) - style.padding.y
   local divider_h = (y - divider_y)*2
