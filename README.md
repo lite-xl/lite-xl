@@ -91,7 +91,7 @@ and may not run the build script correctly.
 
 ### Building
 
-To build Lite XL, you can use `scripts/build.sh` to set up Lite XL and builds it.
+You can use `scripts/build.sh` to set up Lite XL and build it.
 
 ```sh
 $ bash build.sh --help
