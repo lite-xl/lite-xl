@@ -323,6 +323,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [release, build_linux, build_macos, build_macos_universal, build_windows_msys2]
+    permissions:
+      contents: write
 
     steps:
       - name: Download Artifacts
