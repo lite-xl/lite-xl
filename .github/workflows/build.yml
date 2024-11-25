@@ -78,7 +78,9 @@ jobs:
         with: { python-version: "3.11" }
         
       - name: Install Dependencies
-        run: scripts/install-dependencies.sh
+        run: |
+          brew install bash
+          pip3 install meson ninja
         
       - name: Build & Package Mac (Bundle)
         run: |
@@ -110,7 +112,9 @@ jobs:
         with: { python-version: "3.11" }
 
       - name: Install Dependencies
-        run: scripts/install-dependencies.sh
+        run: |
+          brew install bash
+          pip3 install dmgbuild
       
       - name: Download Artifacts
         uses: actions/download-artifact@v4
@@ -148,19 +152,23 @@ jobs:
     name: Linux (x86_64)
     needs: [version]
     runs-on: ubuntu-latest
-    env: 
-      BUILDER: docker run -v .:/build -w /build ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3.0.2 -- /entrypoint.sh
     steps:
       - uses: actions/checkout@v4
         
       - name: Build
-        run: $BUILDER scripts/build.sh --addons --debug --forcefallback --portable -b build
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        with:
+          entrypoint: /entrypoint.sh
+          args: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
         
       - name: Package Linux (Portable)
-        run: cd build && tar -czvf ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl && cd ..
+        run: tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl
 
       - name: Package Linux (AppImage)
-        run: $BUILDER scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        with:
+          entrypoint: /entrypoint.sh
+          run: bash scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
         
       - name: Upload (Release)
         uses: actions/upload-artifact@v4
@@ -180,12 +188,20 @@ jobs:
     needs: [version]
     steps:
       - uses: msys2/setup-msys2@v2
-        with: { msystem: MINGW64 }
-        
+        with:
+          msystem: MINGW64
+          install: >-
+            git
+            zip
+            patch
+          pacboy: >-
+            gcc:p
+            meson:p
+            ca-certificates:p
+            ninja:p
+            pkg-config:p
+
       - uses: actions/checkout@v4
-        
-      - name: Install Dependencies
-        run: bash scripts/install-dependencies.sh
         
       - name: Build
         run: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
