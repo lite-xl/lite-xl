@@ -106,11 +106,12 @@ build_litexl() {
   echo "Build lite-xl..."
   sleep 1
   if [[ $STATIC_BUILD == false ]]; then
-    meson setup --buildtype=$BUILD_TYPE --prefix=/usr ${BUILD_DIR}
+    meson setup --buildtype=$BUILD_TYPE --prefix=/usr -Dportable=false ${BUILD_DIR}
   else
     meson setup --wrap-mode=forcefallback \
       --buildtype=$BUILD_TYPE \
       --prefix=/usr \
+      -Dportable=false \
       ${BUILD_DIR}
   fi
   meson compile -C ${BUILD_DIR}
@@ -127,12 +128,6 @@ generate_appimage() {
 
   cp resources/icons/lite-xl.svg LiteXL.AppDir/
   cp resources/linux/org.lite_xl.lite_xl.desktop LiteXL.AppDir/
-
-  # https://github.com/lite-xl/lite-xl/issues/1912
-  mkdir -p ./LiteXL.AppDir/usr/share/../bin
-  mv ./LiteXL.AppDir/lite-xl ./LiteXL.AppDir/usr/bin
-  mv ./LiteXL.AppDir/data ./LiteXL.AppDir/usr/share/lite-xl
-  rm -rf ./LiteXL.AppDir/lib64 ./LiteXL.AppDir/include
 
   echo "Creating AppRun..."
 	cat >> LiteXL.AppDir/AppRun <<- 'EOF'
