@@ -208,7 +208,7 @@ main() {
     lpm_path="$(pwd)/${build_dir}/lpm$(get_executable_extension)"
     if [[ ! -e "$lpm_path" ]]; then
       curl --insecure -L -o "$lpm_path" \
-        "https://github.com/lite-xl/lite-xl-plugin-manager/releases/download/${LPM_VERSION:-v1.3.1}/lpm.$(get_platform_tuple)$(get_executable_extension)"
+        "https://github.com/lite-xl/lite-xl-plugin-manager/releases/download/${LPM_VERSION:-latest}/lpm.$(get_platform_tuple)$(get_executable_extension)"
       chmod u+x "$lpm_path"
     fi
     export PATH="$(dirname "$lpm_path"):$PATH"
