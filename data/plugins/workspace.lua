@@ -195,13 +195,13 @@ end
 
 
 local function save_workspace()
-  local project_dir = core.root_project().path
-  local workspace_filename = get_workspace_filename(project_dir)
+  local root = get_unlocked_root(core.root_view.root_node)
+  local workspace_filename = get_workspace_filename(core.root_project().path)
   local fp = io.open(workspace_filename, "w")
   if fp then
     local node_text = common.serialize(save_node(root))
     local dir_text = common.serialize(save_directories())
-    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.project_dir, node_text, dir_text))
+    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.root_project().path, node_text, dir_text))
     fp:close()
   end
 end
