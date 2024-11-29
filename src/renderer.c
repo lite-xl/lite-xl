@@ -396,7 +396,11 @@ static void font_file_close(FT_Stream stream) {
 
 static int font_set_face_metrics(RenFont *font, FT_Face face) {
   FT_Error err;
-  if ((err = FT_Set_Pixel_Sizes(face, 0, (int) font->size)) != 0)
+  float pixel_size = font->size;
+  #ifdef LITE_USE_SDL_RENDERER
+  pixel_size *= font->scale;
+  #endif
+  if ((err = FT_Set_Pixel_Sizes(face, 0, (int) pixel_size)) != 0)
     return err;
 
   font->face = face;
