@@ -1,7 +1,24 @@
-diff -ruN lua-5.4.6/meson.build lua-5.4.6-patched/meson.build
---- lua-5.4.6/meson.build	Wed Feb 22 18:16:56 2023
-+++ lua-5.4.6-patched/meson.build	Wed Feb 22 04:10:01 2023
-@@ -85,6 +85,7 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jan200101 <sentrycraft123@gmail.com>
+Date: Fri, 29 Nov 2024 08:19:27 +0100
+Subject: [PATCH] add utf8 wrapper
+
+Signed-off-by: Jan200101 <sentrycraft123@gmail.com>
+---
+ meson.build         |   1 +
+ src/Makefile        |   2 +-
+ src/luaconf.h       |  10 ++++
+ src/utf8_wrappers.c | 129 ++++++++++++++++++++++++++++++++++++++++++++
+ src/utf8_wrappers.h |  46 ++++++++++++++++
+ 5 files changed, 187 insertions(+), 1 deletion(-)
+ create mode 100644 src/utf8_wrappers.c
+ create mode 100644 src/utf8_wrappers.h
+
+diff --git a/meson.build b/meson.build
+index ffd115c..31efb31 100644
+--- a/meson.build
++++ b/meson.build
+@@ -82,6 +82,7 @@ lua_lib = library(
    'src/lutf8lib.c',
    'src/lvm.c',
    'src/lzio.c',
@@ -9,13 +26,27 @@ diff -ruN lua-5.4.6/meson.build lua-5.4.6-patched/meson.build
    dependencies: lua_lib_deps,
    version: meson.project_version(),
    soversion: lua_versions[0] + '.' + lua_versions[1],
-diff -ruN lua-5.4.6/src/luaconf.h lua-5.4.6-patched/src/luaconf.h
---- lua-5.4.6/src/luaconf.h	Thu Jan 13 19:24:43 2022
-+++ lua-5.4.6-patched/src/luaconf.h	Wed Feb 22 04:10:02 2023
-@@ -782,5 +782,15 @@
-
-
-
+diff --git a/src/Makefile b/src/Makefile
+index b771196..6d3ff24 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -33,7 +33,7 @@ CMCFLAGS=
+ PLATS= guess aix bsd c89 freebsd generic ios linux linux-readline macosx mingw posix solaris
+ 
+ LUA_A=	liblua.a
+-CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o
++CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o utf8_wrappers.o
+ LIB_O=	lauxlib.o lbaselib.o lcorolib.o ldblib.o liolib.o lmathlib.o loadlib.o loslib.o lstrlib.o ltablib.o lutf8lib.o linit.o
+ BASE_O= $(CORE_O) $(LIB_O) $(MYOBJS)
+ 
+diff --git a/src/luaconf.h b/src/luaconf.h
+index 137103e..3cd0d53 100644
+--- a/src/luaconf.h
++++ b/src/luaconf.h
+@@ -789,5 +789,15 @@
+ 
+ 
+ 
 +#if defined(lua_c) || defined(luac_c) || (defined(LUA_LIB) && \
 +    (defined(lauxlib_c) || defined(liolib_c) || \
 +     defined(loadlib_c) || defined(loslib_c)))
@@ -27,22 +58,12 @@ diff -ruN lua-5.4.6/src/luaconf.h lua-5.4.6-patched/src/luaconf.h
 +
 +
  #endif
-
-diff -ruN lua-5.4.6/src/Makefile lua-5.4.6-patched/src/Makefile
---- lua-5.4.6/src/Makefile	Thu Jul 15 22:01:52 2021
-+++ lua-5.4.6-patched/src/Makefile	Wed Feb 22 04:10:02 2023
-@@ -33,7 +33,7 @@
- PLATS= guess aix bsd c89 freebsd generic linux linux-readline macosx mingw posix solaris
-
- LUA_A=	liblua.a
--CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o
-+CORE_O=	lapi.o lcode.o lctype.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o lundump.o lvm.o lzio.o utf8_wrappers.o
- LIB_O=	lauxlib.o lbaselib.o lcorolib.o ldblib.o liolib.o lmathlib.o loadlib.o loslib.o lstrlib.o ltablib.o lutf8lib.o linit.o
- BASE_O= $(CORE_O) $(LIB_O) $(MYOBJS)
-
-diff -ruN lua-5.4.6/src/utf8_wrappers.c lua-5.4.6-patched/src/utf8_wrappers.c
---- lua-5.4.6/src/utf8_wrappers.c	Thu Jan 01 08:00:00 1970
-+++ lua-5.4.6-patched/src/utf8_wrappers.c	Wed Feb 22 18:13:45 2023
+ 
+diff --git a/src/utf8_wrappers.c b/src/utf8_wrappers.c
+new file mode 100644
+index 0000000..5b9b1f6
+--- /dev/null
++++ b/src/utf8_wrappers.c
 @@ -0,0 +1,129 @@
 +/**
 + * Wrappers to provide Unicode (UTF-8) support on Windows.
@@ -173,9 +194,11 @@ diff -ruN lua-5.4.6/src/utf8_wrappers.c lua-5.4.6-patched/src/utf8_wrappers.c
 +  return env_value;
 +}
 +#endif
-diff -ruN lua-5.4.6/src/utf8_wrappers.h lua-5.4.6-patched/src/utf8_wrappers.h
---- lua-5.4.6/src/utf8_wrappers.h	Thu Jan 01 08:00:00 1970
-+++ lua-5.4.6-patched/src/utf8_wrappers.h	Wed Feb 22 18:09:48 2023
+diff --git a/src/utf8_wrappers.h b/src/utf8_wrappers.h
+new file mode 100644
+index 0000000..22e853f
+--- /dev/null
++++ b/src/utf8_wrappers.h
 @@ -0,0 +1,46 @@
 +/**
 + * Wrappers to provide Unicode (UTF-8) support on Windows.
@@ -223,3 +246,6 @@ diff -ruN lua-5.4.6/src/utf8_wrappers.h lua-5.4.6-patched/src/utf8_wrappers.h
 +#define LoadLibraryExA      LoadLibraryExA_utf8
 +#endif
 +#endif
+-- 
+2.47.0
+
