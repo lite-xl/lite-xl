@@ -298,7 +298,7 @@ jobs:
 
       - name: Release on Winget
         uses: vedantmgoyal9/winget-releaser@main
-        if: ${{ needs.version.outputs.release }}
+        if: ${{ needs.version.outputs.release && github.repository == 'lite-xl/lite-xl' }}
         with:
           identifier: 'LiteXLTeam.LiteXL'
           version: ${{ needs.version.outputs.release }}
