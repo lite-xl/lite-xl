@@ -1,0 +1,16 @@
+name: Publish to winget
+on:
+  release:
+    types: [released]
+
+jobs:
+  publish:
+    if: ${{ github.repository == 'lite-xl/lite-xl' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: windows-latest
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: LiteXLTeam.LiteXL
+          installers-regex: '^LiteXL-v[0-9\.]+-x86_64-setup\.exe$'
+          fork-user: 'lite-xl'
+          token: ${{ secrets.WINGET_TOKEN }}
