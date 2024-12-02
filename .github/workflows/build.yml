@@ -296,7 +296,7 @@ jobs:
           bodyFile: release-notes.md
           artifacts: "releases/*.*"
 
-      - name: Releease on Winget
+      - name: Release on Winget
         uses: vedantmgoyal9/winget-releaser@main
         if: ${{ needs.version.outputs.release }}
         with:
