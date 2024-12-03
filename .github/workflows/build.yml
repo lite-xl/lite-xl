@@ -39,21 +39,24 @@ jobs:
           tag_name: ${{ github.event.inputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
+
       - name: Check Release
         id: check_release
         run: |
-          export REF=`git describe --match v[0-9]* HEAD --tags`
+          REF=$(git describe --exact-match --match v[0-9]* HEAD --tags 2>/dev/null) || REF=continuous
+          echo "ref=$REF" >> $GITHUB_OUTPUT
           echo "Build Version: $REF"
-          [[ "$REF" != "" ]] && echo "ref=$REF" >> $GITHUB_OUTPUT
-          if [[ `git describe --exact-match --match v[0-9]* HEAD --tags` ]]; then
+          if [[ "$REF" != "continuous" ]]; then
             echo "release=$REF" >> $GITHUB_OUTPUT
             echo "Release Version: $REF"
           fi
-          
+
+
   build_darwin:
     name: Darwin
     needs: [version]
