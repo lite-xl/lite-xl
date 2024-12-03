@@ -1,5 +1,38 @@
 # Changes Log
 
+## [2.1.7] - 2024-12-03
+
+This release fixes a bug related to scaling on macOS,
+the comment line / block functionality and an issue with overscrolling
+when the editor is too small.
+The TreeView now allows creating directories when a trailing slash is added,
+and the open file prompt now allows using both '/' and '\' as path separators.
+
+### Features
+
+* Allow `/` for path suggestions in all OSes
+  ([#1875](https://github.com/lite-xl/lite-xl/pull/1875))
+
+* `treeview:new-file` prompt ending with slash creates a new folder instead
+  ([#1898](https://github.com/lite-xl/lite-xl/pull/1898))
+
+* Check item type before creating input text in treeview
+  ([#1904](https://github.com/lite-xl/lite-xl/pull/1904))
+
+### Fixes
+
+* Return state when tokenizing plaintext syntaxes
+
+* Scale font pixel size in `RENDERER` mode
+  ([#1969](https://github.com/lite-xl/lite-xl/pull/1969))
+
+* Prevent overscroll when DocView size is less than lh * 2
+  ([#1971](https://github.com/lite-xl/lite-xl/pull/1971))
+
+### Other Changes
+
+* Add winget releaser workflow
+
 ## [2.1.6] - 2024-11-29
 
 This release introduces a new icon for macOS, improves the performance of the renderer,
@@ -1651,6 +1684,7 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
+[2.1.7]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.7
 [2.1.6]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.6
 [2.1.5]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.5
 [2.1.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.4
