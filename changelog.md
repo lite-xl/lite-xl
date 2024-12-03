@@ -1,6 +1,6 @@
 # Changes Log
 
-## [2.1.7] - 2024-12-04
+## [2.1.7] - 2024-12-05
 
 This release fixes a bug related to scaling on macOS,
 the comment line / block functionality and an issue with overscrolling
