@@ -772,19 +772,6 @@ command.add(
   end
 })
 
-local function create_new_file(filename)
-  core.log(filename)
-  local file = io.open(filename, "a+")
-  file:write("")
-  file:close()
-  core.root_view:open_doc(core.open_doc(filename))
-  core.log("Created %s", filename)
-end
-
-local function create_new_folder(dir_path)
-  common.mkdirp(dir_path)
-  core.log("Created %s", dir_path)
-end
 
 command.add(
   function()
@@ -877,12 +864,12 @@ command.add(
       text = text,
       submit = function(filename)
         local doc_filename = item.dir_name .. PATHSEP .. filename
-        local lastChar = filename:sub(#filename)
-        if lastChar == "/" or lastChar == "\\" then
-          create_new_folder(filename)
-        else
-          create_new_file(doc_filename)
-        end
+        core.log(doc_filename)
+        local file = io.open(doc_filename, "a+")
+        file:write("")
+        file:close()
+        view:open_doc(doc_filename)
+        core.log("Created %s", doc_filename)
       end,
       suggest = function(text)
         return common.path_suggest(text, item.dir_name)
@@ -904,7 +891,8 @@ command.add(
       text = text,
       submit = function(filename)
         local dir_path = item.dir_name .. PATHSEP .. filename
-        create_new_folder(dir_path)
+        common.mkdirp(dir_path)
+        core.log("Created %s", dir_path)
       end,
       suggest = function(text)
         return common.path_suggest(text, item.dir_name)
