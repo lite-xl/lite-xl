@@ -615,7 +615,8 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
           length = bytesTransferred;
           memset(&self->overlapped[writable_stream_idx], 0, sizeof(self->overlapped[writable_stream_idx]));
         }
-      } else {
+      } else if (GetLastError() != ERROR_HANDLE_EOF || !poll_process(self, WAIT_NONE)) {
+        // emulate POSIX behavior in the code below by returning empty string until process exits
         signal_process(self, SIGNAL_TERM);
         return 0;
       }
