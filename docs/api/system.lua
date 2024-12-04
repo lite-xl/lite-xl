@@ -8,6 +8,7 @@ system = {}
 ---@alias system.fileinfotype
 ---| "file"  # It is a file.
 ---| "dir"   # It is a directory.
+---| nil     # The file type is unspecified.
 
 ---
 ---@class system.fileinfo
