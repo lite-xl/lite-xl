@@ -676,7 +676,9 @@ end
 ---@return string|nil path The path where the error occured.
 function common.rm(path, recursively)
   local stat = system.get_file_info(path)
-  if not stat or (stat.type ~= "file" and stat.type ~= "dir") then
+  -- On Linux, a broken symlink won't be a file nor a dir,
+  -- but we still want to be able to delete it
+  if not stat or (stat.type ~= "file" and stat.type ~= "dir" and not stat.symlink) then
     return false, "invalid path", path
   end
 
