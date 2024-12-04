@@ -8,13 +8,14 @@ system = {}
 ---@alias system.fileinfotype
 ---| "file"  # It is a file.
 ---| "dir"   # It is a directory.
+---| nil     # The file type is unspecified.
 
 ---
 ---@class system.fileinfo
 ---@field public modified number A timestamp in seconds.
 ---@field public size number Size in bytes.
 ---@field public type system.fileinfotype Type of file
----@field public symlink boolean The directory is a symlink. This field is only set on Linux and on directories.
+---@field public symlink boolean The directory is a symlink. This field is only set on directories.
 
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
