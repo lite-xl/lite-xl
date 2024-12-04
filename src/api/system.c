@@ -774,7 +774,7 @@ static int f_get_file_info(lua_State *L) {
   lua_pushstring(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? "dir" : "file");
   lua_setfield(L, -2, "type");
 
-  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
   lua_setfield(L, -2, "symlink");
 #else
   struct stat s;
