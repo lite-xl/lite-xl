@@ -97,6 +97,17 @@ void renwin_resize_surface(RenWindow *ren) {
     setup_renderer(ren, new_w, new_h);
   }
 #endif
+#ifdef _WIN32
+  if ((SDL_GetWindowFlags(ren->window) & (SDL_WINDOW_BORDERLESS | SDL_WINDOW_MAXIMIZED)) == (SDL_WINDOW_BORDERLESS | SDL_WINDOW_MAXIMIZED)) {
+    // when this happens, the window is larger than the screen with negative positions
+    int x = 0, y = 0;
+    SDL_GetWindowPosition(ren->window, &x, &y);
+    ren->offset_x = x >= 0 ? 0 : -x;
+    ren->offset_y = x >= 0 ? 0 : -y;
+  } else {
+    ren->offset_x = ren->offset_y = 0;
+  }
+#endif
 }
 
 void renwin_update_scale(RenWindow *ren) {
