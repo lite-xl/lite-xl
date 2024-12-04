@@ -769,12 +769,14 @@ void ren_set_clip_rect(RenWindow *window_renderer, RenRect rect) {
 
 void ren_get_size(RenWindow *window_renderer, int *x, int *y) {
   RenSurface rs = renwin_get_surface(window_renderer);
-  *x = rs.surface->w;
+  *x = rs.surface->w; 
   *y = rs.surface->h;
 #ifdef LITE_USE_SDL_RENDERER
   *x /= rs.scale;
   *y /= rs.scale;
 #endif
+  *x -= 2 * window_renderer->offset_x;
+  *y -= 2 * window_renderer->offset_y;
 }
 
 size_t ren_get_window_list(RenWindow ***window_list_dest) {

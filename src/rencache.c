@@ -289,6 +289,8 @@ void rencache_end_frame(RenWindow *window_renderer) {
     }
   }
 
+  int offset_x = window_renderer->offset_x;
+  int offset_y = window_renderer->offset_y;
   /* expand rects from cells to pixels */
   for (int i = 0; i < rect_count; i++) {
     RenRect *r = &rect_buf[i];
@@ -311,19 +313,26 @@ void rencache_end_frame(RenWindow *window_renderer) {
       SetClipCommand *ccmd = (SetClipCommand*)&cmd->command;
       DrawRectCommand *rcmd = (DrawRectCommand*)&cmd->command;
       DrawTextCommand *tcmd = (DrawTextCommand*)&cmd->command;
+      RenRect intersected;
       switch (cmd->type) {
         case SET_CLIP:
-          ren_set_clip_rect(window_renderer, intersect_rects(ccmd->rect, r));
+          intersected = intersect_rects(ccmd->rect, r);
+          ren_set_clip_rect(window_renderer, (RenRect){intersected.x + offset_x, intersected.y + offset_y, intersected.width, intersected.height});
           break;
         case DRAW_RECT:
-          ren_draw_rect(&rs, rcmd->rect, rcmd->color);
+          ren_draw_rect(&rs, (RenRect){ rcmd->rect.x + offset_x, rcmd->rect.y + offset_y, rcmd->rect.width, rcmd->rect.height }, rcmd->color);
           break;
         case DRAW_TEXT:
           ren_font_group_set_tab_size(tcmd->fonts, tcmd->tab_size);
-          ren_draw_text(&rs, tcmd->fonts, tcmd->text, tcmd->len, tcmd->text_x, tcmd->rect.y, tcmd->color);
+          ren_draw_text(&rs, tcmd->fonts, tcmd->text, tcmd->len, tcmd->text_x + offset_x, tcmd->rect.y + offset_y, tcmd->color);
           break;
       }
     }
+
+    // update the rectangle with offset
+    rect_buf[i].x += offset_x;
+    rect_buf[i].y += offset_y;
+    r = rect_buf[i];
 
     if (show_debug) {
       RenColor color = { rand(), rand(), rand(), 50 };
