@@ -697,7 +697,7 @@ static int f_pid(lua_State* L) {
 
 static int f_returncode(lua_State *L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  if (self->running)
+  if (poll_process(self, WAIT_NONE))
     return 0;
   lua_pushinteger(L, self->returncode);
   return 1;
