@@ -168,7 +168,6 @@ if not get_option('source-only')
     sdlmain_dep = dependency('SDL2main', required: false)
 
     if not sdl_dep.found() or (host_machine.system() == 'windows' and not sdlmain_dep.found())
-        error('bla')
         sdl_proj = cmake.subproject('sdl2', options: sdl_options)
 
         if not sdl_dep.found()
