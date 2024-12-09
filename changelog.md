@@ -1,5 +1,106 @@
 # Changes Log
 
+## [2.1.7] - 2024-12-05
+
+This release fixes a bug related to scaling on macOS,
+the comment line / block functionality and an issue with overscrolling
+when the editor is too small.
+The TreeView now allows creating directories when a trailing slash is added,
+and the open file prompt now allows using both '/' and '\' as path separators.
+
+### Features
+
+* Allow `/` for path suggestions in Windows
+  ([#1875](https://github.com/lite-xl/lite-xl/pull/1875),
+   [#1976](https://github.com/lite-xl/lite-xl/pull/1976))
+
+* Check item type before creating input text in treeview
+  ([#1904](https://github.com/lite-xl/lite-xl/pull/1904))
+
+### Fixes
+
+* Return state when tokenizing plaintext syntaxes
+
+* Scale font pixel size in `RENDERER` mode
+  ([#1969](https://github.com/lite-xl/lite-xl/pull/1969))
+
+* Prevent overscroll when DocView size is less than lh * 2
+  ([#1971](https://github.com/lite-xl/lite-xl/pull/1971))
+
+* Fix process:read_stdout() and process:read_stderr() not checking for process completion
+  ([#1973](https://github.com/lite-xl/lite-xl/pull/1973))
+
+* Call poll_process when calling process:returncode()
+  ([#1981](https://github.com/lite-xl/lite-xl/pull/1981))
+
+### Other Changes
+
+* Add winget releaser workflow
+
+## [2.1.6] - 2024-11-29
+
+This release introduces a new icon for macOS, improves the performance of the renderer,
+adds syntax highlighting support for CUDA as well as QOL fixes and improvements.
+
+### Features
+
+* Add CUDA syntax highlighting support
+  ([#1848](https://github.com/lite-xl/lite-xl/pull/1848))
+
+* Add macOS-specific application icon
+  ([#1844](https://github.com/lite-xl/lite-xl/pull/1844))
+
+* Add keyboard shortcut to tooltips in ToolbarView
+  ([#1880](https://github.com/lite-xl/lite-xl/pull/1880))
+
+* Improve projectsearch (status on the top, horizontal scrolling, elipsis)
+  ([#1876](https://github.com/lite-xl/lite-xl/pull/1876))
+
+### Fixes
+
+* Correctly free SDL_Texture and SDL_Renderer
+  ([#1849](https://github.com/lite-xl/lite-xl/pull/1850))
+
+* Fixed minor typo from merge of #1854 for Windows builds
+
+* Fix multi-type usage in delimited patterns
+  ([#1740](https://github.com/lite-xl/lite-xl/pull/1740))
+
+* Fix appimage cd error and use static appimage runtime
+  ([#1924](https://github.com/lite-xl/lite-xl/pull/1924))
+
+### Other Changes
+
+* Rewrite glyph cache
+  ([#1845](https://github.com/lite-xl/lite-xl/pull/1845))
+
+* Use lite-xl-build-box-manylinux
+  ([#1877](https://github.com/lite-xl/lite-xl/pull/1877))
+
+* Remove unused calls to system.absolute_path()
+  ([#1895](https://github.com/lite-xl/lite-xl/pull/1895))
+
+* Remove lhelper script, build configuration and dependency support
+  ([#1906](https://github.com/lite-xl/lite-xl/pull/1906))
+
+* Refactor how arguments are handled in process.start()
+  ([#1854](https://github.com/lite-xl/lite-xl/pull/1854))
+
+* Add a proper name to EmptyView
+  ([#1569](https://github.com/lite-xl/lite-xl/pull/1569))
+
+* Format renderer font scale code to be actually readable
+  ([#1921](https://github.com/lite-xl/lite-xl/pull/1921))
+
+* Update PCRE2 wrap
+  ([#1927](https://github.com/lite-xl/lite-xl/pull/1927))
+
+* Use meson datadir as lite_datadir base
+  ([#1939](https://github.com/lite-xl/lite-xl/pull/1939))
+
+* Convert unix style paths literals into meson path segments
+  ([#1938](https://github.com/lite-xl/lite-xl/pull/1938))
+
 ## [2.1.5] - 2024-06-29
 
 This release addresses several bugs from upstream dependencies and
@@ -1587,6 +1688,8 @@ A new global variable `USERDIR` is exposed to point to the user's directory.
 
 - subpixel font rendering with gamma correction
 
+[2.1.7]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.7
+[2.1.6]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.6
 [2.1.5]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.5
 [2.1.4]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.4
 [2.1.3]: https://github.com/lite-xl/lite-xl/releases/tag/v2.1.3
