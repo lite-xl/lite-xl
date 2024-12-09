@@ -113,63 +113,74 @@ if not get_option('source-only')
         default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
     )
 
-
-    sdl_options = ['default_library=static']
+    # Needed for the fallback
+    cmake = import('cmake')
+    sdl_options = cmake.subproject_options()
 
     # we explicitly need these
-    sdl_options += 'use_loadso=enabled'
-    sdl_options += 'prefer_dlopen=true'
-    sdl_options += 'use_video=enabled'
-    sdl_options += 'use_atomic=enabled'
-    sdl_options += 'use_threads=enabled'
-    sdl_options += 'use_timers=enabled'
-    # investigate if this is truly needed
-    # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
-    sdl_options += 'use_events=enabled'
+    sdl_options.add_cmake_defines({
+        'SDL_LOADSO': true,
+
+        'SDL_VIDEO': true,
+        'SDL_ATOMIC': true,
+        'SDL_THREADS': true,
+        'SDL_TIMERS': true,
+        # investigate if this is truly needed
+        # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
+        'SDL_EVENTS': true
+    })
 
     if host_machine.system() == 'darwin' or host_machine.system() == 'windows'
-        sdl_options += 'use_video_x11=disabled'
-        sdl_options += 'use_video_wayland=disabled'
+        sdl_options.add_cmake_defines({
+            'SDL_X11': false,
+            'SDL_WAYLAND': false
+        })
     else
-        sdl_options += 'use_render=enabled'
-        sdl_options += 'use_video_x11=auto'
-        sdl_options += 'use_video_wayland=auto'
+        sdl_options.add_cmake_defines({
+            'SDL_RENDER': true
+        })
     endif
 
     # we leave this up to what the host system has except on windows
-    if host_machine.system() != 'windows'
-        sdl_options += 'use_video_opengl=auto'
-        sdl_options += 'use_video_openglesv2=auto'
-    else
-        sdl_options += 'use_video_opengl=disabled'
-        sdl_options += 'use_video_openglesv2=disabled'
+    if host_machine.system() == 'windows'
+        sdl_options.add_cmake_defines({
+            'SDL_OPENGL': false,
+            'SDL_OPENGLES': false
+        })
     endif
 
     # we don't need these
-    sdl_options += 'test=false'
-    sdl_options += 'use_sensor=disabled'
-    sdl_options += 'use_haptic=disabled'
-    sdl_options += 'use_hidapi=disabled'
-    sdl_options += 'use_audio=disabled'
-    sdl_options += 'use_cpuinfo=disabled'
-    sdl_options += 'use_joystick=disabled'
-    sdl_options += 'use_joystick_xinput=disabled'
-    sdl_options += 'use_video_vulkan=disabled'
-    sdl_options += 'use_video_offscreen=disabled'
-    sdl_options += 'use_power=disabled'
-    sdl_options += 'system_iconv=disabled'
+    sdl_options.add_cmake_defines({
+        'SDL_TEST': false,
+        'SDL_SENSOR': false,
+        'SDL_HAPTIC': false,
+        'SDL_HIDAPI': false,
+        'SDL_AUDIO': false,
+        'SDL_CPUINFO': false,
+        'SDL_JOYSTICK': false,
+        'SDL_VULKAN': false,
+        'SDL_OFFSCREEN': false,
+        'SDL_POWER': false,
+        'SDL_SYSTEM_ICONV': false
+    })
 
-    sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
-        default_options: default_fallback_options + sdl_options
-    )
+    sdl_dep = dependency('SDL2', required: false)
+    sdlmain_dep = dependency('SDL2main', required: false)
 
-    if host_machine.system() == 'windows'
-        if sdl_dep.type_name() == 'internal'
-            sdlmain_dep = dependency('sdl2main', fallback: ['sdl2main_dep'])
-        else
-            sdlmain_dep = cc.find_library('SDL2main')
+    if not sdl_dep.found() or (host_machine.system() == 'windows' and not sdlmain_dep.found())
+        error('bla')
+        sdl_proj = cmake.subproject('sdl2', options: sdl_options)
+
+        if not sdl_dep.found()
+            sdl_dep = sdl_proj.dependency('SDL2-static')
         endif
-    else
+
+        if not sdlmain_dep.found()
+            sdlmain_dep = sdl_proj.dependency('SDL2main')
+        endif
+    endif
+
+    if host_machine.system() != 'windows'
         sdlmain_dep = dependency('', required: false)
         assert(not sdlmain_dep.found(), 'checking if fake dependency has been found')
     endif
