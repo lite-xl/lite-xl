@@ -119,6 +119,8 @@ if not get_option('source-only')
 
     # we explicitly need these
     sdl_options.add_cmake_defines({
+        'SDL_STATIC': true,
+
         'SDL_LOADSO': true,
 
         'SDL_VIDEO': true,
@@ -164,8 +166,8 @@ if not get_option('source-only')
         'SDL_SYSTEM_ICONV': false
     })
 
-    sdl_dep = dependency('SDL2', required: false)
-    sdlmain_dep = dependency('SDL2main', required: false)
+    sdl_dep = dependency('sdl2', required: false)
+    sdlmain_dep = dependency('sdl2main', required: false)
 
     if not sdl_dep.found() or (host_machine.system() == 'windows' and not sdlmain_dep.found())
         sdl_proj = cmake.subproject('sdl2', options: sdl_options)
