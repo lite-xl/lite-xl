@@ -204,6 +204,7 @@ jobs:
           pacboy: >-
             gcc:p
             meson:p
+            cmake:p
             ca-certificates:p
             ninja:p
             pkg-config:p
