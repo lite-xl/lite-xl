@@ -170,7 +170,7 @@ if not get_option('source-only')
     sdlmain_dep = dependency('sdl2main', required: false)
 
     if not sdl_dep.found() or (host_machine.system() == 'windows' and not sdlmain_dep.found())
-        sdl_proj = cmake.subproject('sdl2', options: sdl_options)
+        sdl_proj = cmake.subproject('sdl2-cmake', options: sdl_options)
 
         if not sdl_dep.found()
             sdl_dep = sdl_proj.dependency('SDL2-static')
