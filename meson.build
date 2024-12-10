@@ -132,40 +132,6 @@ if not get_option('source-only')
         'SDL_EVENTS': true
     })
 
-    if host_machine.system() == 'darwin' or host_machine.system() == 'windows'
-        sdl_options.add_cmake_defines({
-            'SDL_X11': false,
-            'SDL_WAYLAND': false
-        })
-    else
-        sdl_options.add_cmake_defines({
-            'SDL_RENDER': true
-        })
-    endif
-
-    # we leave this up to what the host system has except on windows
-    if host_machine.system() == 'windows'
-        sdl_options.add_cmake_defines({
-            'SDL_OPENGL': false,
-            'SDL_OPENGLES': false
-        })
-    endif
-
-    # we don't need these
-    sdl_options.add_cmake_defines({
-        'SDL_TEST': false,
-        'SDL_SENSOR': false,
-        'SDL_HAPTIC': false,
-        'SDL_HIDAPI': false,
-        'SDL_AUDIO': false,
-        'SDL_CPUINFO': false,
-        'SDL_JOYSTICK': false,
-        'SDL_VULKAN': false,
-        'SDL_OFFSCREEN': false,
-        'SDL_POWER': true, # workaround to link IOKit on macOS
-        'SDL_SYSTEM_ICONV': false
-    })
-
     sdl_dep = dependency('sdl2', required: false)
     sdlmain_dep = dependency('sdl2main', required: false)
 
