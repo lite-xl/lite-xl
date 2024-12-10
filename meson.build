@@ -162,7 +162,7 @@ if not get_option('source-only')
         'SDL_JOYSTICK': false,
         'SDL_VULKAN': false,
         'SDL_OFFSCREEN': false,
-        'SDL_POWER': false,
+        'SDL_POWER': true, # workaround to link IOKit on macOS
         'SDL_SYSTEM_ICONV': false
     })
 
