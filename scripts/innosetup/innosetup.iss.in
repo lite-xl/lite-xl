@@ -39,11 +39,14 @@ AppUpdatesURL={#MyAppURL}
 #endif
 
 AllowNoIcons=yes
-Compression=lzma
+Compression=lzma2
 SolidCompression=yes
 DefaultDirName={autopf}/{#MyAppName}
 DefaultGroupName={#MyAppPublisher}
 UninstallFilesDir={app}
+WizardStyle=modern
+AlwaysShowDirOnReadyPage=yes
+
 
 ; Uncomment the following line to run in non administrative install mode
 ; (install for current user only.)
@@ -56,14 +59,24 @@ UsedUserAreasWarning=no
 
 OutputDir=.
 OutputBaseFilename=LiteXL-{#MyAppVersion}-{#ArchInternal}-setup
-;DisableDirPage=yes
+DisableDirPage=no
 ;DisableProgramGroupPage=yes
 
 LicenseFile={#SourceDir}/LICENSE
 SetupIconFile={#SourceDir}/resources/icons/icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}, 0
-WizardImageFile="{#SourceDir}/scripts/innosetup/wizard-modern-image.bmp"
-WizardSmallImageFile="{#SourceDir}/scripts/innosetup/litexl-55px.bmp"
+
+; Get a list of icons for different DPIs
+#define WizardIconPath = SourceDir + "/scripts/innosetup/"
+#define FinalIconPath ""
+#define FindHandle
+#define FindResult
+#for {FindHandle = FindResult = FindFirst(WizardIconPath + "lite-xl@*.bmp", 0); FindResult; FindResult = FindNext(FindHandle)} \
+  Insert(FinalIconPath, 0, WizardIconPath + FindGetFileName(FindHandle) + ",")
+#if FindHandle
+  #expr FindClose(FindHandle)
+#endif
+WizardSmallImageFile="{#FinalIconPath}"
 
 ; Required for the add to path option to refresh environment
 ChangesEnvironment=yes
@@ -74,8 +87,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
-Name: "portablemode"; Description: "Portable Mode"; Flags: unchecked
-Name: "envPath"; Description: "Add lite-xl to the PATH variable, allowing it to be run from a command line."
+Name: "portablemode"; Description: "Extract only, do not install"; Flags: unchecked
+Name: "envPath"; Description: "Add Lite XL to PATH"; Flags: unchecked
 
 [Files]
 Source: "{#BuildDir}/lite-xl/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
