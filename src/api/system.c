@@ -1359,6 +1359,14 @@ static int f_get_debug_info(lua_State *L) {
   lua_pushboolean(L, 0);
 #endif
   lua_setfield(L, -2, "renderer");
+#ifdef LITE_BUILD_CARGS
+  lua_pushstring(L, LITE_BUILD_CARGS);
+  lua_setfield(L, -2, "CFLAGS");
+#endif
+#ifdef LITE_LINK_ARGS
+  lua_pushstring(L, LITE_LINK_ARGS);
+  lua_setfield(L, -2, "LDFLAGS");
+#endif
   return 1;
 }
 
