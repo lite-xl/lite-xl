@@ -9,7 +9,7 @@
 ; Use /dArch option to create a setup for a different architecture, e.g.:
 ; iscc /dArch=x86 innosetup.iss
 #ifndef Arch
-  #define Arch "x64"
+  #define Arch "x64compatible"
 #endif
 
 [Setup]
@@ -26,14 +26,14 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 
-#if Arch=="x86"
+#if Pos("x86", Arch) != 0
   #define ArchInternal "i686"
 #else
   ArchitecturesAllowed={#Arch}
   ArchitecturesInstallIn64BitMode={#Arch}
-  #if Arch=="x64"
+  #if Pos("x64", Arch) != 0
     #define ArchInternal "x86_64"
-  #elif Arch=="arm64"
+  #elif Pos("arm64", Arch) != 0
     #define ArchInternal "aarch64"
   #endif
 #endif
