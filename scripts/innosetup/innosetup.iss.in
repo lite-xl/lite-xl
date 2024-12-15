@@ -47,7 +47,6 @@ UninstallFilesDir={app}
 WizardStyle=modern
 AlwaysShowDirOnReadyPage=yes
 
-
 ; Uncomment the following line to run in non administrative install mode
 ; (install for current user only.)
 ;PrivilegesRequired=lowest
@@ -77,6 +76,15 @@ UninstallDisplayIcon={app}\{#MyAppExeName}, 0
   #expr FindClose(FindHandle)
 #endif
 WizardSmallImageFile="{#FinalIconPath}"
+
+; Get a list of banners for different DPIs (FIXME: figure out how to reuse this code?)
+#define FinalBannerPath ""
+#for {FindHandle = FindResult = FindFirst(WizardIconPath + "lite-xl-banner@*.bmp", 0); FindResult; FindResult = FindNext(FindHandle)} \
+  Insert(FinalBannerPath, 0, WizardIconPath + FindGetFileName(FindHandle) + ",")
+#if FindHandle
+  #expr FindClose(FindHandle)
+#endif
+WizardImageFile="{#FinalBannerPath}"
 
 ; Required for the add to path option to refresh environment
 ChangesEnvironment=yes
@@ -121,48 +129,61 @@ Uninstallable=not WizardIsTaskSelected('portablemode')
 ; Code to add installation path to environment taken from:
 ; https://stackoverflow.com/a/46609047
 [Code]
-const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
+const SystemKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
+const UserKey = 'Environment';
+const SystemHive = HKEY_LOCAL_MACHINE;
+const UserHive = HKEY_CURRENT_USER;
 
 procedure EnvAddPath(Path: string);
 var
-  Paths: string;
+  SystemPath: string;
+  UserPath: string;
+  R: boolean;
 begin
-  { Retrieve current path (use empty string if entry not exists) }
-  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths)
-  then Paths := '';
+  { Retrieve user and system PATH }
+  if not RegQueryStringValue(SystemHive, SystemKey, 'Path', SystemPath)
+  then SystemPath := '';
+  if not RegQueryStringValue(UserHive, UserKey, 'Path', UserPath)
+  then UserPath := '';
 
-  { Skip if string already found in path }
-  if Pos(';' + Uppercase(Path) + ';', ';' + Uppercase(Paths) + ';') > 0 then exit;
+  { Skip if the string is found in user / system path }
+  if Pos(';' + Uppercase(Path) + ';', ';' + Uppercase(UserPath) + ';' + Uppercase(SystemPath) + ';') > 0 then exit;
 
-  { App string to the end of the path variable }
-  Paths := Paths + ';'+ Path +';'
+  { Add the environment variable to user or system PATH depending on installation mode }
+  if IsAdminInstallMode() then R := RegWriteStringValue(SystemHive, SystemKey, 'Path', SystemPath + ';' + Path + ';')
+  else R := RegWriteStringValue(UserHive, UserKey, 'Path', UserPath + ';' + Path + ';');
 
-  { Overwrite (or create if missing) path environment variable }
-  if RegWriteStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths)
-  then Log(Format('The [%s] added to PATH: [%s]', [Path, Paths]))
-  else Log(Format('Error while adding the [%s] to PATH: [%s]', [Path, Paths]));
+  { Log any issues }
+  if R then Log(Path + ' is added to PATH')
+  else Log('Cannot add ' + Path + ' to PATH');
 end;
 
 procedure EnvRemovePath(Path: string);
 var
+  RegKeys: array of string;
+  RegHives: array of integer;
   Paths: string;
-  P: Integer;
+  I: integer;
+  P: integer;
 begin
-  { Skip if registry entry not exists }
-  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths) then
-    exit;
-
-  { Skip if string not found in path }
-  P := Pos(';' + Uppercase(Path) + ';', ';' + Uppercase(Paths) + ';');
-  if P = 0 then exit;
-
-  { Update path variable }
-  Delete(Paths, P - 1, Length(Path) + 1);
-
-  { Overwrite path environment variable }
-  if RegWriteStringValue(HKEY_LOCAL_MACHINE, EnvironmentKey, 'Path', Paths)
-  then Log(Format('The [%s] removed from PATH: [%s]', [Path, Paths]))
-  else Log(Format('Error while removing the [%s] from PATH: [%s]', [Path, Paths]));
+  { During uninstallation, we always have administrator privileges }
+  RegKeys := [SystemKey, UserKey];
+  RegHives := [SystemHive, UserHive];
+  { Remove the path from both user and system PATH }
+  for I := 0 to Length(RegKeys) - 1 do
+    begin
+      { Skip if registry key doesn't exist }
+      if not RegQueryStringValue(RegHives[I], RegKeys[I], 'Path', Paths) then continue;
+      { Skip if path is not in PATH }
+      P := Pos(';' + Uppercase(Path) + ';', ';' + Uppercase(Paths) + ';');
+      if p = 0 then continue;
+      { Remove string from PATH }
+      Delete(Paths, P - 1, Length(Path) + 1);
+      { Write to the environment variable }
+      if RegWriteStringValue(RegHives[I], RegKeys[I], 'Path', Paths)
+      then Log(Path + ' is removed from PATH')
+      else Log('Error removing ' + Path + ' from PATH');
+    end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
