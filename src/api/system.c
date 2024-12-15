@@ -5,7 +5,12 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include "api.h"
+#include "../arena_allocator.h"
 #include "../rencache.h"
 #include "../renwindow.h"
 #ifdef _WIN32
@@ -23,6 +28,22 @@
 #ifdef __linux__
   #include <sys/vfs.h>
 #endif
+
+// https://github.com/dcreager/libcork/blob/a89596ce224438c136ef0336a81c51262cad9cd3/src/libcork/posix/env.c#L23
+#if defined(__APPLE__)
+  /* Apple doesn't provide access to the "environ" variable from a shared library.
+  * There's a workaround function to grab the environ pointer described at [1].
+  *
+  * [1] http://developer.apple.com/library/mac/#documentation/Darwin/Reference/ManPages/man7/environ.7.html
+  */
+  #include <crt_externs.h>
+  #define environ  (*_NSGetEnviron())
+#else
+  /* On all other POSIX platforms, we assume that environ is available in shared
+  * libraries. */
+  extern char  **environ;
+#endif
+
 #endif
 
 static const char* button_name(int button) {
@@ -1286,6 +1307,62 @@ static int f_setenv(lua_State* L) {
 }
 
 
+static int f_get_debug_info(lua_State *L) {
+  lua_settop(L, 1);
+  lxl_arena *A = lxl_arena_init(L); (void) A; // fixes unused warning
+  if (lua_istable(L, 1))
+    lua_pushvalue(L, 1);
+  else
+    lua_newtable(L);
+  // get versions
+  SDL_version sdl_ver = { 0 };
+  SDL_GetVersion(&sdl_ver);
+  lua_pushfstring(L, "%d.%d.%d", sdl_ver.major, sdl_ver.minor, sdl_ver.patch);
+  lua_setfield(L, -2, "SDL");
+  lua_pushfstring(L, "%d.%d.%d", FREETYPE_MAJOR, FREETYPE_MINOR, FREETYPE_PATCH); // we should use FT_Library_Version, but this is impossible
+  lua_setfield(L, -2, "FreeType");
+  lua_pushfstring(L, "%d.%d", PCRE2_MAJOR, PCRE2_MINOR);
+  lua_setfield(L, -2, "PCRE2");
+  // get video driver
+  lua_pushstring(L, SDL_GetCurrentVideoDriver());
+  lua_setfield(L, -2, "video_driver");
+  // get environment variables
+  lua_newtable(L);
+  const char *env_str = NULL;
+#ifdef _WIN32
+  LPWSTR env_wstr = GetEnvironmentStringsW();
+  env_str = utfconv_fromlwstr(A, env_wstr, 0);
+  FreeEnvironmentStringsW(env_wstr);
+  int len = 0;
+  while ((len = strlen(env_str)) > 0)
+#else
+  char **envp = environ;
+  while ((env_str = *envp) != NULL)
+#endif
+  {
+    const char *eq = strchr(env_str, '=');
+    if (!eq) return luaL_error(L, "missing equal sign in environ");
+    lua_pushlstring(L, env_str, eq - env_str);
+    lua_pushstring(L, eq + 1);
+    lua_rawset(L, -3);
+#ifdef _WIN32
+    env_str += len + 1;
+#else
+    envp++;
+#endif
+  }
+  lua_setfield(L, -2, "env");
+  // check whether RENDERER is enabled
+#ifdef LITE_USE_SDL_RENDERER
+  lua_pushboolean(L, 1);
+#else
+  lua_pushboolean(L, 0);
+#endif
+  lua_setfield(L, -2, "renderer");
+  return 1;
+}
+
+
 static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
   { "wait_event",            f_wait_event            },
@@ -1324,6 +1401,7 @@ static const luaL_Reg lib[] = {
   { "text_input",            f_text_input            },
   { "setenv",                f_setenv                },
   { "ftruncate",             f_ftruncate             },
+  { "get_debug_info",        f_get_debug_info        },
   { NULL, NULL }
 };
 
