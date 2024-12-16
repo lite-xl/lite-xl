@@ -32,6 +32,13 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
   return ptr;
 }
 
+// the parameters passed into freetype's scanline converter
+typedef struct {
+  SDL_Surface *surface;
+  SDL_Rect clip;
+  RenColor color;
+} RenPolyParams;
+
 /************************* Fonts *************************/
 
 // approximate number of glyphs per atlas surface
@@ -205,7 +212,7 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     }
   }
   if (atlas_idx < 0) {
-    // create a new atlas with the correct width, for each subpixel bitmap  
+    // create a new atlas with the correct width, for each subpixel bitmap
     for (int i = 0; i < FONT_BITMAP_COUNT(font); i++) {
       font->glyphs.atlas[i] = check_alloc(realloc(font->glyphs.atlas[i], sizeof(GlyphAtlas) * (font->glyphs.natlas + 1)));
       font->glyphs.atlas[i][font->glyphs.natlas] = (GlyphAtlas) {
@@ -287,7 +294,7 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
           && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY
           && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD))
       continue;
-    
+
     unsigned int glyph_width = slot->bitmap.width / bitmaps;
     // FT_PIXEL_MODE_MONO uses 1 bit per pixel packed bitmap
     if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) glyph_width *= 8;
@@ -303,7 +310,7 @@ static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
     uint8_t* pixels = surface->pixels;
     for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
       int target_offset = surface->pitch * (line + metric->y0); // x0 is always assumed to be 0
-      int source_offset = line * slot->bitmap.pitch;  
+      int source_offset = line * slot->bitmap.pitch;
       if (font->antialiasing == FONT_ANTIALIASING_NONE) {
         for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
           int current_source_offset = source_offset + (column / 8);
@@ -411,7 +418,7 @@ static int font_set_face_metrics(RenFont *font, FT_Face face) {
   } else {
     font->height = (short) font->face->size->metrics.height / 64.0f;
     font->baseline = (short) font->face->size->metrics.ascender / 64.0f;
-  }   
+  }
   if(!font->underline_thickness)
     font->underline_thickness = ceil((double) font->height / 14.0);
 
@@ -427,7 +434,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
   file = SDL_RWFromFile(path, "rb");
   if (!file) return NULL;
-  
+
   int len = strlen(path);
   font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
   strcpy(font->path, path);
@@ -653,6 +660,65 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   return pen_x / surface_scale;
 }
 
+#define ENSURE_RECT_SURFACE(s) \
+  if (!draw_rect_surface) \
+    draw_rect_surface = check_alloc(SDL_CreateRGBSurfaceWithFormat(0, 1, 1, (s)->format->BitsPerPixel, (s)->format->format))
+
+int ren_poly_cbox(RenPoint *points, int npoints, RenRect *cbox) {
+  if (npoints > MAX_POLY_POINTS) return -1;
+  if (npoints == 0) { memset(cbox, 0, sizeof(RenRect)); return 0; }
+  // the control box is just the min and max of all points,
+  // because the highest point of a curve can't go higher than the control point
+  RenPoint *end = points + npoints;
+  int xmin, ymin, xmax, ymax;
+  xmin = xmax = points->x; ymin = ymax = points->y;
+  points++;
+  for (; points < end; points++) {
+    if (points->x < xmin) xmin = points->x;
+    if (points->x > xmax) xmax = points->x;
+    if (points->y < ymin) ymin = points->y;
+    if (points->y > ymax) ymax = points->y;
+  }
+  cbox->x = xmin; cbox->y = ymin;
+  cbox->width = xmax - xmin; cbox->height = ymax - ymin;
+  return 0;
+}
+
+void raster_span(int y, int count, const FT_Span *spans, void *user) {
+  RenPolyParams *param = (RenPolyParams *) user;
+  if (y < param->clip.y || y >= param->clip.y + param->clip.h) return;
+  for (int i = 0; i < count; i++) {
+    SDL_Rect actual, span = { .x = spans[i].x, .y = y, .w = spans[i].len, .h = 1 };
+    if (span.x > param->clip.x + param->clip.w) break;
+    if (!SDL_IntersectRect(&param->clip, &span, &actual)) continue;
+    *((uint32_t *) draw_rect_surface->pixels) = SDL_MapRGBA(draw_rect_surface->format, param->color.r, param->color.g, param->color.b, (param->color.a * spans[i].coverage) >> 8);
+    SDL_BlitScaled(draw_rect_surface, NULL, param->surface, &actual);
+  }
+}
+
+void ren_draw_poly(RenSurface *rs, RenPoint *points, unsigned short npoints, RenColor color) {
+  FT_Outline outline;
+  if (npoints == 0 || npoints > MAX_POLY_POINTS) return;
+  if (FT_Outline_New(library, npoints, 1, &outline) != 0) return;
+  for (int i = 0; i < npoints; i++) {
+    // this is undocumented, but freetype seems to expect 26.6 fixed point numbers
+    outline.points[i].x = points[i].x * rs->scale * 64;
+    outline.points[i].y = points[i].y * rs->scale * 64;
+    outline.tags[i] = points[i].tag;
+  }
+  outline.contours[0] = npoints - 1;
+  ENSURE_RECT_SURFACE(rs->surface);
+  RenPolyParams params = { .color = color, .surface = rs->surface };
+  SDL_GetClipRect(rs->surface, &params.clip);
+  FT_Outline_Render(library, &outline, &(FT_Raster_Params) {
+    .target = NULL,
+    .flags = FT_RASTER_FLAG_AA | FT_RASTER_FLAG_DIRECT,
+    .gray_spans = &raster_span,
+    .user = &params,
+  });
+  FT_Outline_Done(library, &outline);
+}
+
 /******************* Rectangles **********************/
 static inline RenColor blend_pixel(RenColor dst, RenColor src) {
   int ia = 0xff - src.a;
@@ -682,7 +748,7 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
     SDL_Rect clip;
     SDL_GetClipRect(surface, &clip);
     if (!SDL_IntersectRect(&clip, &dest_rect, &dest_rect)) return;
-
+    ENSURE_RECT_SURFACE(surface);
     uint32_t *pixel = (uint32_t *)draw_rect_surface->pixels;
     *pixel = SDL_MapRGBA(draw_rect_surface->format, color.r, color.g, color.b, color.a);
     SDL_BlitScaled(draw_rect_surface, NULL, surface, &dest_rect);
@@ -719,8 +785,8 @@ int ren_init(void) {
 }
 
 void ren_free(void) {
-  SDL_FreeSurface(draw_rect_surface);
-  FT_Done_FreeType(library);    
+  if (draw_rect_surface) SDL_FreeSurface(draw_rect_surface);
+  FT_Done_FreeType(library);
 }
 
 RenWindow* ren_create(SDL_Window *win) {

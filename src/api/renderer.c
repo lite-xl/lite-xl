@@ -352,6 +352,57 @@ static int f_draw_rect(lua_State *L) {
   return 0;
 }
 
+static void *realloc_ud(lua_State *L, int ref, void *prev, size_t s) {
+  void *ptr = lua_newuserdatauv(L, s, 1);
+  lua_pushinteger(L, s); lua_setiuservalue(L, -2, 1);
+  lua_rawsetp(L, ref, ptr);
+  if (prev) {
+    if (lua_rawgetp(L, ref, prev) != LUA_TUSERDATA) luaL_error(L, "invalid previous pointer");
+    lua_getiuservalue(L, -1, 1); memcpy(ptr, prev, lua_tointeger(L, -1)); // copy previous memory
+    lua_pushnil(L); lua_rawsetp(L, ref, prev); // remove previous allocated memory
+    lua_pop(L, 2);
+  }
+  return ptr;
+}
+
+static int f_draw_poly(lua_State *L) {
+  static const char normal_tag[] = { POLY_NORMAL };
+  static const char conic_bezier_tag[] = { POLY_NORMAL, POLY_CONTROL_CONIC, POLY_NORMAL };
+  static const char cubic_bezier_tag[] = { POLY_NORMAL, POLY_CONTROL_CUBIC, POLY_CONTROL_CUBIC, POLY_NORMAL };
+
+  assert(active_window_renderer != NULL);
+  luaL_checktype(L, 1, LUA_TTABLE);
+  RenColor color = checkcolor(L, 2, 255);
+  lua_settop(L, 2);
+  // create a table, and store all the renpoint as userdata in the table as crude GC
+  int arena_idx = (lua_newtable(L), lua_gettop(L));
+
+  int len = luaL_len(L, 1);
+  RenPoint *points = NULL; int npoints = 0;
+  for (int i = 1; i <= len; i++) {
+    lua_rawgeti(L, 1, i); luaL_checktype(L, -1, LUA_TTABLE);
+    const char *current_tag = NULL; int coord_len = luaL_len(L, -1);
+    switch (coord_len) {
+      case 2: current_tag = normal_tag;       break; // 1 curve point
+      case 6: current_tag = conic_bezier_tag; break; // a conic bezier with 2 curve points and 1 control point
+      case 8: current_tag = cubic_bezier_tag; break; // a cubic bezier with 2 curve points and 2 control points
+      default: return luaL_error(L, "invalid number of points, expected 2, 6 and 8, got %d", coord_len);
+    }
+    if (npoints + coord_len / 2 > MAX_POLY_POINTS) return luaL_error(L, "too many points");
+    points = realloc_ud(L, arena_idx, points, (npoints + coord_len / 2) * sizeof(RenPoint));
+    for (int lidx = 1; lidx <= coord_len; lidx += 2) {
+      points[npoints].x = (lua_rawgeti(L, -1, lidx),   luaL_checknumber(L, -1));
+      points[npoints].y = (lua_rawgeti(L, -2, lidx+1), luaL_checknumber(L, -1));
+      points[npoints++].tag = current_tag[(lidx-1)/2];
+      lua_pop(L, 2);
+    }
+  }
+  RenRect res = rencache_draw_poly(active_window_renderer, points, npoints, color);
+  lua_pushinteger(L, res.x);     lua_pushinteger(L, res.y);
+  lua_pushinteger(L, res.width); lua_pushinteger(L, res.height);
+  return 4;
+}
+
 static int f_draw_text(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
   font_retrieve(L, fonts, 1);
@@ -386,7 +437,8 @@ static const luaL_Reg lib[] = {
   { "set_clip_rect",      f_set_clip_rect      },
   { "draw_rect",          f_draw_rect          },
   { "draw_text",          f_draw_text          },
-  { NULL,                 NULL                 }
+  { "draw_poly",          f_draw_poly          },
+  { NULL,                 NULL                 },
 };
 
 static const luaL_Reg fontLib[] = {
