@@ -157,6 +157,7 @@ end
 
 local function fuzzy_match_items(items, needle, files)
   local res = {}
+  needle = (PLATFORM == "windows" and files) and needle:gsub('/', PATHSEP) or needle
   for _, item in ipairs(items) do
     local score = system.fuzzy_match(tostring(item), needle, files)
     if score then
