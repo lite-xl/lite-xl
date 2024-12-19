@@ -658,12 +658,27 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           start_x += offset;
           glyph_start += offset;
         }
-        uint8_t* destination_pixel = &destination_pixels[surface->pitch * target_y + start_x * surface->format->BytesPerPixel];
+        SDL_PixelFormat *format = surface->format;
+        uint8_t* destination_pixel = &destination_pixels[surface->pitch * target_y + start_x * format->BytesPerPixel];
         uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface->format->BytesPerPixel];
         for (int x = glyph_start; x < glyph_end; ++x) {
           SDL_Color dst, src;
-          uint32_t destination_color = *((uint32_t *)destination_pixel);
-          SDL_GetRGBA(destination_color, surface->format, &dst.r, &dst.g, &dst.b, &dst.a);
+          switch (format->BytesPerPixel) {
+            case 1: SDL_GetRGBA(*destination_pixel, format, &dst.r, &dst.g, &dst.b, &dst.a); break;
+            case 2: SDL_GetRGBA(*((uint16_t *)destination_pixel), format, &dst.r, &dst.g, &dst.b, &dst.a); break;
+            case 4: SDL_GetRGBA(*((uint32_t *)destination_pixel), format, &dst.r, &dst.g, &dst.b, &dst.a); break;
+            case 3:
+              if (SDL_BYTEORDER == SDL_LIL_ENDIAN) {
+                dst.r = *(destination_pixel + format->Rshift / 8);
+                dst.g = *(destination_pixel + format->Gshift / 8);
+                dst.b = *(destination_pixel + format->Bshift / 8);
+              } else {
+                dst.r = *(destination_pixel + 2 - format->Rshift / 8);
+                dst.g = *(destination_pixel + 2 - format->Gshift / 8);
+                dst.b = *(destination_pixel + 2 - format->Bshift / 8);
+              }
+              break;
+          }
 
           if (metric->format == EGlyphFormatSubpixel) {
             src.r = *(source_pixel++);
@@ -682,19 +697,19 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
 
           // I literally can't find another way to do this
           // https://github.com/libsdl-org/SDL/blob/974098464fed96ae85696cae9de708a685b03194/src/video/SDL_blit.h#L268
-          switch (surface->format->BytesPerPixel) {
-            case 1: *destination_pixel = SDL_MapRGBA(surface->format, r, g, b, dst.a); break;
-            case 2: *((uint16_t *)destination_pixel) = SDL_MapRGBA(surface->format, r, g, b, dst.a); break;
-            case 4: *((uint32_t *)destination_pixel) = SDL_MapRGBA(surface->format, r, g, b, dst.a); break;
+          switch (format->BytesPerPixel) {
+            case 1: *destination_pixel = SDL_MapRGBA(format, r, g, b, dst.a); break;
+            case 2: *((uint16_t *)destination_pixel) = SDL_MapRGBA(format, r, g, b, dst.a); break;
+            case 4: *((uint32_t *)destination_pixel) = SDL_MapRGBA(format, r, g, b, dst.a); break;
             case 3:
               if (SDL_BYTEORDER == SDL_LIL_ENDIAN) {
-                *(destination_pixel + surface->format->Rshift / 8) = r;
-                *(destination_pixel + surface->format->Gshift / 8) = g;
-                *(destination_pixel + surface->format->Bshift / 8) = b;
+                *(destination_pixel + format->Rshift / 8) = r;
+                *(destination_pixel + format->Gshift / 8) = g;
+                *(destination_pixel + format->Bshift / 8) = b;
               } else {
-                *(destination_pixel + 2 - surface->format->Rshift / 8) = r;
-                *(destination_pixel + 2 - surface->format->Gshift / 8) = g;
-                *(destination_pixel + 2 - surface->format->Bshift / 8) = b;
+                *(destination_pixel + 2 - format->Rshift / 8) = r;
+                *(destination_pixel + 2 - format->Gshift / 8) = g;
+                *(destination_pixel + 2 - format->Bshift / 8) = b;
               }
               break;
           }
