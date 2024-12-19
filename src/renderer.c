@@ -662,9 +662,8 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
         uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface->format->BytesPerPixel];
         for (int x = glyph_start; x < glyph_end; ++x) {
           uint32_t destination_color = *destination_pixel;
-          // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
-          SDL_Color src;
+          SDL_Color dst, src;
+          SDL_GetRGBA(destination_color, surface->format, &dst.r, &dst.g, &dst.b, &dst.a);
 
           if (metric->format == EGlyphFormatSubpixel) {
             src.r = *(source_pixel++);
@@ -681,7 +680,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
           // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          *destination_pixel++ = (unsigned int) dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
+          *destination_pixel++ = SDL_MapRGBA(surface->format, r, g, b, dst.a);
         }
       }
     }
