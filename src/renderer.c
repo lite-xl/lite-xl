@@ -515,11 +515,27 @@ int ren_font_group_get_height(RenFont **fonts) {
 }
 
 // some fonts provide xadvance for whitespaces (e.g. Unifont), which we need to ignore
-#define FONT_GET_XADVANCE(F, C, M) (is_whitespace((C)) || !(M) || !(M)->xadvance \
-  ? (F)->space_advance * (float) ((C) == '\t' ? (F)->tab_size : 1) \
-  : (M)->xadvance)
+float font_get_xadvance(RenFont *font, unsigned int codepoint, GlyphMetric *metric, double curr_x, RenTab tab) {
+  if (!is_whitespace(codepoint) && metric && metric->xadvance) {
+    return metric->xadvance;
+  }
+  if (codepoint != '\t') {
+    return font->space_advance;
+  }
+  float tab_size = font->space_advance * font->tab_size;
+  if (isnan(tab.offset)) {
+    return tab_size;
+  }
+  double offset = fmodl(curr_x + tab.offset, tab_size);
+  float adv = tab_size - offset;
+  // If there is not enough space until the next stop, skip it
+  if (adv < font->space_advance) {
+    adv += tab_size;
+  }
+  return adv;
+}
 
-double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, int *x_offset) {
+double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, RenTab tab, int *x_offset) {
   double width = 0;
   const char* end = text + len;
 
@@ -529,7 +545,7 @@ double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, i
     text = utf8_to_codepoint(text, end, &codepoint);
     GlyphMetric *metric = NULL;
     font_group_get_glyph(fonts, codepoint, 0, NULL, &metric);
-    width += FONT_GET_XADVANCE(fonts[0], codepoint, metric);
+    width += font_get_xadvance(fonts[0], codepoint, metric, width, tab);
     if (!set_x_offset && metric) {
       set_x_offset = true;
       *x_offset = metric->bitmap_left; // TODO: should this be scaled by the surface scale?
@@ -562,13 +578,14 @@ void ren_font_dump(RenFont *font) {
 }
 #endif
 
-double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color) {
+double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color, RenTab tab) {
   SDL_Surface *surface = rs->surface;
   SDL_Rect clip;
   SDL_GetClipRect(surface, &clip);
 
   const int surface_scale = rs->scale;
   double pen_x = x * surface_scale;
+  double original_pen_x = pen_x;
   y *= surface_scale;
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
@@ -635,7 +652,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       }
     }
 
-    float adv = FONT_GET_XADVANCE(fonts[0], codepoint, metric);
+    float adv = font_get_xadvance(fonts[0], codepoint, metric, pen_x - original_pen_x, tab);
 
     if(!last) last = font;
     else if(font != last || text == end) {
