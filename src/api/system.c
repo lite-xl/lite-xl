@@ -13,21 +13,6 @@
   #include <windows.h>
   #include <fileapi.h>
   #include "../utfconv.h"
-
-  // Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
-  // We have to define _CRT_INTERNAL_NONSTDC_NAMES 1 before #including sys/stat.h
-  // in order for Microsoft's stat.h to define names like S_IFMT, S_IFREG, and S_IFDIR,
-  // rather than just defining  _S_IFMT, _S_IFREG, and _S_IFDIR as it normally does.
-  #define _CRT_INTERNAL_NONSTDC_NAMES 1
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
-    #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-  #endif
-  #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
-    #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
-  #endif
-
   #define fileno _fileno
   #define ftruncate _chsize
 #else
@@ -760,29 +745,45 @@ static int f_absolute_path(lua_State *L) {
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
+  lua_newtable(L);
 #ifdef _WIN32
-  struct _stat s;
   LPWSTR wpath = utfconv_utf8towc(path);
   if (wpath == NULL) {
-    lua_pushnil(L);
-    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    lua_pushnil(L); lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
     return 2;
   }
-  int err = _wstat(wpath, &s);
+  WIN32_FILE_ATTRIBUTE_DATA data;
+  if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &data)) {
+    free(wpath);
+    lua_pushnil(L); push_win32_error(L, GetLastError());
+    return 2;
+  }
   free(wpath);
+  ULARGE_INTEGER large_int = {0};
+  #define TICKS_PER_MILISECOND 10000
+  #define EPOCH_DIFFERENCE 11644473600000LL
+  // https://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
+  large_int.HighPart = data.ftLastWriteTime.dwHighDateTime; large_int.LowPart = data.ftLastWriteTime.dwLowDateTime;
+  lua_pushnumber(L, (double)((large_int.QuadPart / TICKS_PER_MILISECOND - EPOCH_DIFFERENCE)/1000.0));
+  lua_setfield(L, -2, "modified");
+
+  large_int.HighPart = data.nFileSizeHigh; large_int.LowPart = data.nFileSizeLow;
+  lua_pushinteger(L, large_int.QuadPart);
+  lua_setfield(L, -2, "size");
+
+  lua_pushstring(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? "dir" : "file");
+  lua_setfield(L, -2, "type");
+
+  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  lua_setfield(L, -2, "symlink");
 #else
   struct stat s;
   int err = stat(path, &s);
-#endif
   if (err < 0) {
     lua_pushnil(L);
     lua_pushstring(L, strerror(errno));
     return 2;
   }
-
-  lua_newtable(L);
-  lua_pushinteger(L, s.st_mtime);
-  lua_setfield(L, -2, "modified");
 
   lua_pushinteger(L, s.st_size);
   lua_setfield(L, -2, "size");
@@ -796,7 +797,21 @@ static int f_get_file_info(lua_State *L) {
   }
   lua_setfield(L, -2, "type");
 
-#if __linux__
+  double mtime;
+  #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
+    mtime = (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0);
+  #elif __APPLE__
+    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+      mtime = (double)s.st_mtimespec.tv_sec + (s.st_mtimespec.tv_nsec / 1000000000.0);
+    #else
+      mtime = (double)s.st_mtime + (s.st_atimensec / 1000000000.0);
+    #endif
+  #else
+    mtime = s.st_mtime;
+  #endif
+  lua_pushnumber(L, mtime);
+  lua_setfield(L, -2, "modified");
+
   if (S_ISDIR(s.st_mode)) {
     if (lstat(path, &s) == 0) {
       lua_pushboolean(L, S_ISLNK(s.st_mode));

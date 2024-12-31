@@ -178,7 +178,7 @@ function DocView:get_col_x_offset(line, col)
     if font ~= default_font then font:set_tab_size(indent_size) end
     local length = #text
     if column + length <= col then
-      xoffset = xoffset + font:get_width(text)
+      xoffset = xoffset + font:get_width(text, {tab_offset = xoffset})
       column = column + length
       if column >= col then
         return xoffset
@@ -188,7 +188,7 @@ function DocView:get_col_x_offset(line, col)
         if column >= col then
           return xoffset
         end
-        xoffset = xoffset + font:get_width(char)
+        xoffset = xoffset + font:get_width(char, {tab_offset = xoffset})
         column = column + #char
       end
     end
@@ -208,7 +208,7 @@ function DocView:get_x_offset_col(line, x)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
-    local width = font:get_width(text)
+    local width = font:get_width(text, {tab_offset = xoffset})
     -- Don't take the shortcut if the width matches x,
     -- because we need last_i which should be calculated using utf-8.
     if xoffset + width < x then
@@ -216,7 +216,7 @@ function DocView:get_x_offset_col(line, x)
       i = i + #text
     else
       for char in common.utf8_chars(text) do
-        local w = font:get_width(char)
+        local w = font:get_width(char, {tab_offset = xoffset})
         if xoffset >= x then
           return (xoffset - x > w / 2) and last_i or i
         end
@@ -264,7 +264,8 @@ function DocView:scroll_to_make_visible(line, col)
   local _, ly = self:get_line_screen_position(line, col)
   local lh = self:get_line_height()
   local _, _, _, scroll_h = self.h_scrollbar:get_track_rect()
-  self.scroll.to.y = common.clamp(self.scroll.to.y, ly - oy - self.size.y + scroll_h + lh * 2, ly - oy - lh)
+  local overscroll = math.min(lh * 2, self.size.y) -- always show the previous / next line when possible
+  self.scroll.to.y = common.clamp(self.scroll.to.y, ly - oy - self.size.y + scroll_h + overscroll, ly - oy - lh)
   local gw = self:get_gutter_width()
   local xoffset = self:get_col_x_offset(line, col)
   local xmargin = 3 * self:get_font():get_width(' ')
@@ -449,12 +450,13 @@ function DocView:draw_line_text(line, x, y)
   if string.sub(tokens[tokens_count], -1) == "\n" then
     last_token = tokens_count - 1
   end
+  local start_tx = tx
   for tidx, type, text in self.doc.highlighter:each_token(line) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
     -- do not render newline, fixes issue #1164
     if tidx == last_token then text = text:sub(1, -2) end
-    tx = renderer.draw_text(font, text, tx, ty, color)
+    tx = renderer.draw_text(font, text, tx, ty, color, {tab_offset = tx - start_tx})
     if tx > self.position.x + self.size.x then break end
   end
   return self:get_line_height()

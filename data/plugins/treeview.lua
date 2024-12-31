@@ -872,6 +872,15 @@ command.add(
   end,
 
   ["treeview:new-file"] = function(item)
+    local text
+    if not is_project_folder(item.abs_filename) then
+      if item.type == "dir" then
+        text = item.filename .. PATHSEP
+      elseif item.type == "file" then
+        local parent_dir = common.dirname(item.filename)
+        text = parent_dir and parent_dir .. PATHSEP
+      end
+    end
     core.command_view:enter("Filename", {
       text = not is_project_folder(item) and item.filename .. PATHSEP or "",
       submit = function(filename)
@@ -889,6 +898,15 @@ command.add(
   end,
 
   ["treeview:new-folder"] = function(item)
+    local text
+    if not is_project_folder(item.abs_filename) then
+      if item.type == "dir" then
+        text = item.filename .. PATHSEP
+      elseif item.type == "file" then
+        local parent_dir = common.dirname(item.filename)
+        text = parent_dir and parent_dir .. PATHSEP
+      end
+    end
     core.command_view:enter("Folder Name", {
       text = not is_project_folder(item) and item.filename .. PATHSEP or "",
       submit = function(filename)

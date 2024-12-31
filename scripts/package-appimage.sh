@@ -55,22 +55,11 @@ done
 
 setup_appimagetool() {
   if [ ! -e appimagetool ]; then
-    if ! wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage" ; then
+    if ! wget -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${ARCH}.AppImage" ; then
       echo "Could not download the appimagetool for the arch '${ARCH}'."
       exit 1
     else
       chmod 0755 appimagetool
-    fi
-  fi
-}
-
-download_appimage_apprun() {
-  if [ ! -e AppRun ]; then
-    if ! wget -O AppRun "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-${ARCH}" ; then
-      echo "Could not download AppRun for the arch '${ARCH}'."
-      exit 1
-    else
-      chmod 0755 AppRun
     fi
   fi
 }
@@ -85,10 +74,23 @@ generate_appimage() {
   echo "Creating LiteXL.AppDir..."
 
   DESTDIR="$(realpath LiteXL.AppDir)" meson install -C ${BUILD_DIR}
-  mv AppRun LiteXL.AppDir/
-  # These could be symlinks but it seems they doesn't work with AppimageLauncher
+
   cp resources/icons/lite-xl.svg LiteXL.AppDir/
   cp resources/linux/com.lite_xl.LiteXL.desktop LiteXL.AppDir/
+
+  # https://github.com/lite-xl/lite-xl/issues/1912
+  mkdir -p ./LiteXL.AppDir/usr/share/../bin
+  mv ./LiteXL.AppDir/lite-xl ./LiteXL.AppDir/usr/bin
+  mv ./LiteXL.AppDir/data ./LiteXL.AppDir/usr/share/lite-xl
+  rm -rf ./LiteXL.AppDir/lib64 ./LiteXL.AppDir/include
+
+  echo "Creating AppRun..."
+	cat >> LiteXL.AppDir/AppRun <<- 'EOF'
+	#!/bin/sh
+	CURRENTDIR="$(dirname "$(readlink -f "$0")")"
+	exec "$CURRENTDIR/usr/bin/lite-xl" "$@"
+	EOF
+  chmod +x LiteXL.AppDir/AppRun
 
   echo "Generating AppImage..."
   local version=""
@@ -96,10 +98,9 @@ generate_appimage() {
     version="-$VERSION"
   fi
 
-  ./appimagetool --appimage-extract-and-run LiteXL.AppDir LiteXL${version}-${ARCH}-linux.AppImage
+  APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool LiteXL.AppDir LiteXL${version}-${ARCH}-linux.AppImage
   rm -rf LiteXL.AppDir
 }
 
 setup_appimagetool
-download_appimage_apprun
 generate_appimage
