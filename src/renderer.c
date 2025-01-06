@@ -44,13 +44,13 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
 #define MAX_UNICODE 0x10FFFF
 // number of rows and columns in the codepoint map
 #define CHARMAP_ROW 128
-#define CHARMAP_COL (MAX_UNICODE / CHARMAP_ROW)
+#define CHARMAP_COL ((unsigned int)ceil((float)MAX_UNICODE / CHARMAP_ROW))
 
 // the maximum number of glyphs for OpenType
 #define MAX_GLYPHS 65535
 // number of rows and columns in the glyph map
 #define GLYPHMAP_ROW 128
-#define GLYPHMAP_COL (MAX_GLYPHS / GLYPHMAP_ROW)
+#define GLYPHMAP_COL ((unsigned int)ceil((float)MAX_GLYPHS / GLYPHMAP_ROW))
 
 // number of subpixel bitmaps
 #define SUBPIXEL_BITMAPS_CACHED 3
