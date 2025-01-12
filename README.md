@@ -2,6 +2,8 @@
     cd build-x86_64-linux/lite-xl
     ./lite-xl
 
+    字体没解决, ctrl+z 解决了, 但是 ctrl+x, ctrl+v, ctrl+a 都未解决
+
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
