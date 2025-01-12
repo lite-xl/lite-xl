@@ -1,3 +1,7 @@
+    ./scripts/build.sh -P
+    cd build-x86_64-linux/lite-xl
+    ./lite-xl
+
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
