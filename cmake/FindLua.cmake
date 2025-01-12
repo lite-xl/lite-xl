@@ -86,7 +86,7 @@ macro(FallbackLua)
         OpenBSD
         SunOS
     )
-    if(NOT ("${CMAKE_HOST_SYSTEM_NAME}" IN_LIST POSIX_SYSTEM_NAMES))
+    if("${CMAKE_HOST_SYSTEM_NAME}" IN_LIST POSIX_SYSTEM_NAMES)
         target_compile_definitions(lua-static PUBLIC LUA_USE_POSIX)
     endif()
 
