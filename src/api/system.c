@@ -223,18 +223,35 @@ top:
         return 4;
       }
 
-    case SDL_KEYDOWN:
-#ifdef __APPLE__
-      /* on macos 11.2.3 with sdl 2.0.14 the keyup handler for cmd+w below
-      ** was not enough. Maybe the quit event started to be triggered from the
-      ** keydown handler? In any case, flushing the quit event here too helped. */
-      if ((e.key.keysym.sym == SDLK_w) && (e.key.keysym.mod & KMOD_GUI)) {
-        SDL_FlushEvent(SDL_QUIT);
-      }
-#endif
+    case SDL_KEYDOWN: {
+      char buf[8];
       lua_pushstring(L, "keypressed");
-      lua_pushstring(L, get_key_name(&e, buf));
-      return 2;
+      const char* key_name = get_key_name(&e, buf);
+
+      /* Check if control is pressed using both mod state and scancode */
+      int ctrl_pressed = (e.key.keysym.mod & KMOD_CTRL) || 
+                        e.key.keysym.scancode == 29;  /* Left Control */
+
+      /* Handle Python-Xlib Ctrl+letter cases */
+      if (e.key.keysym.scancode == 29 && 
+          e.key.keysym.sym >= 'a' && e.key.keysym.sym <= 'z') {
+        buf[0] = e.key.keysym.sym;  /* Keep original letter */
+        buf[1] = '\0';
+        key_name = buf;
+        ctrl_pressed = 1;
+      }
+
+      lua_pushstring(L, key_name);
+
+      /* Create mod state */
+      SDL_Keymod mod = e.key.keysym.mod;
+      if (ctrl_pressed) {
+        mod |= KMOD_CTRL;
+      }
+      lua_pushinteger(L, mod);
+
+      return 3;
+    }
 
     case SDL_KEYUP:
 #ifdef __APPLE__

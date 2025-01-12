@@ -202,33 +202,55 @@ end
 --------------------------------------------------------------------------------
 -- Events listening
 --------------------------------------------------------------------------------
-function keymap.on_key_pressed(k, ...)
-  local mk = modkey_map[k]
-  if mk then
-    keymap.modkeys[mk] = true
-    -- work-around for windows where `altgr` is treated as `ctrl+alt`
-    if mk == "altgr" then
-      keymap.modkeys["ctrl"] = false
+-- SDL key mod constants
+local KMOD_NONE  = 0x0000
+local KMOD_LSHIFT= 0x0001
+local KMOD_RSHIFT= 0x0002
+local KMOD_LCTRL = 0x0040
+local KMOD_RCTRL = 0x0080
+local KMOD_LALT  = 0x0100
+local KMOD_RALT  = 0x0200
+local KMOD_LGUI  = 0x0400
+local KMOD_RGUI  = 0x0800
+local KMOD_NUM   = 0x1000
+local KMOD_CAPS  = 0x2000
+local KMOD_MODE  = 0x4000
+
+local KMOD_CTRL  = KMOD_LCTRL  | KMOD_RCTRL
+local KMOD_SHIFT = KMOD_LSHIFT | KMOD_RSHIFT
+local KMOD_ALT   = KMOD_LALT   | KMOD_RALT
+local KMOD_GUI   = KMOD_LGUI   | KMOD_RGUI
+
+function keymap.on_key_pressed(key, mod)
+  -- Handle both table and number formats for mod
+  local modkeys = type(mod) == "table" and mod or {
+    ctrl = (mod & KMOD_CTRL) ~= 0,
+    shift = (mod & KMOD_SHIFT) ~= 0,
+    alt = (mod & KMOD_ALT) ~= 0,
+    super = (mod & KMOD_GUI) ~= 0
+  }
+
+  -- Update internal modkey state
+  keymap.modkeys.ctrl = modkeys.ctrl
+  keymap.modkeys.shift = modkeys.shift
+  keymap.modkeys.alt = modkeys.alt
+  keymap.modkeys.super = modkeys.super
+
+  -- Build stroke string
+  local stroke = ""
+  if modkeys.ctrl then stroke = stroke .. "ctrl+" end
+  if modkeys.shift then stroke = stroke .. "shift+" end
+  if modkeys.alt then stroke = stroke .. "alt+" end
+  if modkeys.super then stroke = stroke .. "super+" end
+  stroke = stroke .. key
+
+  -- Look up and execute commands
+  local commands = keymap.map[stroke]
+  if commands then
+    for _, cmd in ipairs(type(commands) == "table" and commands or {commands}) do
+      command.perform(cmd)
     end
-  else
-    local stroke = key_to_stroke(k)
-    local commands, performed = keymap.map[stroke], false
-    if commands then
-      for _, cmd in ipairs(commands) do
-        if type(cmd) == "function" then
-          local ok, res = core.try(cmd, ...)
-          if ok then
-            performed = not (res == false)
-          else
-            performed = true
-          end
-        else
-          performed = command.perform(cmd, ...)
-        end
-        if performed then break end
-      end
-      return performed
-    end
+    return true
   end
   return false
 end
