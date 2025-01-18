@@ -122,9 +122,11 @@ $ bash build.sh --help
 #                               cross file in 'resources/cross'.
 #    --cross-file CROSS_FILE    Cross compile with the given cross file.
 
-# for example, if your machine is x86_64-linux, to build and run:
-$ scripts/build.sh -P
-$ build-x86_64-linux/lite-xl/lite-xl
+# for example, if your machine is x86_64-linux, to build, run and install:
+$ scripts/build.sh
+$ build-x86_64-linux/lite-xl/bin/lite-xl
+$ sudo install build-x86_64-linux/lite-xl/bin/lite-xl /usr/bin/
+$ sudo cp -r build-x86_64-linux/lite-xl/share/lite-xl /usr/share/
 ```
 
 Alternatively, you can use the following commands to customize the build:
