@@ -1,9 +1,3 @@
-    ./scripts/build.sh -P
-    cd build-x86_64-linux/lite-xl
-    ./lite-xl
-
-    字体没解决, ctrl+z 解决了, 但是 ctrl+x, ctrl+v, ctrl+a 都未解决
-
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
@@ -127,6 +121,10 @@ $ bash build.sh --help
 #                               The script will find the appropriate
 #                               cross file in 'resources/cross'.
 #    --cross-file CROSS_FILE    Cross compile with the given cross file.
+
+# for example, if your machine is x86_64-linux, to build and run:
+$ scripts/build.sh -P
+$ build-x86_64-linux/lite-xl/lite-xl
 ```
 
 Alternatively, you can use the following commands to customize the build:
