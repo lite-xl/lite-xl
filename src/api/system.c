@@ -25,6 +25,29 @@
 #endif
 #endif
 
+#include <SDL_syswm.h>
+#include <X11/Xlib.h>
+
+static Display* x11_display = NULL;
+static unsigned int x11_modifier_state = 0;
+
+static void init_x11(void) {
+#ifdef SDL_VIDEO_DRIVER_X11
+  SDL_Window* window = SDL_GL_GetCurrentWindow();
+  if (window) {
+    SDL_SysWMinfo wm_info;
+    SDL_VERSION(&wm_info.version);
+    if (SDL_GetWindowWMInfo(window, &wm_info)) {
+      if (wm_info.subsystem == SDL_SYSWM_X11) {
+        x11_display = wm_info.info.x11.display;
+        // Enable SDL system window manager events
+        SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
+      }
+    }
+  }
+#endif
+}
+
 static const char* button_name(int button) {
   switch (button) {
     case SDL_BUTTON_LEFT   : return "left";
@@ -103,7 +126,23 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
 
 static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
 
-static const char *get_key_name(const SDL_Event *e, char *buf) {
+static const char *get_key_name(SDL_Event *e, char *buf) {
+#ifdef SDL_VIDEO_DRIVER_X11
+  // Apply X11 modifier state before getting key name
+  if (x11_display && (x11_modifier_state & ControlMask)) {
+    e->key.keysym.mod |= (KMOD_CTRL | KMOD_LCTRL);
+    if (e->key.keysym.sym >= 'a' && e->key.keysym.sym <= 'z') {
+      // Store original character
+      char original = e->key.keysym.sym;
+      // Convert to control character
+      e->key.keysym.sym = e->key.keysym.sym & 0x1f;
+      // Create control key name (e.g., "ctrl+x")
+      snprintf(buf, 8, "ctrl+%c", original);
+      return buf;
+    }
+  }
+#endif
+
   SDL_Scancode scancode = e->key.keysym.scancode;
   /* Is the scancode from the keypad and the number-lock off?
   ** We assume that SDL_SCANCODE_KP_1 up to SDL_SCANCODE_KP_9 and SDL_SCANCODE_KP_0
@@ -162,12 +201,35 @@ static int f_poll_event(lua_State *L) {
   SDL_Event e;
   SDL_Event event_plus;
 
+  /* Initialize X11 if needed */
+  if (!x11_display) {
+    init_x11();
+  }
+
 top:
-  if ( !SDL_PollEvent(&e) ) {
+  if (!SDL_PollEvent(&e)) {
     return 0;
   }
 
   switch (e.type) {
+    case SDL_SYSWMEVENT:
+#ifdef SDL_VIDEO_DRIVER_X11
+      if (e.syswm.msg->subsystem == SDL_SYSWM_X11) {
+        XEvent* xev = &e.syswm.msg->msg.x11.event;
+        // Handle X11 key events
+        if (xev->type == KeyPress || xev->type == KeyRelease) {
+          // Check if this is a synthetic event
+          if (xev->xkey.send_event) {
+            x11_modifier_state = xev->xkey.state;
+          } else {
+            // Reset modifier state for physical events
+            x11_modifier_state = 0;
+          }
+        }
+      }
+#endif
+      goto top;  // Continue processing other events
+
     case SDL_QUIT:
       lua_pushstring(L, "quit");
       return 1;
@@ -223,35 +285,18 @@ top:
         return 4;
       }
 
-    case SDL_KEYDOWN: {
-      char buf[8];
+    case SDL_KEYDOWN:
+#ifdef __APPLE__
+      /* on macos 11.2.3 with sdl 2.0.14 the keyup handler for cmd+w below
+      ** was not enough. Maybe the quit event started to be triggered from the
+      ** keydown handler? In any case, flushing the quit event here too helped. */
+      if ((e.key.keysym.sym == SDLK_w) && (e.key.keysym.mod & KMOD_GUI)) {
+        SDL_FlushEvent(SDL_QUIT);
+      }
+#endif
       lua_pushstring(L, "keypressed");
-      const char* key_name = get_key_name(&e, buf);
-
-      /* Check if control is pressed using both mod state and scancode */
-      int ctrl_pressed = (e.key.keysym.mod & KMOD_CTRL) || 
-                        e.key.keysym.scancode == 29;  /* Left Control */
-
-      /* Handle Python-Xlib Ctrl+letter cases */
-      if (e.key.keysym.scancode == 29 && 
-          e.key.keysym.sym >= 'a' && e.key.keysym.sym <= 'z') {
-        buf[0] = e.key.keysym.sym;  /* Keep original letter */
-        buf[1] = '\0';
-        key_name = buf;
-        ctrl_pressed = 1;
-      }
-
-      lua_pushstring(L, key_name);
-
-      /* Create mod state */
-      SDL_Keymod mod = e.key.keysym.mod;
-      if (ctrl_pressed) {
-        mod |= KMOD_CTRL;
-      }
-      lua_pushinteger(L, mod);
-
-      return 3;
-    }
+      lua_pushstring(L, get_key_name(&e, buf));
+      return 2;
 
     case SDL_KEYUP:
 #ifdef __APPLE__
@@ -1350,5 +1395,6 @@ int luaopen_system(lua_State *L) {
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
   luaL_newlib(L, lib);
+  init_x11();
   return 1;
 }
