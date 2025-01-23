@@ -599,7 +599,7 @@ static int process_start(lua_State* L) {
   return retval;
 }
 
-static int g_read(lua_State* L, int stream, unsigned long read_size) {
+static int g_read(lua_State* L, int stream, lua_Integer read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   long length = 0;
   if (stream != STDOUT_FD && stream != STDERR_FD)
@@ -628,17 +628,22 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
   #else
     luaL_Buffer b;
     luaL_buffinit(L, &b);
-    uint8_t* buffer = (uint8_t*)luaL_prepbuffsize(&b, READ_BUF_SIZE);
-    length = read(self->child_pipes[stream][0], buffer, read_size > READ_BUF_SIZE ? READ_BUF_SIZE : read_size);
-    if (length == 0 && !poll_process(self, WAIT_NONE))
-      return 0;
-    else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-      length = 0;
-    if (length < 0) {
-      signal_process(self, SIGNAL_TERM);
-      return 0;
-    }
-    luaL_addsize(&b, length);
+    do {
+      uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
+      length = read(self->child_pipes[stream][0], buffer, read_size < LUAL_BUFFERSIZE ? read_size : LUAL_BUFFERSIZE);
+      if (length == 0 && !poll_process(self, WAIT_NONE))
+        break;
+      else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        length = 0;
+      if (length < 0) {
+        signal_process(self, SIGNAL_TERM);
+        return 0;
+      }
+      if (length) {
+        luaL_addsize(&b, length);
+        read_size -= length;
+      }
+    } while (read_size > 0 && length > 0);
     luaL_pushresult(&b);
   #endif
   return 1;
