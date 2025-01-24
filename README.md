@@ -1,3 +1,5 @@
+    # this fork has added the support of xlib synthetic keyboard event
+
     # modify settings(init.lua) to disable spliting cursor and moving lines
     keymap.unbind("ctrl+1lclick")
     keymap.unbind("ctrl+up")
