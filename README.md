@@ -2,10 +2,12 @@
     # added chinese mono font: wqy-microhei-terminal-mono.ttf
     # modified tab char display style into "———>"
 
-    # modify settings(init.lua) to disable spliting cursor and moving lines
+    # to modify settings(init.lua) to disable spliting cursor and moving lines
     keymap.unbind("ctrl+1lclick")
     keymap.unbind("ctrl+up")
     keymap.unbind("ctrl+down")
+
+    # to modify settings(init.lua) to load chinese mono font, and to display tab char:
     style.code_font = renderer.font.load(DATADIR .. "/fonts/wqy-microhei-terminal-mono.ttf", 14 * SCALE)
     config.plugins.drawwhitespace.enabled = true
     config.indent_size = 4
