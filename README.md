@@ -1,3 +1,8 @@
+    # modify settings(init.lua)
+    keymap.unbind("ctrl+1lclick")
+    keymap.unbind("ctrl+up")
+    keymap.unbind("ctrl+down")
+
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
