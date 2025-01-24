@@ -1,4 +1,4 @@
-    # modify settings(init.lua) to disable slpliting cursor and moving lines
+    # modify settings(init.lua) to disable spliting cursor and moving lines
     keymap.unbind("ctrl+1lclick")
     keymap.unbind("ctrl+up")
     keymap.unbind("ctrl+down")
