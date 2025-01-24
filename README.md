@@ -4,8 +4,9 @@
     keymap.unbind("ctrl+1lclick")
     keymap.unbind("ctrl+up")
     keymap.unbind("ctrl+down")
-    style.code_font = renderer.font.load("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", 14 * SCALE)
+    style.code_font = renderer.font.load(DATADIR .. "/fonts/wqy-microhei-terminal-mono.ttf", 14 * SCALE)
     config.plugins.drawwhitespace.enabled = true
+    config.indent_size = 4
 
     # install plugins(https://github.com/lite-xl/lite-xl-plugins):
     wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/bracketmatch.lua -O ~/.config/lite-xl/plugins/bracketmatch.lua
