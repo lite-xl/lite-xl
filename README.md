@@ -5,7 +5,8 @@
     style.code_font = renderer.font.load("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", 14 * SCALE)
 
     #install plugins:
-    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/bracketmatch.lua -O ~/.config/lite-xl/plugins/
+    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/bracketmatch.lua -O ~/.config/lite-xl/plugins/bracketmatch.lua
+    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/language_go.lua -O ~/.config/lite-xl/plugins/language_go.lua
 
 # Lite XL
 
