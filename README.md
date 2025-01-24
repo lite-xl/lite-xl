@@ -4,6 +4,9 @@
     keymap.unbind("ctrl+down")
     style.code_font = renderer.font.load("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", 14 * SCALE)
 
+    #install plugins:
+    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/bracketmatch.lua -O ~/.config/lite-xl/plugins/
+
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
