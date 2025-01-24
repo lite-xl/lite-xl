@@ -1,7 +1,7 @@
 #include "api.h"
 #include "../renwindow.h"
 #include "lua.h"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <stdlib.h>
 
 static RenWindow *persistant_window = NULL;
@@ -10,40 +10,32 @@ static void init_window_icon(SDL_Window *window) {
 #if !defined(_WIN32) && !defined(__APPLE__)
   #include "../resources/icons/icon.inl"
   (void) icon_rgba_len; /* unused */
-  SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(
-    icon_rgba, 64, 64,
-    32, 64 * 4,
-    0x000000ff,
-    0x0000ff00,
-    0x00ff0000,
-    0xff000000);
+  SDL_PixelFormat format = SDL_GetPixelFormatForMasks(32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+  SDL_Surface *surf = SDL_CreateSurfaceFrom(64, 64, format, icon_rgba, 64 * 4);
   SDL_SetWindowIcon(window, surf);
-  SDL_FreeSurface(surf);
+  SDL_DestroySurface(surf);
 #endif
 }
 
 static int f_renwin_create(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
-  const int x = luaL_optinteger(L, 2, SDL_WINDOWPOS_UNDEFINED);
-  const int y = luaL_optinteger(L, 3, SDL_WINDOWPOS_UNDEFINED);
   float width = luaL_optnumber(L, 4, 0);
   float height = luaL_optnumber(L, 5, 0);
 
   if (width < 1 || height < 1) {
-    SDL_DisplayMode dm;
-    SDL_GetCurrentDisplayMode(0, &dm);
+    const SDL_DisplayMode* dm = SDL_GetCurrentDisplayMode(SDL_GetPrimaryDisplay());
 
     if (width < 1) {
-      width = dm.w * 0.8;
+      width = dm->w * 0.8;
     }
     if (height < 1) {
-      height = dm.h * 0.8;
+      height = dm->h * 0.8;
     }
   }
 
   SDL_Window *window = SDL_CreateWindow(
-    title, x, y, width, height,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN
+    title, width, height,
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN
   );
   if (!window) {
     return luaL_error(L, "Error creating lite-xl window: %s", SDL_GetError());
