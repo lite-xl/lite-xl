@@ -216,7 +216,7 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
 #define FONT_BITMAP_COUNT(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1)
 #define SLOT_BITMAP_TYPE(B) ((B).pixel_mode == FT_PIXEL_MODE_LCD ? EGlyphFormatSubpixel : EGlyphFormatGrayscale)
 
-static inline SDL_PixelFormatEnum glyphformat_to_pixelformat(ERenGlyphFormat format, int *depth) {
+static inline SDL_PixelFormat glyphformat_to_pixelformat(ERenGlyphFormat format, int *depth) {
   switch (format) {
     case EGlyphFormatSubpixel:  *depth = 24; return SDL_PIXELFORMAT_RGB24;
     case EGlyphFormatGrayscale: *depth = 8;  return SDL_PIXELFORMAT_INDEX8;
@@ -247,12 +247,14 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
   }
   metric->atlas_idx = atlas_idx;
   GlyphAtlas *atlas = &font->glyphs.atlas[glyph_format][atlas_idx];
+  SDL_PropertiesID userdata;
 
   // find the surface with the minimum height that can fit the glyph (limited to last 100 surfaces)
   int surface_idx = -1, max_surface_idx = (int) atlas->nsurface - 100, min_waste = INT_MAX;
   for (int i = atlas->nsurface - 1; i >= 0 && i > max_surface_idx; i--) {
-    assert(atlas->surfaces[i]->userdata);
-    GlyphMetric *m = (GlyphMetric *) atlas->surfaces[i]->userdata;
+    userdata = SDL_GetSurfaceProperties(atlas->surfaces[i]);
+    assert(SDL_HasProperty(userdata, "metric"));
+    GlyphMetric *m = (GlyphMetric *) SDL_GetPointerProperty(userdata, "metric", NULL);
     int new_min_waste = (int) atlas->surfaces[i]->h - (int) m->y1;
     if (new_min_waste >= metric->y1 && new_min_waste < min_waste) {
       surface_idx = i;
@@ -264,19 +266,22 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     int h = FONT_HEIGHT_OVERFLOW_PX + (double) font->face->size->metrics.height / 64.0f;
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += slot->bitmap.rows;
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
-    int depth = 0; SDL_PixelFormatEnum format = glyphformat_to_pixelformat(glyph_format, &depth);
+    int depth = 0;
+    SDL_PixelFormat format = glyphformat_to_pixelformat(glyph_format, &depth);
     atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
-    atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateRGBSurfaceWithFormat(0, atlas->width, GLYPHS_PER_ATLAS * h, depth, format));
-    atlas->surfaces[atlas->nsurface]->userdata = NULL;
+    atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateSurface(atlas->width, GLYPHS_PER_ATLAS * h, format));
+    userdata = SDL_GetSurfaceProperties(atlas->surfaces[atlas->nsurface]);
+    SDL_SetPointerProperty(userdata, "metric", NULL);
     surface_idx = atlas->nsurface++;
     font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPHS_PER_ATLAS * h * glyph_format);
   }
   metric->surface_idx = surface_idx;
-  if (atlas->surfaces[surface_idx]->userdata) {
-    GlyphMetric *last_metric = (GlyphMetric *) atlas->surfaces[surface_idx]->userdata;
+  userdata = SDL_GetSurfaceProperties(atlas->surfaces[surface_idx]);
+  if (SDL_HasProperty(userdata, "metric")) {
+    GlyphMetric *last_metric = (GlyphMetric *) SDL_GetPointerProperty(userdata, "metric", NULL);
     metric->y0 = last_metric->y1; metric->y1 += last_metric->y1;
   }
-  atlas->surfaces[surface_idx]->userdata = (void *) metric;
+  SDL_SetPointerProperty(userdata, "metric", (void *) metric);
   return atlas->surfaces[surface_idx];
 }
 
@@ -389,7 +394,7 @@ static void font_clear_glyph_cache(RenFont* font) {
     for (int atlas_idx = 0; atlas_idx < font->glyphs.natlas[glyph_format_idx]; atlas_idx++) {
       GlyphAtlas *atlas = &font->glyphs.atlas[glyph_format_idx][atlas_idx];
       for (int surface_idx = 0; surface_idx < atlas->nsurface; surface_idx++) {
-        SDL_FreeSurface(atlas->surfaces[surface_idx]);
+        SDL_DestroySurface(atlas->surfaces[surface_idx]);
       }
       free(atlas->surfaces);
     }
@@ -410,11 +415,11 @@ static void font_clear_glyph_cache(RenFont* font) {
 // based on https://github.com/libsdl-org/SDL_ttf/blob/2a094959055fba09f7deed6e1ffeb986188982ae/SDL_ttf.c#L1735
 static unsigned long font_file_read(FT_Stream stream, unsigned long offset, unsigned char *buffer, unsigned long count) {
   uint64_t amount;
-  SDL_RWops *file = (SDL_RWops *) stream->descriptor.pointer;
-  SDL_RWseek(file, (int) offset, RW_SEEK_SET);
+  SDL_IOStream *file = (SDL_IOStream *) stream->descriptor.pointer;
+  SDL_SeekIO(file, (int) offset, SDL_IO_SEEK_SET);
   if (count == 0)
     return 0;
-  amount = SDL_RWread(file, buffer, sizeof(char), count);
+  amount = SDL_ReadIO(file, buffer, sizeof(char) * count);
   if (amount <= 0)
     return 0;
   return (unsigned long) amount;
@@ -422,7 +427,7 @@ static unsigned long font_file_read(FT_Stream stream, unsigned long offset, unsi
 
 static void font_file_close(FT_Stream stream) {
   if (stream && stream->descriptor.pointer)
-    SDL_RWclose((SDL_RWops *) stream->descriptor.pointer);
+    SDL_CloseIO((SDL_IOStream *) stream->descriptor.pointer);
   free(stream);
 }
 
@@ -455,13 +460,13 @@ static int font_set_face_metrics(RenFont *font, FT_Face face) {
 
 RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
   FT_Error err = FT_Err_Ok;
-  SDL_RWops *file = NULL; RenFont *font = NULL;
+  SDL_IOStream *file = NULL; RenFont *font = NULL;
   FT_Face face = NULL; FT_Stream stream = NULL;
 
   SDL_ClearError();
 
-  file = SDL_RWFromFile(path, "rb");
-  if (!file) return NULL; // error set by SDL_RWFromFile
+  file = SDL_IOFromFile(path, "rb");
+  if (!file) return NULL; // error set by SDL_IOFromFile
   
   int len = strlen(path);
   font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
@@ -481,7 +486,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   stream->close = &font_file_close;
   stream->descriptor.pointer = file;
   stream->pos = 0;
-  stream->size = (unsigned long) SDL_RWsize(file);
+  stream->size = (unsigned long) SDL_GetIOSize(file);
 
   if ((err = FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face)) != 0)
     goto failure;
@@ -490,7 +495,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   return font;
 
 stream_failure:
-  if (file) SDL_RWclose(file);
+  if (file) SDL_CloseIO(file);
 failure:
   if (err != FT_Err_Ok) SDL_SetError("%s", get_ft_error(err));
   if (face) FT_Done_Face(face);
@@ -616,7 +621,7 @@ void ren_font_dump(RenFont *font) {
 double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t len, float x, int y, RenColor color, RenTab tab) {
   SDL_Surface *surface = rs->surface;
   SDL_Rect clip;
-  SDL_GetClipRect(surface, &clip);
+  SDL_GetSurfaceClipRect(surface, &clip);
 
   const int surface_scale = rs->scale;
   double pen_x = x * surface_scale;
@@ -658,12 +663,20 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           start_x += offset;
           glyph_start += offset;
         }
-        uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * surface->format->BytesPerPixel  ]);
-        uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface->format->BytesPerPixel];
+        
+        const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
+        const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
+
+        uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * surface_format->bytes_per_pixel]);
+        uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface_format->bytes_per_pixel];
         for (int x = glyph_start; x < glyph_end; ++x) {
           uint32_t destination_color = *destination_pixel;
           // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
+          SDL_Color dst = {
+            (destination_color & surface_format->Rmask) >> surface_format->Rshift,
+            (destination_color & surface_format->Gmask) >> surface_format->Gshift,
+            (destination_color & surface_format->Bmask) >> surface_format->Bshift,
+            (destination_color & surface_format->Amask) >> surface_format->Ashift};
           SDL_Color src;
 
           if (metric->format == EGlyphFormatSubpixel) {
@@ -681,7 +694,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
           // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          *destination_pixel++ = (unsigned int) dst.a << surface->format->Ashift | r << surface->format->Rshift | g << surface->format->Gshift | b << surface->format->Bshift;
+          *destination_pixel++ = (unsigned int) dst.a << surface_format->Ashift | r << surface_format->Rshift | g << surface_format->Gshift | b << surface_format->Bshift;
         }
       }
     }
@@ -725,18 +738,18 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
                          rect.height * surface_scale };
 
   if (color.a == 0xff) {
-    uint32_t translated = SDL_MapRGB(surface->format, color.r, color.g, color.b);
-    SDL_FillRect(surface, &dest_rect, translated);
+    uint32_t translated = SDL_MapSurfaceRGB(surface, color.r, color.g, color.b);
+    SDL_FillSurfaceRect(surface, &dest_rect, translated);
   } else {
     // Seems like SDL doesn't handle clipping as we expect when using
     // scaled blitting, so we "clip" manually.
     SDL_Rect clip;
-    SDL_GetClipRect(surface, &clip);
-    if (!SDL_IntersectRect(&clip, &dest_rect, &dest_rect)) return;
+    SDL_GetSurfaceClipRect(surface, &clip);
+    if (!SDL_GetRectIntersection(&clip, &dest_rect, &dest_rect)) return;
 
     uint32_t *pixel = (uint32_t *)draw_rect_surface->pixels;
-    *pixel = SDL_MapRGBA(draw_rect_surface->format, color.r, color.g, color.b, color.a);
-    SDL_BlitScaled(draw_rect_surface, NULL, surface, &dest_rect);
+    *pixel = SDL_MapSurfaceRGBA(draw_rect_surface, color.r, color.g, color.b, color.a);
+    SDL_BlitSurfaceScaled(draw_rect_surface, NULL, surface, &dest_rect, SDL_SCALEMODE_LINEAR);
   }
 }
 
@@ -761,8 +774,8 @@ int ren_init(void) {
   FT_Error err;
   SDL_ClearError();
 
-  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
-                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+  draw_rect_surface = SDL_CreateSurface(1, 1, SDL_PIXELFORMAT_RGBA32);
+
   if (!draw_rect_surface)
     return -1; // error set by SDL_CreateRGBSurface
 
@@ -773,8 +786,8 @@ int ren_init(void) {
 }
 
 void ren_free(void) {
-  SDL_FreeSurface(draw_rect_surface);
-  FT_Done_FreeType(library);
+  SDL_DestroySurface(draw_rect_surface);
+  FT_Done_FreeType(library);    
 }
 
 RenWindow* ren_create(SDL_Window *win) {
