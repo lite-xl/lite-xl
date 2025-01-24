@@ -2,6 +2,7 @@
     keymap.unbind("ctrl+1lclick")
     keymap.unbind("ctrl+up")
     keymap.unbind("ctrl+down")
+    style.code_font = renderer.font.load("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", 14 * SCALE)
 
 # Lite XL
 
