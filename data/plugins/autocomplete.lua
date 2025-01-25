@@ -865,7 +865,7 @@ command.add(predicate, {
         end
       end
 
-      doc:text_input(item.text)
+      dv:text_input(item.text)
     end
     reset_suggestions()
   end,
