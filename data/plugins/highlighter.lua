@@ -44,7 +44,7 @@ end
 
 
 function Highlighter:tokenize_line(idx, state, resume)
-  local res = { init_state = state, text = self.doc.lines[idx] }
+  local res = { init_state = state, text = self.doc.lines[idx] or "" }
   res.tokens, res.state, res.resume = tokenizer.tokenize(self.doc.syntax, res.text, state, resume)
   return res
 end
