@@ -261,7 +261,7 @@ local write_commands = {
 
   ["docview:unindent"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
-      local l1, c1, l2, c2 = dv.doc:indent_text(true, line1, col1, line2, col2)
+      local l1, c1, l2, c2 = dv:indent_text(true, line1, col1, line2, col2)
       if l1 then
         dv:set_selections(idx, l1, c1, l2, c2)
       end
