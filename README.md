@@ -1,3 +1,21 @@
+    # this fork added support for x11 synthetic keyboard events(send_event) (src/api/system.c)
+    # added chinese mono font (data/fonts/wqy-microhei-terminal-mono.ttf)
+    # modified tab char display style into "———>" (data/plugins/drawwhitespace.lua)
+
+    # to modify settings(init.lua) to disable spliting cursor and moving lines
+    keymap.unbind("ctrl+1lclick")
+    keymap.unbind("ctrl+up")
+    keymap.unbind("ctrl+down")
+
+    # to modify settings(init.lua) to load chinese mono font, and to display tab char:
+    style.code_font = renderer.font.load(DATADIR .. "/fonts/wqy-microhei-terminal-mono.ttf", 14 * SCALE)
+    config.plugins.drawwhitespace.enabled = true
+    config.indent_size = 4
+
+    # install plugins(https://github.com/lite-xl/lite-xl-plugins):
+    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/bracketmatch.lua -O ~/.config/lite-xl/plugins/bracketmatch.lua
+    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/language_go.lua -O ~/.config/lite-xl/plugins/language_go.lua
+
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
@@ -121,6 +139,12 @@ $ bash build.sh --help
 #                               The script will find the appropriate
 #                               cross file in 'resources/cross'.
 #    --cross-file CROSS_FILE    Cross compile with the given cross file.
+
+# for example, if your machine is x86_64-linux, to build, run and install:
+$ scripts/build.sh
+$ build-x86_64-linux/lite-xl/bin/lite-xl
+$ sudo install build-x86_64-linux/lite-xl/bin/lite-xl /usr/bin/lite
+$ sudo cp -r build-x86_64-linux/lite-xl/share/lite-xl /usr/share/
 ```
 
 Alternatively, you can use the following commands to customize the build:
