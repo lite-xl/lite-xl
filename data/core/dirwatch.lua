@@ -187,6 +187,19 @@ local function get_project_file_info(root, file, ignore_compiled)
   end
 end
 
+-- get the info entry for entries within a directory
+local function get_project_dir_content_info(root, path, ignore_compiled, entries)
+  local all = system.list_dir(root .. PATHSEP .. path)
+  if all then
+    for _, file in ipairs(all) do
+      local info = get_project_file_info(root, (path ~= "" and (path .. PATHSEP) or "") .. file, ignore_compiled)
+      if info then
+        table.insert(entries, info)
+      end
+    end
+  end
+end
+
 
 -- "root" will by an absolute path without trailing '/'
 -- "path" will be a path starting without '/' and without trailing '/'
@@ -201,16 +214,8 @@ function dirwatch.get_directory_files(dir, root, path, entries_count, recurse_pr
   local t0 = system.get_time()
   local ignore_compiled = compile_ignore_files()
 
-  local all = system.list_dir(root .. PATHSEP .. path)
-  if not all then return nil end
   local entries = { }
-  for _, file in ipairs(all) do
-    local info = get_project_file_info(root, (path ~= "" and (path .. PATHSEP) or "") .. file, ignore_compiled)
-    if info then
-      table.insert(entries, info)
-    end
-  end
-  table.sort(entries, compare_file)
+  get_project_dir_content_info(root, path, ignore_compiled, entries)
 
   local recurse_complete = true
   for _, info in ipairs(entries) do
@@ -218,19 +223,14 @@ function dirwatch.get_directory_files(dir, root, path, entries_count, recurse_pr
     entries_count = entries_count + 1
     if info.type == "dir" then
       if recurse_pred(dir, info.filename, entries_count, system.get_time() - t0) then
-        local t_rec, complete, n = dirwatch.get_directory_files(dir, root, info.filename, entries_count, recurse_pred)
-        recurse_complete = recurse_complete and complete
-        if n ~= nil then
-          entries_count = n
-          for _, info_rec in ipairs(t_rec) do
-            table.insert(t, info_rec)
-          end
-        end
+        get_project_dir_content_info(root, info.filename, ignore_compiled, entries)
       else
         recurse_complete = false
       end
     end
   end
+
+  table.sort(t, compare_file)
 
   return t, recurse_complete, entries_count
 end
