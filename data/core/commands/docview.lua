@@ -338,7 +338,7 @@ local write_commands = {
         col1 = 1
         col2 = #dv.doc.lines[line2]
       end
-      dv:set_selections(idx, block_comment(comment, line1, col1, line2, col2))
+      dv:set_selections(idx, dv.doc:block_comment(comment, line1, col1, line2, col2))
     end
   end,
 
@@ -360,7 +360,7 @@ local write_commands = {
       end
       local comment = current_syntax.comment or current_syntax.block_comment
       if comment then
-        dv:set_selections(idx, line_comment(comment, line1, col1, line2, col2))
+        dv:set_selections(idx, dv.doc:line_comment(comment, line1, col1, line2, col2))
       end
     end
   end,
