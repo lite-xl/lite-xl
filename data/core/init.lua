@@ -795,7 +795,7 @@ function core.init()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %s", pname, pdir)
+    core.log_quiet("Opening project %q from directory %s", pname, pdir)
   end
 
   -- We add the project directory now because the project's module is loaded.
