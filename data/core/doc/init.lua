@@ -237,36 +237,7 @@ local function push_undo(undo_stack, time, type, ...)
 end
 
 
-local function pop_undo(self, undo_stack, redo_stack, modified)
-  -- pop command
-  local cmd = undo_stack[undo_stack.idx - 1]
-  if not cmd then return end
-  undo_stack.idx = undo_stack.idx - 1
-
-  -- handle command
-  if cmd.type == "insert" then
-    local line, col, text = table.unpack(cmd)
-    self:raw_insert(line, col, text, redo_stack, cmd.time)
-  elseif cmd.type == "remove" then
-    local line1, col1, line2, col2 = table.unpack(cmd)
-    self:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time)
-  end
-
-  modified = modified or (cmd.type ~= "selection")
-
-  -- if next undo command is within the merge timeout then treat as a single
-  -- command and continue to execute it
-  local next = undo_stack[undo_stack.idx - 1]
-  if next and math.abs(cmd.time - next.time) < config.undo_merge_timeout then
-    return pop_undo(self, undo_stack, redo_stack, modified)
-  end
-
- if modified then for i,v in ipairs(self.listeners) do v:on_doc_change("undo") end end
-end
-
-
-
-function Doc:raw_insert(line, col, text, undo_stack, time)
+function Doc:raw_insert(line, col, text, undo_stack, time, selections)
   -- split text into lines and merge with line at insertion point
   local lines = split_lines(text)
   local len = #lines[#lines]
@@ -284,14 +255,16 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
 
   -- push undo
   local line2, col2 = self:position_offset(line, col, #text)
+  if selections then push_undo(undo_stack, time, "selection", table.unpack(selections)) end
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
   for i,v in ipairs(self.listeners) do v:on_doc_change("insert", text, line, col, line, col) end
 end
 
-function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
+function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time, selections)
   -- push undo
   local text = self:get_text(line1, col1, line2, col2)
+  if selections then push_undo(undo_stack, time, "selection", table.unpack(selections)) end
   push_undo(undo_stack, time, "insert", line1, col1, text)
 
   -- get line content before/after removed text
@@ -310,22 +283,22 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
 end
 
 
-function Doc:insert(line, col, text)
+function Doc:insert(line, col, text, selections)
   self.redo_stack = { idx = 1 }
   -- Reset the clean id when we're pushing something new before it
   if self:get_change_id() < self.clean_change_id then
     self.clean_change_id = -1
   end
   line, col = self:sanitize_position(line, col)
-  self:raw_insert(line, col, text, self.undo_stack, system.get_time())
+  self:raw_insert(line, col, text, self.undo_stack, system.get_time(), selections)
 end
 
-function Doc:remove(line1, col1, line2, col2)
+function Doc:remove(line1, col1, line2, col2, selections)
   self.redo_stack = { idx = 1 }
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
   line1, col1, line2, col2 = common.sort_positions(line1, col1, line2, col2)
-  self:raw_remove(line1, col1, line2, col2, self.undo_stack, system.get_time())
+  self:raw_remove(line1, col1, line2, col2, self.undo_stack, system.get_time(), selections)
 end
 
 
@@ -418,15 +391,6 @@ function Doc:block_comment(comment, line1, col1, line2, col2)
 
     return line1, col1, line2, col2 + #comment[2] + 1
   end
-end
-
-
-function Doc:undo()
-  pop_undo(self, self.undo_stack, self.redo_stack, false)
-end
-
-function Doc:redo()
-  pop_undo(self, self.redo_stack, self.undo_stack, false)
 end
 
 -- For plugins to get notified when a document is closed

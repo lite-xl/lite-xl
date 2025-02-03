@@ -323,10 +323,10 @@ function DocView:text_input(text, idx)
     and not had_selection
     and col1 < #self.lines[line1]
     and text:ulen() == 1 then
-      self.doc:remove(line1, col1, translate.next_char(self, line1, col1))
+      self.doc:remove(line1, col1, translate.next_char(self, line1, col1), self.selections)
     end
 
-    self.doc:insert(line1, col1, text)
+    self.doc:insert(line1, col1, text, self.selections)
     self:move_to_cursor(sidx, #text)
   end
 end
@@ -422,7 +422,7 @@ function DocView:ime_text_editing(text, start, length, idx)
     if line1 ~= line2 or col1 ~= col2 then
       self:delete_to_cursor(sidx)
     end
-    self.doc:insert(line1, col1, text)
+    self.doc:insert(line1, col1, text, self.selections)
     self:set_selections(sidx, line1, col1 + #text, line1, col1)
   end
 end
@@ -431,8 +431,8 @@ function DocView:replace_cursor(idx, line1, col1, line2, col2, fn)
   local old_text = self.doc:get_text(line1, col1, line2, col2)
   local new_text, res = fn(old_text)
   if old_text ~= new_text then
-    self.doc:insert(line2, col2, new_text)
-    self.doc:remove(line1, col1, line2, col2)
+    self.doc:insert(line2, col2, new_text, self.selections)
+    self.doc:remove(line1, col1, line2, col2, self.selections)
     if line1 == line2 and col1 == col2 then
       line2, col2 = self:position_offset(line1, col1, #new_text)
       self:set_selections(idx, line1, col1, line2, col2)
@@ -459,10 +459,10 @@ end
 function DocView:delete_to_cursor(idx, ...)
   for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
     if line1 ~= line2 or col1 ~= col2 then
-      self.doc:remove(line1, col1, line2, col2)
+      self.doc:remove(line1, col1, line2, col2, self.selections)
     else
       local l2, c2 = self:position_offset(line1, col1, ...)
-      self.doc:remove(line1, col1, l2, c2)
+      self.doc:remove(line1, col1, l2, c2, self.selections)
       line1, col1 = common.sort_positions(line1, col1, l2, c2)
     end
     self:set_selections(sidx, line1, col1)
@@ -529,9 +529,9 @@ function DocView:indent_text(unindent, line1, col1, line2, col2)
     for line = line1, line2 do
       if not has_selection or #self.doc.lines[line] > 1 then -- don't indent empty lines in a selection
         local e, rnded = self:get_line_indent(self.doc.lines[line], unindent)
-        self.doc:remove(line, 1, line, (e or 0) + 1)
+        self.doc:remove(line, 1, line, (e or 0) + 1, self.selections)
         self.doc:insert(line, 1,
-          unindent and rnded:sub(1, #rnded - #text) or rnded .. text)
+          unindent and rnded:sub(1, #rnded - #text) or rnded .. text, self.selections)
       end
     end
     l1d, l2d = #self.doc.lines[line1] - l1d, #self.doc.lines[line2] - l2d
@@ -541,7 +541,7 @@ function DocView:indent_text(unindent, line1, col1, line2, col2)
     end
     return line1, col1 + l1d, line2, col2 + l2d
   end
-  self.doc:insert(line1, col1, text)
+  self.doc:insert(line1, col1, text, self.selections)
   return line1, col1 + #text, line1, col1 + #text
 end
 
@@ -999,6 +999,47 @@ function DocView:tokenize(line)
   if line <= 0 or line > #self.doc.lines then return {} end
   return { "doc", line, 1, #self.doc.lines[line], { } }
 end
+
+
+local function pop_undo(self, undo_stack, redo_stack, modified)
+  -- pop command
+  local cmd = undo_stack[undo_stack.idx - 1]
+  if not cmd then return end
+  undo_stack.idx = undo_stack.idx - 1
+
+  -- handle command
+  if cmd.type == "insert" then
+    local line, col, text = table.unpack(cmd)
+    self.doc:raw_insert(line, col, text, redo_stack, cmd.time, self.selections)
+  elseif cmd.type == "remove" then
+    local line1, col1, line2, col2 = table.unpack(cmd)
+    self.doc:raw_remove(line1, col1, line2, col2, redo_stack, cmd.time, self.selections)
+  elseif cmd.type == "selection" then
+    self.selections = { table.unpack(cmd) }
+    self:sanitize_selection()
+  end
+
+  modified = modified or (cmd.type ~= "selection")
+
+  -- if next undo command is within the merge timeout then treat as a single
+  -- command and continue to execute it
+  local next = undo_stack[undo_stack.idx - 1]
+  if next and math.abs(cmd.time - next.time) < config.undo_merge_timeout then
+    return pop_undo(self, undo_stack, redo_stack, modified)
+  end
+  
+  if modified then for i,v in ipairs(self.doc.listeners) do v:on_doc_change("undo") end end
+end
+
+function DocView:undo()
+  pop_undo(self, self.doc.undo_stack, self.doc.redo_stack, false)
+end
+
+function DocView:redo()
+  pop_undo(self, self.doc.redo_stack, self.doc.undo_stack, false)
+end
+
+
 
 --[[
 Virtual Lines Section

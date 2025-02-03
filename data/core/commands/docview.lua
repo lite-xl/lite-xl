@@ -122,11 +122,11 @@ local write_commands = {
   end,
 
   ["docview:undo"] = function(dv)
-    dv.doc:undo()
+    dv:undo()
   end,
 
   ["docview:redo"] = function(dv)
-    dv.doc:redo()
+    dv:redo()
   end,
 
   ["docview:paste"] = function(dv)
