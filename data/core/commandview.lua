@@ -11,8 +11,9 @@ local View = require "core.view"
 ---@field super core.doc
 local SingleLineDoc = Doc:extend()
 
-function SingleLineDoc:insert(line, col, text)
-  SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
+function SingleLineDoc:insert(line, col, text, selections)
+  local stripped = text:gsub("\n", "")
+  SingleLineDoc.super.insert(self, line, col, stripped, selections)
 end
 
 ---@class core.commandview : core.docview
