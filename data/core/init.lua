@@ -766,14 +766,12 @@ function core.init()
   command.add_defaults()
 
   -- Load user module, plugins and project module
-  local got_user_error, got_project_error = not core.load_user_directory()
 
   local project_dir_abs = system.absolute_path(project_dir)
   -- We prevent set_project_dir below to effectively add and scan the directory because the
   -- project module and its ignore files is not yet loaded.
   local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
   if set_project_ok then
-    got_project_error = not core.load_project_module()
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
     end
@@ -782,16 +780,14 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs, function()
-      got_project_error = not core.load_project_module()
-    end) then
+    if not core.set_project_dir(project_dir_abs) then
       system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
       os.exit(1)
     end
   end
 
-  -- Load core and user plugins giving preference to user ones with same name.
-  local plugins_success, plugins_refuse_list = core.load_plugins()
+  -- Load user module, project module, core and user plugins
+  local got_user_error, got_project_error, plugins_success, plugins_refuse_list = core.load_plugins()
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
@@ -968,7 +964,7 @@ local function get_plugin_details(filename)
     end
 
     if not priority then
-      priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
+      priority = line:match('%-%-.*%f[%a]priority%s*:%s*(-?%d+%.?%d*)')
       if priority then priority = tonumber(priority) end
     end
 
@@ -987,6 +983,7 @@ end
 
 function core.load_plugins()
   local no_errors = true
+  local user_error, project_error = true, true
   local refused_list = {
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
@@ -1019,6 +1016,19 @@ function core.load_plugins()
     plugin.version_string = #plugin.version > 0 and table.concat(plugin.version, ".") or "unknown"
   end
 
+  table.insert(ordered, {
+    valid = true,
+    name = "User module",
+    priority = -2,
+    is_special = "user"
+  })
+  table.insert(ordered, {
+    valid = true,
+    name = "Project module",
+    priority = -1,
+    is_special = "project"
+  })
+
   -- sort by priority or name for plugins that have same priority
   table.sort(ordered, function(a, b)
     if a.priority ~= b.priority then
@@ -1030,7 +1040,21 @@ function core.load_plugins()
   local load_start = system.get_time()
   for _, plugin in ipairs(ordered) do
     if plugin.valid then
-      if not config.skip_plugins_version and not plugin.version_match then
+      if plugin.is_special == "user" then
+        local start = system.get_time()
+        user_error = not core.load_user_directory()
+        core.log_quiet(
+          "Loaded user module in %.1fms",
+          (system.get_time() - start) * 1000
+        )
+      elseif plugin.is_special == "project" then
+        local start = system.get_time()
+        project_error = not core.load_project_module()
+        core.log_quiet(
+          "Loaded project module in %.1fms",
+          (system.get_time() - start) * 1000
+        )
+      elseif not config.skip_plugins_version and not plugin.version_match then
         core.log_quiet(
           "Version mismatch for plugin %q[%s] from %s",
           plugin.name,
@@ -1069,7 +1093,7 @@ function core.load_plugins()
     "Loaded all plugins in %.1fms",
     (system.get_time() - load_start) * 1000
   )
-  return no_errors, refused_list
+  return user_error, project_error, no_errors, refused_list
 end
 
 
