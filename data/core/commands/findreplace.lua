@@ -19,9 +19,9 @@ local function doc()
 end
 
 local function get_find_tooltip()
-  local rf = keymap.get_binding("find-replace:repeat-find")
-  local ti = keymap.get_binding("find-replace:toggle-sensitivity")
-  local tr = keymap.get_binding("find-replace:toggle-regex")
+  local rf = keymap.binding_to_string(keymap.get_binding("find-replace:repeat-find"))
+  local ti = keymap.binding_to_string(keymap.get_binding("find-replace:toggle-sensitivity"))
+  local tr = keymap.binding_to_string(keymap.get_binding("find-replace:toggle-regex"))
   return (find_regex and "[Regex] " or "") ..
     (case_sensitive and "[Sensitive] " or "") ..
     (rf and ("Press " .. rf .. " to select the next match.") or "") ..
