@@ -1085,7 +1085,7 @@ function DocView:retrieve_tokens(vline, line)
     local start_line, end_line
     if vline then
       local invalid_line = vline
-      while self.vcache[invalid_line - 1] == false and invalid_line > 1 do
+      while not self.vcache[invalid_line - 1] and invalid_line > 1 do
         invalid_line = invalid_line - 1
       end
       if invalid_line > 1 then
@@ -1094,8 +1094,10 @@ function DocView:retrieve_tokens(vline, line)
         while self.dcache[start_line] do
           start_line = start_line + 1
         end
+        vline = invalid_line
       else
         start_line = 1
+        vline = 1
       end
       while self.vcache[invalid_line + 1] == false do
         invalid_line = invalid_line + 1
