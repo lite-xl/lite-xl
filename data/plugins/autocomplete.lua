@@ -721,8 +721,8 @@ RootView.on_text_input = function(...)
   show_autocomplete()
 end
 
-Doc.remove = function(self, line1, col1, line2, col2)
-  on_text_remove(self, line1, col1, line2, col2)
+Doc.remove = function(self, line1, col1, line2, col2, selections)
+  on_text_remove(self, line1, col1, line2, col2, selections)
 
   if triggered_manually and line1 == line2 then
     if last_col >= col1 then

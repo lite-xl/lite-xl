@@ -323,7 +323,8 @@ function DocView:text_input(text, idx)
     and not had_selection
     and col1 < #self.lines[line1]
     and text:ulen() == 1 then
-      self.doc:remove(line1, col1, translate.next_char(self, line1, col1), self.selections)
+      local line2, col2 = translate.next_char(self, line1, col1)
+      self.doc:remove(line1, col1, line2, col2, self.selections)
     end
 
     self.doc:insert(line1, col1, text, self.selections)
@@ -962,7 +963,7 @@ function DocView:draw_overlay()
           if config.disable_blink
           or (core.blink_timer - core.blink_start) % T < T / 2 then
             local x, y = self:get_line_screen_position(line1, col1)
-            if self.doc.overwrite then
+            if self.overwrite then
               self:draw_overwrite_caret(x, y, self:get_font():get_width(self.doc:get_char(line1, col1)))
             else
               self:draw_caret(x, y)
