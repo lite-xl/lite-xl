@@ -3,7 +3,7 @@
 set -e
 
 get_platform_name() {
-  if [[ "$OSTYPE" == "msys" ]]; then
+  if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
     echo "windows"
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "darwin"
@@ -15,7 +15,7 @@ get_platform_name() {
 }
 
 get_executable_extension() {
-  if [[ "$OSTYPE" == "msys" ]]; then
+  if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
     echo ".exe"
   else
     echo ""
