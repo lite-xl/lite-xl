@@ -16,24 +16,27 @@ syntax.add {
   comment = "//",
   block_comment = { "/*", "*/" },
   patterns = {
-    { pattern = "//.*",                     type = "comment"  },
-    { pattern = { "/%*", "%*/" },           type = "comment"  },
-    { pattern = { '"', '"', '\\' },         type = "string"   },
-    { pattern = { "'", "'", '\\' },         type = "string"   },
-    { regex   = "0x[0-9a-fA-f]+"..isuf,     type = "number"   },
-    { regex   = "0b[01]+"..isuf,            type = "number"   },
-    { regex   = "0()[0-7]+"..isuf,          type = { "keyword", "number" } },
-    { pattern = "%d+%.%d*[Ee]%d+"..fsuf,    type = "number"   },
-    { pattern = "%d+[Ee]%d+"..fsuf,         type = "number"   },
-    { pattern = "%d+%.%d*"..fsuf,           type = "number"   },
-    { pattern = "%.%d+"..fsuf,              type = "number"   },
-    { regex   = "\\d+"..isuf,               type = "number"   },
-    { pattern = "[%+%-=/%*%^%%<>!~|:&]",    type = "operator" },
-    { pattern = "##",                       type = "operator" },
-    { pattern = "struct%s()[%a_][%w_]*",    type = {"keyword", "keyword2"} },
-    { pattern = "class%s()[%a_][%w_]*",     type = {"keyword", "keyword2"} },
-    { pattern = "union%s()[%a_][%w_]*",     type = {"keyword", "keyword2"} },
-    { pattern = "namespace%s()[%a_][%w_]*", type = {"keyword", "keyword2"} },
+    { pattern = "//.*",                                     type = "comment"  },
+    { pattern = { "/%*", "%*/" },                           type = "comment"  },
+    { pattern = { '"', '"', '\\' },                         type = "string"   },
+    { pattern = { "'", "'", '\\' },                         type = "string"   },
+    { regex   = "0x[0-9a-fA-f][0-9a-fA-F']*"..isuf,         type = "number"   },
+    { regex   = "0b[01][01']*"..isuf,                       type = "number"   },
+    { regex   = "0()[0-7][0-7']*"..isuf,                    type = { "keyword", "number" } },
+    { pattern = "[%d][%d']*%.%d[%d']*[Ee][%d][%d']*"..fsuf, type = "number"   }, -- 1'000.1'000e1'000
+    { pattern = "[%d][%d']*%.[Ee][%d][%d']*"..fsuf,         type = "number"   }, -- 1'000.e1'000
+    { pattern = "%d[%d']*[Ee][%d][%d']*"..fsuf,             type = "number"   }, -- 1'000e1'000
+    { pattern = "%d[%d']*%.%d[%d']*"..fsuf,                 type = "number"   }, -- 1'000.1'000
+    { pattern = "%d[%d']%.%d"..fsuf,                        type = "number"   }, -- 1'000.1
+    { pattern = "%.%d[%d']*"..fsuf,                         type = "number"   }, -- .1'000
+    { pattern = "%.%d"..fsuf,                               type = "number"   }, -- .1
+    { regex   = "\\d+"..isuf,                               type = "number"   },
+    { pattern = "[%+%-=/%*%^%%<>!~|:&]",                    type = "operator" },
+    { pattern = "##",                                       type = "operator" },
+    { pattern = "struct%s()[%a_][%w_]*",                    type = {"keyword", "keyword2"} },
+    { pattern = "class%s()[%a_][%w_]*",                     type = {"keyword", "keyword2"} },
+    { pattern = "union%s()[%a_][%w_]*",                     type = {"keyword", "keyword2"} },
+    { pattern = "namespace%s()[%a_][%w_]*",                 type = {"keyword", "keyword2"} },
     -- static declarations
     { pattern = "static()%s+()inline",
       type = { "keyword", "normal", "keyword" }
