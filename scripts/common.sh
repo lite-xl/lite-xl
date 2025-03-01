@@ -62,7 +62,7 @@ addons_install() {
 }
 
 get_platform_name() {
-  if [[ "$OSTYPE" == "msys" ]]; then
+  if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
     echo "windows"
   elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "macos"
