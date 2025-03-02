@@ -9,7 +9,14 @@ local common = require "core.common"
 local command = require "core.command"
 local keymap = require "core.keymap"
 
-local c_likes = { "{", "}" }
+local c_likes = { 
+  { "{", "}" } 
+}
+local lua = { 
+  { "%f[%a]function%s*[^(]*%s*%([^%)]*%)", "%f[%a]end%f[%A]" },
+  { "%f[%a]do%f[%A]", "%f[%a]end%f[%A]" },
+  { "%f[%a]then%f[%A]", "%f[%a]end%f[%A]" }
+}
 
 config.plugins.codefolding = common.merge({
   debug = false,
@@ -17,6 +24,7 @@ config.plugins.codefolding = common.merge({
     ["C"] = c_likes,
     ["C++"] = c_likes,
     ["JavaScript"] = c_likes,
+    ["Lua"] = lua,
     ["*"] = nil
   }
 }, config.plugins.codefolding);
@@ -31,12 +39,46 @@ end
 
 local old_docview_new = DocView.new
 function DocView:new(...)
-  -- hash that contains a list of lines that are not visible due to being folded.
+  -- keys are line numbers that are folded, values is either true, or  { start, end }
   self.folded = {}
-  -- hash that contains a list of all lines that are part of a folding block;
-  -- keys being the line number, values being the line number that started this block
-  self.foldable = {}
+  -- hash contains the list of open blocks at the end of this line
+  self.folding_stack = { "" }
   return old_docview_new(self, ...)
+end
+
+local function compute_line_characteristics(blocks, line, folding_stack)
+  local closing_block = #folding_stack > 0 and blocks[folding_stack:byte(-1)][2]
+  local found_token = 1
+  local first_found_end, last_found_start
+  while found_token do
+    local s,e = line:find("%s*$", found_token)
+    if s == found_token then 
+      break 
+    end
+    local opening_token_start, opening_token_end, opening_token_idx
+    local closing_token_start, closing_token_end = closing_block and line:find(closing_block, found_token)
+    for j = 1, #blocks do
+      local new_opening_token_start, new_opening_token_end = line:find(blocks[j][1], found_token)
+      if new_opening_token_start and (not opening_token_start or new_opening_token_start < opening_token_start) then
+        opening_token_start, opening_token_end, opening_token_idx = new_opening_token_start, new_opening_token_end, j
+      end
+    end
+    if closing_token_start and (not opening_token_start or closing_token_start < opening_token_start) then
+      folding_stack = folding_stack:sub(1, -2)
+      found_token = closing_token_end
+      last_found_start = closing_token_start
+      first_found_end = first_found_end or closing_token_end
+      closing_token_start = nil
+    elseif opening_token_start then
+      folding_stack = folding_stack .. string.char(opening_token_idx)
+      found_token = opening_token_end + 1
+      last_found_start = opening_token_start
+      first_found_end = first_found_end or closing_token_end
+    else
+      break
+    end
+  end
+  return folding_stack, first_found_end, last_found_start
 end
 
 function DocView:compute_fold(doc_line)
@@ -44,26 +86,11 @@ function DocView:compute_fold(doc_line)
   if not blocks then return end
   local start_of_computation = doc_line
   for i = doc_line - 1, 1, -1 do
-    if self.foldable[i] then break end
+    if self.folding_stack[i] then break end
     start_of_computation = i
   end
   for i = start_of_computation, doc_line do
-    if i > 1 then
-      local origin = self.foldable[i - 1] or 0
-      if self.doc.lines[i-1]:find(blocks[1] .. "%s*$") then
-        origin = i - 1
-      elseif self.doc.lines[i-1]:find(blocks[2] .. "%s*$") then
-        origin = self.foldable[self.foldable[i - 1]] or 0
-        if self.doc.lines[self.foldable[i - 1]] and self.doc.lines[self.foldable[i - 1]]:find("^%s*" .. blocks[2]) then
-          origin = self.foldable[self.foldable[self.foldable[i - 1]]] or 0
-        else
-          origin = self.foldable[self.foldable[i - 1]] or 0 
-        end
-      end
-      self.foldable[i] = origin
-    else
-      self.foldable[i] = 0
-    end
+    self.folding_stack[i] = compute_line_characteristics(blocks, self.doc.lines[i], self.folding_stack[i - 1] or "")
   end
 end
 
@@ -72,10 +99,27 @@ local old_tokenize = DocView.tokenize
 function DocView:tokenize(line)
   local blocks = self:get_folding_blocks()
   local tokens = old_tokenize(self, line)
-  if not self.foldable or not blocks then return tokens end
+  if not blocks then return tokens end
   self:compute_fold(line)
-  if self.folded[line] then return {} end
-  if self:is_foldable(line) and self.folded[line+1] then
+  if self.folded[line] then 
+    if self.folded[line] == true then return {} end
+    local idx = 1
+    local new_tokens = {}
+    while (tokens[idx] ~= "doc" or tokens[idx + 3] > self.folded[line]) and idx <= #tokens do
+      if tokens[idx] == "doc" then
+        table.insert(new_tokens, "doc")
+        table.insert(new_tokens, line)
+        table.insert(new_tokens, self.folded[line])
+        table.insert(new_tokens, tokens[idx + 3])
+        table.insert(new_tokens, tokens[idx + 4])
+        table.move(tokens, idx + 5, #tokens, #new_tokens, new_tokens)
+        break
+      end
+      idx = idx + 5
+    end
+    return new_tokens
+  end
+  if self:is_foldable(line) and self.folded[line+1] and self.folded[line+1] == true then
     -- remove the newline from the end of the tokens
     local type, line, e = tokens[#tokens - 4], tokens[#tokens - 3], tokens[#tokens - 1]
     if type == "doc" and self.doc.lines[line]:sub(e, e) == "\n" then tokens[#tokens - 1] = tokens[#tokens - 1] - 1 end
@@ -84,35 +128,38 @@ function DocView:tokenize(line)
     table.insert(tokens, " ... ")
     table.insert(tokens, false)
     table.insert(tokens, { color = style.dim })
-    table.insert(tokens, "virtual")
-    table.insert(tokens, line)
-    table.insert(tokens, blocks[2] .. "\n")
-    table.insert(tokens, false)
-    table.insert(tokens, {  })
   end
   return tokens
 end
 
 function DocView:is_foldable(line)
-  if line < #self.doc.lines - 1 then
-    if not self.foldable[line] or not self.foldable[line+1] then self:compute_fold(line+1) end
-    return self.foldable[line] and self.foldable[line+1] > self.foldable[line] and self.foldable[line]
+  if line < #self.doc.lines and line >= 1 then
+    if not self.folding_stack[line] then self:compute_fold(line) end
+    return #(self.folding_stack[line - 1] or "") < #self.folding_stack[line]
   end
   return false
 end
 
 function DocView:toggle_fold(start_doc_line, value)
+  local vline = self:get_closest_vline(start_doc_line)
+  start_doc_line = self:get_dline(vline, 1)
   local blocks = self:get_folding_blocks()
   if self:is_foldable(start_doc_line) then
     local is_folded = self:is_folded(start_doc_line)
     if value == nil then value = not is_folded end
     if (value and not is_folded) or (is_folded and not value) then
-      local starting_fold = self.foldable[start_doc_line]
+      local starting_fold = #self.folding_stack[start_doc_line]
       local end_doc_line = start_doc_line + 1
       while end_doc_line <= #self.doc.lines do
-        if end_doc_line < #self.doc.lines and not self.foldable[end_doc_line] then self:compute_fold(end_doc_line+1) end
-        if self.foldable[end_doc_line] <= starting_fold then break end
-        self.folded[end_doc_line] = value
+        if end_doc_line < #self.doc.lines and not self.folding_stack[end_doc_line] then 
+          self:compute_fold(end_doc_line+1) 
+        end
+        if #self.folding_stack[end_doc_line] < starting_fold then 
+          local _, _, last_found_start = compute_line_characteristics(blocks, self.doc.lines[end_doc_line], self.folding_stack[end_doc_line - 1])
+          self.folded[end_doc_line] = value and last_found_start
+          break 
+        end
+        self.folded[end_doc_line] = not not value
         end_doc_line = end_doc_line + 1
       end
       --self:invalidate_cache(start_doc_line, end_doc_line)
@@ -121,6 +168,7 @@ function DocView:toggle_fold(start_doc_line, value)
       self:invalidate_cache(start_doc_line)
     end
   end
+  -- debug.sethook(function() print(debug.getinfo(2).short_src .. ":" .. debug.getinfo(2, 'l').currentline) end, 'l')
 end
 
 
@@ -131,18 +179,22 @@ function DocView:get_gutter_width()
 end
 
 local old_draw_line_gutter = DocView.draw_line_gutter
-function DocView:draw_line_gutter(line, x, y, width)
-  local lh = old_draw_line_gutter(self, line, x, y, width)
-  local size = lh - 8
-  local startx = x + 4
-  local starty = y + (lh - size) / 2
-  if self:is_foldable(line) then
-    renderer.draw_rect(startx, starty, size, size, style.accent)
-    renderer.draw_rect(startx + 1, starty + 1, size - 2, size - 2, self.hovering_foldable == line and style.dim or style.background)
-    common.draw_text(self:get_font(), style.accent, self:is_folded(line) and "+" or "-", "center", startx, starty, size, size)
-  end
-  if config.plugins.codefolding.debug then
-    common.draw_text(self:get_font(), style.accent, self.foldable[line] or 0, "center", startx, starty, size, size)
+function DocView:draw_line_gutter(vline, x, y, width)
+  local lh = old_draw_line_gutter(self, vline, x, y, width)
+  if not self:get_folding_blocks() then return lh end
+  local line, col = self:get_dline(vline)
+  if col == 1 then
+    local size = lh - 8
+    local startx = x + 4
+    local starty = y + (lh - size) / 2
+    if self:is_foldable(line) then
+      renderer.draw_rect(startx, starty, size, size, style.accent)
+      renderer.draw_rect(startx + 1, starty + 1, size - 2, size - 2, self.hovering_foldable == line and style.dim or style.background)
+      common.draw_text(self:get_font(), style.accent, self:is_folded(line) and "+" or "-", "center", startx, starty, size, size)
+    end
+    if config.plugins.codefolding.debug then
+      common.draw_text(self:get_font(), style.accent, #self.folding_stack[line] or 0, "center", startx, starty, size, size)
+    end
   end
   return lh
 end
@@ -150,6 +202,8 @@ end
 local old_mouse_moved = DocView.on_mouse_moved
 function DocView:on_mouse_moved(x, y, ...)
   old_mouse_moved(self, x, y, ...)
+  local blocks = self:get_folding_blocks()
+  if not blocks then return end
   self.hovering_foldable = false
   if self.hovering_gutter then
     local line = self:resolve_screen_position(x, y)
@@ -162,14 +216,15 @@ end
 
 local old_mouse_pressed = DocView.on_mouse_pressed
 function DocView:on_mouse_pressed(button, x, y, clicks)
-  if button == "left" and self.hovering_foldable then
+  local blocks = self:get_folding_blocks()
+  if blocks and button == "left" and self.hovering_foldable then
     self:toggle_fold(self.hovering_foldable)
   end
   return old_mouse_pressed(button, x, y, clicks)
 end
 
 command.add(function()
-  if not core.active_view:extends(DocView) then return false end
+  if not core.active_view:extends(DocView) or not core.active_view:get_folding_blocks() then return false end
   local line = core.active_view:get_selection()
   return core.active_view:is_foldable(line), core.active_view
 end, {

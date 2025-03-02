@@ -71,10 +71,10 @@ config.plugins.linewrapping = common.merge({
 local function split_token(font, text, mode, width)
   local offset = 0
   local last_break = nil
-  for i = 1, #text do
-    offset = offset + font:get_width(text:sub(i, i))
+  for i = 1, text:ulen() do
+    offset = offset + font:get_width(text:usub(i, i))
     if offset >= width then return last_break or (i - 1) end
-    if mode == "word" or text:sub(i, i) == " " then last_break = i end
+    if mode == "word" or text:usub(i, i) == " " then last_break = i end
   end
   return nil
 end
@@ -94,6 +94,12 @@ function DocView:draw()
   end
   if self.wrapping_width and self.wrapping_width ~= new_width then self:invalidate_cache() end
   self.wrapping_width = new_width
+end
+
+local old_get_h_scrollable_size = DocView.get_h_scrollable_size
+function DocView:get_h_scrollable_size()
+  if self.wrapping then return 0 end
+  return old_get_h_scrollable_size(self)
 end
 
 local old_tokenize = DocView.tokenize
@@ -124,12 +130,12 @@ function DocView:tokenize(line)
         assert(i)
         if type == "doc" then
           table.insert(tokens, s)
-          table.insert(tokens, i and (i - 1) or e)
+          table.insert(tokens, s + i - 1)
           s = i + s
         else
-          table.insert(tokens, i and l:sub(1, i) or l)
+          table.insert(tokens, l:usub(1, i))
           table.insert(tokens, false)
-          l = l:sub(i+1)
+          l = l:usub(i+1)
         end
         table.insert(tokens, style)
 

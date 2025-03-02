@@ -157,7 +157,7 @@ function Doc:sanitize_position(line, col)
   elseif line < 1 then
     return 1, 1
   end
-  return line, common.clamp(col, 1, #self.lines[line])
+  return line, common.clamp(col, 1, self.lines[line]:ulen())
 end
 
 function Doc:position_offset_func(line, col, fn, ...)
@@ -171,10 +171,10 @@ function Doc:position_offset_byte(line, col, offset)
   col = col + offset
   while line > 1 and col < 1 do
     line = line - 1
-    col = col + #self.lines[line]
+    col = col + self.lines[line]:ulen()
   end
-  while line < #self.lines and col > #self.lines[line] do
-    col = col - #self.lines[line]
+  while line < #self.lines and col > self.lines[line]:ulen() do
+    col = col - self.lines[line]:ulen()
     line = line + 1
   end
   return self:sanitize_position(line, col)
@@ -214,19 +214,19 @@ function Doc:get_text(line1, col1, line2, col2, inclusive)
   local col2_offset = inclusive and 0 or 1
   line1, col1, line2, col2 = common.sort_positions(line1, col1, line2, col2)
   if line1 == line2 then
-    return self.lines[line1]:sub(col1, col2 - col2_offset)
+    return self.lines[line1]:usub(col1, col2 - col2_offset)
   end
-  local lines = { self.lines[line1]:sub(col1) }
+  local lines = { self.lines[line1]:usub(col1) }
   for i = line1 + 1, line2 - 1 do
     table.insert(lines, self.lines[i])
   end
-  table.insert(lines, self.lines[line2]:sub(1, col2 - col2_offset))
+  table.insert(lines, self.lines[line2]:usub(1, col2 - col2_offset))
   return table.concat(lines)
 end
 
 function Doc:get_char(line, col)
   line, col = self:sanitize_position(line, col)
-  return self.lines[line]:sub(col, col)
+  return self.lines[line]:usub(col, col)
 end
 
 
@@ -241,8 +241,8 @@ function Doc:raw_insert(line, col, text, undo_stack, time, selections)
   -- split text into lines and merge with line at insertion point
   local lines = split_lines(text)
   local len = #lines[#lines]
-  local before = self.lines[line]:sub(1, col - 1)
-  local after = self.lines[line]:sub(col)
+  local before = self.lines[line]:usub(1, col - 1)
+  local after = self.lines[line]:usub(col)
   for i = 1, #lines - 1 do
     lines[i] = lines[i] .. "\n"
   end
@@ -268,8 +268,8 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time, selections)
   push_undo(undo_stack, time, "insert", line1, col1, text)
 
   -- get line content before/after removed text
-  local before = self.lines[line1]:sub(1, col1 - 1)
-  local after = self.lines[line2]:sub(col2)
+  local before = self.lines[line1]:usub(1, col1 - 1)
+  local after = self.lines[line2]:usub(col2)
 
   local line_removal = line2 - line1
   local col_removal = col2 - col1

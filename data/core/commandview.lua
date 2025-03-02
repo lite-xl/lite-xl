@@ -77,11 +77,9 @@ function CommandView:get_name()
 end
 
 
-function CommandView:get_line_screen_position(line, col)
-  local x = CommandView.super.get_line_screen_position(self, 1, col)
-  local _, y = self:get_content_offset()
-  local lh = self:get_line_height()
-  return x, y + (self.size.y - lh) / 2
+function CommandView:get_vline_position(vline, vcol)
+  local x, y = CommandView.super.get_vline_position(self, vline, vcol)
+  return x, y + (self.size.y - self:get_line_height()) / 2
 end
 
 
@@ -95,7 +93,7 @@ function CommandView:get_scrollable_size()
 end
 
 function CommandView:get_h_scrollable_size()
-  return 0
+  return math.huge
 end
 
 
@@ -249,6 +247,7 @@ function CommandView:exit(submitted, inexplicit)
   local cancel = self.state.cancel
   self.state = default_state
   self.doc:reset()
+  self:invalidate_cache()
   self.suggestions = {}
   if not submitted then cancel(not inexplicit) end
   self.save_suggestion = nil

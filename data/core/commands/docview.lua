@@ -502,18 +502,18 @@ end, {
 })
 
 local translations = {
-  ["previous-char"] = translate,
-  ["next-char"] = translate,
+  ["previous-char"] = DocView.translate,
+  ["next-char"] = DocView.translate,
   ["previous-word-start"] = translate,
   ["next-word-end"] = translate,
   ["previous-block-start"] = translate,
   ["next-block-end"] = translate,
   ["start-of-doc"] = translate,
   ["end-of-doc"] = translate,
-  ["start-of-line"] = translate,
-  ["end-of-line"] = translate,
+  ["start-of-line"] = DocView.translate,
+  ["end-of-line"] = DocView.translate,
   ["start-of-word"] = translate,
-  ["start-of-indentation"] = translate,
+  ["start-of-indentation"] = DocView.translate,
   ["end-of-word"] = translate,
   ["previous-line"] = DocView.translate,
   ["next-line"] = DocView.translate,
@@ -532,7 +532,7 @@ read_commands["docview:move-to-previous-char"] = function(dv)
     if line1 ~= line2 or col1 ~= col2 then
       dv:set_selections(idx, line1, col1)
     else
-      dv:move_to_cursor(idx, translate.previous_char)
+      dv:move_to_cursor(idx, DocView.translate.previous_char)
     end
   end
   dv:merge_cursors()
@@ -543,7 +543,7 @@ read_commands["docview:move-to-next-char"] = function(dv)
     if line1 ~= line2 or col1 ~= col2 then
       dv:set_selections(idx, line2, col2)
     else
-      dv:move_to_cursor(idx, translate.next_char)
+      dv:move_to_cursor(idx, DocView.translate.next_char)
     end
   end
   dv:merge_cursors()
