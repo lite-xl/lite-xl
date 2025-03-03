@@ -217,7 +217,7 @@ function StatusView:register_docview_items()
     alignment = StatusView.Item.LEFT,
     get_item = function()
       local dv = core.active_view
-      local line, col = dv.doc:get_selection()
+      local line, col = dv:get_selection()
       local _, indent_size = dv.doc:get_indent_info()
       -- Calculating tabs when the doc is using the "hard" indent type.
       local ntabs = 0
@@ -248,7 +248,7 @@ function StatusView:register_docview_items()
     alignment = StatusView.Item.LEFT,
     get_item = function()
       local dv = core.active_view
-      local line = dv.doc:get_selection()
+      local line = dv:get_selection()
       return {
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
@@ -262,7 +262,7 @@ function StatusView:register_docview_items()
     alignment = StatusView.Item.LEFT,
     get_item = function()
       local dv = core.active_view
-      local nsel = math.floor(#dv.doc.selections / 4)
+      local nsel = math.floor(#dv.selections / 4)
       if nsel > 1 then
         return { style.text, nsel, " selections" }
       end
@@ -367,10 +367,7 @@ function StatusView:register_command_items()
     alignment = StatusView.Item.RIGHT,
     get_item = function()
       return {
-        style.icon_font, "g",
-        style.font, style.dim, self.separator2,
-        style.text, #core.docs, style.text, " / ",
-        #core.project_files, " files"
+        style.icon_font, "g"
       }
     end
   })
