@@ -141,7 +141,7 @@ function DocView:is_foldable(line)
 end
 
 function DocView:toggle_fold(start_doc_line, value)
-  local vline = self:get_closest_vline(start_doc_line)
+  local vline = self:get_vline(start_doc_line)
   start_doc_line = self:get_dline(vline, 1)
   local blocks = self:get_folding_blocks()
   if self:is_foldable(start_doc_line) then
@@ -175,7 +175,7 @@ end
 local old_get_gutter_width = DocView.get_gutter_width
 function DocView:get_gutter_width()
   local x,y = old_get_gutter_width(self)
-  return x + style.padding.x, y
+  return x + self:get_font():get_width("+"), y
 end
 
 local old_draw_line_gutter = DocView.draw_line_gutter

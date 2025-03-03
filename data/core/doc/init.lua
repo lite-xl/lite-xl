@@ -50,6 +50,7 @@ function Doc:reset_syntax()
   end
   if path then path = common.normalize_path(path) end
   self.syntax = syntax.get(path, header)
+  for i,v in ipairs(self.listeners) do v:on_doc_change("reset") end
 end
 
 function Doc:set_filename(filename, abs_filename)

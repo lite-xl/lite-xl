@@ -69,27 +69,23 @@ end
 
 
 function DocView.translate.next_char(self, line, col)
-  --return debug.block(function() 
-    local vline, vcol = self:get_vline(line, col)
-    vcol = vcol + 1
-    if vcol > self:get_vline_length(vline) then
-      vline = vline + 1
-      vcol = 1
-    end
-    return self:get_dline(vline, vcol, "next")
-  --end)
+  local vline, vcol = self:get_vline(line, col)
+  vcol = vcol + 1
+  if vcol > self:get_vline_length(vline) then
+    vline = vline + 1
+    vcol = 1
+  end
+  return self:get_dline(vline, vcol, "next")
 end
 
 function DocView.translate.previous_char(self, line, col)
-  --return debug.block(function() 
-    local vline, vcol = self:get_vline(line, col)
-    vcol = vcol - 1
-    if vcol <= 0 then
-      vline = vline - 1
-      vcol = self:get_vline_length(vline) - 1
-    end
-    return self:get_dline(vline, vcol, "prev")
-  --end)
+  local vline, vcol = self:get_vline(line, col)
+  vcol = vcol - 1
+  if vcol <= 0 then
+    vline = vline - 1
+    vcol = self:get_vline_length(vline) - 1
+  end
+  return self:get_dline(vline, vcol, "prev")
 end
 
 function DocView:new(doc)
@@ -103,11 +99,9 @@ function DocView:new(doc)
   self.ime_status = false
   self.hovering_gutter = false
   self.read_only = false
-  self.vcache = {}
-  self.dcache = {}
   self.vlines = setmetatable({ dv = self }, { __index = get_vline_text })
-  self.dtovcache = {}
   self.lines = doc.lines
+  self:invalidate_cache()
   self.selections = { 1, 1, 1, 1 }
   self.last_selection = 1
   self.v_scrollbar:set_forced_status(config.force_scrollbar_status)
@@ -165,8 +159,8 @@ function DocView:get_vline_position(vline, vcol)
 end
 
 function DocView:get_line_position(line, col)
-  debug.print("LINE", line, col, self:get_vline(line, col))
-  return self:get_vline_position(self:get_vline(line, col))
+  local vline, vcol = self:get_vline(line, col)
+  return self:get_vline_position(vline, vcol)
 end
 
 function DocView:get_line_screen_position(line, col)
@@ -372,6 +366,7 @@ function DocView:text_input(text, idx)
 end
 
 function DocView:on_doc_change(type, text, line1, col1, line2, col2)
+  if type == "reset" then self:invalidate_cache() end
   local invalid_line1, invalid_line2 = line1, line2
   local lines = 1
   if type == "insert" and text:find("\n") then 
@@ -857,9 +852,7 @@ function DocView:draw_line_text(vline, x, y)
   local default_font = self:get_font()
   local tx, ty = x, y + self:get_line_text_y_offset()
 
-  --print("VLINE", vline)
   for _, text, style in self:each_vline_token(vline) do
-    --print("TOKEN", "\"" .. text .. "\"")
     tx = renderer.draw_text(style.font or default_font, text:gsub("\n$", ""), tx, ty, style.color or default_color)
   end
   return self:get_line_height()
@@ -980,7 +973,6 @@ function DocView:draw_overlay()
         else
           if config.disable_blink
           or (core.blink_timer - core.blink_start) % T < T / 2 then
-            --local x, y = debug.block(function() return self:get_line_screen_position(line1, col1) end)
             local x, y = self:get_line_screen_position(line1, col1)
             if self.overwrite then
               self:draw_overwrite_caret(x, y, self:get_font():get_width(self.doc:get_char(line1, col1)))
@@ -1154,9 +1146,9 @@ function DocView:retrieve_tokens(vline, line)
     end
     for i = start_line, end_line do
       local tokens
+      self.dtovcache[i] = vline
       tokens, vline = tokenize_line(self, total_vlines, vline, i)
       self.dcache[i] = tokens
-      self.dtovcache[i] = vline
     end
     -- Adjust the vcache as necessary to ensure that we have enough space.
     local differential = #total_vlines - total_free_vlines
@@ -1335,10 +1327,8 @@ function DocView:get_vline(line, col, rounding)
       if type == "doc" then
         -- if we've gone too far, vomit out the start of the token
         if dline > line or (dline == line and col < self.dcache[dline][offset+2]) then
-          debug.print("RETA CLOSEST VLINE", line, col, vline, vcol)
           return vline, vcol
         elseif dline == line and col >= self.dcache[dline][offset+2] and col <= self.dcache[dline][offset+3] then
-          debug.print("RETB CLOSEST VLINE", line, col, vline, vcol + (col - self.dcache[dline][offset+2]))
           return vline, vcol + (col - self.dcache[dline][offset+2]) 
         end
       end
@@ -1347,7 +1337,6 @@ function DocView:get_vline(line, col, rounding)
     vline = vline + 1
     vcol = 1
   end
-  debug.print("RETC CLOSEST VLINE", line, col, vline, 1)
   return vline, 1
 end
 
@@ -1362,13 +1351,11 @@ function DocView:get_dline(vline, vcol, rounding)
   for _, text, _, type, dline, offset in self:each_vline_token(vline) do
     local length = text:ulen() or #text
     if type == "doc" and total_line_length + length >= vcol - 1 then
-      debug.print("RETA DLINE", vline, vcol, dline, (vcol - total_line_length) + self.dcache[dline][offset+2] - 1, self.dcache[dline][offset+2], total_line_length)
       return dline, (vcol - total_line_length) + self.dcache[dline][offset+2] - 1
     end
     total_line_length = total_line_length + length
     last_dline = dline
   end
-  debug.print("RETB DLINE", vline, vcol, last_dline, self.doc.lines[last_dline]:ulen() or #self.doc.lines[last_dline] - 1)
   return last_dline, self.doc.lines[last_dline]:ulen() or #self.doc.lines[last_dline] - 1
 end
 
