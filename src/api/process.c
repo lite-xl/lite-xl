@@ -12,6 +12,7 @@
   // https://stackoverflow.com/questions/60645/overlapped-i-o-on-anonymous-pipe
   // https://docs.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output
   #include <windows.h>
+  #include "../utfconv.h"
 #else
   #include <errno.h>
   #include <unistd.h>
@@ -20,6 +21,8 @@
   #include <sys/types.h>
   #include <sys/wait.h>
 #endif
+
+#include "../arena_allocator.h"
 
 #define READ_BUF_SIZE 2048
 #define PROCESS_TERM_TRIES 3
@@ -31,9 +34,12 @@
 typedef DWORD process_error_t;
 typedef HANDLE process_stream_t;
 typedef HANDLE process_handle_t;
+typedef wchar_t process_arglist_t[32767];
+typedef wchar_t *process_env_t;
 
 #define HANDLE_INVALID (INVALID_HANDLE_VALUE)
 #define PROCESS_GET_HANDLE(P) ((P)->process_information.hProcess)
+#define PROCESS_ARGLIST_INITIALIZER { 0 }
 
 static volatile long PipeSerialNumber;
 
@@ -42,10 +48,19 @@ static volatile long PipeSerialNumber;
 typedef int process_error_t;
 typedef int process_stream_t;
 typedef pid_t process_handle_t;
+typedef char **process_arglist_t;
+typedef char **process_env_t;
 
 #define HANDLE_INVALID (0)
 #define PROCESS_GET_HANDLE(P) ((P)->pid)
+#define PROCESS_ARGLIST_INITIALIZER NULL
 
+#endif
+
+#ifdef __GNUC__
+#define UNUSED __attribute__((__unused__))
+#else
+#define UNUSED
 #endif
 
 typedef struct {
@@ -341,65 +356,79 @@ static bool signal_process(process_t* proc, signal_e sig) {
 
 static int process_start(lua_State* L) {
   int retval = 1;
-  size_t env_len = 0, key_len, val_len;
-  const char *cmd[256] = { NULL }, *env_names[256] = { NULL }, *env_values[256] = { NULL }, *cwd = NULL;
-  bool detach = false, literal = false;
-  int deadline = 10, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
-  size_t arg_len = lua_gettop(L), cmd_len;
-  if (lua_type(L, 1) == LUA_TTABLE) {
-    #if LUA_VERSION_NUM > 501
-      lua_len(L, 1);
-    #else
-      lua_pushinteger(L, (int)lua_objlen(L, 1));
-    #endif
-    cmd_len = luaL_checknumber(L, -1); lua_pop(L, 1);
-    if (!cmd_len)
-      // we have not allocated anything here yet, so we can skip cleanup code
-      // don't do this anywhere else!
-      return luaL_argerror(L, 1,"table cannot be empty");
-    for (size_t i = 1; i <= cmd_len; ++i) {
-      lua_pushinteger(L, i);
-      lua_rawget(L, 1);
-      cmd[i-1] = luaL_checkstring(L, -1);
-    }
-  } else {
-    literal = true;
-    cmd[0] = luaL_checkstring(L, 1);
-    cmd_len = 1;
-  }
+  process_t *self = NULL;
+  int deadline = 10, detach = false, new_fds[3] = { STDIN_FD, STDOUT_FD, STDERR_FD };
 
-  if (arg_len > 1) {
-    lua_getfield(L, 2, "env");
-    if (!lua_isnil(L, -1)) {
-      lua_pushnil(L);
-      while (lua_next(L, -2) != 0) {
-        const char* key = luaL_checklstring(L, -2, &key_len);
-        const char* val = luaL_checklstring(L, -1, &val_len);
-        env_names[env_len] = malloc(key_len+1);
-        strcpy((char*)env_names[env_len], key);
-        env_values[env_len] = malloc(val_len+1);
-        strcpy((char*)env_values[env_len], val);
-        lua_pop(L, 1);
-        ++env_len;
-      }
-    } else
-      lua_pop(L, 1);
+#ifdef _WIN32
+  wchar_t *commandline = NULL, *env = NULL, *cwd = NULL;
+#else
+  const char **cmd = NULL, *env = NULL, *cwd = NULL;
+#endif
+
+  lua_settop(L, 3);
+  lxl_arena *A = lxl_arena_init(L);
+  // copy command line arguments
+#ifdef _WIN32
+  if ( !(commandline = utfconv_fromutf8(A, luaL_checkstring(L, 1))) )
+    return luaL_error(L, "%s", UTFCONV_ERROR_INVALID_CONVERSION);
+#else
+  luaL_checktype(L, 1, LUA_TTABLE);
+  int len = luaL_len(L, 1);
+  cmd = lxl_arena_zero(A, (len + 1) * sizeof(char *));
+  for (int i = 0; i < len; i++) {
+    cmd[i] = lxl_arena_strdup(A, (lua_rawgeti(L, 1, i+1), luaL_checkstring(L, -1)));
+  }
+#endif
+
+  if (lua_istable(L, 2)) {
     lua_getfield(L, 2, "detach");  detach = lua_toboolean(L, -1);
     lua_getfield(L, 2, "timeout"); deadline = luaL_optnumber(L, -1, deadline);
-    lua_getfield(L, 2, "cwd");     cwd = luaL_optstring(L, -1, NULL);
     lua_getfield(L, 2, "stdin");   new_fds[STDIN_FD] = luaL_optnumber(L, -1, STDIN_FD);
     lua_getfield(L, 2, "stdout");  new_fds[STDOUT_FD] = luaL_optnumber(L, -1, STDOUT_FD);
     lua_getfield(L, 2, "stderr");  new_fds[STDERR_FD] = luaL_optnumber(L, -1, STDERR_FD);
     for (int stream = STDIN_FD; stream <= STDERR_FD; ++stream) {
-      if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT) {
-        lua_pushfstring(L, "error: redirect to handles, FILE* and paths are not supported");
-        retval = -1;
-        goto cleanup;
-      }
+      if (new_fds[stream] > STDERR_FD || new_fds[stream] < REDIRECT_PARENT)
+        return luaL_error(L, "error: redirect to handles, FILE* and paths are not supported");
     }
+    lua_pop(L, 5); // pop all the values above
+
+#ifdef _WIN32
+    if (lua_getfield(L, 2, "env") == LUA_TFUNCTION) {
+      lua_newtable(L);
+      LPWCH system_env = GetEnvironmentStringsW(), envp = system_env;
+      while (wcslen(envp) > 0) {
+        const char *env = utfconv_fromwstr(A, envp), *eq = env ? strchr(env, '=') : NULL;
+        if (!env) return (FreeEnvironmentStringsW(system_env), luaL_error(L, "%s", UTFCONV_ERROR_INVALID_CONVERSION));
+        if (!eq) return (FreeEnvironmentStringsW(system_env), luaL_error(L, "invalid environment variable"));
+        lua_pushlstring(L, env, eq - env); lua_pushstring(L, eq+1);
+        lxl_arena_free(A, (void *) env);
+        lua_rawset(L, -3);
+        envp += wcslen(envp) + 1;
+      }
+      FreeEnvironmentStringsW(system_env);
+      lua_call(L, 1, 1);
+      size_t len = 0; const char *env_mb = luaL_checklstring(L, -1, &len);
+      if (!(env = utfconv_fromlutf8(A, env_mb, len)))
+        return luaL_error(L, "%s", UTFCONV_ERROR_INVALID_CONVERSION);
+    }
+    if (lua_getfield(L, 2, "cwd"), luaL_optstring(L, -1, NULL)) {
+      if ( !(cwd = utfconv_fromutf8(A, lua_tostring(L, -1))) )
+        return luaL_error(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    }
+    lua_pop(L, 2);
+#else
+    if (lua_getfield(L, 2, "env") == LUA_TFUNCTION) {
+      lua_newtable(L);
+      lua_call(L, 1, 1);
+      size_t len = 0; env = lua_tolstring(L, -1, &len);
+      env = lxl_arena_copy(A, (void *) env, len+1);
+    }
+    cwd = lxl_arena_strdup(A, (lua_getfield(L, 2, "cwd"), luaL_optstring(L, -1, NULL)));
+    lua_pop(L, 2);
+#endif
   }
 
-  process_t* self = lua_newuserdata(L, sizeof(process_t));
+  self = lua_newuserdata(L, sizeof(process_t));
   memset(self, 0, sizeof(process_t));
   luaL_setmetatable(L, API_TYPE_PROCESS);
   self->deadline = deadline;
@@ -455,7 +484,7 @@ static int process_start(lua_State* L) {
         self->child_pipes[i][1] = self->child_pipes[new_fds[i]][1];
       }
     }
-    STARTUPINFO siStartInfo;
+    STARTUPINFOW siStartInfo;
     memset(&self->process_information, 0, sizeof(self->process_information));
     memset(&siStartInfo, 0, sizeof(siStartInfo));
     siStartInfo.cb = sizeof(siStartInfo);
@@ -463,48 +492,7 @@ static int process_start(lua_State* L) {
     siStartInfo.hStdInput = self->child_pipes[STDIN_FD][0];
     siStartInfo.hStdOutput = self->child_pipes[STDOUT_FD][1];
     siStartInfo.hStdError = self->child_pipes[STDERR_FD][1];
-    char commandLine[32767] = { 0 }, environmentBlock[32767], wideEnvironmentBlock[32767*2];
-    int offset = 0;
-    if (!literal) {
-      for (size_t i = 0; i < cmd_len; ++i) {
-        size_t len = strlen(cmd[i]);
-        if (offset + len + 2 >= sizeof(commandLine)) break;
-        if (i > 0)
-          commandLine[offset++] = ' ';
-        commandLine[offset++] = '"';
-        int backslashCount = 0; // Yes, this is necessary.
-        for (size_t j = 0; j < len && offset + 2 + backslashCount < sizeof(commandLine); ++j) {
-          if (cmd[i][j] == '\\')
-            ++backslashCount;
-          else if (cmd[i][j] == '"') {
-            for (size_t k = 0; k < backslashCount; ++k)
-              commandLine[offset++] = '\\';
-            commandLine[offset++] = '\\';
-            backslashCount = 0;
-          } else
-            backslashCount = 0;
-          commandLine[offset++] = cmd[i][j];
-        }
-        if (offset + 1 + backslashCount >= sizeof(commandLine)) break;
-        for (size_t k = 0; k < backslashCount; ++k)
-          commandLine[offset++] = '\\';
-        commandLine[offset++] = '"';
-      }
-      commandLine[offset] = 0;
-    } else {
-      strncpy(commandLine, cmd[0], sizeof(commandLine));
-    }
-    offset = 0;
-    for (size_t i = 0; i < env_len; ++i) {
-      if (offset + strlen(env_values[i]) + strlen(env_names[i]) + 1 >= sizeof(environmentBlock))
-        break;
-      offset += snprintf(&environmentBlock[offset], sizeof(environmentBlock) - offset, "%s=%s", env_names[i], env_values[i]);
-      environmentBlock[offset++] = 0;
-    }
-    environmentBlock[offset++] = 0;
-    if (env_len > 0)
-      MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, environmentBlock, offset, (LPWSTR)wideEnvironmentBlock, sizeof(wideEnvironmentBlock));
-    if (!CreateProcess(NULL, commandLine, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env_len > 0 ? wideEnvironmentBlock : NULL, cwd, &siStartInfo, &self->process_information)) {
+    if (!CreateProcessW(NULL, commandline, NULL, NULL, true, (detach ? DETACHED_PROCESS : CREATE_NO_WINDOW) | CREATE_UNICODE_ENVIRONMENT, env, cwd, &siStartInfo, &self->process_information)) {
       push_error(L, NULL, GetLastError());
       retval = -1;
       goto cleanup;
@@ -551,10 +539,17 @@ static int process_start(lua_State* L) {
           dup2(self->child_pipes[new_fds[stream]][new_fds[stream] == STDIN_FD ? 0 : 1], stream);
         close(self->child_pipes[stream][stream == STDIN_FD ? 1 : 0]);
       }
-      size_t set;
-      for (set = 0; set < env_len && setenv(env_names[set], env_values[set], 1) == 0; ++set);
-      if (set == env_len && (!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
-        execvp(cmd[0], (char** const)cmd);
+      if (env) {
+        size_t len = 0;
+        while ((len = strlen(env)) != 0) {
+          char *value = strchr(env, '=');
+          *value = '\0'; value++; // change the '=' into '\0', forming 2 strings side by side
+          setenv(env, value, 1);
+          env += len+1;
+        }
+      }
+      if ((!detach || setsid() != -1) && (!cwd || chdir(cwd) != -1))
+        execvp(cmd[0], (char** const) cmd);
       write(control_pipe[1], &errno, sizeof(errno));
       _exit(-1);
     }
@@ -588,16 +583,15 @@ static int process_start(lua_State* L) {
     if (control_pipe[0]) close(control_pipe[0]);
     if (control_pipe[1]) close(control_pipe[1]);
   #endif
-  for (size_t i = 0; i < env_len; ++i) {
-    free((char*)env_names[i]);
-    free((char*)env_values[i]);
-  }
-  for (int stream = 0; stream < 3; ++stream) {
-    process_stream_t* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
-    if (*pipe) {
-      close_fd(pipe);
+  if (self) {
+    for (int stream = 0; stream < 3; ++stream) {
+      process_stream_t* pipe = &self->child_pipes[stream][stream == STDIN_FD ? 0 : 1];
+      if (*pipe) {
+        close_fd(pipe);
+      }
     }
   }
+
   if (retval == -1)
     return lua_error(L);
 
@@ -612,7 +606,7 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
     return luaL_error(L, "error: redirect to handles, FILE* and paths are not supported");
   #if _WIN32
     int writable_stream_idx = stream - 1;
-    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], READ_BUF_SIZE, NULL, &self->overlapped[writable_stream_idx])) {
+    if (self->reading[writable_stream_idx] || !ReadFile(self->child_pipes[stream][0], self->buffer[writable_stream_idx], read_size > READ_BUF_SIZE ? READ_BUF_SIZE : read_size, NULL, &self->overlapped[writable_stream_idx])) {
       if (self->reading[writable_stream_idx] || GetLastError() == ERROR_IO_PENDING) {
         self->reading[writable_stream_idx] = true;
         DWORD bytesTransferred = 0;
@@ -621,7 +615,8 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
           length = bytesTransferred;
           memset(&self->overlapped[writable_stream_idx], 0, sizeof(self->overlapped[writable_stream_idx]));
         }
-      } else {
+      } else if (GetLastError() != ERROR_HANDLE_EOF || !poll_process(self, WAIT_NONE)) {
+        // emulate POSIX behavior in the code below by returning empty string until process exits
         signal_process(self, SIGNAL_TERM);
         return 0;
       }
@@ -702,7 +697,7 @@ static int f_pid(lua_State* L) {
 
 static int f_returncode(lua_State *L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  if (self->running)
+  if (poll_process(self, WAIT_NONE))
     return 0;
   lua_pushinteger(L, self->returncode);
   return 1;

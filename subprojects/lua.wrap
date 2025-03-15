@@ -1,12 +1,15 @@
 [wrap-file]
-directory = lua-5.4.4
-source_url = https://www.lua.org/ftp/lua-5.4.4.tar.gz
-source_filename = lua-5.4.4.tar.gz
-source_hash = 164c7849653b80ae67bec4b7473b884bf5cc8d2dca05653475ec2ed27b9ebf61
-patch_filename = lua_5.4.4-1_patch.zip
-patch_url = https://wrapdb.mesonbuild.com/v2/lua_5.4.4-1/get_patch
-patch_hash = e61cd965c629d6543176f41a9f1cb9050edfd1566cf00ce768ff211086e40bdc
+directory = lua-5.4.6
+source_url = https://www.lua.org/ftp/lua-5.4.6.tar.gz
+source_filename = lua-5.4.6.tar.gz
+source_hash = 7d5ea1b9cb6aa0b59ca3dde1c6adcb57ef83a1ba8e5432c0ecd06bf439b3ad88
+patch_filename = lua_5.4.6-5_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/lua_5.4.6-5/get_patch
+patch_hash = 755ec591b6b4739650ba6bb11b4feca2d221ab7f80f024dd625f50c8932ad76f
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/lua_5.4.6-5/lua-5.4.6.tar.gz
+wrapdb_version = 5.4.6-5
+diff_files = lua/lua-unicode.diff
 
 [provide]
 lua-5.4 = lua_dep
-
+lua = lua_dep

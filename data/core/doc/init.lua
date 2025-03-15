@@ -1,5 +1,6 @@
 local Object = require "core.object"
-local Highlighter = require "core.doc.highlighter"
+local Highlighter = require ".highlighter"
+local translate = require ".translate"
 local core = require "core"
 local syntax = require "core.syntax"
 local config = require "core.config"
@@ -25,11 +26,13 @@ function Doc:new(filename, abs_filename, new_file)
   if filename then
     self:set_filename(filename, abs_filename)
     if not new_file then
-      self:load(filename)
+      self:load(abs_filename)
     end
   end
+  if new_file then
+    self.crlf = config.line_endings == "crlf"
+  end
 end
-
 
 function Doc:reset()
   self.lines = { "\n" }
@@ -39,9 +42,9 @@ function Doc:reset()
   self.redo_stack = { idx = 1 }
   self.clean_change_id = 1
   self.highlighter = Highlighter(self)
+  self.overwrite = false
   self:reset_syntax()
 end
-
 
 function Doc:reset_syntax()
   local header = self:get_text(1, 1, self:position_offset(1, 1, 128))
@@ -50,13 +53,12 @@ function Doc:reset_syntax()
     path = core.project_dir .. PATHSEP .. self.filename
   end
   if path then path = common.normalize_path(path) end
-  local syn = syntax.get(path or "", header)
+  local syn = syntax.get(path, header)
   if self.syntax ~= syn then
     self.syntax = syn
     self.highlighter:soft_reset()
   end
 end
-
 
 function Doc:set_filename(filename, abs_filename)
   self.filename = filename
@@ -64,9 +66,8 @@ function Doc:set_filename(filename, abs_filename)
   self:reset_syntax()
 end
 
-
 function Doc:load(filename)
-  local fp = assert( io.open(filename, "rb") )
+  local fp = assert(io.open(filename, "rb"))
   self:reset()
   self.lines = {}
   local i = 1
@@ -86,16 +87,14 @@ function Doc:load(filename)
   self:reset_syntax()
 end
 
-
 function Doc:reload()
   if self.filename then
     local sel = { self:get_selection() }
-    self:load(self.filename)
+    self:load(self.abs_filename)
     self:clean()
     self:set_selection(table.unpack(sel))
   end
 end
-
 
 function Doc:save(filename, abs_filename)
   if not filename then
@@ -105,7 +104,23 @@ function Doc:save(filename, abs_filename)
   else
     assert(self.filename or abs_filename, "calling save on unnamed doc without absolute path")
   end
-  local fp = assert( io.open(filename, "wb") )
+
+  local fp
+  if PLATFORM == "Windows" then
+    -- On Windows, opening a hidden file with wb fails with a permission error.
+    -- To get around this, we must open the file as r+b and truncate.
+    -- Since r+b fails if file doesn't exist, fall back to wb.
+    fp = io.open(abs_filename, "r+b")
+    if fp then
+      system.ftruncate(fp)
+    else
+      -- file probably doesn't exist, create one
+      fp = assert (io.open(abs_filename, "wb"))
+    end
+  else
+    fp = assert (io.open(abs_filename, "wb"))
+  end
+
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)
@@ -116,33 +131,29 @@ function Doc:save(filename, abs_filename)
   self:clean()
 end
 
-
 function Doc:get_name()
   return self.filename or "unsaved"
 end
 
-
 function Doc:is_dirty()
   if self.new_file then
+    if self.filename then return true end
     return #self.lines > 1 or #self.lines[1] > 1
   else
     return self.clean_change_id ~= self:get_change_id()
   end
 end
 
-
 function Doc:clean()
   self.clean_change_id = self:get_change_id()
 end
 
-
 function Doc:get_indent_info()
   if not self.indent_info then return config.tab_type, config.indent_size, false end
   return self.indent_info.type or config.tab_type,
-         self.indent_info.size or config.indent_size,
-         self.indent_info.confirmed
+      self.indent_info.size or config.indent_size,
+      self.indent_info.confirmed
 end
-
 
 function Doc:get_change_id()
   return self.undo_stack.idx
@@ -167,13 +178,14 @@ function Doc:get_selection(sort)
   return line1, col1, line2, col2, swap
 end
 
-
 ---Get the selection specified by `idx`
 ---@param idx integer @the index of the selection to retrieve
 ---@param sort? boolean @whether to sort the selection returned
 ---@return integer,integer,integer,integer,boolean? @line1, col1, line2, col2, was the selection sorted
 function Doc:get_selection_idx(idx, sort)
-  local line1, col1, line2, col2 = self.selections[idx*4-3], self.selections[idx*4-2], self.selections[idx*4-1], self.selections[idx*4]
+  local line1, col1, line2, col2 = self.selections[idx * 4 - 3], self.selections[idx * 4 - 2],
+      self.selections[idx * 4 - 1],
+      self.selections[idx * 4]
   if line1 and sort then
     return sort_positions(line1, col1, line2, col2)
   else
@@ -217,7 +229,7 @@ function Doc:set_selections(idx, line1, col1, line2, col2, swap, rm)
   if swap then line1, col1, line2, col2 = line2, col2, line1, col1 end
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2 or line1, col2 or col1)
-  common.splice(self.selections, (idx - 1)*4 + 1, rm == nil and 4 or rm, { line1, col1, line2, col2 })
+  common.splice(self.selections, (idx - 1) * 4 + 1, rm == nil and 4 or rm, { line1, col1, line2, col2 })
 end
 
 function Doc:add_selection(line1, col1, line2, col2, swap)
@@ -233,14 +245,12 @@ function Doc:add_selection(line1, col1, line2, col2, swap)
   self.last_selection = target
 end
 
-
 function Doc:remove_selection(idx)
   if self.last_selection >= idx then
     self.last_selection = self.last_selection - 1
   end
   common.splice(self.selections, (idx - 1) * 4 + 1, 4)
 end
-
 
 function Doc:set_selection(line1, col1, line2, col2, swap)
   self.selections = {}
@@ -249,27 +259,28 @@ function Doc:set_selection(line1, col1, line2, col2, swap)
 end
 
 function Doc:merge_cursors(idx)
-  for i = (idx or (#self.selections - 3)), (idx or 5), -4 do
+  local table_index = idx and (idx - 1) * 4 + 1
+  for i = (table_index or (#self.selections - 3)), (table_index or 5), -4 do
     for j = 1, i - 4, 4 do
       if self.selections[i] == self.selections[j] and
-        self.selections[i+1] == self.selections[j+1] then
-          common.splice(self.selections, i, 4)
-          if self.last_selection >= (i+3)/4 then
-            self.last_selection = self.last_selection - 1
-          end
-          break
+          self.selections[i + 1] == self.selections[j + 1] then
+        common.splice(self.selections, i, 4)
+        if self.last_selection >= (i + 3) / 4 then
+          self.last_selection = self.last_selection - 1
+        end
+        break
       end
     end
   end
 end
 
 local function selection_iterator(invariant, idx)
-  local target = invariant[3] and (idx*4 - 7) or (idx*4 + 1)
+  local target = invariant[3] and (idx * 4 - 7) or (idx * 4 + 1)
   if target > #invariant[1] or target <= 0 or (type(invariant[3]) == "number" and invariant[3] ~= idx - 1) then return end
   if invariant[2] then
-    return idx+(invariant[3] and -1 or 1), sort_positions(table.unpack(invariant[1], target, target+4))
+    return idx + (invariant[3] and -1 or 1), sort_positions(table.unpack(invariant[1], target, target + 4))
   else
-    return idx+(invariant[3] and -1 or 1), table.unpack(invariant[1], target, target+4)
+    return idx + (invariant[3] and -1 or 1), table.unpack(invariant[1], target, target + 4)
   end
 end
 
@@ -277,8 +288,9 @@ end
 -- If a number, runs for exactly that iteration.
 function Doc:get_selections(sort_intra, idx_reverse)
   return selection_iterator, { self.selections, sort_intra, idx_reverse },
-    idx_reverse == true and ((#self.selections / 4) + 1) or ((idx_reverse or -1)+1)
+      idx_reverse == true and ((#self.selections / 4) + 1) or ((idx_reverse or -1) + 1)
 end
+
 -- End of cursor seciton.
 
 function Doc:sanitize_position(line, col)
@@ -290,7 +302,6 @@ function Doc:sanitize_position(line, col)
   end
   return line, common.clamp(col, 1, #self.lines[line])
 end
-
 
 local function position_offset_func(self, line, col, fn, ...)
   line, col = self:sanitize_position(line, col)
@@ -330,28 +341,36 @@ function Doc:position_offset(line, col, ...)
   end
 end
 
-
-function Doc:get_text(line1, col1, line2, col2)
+---Returns the content of the doc between two positions. </br>
+---The positions will be sanitized and sorted. </br>
+---The character at the "end" position is not included by default.
+---@see core.doc.sanitize_position
+---@param line1 integer
+---@param col1 integer
+---@param line2 integer
+---@param col2 integer
+---@param inclusive boolean? Whether or not to return the character at the last position
+---@return string
+function Doc:get_text(line1, col1, line2, col2, inclusive)
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
   line1, col1, line2, col2 = sort_positions(line1, col1, line2, col2)
+  local col2_offset = inclusive and 0 or 1
   if line1 == line2 then
-    return self.lines[line1]:sub(col1, col2 - 1)
+    return self.lines[line1]:sub(col1, col2 - col2_offset)
   end
   local lines = { self.lines[line1]:sub(col1) }
   for i = line1 + 1, line2 - 1 do
     table.insert(lines, self.lines[i])
   end
-  table.insert(lines, self.lines[line2]:sub(1, col2 - 1))
+  table.insert(lines, self.lines[line2]:sub(1, col2 - col2_offset))
   return table.concat(lines)
 end
-
 
 function Doc:get_char(line, col)
   line, col = self:sanitize_position(line, col)
   return self.lines[line]:sub(col, col)
 end
-
 
 local function push_undo(undo_stack, time, type, ...)
   undo_stack[undo_stack.idx] = { type = type, time = time, ... }
@@ -413,7 +432,8 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
     if cline1 < line then break end
     local line_addition = (line < cline1 or col < ccol1) and #lines - 1 or 0
     local column_addition = line == cline1 and ccol1 > col and len or 0
-    self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition, ccol2 + column_addition)
+    self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition,
+      ccol2 + column_addition)
   end
 
   -- push undo
@@ -425,7 +445,6 @@ function Doc:raw_insert(line, col, text, undo_stack, time)
   self.highlighter:insert_notify(line, #lines - 1)
   self:sanitize_selection()
 end
-
 
 function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   -- push undo
@@ -485,14 +504,16 @@ function Doc:raw_remove(line1, col1, line2, col2, undo_stack, time)
   self:sanitize_selection()
 end
 
-
 function Doc:insert(line, col, text)
   self.redo_stack = { idx = 1 }
+  -- Reset the clean id when we're pushing something new before it
+  if self:get_change_id() < self.clean_change_id then
+    self.clean_change_id = -1
+  end
   line, col = self:sanitize_position(line, col)
   self:raw_insert(line, col, text, self.undo_stack, system.get_time())
   self:on_text_change("insert")
 end
-
 
 function Doc:remove(line1, col1, line2, col2)
   self.redo_stack = { idx = 1 }
@@ -503,27 +524,33 @@ function Doc:remove(line1, col1, line2, col2)
   self:on_text_change("remove")
 end
 
-
 function Doc:undo()
   pop_undo(self, self.undo_stack, self.redo_stack, false)
 end
-
 
 function Doc:redo()
   pop_undo(self, self.redo_stack, self.undo_stack, false)
 end
 
-
 function Doc:text_input(text, idx)
   for sidx, line1, col1, line2, col2 in self:get_selections(true, idx or true) do
+    local had_selection = false
     if line1 ~= line2 or col1 ~= col2 then
       self:delete_to_cursor(sidx)
+      had_selection = true
     end
+
+    if self.overwrite
+    and not had_selection
+    and col1 < #self.lines[line1]
+    and text:ulen() == 1 then
+      self:remove(line1, col1, translate.next_char(self, line1, col1))
+    end
+
     self:insert(line1, col1, text)
     self:move_to_cursor(sidx, #text)
   end
 end
-
 
 function Doc:ime_text_editing(text, start, length, idx)
   for sidx, line1, col1, line2, col2 in self:get_selections(true, idx or true) do
@@ -534,7 +561,6 @@ function Doc:ime_text_editing(text, start, length, idx)
     self:set_selections(sidx, line1, col1 + #text, line1, col1)
   end
 end
-
 
 function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
   local old_text = self:get_text(line1, col1, line2, col2)
@@ -551,7 +577,7 @@ function Doc:replace_cursor(idx, line1, col1, line2, col2, fn)
 end
 
 function Doc:replace(fn)
-  local has_selection, results = false, { }
+  local has_selection, results = false, {}
   for idx, line1, col1, line2, col2 in self:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
       results[idx] = self:replace_cursor(idx, line1, col1, line2, col2, fn)
@@ -564,7 +590,6 @@ function Doc:replace(fn)
   end
   return results
 end
-
 
 function Doc:delete_to_cursor(idx, ...)
   for sidx, line1, col1, line2, col2 in self:get_selections(true, idx) do
@@ -579,6 +604,7 @@ function Doc:delete_to_cursor(idx, ...)
   end
   self:merge_cursors(idx)
 end
+
 function Doc:delete_to(...) return self:delete_to_cursor(nil, ...) end
 
 function Doc:move_to_cursor(idx, ...)
@@ -587,8 +613,8 @@ function Doc:move_to_cursor(idx, ...)
   end
   self:merge_cursors(idx)
 end
-function Doc:move_to(...) return self:move_to_cursor(nil, ...) end
 
+function Doc:move_to(...) return self:move_to_cursor(nil, ...) end
 
 function Doc:select_to_cursor(idx, ...)
   for sidx, line, col, line2, col2 in self:get_selections(false, idx) do
@@ -597,8 +623,8 @@ function Doc:select_to_cursor(idx, ...)
   end
   self:merge_cursors(idx)
 end
-function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
+function Doc:select_to(...) return self:select_to_cursor(nil, ...) end
 
 function Doc:get_indent_string()
   local indent_type, indent_size = self:get_indent_info()
@@ -621,7 +647,7 @@ function Doc:get_line_indent(line, rnd_up)
     local indent = e and line:sub(1, e):gsub("\t", soft_tab) or ""
     local number = #indent / #soft_tab
     return e, indent:sub(1,
-      (rnd_up and math.ceil(number) or math.floor(number))*#soft_tab)
+      (rnd_up and math.ceil(number) or math.floor(number)) * #soft_tab)
   end
 end
 

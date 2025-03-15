@@ -29,6 +29,7 @@ function RootView:new()
   self.grab = nil -- = {view = nil, button = nil}
   self.overlapping_view = nil
   self.touched_view = nil
+  self.first_dnd_processed = false
 end
 
 
@@ -315,10 +316,10 @@ function RootView:on_mouse_moved(x, y, dx, dy)
   if self.dragged_divider then
     local node = self.dragged_divider
     if node.type == "hsplit" then
-      x = common.clamp(x, 0, self.root_node.size.x * 0.95)
+      x = common.clamp(x - node.position.x, 0, self.root_node.size.x * 0.95)
       resize_child_node(node, "x", x, dx)
     elseif node.type == "vsplit" then
-      y = common.clamp(y, 0, self.root_node.size.y * 0.95)
+      y = common.clamp(y - node.position.y, 0, self.root_node.size.y * 0.95)
       resize_child_node(node, "y", y, dy)
     end
     node.divider = common.clamp(node.divider, 0.01, 0.99)
@@ -374,7 +375,29 @@ end
 ---@return boolean
 function RootView:on_file_dropped(filename, x, y)
   local node = self.root_node:get_child_overlapping_point(x, y)
-  return node and node.active_view:on_file_dropped(filename, x, y)
+  local result = node and node.active_view:on_file_dropped(filename, x, y)
+  if result then return result end
+  local info = system.get_file_info(filename)
+  if info and info.type == "dir" then
+    if self.first_dnd_processed then
+      -- first update done, open in new window
+      system.exec(string.format("%q %q", EXEFILE, filename))
+    else
+      -- DND event before first update, this is sent by macOS when folder is dropped into the dock
+      core.confirm_close_docs(core.docs, function(dirpath)
+        core.open_folder_project(dirpath)
+      end, system.absolute_path(filename))
+      self.first_dnd_processed = true
+    end
+  else
+    local ok, doc = core.try(core.open_doc, filename)
+    if ok then
+      local node = core.root_view.root_node:get_child_overlapping_point(x, y)
+      node:set_active_view(node.active_view)
+      core.root_view:open_doc(doc)
+    end
+  end
+  return true
 end
 
 
@@ -408,10 +431,10 @@ function RootView:on_touch_moved(x, y, dx, dy, ...)
   if self.dragged_divider then
     local node = self.dragged_divider
     if node.type == "hsplit" then
-      x = common.clamp(x, 0, self.root_node.size.x * 0.95)
+      x = common.clamp(x - node.position.x, 0, self.root_node.size.x * 0.95)
       resize_child_node(node, "x", x, dx)
     elseif node.type == "vsplit" then
-      y = common.clamp(y, 0, self.root_node.size.y * 0.95)
+      y = common.clamp(y - node.position.y, 0, self.root_node.size.y * 0.95)
       resize_child_node(node, "y", y, dy)
     end
     node.divider = common.clamp(node.divider, 0.01, 0.99)
@@ -462,6 +485,9 @@ function RootView:update()
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
   self:interpolate_drag_overlay(self.drag_overlay_tab)
+  -- set this to true because at this point there are no dnd requests
+  -- that are caused by the initial dnd into dock user action
+  self.first_dnd_processed = true
 end
 
 

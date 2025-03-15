@@ -8,13 +8,14 @@ system = {}
 ---@alias system.fileinfotype
 ---| "file"  # It is a file.
 ---| "dir"   # It is a directory.
+---| nil     # The file type is unspecified.
 
 ---
 ---@class system.fileinfo
 ---@field public modified number A timestamp in seconds.
 ---@field public size number Size in bytes.
 ---@field public type system.fileinfotype Type of file
----@field public symlink boolean The directory is a symlink. This field is only set on Linux and on directories.
+---@field public symlink boolean The directory is a symlink. This field is only set on directories.
 
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
@@ -61,10 +62,10 @@ function system.poll_event() end
 ---
 ---Wait until an event is triggered.
 ---
----@param timeout number Amount of seconds, also supports fractions
----of a second, eg: 0.01
+---@param timeout? number Amount of seconds, also supports fractions
+---of a second, eg: 0.01. If not provided, waits forever.
 ---
----@return boolean status True on success or false if there was an error.
+---@return boolean status True on success or false if there was an error or if no event was received.
 function system.wait_event(timeout) end
 
 ---
@@ -76,8 +77,9 @@ function system.set_cursor(type) end
 ---
 ---Change the window title.
 ---
+---@param window renwindow
 ---@param title string
-function system.set_window_title(title) end
+function system.set_window_title(window, title) end
 
 ---@alias system.windowmode
 ---| "normal"
@@ -88,14 +90,17 @@ function system.set_window_title(title) end
 ---
 ---Change the window mode.
 ---
+---@param window renwindow
 ---@param mode system.windowmode
-function system.set_window_mode(mode) end
+function system.set_window_mode(window, mode) end
 
 ---
----Retrieve the current window mode.
+---Retrieve the window mode.
+---
+---@param window renwindow
 ---
 ---@return system.windowmode mode
-function system.get_window_mode() end
+function system.get_window_mode(window) end
 
 ---
 ---Toggle between bordered and borderless.
@@ -118,32 +123,31 @@ function system.set_window_hit_test(title_height, controls_width, resize_border)
 ---
 ---Get the size and coordinates of the window.
 ---
+---@param window renwindow
+---
 ---@return number width
 ---@return number height
 ---@return number x
 ---@return number y
-function system.get_window_size() end
+function system.get_window_size(window) end
 
 ---
 ---Sets the size and coordinates of the window.
 ---
+---@param window renwindow
 ---@param width number
 ---@param height number
 ---@param x number
 ---@param y number
-function system.set_window_size(width, height, x, y) end
+function system.set_window_size(window, width, height, x, y) end
 
 ---
 ---Check if the window currently has focus.
 ---
+---@param window renwindow
+---
 ---@return boolean
-function system.window_has_focus() end
-
----
----Gets the mode of the window.
----
----@return system.windowmode
-function system.get_window_mode() end
+function system.window_has_focus(window) end
 
 ---
 ---Sets the position of the IME composition window.
@@ -161,7 +165,9 @@ function system.clear_ime() end
 ---
 ---Raise the main window and give it input focus.
 ---Note: may not always be obeyed by the users window manager.
-function system.raise_window() end
+--
+---@param window renwindow
+function system.raise_window(window) end
 
 ---
 ---Opens a message box to display an error message.
@@ -184,6 +190,15 @@ function system.rmdir(path) end
 ---
 ---@param path string
 function system.chdir(path) end
+
+---
+---Truncates a file to a set length.
+---
+---@param file file* A file handle returned by io.open().
+---@param length integer? Number of bytes to truncate to. Defaults to 0.
+---@return boolean success True if the operation suceeded, false otherwise
+---@return string? message An error message if the operation failed.
+function system.ftruncate(file, length) end
 
 ---
 ---Create a new directory, note that this function doesn't recursively
@@ -256,6 +271,18 @@ function system.get_clipboard() end
 function system.set_clipboard(text) end
 
 ---
+---Retrieve the text currently stored in the primary selection.
+---
+---@return string
+function system.get_primary_selection() end
+
+---
+---Set the content of the primary selection.
+---
+---@param text string
+function system.set_primary_selection(text) end
+
+---
 ---Get the process id of lite-xl itself.
 ---
 ---@return integer
@@ -300,10 +327,12 @@ function system.fuzzy_match(haystack, needle, file) end
 ---
 ---Change the opacity (also known as transparency) of the window.
 ---
+---@param window renwindow
 ---@param opacity number A value from 0.0 to 1.0, the lower the value
 ---the less visible the window will be.
+---
 ---@return boolean success True if the operation suceeded.
-function system.set_window_opacity(opacity) end
+function system.set_window_opacity(window, opacity) end
 
 ---
 ---Loads a lua native module using the default Lua API or lite-xl native plugin API.
@@ -318,9 +347,19 @@ function system.load_native_plugin(name, path) end
 ---Compares two paths in the order used by TreeView.
 ---
 ---@param path1 string
+---@param type1 system.fileinfotype
 ---@param path2 string
+---@param type2 system.fileinfotype
 ---@return boolean compare_result True if path1 < path2
-function system.path_compare(path1, path2) end
+function system.path_compare(path1, type1, path2, type2) end
 
+---
+---Sets an environment variable.
+---The converse of os.getenv.
+---
+---@param key string
+---@param val string
+---@return boolean ok True if call succeeded
+function system.setenv(key, val) end
 
 return system

@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -13,20 +14,8 @@
   #include <windows.h>
   #include <fileapi.h>
   #include "../utfconv.h"
-
-  // Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
-  // We have to define _CRT_INTERNAL_NONSTDC_NAMES 1 before #including sys/stat.h
-  // in order for Microsoft's stat.h to define names like S_IFMT, S_IFREG, and S_IFDIR,
-  // rather than just defining  _S_IFMT, _S_IFREG, and _S_IFDIR as it normally does.
-  #define _CRT_INTERNAL_NONSTDC_NAMES 1
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
-    #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-  #endif
-  #if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
-    #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
-  #endif
+  #define fileno _fileno
+  #define ftruncate _chsize
 #else
 
 #include <dirent.h>
@@ -74,7 +63,7 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
   const int controls_width = hit_info->controls_width;
   int w, h;
 
-  SDL_GetWindowSize(window_renderer.window, &w, &h);
+  SDL_GetWindowSize(window, &w, &h);
 
   if (pt->y < hit_info->title_height &&
     #if RESIZE_FROM_TOP
@@ -186,7 +175,8 @@ top:
 
     case SDL_WINDOWEVENT:
       if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
-        ren_resize_window(&window_renderer);
+        RenWindow* window_renderer = ren_find_window_from_id(e.window.windowID);
+        ren_resize_window(window_renderer);
         lua_pushstring(L, "resized");
         /* The size below will be in points. */
         lua_pushinteger(L, e.window.data1);
@@ -222,13 +212,17 @@ top:
       goto top;
 
     case SDL_DROPFILE:
-      SDL_GetMouseState(&mx, &my);
-      lua_pushstring(L, "filedropped");
-      lua_pushstring(L, e.drop.file);
-      lua_pushinteger(L, mx);
-      lua_pushinteger(L, my);
-      SDL_free(e.drop.file);
-      return 4;
+      {
+        RenWindow* window_renderer = ren_find_window_from_id(e.drop.windowID);
+        SDL_GetMouseState(&mx, &my);
+        lua_pushstring(L, "filedropped");
+        lua_pushstring(L, e.drop.file);
+        // a DND into dock event fired before a window is created
+        lua_pushinteger(L, mx * (window_renderer ? window_renderer->scale_x : 0));
+        lua_pushinteger(L, my * (window_renderer ? window_renderer->scale_y : 0));
+        SDL_free(e.drop.file);
+        return 4;
+      }
 
     case SDL_KEYDOWN:
 #ifdef __APPLE__
@@ -280,36 +274,45 @@ top:
 #endif
 
     case SDL_MOUSEBUTTONDOWN:
-      if (e.button.button == 1) { SDL_CaptureMouse(1); }
-      lua_pushstring(L, "mousepressed");
-      lua_pushstring(L, button_name(e.button.button));
-      lua_pushinteger(L, e.button.x);
-      lua_pushinteger(L, e.button.y);
-      lua_pushinteger(L, e.button.clicks);
-      return 5;
+      {
+        if (e.button.button == 1) { SDL_CaptureMouse(1); }
+        RenWindow* window_renderer = ren_find_window_from_id(e.button.windowID);
+        lua_pushstring(L, "mousepressed");
+        lua_pushstring(L, button_name(e.button.button));
+        lua_pushinteger(L, e.button.x * window_renderer->scale_x);
+        lua_pushinteger(L, e.button.y * window_renderer->scale_y);
+        lua_pushinteger(L, e.button.clicks);
+        return 5;
+      }
 
     case SDL_MOUSEBUTTONUP:
-      if (e.button.button == 1) { SDL_CaptureMouse(0); }
-      lua_pushstring(L, "mousereleased");
-      lua_pushstring(L, button_name(e.button.button));
-      lua_pushinteger(L, e.button.x);
-      lua_pushinteger(L, e.button.y);
-      return 4;
+      {
+        if (e.button.button == 1) { SDL_CaptureMouse(0); }
+        RenWindow* window_renderer = ren_find_window_from_id(e.button.windowID);
+        lua_pushstring(L, "mousereleased");
+        lua_pushstring(L, button_name(e.button.button));
+        lua_pushinteger(L, e.button.x * window_renderer->scale_x);
+        lua_pushinteger(L, e.button.y * window_renderer->scale_y);
+        return 4;
+      }
 
     case SDL_MOUSEMOTION:
-      SDL_PumpEvents();
-      while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
-        e.motion.x = event_plus.motion.x;
-        e.motion.y = event_plus.motion.y;
-        e.motion.xrel += event_plus.motion.xrel;
-        e.motion.yrel += event_plus.motion.yrel;
+      {
+        SDL_PumpEvents();
+        while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION) > 0) {
+          e.motion.x = event_plus.motion.x;
+          e.motion.y = event_plus.motion.y;
+          e.motion.xrel += event_plus.motion.xrel;
+          e.motion.yrel += event_plus.motion.yrel;
+        }
+        RenWindow* window_renderer = ren_find_window_from_id(e.motion.windowID);
+        lua_pushstring(L, "mousemoved");
+        lua_pushinteger(L, e.motion.x * window_renderer->scale_x);
+        lua_pushinteger(L, e.motion.y * window_renderer->scale_y);
+        lua_pushinteger(L, e.motion.xrel * window_renderer->scale_x);
+        lua_pushinteger(L, e.motion.yrel * window_renderer->scale_y);
+        return 5;
       }
-      lua_pushstring(L, "mousemoved");
-      lua_pushinteger(L, e.motion.x);
-      lua_pushinteger(L, e.motion.y);
-      lua_pushinteger(L, e.motion.xrel);
-      lua_pushinteger(L, e.motion.yrel);
-      return 5;
 
     case SDL_MOUSEWHEEL:
       lua_pushstring(L, "mousewheel");
@@ -324,49 +327,64 @@ top:
       return 3;
 
       case SDL_FINGERDOWN:
-      SDL_GetWindowSize(window_renderer.window, &w, &h);
+      {
+        RenWindow* window_renderer = ren_find_window_from_id(e.tfinger.windowID);
+        SDL_GetWindowSize(window_renderer->window, &w, &h);
 
-      lua_pushstring(L, "touchpressed");
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
-      lua_pushinteger(L, e.tfinger.fingerId);
-      return 4;
+        lua_pushstring(L, "touchpressed");
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
+        lua_pushinteger(L, e.tfinger.fingerId);
+        return 4;
+      }
 
     case SDL_FINGERUP:
-      SDL_GetWindowSize(window_renderer.window, &w, &h);
+      {
+        RenWindow* window_renderer = ren_find_window_from_id(e.tfinger.windowID);
+        SDL_GetWindowSize(window_renderer->window, &w, &h);
 
-      lua_pushstring(L, "touchreleased");
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
-      lua_pushinteger(L, e.tfinger.fingerId);
-      return 4;
+        lua_pushstring(L, "touchreleased");
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
+        lua_pushinteger(L, e.tfinger.fingerId);
+        return 4;
+      }
 
     case SDL_FINGERMOTION:
-      SDL_PumpEvents();
-      while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_FINGERMOTION, SDL_FINGERMOTION) > 0) {
-        e.tfinger.x = event_plus.tfinger.x;
-        e.tfinger.y = event_plus.tfinger.y;
-        e.tfinger.dx += event_plus.tfinger.dx;
-        e.tfinger.dy += event_plus.tfinger.dy;
-      }
-      SDL_GetWindowSize(window_renderer.window, &w, &h);
+      {
+        SDL_PumpEvents();
+        while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_FINGERMOTION, SDL_FINGERMOTION) > 0) {
+          e.tfinger.x = event_plus.tfinger.x;
+          e.tfinger.y = event_plus.tfinger.y;
+          e.tfinger.dx += event_plus.tfinger.dx;
+          e.tfinger.dy += event_plus.tfinger.dy;
+        }
+        RenWindow* window_renderer = ren_find_window_from_id(e.tfinger.windowID);
+        SDL_GetWindowSize(window_renderer->window, &w, &h);
 
-      lua_pushstring(L, "touchmoved");
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.dx * w));
-      lua_pushinteger(L, (lua_Integer)(e.tfinger.dy * h));
-      lua_pushinteger(L, e.tfinger.fingerId);
-      return 6;
+        lua_pushstring(L, "touchmoved");
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.dx * w));
+        lua_pushinteger(L, (lua_Integer)(e.tfinger.dy * h));
+        lua_pushinteger(L, e.tfinger.fingerId);
+        return 6;
+      }
     case SDL_APP_WILLENTERFOREGROUND:
     case SDL_APP_DIDENTERFOREGROUND:
-      #ifdef LITE_USE_SDL_RENDERER
-        rencache_invalidate();
-      #else
-        SDL_UpdateWindowSurface(window_renderer.window);
-      #endif
-      lua_pushstring(L, e.type == SDL_APP_WILLENTERFOREGROUND ? "enteringforeground" : "enteredforeground");
-      return 1;
+      {
+        #ifdef LITE_USE_SDL_RENDERER
+          rencache_invalidate();
+        #else
+          RenWindow** window_list;
+          size_t window_count = ren_get_window_list(&window_list);
+          while (window_count) {
+            SDL_UpdateWindowSurface(window_list[--window_count]->window);
+          }
+        #endif
+        lua_pushstring(L, e.type == SDL_APP_WILLENTERFOREGROUND ? "enteringforeground" : "enteredforeground");
+        return 1;
+      }
     case SDL_APP_WILLENTERBACKGROUND:
       lua_pushstring(L, "enteringbackground");
       return 1;
@@ -386,6 +404,7 @@ static int f_wait_event(lua_State *L) {
   int nargs = lua_gettop(L);
   if (nargs >= 1) {
     double n = luaL_checknumber(L, 1);
+    if (n < 0) n = 0;
     lua_pushboolean(L, SDL_WaitEventTimeout(NULL, n * 1000));
   } else {
     lua_pushboolean(L, SDL_WaitEvent(NULL));
@@ -427,8 +446,9 @@ static int f_set_cursor(lua_State *L) {
 
 
 static int f_set_window_title(lua_State *L) {
-  const char *title = luaL_checkstring(L, 1);
-  SDL_SetWindowTitle(window_renderer.window, title);
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  const char *title = luaL_checkstring(L, 2);
+  SDL_SetWindowTitle(window_renderer->window, title);
   return 0;
 }
 
@@ -437,40 +457,53 @@ static const char *window_opts[] = { "normal", "minimized", "maximized", "fullsc
 enum { WIN_NORMAL, WIN_MINIMIZED, WIN_MAXIMIZED, WIN_FULLSCREEN };
 
 static int f_set_window_mode(lua_State *L) {
-  int n = luaL_checkoption(L, 1, "normal", window_opts);
-  SDL_SetWindowFullscreen(window_renderer.window,
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  int n = luaL_checkoption(L, 2, "normal", window_opts);
+  SDL_SetWindowFullscreen(window_renderer->window,
     n == WIN_FULLSCREEN ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-  if (n == WIN_NORMAL) { SDL_RestoreWindow(window_renderer.window); }
-  if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window_renderer.window); }
-  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window_renderer.window); }
+  if (n == WIN_NORMAL) { SDL_RestoreWindow(window_renderer->window); }
+  if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window_renderer->window); }
+  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window_renderer->window); }
   return 0;
 }
 
 
 static int f_set_window_bordered(lua_State *L) {
+  RenWindow** window_list;
+  size_t window_count = ren_get_window_list(&window_list);
   int bordered = lua_toboolean(L, 1);
-  SDL_SetWindowBordered(window_renderer.window, bordered);
+  while (window_count) {
+    SDL_SetWindowBordered(window_list[--window_count]->window, bordered);
+  }
+
   return 0;
 }
 
 
 static int f_set_window_hit_test(lua_State *L) {
+  RenWindow** window_list;
+  size_t window_count = ren_get_window_list(&window_list);
   if (lua_gettop(L) == 0) {
-    SDL_SetWindowHitTest(window_renderer.window, NULL, NULL);
+    while (window_count) {
+      SDL_SetWindowHitTest(window_list[--window_count]->window, NULL, NULL);
+    }
     return 0;
   }
   window_hit_info->title_height = luaL_checknumber(L, 1);
   window_hit_info->controls_width = luaL_checknumber(L, 2);
   window_hit_info->resize_border = luaL_checknumber(L, 3);
-  SDL_SetWindowHitTest(window_renderer.window, hit_test, window_hit_info);
+  while (window_count) {
+    SDL_SetWindowHitTest(window_list[--window_count]->window, hit_test, window_hit_info);
+  }
   return 0;
 }
 
 
 static int f_get_window_size(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   int x, y, w, h;
-  SDL_GetWindowSize(window_renderer.window, &w, &h);
-  SDL_GetWindowPosition(window_renderer.window, &x, &y);
+  SDL_GetWindowSize(window_renderer->window, &w, &h);
+  SDL_GetWindowPosition(window_renderer->window, &x, &y);
   lua_pushinteger(L, w);
   lua_pushinteger(L, h);
   lua_pushinteger(L, x);
@@ -480,26 +513,29 @@ static int f_get_window_size(lua_State *L) {
 
 
 static int f_set_window_size(lua_State *L) {
-  double w = luaL_checknumber(L, 1);
-  double h = luaL_checknumber(L, 2);
-  double x = luaL_checknumber(L, 3);
-  double y = luaL_checknumber(L, 4);
-  SDL_SetWindowSize(window_renderer.window, w, h);
-  SDL_SetWindowPosition(window_renderer.window, x, y);
-  ren_resize_window(&window_renderer);
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  double w = luaL_checknumber(L, 2);
+  double h = luaL_checknumber(L, 3);
+  double x = luaL_checknumber(L, 4);
+  double y = luaL_checknumber(L, 5);
+  SDL_SetWindowSize(window_renderer->window, w, h);
+  SDL_SetWindowPosition(window_renderer->window, x, y);
+  ren_resize_window(window_renderer);
   return 0;
 }
 
 
 static int f_window_has_focus(lua_State *L) {
-  unsigned flags = SDL_GetWindowFlags(window_renderer.window);
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
   lua_pushboolean(L, flags & SDL_WINDOW_INPUT_FOCUS);
   return 1;
 }
 
 
 static int f_get_window_mode(lua_State *L) {
-  unsigned flags = SDL_GetWindowFlags(window_renderer.window);
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
   if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
     lua_pushstring(L, "fullscreen");
   } else if (flags & SDL_WINDOW_MINIMIZED) {
@@ -531,14 +567,15 @@ static int f_clear_ime(lua_State *L) {
 
 
 static int f_raise_window(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   /*
     SDL_RaiseWindow should be enough but on some window managers like the
     one used on Gnome the window needs to first have input focus in order
     to allow the window to be focused. Also on wayland the raise window event
     may not always be obeyed.
   */
-  SDL_SetWindowInputFocus(window_renderer.window);
-  SDL_RaiseWindow(window_renderer.window);
+  SDL_SetWindowInputFocus(window_renderer->window);
+  SDL_RaiseWindow(window_renderer->window);
   return 0;
 }
 
@@ -709,29 +746,45 @@ static int f_absolute_path(lua_State *L) {
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
+  lua_newtable(L);
 #ifdef _WIN32
-  struct _stat s;
   LPWSTR wpath = utfconv_utf8towc(path);
   if (wpath == NULL) {
-    lua_pushnil(L);
-    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+    lua_pushnil(L); lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
     return 2;
   }
-  int err = _wstat(wpath, &s);
+  WIN32_FILE_ATTRIBUTE_DATA data;
+  if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &data)) {
+    free(wpath);
+    lua_pushnil(L); push_win32_error(L, GetLastError());
+    return 2;
+  }
   free(wpath);
+  ULARGE_INTEGER large_int = {0};
+  #define TICKS_PER_MILISECOND 10000
+  #define EPOCH_DIFFERENCE 11644473600000LL
+  // https://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
+  large_int.HighPart = data.ftLastWriteTime.dwHighDateTime; large_int.LowPart = data.ftLastWriteTime.dwLowDateTime;
+  lua_pushnumber(L, (double)((large_int.QuadPart / TICKS_PER_MILISECOND - EPOCH_DIFFERENCE)/1000.0));
+  lua_setfield(L, -2, "modified");
+
+  large_int.HighPart = data.nFileSizeHigh; large_int.LowPart = data.nFileSizeLow;
+  lua_pushinteger(L, large_int.QuadPart);
+  lua_setfield(L, -2, "size");
+
+  lua_pushstring(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? "dir" : "file");
+  lua_setfield(L, -2, "type");
+
+  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  lua_setfield(L, -2, "symlink");
 #else
   struct stat s;
   int err = stat(path, &s);
-#endif
   if (err < 0) {
     lua_pushnil(L);
     lua_pushstring(L, strerror(errno));
     return 2;
   }
-
-  lua_newtable(L);
-  lua_pushinteger(L, s.st_mtime);
-  lua_setfield(L, -2, "modified");
 
   lua_pushinteger(L, s.st_size);
   lua_setfield(L, -2, "size");
@@ -745,7 +798,21 @@ static int f_get_file_info(lua_State *L) {
   }
   lua_setfield(L, -2, "type");
 
-#if __linux__
+  double mtime;
+  #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
+    mtime = (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0);
+  #elif __APPLE__
+    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+      mtime = (double)s.st_mtimespec.tv_sec + (s.st_mtimespec.tv_nsec / 1000000000.0);
+    #else
+      mtime = (double)s.st_mtime + (s.st_atimensec / 1000000000.0);
+    #endif
+  #else
+    mtime = s.st_mtime;
+  #endif
+  lua_pushnumber(L, mtime);
+  lua_setfield(L, -2, "modified");
+
   if (S_ISDIR(s.st_mode)) {
     if (lstat(path, &s) == 0) {
       lua_pushboolean(L, S_ISLNK(s.st_mode));
@@ -799,6 +866,26 @@ static int f_get_fs_type(lua_State *L) {
 }
 
 
+static int f_ftruncate(lua_State *L) {
+#if LUA_VERSION_NUM < 503
+  // note: it is possible to support pre 5.3 and JIT
+  //       since file handles are just FILE*  wrapped in a userdata;
+  //       but it is not standardized. YMMV.
+  #error luaL_Stream is not supported in this version of Lua.
+#endif
+  luaL_Stream *stream = luaL_checkudata(L, 1, LUA_FILEHANDLE);
+  lua_Integer len = luaL_optinteger(L, 2, 0);
+  if (ftruncate(fileno(stream->f), len) != 0) {
+    lua_pushboolean(L, 0);
+    lua_pushfstring(L, "ftruncate(): %s", strerror(errno));
+    return 2;
+  }
+
+  lua_pushboolean(L, 1);
+  return 1;
+}
+
+
 static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
@@ -829,7 +916,14 @@ static int f_mkdir(lua_State *L) {
 static int f_get_clipboard(lua_State *L) {
   char *text = SDL_GetClipboardText();
   if (!text) { return 0; }
+#ifdef _WIN32
+  // on windows, text-based clipboard formats must terminate with \r\n
+  // we need to convert it to \n for Lite XL to read them properly
+  // https://learn.microsoft.com/en-us/windows/win32/dataxchg/standard-clipboard-formats
+  luaL_gsub(L, text, "\r\n", "\n");
+#else
   lua_pushstring(L, text);
+#endif
   SDL_free(text);
   return 1;
 }
@@ -838,6 +932,28 @@ static int f_get_clipboard(lua_State *L) {
 static int f_set_clipboard(lua_State *L) {
   const char *text = luaL_checkstring(L, 1);
   SDL_SetClipboardText(text);
+  return 0;
+}
+
+
+static int f_get_primary_selection(lua_State *L) {
+#if SDL_VERSION_ATLEAST(2, 26, 0)
+  char *text = SDL_GetPrimarySelectionText();
+  if (!text) { return 0; }
+  lua_pushstring(L, text);
+  SDL_free(text);
+  return 1;
+#else
+  return 0;
+#endif
+}
+
+
+static int f_set_primary_selection(lua_State *L) {
+#if SDL_VERSION_ATLEAST(2, 26, 0)
+  const char *text = luaL_checkstring(L, 1);
+  SDL_SetPrimarySelectionText(text);
+#endif
   return 0;
 }
 
@@ -861,6 +977,7 @@ static int f_get_time(lua_State *L) {
 
 static int f_sleep(lua_State *L) {
   double n = luaL_checknumber(L, 1);
+  if (n < 0) n = 0;
   SDL_Delay(n * 1000);
   return 0;
 }
@@ -913,8 +1030,9 @@ static int f_fuzzy_match(lua_State *L) {
 }
 
 static int f_set_window_opacity(lua_State *L) {
-  double n = luaL_checknumber(L, 1);
-  int r = SDL_SetWindowOpacity(window_renderer.window, n);
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  double n = luaL_checknumber(L, 2);
+  int r = SDL_SetWindowOpacity(window_renderer->window, n);
   lua_pushboolean(L, r > -1);
   return 1;
 }
@@ -1056,7 +1174,7 @@ static int f_load_native_plugin(lua_State *L) {
 #endif
 
 /* Special purpose filepath compare function. Corresponds to the
-   order used in the TreeView view of the project's files. Returns true iff
+   order used in the TreeView view of the project's files. Returns true if
    path1 < path2 in the TreeView order. */
 static int f_path_compare(lua_State *L) {
   size_t len1, len2;
@@ -1070,7 +1188,6 @@ static int f_path_compare(lua_State *L) {
   size_t offset = 0, i, j;
   for (i = 0; i < len1 && i < len2; i++) {
     if (path1[i] != path2[i]) break;
-    if (isdigit(path1[i])) break;
     if (path1[i] == PATHSEP) {
       offset = i + 1;
     }
@@ -1149,41 +1266,65 @@ static int f_text_input(lua_State* L) {
   return 0;
 }
 
+static int f_setenv(lua_State* L) {
+  const char *key = luaL_checkstring(L, 1);
+  const char *val = luaL_checkstring(L, 2);
+
+  int ok;
+#ifdef _WIN32
+  LPWSTR wkey = utfconv_utf8towc(key);
+  LPWSTR wval = utfconv_utf8towc(val);
+  ok = (wkey && wval) ? SetEnvironmentVariableW(wkey, wval)
+  /* utfconv error */ : 0;
+  free(wkey); free(wval);
+#else
+  // right now we overwrite unconditionally
+  // this could be expanded later as an optional 3rd boolean argument
+  ok = !setenv(key, val, 1);
+#endif
+  lua_pushboolean(L, ok);
+  return 1;
+}
+
 
 static const luaL_Reg lib[] = {
-  { "poll_event",          f_poll_event          },
-  { "wait_event",          f_wait_event          },
-  { "set_cursor",          f_set_cursor          },
-  { "set_window_title",    f_set_window_title    },
-  { "set_window_mode",     f_set_window_mode     },
-  { "get_window_mode",     f_get_window_mode     },
-  { "set_window_bordered", f_set_window_bordered },
-  { "set_window_hit_test", f_set_window_hit_test },
-  { "get_window_size",     f_get_window_size     },
-  { "set_window_size",     f_set_window_size     },
-  { "set_text_input_rect", f_set_text_input_rect },
-  { "clear_ime",           f_clear_ime           },
-  { "window_has_focus",    f_window_has_focus    },
-  { "raise_window",        f_raise_window        },
-  { "show_fatal_error",    f_show_fatal_error    },
-  { "rmdir",               f_rmdir               },
-  { "chdir",               f_chdir               },
-  { "mkdir",               f_mkdir               },
-  { "list_dir",            f_list_dir            },
-  { "absolute_path",       f_absolute_path       },
-  { "get_file_info",       f_get_file_info       },
-  { "get_clipboard",       f_get_clipboard       },
-  { "set_clipboard",       f_set_clipboard       },
-  { "get_process_id",      f_get_process_id      },
-  { "get_time",            f_get_time            },
-  { "sleep",               f_sleep               },
-  { "exec",                f_exec                },
-  { "fuzzy_match",         f_fuzzy_match         },
-  { "set_window_opacity",  f_set_window_opacity  },
-  { "load_native_plugin",  f_load_native_plugin  },
-  { "path_compare",        f_path_compare        },
-  { "get_fs_type",         f_get_fs_type         },
-  { "text_input",          f_text_input          },
+  { "poll_event",            f_poll_event            },
+  { "wait_event",            f_wait_event            },
+  { "set_cursor",            f_set_cursor            },
+  { "set_window_title",      f_set_window_title      },
+  { "set_window_mode",       f_set_window_mode       },
+  { "get_window_mode",       f_get_window_mode       },
+  { "set_window_bordered",   f_set_window_bordered   },
+  { "set_window_hit_test",   f_set_window_hit_test   },
+  { "get_window_size",       f_get_window_size       },
+  { "set_window_size",       f_set_window_size       },
+  { "set_text_input_rect",   f_set_text_input_rect   },
+  { "clear_ime",             f_clear_ime             },
+  { "window_has_focus",      f_window_has_focus      },
+  { "raise_window",          f_raise_window          },
+  { "show_fatal_error",      f_show_fatal_error      },
+  { "rmdir",                 f_rmdir                 },
+  { "chdir",                 f_chdir                 },
+  { "mkdir",                 f_mkdir                 },
+  { "list_dir",              f_list_dir              },
+  { "absolute_path",         f_absolute_path         },
+  { "get_file_info",         f_get_file_info         },
+  { "get_clipboard",         f_get_clipboard         },
+  { "set_clipboard",         f_set_clipboard         },
+  { "get_primary_selection", f_get_primary_selection },
+  { "set_primary_selection", f_set_primary_selection },
+  { "get_process_id",        f_get_process_id        },
+  { "get_time",              f_get_time              },
+  { "sleep",                 f_sleep                 },
+  { "exec",                  f_exec                  },
+  { "fuzzy_match",           f_fuzzy_match           },
+  { "set_window_opacity",    f_set_window_opacity    },
+  { "load_native_plugin",    f_load_native_plugin    },
+  { "path_compare",          f_path_compare          },
+  { "get_fs_type",           f_get_fs_type           },
+  { "text_input",            f_text_input            },
+  { "setenv",                f_setenv                },
+  { "ftruncate",             f_ftruncate             },
   { NULL, NULL }
 };
 

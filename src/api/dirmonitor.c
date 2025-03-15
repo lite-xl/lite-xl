@@ -1,4 +1,5 @@
 #include "api.h"
+#include "lua.h"
 #include <SDL.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,13 +26,28 @@ int get_mode_dirmonitor();
 
 
 static int f_check_dir_callback(int watch_id, const char* path, void* L) {
-  lua_pushvalue(L, -1);
+  // using absolute indices from f_dirmonitor_check (2: callback, 3: error_callback, 4: watch_id notified table)
+
+  // Check if we already notified about this watch
+  lua_rawgeti(L, 4, watch_id);
+  bool skip = !lua_isnoneornil(L, -1);
+  lua_pop(L, 1);
+  if (skip) return 0;
+
+  // Set watch as notified
+  lua_pushboolean(L, true);
+  lua_rawseti(L, 4, watch_id);
+
+  // Prepare callback call
+  lua_pushvalue(L, 2);
   if (path)
     lua_pushlstring(L, path, watch_id);
   else
     lua_pushnumber(L, watch_id);
-  lua_call(L, 1, 1);
-  int result = lua_toboolean(L, -1);
+
+  int result = 0;
+  if (lua_pcall(L, 1, 1, 3) == LUA_OK)
+    result = lua_toboolean(L, -1);
   lua_pop(L, 1);
   return !result;
 }
@@ -95,12 +111,27 @@ static int f_dirmonitor_unwatch(lua_State *L) {
 }
 
 
+static int f_noop(lua_State *L) { return 0; }
+
+
 static int f_dirmonitor_check(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  if (!lua_isnoneornil(L, 3)) {
+    luaL_checktype(L, 3, LUA_TFUNCTION);
+  } else {
+    lua_settop(L, 2);
+    lua_pushcfunction(L, f_noop);
+  }
+  lua_settop(L, 3);
+
   SDL_LockMutex(monitor->mutex);
   if (monitor->length < 0)
     lua_pushnil(L);
   else if (monitor->length > 0) {
+    // Create a table for keeping track of what watch ids were notified in this check,
+    // so that we avoid notifying multiple times.
+    lua_newtable(L);
     if (translate_changes_dirmonitor(monitor->internal, monitor->buffer, monitor->length, f_check_dir_callback, L) == 0)
       monitor->length = 0;
     lua_pushboolean(L, 1);

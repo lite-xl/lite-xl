@@ -1,4 +1,4 @@
--- mod-version:3
+-- mod-version:4
 local core = require "core"
 local common = require "core.common"
 local DocView = require "core.docview"
@@ -83,7 +83,8 @@ local function save_view(view)
       filename = view.doc.filename,
       selection = { view.doc:get_selection() },
       scroll = { x = view.scroll.to.x, y = view.scroll.to.y },
-      text = not view.doc.filename and view.doc:get_text(1, 1, math.huge, math.huge)
+      crlf = view.doc.crlf,
+      text = view.doc.new_file and view.doc:get_text(1, 1, math.huge, math.huge)
     }
   end
   if mt == LogView then return end
@@ -106,7 +107,6 @@ local function load_view(t)
     if not t.filename then
       -- document not associated to a file
       dv = DocView(core.open_doc())
-      if t.text then dv.doc:insert(1, 1, t.text) end
     else
       -- we have a filename, try to read the file
       local ok, doc = pcall(core.open_doc, t.filename)
@@ -114,9 +114,11 @@ local function load_view(t)
         dv = DocView(doc)
       end
     end
-    -- doc view "dv" can be nil here if the filename associated to the document
-    -- cannot be read.
     if dv and dv.doc then
+      if dv.doc.new_file and t.text then
+        dv.doc:insert(1, 1, t.text)
+        dv.doc.crlf = t.crlf
+      end
       dv.doc:set_selection(table.unpack(t.selection))
       dv.last_line1, dv.last_col1, dv.last_line2, dv.last_col2 = dv.doc:get_selection()
       dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
@@ -164,7 +166,7 @@ local function load_node(node, t)
           active_view = view
         end
         if not view:is(DocView) then
-          view.scroll = v.scroll	
+          view.scroll = v.scroll
         end
       end
     end
@@ -183,10 +185,10 @@ end
 
 
 local function save_directories()
-  local project_dir = core.project_dir
+  local project_dir = core.root_project().path
   local dir_list = {}
-  for i = 2, #core.project_directories do
-    dir_list[#dir_list + 1] = common.relative_path(project_dir, core.project_directories[i].name)
+  for i = 2, #core.projects do
+    dir_list[#dir_list + 1] = common.relative_path(project_dir, core.projects[i].path)
   end
   return dir_list
 end
@@ -194,19 +196,19 @@ end
 
 local function save_workspace()
   local root = get_unlocked_root(core.root_view.root_node)
-  local workspace_filename = get_workspace_filename(core.project_dir)
+  local workspace_filename = get_workspace_filename(core.root_project().path)
   local fp = io.open(workspace_filename, "w")
   if fp then
     local node_text = common.serialize(save_node(root))
     local dir_text = common.serialize(save_directories())
-    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.project_dir, node_text, dir_text))
+    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.root_project().path, node_text, dir_text))
     fp:close()
   end
 end
 
 
 local function load_workspace()
-  local workspace = consume_workspace_file(core.project_dir)
+  local workspace = consume_workspace_file(core.root_project().path)
   if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
     local active_view = load_node(root, workspace.documents)
@@ -214,7 +216,7 @@ local function load_workspace()
       core.set_active_view(active_view)
     end
     for i, dir_name in ipairs(workspace.directories) do
-      core.add_project_directory(system.absolute_path(dir_name))
+      core.add_project(system.absolute_path(dir_name))
     end
   end
 end
@@ -226,17 +228,19 @@ function core.run(...)
   if #core.docs == 0 then
     core.try(load_workspace)
 
-    local on_quit_project = core.on_quit_project
-    function core.on_quit_project()
+    local set_project = core.set_project
+    function core.set_project(project)
       core.try(save_workspace)
-      on_quit_project()
-    end
-
-    local on_enter_project = core.on_enter_project
-    function core.on_enter_project(new_dir)
-      on_enter_project(new_dir)
+      local project = set_project(project)
       core.try(load_workspace)
+      return project
     end
+    local exit = core.exit
+    function core.exit(quit_fn, force)
+      if force then core.try(save_workspace) end
+      exit(quit_fn, force)
+    end
+    
   end
 
   core.run = run

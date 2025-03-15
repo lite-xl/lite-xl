@@ -98,7 +98,7 @@ function StatusViewItem:__tostring() return "StatusViewItem" end
 ---of 1 will insert the item at the beggining.
 ---@field position? integer
 ---@field tooltip? string @Text displayed when mouse hovers the item.
----@field visible boolean @Flag to show or hide the item
+---@field visible? boolean @Flag to show or hide the item
 ---The type of separator rendered to the right of the item if another item
 ---follows it.
 ---@field separator? core.statusview.item.separator
@@ -194,6 +194,9 @@ function StatusView:new()
   self:register_command_items()
 end
 
+local clicks = -1
+local gx, gy, dx, dy, gc = 0, 0, 2, -2, { table.unpack(style.text) }
+
 ---The predefined status bar items displayed when a document view is active.
 function StatusView:register_docview_items()
   if self:get_item("doc:file") then return end
@@ -236,13 +239,25 @@ function StatusView:register_docview_items()
       return {
         style.text, line, ":",
         col > config.line_limit and style.accent or style.text, col,
-        style.text,
-        self.separator,
-        string.format("%.f%%", line / #dv.doc.lines * 100)
+        style.text
       }
     end,
     command = "doc:go-to-line",
     tooltip = "line : column"
+  })
+
+  self:add_item({
+    predicate = predicate_docview,
+    name = "doc:position-percent",
+    alignment = StatusView.Item.LEFT,
+    get_item = function()
+      local dv = core.active_view
+      local line = dv.doc:get_selection()
+      return {
+        string.format("%.f%%", line / #dv.doc.lines * 100)
+      }
+    end,
+    tooltip = "caret position"
   })
 
   self:add_item({
@@ -285,14 +300,33 @@ function StatusView:register_docview_items()
 
   self:add_item({
     predicate = predicate_docview,
+    name = "doc:stats",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
+      return config.stonks == nil and {} or {
+        style.text,
+        type(config.stonks) == "table" and config.stonks.font or style.icon_font,
+        type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" ),
+      }
+    end,
+    separator = self.separator2,
+    command = function(button, x, y)
+      if button == "left" then
+        clicks = clicks + 1
+      elseif button == "right" then
+        clicks = -1
+      end
+      gx, gy = x, y
+    end
+  })
+
+  self:add_item({
+    predicate = predicate_docview,
     name = "doc:lines",
     alignment = StatusView.Item.RIGHT,
     get_item = function()
       local dv = core.active_view
       return {
-        style.text,
-        style.icon_font, "g",
-        style.font, style.dim, self.separator2,
         style.text, #dv.doc.lines, " lines",
       }
     end,
@@ -311,6 +345,19 @@ function StatusView:register_docview_items()
     end,
     command = "doc:toggle-line-ending"
   })
+
+  self:add_item {
+    predicate = predicate_docview,
+    name = "doc:overwrite-mode",
+    alignment = StatusView.Item.RIGHT,
+    get_item = function()
+      return {
+        style.text, core.active_view.doc.overwrite and "OVR" or "INS"
+      }
+    end,
+    command = "doc:toggle-overwrite",
+    separator = StatusView.separator2
+  }
 end
 
 
@@ -324,10 +371,7 @@ function StatusView:register_command_items()
     alignment = StatusView.Item.RIGHT,
     get_item = function()
       return {
-        style.icon_font, "g",
-        style.font, style.dim, self.separator2,
-        style.text, #core.docs, style.text, " / ",
-        #core.project_files, " files"
+        style.icon_font, "g"
       }
     end
   })
@@ -1191,6 +1235,25 @@ function StatusView:draw()
         self:draw_item_tooltip(self.hovered_item)
       end
     end
+  end
+
+  if clicks > 5 then
+    if config.stonks == nil then clicks = -1 end
+    core.root_view:defer_draw(function()
+      local font = type(config.stonks) == "table" and config.stonks.font or style.icon_font
+      local icon = type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" )
+      local xadv = renderer.draw_text(font, icon, gx, gy, gc)
+      local x2, y2 = core.root_view.size.x - (xadv - gx), core.root_view.size.y - font:get_height()
+      gx, gy = common.clamp(gx + dx, 0, x2), common.clamp(gy + dy, 0, y2)
+      local odx, ody = dx, dy
+      if gx <= 0 then dx = math.abs(dx) elseif gx >= x2 then dx = -math.abs(dx) end
+      if gy <= 0 then dy = math.abs(dy) elseif gy >= y2 then dy = -math.abs(dy) end
+      if odx ~= dx or ody ~= dy then
+        local major = math.random(1, 3)
+        for i = 1, 3 do gc[i] = major == i and math.random(200, 255) or math.random(0, 100) end
+      end
+      core.redraw = true
+    end)
   end
 end
 

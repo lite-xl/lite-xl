@@ -8,8 +8,32 @@
 	<string>lite-xl</string>
 	<key>CFBundleIconFile</key>
 	<string>icon.icns</string>
-  <key>CFBundleIdentifier</key>
-  <string>com.lite-xl</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+			  <string>*</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>NSDocumentClass</key>
+			<string>NSDocument</string>
+			<key>CFBundleTypeName</key>
+			<string>All Files</string>
+		</dict>
+	</array>
+	<key>LSItemContentTypes</key>
+	<array>
+		<string>public.text</string>
+		<string>public.folder</string>
+	</array>
+	<key>NSExportableTypes</key>
+	<array>
+		<string>public.text</string>
+	</array>
+	<key>CFBundleIdentifier</key>
+	<string>com.lite-xl</string>
 	<key>CFBundleName</key>
 	<string>Lite XL</string>
 	<key>CFBundlePackageType</key>
@@ -27,7 +51,9 @@
 	<key>CFBundleShortVersionString</key>
 	<string>@PROJECT_VERSION@</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2019-2022 Lite XL Team</string>
+	<string>© 2020 rxi
+© 2020-2022 Francesco Abbate
+© 2022-@CURRENT_YEAR@ Lite XL Team</string>
 </dict>
 </plist>
 

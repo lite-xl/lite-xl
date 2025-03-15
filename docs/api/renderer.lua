@@ -116,10 +116,13 @@ function renderer.get_size() end
 
 ---
 ---Tell the rendering system that we want to build a new frame to render.
-function renderer.begin_frame() end
+---
+---@param window renwindow
+function renderer.begin_frame(window) end
 
 ---
 ---Tell the rendering system that we finished building the frame.
+---
 function renderer.end_frame() end
 
 ---

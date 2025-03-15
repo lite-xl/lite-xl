@@ -1,11 +1,10 @@
 project('lite-xl',
     ['c'],
-    version : '2.1.1',
+    version : '2.1.7',
     license : 'MIT',
-    meson_version : '>= 0.56',
+    meson_version : '>= 0.63',
     default_options : [
-        'c_std=gnu11',
-        'wrap_mode=nofallback'
+        'c_std=gnu11'
     ]
 )
 
@@ -84,23 +83,27 @@ if not get_option('source-only')
         'lua',    # Fedora
     ]
 
-    foreach lua : lua_names
-        last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
-        lua_dep = dependency(lua, fallback: last_lua ? ['lua', 'lua_dep'] : [], required : false,
-            version: '>= 5.4',
-            default_options: default_fallback_options + ['default_library=static', 'line_editing=false', 'interpreter=false']
-        )
-        if lua_dep.found()
-            break
-        endif
+    if get_option('use_system_lua')
+        foreach lua : lua_names
+            last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
+            lua_dep = dependency(lua, required : false,
+            )
+            if lua_dep.found()
+                break
+            endif
 
-        if last_lua
-            # If we could not find lua on the system and fallbacks are disabled
-            # try the compiler as a last ditch effort, since Lua has no official
-            # pkg-config support.
-            lua_dep = cc.find_library('lua', required : true)
-        endif
-    endforeach
+            if last_lua
+                # If we could not find lua on the system and fallbacks are disabled
+                # try the compiler as a last ditch effort, since Lua has no official
+                # pkg-config support.
+                lua_dep = cc.find_library('lua', required : true)
+            endif
+        endforeach
+    else
+        lua_dep = dependency('', fallback: ['lua', 'lua_dep'], required : true,
+            default_options: default_fallback_options + ['default_library=static', 'line_editing=disabled', 'interpreter=false']
+        )
+    endif
 
     pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
         default_options: default_fallback_options + ['default_library=static', 'grep=false', 'test=false']
@@ -146,18 +149,32 @@ if not get_option('source-only')
     sdl_options += 'test=false'
     sdl_options += 'use_sensor=disabled'
     sdl_options += 'use_haptic=disabled'
+    sdl_options += 'use_hidapi=disabled'
     sdl_options += 'use_audio=disabled'
     sdl_options += 'use_cpuinfo=disabled'
     sdl_options += 'use_joystick=disabled'
+    sdl_options += 'use_joystick_xinput=disabled'
     sdl_options += 'use_video_vulkan=disabled'
     sdl_options += 'use_video_offscreen=disabled'
     sdl_options += 'use_power=disabled'
+    sdl_options += 'system_iconv=disabled'
 
     sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
         default_options: default_fallback_options + sdl_options
     )
 
-    lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
+    if host_machine.system() == 'windows'
+        if sdl_dep.type_name() == 'internal'
+            sdlmain_dep = dependency('sdl2main', fallback: ['sdl2main_dep'])
+        else
+            sdlmain_dep = cc.find_library('SDL2main')
+        endif
+    else
+        sdlmain_dep = dependency('', required: false)
+        assert(not sdlmain_dep.found(), 'checking if fake dependency has been found')
+    endif
+
+    lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration
@@ -166,19 +183,27 @@ if get_option('portable') or host_machine.system() == 'windows'
     lite_bindir = '/'
     lite_docdir = '/doc'
     lite_datadir = '/data'
+    lpm_userdir = 'data'
+    lpm_install_dir = '/'
     configure_file(
-        input: 'resources/windows/lite-xl.exe.manifest.in',
+        input: 'resources' / 'windows' / 'lite-xl.exe.manifest.in',
         output: 'lite-xl.exe.manifest',
         configuration: conf_data
     )
 elif get_option('bundle') and host_machine.system() == 'darwin'
     lite_cargs += '-DMACOS_USE_BUNDLE'
-    lite_bindir = 'Contents/MacOS'
-    lite_docdir = 'Contents/Resources'
-    lite_datadir = 'Contents/Resources'
-    install_data('resources/icons/icon.icns', install_dir : 'Contents/Resources')
+    lite_bindir = 'Contents' / 'MacOS'
+    lite_docdir = 'Contents' / 'Resources'
+    lite_datadir = 'Contents' / 'Resources'
+    lpm_userdir = 'Resources'
+    lpm_install_dir = 'Contents'
+    conf_data.set(
+        'CURRENT_YEAR',
+        run_command('date', '+%Y', capture: true).stdout().strip()
+    )
+    install_data('resources' / 'icons' / 'icon.icns', install_dir : 'Contents' / 'Resources')
     configure_file(
-        input : 'resources/macos/Info.plist.in',
+        input : 'resources' / 'macos' / 'Info.plist.in',
         output : 'Info.plist',
         configuration : conf_data,
         install : true,
@@ -186,31 +211,77 @@ elif get_option('bundle') and host_machine.system() == 'darwin'
     )
 else
     lite_bindir = 'bin'
-    lite_docdir = 'share/doc/lite-xl'
-    lite_datadir = 'share/lite-xl'
+    lite_docdir = get_option('datadir') / 'doc' / 'lite-xl'
+    lite_datadir = get_option('datadir') / 'lite-xl'
+    lpm_userdir = 'lite-xl'
+    lpm_install_dir = get_option('datadir')
     if host_machine.system() == 'linux'
-        install_data('resources/icons/lite-xl.svg',
-            install_dir : 'share/icons/hicolor/scalable/apps'
+        git_command = find_program('git', required : false)
+
+        if git_command.found()
+            git_tags = run_command(
+                [git_command, 'tag', '-l', '--sort=-version:refname', '--format=%(refname:strip=2) %(creatordate:short)'],
+                check : false
+            ).stdout().split('\n')
+
+            releases = []
+
+            foreach tag : git_tags
+                taga = tag.split(' ')
+                if taga.length() != 2
+                    continue
+                endif
+
+                ref = taga[0]
+                date = taga[1]
+                if not ref.startswith('v') or ref.contains('-')
+                    continue
+                endif
+
+                if ref.startswith('v1.0')
+                    # releases 1.01 to 1.09 used an invalid versioning scheme so we ignore them
+                    continue
+                endif
+
+                releases += '<release version="@0@" date="@1@" />'.format(ref, date)
+            endforeach
+
+            releases_tag = ''
+            if releases.length() > 0
+                releases_tag = '<releases>\n@0@\n</releases>'.format('\n'.join(releases))
+            endif
+
+            conf_data.set('METAINFO_RELEASES', releases_tag)
+        else
+            conf_data.set('METAINFO_RELEASES', '')
+        endif
+
+        install_data('resources' / 'icons' / 'lite-xl.svg',
+            install_dir : get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps'
         )
-        install_data('resources/linux/com.lite_xl.LiteXL.desktop',
-            install_dir : 'share/applications'
+        install_data('resources' / 'linux' / 'com.lite_xl.LiteXL.desktop',
+            install_dir : get_option('datadir') / 'applications'
         )
-        install_data('resources/linux/com.lite_xl.LiteXL.appdata.xml',
+        configure_file(
+            input : 'resources' / 'linux' / 'com.lite_xl.LiteXL.metainfo.xml.in',
+            output : 'com.lite_xl.LiteXL.metainfo.xml',
+            configuration : conf_data,
+            install : true,
             install_dir : 'share/metainfo'
         )
     endif
 endif
 
-install_data('licenses/licenses.md', install_dir : lite_docdir)
+install_data('licenses' / 'licenses.md', install_dir : lite_docdir)
 
-install_subdir('docs/api' , install_dir : lite_datadir, strip_directory: true)
-install_subdir('data/core' , install_dir : lite_datadir, exclude_files : 'start.lua')
+install_subdir('docs' / 'api' , install_dir : lite_datadir, strip_directory: true)
+install_subdir('data' / 'core' , install_dir : lite_datadir, exclude_files : 'start.lua')
 foreach data_module : ['fonts', 'plugins', 'colors']
     install_subdir(join_paths('data', data_module), install_dir : lite_datadir)
 endforeach
 
 configure_file(
-    input : 'data/core/start.lua',
+    input : 'data' / 'core' / 'start.lua',
     output : 'start.lua',
     configuration : conf_data,
     install_dir : join_paths(lite_datadir, 'core'),
@@ -219,4 +290,5 @@ configure_file(
 if not get_option('source-only')
     subdir('src')
     subdir('scripts')
+    subdir('data')
 endif

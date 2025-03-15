@@ -1,4 +1,4 @@
--- mod-version:3
+-- mod-version:4
 
 local core = require "core"
 local style = require "core.style"
@@ -347,7 +347,7 @@ end
 
 command.add(nil, {
   ["draw-whitespace:toggle"]  = function()
-    config.plugins.drawwhitespace.enabled = not config.drawwhitespace.enabled
+    config.plugins.drawwhitespace.enabled = not config.plugins.drawwhitespace.enabled
   end,
 
   ["draw-whitespace:disable"] = function()

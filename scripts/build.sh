@@ -18,14 +18,20 @@ show_help() {
   echo "   --debug                    Debug this script."
   echo "-f --forcefallback            Force to build dependencies statically."
   echo "-h --help                     Show this help and exit."
+  echo "-d --debug-build              Builds a debug build."
   echo "-p --prefix PREFIX            Install directory prefix. Default: '/'."
   echo "-B --bundle                   Create an App bundle (macOS only)"
+  echo "-A --addons                   Install extra plugins."
+  echo "                              Default: If specified, install the welcome plugin."
+  echo "                              An comma-separated list can be specified after this flag"
+  echo "                              to specify a list of plugins to install."
+  echo "                              If this option is not specified, no extra plugins will be installed."
   echo "-P --portable                 Create a portable binary package."
+  echo "-r --reconfigure              Tries to reuse the meson build directory, if possible."
+  echo "                              Default: Deletes the build directory and recreates it."
   echo "-O --pgo                      Use profile guided optimizations (pgo)."
-  echo "-U --windows-lua-utf          Use the UTF8 patch for Lua."
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
-  echo "-r --release                  Compile in release mode."
   echo "   --cross-platform PLATFORM  Cross compile for this platform."
   echo "                              The script will find the appropriate"
   echo "                              cross file in 'resources/cross'."
@@ -39,20 +45,22 @@ show_help() {
 main() {
   local platform="$(get_platform_name)"
   local arch="$(get_platform_arch)"
-  local build_dir="$(get_default_build_dir)"
-  local build_type="debug"
+  local build_dir
+  local plugins="-Dbundle_plugins="
   local prefix=/
+  local build_type="release"
   local force_fallback
-  local bundle
-  local portable
+  local bundle="-Dbundle=false"
+  local portable="-Dportable=false"
   local pgo
-  local patch_lua
   local cross
   local cross_platform
   local cross_arch
   local cross_file
-
-  local lua_subproject_path
+  local reconfigure
+  local lpm_path
+  local should_reconfigure
+  local destdir="lite-xl"
 
   for i in "$@"; do
     case $i in
@@ -63,6 +71,14 @@ main() {
       -b|--builddir)
         build_dir="$2"
         shift
+        shift
+        ;;
+      -d|--debug-build)
+        build_type="debug"
+        shift
+        ;;
+      -r|--reconfigure)
+        should_reconfigure=true
         shift
         ;;
       --debug)
@@ -78,11 +94,21 @@ main() {
         shift
         shift
         ;;
+      -A|--addons)
+        if [[ -n $2 ]] && [[ $2 != -* ]]; then
+          plugins="-Dbundle_plugins=$2"
+          shift
+        else
+          plugins="-Dbundle_plugins=welcome"
+        fi
+        shift
+        ;;
       -B|--bundle)
-        if [[ "$platform" != "macos" ]]; then
+        if [[ "$platform" != "darwin" ]]; then
           echo "Warning: ignoring --bundle option, works only under macOS."
         else
           bundle="-Dbundle=true"
+          destdir="Lite XL.app"
         fi
         shift
         ;;
@@ -92,10 +118,6 @@ main() {
         ;;
       -O|--pgo)
         pgo="-Db_pgo=generate"
-        shift
-        ;;
-      -U|--windows-lua-utf)
-        patch_lua="true"
         shift
         ;;
       --cross-arch)
@@ -116,10 +138,6 @@ main() {
         shift
         shift
         ;;
-      -r|--release)
-        build_type="release"
-        shift
-        ;;
       *)
         # unknown option
         ;;
@@ -131,7 +149,7 @@ main() {
     exit 1
   fi
 
-  if [[ $platform == "macos" && -n $bundle && -n $portable ]]; then
+  if [[ $platform == "macos" && $bundle == "-Dbundle=true" && $portable == "-Dportable=true" ]]; then
       echo "Warning: \"bundle\" and \"portable\" specified; excluding portable package."
       portable=""
   fi
@@ -157,9 +175,13 @@ main() {
     fi
     platform="${cross_platform:-$platform}"
     arch="${cross_arch:-$arch}"
-    cross_file=("--cross-file" "${cross_file:-resources/cross/$platform-$arch.txt}")
+    cross_file="--cross-file ${cross_file:-resources/cross/$platform-$arch.txt}"
     # reload build_dir because platform and arch might change
-    build_dir="$(get_default_build_dir "$platform" "$arch")"
+    if [[ "$build_dir" == "" ]]; then
+      build_dir="$(get_default_build_dir "$platform" "$arch")"
+    fi
+  elif [[ "$build_dir" == "" ]]; then
+    build_dir="$(get_default_build_dir)"
   fi
 
   # arch and platform specific stuff
@@ -175,37 +197,48 @@ main() {
     export LDFLAGS="-mmacosx-version-min=$macos_version_min"
   fi
 
-  rm -rf "${build_dir}"
+  if [[ $should_reconfigure == true ]] && [[ -d "${build_dir}" ]]; then
+    reconfigure="--reconfigure"
+  elif [[ -d "${build_dir}" ]]; then
+    rm -rf "${build_dir}"
+  fi
 
-  if [[ $patch_lua == "true" ]] && [[ ! -z $force_fallback ]]; then
-    # download the subprojects so we can start patching before configure.
-    # this will prevent reconfiguring the project.
-    meson subprojects download
-    lua_subproject_path=$(echo subprojects/lua-*/)
-    if [[ -d $lua_subproject_path ]]; then
-      patch -d $lua_subproject_path -p1 --forward < resources/windows/001-lua-unicode.diff
+  if [[ -n "$plugins" ]] && [[ -z `command -v lpm` ]]; then
+    mkdir -p "${build_dir}"
+    lpm_path="$(pwd)/${build_dir}/lpm$(get_executable_extension)"
+    if [[ ! -e "$lpm_path" ]]; then
+      curl --insecure -L -o "$lpm_path" \
+        "https://github.com/lite-xl/lite-xl-plugin-manager/releases/download/${LPM_VERSION:-latest}/lpm.$(get_platform_tuple)$(get_executable_extension)"
+      chmod u+x "$lpm_path"
     fi
+    export PATH="$(dirname "$lpm_path"):$PATH"
   fi
 
   CFLAGS=$CFLAGS LDFLAGS=$LDFLAGS meson setup \
-    --buildtype=$build_type \
+    "${build_dir}" \
+    --buildtype "$build_type" \
     --prefix "$prefix" \
-    "${cross_file[@]}" \
+    $cross_file \
     $force_fallback \
     $bundle \
     $portable \
     $pgo \
-    "${build_dir}"
+    $plugins \
+    $reconfigure
 
   meson compile -C "${build_dir}"
+
 
   if [[ $pgo != "" ]]; then
     cp -r data "${build_dir}/src"
     "${build_dir}/src/lite-xl"
     meson configure -Db_pgo=use "${build_dir}"
     meson compile -C "${build_dir}"
-    rm -fr "${build_dir}/data"
+    rm -fr "${build_dir}/src/data"
   fi
+
+  meson install -C "${build_dir}" --destdir "$destdir" \
+    --skip-subprojects=freetype2,lua,pcre2,sdl2 --no-rebuild
 }
 
 main "$@"
