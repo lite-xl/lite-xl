@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
 #endif
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
+    fprintf(stderr, "Error initializing SDL: %s\n", SDL_GetError());
     exit(1);
   }
   SDL_EnableScreenSaver();
@@ -171,7 +171,10 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error creating lite-xl window: %s", SDL_GetError());
     exit(1);
   }
-  ren_init(window);
+  if (ren_init(window) != 0) {
+    fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
+    exit(1);
+  }
 
   lua_State *L;
 init_lua:
