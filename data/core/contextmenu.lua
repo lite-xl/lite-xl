@@ -33,6 +33,8 @@ local DIVIDER = {}
 ---@field current_scale number
 local ContextMenu = Object:extend()
 
+function ContextMenu:__tostring() return "ContextMenu" end
+
 ---A unique value representing the divider in a context menu.
 ContextMenu.DIVIDER = DIVIDER
 

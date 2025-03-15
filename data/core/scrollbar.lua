@@ -19,6 +19,8 @@ local Object = require "core.object"
 ---@class core.scrollbar : core.object
 local Scrollbar = Object:extend()
 
+function Scrollbar:__tostring() return "Scrollbar" end
+
 ---@class ScrollbarOptions
 ---@field direction "v" | "h" @Vertical or Horizontal
 ---@field alignment "s" | "e" @Start or End (left to right, top to bottom)
@@ -349,6 +351,5 @@ function Scrollbar:draw()
   self:draw_track()
   self:draw_thumb()
 end
-
 
 return Scrollbar
