@@ -150,6 +150,7 @@ function CommandView:move_suggestion_idx(dir)
     return self.suggestions_offset
   end
 
+  self.last_change = "suggestion"
   if self.state.show_suggestions then
     local n = self.suggestion_idx + dir
     self.suggestion_idx = overflow_suggestion_idx(n, #self.suggestions)
@@ -284,7 +285,7 @@ function CommandView:update_suggestions(preserve)
     end
     res[i] = item
   end
-  if preserve and self.suggestions and self.suggestion_idx ~= 1 then
+  if preserve and self.suggestions and self.last_change == "suggestion" then
     local new_suggestion_idx
     for i, v in ipairs(res) do
       if v.text == self.suggestions[self.suggestion_idx].text then
@@ -293,7 +294,8 @@ function CommandView:update_suggestions(preserve)
       end
     end
     self.suggestion_idx = new_suggestion_idx
-    self.suggestions_offset = 1
+    -- This preserves the suggestion_offset and realigns it with the new tbale.
+    self:move_suggestion_idx(0)
   else
     self.suggestion_idx = 1
     self.suggestions_offset = 1
@@ -311,6 +313,7 @@ function CommandView:update()
 
   -- update suggestions if text has changed
   if self.last_change_id ~= self.doc:get_change_id() then
+    self.last_change = "text"
     self:update_suggestions()
     if self.state.typeahead and self.suggestions[self.suggestion_idx] then
       local current_text = self:get_text()
