@@ -38,6 +38,8 @@ end
 
 local TreeView = View:extend()
 
+function TreeView:__tostring() return "TreeView" end
+
 function TreeView:new()
   TreeView.super.new(self)
   self.scrollable = true
