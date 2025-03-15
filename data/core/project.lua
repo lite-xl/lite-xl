@@ -104,19 +104,27 @@ function Project:get_file_info(path)
   return info
 end
 
-
-local function find_files_rec(project, path)
+local function get_dir_content(project, path, entries)
   local all = system.list_dir(path) or {}
   for _, file in ipairs(all) do
     local file = path .. PATHSEP .. file
     local info = project:get_file_info(file)
     if info then
       info.filename = file
-      if info.type == "file" then
-        coroutine.yield(project, info)
-      elseif not common.match_pattern(common.basename(info.filename), config.ignore_files) and info.type then
-        find_files_rec(project, file)
-      end
+      table.insert(entries, info)
+    end
+  end
+end
+
+local function find_files_rec(project, path)
+  local entries = {}
+  get_dir_content(project, path, entries)
+
+  for _, info in ipairs(entries) do
+    if info.type == "file" then
+      coroutine.yield(project, info)
+    elseif not common.match_pattern(common.basename(info.filename), config.ignore_files) and info.type then
+      get_dir_content(project, info.filename, entries)
     end
   end
 end
