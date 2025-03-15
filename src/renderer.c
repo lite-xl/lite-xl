@@ -35,10 +35,10 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
 /************************* Fonts *************************/
 
 // approximate number of glyphs per atlas surface
-#define GLYPHS_PER_ATLAS 256
+#define GLYPHS_PER_ATLAS 96
 // some padding to add to atlas surface to store more glyphs
-#define FONT_HEIGHT_OVERFLOW_PX 6
-#define FONT_WIDTH_OVERFLOW_PX 6
+#define FONT_HEIGHT_OVERFLOW_PX 0
+#define FONT_WIDTH_OVERFLOW_PX 9
 
 // maximum unicode codepoint supported (https://stackoverflow.com/a/52203901)
 #define MAX_UNICODE 0x10FFFF
@@ -55,20 +55,28 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
 // number of subpixel bitmaps
 #define SUBPIXEL_BITMAPS_CACHED 3
 
+// the bitmap format of the glyph
 typedef enum {
-  EGlyphNone = 0,
-  EGlyphLoaded = (1 << 0L),
-  EGlyphBitmap = (1 << 1L),
-  // currently no-op because blits are always assumed to be dual source
-  EGlyphDualSource = (1 << 2L),
+  EGlyphFormatGrayscale, // 8bit graysclae
+  EGlyphFormatSubpixel,  // 24bit subpixel
+  EGlyphFormatSize
+} ERenGlyphFormat;
+
+// extra flags to store glyph info
+typedef enum {
+  EGlyphNone = 0,             // glyph is not loaded
+  EGlyphXAdvance = (1 << 0L), // xadvance is loaded
+  EGlyphBitmap = (1 << 1L)    // bitmap is loaded
 } ERenGlyphFlags;
 
 // metrics for a loaded glyph
 typedef struct {
-  unsigned short atlas_idx, surface_idx;
-  unsigned int x1, y0, y1, flags;
-  int bitmap_left, bitmap_top;
   float xadvance;
+  unsigned short atlas_idx, surface_idx;
+  int bitmap_left, bitmap_top;
+  unsigned int x1, y0, y1;
+  unsigned short flags;
+  unsigned char format;
 } GlyphMetric;
 
 // maps codepoints -> glyph IDs
@@ -86,9 +94,10 @@ typedef struct {
 typedef struct {
   // accessed with metrics[bitmap_idx][glyph_id / nrow][glyph_id - (row * ncol)]
   GlyphMetric *metrics[SUBPIXEL_BITMAPS_CACHED][GLYPHMAP_ROW];
-  // accessed with atlas[bitmap_idx][atlas_idx].surfaces[surface_idx]
-  GlyphAtlas *atlas[SUBPIXEL_BITMAPS_CACHED];
-  size_t natlas, bytesize;
+  // accessed by atlas[glyph_format][atlas_idx].surfaces[surface_idx]
+  GlyphAtlas *atlas[EGlyphFormatSize];
+  size_t natlas[EGlyphFormatSize];
+  size_t bytesize;
 } GlyphMap;
 
 typedef struct RenFont {
@@ -99,7 +108,7 @@ typedef struct RenFont {
   int scale;
 #endif
   float size, space_advance;
-  unsigned short max_height, baseline, height, tab_size;
+  unsigned short baseline, height, tab_size;
   unsigned short underline_thickness;
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
@@ -193,30 +202,39 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
 
 #define FONT_IS_SUBPIXEL(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL)
 #define FONT_BITMAP_COUNT(F) ((F)->antialiasing == FONT_ANTIALIASING_SUBPIXEL ? SUBPIXEL_BITMAPS_CACHED : 1)
+#define SLOT_BITMAP_TYPE(B) ((B).pixel_mode == FT_PIXEL_MODE_LCD ? EGlyphFormatSubpixel : EGlyphFormatGrayscale)
+
+static inline SDL_PixelFormatEnum glyphformat_to_pixelformat(ERenGlyphFormat format, int *depth) {
+  switch (format) {
+    case EGlyphFormatSubpixel:  *depth = 24; return SDL_PIXELFORMAT_RGB24;
+    case EGlyphFormatGrayscale: *depth = 8;  return SDL_PIXELFORMAT_INDEX8;
+    default: return SDL_PIXELFORMAT_UNKNOWN;
+  }
+}
 
 static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot, int bitmap_idx, GlyphMetric *metric) {
   // get an atlas with the correct width
+  ERenGlyphFormat glyph_format = SLOT_BITMAP_TYPE(slot->bitmap);
   int atlas_idx = -1;
-  for (int i = 0; i < font->glyphs.natlas; i++) {
-    if (font->glyphs.atlas[bitmap_idx][i].width >= metric->x1) {
+  for (int i = 0; i < font->glyphs.natlas[glyph_format]; i++) {
+    if (font->glyphs.atlas[glyph_format][i].width >= metric->x1) {
       atlas_idx = i;
       break;
     }
   }
   if (atlas_idx < 0) {
-    // create a new atlas with the correct width, for each subpixel bitmap  
-    for (int i = 0; i < FONT_BITMAP_COUNT(font); i++) {
-      font->glyphs.atlas[i] = check_alloc(realloc(font->glyphs.atlas[i], sizeof(GlyphAtlas) * (font->glyphs.natlas + 1)));
-      font->glyphs.atlas[i][font->glyphs.natlas] = (GlyphAtlas) {
-        .width = metric->x1 + FONT_WIDTH_OVERFLOW_PX, .nsurface = 0,
-        .surfaces = NULL,
-      };
-    }
+    font->glyphs.atlas[glyph_format] = check_alloc(
+      realloc(font->glyphs.atlas[glyph_format], sizeof(GlyphAtlas) * (font->glyphs.natlas[glyph_format] + 1))
+    );
+    font->glyphs.atlas[glyph_format][font->glyphs.natlas[glyph_format]] = (GlyphAtlas) {
+      .width = metric->x1 + FONT_WIDTH_OVERFLOW_PX, .nsurface = 0,
+      .surfaces = NULL,
+    };
     font->glyphs.bytesize += sizeof(GlyphAtlas);
-    atlas_idx = font->glyphs.natlas++;
+    atlas_idx = font->glyphs.natlas[glyph_format]++;
   }
   metric->atlas_idx = atlas_idx;
-  GlyphAtlas *atlas = &font->glyphs.atlas[bitmap_idx][atlas_idx];
+  GlyphAtlas *atlas = &font->glyphs.atlas[glyph_format][atlas_idx];
 
   // find the surface with the minimum height that can fit the glyph (limited to last 100 surfaces)
   int surface_idx = -1, max_surface_idx = (int) atlas->nsurface - 100, min_waste = INT_MAX;
@@ -234,14 +252,12 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     int h = FONT_HEIGHT_OVERFLOW_PX + (double) font->face->size->metrics.height / 64.0f;
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += slot->bitmap.rows;
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
+    int depth = 0; SDL_PixelFormatEnum format = glyphformat_to_pixelformat(glyph_format, &depth);
     atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
-    atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateRGBSurface(
-      0, atlas->width, GLYPHS_PER_ATLAS * h, FONT_BITMAP_COUNT(font) * 8,
-      0, 0, 0, 0
-    ));
+    atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateRGBSurfaceWithFormat(0, atlas->width, GLYPHS_PER_ATLAS * h, depth, format));
     atlas->surfaces[atlas->nsurface]->userdata = NULL;
     surface_idx = atlas->nsurface++;
-    font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPHS_PER_ATLAS * h * FONT_BITMAP_COUNT(font));
+    font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPHS_PER_ATLAS * h * glyph_format);
   }
   metric->surface_idx = surface_idx;
   if (atlas->surfaces[surface_idx]->userdata) {
@@ -252,68 +268,80 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
   return atlas->surfaces[surface_idx];
 }
 
-static void font_load_glyph(RenFont *font, unsigned int glyph_id) {
-  unsigned int render_option = font_set_render_options(font);
+static GlyphMetric *font_load_glyph_metric(RenFont *font, unsigned int glyph_id, unsigned int bitmap_idx) {
   unsigned int load_option = font_set_load_options(font);
-  // load the font without hinting to fix an issue with monospaced fonts,
-  // because freetype doesn't report the correct LSB and RSB delta. Transformation & subpixel positioning don't affect
-  // the xadvance, so we can save some time by not doing this step multiple times
-  if (FT_Load_Glyph(font->face, glyph_id, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT) != 0)
-    return;
-  double unhinted_xadv = font->face->glyph->advance.x / 64.0f;
-  // render the glyph for all bitmap
-  int bitmaps = FONT_BITMAP_COUNT(font);
   int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
-  for (int bitmap_idx = 0; bitmap_idx < bitmaps; bitmap_idx++) {
-    FT_GlyphSlot slot = font->face->glyph;
-    if (FT_Load_Glyph(font->face, glyph_id, load_option | FT_LOAD_BITMAP_METRICS_ONLY) != 0
-        || font_set_style(&slot->outline, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
-        || FT_Render_Glyph(slot, render_option) != 0)
-      return;
+  int bitmaps = FONT_BITMAP_COUNT(font);
 
-    // save the metrics
-    if (!font->glyphs.metrics[bitmap_idx][row]) {
-      font->glyphs.metrics[bitmap_idx][row] = check_alloc(calloc(sizeof(GlyphMetric), GLYPHMAP_COL));
-      font->glyphs.bytesize += sizeof(GlyphMetric) * GLYPHMAP_COL;
-    }
-    GlyphMetric *metric = &font->glyphs.metrics[bitmap_idx][row][col];
-    metric->flags = EGlyphLoaded;
-    metric->xadvance = unhinted_xadv;
-
-    // if this bitmap is empty, or has a format we don't support, just store the xadvance
-    if (!slot->bitmap.width || !slot->bitmap.rows || !slot->bitmap.buffer ||
-        (slot->bitmap.pixel_mode != FT_PIXEL_MODE_MONO
-          && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY
-          && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD))
-      continue;
-    
-    unsigned int glyph_width = slot->bitmap.width / bitmaps;
-    // FT_PIXEL_MODE_MONO uses 1 bit per pixel packed bitmap
-    if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) glyph_width *= 8;
-
-    metric->x1 = glyph_width;
-    metric->y1 = slot->bitmap.rows;
-    metric->bitmap_left = slot->bitmap_left;
-    metric->bitmap_top = slot->bitmap_top;
-    metric->flags |= (EGlyphBitmap | EGlyphDualSource);
-
-    // find the best surface to copy the glyph over, and copy it
-    SDL_Surface *surface = font_allocate_glyph_surface(font, slot, bitmap_idx, metric);
-    uint8_t* pixels = surface->pixels;
-    for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
-      int target_offset = surface->pitch * (line + metric->y0); // x0 is always assumed to be 0
-      int source_offset = line * slot->bitmap.pitch;  
-      if (font->antialiasing == FONT_ANTIALIASING_NONE) {
-        for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
-          int current_source_offset = source_offset + (column / 8);
-          int source_pixel = slot->bitmap.buffer[current_source_offset];
-          pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) * 0xFF;
-        }
-      } else {
-        memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
+  // we set all 3 subpixel bitmaps at once, so if either of them are missing we should load it with freetype
+  if (!font->glyphs.metrics[0][row] || !(font->glyphs.metrics[0][row][col].flags & EGlyphXAdvance)) {
+    // load the font without hinting to fix an issue with monospaced fonts,
+    // because freetype doesn't report the correct LSB and RSB delta. Transformation & subpixel positioning don't affect
+    // the xadvance, so we can save some time by not doing this step multiple times
+    if (FT_Load_Glyph(font->face, glyph_id, (load_option | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT) != 0)
+      return NULL;
+    for (int i = 0; i < bitmaps; i++) {
+      // save the metrics for all subpixel indexes
+      if (!font->glyphs.metrics[i][row]) {
+        font->glyphs.metrics[i][row] = check_alloc(calloc(sizeof(GlyphMetric), GLYPHMAP_COL));
+        font->glyphs.bytesize += sizeof(GlyphMetric) * GLYPHMAP_COL;
       }
+      GlyphMetric *metric = &font->glyphs.metrics[i][row][col];
+      metric->flags |= EGlyphXAdvance;
+      metric->xadvance = font->face->glyph->advance.x / 64.0f;
     }
   }
+  return &font->glyphs.metrics[bitmap_idx][row][col];
+}
+
+static SDL_Surface *font_load_glyph_bitmap(RenFont *font, unsigned int glyph_id, unsigned int bitmap_idx) {
+  GlyphMetric *metric = font_load_glyph_metric(font, glyph_id, bitmap_idx);
+  if (!metric) return NULL;
+  if (metric->flags & EGlyphBitmap) return font->glyphs.atlas[metric->format][metric->atlas_idx].surfaces[metric->surface_idx];
+
+  // render the glyph for a bitmap_idx
+  unsigned int load_option = font_set_load_options(font), render_option = font_set_render_options(font);
+  FT_GlyphSlot slot = font->face->glyph;
+  if (FT_Load_Glyph(font->face, glyph_id, load_option | FT_LOAD_BITMAP_METRICS_ONLY) != 0
+      || font_set_style(&slot->outline, bitmap_idx * (64 / SUBPIXEL_BITMAPS_CACHED), font->style) != 0
+      || FT_Render_Glyph(slot, render_option) != 0)
+    return NULL;
+
+  // if this bitmap is empty, or has a format we don't support, just store the xadvance
+  if (!slot->bitmap.width || !slot->bitmap.rows || !slot->bitmap.buffer ||
+      (slot->bitmap.pixel_mode != FT_PIXEL_MODE_MONO
+        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY
+        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD))
+    return NULL;
+
+  unsigned int glyph_width = slot->bitmap.width / FONT_BITMAP_COUNT(font);
+  // FT_PIXEL_MODE_MONO uses 1 bit per pixel packed bitmap
+  if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO) glyph_width *= 8;
+
+  metric->x1 = glyph_width;
+  metric->y1 = slot->bitmap.rows;
+  metric->bitmap_left = slot->bitmap_left;
+  metric->bitmap_top = slot->bitmap_top;
+  metric->flags |= EGlyphBitmap;
+  metric->format = SLOT_BITMAP_TYPE(slot->bitmap);
+
+  // find the best surface to copy the glyph over, and copy it
+  SDL_Surface *surface = font_allocate_glyph_surface(font, slot, bitmap_idx, metric);
+  uint8_t* pixels = surface->pixels;
+  for (unsigned int line = 0; line < slot->bitmap.rows; ++line) {
+    int target_offset = surface->pitch * (line + metric->y0); // x0 is always assumed to be 0
+    int source_offset = line * slot->bitmap.pitch;
+    if (font->antialiasing == FONT_ANTIALIASING_NONE) {
+      for (unsigned int column = 0; column < slot->bitmap.width; ++column) {
+        int current_source_offset = source_offset + (column / 8);
+        int source_pixel = slot->bitmap.buffer[current_source_offset];
+        pixels[++target_offset] = ((source_pixel >> (7 - (column % 8))) & 0x1) * 0xFF;
+      }
+    } else {
+      memcpy(&pixels[target_offset], &slot->bitmap.buffer[source_offset], slot->bitmap.width);
+    }
+  }
+  return surface;
 }
 
 // https://en.wikipedia.org/wiki/Whitespace_character
@@ -322,11 +350,6 @@ static inline int is_whitespace(unsigned int codepoint) {
     case 0x20: case 0x85: case 0xA0: case 0x1680: case 0x2028: case 0x2029: case 0x202F: case 0x205F: case 0x3000: return 1;
   }
   return (codepoint >= 0x9 && codepoint <= 0xD) || (codepoint >= 0x2000 && codepoint <= 0x200A);
-}
-
-static inline GlyphMetric *font_get_glyph(RenFont *font, unsigned int glyph_id, int subpixel_idx) {
-  int row = glyph_id / GLYPHMAP_COL, col = glyph_id - (row * GLYPHMAP_COL);
-  return font->glyphs.metrics[subpixel_idx][row] ? &font->glyphs.metrics[subpixel_idx][row][col] : NULL;
 }
 
 static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, int subpixel_idx, SDL_Surface **surface, GlyphMetric **metric) {
@@ -340,38 +363,36 @@ static RenFont *font_group_get_glyph(RenFont **fonts, unsigned int codepoint, in
   }
   // load the glyph if it is not loaded
   subpixel_idx = FONT_IS_SUBPIXEL(font) ? subpixel_idx : 0;
-  GlyphMetric *m = font_get_glyph(font, glyph_id, subpixel_idx);
-  if (!m || !(m->flags & EGlyphLoaded)) font_load_glyph(font, glyph_id);
-  // if the glyph ID (possibly 0) is not available and we are not trying to load whitespace, try to load U+25A1 (box character)
-  if ((!m || !(m->flags & EGlyphLoaded)) && codepoint != 0x25A1 && !is_whitespace(codepoint))
+  GlyphMetric *m = font_load_glyph_metric(font, glyph_id, subpixel_idx);
+  // try the box drawing character (0x25A1) if the requested codepoint is not a whitespace, and we cannot load the .notdef glyph
+  if ((!m || !m->flags) && codepoint != 0x25A1 && !is_whitespace(codepoint))
     return font_group_get_glyph(fonts, 0x25A1, subpixel_idx, surface, metric);
-  // fetch the glyph metrics again and save it
-  m = font_get_glyph(font, glyph_id, subpixel_idx);
   if (metric && m) *metric = m;
-  if (surface && m && m->flags & EGlyphBitmap) *surface = font->glyphs.atlas[subpixel_idx][m->atlas_idx].surfaces[m->surface_idx];
+  if (surface && m) *surface = font_load_glyph_bitmap(font, glyph_id, subpixel_idx);
   return font;
 }
 
 static void font_clear_glyph_cache(RenFont* font) {
-  int bitmaps = FONT_BITMAP_COUNT(font);
-  for (int bitmap_idx = 0; bitmap_idx < bitmaps; bitmap_idx++) {
-    for (int atlas_idx = 0; atlas_idx < font->glyphs.natlas; atlas_idx++) {
-      GlyphAtlas *atlas = &font->glyphs.atlas[bitmap_idx][atlas_idx];
+  for (int glyph_format_idx = 0; glyph_format_idx < EGlyphFormatSize; glyph_format_idx++) {
+    for (int atlas_idx = 0; atlas_idx < font->glyphs.natlas[glyph_format_idx]; atlas_idx++) {
+      GlyphAtlas *atlas = &font->glyphs.atlas[glyph_format_idx][atlas_idx];
       for (int surface_idx = 0; surface_idx < atlas->nsurface; surface_idx++) {
         SDL_FreeSurface(atlas->surfaces[surface_idx]);
       }
       free(atlas->surfaces);
     }
-    free(font->glyphs.atlas[bitmap_idx]);
-    font->glyphs.atlas[bitmap_idx] = NULL;
-    // clear glyph metric
+    free(font->glyphs.atlas[glyph_format_idx]);
+    font->glyphs.atlas[glyph_format_idx] = NULL;
+    font->glyphs.natlas[glyph_format_idx] = 0;
+  }
+  // clear glyph metric
+  for (int subpixel_idx = 0; subpixel_idx < FONT_BITMAP_COUNT(font); subpixel_idx++) {
     for (int glyphmap_row = 0; glyphmap_row < GLYPHMAP_ROW; glyphmap_row++) {
-      free(font->glyphs.metrics[bitmap_idx][glyphmap_row]);
-      font->glyphs.metrics[bitmap_idx][glyphmap_row] = NULL;
+      free(font->glyphs.metrics[subpixel_idx][glyphmap_row]);
+      font->glyphs.metrics[subpixel_idx][glyphmap_row] = NULL;
     }
   }
   font->glyphs.bytesize = 0;
-  font->glyphs.natlas = 0;
 }
 
 // based on https://github.com/libsdl-org/SDL_ttf/blob/2a094959055fba09f7deed6e1ffeb986188982ae/SDL_ttf.c#L1735
@@ -410,7 +431,7 @@ static int font_set_face_metrics(RenFont *font, FT_Face face) {
   } else {
     font->height = (short) font->face->size->metrics.height / 64.0f;
     font->baseline = (short) font->face->size->metrics.ascender / 64.0f;
-  }   
+  }
   if(!font->underline_thickness)
     font->underline_thickness = ceil((double) font->height / 14.0);
 
@@ -426,7 +447,7 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
 
   file = SDL_RWFromFile(path, "rb");
   if (!file) return NULL;
-  
+
   int len = strlen(path);
   font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
   strcpy(font->path, path);
@@ -545,12 +566,11 @@ double ren_font_group_get_width(RenWindow *window_renderer, RenFont **fonts, con
 // this function can be used to debug font atlases, it is not public
 void ren_font_dump(RenFont *font) {
   char filename[1024];
-  int bitmaps = FONT_BITMAP_COUNT(font);
-  for (int bitmap_idx = 0; bitmap_idx < bitmaps; bitmap_idx++) {
-    for (int atlas_idx = 0; atlas_idx < font->glyphs.natlas; atlas_idx++) {
-      GlyphAtlas *atlas = &font->glyphs.atlas[bitmap_idx][atlas_idx];
+  for (int glyph_format_idx = 0; glyph_format_idx < EGlyphFormatSize; glyph_format_idx++) {
+    for (int atlas_idx = 0; atlas_idx < font->glyphs.natlas[glyph_format_idx]; atlas_idx++) {
+      GlyphAtlas *atlas = &font->glyphs.atlas[glyph_format_idx][atlas_idx];
       for (int surface_idx = 0; surface_idx < atlas->nsurface; surface_idx++) {
-        snprintf(filename, 1024, "%s-%d-%d-%d.bmp", font->face->family_name, bitmap_idx, atlas_idx, surface_idx);
+        snprintf(filename, 1024, "%s-%d-%d-%d.bmp", font->face->family_name, glyph_format_idx, atlas_idx, surface_idx);
         SDL_SaveBMP(atlas->surfaces[surface_idx], filename);
       }
     }
@@ -611,11 +631,10 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           SDL_Color dst = { (destination_color & surface->format->Rmask) >> surface->format->Rshift, (destination_color & surface->format->Gmask) >> surface->format->Gshift, (destination_color & surface->format->Bmask) >> surface->format->Bshift, (destination_color & surface->format->Amask) >> surface->format->Ashift };
           SDL_Color src;
 
-          if (font->antialiasing == FONT_ANTIALIASING_SUBPIXEL) {
+          if (metric->format == EGlyphFormatSubpixel) {
             src.r = *(source_pixel++);
             src.g = *(source_pixel++);
-          }
-          else  {
+          } else {
             src.r = *(source_pixel);
             src.g = *(source_pixel);
           }
