@@ -867,11 +867,10 @@ static int f_get_fs_type(lua_State *L) {
 
 
 static int f_ftruncate(lua_State *L) {
-#if LUA_VERSION_NUM < 503
-  // note: it is possible to support pre 5.3 and JIT
-  //       since file handles are just FILE*  wrapped in a userdata;
-  //       but it is not standardized. YMMV.
-  #error luaL_Stream is not supported in this version of Lua.
+#ifndef LUA_FILEHANDLE
+  lua_pushboolean(L, 0);
+  lua_pushliteral(L, "LUA_FILEHANDLE and luaL_Stream is not supported");
+  return 2;
 #endif
   luaL_Stream *stream = luaL_checkudata(L, 1, LUA_FILEHANDLE);
   lua_Integer len = luaL_optinteger(L, 2, 0);
@@ -880,7 +879,6 @@ static int f_ftruncate(lua_State *L) {
     lua_pushfstring(L, "ftruncate(): %s", strerror(errno));
     return 2;
   }
-
   lua_pushboolean(L, 1);
   return 1;
 }
