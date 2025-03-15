@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "internal font error when starting the application\n");
   }
 
+  int has_restarted = 0;
   lua_State *L;
 init_lua:
   L = luaL_newstate();
@@ -168,6 +169,9 @@ init_lua:
 
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
+  
+  lua_pushboolean(L, has_restarted);
+  lua_setglobal(L, "RESTARTED");
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
@@ -233,6 +237,7 @@ init_lua:
   if (lua_toboolean(L, -1)) {
     lua_close(L);
     rencache_invalidate();
+    has_restarted = 1;
     goto init_lua;
   }
 

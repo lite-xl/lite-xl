@@ -288,7 +288,6 @@ end
 
 keymap.add_direct {
   ["ctrl+shift+p"] = "core:find-command",
-  ["ctrl+p"] = "core:find-file",
   ["ctrl+o"] = "core:open-file",
   ["ctrl+n"] = "core:new-doc",
   ["ctrl+shift+c"] = "core:change-project-folder",
