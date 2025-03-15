@@ -40,10 +40,6 @@ conf_data.set('PROJECT_ASSEMBLY_VERSION', meson.project_version() + '.0')
 #===============================================================================
 # Compiler Settings
 #===============================================================================
-if host_machine.system() == 'darwin'
-    add_languages('objc')
-endif
-
 cc = meson.get_compiler('c')
 
 lite_includes = []
@@ -65,116 +61,6 @@ lite_cargs += '-DLITE_ARCH_TUPLE="@0@"'.format(arch_tuple)
 lite_link_args = []
 if host_machine.system() == 'darwin'
     lite_link_args += ['-framework', 'CoreServices', '-framework', 'Foundation']
-endif
-#===============================================================================
-# Dependencies
-#===============================================================================
-if not get_option('source-only')
-    libm = cc.find_library('m', required : false)
-    libdl = cc.find_library('dl', required : false)
-
-    default_fallback_options = ['warning_level=0', 'werror=false']
-
-    # Lua has no official .pc file
-    # so distros come up with their own names
-    lua_names = [
-        'lua5.4', # Debian
-        'lua-5.4', # FreeBSD
-        'lua',    # Fedora
-    ]
-
-    if get_option('use_system_lua')
-        foreach lua : lua_names
-            last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
-            lua_dep = dependency(lua, required : false,
-            )
-            if lua_dep.found()
-                break
-            endif
-
-            if last_lua
-                # If we could not find lua on the system and fallbacks are disabled
-                # try the compiler as a last ditch effort, since Lua has no official
-                # pkg-config support.
-                lua_dep = cc.find_library('lua', required : true)
-            endif
-        endforeach
-    else
-        lua_dep = dependency('', fallback: ['lua', 'lua_dep'], required : true,
-            default_options: default_fallback_options + ['default_library=static', 'line_editing=disabled', 'interpreter=false']
-        )
-    endif
-
-    pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
-        default_options: default_fallback_options + ['default_library=static', 'grep=false', 'test=false']
-    )
-
-    freetype_dep = dependency('freetype2', fallback: ['freetype2', 'freetype_dep'],
-        default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
-    )
-
-
-    sdl_options = ['default_library=static']
-
-    # we explicitly need these
-    sdl_options += 'use_loadso=enabled'
-    sdl_options += 'prefer_dlopen=true'
-    sdl_options += 'use_video=enabled'
-    sdl_options += 'use_atomic=enabled'
-    sdl_options += 'use_threads=enabled'
-    sdl_options += 'use_timers=enabled'
-    # investigate if this is truly needed
-    # Do not remove before https://github.com/libsdl-org/SDL/issues/5413 is released
-    sdl_options += 'use_events=enabled'
-
-    if host_machine.system() == 'darwin' or host_machine.system() == 'windows'
-        sdl_options += 'use_video_x11=disabled'
-        sdl_options += 'use_video_wayland=disabled'
-    else
-        sdl_options += 'use_render=enabled'
-        sdl_options += 'use_video_x11=auto'
-        sdl_options += 'use_video_wayland=auto'
-    endif
-
-    # we leave this up to what the host system has except on windows
-    if host_machine.system() != 'windows'
-        sdl_options += 'use_video_opengl=auto'
-        sdl_options += 'use_video_openglesv2=auto'
-    else
-        sdl_options += 'use_video_opengl=disabled'
-        sdl_options += 'use_video_openglesv2=disabled'
-    endif
-
-    # we don't need these
-    sdl_options += 'test=false'
-    sdl_options += 'use_sensor=disabled'
-    sdl_options += 'use_haptic=disabled'
-    sdl_options += 'use_hidapi=disabled'
-    sdl_options += 'use_audio=disabled'
-    sdl_options += 'use_cpuinfo=disabled'
-    sdl_options += 'use_joystick=disabled'
-    sdl_options += 'use_joystick_xinput=disabled'
-    sdl_options += 'use_video_vulkan=disabled'
-    sdl_options += 'use_video_offscreen=disabled'
-    sdl_options += 'use_power=disabled'
-    sdl_options += 'system_iconv=disabled'
-
-    sdl_dep = dependency('sdl2', fallback: ['sdl2', 'sdl2_dep'],
-        default_options: default_fallback_options + sdl_options
-    )
-
-    if host_machine.system() == 'windows'
-        if sdl_dep.type_name() == 'internal'
-            sdlmain_dep = dependency('sdl2main', fallback: ['sdl2main_dep'])
-        else
-            sdlmain_dep = cc.find_library('SDL2main')
-        endif
-    else
-        sdlmain_dep = dependency('', required: false)
-        assert(not sdlmain_dep.found(), 'checking if fake dependency has been found')
-    endif
-
-    lite_deps = [lua_dep, sdl_dep, sdlmain_dep, freetype_dep, pcre2_dep, libm, libdl]
 endif
 #===============================================================================
 # Install Configuration
