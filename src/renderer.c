@@ -668,15 +668,15 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
             case 2: SDL_GetRGBA(*((uint16_t *)destination_pixel), format, &dst.r, &dst.g, &dst.b, &dst.a); break;
             case 4: SDL_GetRGBA(*((uint32_t *)destination_pixel), format, &dst.r, &dst.g, &dst.b, &dst.a); break;
             case 3:
-              if (SDL_BYTEORDER == SDL_LIL_ENDIAN) {
+              #if SDL_BYTEORDER == SDL_LIL_ENDIAN
                 dst.r = *(destination_pixel + format->Rshift / 8);
                 dst.g = *(destination_pixel + format->Gshift / 8);
                 dst.b = *(destination_pixel + format->Bshift / 8);
-              } else {
+              #else
                 dst.r = *(destination_pixel + 2 - format->Rshift / 8);
                 dst.g = *(destination_pixel + 2 - format->Gshift / 8);
                 dst.b = *(destination_pixel + 2 - format->Bshift / 8);
-              }
+              #endif
               break;
           }
 
@@ -702,15 +702,15 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
             case 2: *((uint16_t *)destination_pixel) = SDL_MapRGBA(format, r, g, b, dst.a); break;
             case 4: *((uint32_t *)destination_pixel) = SDL_MapRGBA(format, r, g, b, dst.a); break;
             case 3:
-              if (SDL_BYTEORDER == SDL_LIL_ENDIAN) {
+              #if SDL_BYTEORDER == SDL_LIL_ENDIAN
                 *(destination_pixel + format->Rshift / 8) = r;
                 *(destination_pixel + format->Gshift / 8) = g;
                 *(destination_pixel + format->Bshift / 8) = b;
-              } else {
+              #else
                 *(destination_pixel + 2 - format->Rshift / 8) = r;
                 *(destination_pixel + 2 - format->Gshift / 8) = g;
                 *(destination_pixel + 2 - format->Bshift / 8) = b;
-              }
+              #endif
               break;
           }
           destination_pixel += surface->format->BytesPerPixel;
