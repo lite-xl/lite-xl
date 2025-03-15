@@ -203,6 +203,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     local target, res = p.pattern or p.regex, { 1, offset - 1 }
     local p_idx = close and 2 or 1
     local code = type(target) == "table" and target[p_idx] or target
+    if p.disabled then return end
 
     if p.whole_line == nil then p.whole_line = { } end
     if p.whole_line[p_idx] == nil then
