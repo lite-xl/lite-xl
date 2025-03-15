@@ -15,7 +15,7 @@ config.plugins.findfile = common.merge({
 command.add(nil, {
   ["core:find-file"] = function()
     local files, complete = {}, false
-    local k = core.add_thread(function()
+    local refresh = coroutine.wrap(function()
       local start, total = system.get_time(), 0
       for i, project in ipairs(core.projects) do
         for project, item in project:files() do
@@ -36,9 +36,15 @@ command.add(nil, {
         end
       end
     end)
-    coroutine.resume(core.threads[k].cr)
-    if coroutine.status(core.threads[k].cr) == 'dead' then 
-      core.threads[k] = nil 
+
+    local wait = refresh()
+    if wait then
+      core.add_thread(function()
+        while wait do
+          wait = refresh()
+          coroutine.yield(wait)
+        end
+      end)
     end
     core.command_view:enter("Open File From Project", {
       submit = function(text, item)
