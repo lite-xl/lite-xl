@@ -19,10 +19,11 @@ command.add(nil, {
       local start, total = system.get_time(), 0
       for i, project in ipairs(core.projects) do
         for project, item in project:files() do
-          if complete or #files > config.plugins.findfile.file_limit then 
+          if #files > config.plugins.findfile.file_limit then 
             core.command_view:update_suggestions() 
             return 
           end
+          if complete then return end
           table.insert(files, i == 1 and item.filename:sub(#project.path + 2) or common.home_encode(item.filename))
           local diff = system.get_time() - start
           if diff > 2 / config.fps then
