@@ -1118,7 +1118,8 @@ function core.on_error(err)
   -- write error to file
   local fp = io.open(USERDIR .. PATHSEP .. "error.txt", "wb")
   fp:write("Error: " .. tostring(err) .. "\n")
-  fp:write(debug.traceback("", 4) .. "\n")
+  fp:write(debug.traceback("", 4) .. "\n\n")
+  fp:write(system.get_debug_info().."\n")
   fp:close()
   -- save copy of all unsaved documents
   for _, doc in ipairs(core.docs) do
