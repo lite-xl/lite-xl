@@ -32,6 +32,16 @@ static void* _check_alloc(void *ptr, const char *const file, size_t ln) {
   return ptr;
 }
 
+// getting freetype error messages (https://freetype.org/freetype2/docs/reference/ft2-error_enumerations.html)
+static const char *const get_ft_error(FT_Error err) {
+#undef FTERRORS_H_
+#define FT_ERROR_START_LIST switch (FT_ERROR_BASE(err)) {
+#define FT_ERRORDEF(e, v, s) case v: return s;
+#define FT_ERROR_END_LIST }
+#include FT_ERRORS_H
+  return "unknown error";
+}
+
 /************************* Fonts *************************/
 
 // approximate number of glyphs per atlas surface
@@ -442,12 +452,15 @@ static int font_set_face_metrics(RenFont *font, FT_Face face) {
 }
 
 RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, unsigned char style) {
+  FT_Error err = FT_Err_Ok;
   SDL_RWops *file = NULL; RenFont *font = NULL;
   FT_Face face = NULL; FT_Stream stream = NULL;
 
-  file = SDL_RWFromFile(path, "rb");
-  if (!file) return NULL;
+  SDL_ClearError();
 
+  file = SDL_RWFromFile(path, "rb");
+  if (!file) return NULL; // error set by SDL_RWFromFile
+  
   int len = strlen(path);
   font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
   strcpy(font->path, path);
@@ -468,15 +481,16 @@ RenFont* ren_font_load(RenWindow *window_renderer, const char* path, float size,
   stream->pos = 0;
   stream->size = (unsigned long) SDL_RWsize(file);
 
-  if (FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face) != 0)
+  if ((err = FT_Open_Face(library, &(FT_Open_Args) { .flags = FT_OPEN_STREAM, .stream = stream }, 0, &face)) != 0)
     goto failure;
-  if (font_set_face_metrics(font, face) != 0)
+  if ((err = font_set_face_metrics(font, face)) != 0)
     goto failure;
   return font;
 
 stream_failure:
   if (file) SDL_RWclose(file);
 failure:
+  if (err != FT_Err_Ok) SDL_SetError("%s", get_ft_error(err));
   if (face) FT_Done_Face(face);
   if (font) free(font);
   return NULL;
@@ -487,7 +501,7 @@ RenFont* ren_font_copy(RenWindow *window_renderer, RenFont* font, float size, ER
   hinting = hinting == -1 ? font->hinting : hinting;
   style = style == -1 ? font->style : style;
 
-  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style);
+  return ren_font_load(window_renderer, font->path, size, antialiasing, hinting, style); // SDL_SetError() will be called appropriately
 }
 
 const char* ren_font_get_path(RenFont *font) {
@@ -732,19 +746,24 @@ void ren_free_window_resources(RenWindow *window_renderer) {
 }
 
 // TODO remove global and return RenWindow*
-void ren_init(SDL_Window *win) {
+int ren_init(SDL_Window *win) {
+  FT_Error err;
+  SDL_ClearError();
   assert(win);
-  int error = FT_Init_FreeType( &library );
-  if ( error ) {
-    fprintf(stderr, "internal font error when starting the application\n");
-    return;
-  }
+
+  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
+                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+  if (!draw_rect_surface)
+    return -1; // error set by SDL_CreateRGBSurface
+
+  if ((err = FT_Init_FreeType(&library)) != 0)
+    return SDL_SetError("%s", get_ft_error(err));
+
   window_renderer.window = win;
   renwin_init_surface(&window_renderer);
   renwin_init_command_buf(&window_renderer);
   renwin_clip_to_surface(&window_renderer);
-  draw_rect_surface = SDL_CreateRGBSurface(0, 1, 1, 32,
-                       0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+  return 0;
 }
 
 
