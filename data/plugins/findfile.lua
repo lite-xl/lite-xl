@@ -44,6 +44,7 @@ command.add(nil, {
         complete = true
       end,
       suggest = function(text)
+        if text == "" then return files end
         return common.fuzzy_match_with_recents(files, core.visited_files, text)
       end,
       cancel = function()
