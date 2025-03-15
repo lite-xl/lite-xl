@@ -285,7 +285,7 @@ function CommandView:update_suggestions(preserve)
     end
     res[i] = item
   end
-  if preserve and self.suggestions then
+  if preserve and self.suggestions and self.suggestion_idx ~= 1 then
     local current_suggestion_idx
     for i, v in ipairs(res) do
       if v.text == self.suggestions[self.suggestion_idx].text then

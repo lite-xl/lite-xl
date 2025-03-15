@@ -37,6 +37,9 @@ command.add(nil, {
       end
     end)
     coroutine.resume(core.threads[k].cr)
+    if coroutine.status(core.threads[k].cr) == 'dead' then 
+      core.threads[k] = nil 
+    end
     core.command_view:enter("Open File From Project", {
       submit = function(text, item)
         text = item and item.text or text
