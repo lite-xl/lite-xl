@@ -154,7 +154,6 @@ function CommandView:move_suggestion_idx(dir)
     local n = self.suggestion_idx + dir
     self.suggestion_idx = overflow_suggestion_idx(n, #self.suggestions)
     self:complete()
-    self.save_suggestion = self:get_text()
     self.last_change_id = self.doc:get_change_id()
   else
     local current_suggestion = #self.suggestions > 0 and self.suggestions[self.suggestion_idx].text
@@ -277,7 +276,7 @@ end
 
 function CommandView:update_suggestions(preserve)
   local text = self:get_text()
-  local t = self.state.suggest(text == self.save_suggestion and "" or text) or {}
+  local t = self.state.suggest(self.suggestions[self.suggestion_idx] and text == self.suggestions[self.suggestion_idx].text and "" or text) or {}
   local res = {}
   for i, item in ipairs(t) do
     if type(item) == "string" then
@@ -286,14 +285,14 @@ function CommandView:update_suggestions(preserve)
     res[i] = item
   end
   if preserve and self.suggestions and self.suggestion_idx ~= 1 then
-    local current_suggestion_idx
+    local new_suggestion_idx
     for i, v in ipairs(res) do
       if v.text == self.suggestions[self.suggestion_idx].text then
-        current_suggestion_idx = i
+        new_suggestion_idx = i
         break
       end
     end
-    self.suggestion_idx = current_suggestion_idx
+    self.suggestion_idx = new_suggestion_idx
     self.suggestions_offset = 1
   else
     self.suggestion_idx = 1
