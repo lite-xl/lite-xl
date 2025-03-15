@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="x-ua-compatible" content="ie=edge" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Lite XL</title>
+
+	<style>
+		/* make everything fullscreen */
+		html,
+		body,
+		canvas {
+			width: 100%;
+			height: 100%;
+			display: block;
+			margin: 0;
+			font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+			text-align: center;
+		}
+
+		.modal {
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+		}
+
+		#close {
+			display: none;
+		}
+	</style>
+	<script type="application/javascript">
+		var Module = {
+			arguments: ['/home/web_user/welcome.md'],
+			preRun: [function () {
+				ENV.LITE_PREFIX = '/usr';
+				FS.chdir('/home/web_user');
+				FS.writeFile('/home/web_user/welcome.md',
+					'# Welcome to Lite XL!\n\n' +
+					'This is an instance of Lite XL running on your browser using **JavaScript** and **WASM**.\n\n' +
+					'There isn\'t a lot of things you can do here; you can **create, edit and save files**,\n' +
+					'but they _will not be persisted_ across different tabs / sessions.\n\n' +
+					'Not all plugins work, and **some keyboard shortcuts might not work** if your browser\n' +
+					'overrides them. Nevertheless, this is pretty cool.\n');
+				document.getElementById('loading').style.display = 'none';
+			}],
+			onExit: function () {
+				document.getElementById('loading').style.display = 'none';
+				document.getElementById('canvas').style.display = 'none';
+				document.getElementById('close').style.display = 'block';
+			}
+		};
+
+		window.onload = function () {
+			// disable canvas right click
+			var canvas = document.getElementById('canvas');
+			var status = document.getElementById('status');
+			canvas.oncontextmenu = function (e) { e.preventDefault(); };
+			Module.canvas = canvas;
+			Module.setStatus = function (s) {
+				status.textContent = s;
+			};
+		};
+	</script>
+	<script type="application/javascript" src="./lite-xl.js"></script>
+</head>
+
+<body>
+	<canvas id="canvas"></canvas>
+	<div class="modal" id="loading">
+		<h2>Loading...</h2>
+		<p>Status: <span id="status">Unknown</span></p>
+		<p>If this page freezes, please check the console for any errors.</p>
+	</div>
+	<div class="modal" id="close">
+		<h2>Oops, Lite XL is closed!</h2>
+		<p>If you didn't do this intentionally, please check the console for any errors.</p>
+		<p>You can refresh the page to load Lite XL again.</p>
+	</div>
+	<noscript>
+		<p>You need to enable JavaScript and WASM for this page to work.</p>
+	</noscript>
+</body>
+
+</html>
