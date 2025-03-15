@@ -47,6 +47,7 @@ command.add(nil, {
         end
       end)
     end
+    local original_files
     core.command_view:enter("Open File From Project", {
       submit = function(text, item)
         text = item and item.text or text
@@ -54,8 +55,11 @@ command.add(nil, {
         complete = true
       end,
       suggest = function(text)
-        if text == "" then return files end
-        return common.fuzzy_match_with_recents(files, core.visited_files, text)
+        if original_files and text == "" then 
+          return original_files
+        end
+        original_files = common.fuzzy_match_with_recents(files, core.visited_files, text)
+        return original_files
       end,
       cancel = function()
         complete = true
