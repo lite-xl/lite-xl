@@ -8,7 +8,8 @@ local keymap = require "core.keymap"
 
 config.plugins.findfile = common.merge({
   file_limit = 20000,
-  max_search_time = 2.0
+  max_search_time = 2.0,
+  interval = 1 / config.fps
 }, config.plugins.findfile)
 
 
@@ -26,11 +27,11 @@ command.add(nil, {
           end
           table.insert(files, i == 1 and item.filename:sub(#project.path + 2) or common.home_encode(item.filename))
           local diff = system.get_time() - start
-          if diff > 2 / config.fps then
+          if diff > 1 / config.fps then
             core.command_view:update_suggestions(true)
             total = total + diff
             if total > config.plugins.findfile.max_search_time then return end
-            coroutine.yield(0.1)
+            coroutine.yield(config.plugins.findfile.interval)
             start = system.get_time()
           end
         end
