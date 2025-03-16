@@ -10,9 +10,9 @@ config.plugins.findfile = common.merge({
   -- how many files from the project we store in a list before we stop
   file_limit = 20000,
   -- the maximum amount of time we spent gathering files before stopping
-  max_search_time = 2.0,
+  max_search_time = 10.0,
   -- the amount of time we wait between loops of gathering files
-  interval = 1 / config.fps,
+  interval = 0,
   -- the amount of time we spend in a single loop (by default, half a frame)
   max_loop_time = 0.5 / config.fps
 }, config.plugins.findfile)
