@@ -9,7 +9,7 @@ local keymap = require "core.keymap"
 config.plugins.findfile = common.merge({
   -- how many files from the project we store in a list before we stop
   file_limit = 20000,
-  -- the maximum amount of time we spent gathering files before stopping
+  -- the maximum amount of time we spend gathering files before stopping
   max_search_time = 10.0,
   -- the amount of time we wait between loops of gathering files
   interval = 0,
