@@ -347,6 +347,7 @@ end
 ---| '"left"'   # Align text to the left of the bounding box
 ---| '"right"'  # Align text to the right of the bounding box
 ---| '"center"' # Center text in the bounding box
+---| nil        # Same as "left"
 ---@param x number
 ---@param y number
 ---@param w number
