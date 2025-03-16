@@ -7,6 +7,7 @@ local DocView = require "core.docview"
 local View = require "core.view"
 
 
+---DocView for a single line.
 ---@class core.commandview.input : core.doc
 ---@field super core.doc
 local SingleLineDoc = Doc:extend()
@@ -17,6 +18,7 @@ function SingleLineDoc:insert(line, col, text)
   SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
 end
 
+---A view for running commands, autocomplete and suggestions.
 ---@class core.commandview : core.docview
 ---@field super core.docview
 local CommandView = DocView:extend()
@@ -27,11 +29,18 @@ CommandView.context = "application"
 
 local noop = function() end
 
+---CommandView suggestion.
+---@class core.commandview.suggestion
+---@field text string Suggestion text (displayed on the left).
+---@field info string? Suggestion description (displayed on the right).
+
+
+---CommandView state.
 ---@class core.commandview.state
----@field submit function
----@field suggest function
----@field cancel function
----@field validate function
+---@field submit fun(text:string, suggestion:core.commandview.suggestion) Callback when user submits the CommandView.
+---@field suggest fun(text:string): core.commandview.suggestion[] Callback to get suggestions based on user input.
+---@field cancel fun(explicit:boolean?) Callback when user cancels the CommandView.
+---@field validate fun(text:string, suggestion:core.commandview.suggestion): boolean Callback to validate whether the user can submit the text.
 ---@field text string
 ---@field select_text boolean
 ---@field show_suggestions boolean
@@ -50,6 +59,7 @@ local default_state = {
 }
 
 
+---Creates a new CommandView.
 function CommandView:new()
   CommandView.super.new(self, SingleLineDoc())
   self.suggestion_idx = 1
@@ -68,6 +78,7 @@ function CommandView:new()
 end
 
 
+---Hides CommandView suggestions.
 ---@deprecated
 function CommandView:set_hidden_suggestions()
   core.warn("Using deprecated function CommandView:set_hidden_suggestions")
@@ -107,11 +118,16 @@ function CommandView:scroll_to_make_visible()
 end
 
 
+---Gets the text in the CommandView.
+---@return string
 function CommandView:get_text()
   return self.doc:get_text(1, 1, 1, math.huge)
 end
 
 
+---Sets the text in the CommandView.
+---@param text string
+---@param select boolean? If true, the text should be selected.
 function CommandView:set_text(text, select)
   self.last_text = text
   self.doc:remove(1, 1, math.huge, math.huge)
@@ -122,6 +138,8 @@ function CommandView:set_text(text, select)
 end
 
 
+---Moves the currently selected suggestion.
+---@param dir number Number of steps; Positive to move up, negative to move down.
 function CommandView:move_suggestion_idx(dir)
   local function overflow_suggestion_idx(n, count)
     if count == 0 then return 0 end
@@ -178,6 +196,7 @@ function CommandView:move_suggestion_idx(dir)
 end
 
 
+---Sets the CommandView text to the value of the current suggestion.
 function CommandView:complete()
   if #self.suggestions > 0 then
     self:set_text(self.suggestions[self.suggestion_idx].text)
@@ -185,6 +204,7 @@ function CommandView:complete()
 end
 
 
+---Submits the CommandView text.
 function CommandView:submit()
   local suggestion = self.suggestions[self.suggestion_idx]
   local text = self:get_text()
@@ -195,18 +215,19 @@ function CommandView:submit()
   end
 end
 
----@param label string
----@varargs any
----@overload fun(label:string, options: core.commandview.state)
-function CommandView:enter(label, ...)
+---Displays the CommandView prompt for user input.
+---@param label string Prompt to show to the user.
+---@param options core.commandview.state Options controlling the appearance of the CommandView.
+---@overload fun(label:string, submit:function, suggest:function, cancel:function, validate:function)
+function CommandView:enter(label, options, ...)
   if self.state ~= default_state then
     return
   end
-  local options = select(1, ...)
 
-  if type(options) ~= "table" then
+  if type(options) == "function" then
     core.warn("Using CommandView:enter in a deprecated way")
-    local submit, suggest, cancel, validate = ...
+    local submit, suggest, cancel, validate = options, ...
+    ---@diagnostic disable-next-line:missing-fields
     options = {
       submit = submit,
       suggest = suggest,
@@ -245,6 +266,9 @@ function CommandView:enter(label, ...)
 end
 
 
+---Closes the CommandView.
+---@param submitted boolean If true, indicates that the CommandView is closed because the content is submitted.
+---@param inexplicit boolean? If false, indicates that the CommandView is cancelled explicitly (e.g. by pressing Esc).
 function CommandView:exit(submitted, inexplicit)
   if core.active_view == self then
     core.set_active_view(core.last_active_view)
@@ -349,7 +373,7 @@ end
 function CommandView:draw_line_gutter(idx, x, y)
   local yoffset = self:get_line_text_y_offset()
   local pos = self.position
-  local color = common.lerp(style.text, style.accent, self.gutter_text_brightness / 100)
+  local color = common.lerp(style.text, style.accent, self.gutter_text_brightness / 100) --[[@as renderer.color]]
   core.push_clip_rect(pos.x, pos.y, self:get_gutter_width(), self.size.y)
   x = x + style.padding.x
   renderer.draw_text(self:get_font(), self.label, x, y + yoffset, color)
