@@ -277,7 +277,7 @@ end
 
 function CommandView:update_suggestions()
   local text = self:get_text()
-  local t = self.state.suggest(self.last_change == "suggestion" and "" or text) or {}
+  local t = self.state.suggest(self.last_change == "suggestion" and self.user_supplied_text or text) or {}
   local res = {}
   for i, item in ipairs(t) do
     if type(item) == "string" then
@@ -314,6 +314,7 @@ function CommandView:update()
   -- update suggestions if text has changed
   if self.last_change_id ~= self.doc:get_change_id() then
     self.last_change = "text"
+    self.user_supplied_text = self:get_text()
     self:update_suggestions()
     if self.state.typeahead and self.suggestions[self.suggestion_idx] then
       local current_text = self:get_text()
