@@ -1118,6 +1118,7 @@ function DocView:retrieve_tokens(vline, line)
       table.insert(self.dcache, tokens)
       self.dtovcache[#self.dcache] = current_vline
       current_vline = current_vline + new_vlines
+      prev_newline = new_vlines > 0
       if new_vlines > 0 then break end
     until #self.dcache >= #self.doc.lines - 1
     table.move(vlines, 1, #vlines, #self.vcache + 1, self.vcache)
