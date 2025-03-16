@@ -27,13 +27,13 @@ command.add(nil, {
         for project, item in project:files() do
           if complete then return end
           if #files > config.plugins.findfile.file_limit then 
-            core.command_view:update_suggestions(true) 
+            core.command_view:update_suggestions() 
             return 
           end
           table.insert(files, i == 1 and item.filename:sub(#project.path + 2) or common.home_encode(item.filename))
           local diff = system.get_time() - start
           if diff > config.plugins.findfile.max_loop_time then
-            core.command_view:update_suggestions(true)
+            core.command_view:update_suggestions()
             total = total + diff
             if total > config.plugins.findfile.max_search_time then return end
             coroutine.yield(config.plugins.findfile.interval)

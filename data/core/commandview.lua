@@ -275,9 +275,9 @@ function CommandView:get_suggestion_line_height()
 end
 
 
-function CommandView:update_suggestions(preserve)
+function CommandView:update_suggestions()
   local text = self:get_text()
-  local t = self.state.suggest(self.suggestions[self.suggestion_idx] and text == self.suggestions[self.suggestion_idx].text and "" or text) or {}
+  local t = self.state.suggest(self.last_change == "suggestion" and "" or text) or {}
   local res = {}
   for i, item in ipairs(t) do
     if type(item) == "string" then
@@ -285,7 +285,7 @@ function CommandView:update_suggestions(preserve)
     end
     res[i] = item
   end
-  if preserve and self.suggestions and self.last_change == "suggestion" then
+  if self.suggestions and self.last_change == "suggestion" then
     local new_suggestion_idx
     for i, v in ipairs(res) do
       if v.text == self.suggestions[self.suggestion_idx].text then
@@ -294,7 +294,7 @@ function CommandView:update_suggestions(preserve)
       end
     end
     self.suggestion_idx = new_suggestion_idx
-    -- This preserves the suggestion_offset and realigns it with the new tbale.
+    -- This preserves the suggestion_offset and realigns it with the new table.
     self:move_suggestion_idx(0)
   else
     self.suggestion_idx = 1
