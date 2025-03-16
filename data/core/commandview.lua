@@ -58,6 +58,8 @@ function CommandView:new()
   self.suggestions_height = 0
   self.last_change_id = 0
   self.last_text = ""
+  self.user_supplied_text = ""
+  self.last_change = "text"
   self.gutter_width = 0
   self.gutter_text_brightness = 0
   self.selection_offset = 0
