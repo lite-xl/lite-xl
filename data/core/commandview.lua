@@ -215,9 +215,21 @@ function CommandView:submit()
   end
 end
 
+---Options passed into CommandView:enter().
+---@class core.commandview.stateoption
+---@field submit fun(text:string, suggestion:core.commandview.suggestion)? Callback when user submits the CommandView.
+---@field suggest (fun(text:string): core.commandview.suggestion[])? Callback to get suggestions based on user input.
+---@field cancel fun(explicit:boolean?)? Callback when user cancels the CommandView.
+---@field validate (fun(text:string, suggestion:core.commandview.suggestion): boolean)? Callback to validate whether the user can submit the text.
+---@field text string?
+---@field select_text boolean?
+---@field show_suggestions boolean?
+---@field typeahead boolean?
+---@field wrap boolean?
+
 ---Displays the CommandView prompt for user input.
 ---@param label string Prompt to show to the user.
----@param options core.commandview.state Options controlling the appearance of the CommandView.
+---@param options core.commandview.stateoption Options controlling the appearance of the CommandView.
 ---@overload fun(label:string, submit:function, suggest:function, cancel:function, validate:function)
 function CommandView:enter(label, options, ...)
   if self.state ~= default_state then
