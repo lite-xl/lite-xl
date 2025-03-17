@@ -1,5 +1,5 @@
     # this fork added support for x11 synthetic keyboard events(send_event) (src/api/system.c)
-    # added chinese mono font (data/fonts/wqy-microhei-terminal-mono.ttf)
+    # added chinese mono fonts (data/fonts/wqy-microhei-terminal-mono.ttf, SarasaMonoSC-Regular.ttf)
     # modified tab char display style into "--->" (data/plugins/drawwhitespace.lua)
 
     # to modify settings(init.lua) to disable spliting cursor and moving lines
