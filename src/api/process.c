@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <SDL.h>
-#include <SDL_thread.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_thread.h>
 #include <assert.h>
 
 #if _WIN32
@@ -85,8 +85,8 @@ typedef struct process_kill_s {
 
 typedef struct {
   bool stop;
-  SDL_mutex *mutex;
-  SDL_cond *has_work, *work_done;
+  SDL_Mutex *mutex;
+  SDL_Condition *has_work, *work_done;
   SDL_Thread *worker_thread;
   process_kill_t *head;
   process_kill_t *tail;
@@ -133,8 +133,8 @@ static void kill_list_free(process_kill_list_t *list) {
   process_kill_t *node, *temp;
   SDL_WaitThread(list->worker_thread, NULL);
   SDL_DestroyMutex(list->mutex);
-  SDL_DestroyCond(list->has_work);
-  SDL_DestroyCond(list->work_done);
+  SDL_DestroyCondition(list->has_work);
+  SDL_DestroyCondition(list->work_done);
   node = list->head;
   while (node) {
     temp = node;
@@ -148,8 +148,8 @@ static void kill_list_free(process_kill_list_t *list) {
 static bool kill_list_init(process_kill_list_t *list) {
   memset(list, 0, sizeof(process_kill_list_t));
   list->mutex = SDL_CreateMutex();
-  list->has_work = SDL_CreateCond();
-  list->work_done = SDL_CreateCond();
+  list->has_work = SDL_CreateCondition();
+  list->work_done = SDL_CreateCondition();
   list->head = list->tail = NULL;
   list->stop = false;
   if (!list->mutex || !list->has_work || !list->work_done) {
@@ -190,10 +190,10 @@ static void kill_list_wait_all(process_kill_list_t *list) {
   SDL_LockMutex(list->mutex);
   // wait until list is empty
   while (list->head)
-    SDL_CondWait(list->work_done, list->mutex);
+    SDL_WaitCondition(list->work_done, list->mutex);
   // tell the worker to stop
   list->stop = true;
-  SDL_CondSignal(list->has_work);
+  SDL_SignalCondition(list->has_work);
   SDL_UnlockMutex(list->mutex);
 }
 
@@ -257,7 +257,7 @@ static int kill_list_worker(void *ud) {
 
     // wait until we have work to do
     while (!list->head && !list->stop)
-      SDL_CondWait(list->has_work, list->mutex); // LOCK MUTEX
+      SDL_WaitCondition(list->has_work, list->mutex); // LOCK MUTEX
 
     if (list->stop) break;
 
@@ -279,7 +279,7 @@ static int kill_list_worker(void *ud) {
         kill_list_push(list, current_task);
       } else {
         free_task:
-        SDL_CondSignal(list->work_done);
+        SDL_SignalCondition(list->work_done);
         process_handle_close(&current_task->handle);
         free(current_task);
       }
@@ -759,7 +759,7 @@ static int f_gc(lua_State* L) {
       p->tries = 1;
       SDL_LockMutex(list->mutex);
       kill_list_push(list, p);
-      SDL_CondSignal(list->has_work);
+      SDL_SignalCondition(list->has_work);
       SDL_UnlockMutex(list->mutex);
     }
   }
