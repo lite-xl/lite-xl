@@ -9,7 +9,7 @@
 
     # to modify settings(init.lua) to load chinese mono font, and to display tab char:
     # style.code_font = renderer.font.load(DATADIR .. "/fonts/wqy-microhei-terminal-mono.ttf", 14 * SCALE)
-    # SarasaMonoSC-Regular.ttf is better, it make chinese character vs english char exactly 2:1
+    # SarasaMonoSC-Regular.ttf is better, it make chinese char width vs english char width exactly 2:1
     style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 14 * SCALE)
     config.plugins.drawwhitespace.enabled = true
     config.indent_size = 4
