@@ -106,6 +106,15 @@ function Highlighter:each_token(line)
   return highlighter_each_token, state.tokens, 0
 end
 
+-- replaces all strings, and comments with whitespace
+function Highlighter:get_syntaxful_line(line)
+  local t = {}
+  for _, type, text in self:each_token(line) do
+    table.insert(t, (type == "comment" or type == "string") and string.rep(" ", text:ulen()) or text)
+  end
+  return table.concat(t)
+end
+
 
 local old_tokenize = DocView.tokenize
 function DocView:tokenize(line)

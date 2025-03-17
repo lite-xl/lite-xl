@@ -46,6 +46,7 @@ function DocView:new(...)
   return old_docview_new(self, ...)
 end
 
+-- returns the folding stack for the line, the start of the folded block, and the end, if relevant
 local function compute_line_characteristics(blocks, line, folding_stack)
   local closing_block = #folding_stack > 0 and blocks[folding_stack:byte(-1)][2]
   local found_token = 1
@@ -56,7 +57,10 @@ local function compute_line_characteristics(blocks, line, folding_stack)
       break 
     end
     local opening_token_start, opening_token_end, opening_token_idx
-    local closing_token_start, closing_token_end = closing_block and line:find(closing_block, found_token)
+    local closing_token_start, closing_token_end
+    if closing_block then
+      closing_token_start, closing_token_end = line:find(closing_block, found_token)
+    end
     for j = 1, #blocks do
       local new_opening_token_start, new_opening_token_end = line:find(blocks[j][1], found_token)
       if new_opening_token_start and (not opening_token_start or new_opening_token_start < opening_token_start) then
@@ -65,7 +69,7 @@ local function compute_line_characteristics(blocks, line, folding_stack)
     end
     if closing_token_start and (not opening_token_start or closing_token_start < opening_token_start) then
       folding_stack = folding_stack:sub(1, -2)
-      found_token = closing_token_end
+      found_token = closing_token_end and closing_token_end + 1
       last_found_start = closing_token_start
       first_found_end = first_found_end or closing_token_end
       closing_token_start = nil
@@ -73,7 +77,8 @@ local function compute_line_characteristics(blocks, line, folding_stack)
       folding_stack = folding_stack .. string.char(opening_token_idx)
       found_token = opening_token_end + 1
       last_found_start = opening_token_start
-      first_found_end = first_found_end or closing_token_end
+      -- first_found_end = first_found_end or closing_token_end
+      first_found_end = first_found_end
     else
       break
     end
@@ -90,7 +95,7 @@ function DocView:compute_fold(doc_line)
     start_of_computation = i
   end
   for i = start_of_computation, doc_line do
-    self.folding_stack[i] = compute_line_characteristics(blocks, self.doc.lines[i], self.folding_stack[i - 1] or "")
+    self.folding_stack[i] = compute_line_characteristics(blocks, self.doc.highlighter:get_syntaxful_line(i), self.folding_stack[i - 1] or "")
   end
 end
 
@@ -135,7 +140,7 @@ end
 function DocView:is_foldable(line)
   if line < #self.doc.lines and line >= 1 then
     if not self.folding_stack[line] then self:compute_fold(line) end
-    return #(self.folding_stack[line - 1] or "") < #self.folding_stack[line]
+    return #(self.folding_stack[line - 1] or "") < #self.folding_stack[line] and #self.folding_stack[line]
   end
   return false
 end
@@ -155,7 +160,7 @@ function DocView:toggle_fold(start_doc_line, value)
           self:compute_fold(end_doc_line+1) 
         end
         if #self.folding_stack[end_doc_line] < starting_fold then 
-          local _, _, last_found_start = compute_line_characteristics(blocks, self.doc.lines[end_doc_line], self.folding_stack[end_doc_line - 1])
+          local _, _, last_found_start = compute_line_characteristics(blocks, self.doc.highlighter:get_syntaxful_line(end_doc_line), self.folding_stack[end_doc_line - 1])
           self.folded[end_doc_line] = value and last_found_start
           break 
         end
@@ -248,7 +253,7 @@ command.add(DocView, {
   ["codefolding:fold-all"] = function(dv)
     dv:compute_fold(#dv.doc.lines)
     for i = #dv.doc.lines, 1, -1 do
-      if dv:is_foldable(i) == 0 then 
+      if dv:is_foldable(i) == 1 then 
         dv:toggle_fold(i, true) 
       end
     end
@@ -256,7 +261,7 @@ command.add(DocView, {
   ["codefolding:unfold-all"] = function(dv)
     dv:compute_fold(#dv.doc.lines)
     for i = #dv.doc.lines, 1, -1 do
-      if dv:is_foldable(i) == 0 then 
+      if dv:is_foldable(i) == 1 then 
         dv:toggle_fold(i, false) 
       end
     end
