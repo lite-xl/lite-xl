@@ -18,6 +18,9 @@
     wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/bracketmatch.lua -O ~/.config/lite-xl/plugins/bracketmatch.lua
     wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/language_go.lua -O ~/.config/lite-xl/plugins/language_go.lua
 
+Compare fonts wqy-microhei-terminal-mono.ttf vs MapleMonoNormalNL-CN-Regular.ttf vs SarasaMonoSC-Regular.ttf, I think SarasaMono is best:
+![](./wqy_maplemono_saramono.png)
+
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
