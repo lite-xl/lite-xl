@@ -874,7 +874,7 @@ command.add(
 
   ["treeview:new-file"] = function(item)
     local text
-    if not is_project_folder(item.abs_filename) then
+    if not is_project_folder(item) then
       if item.type == "dir" then
         text = item.filename .. PATHSEP
       elseif item.type == "file" then
@@ -900,7 +900,7 @@ command.add(
 
   ["treeview:new-folder"] = function(item)
     local text
-    if not is_project_folder(item.abs_filename) then
+    if not is_project_folder(item) then
       if item.type == "dir" then
         text = item.filename .. PATHSEP
       elseif item.type == "file" then
