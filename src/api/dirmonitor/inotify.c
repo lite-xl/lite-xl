@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <poll.h>
 
+#include "dirmonitor.h"
 
 struct dirmonitor_internal {
   int fd;
@@ -12,7 +13,7 @@ struct dirmonitor_internal {
 };
 
 
-struct dirmonitor_internal* init_dirmonitor() {
+static struct dirmonitor_internal* init_dirmonitor() {
   struct dirmonitor_internal* monitor = calloc(1, sizeof(struct dirmonitor_internal));
   monitor->fd = inotify_init();
   pipe(monitor->sig);
@@ -22,35 +23,46 @@ struct dirmonitor_internal* init_dirmonitor() {
 }
 
 
-void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
+static void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
   close(monitor->fd);
   close(monitor->sig[0]);
   close(monitor->sig[1]);
 }
 
 
-int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
+static int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length) {
   struct pollfd fds[2] = { { .fd = monitor->fd, .events = POLLIN | POLLERR, .revents = 0 }, { .fd = monitor->sig[0], .events = POLLIN | POLLERR, .revents = 0 } };
   poll(fds, 2, -1);
   return read(monitor->fd, buffer, length);
 }
 
 
-int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length, int (*change_callback)(int, const char*, void*), void* data) {
+static int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length, int (*change_callback)(int, const char*, void*), void* data) {
   for (struct inotify_event* info = (struct inotify_event*)buffer; (char*)info < buffer + length; info = (struct inotify_event*)((char*)info + sizeof(struct inotify_event)))
     change_callback(info->wd, NULL, data);
   return 0;
 }
 
 
-int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
+static int add_dirmonitor(struct dirmonitor_internal* monitor, const char* path) {
   return inotify_add_watch(monitor->fd, path, IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MODIFY | IN_MOVED_TO);
 }
 
 
-void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
+static void remove_dirmonitor(struct dirmonitor_internal* monitor, int fd) {
   inotify_rm_watch(monitor->fd, fd);
 }
 
 
 int get_mode_dirmonitor() { return 2; }
+
+struct dirmonitor_backend dirmonitor_inotify = {
+  .name = "inotify",
+  .init = init_dirmonitor,
+  .deinit = deinit_dirmonitor,
+  .get_changes = get_changes_dirmonitor,
+  .translate_changes = translate_changes_dirmonitor,
+  .add = add_dirmonitor,
+  .remove = remove_dirmonitor,
+  .get_mode = get_mode_dirmonitor,
+};
