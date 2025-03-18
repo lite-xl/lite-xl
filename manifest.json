@@ -1,0 +1,72 @@
+{
+  "lite-xls": [
+    {
+      "assets": [
+        {
+          "arch": [
+            "x86_64-darwin",
+            "aarch64-darwin"
+          ],
+          "checksum": "ffd444c65cce7e0c06dc80009f383f116aded4400750e992ca22fdaea1111824",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-universal-darwin-portable.tar.gz"
+        },
+        {
+          "arch": "x86_64-linux",
+          "checksum": "8f4c0232d83757b33a28c7d7c18b10cb2a485e066747e286f588de806615713b",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-x86_64-linux-portable.tar.gz"
+        },
+        {
+          "arch": "x86_64-windows",
+          "checksum": "c849df31a2e2039ff0deb630d3cca422b2b4ac5158cad3d4e1647d1d677e452d",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-x86_64-windows-portable.zip"
+        }
+      ],
+      "mod_version": "4",
+      "version": "3.0-continuous"
+    },
+    {
+      "assets": [
+        {
+          "arch": "linux-x86_64",
+          "checksum": "430afb894801200c3fcf4123e3bb17006b369c25bc59c39bf04b4bcafeb96ee6",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/v2.1.7/lite-xl-v2.1.7-linux-x86_64-portable.tar.gz"
+        }
+      ],
+      "mod_version": "3.0.0",
+      "version": "2.1.7"
+    },
+    {
+      "assets": [
+        {
+          "arch": "linux-x86_64",
+          "checksum": "13523ff6713dc839338fd306263f714d13a062a4a718a01df12f0d3fd98a187f",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/v2.1.6/lite-xl-v2.1.6-linux-x86_64-portable.tar.gz"
+        }
+      ],
+      "mod_version": "3.0.0",
+      "version": "2.1.6"
+    },
+    {
+      "assets": [
+        {
+          "arch": "linux-x86_64",
+          "checksum": "ae1ad1a5fa5820a812f83e0624d1198b349f55045f3ec045e292fcefa542eab0",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/v2.1.5/lite-xl-v2.1.5-linux-x86_64-portable.tar.gz"
+        }
+      ],
+      "mod_version": "3.0.0",
+      "version": "2.1.5"
+    },
+    {
+      "assets": [
+        {
+          "arch": "linux-x86_64",
+          "checksum": "080470b784418669ffc64a0eef6a8c92d3bef5158ade51472aa343b2e2cf3fc6",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/v2.1.4/lite-xl-v2.1.4-linux-x86_64-portable.tar.gz"
+        }
+      ],
+      "mod_version": "3.0.0",
+      "version": "2.1.4"
+    }
+  ]
+}
