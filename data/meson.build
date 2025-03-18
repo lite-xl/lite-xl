@@ -10,6 +10,8 @@ if get_option('bundle_plugins').length() > 0
             '--userdir', '@OUTPUT0@',
             '--cachedir', '@OUTPUT1@',
             '--assume-yes',
+            '--mod-version=4',
+            '--repository=https://github.com/lite-xl/lite-xl-plugin-manager.git:3.0',
             'install',
             get_option('bundle_plugins'),
         ],
