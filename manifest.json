@@ -7,17 +7,17 @@
             "x86_64-darwin",
             "aarch64-darwin"
           ],
-          "checksum": "ffd444c65cce7e0c06dc80009f383f116aded4400750e992ca22fdaea1111824",
+          "checksum": "SKIP",
           "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-universal-darwin-portable.tar.gz"
         },
         {
           "arch": "x86_64-linux",
-          "checksum": "8f4c0232d83757b33a28c7d7c18b10cb2a485e066747e286f588de806615713b",
+          "checksum": "SKIP",
           "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-x86_64-linux-portable.tar.gz"
         },
         {
           "arch": "x86_64-windows",
-          "checksum": "c849df31a2e2039ff0deb630d3cca422b2b4ac5158cad3d4e1647d1d677e452d",
+          "checksum": "SKIP",
           "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-x86_64-windows-portable.zip"
         }
       ],
