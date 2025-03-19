@@ -1,6 +1,6 @@
     # this fork added support for x11 synthetic keyboard events(send_event) (src/api/system.c, 
     https://github.com/lite-xl/lite-xl/issues/1778)
-    # added chinese mono fonts (data/fonts/wqy-microhei-terminal-mono.ttf, SarasaMonoSC-Regular.ttf)
+    # added chinese mono fonts (data/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf, SarasaMonoSC-Regular.ttf)
     # modified tab char display style into "--->" (data/plugins/drawwhitespace.lua)
 
     # to modify settings(init.lua) to disable spliting cursor and moving lines
@@ -10,8 +10,9 @@
 
     # to modify settings(init.lua) to load chinese mono font, and to display tab char:
     # SarasaMonoSC-Regular.ttf, WenQuanYiZenHeiMono_wideMidDot.ttf are better, it make chinese char width vs english char width exactly 2:1
+    # extract WenQuanYiZenHeiMono.ttf from official wqy-zenhei.ttc(with fontforge and https://transfonter.org/ttc-unpack),
+    # then modify the advanced width of the MidDot char with bless hex editor, got WenQuanYiZenHeiMono_wideMidDot.ttf
     style.font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 14 * SCALE)
-    --style.code_font = renderer.font.load(DATADIR .. "/fonts/wqy-microhei-terminal-mono.ttf", 14 * SCALE)
     --style.code_font = renderer.font.load(DATADIR .. "/fonts/MapleMonoNormalNL-CN-Regular.ttf", 14 * SCALE) ---too big space between chinese chars
     --style.code_font = renderer.font.load(DATADIR .. "/fonts/SourceHanSansHWSC-Regular.otf", 14 * SCALE)  --too big space between lines
     --style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 15 * SCALE)    --better, but "l" is similar to "1"
