@@ -9,9 +9,15 @@
     keymap.unbind("ctrl+down")
 
     # to modify settings(init.lua) to load chinese mono font, and to display tab char:
-    # style.code_font = renderer.font.load(DATADIR .. "/fonts/wqy-microhei-terminal-mono.ttf", 14 * SCALE)
-    # SarasaMonoSC-Regular.ttf is better, it make chinese char width vs english char width exactly 2:1
-    style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 14 * SCALE)
+    # SarasaMonoSC-Regular.ttf, WenQuanYiZenHeiMono_wideMidDot.ttf are better, it make chinese char width vs english char width exactly 2:1
+    style.font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 14 * SCALE)
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/wqy-microhei-terminal-mono.ttf", 14 * SCALE)
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/MapleMonoNormalNL-CN-Regular.ttf", 14 * SCALE) ---too big space between chinese chars
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SourceHanSansHWSC-Regular.otf", 14 * SCALE)  --too big space between lines
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 15 * SCALE)    --better, but "l" is similar to "1"
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono.ttf", 14 * SCALE)      --failed to draw white space
+    style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 14 * SCALE)     --best
+
     config.plugins.drawwhitespace.enabled = true
     config.indent_size = 4
 
