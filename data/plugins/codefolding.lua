@@ -108,21 +108,39 @@ function DocView:tokenize(line)
   self:compute_fold(line)
   if self.folded[line] then 
     if self.folded[line] == true then return {} end
-    local idx = 1
-    local new_tokens = {}
-    while (tokens[idx] ~= "doc" or tokens[idx + 3] > self.folded[line]) and idx <= #tokens do
-      if tokens[idx] == "doc" then
-        table.insert(new_tokens, "doc")
-        table.insert(new_tokens, line)
-        table.insert(new_tokens, self.folded[line])
-        table.insert(new_tokens, tokens[idx + 3])
-        table.insert(new_tokens, tokens[idx + 4])
-        table.move(tokens, idx + 5, #tokens, #new_tokens, new_tokens)
-        break
+    -- if this is the end of a fold, let's compute the line characteristics again. If we don't have an end block, then this fold 
+    -- is no longer valid, so go back and invalidate everything prior to this that was folded, until we don't get a fold
+    ---local stack, first_found_end, last_found_start = compute_line_characteristics(blocks, self.doc.get_syntaxful_line(line), self.folding_stack[line-1] or "")
+    --local last_found_start = compute_line_characteristics(blocks, self.doc.get_syntaxful_line(line), self.folding_stack[line-1] or "")
+    local _, last_found_start = compute_line_characteristics(blocks, self.doc.highlighter:get_syntaxful_line(line), self.folding_stack[line-1] or "")
+    if last_found_start then
+      local idx = 1
+      local new_tokens = {}
+      while (tokens[idx] ~= "doc" or tokens[idx + 3] > self.folded[line]) and idx <= #tokens do
+        if tokens[idx] == "doc" then
+          table.insert(new_tokens, "doc")
+          table.insert(new_tokens, line)
+          table.insert(new_tokens, self.folded[line])
+          table.insert(new_tokens, tokens[idx + 3])
+          table.insert(new_tokens, tokens[idx + 4])
+          table.move(tokens, idx + 5, #tokens, #new_tokens, new_tokens)
+          break
+        end
+        idx = idx + 5
       end
-      idx = idx + 5
+      return new_tokens
+    else
+      local start_line = line
+      while start_line > 1 and self.folded[start_line] do
+        self.folded[start_line] = false
+        start_line = start_line - 1
+      end
+      -- should probably avoid doing this
+      core.add_thread(function()
+        self:invalidate_cache(start_line, line - 1)
+      end)
+      return tokens
     end
-    return new_tokens
   end
   if self:is_foldable(line) and self.folded[line+1] and self.folded[line+1] == true then
     -- remove the newline from the end of the tokens
