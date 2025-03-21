@@ -256,8 +256,9 @@ function DocView:on_mouse_pressed(button, x, y, clicks)
 end
 
 command.add(function()
-  if not core.active_view:extends(DocView) or not core.active_view:get_folding_blocks() then return false end
-  local line = core.active_view:get_selection()
+  if not core.active_view:extends(DocView) or not core.active_view:get_folding_blocks() then return false end 
+  local vline = core.active_view:get_vline(core.active_view:get_selection())
+  local line = core.active_view:get_dline(vline, 1)
   return core.active_view:is_foldable(line), core.active_view
 end, {
   ["codefolding:toggle"] = function(dv)
