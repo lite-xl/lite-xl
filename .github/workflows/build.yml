@@ -82,7 +82,7 @@ jobs:
         
       - name: Install Dependencies
         run: |
-          brew install bash
+          brew install bash sdl3
           pip3 install meson ninja
         
       - name: Build & Package Mac (Bundle)
@@ -201,6 +201,7 @@ jobs:
             git
             zip
             patch
+            sdl3
           pacboy: >-
             gcc:p
             meson:p

@@ -19,7 +19,7 @@ static void setup_renderer(RenWindow *ren, int w, int h) {
   /* Note that w and h here should always be in pixels and obtained from
      a call to SDL_GL_GetDrawableSize(). */
   if (!ren->renderer) {
-    ren->renderer = SDL_CreateRenderer(ren->window, -1, 0);
+    ren->renderer = SDL_CreateRenderer(ren->window, -1);
   }
   if (ren->texture) {
     SDL_DestroyTexture(ren->texture);
