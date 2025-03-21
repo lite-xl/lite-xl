@@ -82,6 +82,7 @@ end
 local old_draw = DocView.draw
 function DocView:draw()
   old_draw(self)
+  if not self.wrapping then return end
   local new_width = self.size.x
   if self.wrapping and config.plugins.linewrapping.guide and config.plugins.linewrapping.width_override then
     local width = config.plugins.linewrapping.width_override

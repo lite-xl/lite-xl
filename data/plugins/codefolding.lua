@@ -131,13 +131,13 @@ function DocView:tokenize(line)
       return new_tokens
     else
       local start_line = line
-      while start_line > 1 and self.folded[start_line] do
+      while start_line >= 1 and self.folded[start_line] do
         self.folded[start_line] = false
         start_line = start_line - 1
       end
       -- should probably avoid doing this
       core.add_thread(function()
-        self:invalidate_cache(start_line, line - 1)
+        self:invalidate_cache(start_line, line)
       end)
       return tokens
     end
@@ -184,6 +184,12 @@ function DocView:toggle_fold(start_doc_line, value)
         end
         self.folded[end_doc_line] = not not value
         end_doc_line = end_doc_line + 1
+      end
+      -- we didn't find the end of the fold, so therefor this entire fold is invalid. unfold everything.
+      if end_doc_line > #self.doc.lines then
+        for i = start_doc_line, #self.doc.lines do
+          self.folded[i] = false
+        end
       end
       --self:invalidate_cache(start_doc_line, end_doc_line)
       -- TODO: Don't potentially need to invalidate this much, but if we don't then we get a judder if you open/close a thing at the bottom of the screen.
