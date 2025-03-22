@@ -387,8 +387,14 @@ local commands = {
 
   ["doc:select-word"] = function(dv)
     for idx, line1, col1 in dv.doc:get_selections(true) do
-      local line1, col1 = translate.start_of_word(dv.doc, line1, col1)
-      local line2, col2 = translate.end_of_word(dv.doc, line1, col1)
+      local line2, col2;
+      if string.find(" \t", dv.doc:get_char(line1, col1), nil, true) then
+        line1, col1 = translate.start_of_whitespace(dv.doc, line1, col1)
+        line2, col2 = translate.end_of_whitespace(dv.doc, line1, col1)
+      else
+        line1, col1 = translate.start_of_word(dv.doc, line1, col1)
+        line2, col2 = translate.end_of_word(dv.doc, line1, col1)
+      end
       dv.doc:set_selections(idx, line2, col2, line1, col1)
     end
     set_primary_selection(dv.doc)
