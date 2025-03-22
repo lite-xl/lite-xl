@@ -32,6 +32,8 @@ show_help() {
   echo "-O --pgo                      Use profile guided optimizations (pgo)."
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
+  echo "-L --lto [MODE]               Enables Link-Time Optimization (LTO)."
+  echo "                              MODE: [default],thin"
   echo "   --cross-platform PLATFORM  Cross compile for this platform."
   echo "                              The script will find the appropriate"
   echo "                              cross file in 'resources/cross'."
@@ -53,6 +55,8 @@ main() {
   local bundle="-Dbundle=false"
   local portable="-Dportable=false"
   local pgo
+  local lto
+  local lto_mode
   local cross
   local cross_platform
   local cross_arch
@@ -118,6 +122,14 @@ main() {
         ;;
       -O|--pgo)
         pgo="-Db_pgo=generate"
+        shift
+        ;;
+      -L|--lto)
+        lto="-Db_lto=true"
+        if [[ -n $2 ]] && [[ $2 != -* ]]; then
+          lto_mode="-Db_lto_mode=$2"
+          shift
+        fi
         shift
         ;;
       --cross-arch)
@@ -223,6 +235,8 @@ main() {
     $bundle \
     $portable \
     $pgo \
+    $lto \
+    $lto_mode \
     $plugins \
     $reconfigure
 
