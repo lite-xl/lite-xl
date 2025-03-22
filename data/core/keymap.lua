@@ -346,6 +346,8 @@ keymap.add_direct {
   ["escape"] = { "command:escape", "doc:select-none", "dialog:select-no" },
   ["tab"] = { "command:complete", "doc:indent" },
   ["shift+tab"] = "doc:unindent",
+  ["ctrl+alt+["] = "doc:unindent-lines",
+  ["ctrl+alt+]"] = "doc:indent-lines",
   ["backspace"] = "doc:backspace",
   ["shift+backspace"] = "doc:backspace",
   ["ctrl+backspace"] = "doc:delete-to-previous-word-start",
