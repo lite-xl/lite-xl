@@ -97,7 +97,7 @@ jobs:
           entrypoint: /entrypoint.sh
           args: |
             bash --version
-            bash scripts/build.sh --debug --forcefallback --portable --release
+            bash scripts/build.sh --debug --forcefallback --portable --release --lto
 
       - name: Package Portables
         uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
@@ -170,7 +170,7 @@ jobs:
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh --bundle --debug --forcefallback --release
+          bash scripts/build.sh --bundle --debug --forcefallback --release --lto
 
       - name: Create DMG Image
         run: |
@@ -294,7 +294,7 @@ jobs:
       - name: Build
         run: |
           bash --version
-          bash scripts/build.sh -U --debug --forcefallback --release
+          bash scripts/build.sh -U --debug --forcefallback --release --lto
 
       - name: Package
         run: bash scripts/package.sh --version ${INSTALL_REF} --debug --binary --release
