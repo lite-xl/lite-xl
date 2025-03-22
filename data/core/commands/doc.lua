@@ -729,6 +729,9 @@ for name, obj in pairs(translations) do
   end
 end
 
+commands["doc:delete-word-left"] = function(dv) dv.doc:delete_to(translate.word_left, dv) end
+commands["doc:delete-word-right"] = function(dv) dv.doc:delete_to(translate.word_right, dv) end
+
 commands["doc:move-to-previous-char"] = function(dv)
   for idx, line1, col1, line2, col2 in dv.doc:get_selections(true) do
     if line1 ~= line2 or col1 ~= col2 then
