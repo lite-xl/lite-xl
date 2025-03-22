@@ -26,6 +26,8 @@ show_help() {
   echo "                              macOS: disabled when used with --bundle,"
   echo "                              Windows: Implicit being the only option."
   echo "-r --release                  Compile in release mode."
+  echo "-L --lto [MODE]               Enables Link-Time Optimization (LTO)."
+  echo "                              MODE: [default],thin"
   echo "   --cross-platform PLATFORM  Cross compile for this platform."
   echo "                              The script will find the appropriate"
   echo "                              cross file in 'resources/cross'."
@@ -47,6 +49,8 @@ main() {
   local portable
   local pgo
   local patch_lua
+  local lto
+  local lto_mode
   local cross
   local cross_platform
   local cross_arch
@@ -97,6 +101,13 @@ main() {
       -U|--windows-lua-utf)
         patch_lua="true"
         shift
+        ;;
+      -L|--lto)
+        lto="-Db_lto=true"
+        if [[ -n $2 ]] && [[ $2 != -* ]]; then
+          lto_mode="-Db_lto_mode=$2"
+          shift
+        fi
         ;;
       --cross-arch)
         cross="true"
@@ -195,6 +206,8 @@ main() {
     $bundle \
     $portable \
     $pgo \
+    $lto \
+    $lto_mode \
     "${build_dir}"
 
   meson compile -C "${build_dir}"
