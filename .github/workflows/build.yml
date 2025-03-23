@@ -192,7 +192,7 @@ jobs:
         uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
-          run: bash scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} --mode ${{ needs.version.outputs.buildtype }} -b build
+          run: bash scripts/package-appimage.sh --debug --reconfigure --version ${{ needs.version.outputs.ref }} --mode ${{ needs.version.outputs.buildtype }} -b build
         
       - name: Upload (Release)
         uses: actions/upload-artifact@v4
@@ -234,7 +234,7 @@ jobs:
         run: cd build && zip -r ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable.zip lite-xl && cd ..
         
       - name: Package Windows (InnoSetup)
-        run: bash scripts/package-innosetup.sh --debug --version ${{ needs.version.outputs.ref }} --mode ${{ needs.version.outputs.buildtype }} -b build
+        run: bash scripts/package-innosetup.sh --debug --version ${{ needs.version.outputs.ref }} -b build
         
       - name: Upload (Release)
         uses: actions/upload-artifact@v4
