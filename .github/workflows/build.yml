@@ -58,8 +58,8 @@ jobs:
         id: check_release
         env: { BUILDTYPE: "${{ github.event.inputs.buildtype }}" }
         run: |
-          if [[ $GITHUB_EVENT_NAME = pull_request || ( $GITHUB_EVENT_NAME = push && $GITHUB_REF != refs/heads/master ) ]]; then
-            export BUILDTYPE="debug"
+          if [[ $GITHUB_REF == refs/pull/* || ( $GITHUB_REF != refs/heads/master && $GITHUB_REF != refs/tags/* ) ]]; then
+            export BUILDTYPE="debugoptimized"
           elif [[ -z $BUILDTYPE ]]; then
             export BUILDTYPE="release"
           fi
