@@ -1,4 +1,5 @@
 -- mod-version:4
+local core = require "core"
 local common = require "core.common"
 local config = require "core.config"
 local command = require "core.command"
@@ -106,9 +107,12 @@ Doc.save = function(self, ...)
     and
     not self.disable_trim_whitespace
   then
-    trimwhitespace.trim(self)
-    if config.plugins.trimwhitespace.trim_empty_end_lines then
-      trimwhitespace.trim_empty_end_lines(self)
+    for _, view in ipairs(core.get_views_referencing_doc(self)) do
+      trimwhitespace.trim(view)
+      if config.plugins.trimwhitespace.trim_empty_end_lines then
+        trimwhitespace.trim_empty_end_lines(view)
+      end
+      break
     end
   end
   doc_save(self, ...)
