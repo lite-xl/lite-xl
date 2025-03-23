@@ -1401,7 +1401,7 @@ function DocView:get_dline(vline, vcol, rounding)
 end
 
 function DocView:get_vselections(sort_intra, idx_reverse)
-  if not self.vselections then
+  if not self.vselections or not self.vselections[sort_intra] then
     local vselections = {}
     for lidx, line1, col1, line2, col2 in self:get_selections(sort_intra) do
       local vline1, vcol1 = self:get_vline(line1, col1)
@@ -1411,9 +1411,10 @@ function DocView:get_vselections(sort_intra, idx_reverse)
       table.insert(vselections, vline2)
       table.insert(vselections, vcol2)
     end
-    self.vselections = vselections
+    if not self.vselections then self.vselections = {} end
+    self.vselections[sort_intra] = vselections
   end
-  return selection_iterator, { self.vselections, false, idx_reverse, self },
+  return selection_iterator, { self.vselections[sort_intra], false, idx_reverse, self },
       idx_reverse == true and ((#vselections / 4) + 1) or ((idx_reverse or -1) + 1)
 end
 
