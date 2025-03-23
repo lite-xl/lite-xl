@@ -278,6 +278,7 @@ function DocView:set_selections(idx, line1, col1, line2, col2, swap, rm)
   line1, col1 = self.doc:sanitize_position(line1, col1)
   line2, col2 = self.doc:sanitize_position(line2 or line1, col2 or col1)
   common.splice(self.selections, (idx - 1) * 4 + 1, rm == nil and 4 or rm, { line1, col1, line2, col2 })
+  self.vselections = nil
 end
 
 function DocView:add_selection(line1, col1, line2, col2, swap)
@@ -1400,16 +1401,19 @@ function DocView:get_dline(vline, vcol, rounding)
 end
 
 function DocView:get_vselections(sort_intra, idx_reverse)
-  local vselections = {}
-  for lidx, line1, col1, line2, col2 in self:get_selections(sort_intra) do
-    local vline1, vcol1 = self:get_vline(line1, col1)
-    local vline2, vcol2 = self:get_vline(line2, col2)
-    table.insert(vselections, vline1)
-    table.insert(vselections, vcol1)
-    table.insert(vselections, vline2)
-    table.insert(vselections, vcol2)
+  if not self.vselections then
+    local vselections = {}
+    for lidx, line1, col1, line2, col2 in self:get_selections(sort_intra) do
+      local vline1, vcol1 = self:get_vline(line1, col1)
+      local vline2, vcol2 = self:get_vline(line2, col2)
+      table.insert(vselections, vline1)
+      table.insert(vselections, vcol1)
+      table.insert(vselections, vline2)
+      table.insert(vselections, vcol2)
+    end
+    self.vselections = vselections
   end
-  return selection_iterator, { vselections, false, idx_reverse, self },
+  return selection_iterator, { self.vselections, false, idx_reverse, self },
       idx_reverse == true and ((#vselections / 4) + 1) or ((idx_reverse or -1) + 1)
 end
 
