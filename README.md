@@ -21,7 +21,7 @@
     --style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono.ttf", 16 * SCALE)      --best, but failed to draw white space
     --style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 17 * SCALE)    --better, but "l" is similar to "1"
     style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 16 * SCALE)  --best, fixed white space
-    config.line_height=0.85   --lite-xl default line-height(1.2, line-height x 1.2) is too big, reduce it to 0.85
+    config.line_height=0.85   --lite-xl default line-spacing/line-height(1.2, char height x 1.2) is too big, reduce it to 0.85
 
     config.plugins.drawwhitespace.enabled = true
     config.indent_size = 4
