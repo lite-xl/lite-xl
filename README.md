@@ -13,11 +13,15 @@
     # extract WenQuanYiZenHeiMono.ttf from official wqy-zenhei.ttc(with fontforge and https://transfonter.org/ttc-unpack),
     # then modify the advanced width of the MidDot char with bless hex editor, got WenQuanYiZenHeiMono_wideMidDot.ttf
     style.font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 14 * SCALE)
-    --style.code_font = renderer.font.load(DATADIR .. "/fonts/MapleMonoNormalNL-CN-Regular.ttf", 14 * SCALE) ---too big space between chinese chars
-    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SourceHanSansHWSC-Regular.otf", 14 * SCALE)  --too big space between lines
-    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 15 * SCALE)    --better, but "l" is similar to "1"
-    --style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono.ttf", 14 * SCALE)      --failed to draw white space
-    style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 14 * SCALE)     --best
+    --汉字|对齐|字母|abcdefghijklmnopqrstuvwxyz
+    --abcd|abce|abcd|abcdefghijklmnopqrstuvwxyz
+    --line height: SourceHanSansHW font size 15 == MapleMono 16 == WenQuanYiZenHeiMono 16 == SarasaMono 17
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SourceHanSansHWSC-Regular.otf", 15 * SCALE)  --too big space between lines
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/MapleMonoNormalNL-CN-Regular.ttf", 16 * SCALE) ---too big space between chinese chars
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono.ttf", 16 * SCALE)      --best, but failed to draw white space
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 17 * SCALE)    --better, but "l" is similar to "1"
+    style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 16 * SCALE)  --best, fixed white space
+    config.line_height=0.85   --lite-xl default line-height(1.2, line-height x 1.2) is too big
 
     config.plugins.drawwhitespace.enabled = true
     config.indent_size = 4
