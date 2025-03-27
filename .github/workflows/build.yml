@@ -163,7 +163,7 @@ jobs:
       - uses: actions/checkout@v4
         
       - name: Build
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
           args: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
@@ -172,7 +172,7 @@ jobs:
         run: tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl
 
       - name: Package Linux (AppImage)
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
           run: bash scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
@@ -201,13 +201,13 @@ jobs:
             git
             zip
             patch
-            sdl3
           pacboy: >-
             gcc:p
             meson:p
             ca-certificates:p
             ninja:p
             pkg-config:p
+            sdl3:p
 
       - uses: actions/checkout@v4
         
