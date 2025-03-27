@@ -218,13 +218,13 @@ jobs:
             git
             zip
             patch
-            sdl3
           pacboy: >-
             gcc:p
             meson:p
             ca-certificates:p
             ninja:p
             pkg-config:p
+            sdl3:p
 
       - uses: actions/checkout@v4
 
