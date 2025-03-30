@@ -30,7 +30,10 @@ local function save_session()
     fp:write("return {recents=", common.serialize(core.recent_projects),
       ", window=", common.serialize(table.pack(system.get_window_size(core.window))),
       ", window_mode=", common.serialize(system.get_window_mode(core.window)),
-      "}\n"):close()
+      ", previous_find=", common.serialize(core.previous_find),
+      ", previous_replace=", common.serialize(core.previous_replace),
+      "}\n")
+    fp:close()
   end
 end
 
