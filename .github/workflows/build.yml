@@ -265,7 +265,7 @@ jobs:
           echo "PKG_CONFIG=C:\vcpkg\installed\x64-windows-release\tools\pkgconf\pkgconf.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Configure
-        run: meson setup --wrap-mode=forcefallback build
+        run: meson setup --wrap-mode=forcefallback --buildtype=debugoptimized build
 
       - name: Build
         run: meson install -C build --skip-subprojects --destdir="lite-xl"
