@@ -623,7 +623,7 @@ function core.load_plugins()
         plugin.version_string,
         common.dirname(plugin.file)
       )
-      local rlist = plugin.dir:find(USERDIR, 1, true) == 1
+      local rlist = plugin.file:find(USERDIR, 1, true) == 1
         and 'userdir' or 'datadir'
       table.insert(refused_list[rlist].plugins, plugin)
     elseif config.plugins[plugin.name] ~= false then
