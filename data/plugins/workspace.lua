@@ -1,20 +1,28 @@
--- mod-version:4
+-- mod-version:3
 local core = require "core"
 local common = require "core.common"
 local DocView = require "core.docview"
 local LogView = require "core.logview"
-local storage = require "core.storage"
 
-local STORAGE_MODULE = "ws"
 
-local function workspace_keys_for(project_dir)
+local function workspace_files_for(project_dir)
   local basename = common.basename(project_dir)
+  local workspace_dir = USERDIR .. PATHSEP .. "ws"
+  local info_wsdir = system.get_file_info(workspace_dir)
+  if not info_wsdir then
+    local ok, err = system.mkdir(workspace_dir)
+    if not ok then
+      error("cannot create workspace directory: \"" .. err .. "\"")
+    end
+  end
   return coroutine.wrap(function()
-    for _, key in ipairs(storage.keys(STORAGE_MODULE) or {}) do
-      if key:sub(1, #basename) == basename then
-        local id = tonumber(key:sub(#basename + 1):match("^-(%d+)$"))
+    local files = system.list_dir(workspace_dir) or {}
+    local n = #basename
+    for _, file in ipairs(files) do
+      if file:sub(1, n) == basename then
+        local id = tonumber(file:sub(n + 1):match("^-(%d+)$"))
         if id then
-          coroutine.yield(key, id)
+          coroutine.yield(workspace_dir .. PATHSEP .. file, id)
         end
       end
     end
@@ -22,14 +30,29 @@ local function workspace_keys_for(project_dir)
 end
 
 
-local function consume_workspace(project_dir)
-  for key, id in workspace_keys_for(project_dir) do
-    local workspace = storage.load(STORAGE_MODULE, key)
+local function consume_workspace_file(project_dir)
+  for filename, id in workspace_files_for(project_dir) do
+    local load_f = loadfile(filename)
+    local workspace = load_f and load_f()
     if workspace and workspace.path == project_dir then
-      storage.clear(STORAGE_MODULE, key)
+      os.remove(filename)
       return workspace
     end
   end
+end
+
+
+local function get_workspace_filename(project_dir)
+  local id_list = {}
+  for filename, id in workspace_files_for(project_dir) do
+    id_list[id] = true
+  end
+  local id = 1
+  while id_list[id] do
+    id = id + 1
+  end
+  local basename = common.basename(project_dir)
+  return USERDIR .. PATHSEP .. "ws" .. PATHSEP .. basename .. "-" .. tostring(id)
 end
 
 
@@ -143,7 +166,7 @@ local function load_node(node, t)
           active_view = view
         end
         if not view:is(DocView) then
-          view.scroll = v.scroll
+          view.scroll = v.scroll	
         end
       end
     end
@@ -162,32 +185,30 @@ end
 
 
 local function save_directories()
-  local project_dir = core.root_project().path
+  local project_dir = core.project_dir
   local dir_list = {}
-  for i = 2, #core.projects do
-    dir_list[#dir_list + 1] = common.relative_path(project_dir, core.projects[i].path)
+  for i = 2, #core.project_directories do
+    dir_list[#dir_list + 1] = common.relative_path(project_dir, core.project_directories[i].name)
   end
   return dir_list
 end
 
 
 local function save_workspace()
-  local project_dir = common.basename(core.root_project().path)
-  local id_list = {}
-  for filename, id in workspace_keys_for(project_dir) do
-    id_list[id] = true
-  end
-  local id = 1
-  while id_list[id] do
-    id = id + 1
-  end
   local root = get_unlocked_root(core.root_view.root_node)
-  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories(), previous_find = core.previous_find, previous_replace = core.previous_replace })
+  local workspace_filename = get_workspace_filename(core.project_dir)
+  local fp = io.open(workspace_filename, "w")
+  if fp then
+    local node_text = common.serialize(save_node(root))
+    local dir_text = common.serialize(save_directories())
+    fp:write(string.format("return { path = %q, documents = %s, directories = %s }\n", core.project_dir, node_text, dir_text))
+    fp:close()
+  end
 end
 
 
 local function load_workspace()
-  local workspace = consume_workspace(core.root_project().path)
+  local workspace = consume_workspace_file(core.project_dir)
   if workspace then
     local root = get_unlocked_root(core.root_view.root_node)
     local active_view = load_node(root, workspace.documents)
@@ -195,10 +216,8 @@ local function load_workspace()
       core.set_active_view(active_view)
     end
     for i, dir_name in ipairs(workspace.directories) do
-      core.add_project(system.absolute_path(dir_name))
+      core.add_project_directory(system.absolute_path(dir_name))
     end
-    core.previous_find = workspace.previous_find or {}
-    core.previous_replace = workspace.previous_replace or {}
   end
 end
 
@@ -209,19 +228,17 @@ function core.run(...)
   if #core.docs == 0 then
     core.try(load_workspace)
 
-    local set_project = core.set_project
-    function core.set_project(project)
+    local on_quit_project = core.on_quit_project
+    function core.on_quit_project()
       core.try(save_workspace)
-      local project = set_project(project)
+      on_quit_project()
+    end
+
+    local on_enter_project = core.on_enter_project
+    function core.on_enter_project(new_dir)
+      on_enter_project(new_dir)
       core.try(load_workspace)
-      return project
     end
-    local exit = core.exit
-    function core.exit(quit_fn, force)
-      if force then core.try(save_workspace) end
-      exit(quit_fn, force)
-    end
-    
   end
 
   core.run = run
