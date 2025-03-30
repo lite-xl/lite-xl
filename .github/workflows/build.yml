@@ -268,11 +268,10 @@ jobs:
         run: meson setup --wrap-mode=forcefallback build
 
       - name: Build
-        run: meson install -C build --skip-subprojects --destdir="../lite-xl"
+        run: meson install -C build --skip-subprojects --destdir="lite-xl"
 
       - name: Package
-        shell: powershell {0}
-        run: Compress-Archive -Path lite-xl -DestinationPath "lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip"
+        run: cd build && 7z a -mx=9 "..\lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip" lite-xl && cd ..
 
       - name: Upload Artifacts (Intermediate)
         uses: actions/upload-artifact@v4
