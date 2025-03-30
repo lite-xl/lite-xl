@@ -60,7 +60,7 @@ freetype_dep = dependency('freetype2', fallback: ['freetype2', 'freetype_dep'],
 )
 
 
-sdl_dep = dependency('sdl3')
+sdl_dep = dependency('sdl3', static: true)
 
 lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
 
