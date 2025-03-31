@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <ctype.h>
 
 #define SDL_MAIN_USE_CALLBACKS
 
