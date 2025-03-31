@@ -153,7 +153,7 @@ static int initialize_lua(int argc, char **argv) {
   lua_setglobal(app_L, "EXEFILE");
 
 #ifdef MACOS_USE_BUNDLE
-  set_macos_bundle_resources(L);
+  set_macos_bundle_resources(app_L);
 #endif
 
   // a function to catch error and send them to files
