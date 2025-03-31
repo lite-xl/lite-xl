@@ -27,25 +27,6 @@
 #endif
 #endif
 
-static const char* button_name(int button) {
-  switch (button) {
-    case SDL_BUTTON_LEFT   : return "left";
-    case SDL_BUTTON_MIDDLE : return "middle";
-    case SDL_BUTTON_RIGHT  : return "right";
-    case SDL_BUTTON_X1     : return "x";
-    case SDL_BUTTON_X2     : return "y";
-    default : return "?";
-  }
-}
-
-
-static void str_tolower(char *p) {
-  while (*p) {
-    *p = tolower(*p);
-    p++;
-  }
-}
-
 struct HitTestInfo {
   int title_height;
   int controls_width;
@@ -55,8 +36,8 @@ typedef struct HitTestInfo HitTestInfo;
 
 static HitTestInfo window_hit_info[1] = {{0, 0, 0}};
 
-#define RESIZE_FROM_TOP 0
-#define RESIZE_FROM_RIGHT 0
+#define RESIZE_FROM_TOP 1
+#define RESIZE_FROM_RIGHT 1
 
 static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
   const HitTestInfo *hit_info = (HitTestInfo *) data;
@@ -103,36 +84,6 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
   return SDL_HITTEST_NORMAL;
 }
 
-static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
-
-static const char *get_key_name(const SDL_Event *e, char *buf) {
-  SDL_Scancode scancode = e->key.scancode;
-  /* Is the scancode from the keypad and the number-lock off?
-  ** We assume that SDL_SCANCODE_KP_1 up to SDL_SCANCODE_KP_9 and SDL_SCANCODE_KP_0
-  ** and SDL_SCANCODE_KP_PERIOD are declared in SDL2 in that order. */
-  if (scancode >= SDL_SCANCODE_KP_1 && scancode <= SDL_SCANCODE_KP_1 + 10 &&
-    !(e->key.mod & SDL_KMOD_NUM)) {
-    return numpad[scancode - SDL_SCANCODE_KP_1];
-  } else {
-    /* We need to correctly handle non-standard layouts such as dvorak.
-       Therefore, if a Latin letter(code<128) is pressed in the current layout,
-       then we transmit it as it is. But we also need to support shortcuts in
-       other languages, so for non-Latin characters(code>128) we pass the
-       scancode based name that matches the letter in the QWERTY layout.
-
-       In SDL, the codes of all special buttons such as control, shift, arrows
-       and others, are masked with SDLK_SCANCODE_MASK, which moves them outside
-       the unicode range (>0x10FFFF). Users can remap these buttons, so we need
-       to return the correct name, not scancode based. */
-    if ((e->key.key < 128) || (e->key.key & SDLK_SCANCODE_MASK))
-      strcpy(buf, SDL_GetKeyName(e->key.key));
-    else
-      strcpy(buf, SDL_GetScancodeName(scancode));
-    str_tolower(buf);
-    return buf;
-  }
-}
-
 #ifdef _WIN32
 static char *win32_error(DWORD rc) {
   LPSTR message;
@@ -158,237 +109,17 @@ static void push_win32_error(lua_State *L, DWORD rc) {
 }
 #endif
 
-static int f_poll_event(lua_State *L) {
-  char buf[16];
-  float mx, my;
-  int w, h;
-  SDL_Event e;
-  SDL_Event event_plus;
+// defined in main.c, for backwards compatibility purposes
+int main_push_event(lua_State *L, SDL_Event *e);
 
-top:
+static int f_poll_event(lua_State *L) {
+  SDL_Event e;
+
   if ( !SDL_PollEvent(&e) ) {
     return 0;
   }
 
-  switch (e.type) {
-    case SDL_EVENT_QUIT:
-      lua_pushstring(L, "quit");
-      return 1;
-
-    case SDL_EVENT_WINDOW_RESIZED:
-      {
-        RenWindow* window_renderer = ren_find_window_from_id(e.window.windowID);
-        ren_resize_window(window_renderer);
-        lua_pushstring(L, "resized");
-        /* The size below will be in points. */
-        lua_pushinteger(L, e.window.data1);
-        lua_pushinteger(L, e.window.data2);
-        return 3;
-      }
-
-    case SDL_EVENT_WINDOW_EXPOSED:
-      rencache_invalidate();
-      lua_pushstring(L, "exposed");
-      return 1;
-
-    case SDL_EVENT_WINDOW_MINIMIZED:
-      lua_pushstring(L, "minimized");
-      return 1;
-
-    case SDL_EVENT_WINDOW_MAXIMIZED:
-      lua_pushstring(L, "maximized");
-      return 1;
-
-    case SDL_EVENT_WINDOW_RESTORED:
-      lua_pushstring(L, "restored");
-      return 1;
-
-    case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-      lua_pushstring(L, "mouseleft");
-      return 1;
-
-    case SDL_EVENT_WINDOW_FOCUS_LOST:
-      lua_pushstring(L, "focuslost");
-      return 1;
-
-    case SDL_EVENT_WINDOW_FOCUS_GAINED:
-      /* on some systems, when alt-tabbing to the window SDL will queue up
-      ** several KEYDOWN events for the `tab` key; we flush all keydown
-      ** events on focus so these are discarded */
-      SDL_FlushEvent(SDL_EVENT_KEY_DOWN);
-      goto top;
-
-
-    case SDL_EVENT_DROP_FILE:
-      {
-        RenWindow* window_renderer = ren_find_window_from_id(e.drop.windowID);
-        SDL_GetMouseState(&mx, &my);
-        lua_pushstring(L, "filedropped");
-        lua_pushstring(L, e.drop.data);
-        // a DND into dock event fired before a window is created
-        lua_pushinteger(L, mx * (window_renderer ? window_renderer->scale_x : 0));
-        lua_pushinteger(L, my * (window_renderer ? window_renderer->scale_y : 0));
-        return 4;
-      }
-
-    case SDL_EVENT_KEY_DOWN:
-#ifdef __APPLE__
-      /* on macos 11.2.3 with sdl 2.0.14 the keyup handler for cmd+w below
-      ** was not enough. Maybe the quit event started to be triggered from the
-      ** keydown handler? In any case, flushing the quit event here too helped. */
-      if ((e.key.key == SDLK_W) && (e.key.mod & SDL_KMOD_GUI)) {
-        SDL_FlushEvent(SDL_EVENT_QUIT);
-      }
-#endif
-      lua_pushstring(L, "keypressed");
-      lua_pushstring(L, get_key_name(&e, buf));
-      return 2;
-
-    case SDL_EVENT_KEY_UP:
-#ifdef __APPLE__
-      /* on macos command+w will close the current window
-      ** we want to flush this event and let the keymapper
-      ** handle this key combination.
-      ** Thanks to mathewmariani, taken from his lite-macos github repository. */
-      if ((e.key.key == SDLK_W) && (e.key.mod & SDL_KMOD_GUI)) {
-        SDL_FlushEvent(SDL_EVENT_QUIT);
-      }
-#endif
-      lua_pushstring(L, "keyreleased");
-      lua_pushstring(L, get_key_name(&e, buf));
-      return 2;
-
-    case SDL_EVENT_TEXT_INPUT:
-      lua_pushstring(L, "textinput");
-      lua_pushstring(L, e.text.text);
-      return 2;
-
-    case SDL_EVENT_TEXT_EDITING:
-      lua_pushstring(L, "textediting");
-      lua_pushstring(L, e.edit.text);
-      lua_pushinteger(L, e.edit.start);
-      lua_pushinteger(L, e.edit.length);
-      return 4;
-
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-      {
-        if (e.button.button == 1) { SDL_CaptureMouse(1); }
-        RenWindow* window_renderer = ren_find_window_from_id(e.button.windowID);
-        lua_pushstring(L, "mousepressed");
-        lua_pushstring(L, button_name(e.button.button));
-        lua_pushinteger(L, e.button.x * window_renderer->scale_x);
-        lua_pushinteger(L, e.button.y * window_renderer->scale_y);
-        lua_pushinteger(L, e.button.clicks);
-        return 5;
-      }
-
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-      {
-        if (e.button.button == 1) { SDL_CaptureMouse(0); }
-        RenWindow* window_renderer = ren_find_window_from_id(e.button.windowID);
-        lua_pushstring(L, "mousereleased");
-        lua_pushstring(L, button_name(e.button.button));
-        lua_pushinteger(L, e.button.x * window_renderer->scale_x);
-        lua_pushinteger(L, e.button.y * window_renderer->scale_y);
-        return 4;
-      }
-
-    case SDL_EVENT_MOUSE_MOTION:
-      {
-        SDL_PumpEvents();
-        while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_MOTION) > 0) {
-          e.motion.x = event_plus.motion.x;
-          e.motion.y = event_plus.motion.y;
-          e.motion.xrel += event_plus.motion.xrel;
-          e.motion.yrel += event_plus.motion.yrel;
-        }
-        RenWindow* window_renderer = ren_find_window_from_id(e.motion.windowID);
-        lua_pushstring(L, "mousemoved");
-        lua_pushinteger(L, e.motion.x * window_renderer->scale_x);
-        lua_pushinteger(L, e.motion.y * window_renderer->scale_y);
-        lua_pushinteger(L, e.motion.xrel * window_renderer->scale_x);
-        lua_pushinteger(L, e.motion.yrel * window_renderer->scale_y);
-        return 5;
-      }
-
-    case SDL_EVENT_MOUSE_WHEEL:
-      lua_pushstring(L, "mousewheel");
-      lua_pushinteger(L, e.wheel.y);
-      // Use -x to keep consistency with vertical scrolling values (e.g. shift+scroll)
-      lua_pushinteger(L, -e.wheel.x);
-      return 3;
-
-    case SDL_EVENT_FINGER_DOWN:
-      {
-        RenWindow* window_renderer = ren_find_window_from_id(e.tfinger.windowID);
-        SDL_GetWindowSize(window_renderer->window, &w, &h);
-
-        lua_pushstring(L, "touchpressed");
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
-        lua_pushinteger(L, e.tfinger.fingerID);
-        return 4;
-      }
-
-    case SDL_EVENT_FINGER_UP:
-      {
-        RenWindow* window_renderer = ren_find_window_from_id(e.tfinger.windowID);
-        SDL_GetWindowSize(window_renderer->window, &w, &h);
-
-        lua_pushstring(L, "touchreleased");
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
-        lua_pushinteger(L, e.tfinger.fingerID);
-        return 4;
-      }
-
-    case SDL_EVENT_FINGER_MOTION:
-      {
-        SDL_PumpEvents();
-        while (SDL_PeepEvents(&event_plus, 1, SDL_GETEVENT, SDL_EVENT_FINGER_MOTION, SDL_EVENT_FINGER_MOTION) > 0) {
-          e.tfinger.x = event_plus.tfinger.x;
-          e.tfinger.y = event_plus.tfinger.y;
-          e.tfinger.dx += event_plus.tfinger.dx;
-          e.tfinger.dy += event_plus.tfinger.dy;
-        }
-        RenWindow* window_renderer = ren_find_window_from_id(e.tfinger.windowID);
-        SDL_GetWindowSize(window_renderer->window, &w, &h);
-
-        lua_pushstring(L, "touchmoved");
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.x * w));
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.y * h));
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.dx * w));
-        lua_pushinteger(L, (lua_Integer)(e.tfinger.dy * h));
-        lua_pushinteger(L, e.tfinger.fingerID);
-        return 6;
-      }
-    case SDL_EVENT_WILL_ENTER_FOREGROUND:
-    case SDL_EVENT_DID_ENTER_FOREGROUND:
-      {
-        #ifdef LITE_USE_SDL_RENDERER
-          rencache_invalidate();
-        #else
-          RenWindow** window_list;
-          size_t window_count = ren_get_window_list(&window_list);
-          while (window_count) {
-            SDL_UpdateWindowSurface(window_list[--window_count]->window);
-          }
-        #endif
-        lua_pushstring(L, e.type == SDL_EVENT_WILL_ENTER_FOREGROUND ? "enteringforeground" : "enteredforeground");
-        return 1;
-      }
-    case SDL_EVENT_WILL_ENTER_BACKGROUND:
-      lua_pushstring(L, "enteringbackground");
-      return 1;
-    case SDL_EVENT_DID_ENTER_BACKGROUND:
-      lua_pushstring(L, "enteredbackground");
-      return 1;
-
-    default:
-      goto top;
-  }
-
-  return 0;
+  return main_push_event(L, &e);
 }
 
 
@@ -402,6 +133,17 @@ static int f_wait_event(lua_State *L) {
     lua_pushboolean(L, SDL_WaitEvent(NULL));
   }
   return 1;
+}
+
+
+static int f_set_callback_rate(lua_State *L) {
+  if (lua_isnumber(L, 1)) {
+    lua_pushinteger(L, lua_tointeger(L, 1));
+    lua_replace(L, 1);
+  }
+  int rate = luaL_checkinteger(L, 1);
+  SDL_SetHint(SDL_HINT_MAIN_CALLBACK_RATE, rate == -1 ? "waitevent" : lua_tostring(L, -1));
+  return 0;
 }
 
 
@@ -1171,6 +913,7 @@ static int f_setenv(lua_State* L) {
 
 
 static const luaL_Reg lib[] = {
+  { "set_callback_rate",     f_set_callback_rate     },
   { "poll_event",            f_poll_event            },
   { "wait_event",            f_wait_event            },
   { "set_cursor",            f_set_cursor            },

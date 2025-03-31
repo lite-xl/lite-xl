@@ -359,6 +359,8 @@ function core.init()
     end
   end
 
+  core.pending_events = {}
+  core.pending_events_count = 0
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.docs = {}
@@ -898,7 +900,12 @@ function core.try(fn, ...)
   return false, err
 end
 
-function core.on_event(type, ...)
+function core.on_event(type, a,b,c,d)
+  core.pending_events[core.pending_events_count + 1] = { type, a,b,c,d }
+  core.pending_events_count = core.pending_events_count + 1
+end
+
+function core.process_event(type, ...)
   local did_keymap = false
   if type == "textinput" then
     core.root_view:on_text_input(...)
@@ -961,23 +968,26 @@ end
 function core.step()
   -- handle events
   local did_keymap = false
-
-  for type, a,b,c,d in system.poll_event do
+  local pending_events = core.pending_events
+  for i = 1, core.pending_events_count do
+    local event = pending_events[i]
+    local type, a,b,c,d = event[1], event[2], event[3], event[4], event[5]
     if type == "textinput" and did_keymap then
       did_keymap = false
     elseif type == "mousemoved" then
-      core.try(core.on_event, type, a, b, c, d)
+      core.try(core.process_event, type, a, b, c, d)
     elseif type == "enteringforeground" then
       -- to break our frame refresh in two if we get entering/entered at the same time.
       -- required to avoid flashing and refresh issues on mobile
       core.redraw = true
       break
     else
-      local _, res = core.try(core.on_event, type, a, b, c, d)
+      local _, res = core.try(core.process_event, type, a, b, c, d)
       did_keymap = res or did_keymap
     end
     core.redraw = true
   end
+  core.pending_events_count = 0
 
   local width, height = core.window:get_size()
 
@@ -1052,55 +1062,49 @@ local run_threads = coroutine.wrap(function()
 end)
 
 
+local last_frame_time
+local run_threads_full = 0
+local callback_rate = 0
+local last_callback_rate = 0
 function core.run()
-  local next_step
-  local last_frame_time
-  local run_threads_full = 0
-  while true do
-    core.frame_start = system.get_time()
-    local time_to_wake, threads_done = run_threads()
-    if threads_done then
-      run_threads_full = run_threads_full + 1
-    end
-    local did_redraw = false
-    local did_step = false
-    local force_draw = core.redraw and last_frame_time and core.frame_start - last_frame_time > (1 / config.fps)
-    if force_draw or not next_step or system.get_time() >= next_step then
-      if core.step() then
-        did_redraw = true
-        last_frame_time = core.frame_start
-      end
-      next_step = nil
-      did_step = true
-    end
-    if core.restart_request or core.quit_request then break end
-
-    if not did_redraw then
-      if system.window_has_focus(core.window) or not did_step or run_threads_full < 2 then
-        local now = system.get_time()
-        if not next_step then -- compute the time until the next blink
-          local t = now - core.blink_start
-          local h = config.blink_period / 2
-          local dt = math.ceil(t / h) * h - t
-          local cursor_time_to_wake = dt + 1 / config.fps
-          next_step = now + cursor_time_to_wake
-        end
-        if system.wait_event(math.min(next_step - now, time_to_wake)) then
-          next_step = nil -- if we've recevied an event, perform a step
-        end
-      else
-        system.wait_event()
-        next_step = nil -- perform a step when we're not in focus if get we an event
-      end
-    else -- if we redrew, then make sure we only draw at most FPS/sec
-      run_threads_full = 0
-      local now = system.get_time()
-      local elapsed = now - core.frame_start
-      local next_frame = math.max(0, 1 / config.fps - elapsed)
-      next_step = next_step or (now + next_frame)
-      system.sleep(math.min(next_frame, time_to_wake))
-    end
+  core.frame_start = system.get_time()
+  local time_to_wake, threads_done = run_threads()
+  if threads_done then
+    run_threads_full = run_threads_full + 1
   end
+  local did_redraw = false
+  local did_step = false
+  local force_draw = core.redraw and last_frame_time and core.frame_start - last_frame_time > (1 / config.fps)
+  if force_draw or callback_rate > 0 then
+    if core.step() then
+      did_redraw = true
+      last_frame_time = core.frame_start
+    end
+    callback_rate = config.fps
+    did_step = true
+  end
+
+  if core.restart_request or core.quit_request then return false, core.restart_request end
+
+  if not did_redraw then
+    if system.window_has_focus(core.window) or not did_step or run_threads_full < 2 then
+      -- continue to step if window have focus
+      callback_rate = config.fps
+    else
+      -- if window does not have focus, run step only on events
+      callback_rate = -1;
+    end
+  else
+    -- if we redrew, then make sure we only draw at most FPS/sec
+    run_threads_full = 0
+    callback_rate = config.fps
+  end
+  if last_callback_rate ~= callback_rate then
+    system.set_callback_rate(callback_rate)
+    last_callback_rate = callback_rate
+  end
+
+  return true
 end
 
 
