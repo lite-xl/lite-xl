@@ -18,7 +18,8 @@ show_help() {
   echo "   --debug                    Debug this script."
   echo "-f --forcefallback            Force to build dependencies statically."
   echo "-h --help                     Show this help and exit."
-  echo "-d --debug-build              Builds a debug build."
+  echo "-m --mode MODE                Build type (plain,debug,debugoptimized,release,minsize)."
+  echo "                              Default: release."
   echo "-p --prefix PREFIX            Install directory prefix. Default: '/'."
   echo "-B --bundle                   Create an App bundle (macOS only)"
   echo "-A --addons                   Install extra plugins."
@@ -73,8 +74,9 @@ main() {
         shift
         shift
         ;;
-      -d|--debug-build)
-        build_type="debug"
+      -m|--mode)
+        build_type="$2"
+        shift
         shift
         ;;
       -r|--reconfigure)
