@@ -52,6 +52,7 @@ system = {}
 --- * "touchreleased" -> x, y, finger_id
 --- * "touchmoved" -> x, y, distance_x, distance_y, finger_id
 ---
+---@deprecated
 ---@return string type
 ---@return any? arg1
 ---@return any? arg2
@@ -62,11 +63,19 @@ function system.poll_event() end
 ---
 ---Wait until an event is triggered.
 ---
+---@deprecated
 ---@param timeout? number Amount of seconds, also supports fractions
 ---of a second, eg: 0.01. If not provided, waits forever.
 ---
 ---@return boolean status True on success or false if there was an error or if no event was received.
 function system.wait_event(timeout) end
+
+---
+---Sets the SDL_AppIterate callback rate, controlling the tick rate of the application.
+---This is an internal function and can change in the future.
+---
+---@param rate integer Tick rate per second, or -1 to tick only when event is received.
+function system.set_callback_rate(rate) end
 
 ---
 ---Change the cursor type displayed on screen.
