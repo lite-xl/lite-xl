@@ -1,3 +1,39 @@
+    # this fork added support for x11 synthetic keyboard events(send_event) (src/api/system.c, 
+    https://github.com/lite-xl/lite-xl/issues/1778)
+    # added chinese mono fonts (data/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf, SarasaMonoSC-Regular.ttf)
+    # modified tab char display style into "--->" (data/plugins/drawwhitespace.lua)
+
+    # to modify settings(init.lua) to disable spliting cursor and moving lines
+    keymap.unbind("ctrl+1lclick")
+    keymap.unbind("ctrl+up")
+    keymap.unbind("ctrl+down")
+
+    # to modify settings(init.lua) to load chinese mono font, and to display tab char:
+    # SarasaMonoSC-Regular.ttf, WenQuanYiZenHeiMono_wideMidDot.ttf are better, it make chinese char width vs english char width exactly 2:1
+    # extract WenQuanYiZenHeiMono.ttf from official wqy-zenhei.ttc(with fontforge and https://transfonter.org/ttc-unpack),
+    # then modify the advanced width of the MidDot char with bless hex editor, got WenQuanYiZenHeiMono_wideMidDot.ttf
+    style.font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 14 * SCALE)
+    --汉字|对齐|字母|abcdefghijklmnopqrstuvwxyz
+    --abcd|abce|abcd|abcdefghijklmnopqrstuvwxyz
+    --line height: SourceHanSansHW font size 15 == MapleMono 16 == WenQuanYiZenHeiMono 16 == SarasaMono 17
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SourceHanSansHWSC-Regular.otf", 15 * SCALE)  --too big space between lines
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/MapleMonoNormalNL-CN-Regular.ttf", 16 * SCALE) ---too big space between chinese chars
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono.ttf", 16 * SCALE)      --best, but failed to draw white space
+    --style.code_font = renderer.font.load(DATADIR .. "/fonts/SarasaMonoSC-Regular.ttf", 17 * SCALE)    --better, but "l" is similar to "1"
+    style.code_font = renderer.font.load(DATADIR .. "/fonts/WenQuanYiZenHeiMono_wideMidDot.ttf", 16 * SCALE)  --best, fixed white space
+    config.line_height=0.85   --lite-xl default line-spacing/line-height(1.2, char height x 1.2) is too big, reduce it to 0.85
+
+    config.plugins.drawwhitespace.enabled = true
+    config.indent_size = 4
+
+    # install plugins(https://github.com/lite-xl/lite-xl-plugins):
+    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/bracketmatch.lua -O ~/.config/lite-xl/plugins/bracketmatch.lua
+    wget https://raw.githubusercontent.com/lite-xl/lite-xl-plugins/refs/heads/master/plugins/language_go.lua -O ~/.config/lite-xl/plugins/language_go.lua
+
+Compare fonts wqy-microhei-terminal-mono.ttf(left, 4.5MB) vs MapleMonoNormalNL-CN-Regular.ttf(mid, 16MB) vs SarasaMonoSC-Regular.ttf(right, 14MB), I think SarasaMono is better:
+![](./wqy_maplemono_saramono.png)
+But SarasaMonoSC's "l" is too similar to "1", so I get the 4th font: WenQuanYiZenHeiMono_wideMidDot.ttf(11MB), it is the best currently.
+
 # Lite XL
 
 [![CI]](https://github.com/lite-xl/lite-xl/actions/workflows/build.yml)
@@ -121,6 +157,12 @@ $ bash build.sh --help
 #                               The script will find the appropriate
 #                               cross file in 'resources/cross'.
 #    --cross-file CROSS_FILE    Cross compile with the given cross file.
+
+# for example, if your machine is x86_64-linux, to build, run and install:
+$ scripts/build.sh
+$ build-x86_64-linux/lite-xl/bin/lite-xl
+$ sudo install build-x86_64-linux/lite-xl/bin/lite-xl /usr/bin/lite
+$ sudo cp -r build-x86_64-linux/lite-xl/share/lite-xl /usr/share/
 ```
 
 Alternatively, you can use the following commands to customize the build:

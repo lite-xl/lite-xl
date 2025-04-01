@@ -33,7 +33,7 @@ config.plugins.drawwhitespace = common.merge({
     },
     {
       char = "\t",
-      sub = "»",
+      sub = "--->",
     },
   },
 
