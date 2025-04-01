@@ -1,10 +1,12 @@
--- mod-version:3
+-- mod-version:4
 local syntax = require "core.syntax"
 
 -- integer suffix combinations as a regex
 local isuf = [[(?:[lL][uU]|ll[uU]|LL[uU]|[uU][lL]\b|[uU]ll|[uU]LL|[uU]|[lL]\b|ll|LL)?]]
 -- float suffix combinations as a Lua pattern / regex
 local fsuf = "[fFlL]?"
+-- number with digit separator as a regex non-capturing group
+local digitsep = [[(?:\d[\d']*)]]
 
 syntax.add {
   name = "C",
@@ -12,21 +14,18 @@ syntax.add {
   comment = "//",
   block_comment = { "/*", "*/" },
   patterns = {
-    { pattern = "//.*",                  type = "comment" },
-    { pattern = { "/%*", "%*/" },        type = "comment" },
-    { pattern = { '"', '"', '\\' },      type = "string"  },
-    { pattern = { "'", "'", '\\' },      type = "string"  },
-    { regex   = "0x[0-9a-fA-f]+"..isuf,  type = "number"  },
-    { regex   = "0()[0-7]+"..isuf,       type = { "keyword", "number" } },
-    { pattern = "%d+%.%d*[Ee]%d+"..fsuf, type = "number"  },
-    { pattern = "%d+[Ee]%d+"..fsuf,      type = "number"  },
-    { pattern = "%d+%.%d*"..fsuf,        type = "number"  },
-    { pattern = "%.%d+"..fsuf,           type = "number"  },
-    { regex   = "\\d+"..isuf,            type = "number"  },
-    { pattern = "[%+%-=/%*%^%%<>!~|&]",  type = "operator" },
-    { pattern = "##",                    type = "operator" },
-    { pattern = "struct%s()[%a_][%w_]*", type = {"keyword", "keyword2"} },
-    { pattern = "union%s()[%a_][%w_]*",  type = {"keyword", "keyword2"} },
+    { pattern = "//.*",                                                            type = "comment" },
+    { pattern = { "/%*", "%*/" },                                                  type = "comment" },
+    { pattern = { '"', '"', '\\' },                                                type = "string"  },
+    { pattern = { "'", "'", '\\' },                                                type = "string"  },
+    { regex   = "0x[0-9a-fA-F][0-9a-fA-F']*"..isuf,                                type = "number"  },
+    { regex   = "0()[0-7][0-7']*"..isuf,                                           type = { "keyword", "number" } },
+    { regex   = digitsep.."\\.?"..digitsep.."?(?:[Ee][-+]?"..digitsep..")?"..fsuf, type = "number" },
+    { regex   = "\\."..digitsep.."(?:[Ee][-+]?"..digitsep..")?"..fsuf,             type = "number" },
+    { pattern = "[%+%-=/%*%^%%<>!~|&]",                                            type = "operator" },
+    { pattern = "##",                                                              type = "operator" },
+    { pattern = "struct%s()[%a_][%w_]*",                                           type = {"keyword", "keyword2"} },
+    { pattern = "union%s()[%a_][%w_]*",                                            type = {"keyword", "keyword2"} },
     -- static declarations
     { pattern = "static()%s+()inline",
       type = { "keyword", "normal", "keyword" }

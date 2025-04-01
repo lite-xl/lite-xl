@@ -29,6 +29,8 @@ local title_commands = {
 ---@field super core.view
 local TitleView = View:extend()
 
+function TitleView:__tostring() return "TitleView" end
+
 local function title_view_height()
   return style.font:get_height() + style.padding.y * 2
 end

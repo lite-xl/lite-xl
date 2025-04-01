@@ -30,11 +30,11 @@ main() {
 
   case "$MSYSTEM" in
     MINGW64|UCRT64|CLANG64)
-    arch=x64
+    arch=x64compatible
     arch_file=x86_64
     ;;
     MINGW32|CLANG32)
-    arch=x86
+    arch=x86compatible
     arch_file=i686
     ;;
     CLANGARM64)

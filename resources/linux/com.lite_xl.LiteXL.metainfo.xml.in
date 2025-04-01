@@ -28,7 +28,5 @@
     <binary>lite-xl</binary>
   </provides>
 
-  <releases>
-    <release version="2.1.5" date="2024-06-29" />
-  </releases>
+  @METAINFO_RELEASES@
 </component>

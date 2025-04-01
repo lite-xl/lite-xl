@@ -615,7 +615,8 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
           length = bytesTransferred;
           memset(&self->overlapped[writable_stream_idx], 0, sizeof(self->overlapped[writable_stream_idx]));
         }
-      } else {
+      } else if (GetLastError() != ERROR_HANDLE_EOF || !poll_process(self, WAIT_NONE)) {
+        // emulate POSIX behavior in the code below by returning empty string until process exits
         signal_process(self, SIGNAL_TERM);
         return 0;
       }
@@ -696,7 +697,7 @@ static int f_pid(lua_State* L) {
 
 static int f_returncode(lua_State *L) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
-  if (self->running)
+  if (poll_process(self, WAIT_NONE))
     return 0;
   lua_pushinteger(L, self->returncode);
   return 1;
