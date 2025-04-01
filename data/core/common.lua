@@ -152,6 +152,9 @@ end
 
 
 local function compare_score(a, b)
+  if a.score == b.score then
+    return a.text < b.text
+  end
   return a.score > b.score
 end
 
