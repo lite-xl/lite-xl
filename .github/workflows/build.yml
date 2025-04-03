@@ -10,6 +10,14 @@ on:
       version:
         description: Release Version
         required: false
+      buildtype:
+        description: Release build type
+        type: choice
+        default: release
+        options:
+          - debug
+          - debugoptimized
+          - release
 
 # Builds & Uploads:
 # * Linux x86_64 Portable
@@ -27,6 +35,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
+      buildtype: ${{ steps.check_release.outputs.buildtype }}
       release: ${{ steps.check_release.outputs.release }}
       ref: ${{ steps.check_release.outputs.ref }}
     permissions:
@@ -47,10 +56,18 @@ jobs:
 
       - name: Check Release
         id: check_release
+        env: { BUILDTYPE: "${{ github.event.inputs.buildtype }}" }
         run: |
+          if [[ $GITHUB_REF == refs/pull/* || ( $GITHUB_REF != refs/heads/master && $GITHUB_REF != refs/tags/* ) ]]; then
+            export BUILDTYPE="debugoptimized"
+          elif [[ -z $BUILDTYPE ]]; then
+            export BUILDTYPE="release"
+          fi
           REF=$(git describe --exact-match --match v[0-9]* HEAD --tags 2>/dev/null) || REF=continuous
           echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "buildtype=$BUILDTYPE" >> $GITHUB_OUTPUT
           echo "Build Version: $REF"
+          echo "Build Type: $BUILDTYPE"
           if [[ "$REF" != "continuous" ]]; then
             echo "release=$REF" >> $GITHUB_OUTPUT
             echo "Release Version: $REF"
@@ -73,28 +90,28 @@ jobs:
           bash --version
           gcc -v
           xcodebuild -version
-          
+
       - uses: actions/checkout@v4
-        
+
       - name: Python Setup
         uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-        
+
       - name: Install Dependencies
         run: |
           brew install bash
           pip3 install meson ninja
-        
+
       - name: Build & Package Mac (Bundle)
         run: |
-          scripts/build.sh --addons --debug --forcefallback --reconfigure --bundle -b build
+          scripts/build.sh --addons --debug --forcefallback --reconfigure --lto --bundle --mode ${{ needs.version.outputs.buildtype }} -b build
           tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-bundle.tar.gz "Lite XL.app"
 
       - name: Build & Package Mac (Portable)
         run: |
-          scripts/build.sh --addons --debug --forcefallback --reconfigure --portable -b build
+          scripts/build.sh --addons --debug --forcefallback --reconfigure --lto --portable --mode ${{ needs.version.outputs.buildtype }} -b build
           tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl
-        
+
       - name: Upload (Intermediate)
         uses: actions/upload-artifact@v4
         with:
@@ -107,7 +124,7 @@ jobs:
     name: Darwin (Universal)
     needs: [version, build_darwin]
     runs-on: macos-14
-    steps:          
+    steps:
       - uses: actions/checkout@v4
 
       - name: Python Setup
@@ -118,7 +135,7 @@ jobs:
         run: |
           brew install bash
           pip3 install dmgbuild
-      
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -142,7 +159,7 @@ jobs:
           dmgbuild -s resources/macos/lite-xl-dmg.py \
             -D "app_path=lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-bundle/Lite XL.app" \
             "Lite XL" "lite-xl-${{ needs.version.outputs.ref }}-universal-darwin.dmg"
-        
+
       - name: Package Darwin (Universal Portable)
         run: tar -C lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable -zcvf lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz .
 
@@ -161,22 +178,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        
+
       - name: Build
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
-          args: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
-        
+          args: bash scripts/build.sh --addons --debug --forcefallback --lto --portable --mode ${{ needs.version.outputs.buildtype }} -b build
+
       - name: Package Linux (Portable)
         run: tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable.tar.gz lite-xl
 
       - name: Package Linux (AppImage)
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
           run: bash scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
-        
+
       - name: Upload (Release)
         uses: actions/upload-artifact@v4
         with:
@@ -184,12 +201,12 @@ jobs:
           path: |
             *.tar.gz
             *.AppImage
-               
+
 
   build_windows:
     name: Windows (x86_64) (MSYS)
     runs-on: windows-2019
-    defaults: 
+    defaults:
       run:
         shell: msys2 {0}
     needs: [version]
@@ -209,16 +226,16 @@ jobs:
             pkg-config:p
 
       - uses: actions/checkout@v4
-        
+
       - name: Build
-        run: bash scripts/build.sh --addons --debug --forcefallback --portable -b build
+        run: bash scripts/build.sh --addons --debug --forcefallback --lto --portable --mode ${{ needs.version.outputs.buildtype }} -b build
 
       - name: Package Windows (Portable)
         run: cd build && zip -r ../lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable.zip lite-xl && cd ..
-        
+
       - name: Package Windows (InnoSetup)
         run: bash scripts/package-innosetup.sh --debug --version ${{ needs.version.outputs.ref }} -b build
-        
+
       - name: Upload (Release)
         uses: actions/upload-artifact@v4
         with:
@@ -248,7 +265,7 @@ jobs:
         run: pip install meson ninja
 
       - name: Configure
-        run: meson setup --wrap-mode=forcefallback build
+        run: meson setup --wrap-mode=forcefallback --buildtype=${{ needs.version.outputs.buildtype }} build
 
       - name: Build
         run: meson install -C build --skip-subprojects --destdir="../lite-xl"
@@ -270,6 +287,7 @@ jobs:
     name: Create Release
     needs: [version, build_linux, build_windows, build_darwin_universal]
     runs-on: ubuntu-latest
+    if: ${{ needs.version.outputs.release || github.ref == 'refs/heads/master' }}
     permissions:
       contents: write
     steps:

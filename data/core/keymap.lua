@@ -223,9 +223,6 @@ function keymap.on_key_pressed(k, ...)
             performed = true
           end
         else
-          if cmd:find("^core:") then
-            command.perform("command:escape")
-          end
           performed = command.perform(cmd, ...)
         end
         if performed then break end
