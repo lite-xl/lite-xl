@@ -24,7 +24,7 @@ static void setup_renderer(RenWindow *ren, int w, int h) {
   if (ren->texture) {
     SDL_DestroyTexture(ren->texture);
   }
-  ren->texture = SDL_CreateTexture(ren->renderer, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STREAMING, w, h);
+  ren->texture = SDL_CreateTexture(ren->renderer, ren->rensurface.surface->format, SDL_TEXTUREACCESS_STREAMING, w, h);
   ren->rensurface.scale = query_surface_scale(ren);
 }
 #endif
@@ -38,7 +38,8 @@ void renwin_init_surface(RenWindow *ren) {
   }
   int w, h;
   SDL_GetWindowSizeInPixels(ren->window, &w, &h);
-  ren->rensurface.surface = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_BGRA32);
+  SDL_PixelFormat format = SDL_GetWindowPixelFormat(ren->window);
+  ren->rensurface.surface = SDL_CreateSurface(w, h, format == SDL_PIXELFORMAT_UNKNOWN ? SDL_PIXELFORMAT_BGRA32 : format);
   if (!ren->rensurface.surface) {
     fprintf(stderr, "Error creating surface: %s", SDL_GetError());
     exit(1);
@@ -122,8 +123,8 @@ void renwin_update_rects(RenWindow *ren, RenRect *rects, int count) {
     const int x = scale * r->x, y = scale * r->y;
     const int w = scale * r->width, h = scale * r->height;
     const SDL_Rect sr = {.x = x, .y = y, .w = w, .h = h};
-    int32_t *pixels = ((int32_t *) ren->rensurface.surface->pixels) + x + ren->rensurface.surface->w * y;
-    SDL_UpdateTexture(ren->texture, &sr, pixels, ren->rensurface.surface->w * 4);
+    uint8_t *pixels = ((uint8_t *) ren->rensurface.surface->pixels) + y * ren->rensurface.surface->pitch + x * SDL_BYTESPERPIXEL(ren->rensurface.surface->format);
+    SDL_UpdateTexture(ren->texture, &sr, pixels, ren->rensurface.surface->pitch);
   }
   SDL_RenderTexture(ren->renderer, ren->texture, NULL, NULL);
   SDL_RenderPresent(ren->renderer);
