@@ -1,21 +1,51 @@
-# cross file for WASM.
-# use this file by running meson setup --cross-file resources/cross/wasm.txt <builddir>
+# Cross file for WASM.
+# Use this file by running meson setup --cross-file resources/cross/wasm.txt <builddir>
+# You can import other cross files after this one to override the options.
 
 [constants]
 
-# a list of functions that can run without being asyncified; proceed with caution
+# A list of functions that can run without being asyncified; proceed with caution
 asyncify_ignores = '["SDL_BlitScaled","SDL_UpperBlitScaled","SDL_MapRGB*","SDL_FillRect","SDL_FreeSurface","SDL_CreateRGBSurface","SDL_GetWindowSurface","SDL_PollEvent","SDL_CreateSystemCursor","SDL_SetWindowTitle","SDL_SetCursor","SDL_GetWindowSize","SDL_GetWindowPosition","lua_push*","lua_rawget*","luaL_check*","pcre2*","FT_*","Bezier_*","g_*","FT_*","ft_*","TT_*","tt_*","__*","*printf","gray_*","fopen","fclose","fread","fflush","qsort","sift"]'
 
-# enable advising for optimizing the list above; disable this to prevent flooding logs
+# Enable advising for optimizing the list above; disable this to prevent flooding logs
 asyncify_advise = '0'
 
-# initial heap size in bytes; make sure it is not too low (around 64mb - 250mb)
+# Stack size for asyncify; increase this if you have problems with asyncify-induced crashes
+asyncify_stack_size = '6144'
+
+# Initial heap size in bytes; make sure it is not too low (around 64mb - 250mb)
 initial_heap = '104857600'
 
 # Emscripten is not always added to PATH.
 # Replace this variable with the path to Emscripten;
 # or supply a second machine file that defines this variable.
 toolchain = ''
+
+# The memory allocator to use. You shouldn't need to change this,
+# but other allocator might offer more performance at the cost of binary size.
+malloc_impl = 'emmalloc'
+
+# Functions exported by the main module.
+# This is needed if you plan to load shared libraries which need symbols from the main binary.
+# e.g. stdout, stderr, fopen, etc. Use another cross file to override this value.
+exported_functions = '_main'
+
+# Exported Filesystem modules.
+# For example, you can put '-lidbfs.js' to export IDBFS for later use.
+exported_filesystems = []
+
+# Exported JS values in Module.
+# This is needed to preserve symbols after tree shaking.
+exported_js_values = '[]'
+
+# Extra link options passed to the linker.
+extra_link_options = []
+
+# In order to run Lite XL, you will also need to bundle the /data directory.
+# The following option is added to the linking process to bundle the /data directory.
+# If you want to do this manually or the automatic bundling process does not work,
+# comment out the following line.
+bundle_paths = ['--preload-file', '../data@/usr/share/lite-xl/']
 
 
 [binaries]
@@ -34,9 +64,9 @@ needs_exe_wrapper = true
 
 
 [built-in options]
-c_args = []
+c_args = ['-fPIC']
 c_link_args = []
-cpp_args = []
+cpp_args = ['-fPIC']
 cpp_link_args = []
 
 
@@ -46,8 +76,11 @@ portable = true
 arch_tuple = 'wasm32-unknown'
 wrap_mode = 'nofallback'
 force_fallback_for = 'lua,pcre2,freetype2'
-c_link_args = ['-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'INITIAL_MEMORY=' + initial_heap, '-s', 'ASYNCIFY=1', '-s', 'ASYNCIFY_ADVISE=' + asyncify_advise, '-s', 'ASYNCIFY_STACK_SIZE=6144', '-s', 'ASYNCIFY_REMOVE=' + asyncify_ignores, '-s', 'FORCE_FILESYSTEM=1', '-lidbfs.js']
+c_link_args = ['-sALLOW_MEMORY_GROWTH=1', '-sINITIAL_MEMORY=' + initial_heap, '-sASYNCIFY', '-sASYNCIFY_ADVISE=' + asyncify_advise, '-sASYNCIFY_STACK_SIZE=' + asyncify_stack_size, '-sASYNCIFY_REMOVE=' + asyncify_ignores, '-sFORCE_FILESYSTEM=1', '-sEXIT_RUNTIME=1', '-sMALLOC=' + malloc_impl, '-sMAIN_MODULE=1', '-sEXPORTED_FUNCTIONS=' + exported_functions, '-sEXPORTED_RUNTIME_METHODS=' + exported_js_values] + extra_link_options + bundle_paths + exported_filesystems
 
+[pcre2:project options]
+jit = 'disabled'
+jit_sealloc = 'disabled'
 	
 [host_machine]
 system = 'emscripten'

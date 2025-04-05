@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 #endif
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
+    fprintf(stderr, "Error initializing SDL: %s\n", SDL_GetError());
     exit(1);
   }
   SDL_EnableScreenSaver();
@@ -145,10 +145,11 @@ int main(int argc, char **argv) {
 
   SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
 
-  if ( ren_init() ) {
-    fprintf(stderr, "internal font error when starting the application\n");
+  if (ren_init() != 0) {
+    fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
   }
 
+  int has_restarted = 0;
   lua_State *L;
 init_lua:
   L = luaL_newstate();
@@ -168,6 +169,9 @@ init_lua:
 
   lua_pushstring(L, LITE_ARCH_TUPLE);
   lua_setglobal(L, "ARCH");
+  
+  lua_pushboolean(L, has_restarted);
+  lua_setglobal(L, "RESTARTED");
 
   char exename[2048];
   get_exe_filename(exename, sizeof(exename));
@@ -233,6 +237,7 @@ init_lua:
   if (lua_toboolean(L, -1)) {
     lua_close(L);
     rencache_invalidate();
+    has_restarted = 1;
     goto init_lua;
   }
 

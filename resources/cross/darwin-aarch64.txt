@@ -1,5 +1,5 @@
 # cross file for compiling on MacOS ARM (Apple Sillicon).
-# use this file by running meson setup --cross-file resources/cross/macos_arm64.txt <builddir>
+# use this file by running meson setup --cross-file resources/cross/darwin-aarch64.txt <builddir>
 
 [host_machine]
 system = 'darwin'

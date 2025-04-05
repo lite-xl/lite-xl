@@ -17,7 +17,6 @@ This folder contains resources that is used for building or packaging the projec
 - `macos/background.tiff`: TIFF image for packaging macOS DMGs.
 - `macos/Info.plist.in`: Template for generating `info.plist` on macOS. See `macos/macos-retina-display.md` for details.
 - `macos/lite-xl-dmg.py`: Configuration options for dmgbuild for packaging macOS DMGs.
-- `windows/001-lua-unicode.diff`: Patch for allowing Lua to load files with UTF-8 filenames on Windows.
 
 ### Development
 
@@ -40,6 +39,10 @@ sips -s dpiWidth 144 -s dpiHeight 144 macos/background@2x.png
 ```
 
 `sips` and `tiffutil` are available by default on macOS.
+
+### Other Files
+
+- `shell.html`: A shell file for use with WASM builds.
 
 
 [1]: https://mesonbuild.com/Cross-compilation.html
