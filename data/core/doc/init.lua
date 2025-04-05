@@ -1,6 +1,6 @@
 local Object = require "core.object"
-local Highlighter = require "core.doc.highlighter"
-local translate = require "core.doc.translate"
+local Highlighter = require ".highlighter"
+local translate = require ".translate"
 local core = require "core"
 local syntax = require "core.syntax"
 local config = require "core.config"
@@ -9,6 +9,7 @@ local common = require "core.common"
 ---@class core.doc : core.object
 local Doc = Object:extend()
 
+function Doc:__tostring() return "Doc" end
 
 local function split_lines(text)
   local res = {}
@@ -25,7 +26,7 @@ function Doc:new(filename, abs_filename, new_file)
   if filename then
     self:set_filename(filename, abs_filename)
     if not new_file then
-      self:load(filename)
+      self:load(abs_filename)
     end
   end
   if new_file then
@@ -89,7 +90,7 @@ end
 function Doc:reload()
   if self.filename then
     local sel = { self:get_selection() }
-    self:load(self.filename)
+    self:load(self.abs_filename)
     self:clean()
     self:set_selection(table.unpack(sel))
   end
@@ -103,7 +104,23 @@ function Doc:save(filename, abs_filename)
   else
     assert(self.filename or abs_filename, "calling save on unnamed doc without absolute path")
   end
-  local fp = assert(io.open(filename, "wb"))
+
+  local fp
+  if PLATFORM == "Windows" then
+    -- On Windows, opening a hidden file with wb fails with a permission error.
+    -- To get around this, we must open the file as r+b and truncate.
+    -- Since r+b fails if file doesn't exist, fall back to wb.
+    fp = io.open(abs_filename, "r+b")
+    if fp then
+      system.ftruncate(fp)
+    else
+      -- file probably doesn't exist, create one
+      fp = assert (io.open(abs_filename, "wb"))
+    end
+  else
+    fp = assert (io.open(abs_filename, "wb"))
+  end
+
   for _, line in ipairs(self.lines) do
     if self.crlf then line = line:gsub("\n", "\r\n") end
     fp:write(line)
@@ -324,18 +341,29 @@ function Doc:position_offset(line, col, ...)
   end
 end
 
-function Doc:get_text(line1, col1, line2, col2)
+---Returns the content of the doc between two positions. </br>
+---The positions will be sanitized and sorted. </br>
+---The character at the "end" position is not included by default.
+---@see core.doc.sanitize_position
+---@param line1 integer
+---@param col1 integer
+---@param line2 integer
+---@param col2 integer
+---@param inclusive boolean? Whether or not to return the character at the last position
+---@return string
+function Doc:get_text(line1, col1, line2, col2, inclusive)
   line1, col1 = self:sanitize_position(line1, col1)
   line2, col2 = self:sanitize_position(line2, col2)
   line1, col1, line2, col2 = sort_positions(line1, col1, line2, col2)
+  local col2_offset = inclusive and 0 or 1
   if line1 == line2 then
-    return self.lines[line1]:sub(col1, col2 - 1)
+    return self.lines[line1]:sub(col1, col2 - col2_offset)
   end
   local lines = { self.lines[line1]:sub(col1) }
   for i = line1 + 1, line2 - 1 do
     table.insert(lines, self.lines[i])
   end
-  table.insert(lines, self.lines[line2]:sub(1, col2 - 1))
+  table.insert(lines, self.lines[line2]:sub(1, col2 - col2_offset))
   return table.concat(lines)
 end
 

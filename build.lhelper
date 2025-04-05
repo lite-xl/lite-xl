@@ -1,8 +1,0 @@
-CC="${CC:-gcc}"
-CXX="${CXX:-g++}"
-CFLAGS=
-CXXFLAGS=
-LDFLAGS=
-BUILD_TYPE=Release
-
-packages=(pcre2 freetype2 sdl2 lua)

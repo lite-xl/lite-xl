@@ -8,13 +8,14 @@ system = {}
 ---@alias system.fileinfotype
 ---| "file"  # It is a file.
 ---| "dir"   # It is a directory.
+---| nil     # The file type is unspecified.
 
 ---
 ---@class system.fileinfo
 ---@field public modified number A timestamp in seconds.
 ---@field public size number Size in bytes.
 ---@field public type system.fileinfotype Type of file
----@field public symlink boolean The directory is a symlink. This field is only set on Linux and on directories.
+---@field public symlink boolean The directory is a symlink. This field is only set on directories.
 
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
@@ -189,6 +190,15 @@ function system.rmdir(path) end
 ---
 ---@param path string
 function system.chdir(path) end
+
+---
+---Truncates a file to a set length.
+---
+---@param file file* A file handle returned by io.open().
+---@param length integer? Number of bytes to truncate to. Defaults to 0.
+---@return boolean success True if the operation suceeded, false otherwise
+---@return string? message An error message if the operation failed.
+function system.ftruncate(file, length) end
 
 ---
 ---Create a new directory, note that this function doesn't recursively

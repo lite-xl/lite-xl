@@ -19,6 +19,7 @@ typedef enum { FONT_ANTIALIASING_NONE, FONT_ANTIALIASING_GRAYSCALE, FONT_ANTIALI
 typedef enum { FONT_STYLE_BOLD = 1, FONT_STYLE_ITALIC = 2, FONT_STYLE_UNDERLINE = 4, FONT_STYLE_SMOOTH = 8, FONT_STYLE_STRIKETHROUGH = 16 } ERenFontStyle;
 typedef struct { uint8_t b, g, r, a; } RenColor;
 typedef struct { int x, y, width, height; } RenRect;
+typedef struct { double offset; } RenTab;
 typedef struct { SDL_Surface *surface; int scale; } RenSurface;
 
 struct RenWindow;
@@ -36,8 +37,8 @@ void ren_font_group_set_size(RenFont **font, float size, int surface_scale);
 void update_font_scale(RenWindow *window_renderer, RenFont **fonts);
 #endif
 void ren_font_group_set_tab_size(RenFont **font, int n);
-double ren_font_group_get_width(RenFont **font, const char *text, size_t len, int *x_offset);
-double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color);
+double ren_font_group_get_width(RenFont **font, const char *text, size_t len, RenTab tab, int *x_offset);
+double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color, RenTab tab);
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
 
@@ -52,5 +53,7 @@ void ren_get_size(RenWindow *window_renderer, int *x, int *y); /* Reports the si
 size_t ren_get_window_list(RenWindow ***window_list_dest);
 RenWindow* ren_find_window(SDL_Window *window);
 RenWindow* ren_find_window_from_id(uint32_t id);
+RenWindow* ren_get_target_window(void);
+void ren_set_target_window(RenWindow *window);
 
 #endif

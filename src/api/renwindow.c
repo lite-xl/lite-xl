@@ -2,6 +2,7 @@
 #include "../renwindow.h"
 #include "lua.h"
 #include <SDL.h>
+#include <stdlib.h>
 
 static RenWindow *persistant_window = NULL;
 
