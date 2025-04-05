@@ -787,7 +787,7 @@ int ren_init(void) {
 
 void ren_free(void) {
   SDL_DestroySurface(draw_rect_surface);
-  FT_Done_FreeType(library);    
+  FT_Done_FreeType(library);
 }
 
 RenWindow* ren_create(SDL_Window *win) {
