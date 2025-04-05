@@ -99,7 +99,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install bash
+          brew install bash sdl3
           pip3 install meson ninja
 
       - name: Build & Package Mac (Bundle)
@@ -224,6 +224,7 @@ jobs:
             ca-certificates:p
             ninja:p
             pkg-config:p
+            sdl3:p
 
       - uses: actions/checkout@v4
 
@@ -262,17 +263,32 @@ jobs:
         with: { python-version: "3.11" }
 
       - name: Install meson and ninja
-        run: pip install meson ninja
+        run: pip install --no-cache-dir meson ninja
+
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+              
+      - name: Install SDL
+        env: { VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite" }
+        run: vcpkg install sdl3:x64-windows-static pkgconf:x64-windows-release
+
+      - name: Add environment variables
+        run: |
+          echo "PKG_CONFIG_PATH=C:\vcpkg\installed\x64-windows-static\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "PKG_CONFIG=C:\vcpkg\installed\x64-windows-release\tools\pkgconf\pkgconf.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Configure
         run: meson setup --wrap-mode=forcefallback --buildtype=${{ needs.version.outputs.buildtype }} build
 
       - name: Build
-        run: meson install -C build --skip-subprojects --destdir="../lite-xl"
+        run: meson install -C build --skip-subprojects --destdir="lite-xl"
 
       - name: Package
-        shell: powershell {0}
-        run: Compress-Archive -Path lite-xl -DestinationPath "lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip"
+        run: cd build && 7z a -mx=9 "..\lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip" lite-xl && cd ..
 
       - name: Upload Artifacts (Intermediate)
         uses: actions/upload-artifact@v4

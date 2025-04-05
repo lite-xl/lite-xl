@@ -65,7 +65,7 @@ end
 function ime.stop()
   if ime.editing then
     -- SDL_ClearComposition for now doesn't work everywhere
-    system.clear_ime()
+    system.clear_ime(core.window)
     ime.on_text_editing("", 0, 0)
   end
 end
@@ -84,7 +84,7 @@ function ime.set_location(x, y, w, h)
      ime.last_location.h ~= h
   then
     ime.last_location.x, ime.last_location.y, ime.last_location.w, ime.last_location.h = x, y, w, h
-    system.set_text_input_rect(x, y, w, h)
+    system.set_text_input_rect(core.window, x, y, w, h)
   end
 end
 
