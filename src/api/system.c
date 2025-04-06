@@ -842,23 +842,17 @@ static int f_set_clipboard(lua_State *L) {
 
 
 static int f_get_primary_selection(lua_State *L) {
-#if SDL_VERSION_ATLEAST(2, 26, 0)
   char *text = SDL_GetPrimarySelectionText();
   if (!text) { return 0; }
   lua_pushstring(L, text);
   SDL_free(text);
   return 1;
-#else
-  return 0;
-#endif
 }
 
 
 static int f_set_primary_selection(lua_State *L) {
-#if SDL_VERSION_ATLEAST(2, 26, 0)
   const char *text = luaL_checkstring(L, 1);
   SDL_SetPrimarySelectionText(text);
-#endif
   return 0;
 }
 
