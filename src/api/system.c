@@ -538,10 +538,10 @@ static int f_get_window_mode(lua_State *L) {
 static int f_set_text_input_rect(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   SDL_Rect rect;
-  rect.x = luaL_checknumber(L, 1);
-  rect.y = luaL_checknumber(L, 2);
-  rect.w = luaL_checknumber(L, 3);
-  rect.h = luaL_checknumber(L, 4);
+  rect.x = luaL_checknumber(L, 2);
+  rect.y = luaL_checknumber(L, 3);
+  rect.w = luaL_checknumber(L, 4);
+  rect.h = luaL_checknumber(L, 5);
   SDL_SetTextInputArea(window_renderer->window, &rect, 0);
   return 0;
 }
