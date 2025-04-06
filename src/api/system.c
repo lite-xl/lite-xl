@@ -1241,7 +1241,7 @@ static int f_path_compare(lua_State *L) {
 static int f_text_input(lua_State* L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   if (!window_renderer) return 0;
-  if (lua_toboolean(L, 1)) {
+  if (lua_toboolean(L, 2)) {
     SDL_StartTextInput(window_renderer->window);
   } else {
     SDL_StopTextInput(window_renderer->window);
