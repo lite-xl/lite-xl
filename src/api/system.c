@@ -212,6 +212,9 @@ top:
       return 1;
 
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
+      /* on some systems, when alt-tabbing to the window SDL will queue up
+      ** several KEYDOWN events for the `tab` key; we flush all keydown
+      ** events on focus so these are discarded */
       SDL_FlushEvent(SDL_EVENT_KEY_DOWN);
       goto top;
 
@@ -311,6 +314,7 @@ top:
     case SDL_EVENT_MOUSE_WHEEL:
       lua_pushstring(L, "mousewheel");
       lua_pushinteger(L, e.wheel.y);
+      // Use -x to keep consistency with vertical scrolling values (e.g. shift+scroll)
       lua_pushinteger(L, -e.wheel.x);
       return 3;
 
