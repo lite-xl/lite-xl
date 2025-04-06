@@ -575,31 +575,12 @@ static int f_show_fatal_error(lua_State *L) {
 
 // removes an empty directory
 static int f_rmdir(lua_State *L) {
-  const char *path = luaL_checkstring(L, 1);
-
-#ifdef _WIN32
-  LPWSTR wpath = utfconv_utf8towc(path);
-  int deleted = RemoveDirectoryW(wpath);
-  free(wpath);
-  if (deleted > 0) {
-    lua_pushboolean(L, 1);
-  } else {
-    lua_pushboolean(L, 0);
-    push_win32_error(L, GetLastError());
+  SDL_ClearError();
+  lua_pushboolean(L, SDL_RemovePath(luaL_checkstring(L, 1)));
+  if (!lua_toboolean(L, -1)) {
+    lua_pushstring(L, SDL_GetError());
     return 2;
   }
-#else
-  int deleted = remove(path);
-  if(deleted < 0) {
-    lua_pushboolean(L, 0);
-    lua_pushstring(L, strerror(errno));
-
-    return 2;
-  } else {
-    lua_pushboolean(L, 1);
-  }
-#endif
-
   return 1;
 }
 
@@ -620,80 +601,24 @@ static int f_chdir(lua_State *L) {
 
 
 static int f_list_dir(lua_State *L) {
+  int count = 0;
   const char *path = luaL_checkstring(L, 1);
-
-#ifdef _WIN32
-  lua_settop(L, 1);
-  if (path[0] == 0 || strchr("\\/", path[strlen(path) - 1]) != NULL)
-    lua_pushstring(L, "*");
-  else
-    lua_pushstring(L, "/*");
-
-  lua_concat(L, 2);
-  path = lua_tostring(L, -1);
-
-  LPWSTR wpath = utfconv_utf8towc(path);
-  if (wpath == NULL) {
-    lua_pushnil(L);
-    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
-    return 2;
-  }
-
-  WIN32_FIND_DATAW fd;
-  HANDLE find_handle = FindFirstFileExW(wpath, FindExInfoBasic, &fd, FindExSearchNameMatch, NULL, 0);
-  free(wpath);
-  if (find_handle == INVALID_HANDLE_VALUE) {
-    lua_pushnil(L);
-    push_win32_error(L, GetLastError());
-    return 2;
-  }
-
-  char mbpath[MAX_PATH * 4]; // utf-8 spans 4 bytes at most
-  int len, i = 1;
-  lua_newtable(L);
-
-  do
-  {
-    if (wcscmp(fd.cFileName, L".") == 0) { continue; }
-    if (wcscmp(fd.cFileName, L"..") == 0) { continue; }
-
-    len = WideCharToMultiByte(CP_UTF8, 0, fd.cFileName, -1, mbpath, MAX_PATH * 4, NULL, NULL);
-    if (len == 0) { break; }
-    lua_pushlstring(L, mbpath, len - 1); // len includes \0
-    lua_rawseti(L, -2, i++);
-  } while (FindNextFileW(find_handle, &fd));
-
-  if (GetLastError() != ERROR_NO_MORE_FILES) {
-    lua_pushnil(L);
-    push_win32_error(L, GetLastError());
-    FindClose(find_handle);
-    return 2;
-  }
-
-  FindClose(find_handle);
-  return 1;
-#else
-  DIR *dir = opendir(path);
+  char **dir = SDL_GlobDirectory(path, NULL, 0, &count);
   if (!dir) {
     lua_pushnil(L);
-    lua_pushstring(L, strerror(errno));
+    lua_pushstring(L, SDL_GetError());
     return 2;
   }
 
-  lua_newtable(L);
-  int i = 1;
-  struct dirent *entry;
-  while ( (entry = readdir(dir)) ) {
-    if (strcmp(entry->d_name, "." ) == 0) { continue; }
-    if (strcmp(entry->d_name, "..") == 0) { continue; }
-    lua_pushstring(L, entry->d_name);
-    lua_rawseti(L, -2, i);
-    i++;
+  lua_createtable(L, count, 0);
+  for (int ti = 1, i = 0; i < count; i++) {
+    if (strcmp(dir[i], ".") == 0) continue;
+    if (strcmp(dir[i], "..") == 0) continue;
+    lua_pushstring(L, dir[i]);
+    lua_rawseti(L, -2, ti++);
   }
-
-  closedir(dir);
+  SDL_free(dir);
   return 1;
-#endif
 }
 
 
