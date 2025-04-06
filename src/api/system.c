@@ -456,32 +456,22 @@ static int f_set_window_mode(lua_State *L) {
 
 
 static int f_set_window_bordered(lua_State *L) {
-  RenWindow** window_list;
-  size_t window_count = ren_get_window_list(&window_list);
-  int bordered = lua_toboolean(L, 1);
-  while (window_count) {
-    SDL_SetWindowBordered(window_list[--window_count]->window, bordered);
-  }
-
+  RenWindow *window_renderer = *(RenWindow**) luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  SDL_SetWindowBordered(window_renderer->window, lua_toboolean(L, 2));
   return 0;
 }
 
 
 static int f_set_window_hit_test(lua_State *L) {
-  RenWindow** window_list;
-  size_t window_count = ren_get_window_list(&window_list);
-  if (lua_gettop(L) == 0) {
-    while (window_count) {
-      SDL_SetWindowHitTest(window_list[--window_count]->window, NULL, NULL);
-    }
+  RenWindow *window_renderer = *(RenWindow**) luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  if (lua_gettop(L) == 1) {
+    SDL_SetWindowHitTest(window_renderer->window, NULL, NULL);
     return 0;
   }
-  window_hit_info->title_height = luaL_checknumber(L, 1);
-  window_hit_info->controls_width = luaL_checknumber(L, 2);
-  window_hit_info->resize_border = luaL_checknumber(L, 3);
-  while (window_count) {
-    SDL_SetWindowHitTest(window_list[--window_count]->window, hit_test, window_hit_info);
-  }
+  window_hit_info->title_height = luaL_checknumber(L, 2);
+  window_hit_info->controls_width = luaL_checknumber(L, 3);
+  window_hit_info->resize_border = luaL_checknumber(L, 4);
+  SDL_SetWindowHitTest(window_renderer->window, &hit_test, window_hit_info);
   return 0;
 }
 
