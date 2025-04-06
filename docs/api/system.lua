@@ -152,6 +152,13 @@ function system.set_window_size(window, width, height, x, y) end
 function system.window_has_focus(window) end
 
 ---
+---Enables or disables text input.
+---
+---@param window renwindow
+---@param enabled boolean
+function system.text_input(window, enabled) end
+
+---
 ---Sets the position of the IME composition window.
 ---
 ---@param window renwindow
