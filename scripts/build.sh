@@ -254,7 +254,7 @@ main() {
   fi
 
   meson install -C "${build_dir}" --destdir "$destdir" \
-    --skip-subprojects=freetype2,lua,pcre2,sdl2 --no-rebuild
+    --skip-subprojects=freetype2,lua,pcre2 --no-rebuild
 }
 
 main "$@"

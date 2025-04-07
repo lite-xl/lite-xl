@@ -105,8 +105,9 @@ function system.get_window_mode(window) end
 ---
 ---Toggle between bordered and borderless.
 ---
+---@param window renwindow
 ---@param bordered boolean
-function system.set_window_bordered(bordered) end
+function system.set_window_bordered(window, bordered) end
 
 ---
 ---When then window is run borderless (without system decorations), this
@@ -115,10 +116,11 @@ function system.set_window_bordered(bordered) end
 ---To disable custom window management, call this function without any
 ---arguments
 ---
+---@param window renwindow Target window
 ---@param title_height? number Height of the window decoration
 ---@param controls_width? number Width of window controls (maximize,minimize and close buttons, etc).
 ---@param resize_border? number The amount of pixels reserved for resizing
-function system.set_window_hit_test(title_height, controls_width, resize_border) end
+function system.set_window_hit_test(window, title_height, controls_width, resize_border) end
 
 ---
 ---Get the size and coordinates of the window.
@@ -150,17 +152,27 @@ function system.set_window_size(window, width, height, x, y) end
 function system.window_has_focus(window) end
 
 ---
+---Enables or disables text input.
+---
+---@param window renwindow
+---@param enabled boolean
+function system.text_input(window, enabled) end
+
+---
 ---Sets the position of the IME composition window.
 ---
+---@param window renwindow
 ---@param x number
 ---@param y number
 ---@param width number
 ---@param height number
-function system.set_text_input_rect(x, y, width, height) end
+function system.set_text_input_rect(window, x, y, width, height) end
 
 ---
 ---Clears any ongoing composition on the IME
-function system.clear_ime() end
+---
+---@param window renwindow
+function system.clear_ime(window) end
 
 ---
 ---Raise the main window and give it input focus.
