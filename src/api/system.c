@@ -569,7 +569,6 @@ static int f_show_fatal_error(lua_State *L) {
 
 // removes an empty directory
 static int f_rmdir(lua_State *L) {
-  SDL_ClearError();
   lua_pushboolean(L, SDL_RemovePath(luaL_checkstring(L, 1)));
   if (!lua_toboolean(L, -1)) {
     lua_pushstring(L, SDL_GetError());

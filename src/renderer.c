@@ -463,8 +463,6 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   SDL_IOStream *file = NULL; RenFont *font = NULL;
   FT_Face face = NULL; FT_Stream stream = NULL;
 
-  SDL_ClearError();
-
   file = SDL_IOFromFile(path, "rb");
   if (!file) return NULL; // error set by SDL_IOFromFile
   
@@ -772,7 +770,6 @@ static void ren_remove_window(RenWindow *window_renderer) {
 
 int ren_init(void) {
   FT_Error err;
-  SDL_ClearError();
 
   draw_rect_surface = SDL_CreateSurface(1, 1, SDL_PIXELFORMAT_RGBA32);
 
