@@ -1165,6 +1165,7 @@ static int f_text_input(lua_State* L) {
 static int f_setenv(lua_State* L) {
   const char *key = luaL_checkstring(L, 1);
   const char *val = luaL_checkstring(L, 2);
+  // right now we overwrite unconditionally
   lua_pushboolean(L, SDL_setenv_unsafe(key, val, 1) == 0);
   return 1;
 }
