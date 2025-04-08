@@ -595,7 +595,7 @@ static int f_chdir(lua_State *L) {
 static SDL_EnumerationResult list_dir_enumeration_callback(void *userdata, const char *dirname, const char *fname) {
   (void) dirname;
   lua_State *L = userdata;
-  int len = luaL_len(L, -1);
+  int len = lua_rawlen(L, -1);
   lua_pushstring(L, fname);
   lua_rawseti(L, -2, len + 1);
   return SDL_ENUM_CONTINUE;
