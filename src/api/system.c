@@ -606,7 +606,6 @@ static int f_list_dir(lua_State *L) {
   lua_newtable(L);
   bool res = SDL_EnumerateDirectory(path, list_dir_enumeration_callback, L);
   if (!res) {
-    lua_pop(L, 1);
     lua_pushnil(L);
     lua_pushstring(L, SDL_GetError());
     return 2;
