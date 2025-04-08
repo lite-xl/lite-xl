@@ -276,7 +276,7 @@ end
 
 
 function core.configure_borderless_window()
-  system.set_window_bordered(not config.borderless)
+  system.set_window_bordered(core.window, not config.borderless)
   core.title_view:configure_hit_test(config.borderless)
   core.title_view.visible = config.borderless
 end
