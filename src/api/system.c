@@ -580,25 +580,24 @@ static int f_chdir(lua_State *L) {
   return 0;
 }
 
+static SDL_EnumerationResult list_dir_enumeration_callback(void *userdata, const char *dirname, const char *fname) {
+  (void) dirname;
+  lua_State *L = userdata;
+  int len = lua_rawlen(L, -1);
+  lua_pushstring(L, fname);
+  lua_rawseti(L, -2, len + 1);
+  return SDL_ENUM_CONTINUE;
+}
 
 static int f_list_dir(lua_State *L) {
-  int count = 0;
   const char *path = luaL_checkstring(L, 1);
-  char **dir = SDL_GlobDirectory(path, NULL, 0, &count);
-  if (!dir) {
+  lua_newtable(L);
+  bool res = SDL_EnumerateDirectory(path, list_dir_enumeration_callback, L);
+  if (!res) {
     lua_pushnil(L);
     lua_pushstring(L, SDL_GetError());
     return 2;
   }
-
-  lua_createtable(L, count, 0);
-  for (int ti = 1, i = 0; i < count; i++) {
-    if (strcmp(dir[i], ".") == 0) continue;
-    if (strcmp(dir[i], "..") == 0) continue;
-    lua_pushstring(L, dir[i]);
-    lua_rawseti(L, -2, ti++);
-  }
-  SDL_free(dir);
   return 1;
 }
 
