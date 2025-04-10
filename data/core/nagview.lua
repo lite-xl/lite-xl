@@ -305,7 +305,7 @@ function NagView:show(title, message, options, on_select)
   opts.options = assert(options, "No options")
   opts.on_selected = on_select or noop
   table.insert(self.queue, opts)
-  self:next()
+  if not self.visible then self:next() end
 end
 
 return NagView
