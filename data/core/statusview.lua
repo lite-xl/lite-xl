@@ -2,6 +2,7 @@ local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
 local config = require "core.config"
+local keymap = require "core.keymap"
 local style = require "core.style"
 local DocView = require "core.docview"
 local CommandView = require "core.commandview"
@@ -272,6 +273,15 @@ function StatusView:register_docview_items()
       end
 
       return {}
+    end
+  })
+
+  self:add_item({
+    predicate = function() return keymap.current_strokes end,
+    name = "keymap:current-stroke",
+    alignment = StatusView.Item.LEFT,
+    get_item = function()
+      return { style.text, keymap.binding_to_string(keymap.current_strokes) }
     end
   })
 
