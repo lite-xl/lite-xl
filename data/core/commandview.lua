@@ -199,6 +199,9 @@ end
 ---@varargs any
 ---@overload fun(label:string, options: core.commandview.state)
 function CommandView:enter(label, ...)
+  -- If the command view is already open, exit it first
+  self:exit()
+    
   if self.state ~= default_state then
     return
   end
