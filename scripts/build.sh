@@ -55,7 +55,6 @@ main() {
   local sdl3_version="${SDL3_VERSION:-3.2.8}"
   local pkg_config_path
   local cmake_build_type
-  local cmake_install_prefix
   local force_fallback
   local bundle="-Dbundle=false"
   local portable="-Dportable=false"
