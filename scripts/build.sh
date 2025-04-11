@@ -236,6 +236,7 @@ main() {
     esac
     # use -DCMAKE_INSTALL_LIBDIR to work around possibility of cmake using lib64 instead of lib
     cmake -S "SDL3-$sdl3_version" -B "SDL3-$sdl3_version/build" -GNinja .. \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
       -DCMAKE_BUILD_TYPE=$cmake_build_type -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX="$(pwd -P)/prefix" \
       -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSDL_INSTALL=ON -DSDL_INSTALL_DOCS=OFF -DSDL_DEPS_SHARED=ON \
       -DSDL_AVX=OFF -DSDL_AVX2=OFF -DSDL_AVX512F=OFF -DSDL_SSE3=OFF -DSDL_SSE4_1=OFF -DSDL_SSE4_2=OFF \
