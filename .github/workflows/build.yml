@@ -99,7 +99,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install bash sdl3
+          brew install bash cmake
           pip3 install meson ninja
 
       - name: Build & Package Mac (Bundle)
@@ -221,10 +221,10 @@ jobs:
           pacboy: >-
             gcc:p
             meson:p
-            ca-certificates:p
+            cmake:p
             ninja:p
             pkg-config:p
-            sdl3:p
+            ca-certificates:p
 
       - uses: actions/checkout@v4
 
