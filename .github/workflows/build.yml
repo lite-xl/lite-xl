@@ -99,7 +99,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install bash cmake
+          brew install bash
           pip3 install meson ninja
 
       - name: Build & Package Mac (Bundle)
