@@ -234,14 +234,15 @@ main() {
       "minsize") cmake_build_type="MinSizeRel";;
       *) cmake_build_type="Release";;
     esac
-    cmake -GNinja .. -DCMAKE_BUILD_TYPE=$cmake_build_type -DCMAKE_INSTALL_PREFIX=../../prefix \
+    # use -DCMAKE_INSTALL_LIBDIR to work around possibility of cmake using lib64 instead of lib
+    cmake -GNinja .. -DCMAKE_BUILD_TYPE=$cmake_build_type -DCMAKE_INSTALL_LIBDIR=lib \
       -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSDL_INSTALL=ON -DSDL_INSTALL_DOCS=OFF -DSDL_DEPS_SHARED=ON \
       -DSDL_AVX=OFF -DSDL_AVX2=OFF -DSDL_AVX512F=OFF -DSDL_SSE3=OFF -DSDL_SSE4_1=OFF -DSDL_SSE4_2=OFF \
       -DSDL_DBUS=ON -DSDL_IBUS=ON -DSDL_AUDIO=OFF -DSDL_GPU=OFF -DSDL_RPATH=OFF -DSDL_PIPEWIRE=OFF \
       -DSDL_CAMERA=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_HIDAPI=OFF -DSDL_DIALOG=OFF \
       -DSDL_POWER=OFF -DSDL_SENSOR=OFF -DSDL_VULKAN=OFF -DSDL_LIBUDEV=OFF -DSDL_SHARED=OFF -DSDL_STATIC=ON \
       -DSDL_X11=ON -DSDL_WAYLAND=ON -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_VENDOR_INFO=lite-xl
-    cmake --build . && cmake --install .
+    cmake --build . && cmake --install . --prefix="$(cd ../.. && pwd -P)/prefix"
     pkg_config_path="--pkg-config-path=$(cd ../../prefix/lib/pkgconfig && pwd -P)"
     cd ../../..
   fi
