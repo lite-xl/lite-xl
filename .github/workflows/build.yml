@@ -277,12 +277,11 @@ jobs:
         env: { VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite" }
         run: vcpkg install pkgconf:x64-windows-release
 
-      # https://github.com/ilammy/msvc-dev-cmd/issues/25#issuecomment-792998799
+      # https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#name-conflicts-with-shell-bash
       - name: Set environment variables
         run: |
           echo "PKG_CONFIG=C:\vcpkg\installed\x64-windows-release\tools\pkgconf\pkgconf.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "LINK=${{ steps.msvc-dev-cmd.outputs.link }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "CL=${{ steps.msvc-dev-cmd.outputs.cl }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "LINK=$((Get-Command link.exe).Source)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build
         run: bash scripts/build.sh --addons --debug --forcefallback --lto --portable --mode ${{ needs.version.outputs.buildtype }} -b build
