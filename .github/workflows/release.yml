@@ -92,7 +92,7 @@ jobs:
           sudo apt-get install -y ccache
 
       - name: Build Portable
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
           args: |
@@ -100,7 +100,7 @@ jobs:
             bash scripts/build.sh --debug --forcefallback --portable --release --lto
 
       - name: Package Portables
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
           args: |
@@ -108,7 +108,7 @@ jobs:
             bash scripts/package.sh --version ${INSTALL_REF} --debug --addons --binary --release
 
       - name: Build AppImages
-        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v3
+        uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
         with:
           entrypoint: /entrypoint.sh
           args: |
@@ -164,7 +164,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install bash md5sha1sum
+          brew install bash md5sha1sum sdl3
           pip install meson ninja dmgbuild
 
       - name: Build
@@ -269,11 +269,14 @@ jobs:
             git
             zip
             unzip
-            mingw-w64-${{ matrix.config.arch }}-gcc
-            mingw-w64-${{ matrix.config.arch }}-meson
-            mingw-w64-${{ matrix.config.arch }}-ninja
-            mingw-w64-${{ matrix.config.arch }}-ca-certificates
-            mingw-w64-${{ matrix.config.arch }}-ntldd
+            patch
+          pacboy: >-
+            gcc:p
+            meson:p
+            ca-certificates:p
+            ninja:p
+            pkg-config:p
+            sdl3:p
 
       - name: Set Environment Variables
         run: |
