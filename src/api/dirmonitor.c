@@ -1,6 +1,6 @@
 #include "api.h"
 #include "lua.h"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -9,7 +9,7 @@ static unsigned int DIR_EVENT_TYPE = 0;
 
 struct dirmonitor {
   SDL_Thread* thread;
-  SDL_mutex* mutex;
+  SDL_Mutex* mutex;
   char buffer[64512];
   volatile int length;
   struct dirmonitor_internal* internal;
