@@ -893,11 +893,17 @@ typedef struct lua_function_node {
   fptr address;
 } lua_function_node;
 
+static int SDLCALL compare_symbol(const void *a, const void *b) {
+  const lua_function_node *A = (const lua_function_node *)a;
+  const lua_function_node *B = (const lua_function_node *)b;
+  return SDL_strcmp(A->symbol, B->symbol);
+}
+
 #define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
 #define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
 #define S(FUNC) { #FUNC, (fptr)(FUNC) }
 static void* api_require(const char* symbol) {
-  static const lua_function_node nodes[] = {
+  static lua_function_node nodes[] = {
     #if LUA_VERSION_NUM == 501 || LUA_VERSION_NUM == 502 || LUA_VERSION_NUM == 503 || LUA_VERSION_NUM == 504
     U(addlstring), U(addstring), U(addvalue), U(argerror), U(buffinit),
     U(callmeta), U(checkany), U(checkinteger), U(checklstring),
@@ -960,11 +966,14 @@ static void* api_require(const char* symbol) {
     P(tonumber), P(yield),
     #endif
   };
-  for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
-    if (strcmp(nodes[i].symbol, symbol) == 0)
-      return *(void**)(&nodes[i].address);
+  static int sorted = 0;
+  if (!sorted) {
+    SDL_qsort(nodes, SDL_arraysize(nodes), sizeof(nodes[0]), compare_symbol);
+    sorted = 1;
   }
-  return NULL;
+  lua_function_node key = { symbol };
+  void *ptr = SDL_bsearch(&key, nodes, SDL_arraysize(nodes), sizeof(nodes[0]), compare_symbol);
+  return ptr ? *(void **)(&((lua_function_node *)ptr)->address) : NULL;
 }
 
 static int f_library_gc(lua_State *L) {
