@@ -759,27 +759,11 @@ static int f_ftruncate(lua_State *L) {
 
 static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-
-#ifdef _WIN32
-  LPWSTR wpath = utfconv_utf8towc(path);
-  if (wpath == NULL) {
-    lua_pushboolean(L, 0);
-    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+  lua_pushboolean(L, SDL_CreateDirectory(path));
+  if (!lua_toboolean(L, -1)) {
+    lua_pushstring(L, SDL_GetError());
     return 2;
   }
-
-  int err = _wmkdir(wpath);
-  free(wpath);
-#else
-  int err = mkdir(path, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-#endif
-  if (err < 0) {
-    lua_pushboolean(L, 0);
-    lua_pushstring(L, strerror(errno));
-    return 2;
-  }
-
-  lua_pushboolean(L, 1);
   return 1;
 }
 
