@@ -362,6 +362,7 @@ top:
         lua_pushinteger(L, e.tfinger.fingerID);
         return 6;
       }
+
     case SDL_EVENT_WILL_ENTER_FOREGROUND:
     case SDL_EVENT_DID_ENTER_FOREGROUND:
       {
@@ -377,12 +378,21 @@ top:
         lua_pushstring(L, e.type == SDL_EVENT_WILL_ENTER_FOREGROUND ? "enteringforeground" : "enteredforeground");
         return 1;
       }
+
     case SDL_EVENT_WILL_ENTER_BACKGROUND:
       lua_pushstring(L, "enteringbackground");
       return 1;
+
     case SDL_EVENT_DID_ENTER_BACKGROUND:
       lua_pushstring(L, "enteredbackground");
       return 1;
+
+    case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+      {
+        RenWindow* window_renderer = ren_find_window_from_id(e.window.windowID);
+        ren_resize_window(window_renderer);
+      }
 
     default:
       goto top;
@@ -643,80 +653,44 @@ static int f_absolute_path(lua_State *L) {
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
+  SDL_PathInfo info = { 0 };
+  if (!SDL_GetPathInfo(path, &info)) {
+    lua_pushnil(L);
+    lua_pushstring(L, SDL_GetError());
+    return 2;
+  }
+
   lua_newtable(L);
+  lua_pushinteger(L, info.size);                                              lua_setfield(L, -2, "size");
+  lua_pushnumber(L, (double) info.modify_time / SDL_NS_PER_SECOND);           lua_setfield(L, -2, "modified");
+  if (info.type == SDL_PATHTYPE_FILE)           { lua_pushliteral(L, "file"); lua_setfield(L, -2, "type"); }
+  else if (info.type == SDL_PATHTYPE_DIRECTORY) { lua_pushliteral(L, "dir");  lua_setfield(L, -2, "type"); }
+
+  if (info.type == SDL_PATHTYPE_DIRECTORY) {
 #ifdef _WIN32
-  LPWSTR wpath = utfconv_utf8towc(path);
-  if (wpath == NULL) {
-    lua_pushnil(L); lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
-    return 2;
-  }
-  WIN32_FILE_ATTRIBUTE_DATA data;
-  if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &data)) {
+    LPWSTR wpath = utfconv_utf8towc(path);
+    if (wpath == NULL) {
+      lua_pushnil(L);
+      lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+      return 2;
+    }
+    DWORD attr = GetFileAttributesW(wpath);
     free(wpath);
-    lua_pushnil(L); push_win32_error(L, GetLastError());
-    return 2;
-  }
-  free(wpath);
-  ULARGE_INTEGER large_int = {0};
-  #define TICKS_PER_MILISECOND 10000
-  #define EPOCH_DIFFERENCE 11644473600000LL
-  // https://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
-  large_int.HighPart = data.ftLastWriteTime.dwHighDateTime; large_int.LowPart = data.ftLastWriteTime.dwLowDateTime;
-  lua_pushnumber(L, (double)((large_int.QuadPart / TICKS_PER_MILISECOND - EPOCH_DIFFERENCE)/1000.0));
-  lua_setfield(L, -2, "modified");
-
-  large_int.HighPart = data.nFileSizeHigh; large_int.LowPart = data.nFileSizeLow;
-  lua_pushinteger(L, large_int.QuadPart);
-  lua_setfield(L, -2, "size");
-
-  lua_pushstring(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? "dir" : "file");
-  lua_setfield(L, -2, "type");
-
-  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
-  lua_setfield(L, -2, "symlink");
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+      lua_pushnil(L);
+      push_win32_error(L, GetLastError());
+      return 2;
+    }
+    lua_pushboolean(L, attr & FILE_ATTRIBUTE_REPARSE_POINT);
+    lua_setfield(L, -2, "symlink");
 #else
-  struct stat s;
-  int err = stat(path, &s);
-  if (err < 0) {
-    lua_pushnil(L);
-    lua_pushstring(L, strerror(errno));
-    return 2;
-  }
-
-  lua_pushinteger(L, s.st_size);
-  lua_setfield(L, -2, "size");
-
-  if (S_ISREG(s.st_mode)) {
-    lua_pushstring(L, "file");
-  } else if (S_ISDIR(s.st_mode)) {
-    lua_pushstring(L, "dir");
-  } else {
-    lua_pushnil(L);
-  }
-  lua_setfield(L, -2, "type");
-
-  double mtime;
-  #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
-    mtime = (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0);
-  #elif __APPLE__
-    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-      mtime = (double)s.st_mtimespec.tv_sec + (s.st_mtimespec.tv_nsec / 1000000000.0);
-    #else
-      mtime = (double)s.st_mtime + (s.st_atimensec / 1000000000.0);
-    #endif
-  #else
-    mtime = s.st_mtime;
-  #endif
-  lua_pushnumber(L, mtime);
-  lua_setfield(L, -2, "modified");
-
-  if (S_ISDIR(s.st_mode)) {
+    struct stat s;
     if (lstat(path, &s) == 0) {
       lua_pushboolean(L, S_ISLNK(s.st_mode));
       lua_setfield(L, -2, "symlink");
     }
-  }
 #endif
+  }
   return 1;
 }
 
@@ -785,27 +759,11 @@ static int f_ftruncate(lua_State *L) {
 
 static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-
-#ifdef _WIN32
-  LPWSTR wpath = utfconv_utf8towc(path);
-  if (wpath == NULL) {
-    lua_pushboolean(L, 0);
-    lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+  lua_pushboolean(L, SDL_CreateDirectory(path));
+  if (!lua_toboolean(L, -1)) {
+    lua_pushstring(L, SDL_GetError());
     return 2;
   }
-
-  int err = _wmkdir(wpath);
-  free(wpath);
-#else
-  int err = mkdir(path, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-#endif
-  if (err < 0) {
-    lua_pushboolean(L, 0);
-    lua_pushstring(L, strerror(errno));
-    return 2;
-  }
-
-  lua_pushboolean(L, 1);
   return 1;
 }
 
@@ -935,11 +893,17 @@ typedef struct lua_function_node {
   fptr address;
 } lua_function_node;
 
+static int SDLCALL compare_symbol(const void *a, const void *b) {
+  const lua_function_node *A = (const lua_function_node *)a;
+  const lua_function_node *B = (const lua_function_node *)b;
+  return SDL_strcmp(A->symbol, B->symbol);
+}
+
 #define P(FUNC) { "lua_" #FUNC, (fptr)(lua_##FUNC) }
 #define U(FUNC) { "luaL_" #FUNC, (fptr)(luaL_##FUNC) }
 #define S(FUNC) { #FUNC, (fptr)(FUNC) }
 static void* api_require(const char* symbol) {
-  static const lua_function_node nodes[] = {
+  static lua_function_node nodes[] = {
     #if LUA_VERSION_NUM == 501 || LUA_VERSION_NUM == 502 || LUA_VERSION_NUM == 503 || LUA_VERSION_NUM == 504
     U(addlstring), U(addstring), U(addvalue), U(argerror), U(buffinit),
     U(callmeta), U(checkany), U(checkinteger), U(checklstring),
@@ -1002,11 +966,14 @@ static void* api_require(const char* symbol) {
     P(tonumber), P(yield),
     #endif
   };
-  for (size_t i = 0; i < sizeof(nodes) / sizeof(lua_function_node); ++i) {
-    if (strcmp(nodes[i].symbol, symbol) == 0)
-      return *(void**)(&nodes[i].address);
+  static int sorted = 0;
+  if (!sorted) {
+    SDL_qsort(nodes, SDL_arraysize(nodes), sizeof(nodes[0]), compare_symbol);
+    sorted = 1;
   }
-  return NULL;
+  lua_function_node key = { symbol };
+  void *ptr = SDL_bsearch(&key, nodes, SDL_arraysize(nodes), sizeof(nodes[0]), compare_symbol);
+  return ptr ? *(void **)(&((lua_function_node *)ptr)->address) : NULL;
 }
 
 static int f_library_gc(lua_State *L) {
