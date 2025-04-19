@@ -108,19 +108,9 @@ int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
 #endif
 
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
-    fprintf(stderr, "Error initializing SDL: %s", SDL_GetError());
-    exit(1);
-  }
-  SDL_EnableScreenSaver();
-  SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, true);
-  atexit(SDL_Quit);
-
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
   SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
-  SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "1");
-  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
-
+  SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "composition");
   /* This hint tells SDL to respect borderless window as a normal window.
   ** For example, the window will sit right on top of the taskbar instead
   ** of obscuring it. */
@@ -130,8 +120,22 @@ int main(int argc, char **argv) {
   SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
   SDL_SetHint(SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS, "4");
 
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+    fprintf(stderr, "Error initializing SDL: %s", SDL_GetError());
+    return EXIT_FAILURE;
+  }
+  atexit(SDL_Quit);
+  SDL_EnableScreenSaver();
+  SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, true);
+  SDL_SetEventEnabled(SDL_EVENT_TEXT_INPUT, true);
+  SDL_SetEventEnabled(SDL_EVENT_TEXT_EDITING, true);
+#ifdef SDL_PLATFORM_APPLE
+  enable_momentum_scroll();
+#endif
+
   if (ren_init() != 0) {
     fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
+    return EXIT_FAILURE;
   }
 
   int has_restarted = 0;
@@ -168,14 +172,9 @@ init_lua:
   }
   lua_setglobal(L, "EXEFILE");
 
-#ifdef SDL_PLATFORM_APPLE
-  enable_momentum_scroll();
-  #ifdef MACOS_USE_BUNDLE
-    set_macos_bundle_resources(L);
-  #endif
+#if defined(SDL_PLATFORM_APPLE) && defined(MACOS_USE_BUNDLE)
+  set_macos_bundle_resources(L);
 #endif
-  SDL_SetEventEnabled(SDL_EVENT_TEXT_INPUT, true);
-  SDL_SetEventEnabled(SDL_EVENT_TEXT_EDITING, true);
 
   const char *init_lite_code = \
     "local core\n"
