@@ -653,80 +653,44 @@ static int f_absolute_path(lua_State *L) {
 static int f_get_file_info(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
 
+  SDL_PathInfo info = { 0 };
+  if (!SDL_GetPathInfo(path, &info)) {
+    lua_pushnil(L);
+    lua_pushstring(L, SDL_GetError());
+    return 2;
+  }
+
   lua_newtable(L);
+  lua_pushinteger(L, info.size);                                              lua_setfield(L, -2, "size");
+  lua_pushnumber(L, (double) info.modify_time / SDL_NS_PER_SECOND);           lua_setfield(L, -2, "modified");
+  if (info.type == SDL_PATHTYPE_FILE)           { lua_pushliteral(L, "file"); lua_setfield(L, -2, "type"); }
+  else if (info.type == SDL_PATHTYPE_DIRECTORY) { lua_pushliteral(L, "dir");  lua_setfield(L, -2, "type"); }
+
+  if (info.type == SDL_PATHTYPE_DIRECTORY) {
 #ifdef _WIN32
-  LPWSTR wpath = utfconv_utf8towc(path);
-  if (wpath == NULL) {
-    lua_pushnil(L); lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
-    return 2;
-  }
-  WIN32_FILE_ATTRIBUTE_DATA data;
-  if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &data)) {
+    LPWSTR wpath = utfconv_utf8towc(path);
+    if (wpath == NULL) {
+      lua_pushnil(L);
+      lua_pushstring(L, UTFCONV_ERROR_INVALID_CONVERSION);
+      return 2;
+    }
+    DWORD attr = GetFileAttributesW(wpath);
     free(wpath);
-    lua_pushnil(L); push_win32_error(L, GetLastError());
-    return 2;
-  }
-  free(wpath);
-  ULARGE_INTEGER large_int = {0};
-  #define TICKS_PER_MILISECOND 10000
-  #define EPOCH_DIFFERENCE 11644473600000LL
-  // https://stackoverflow.com/questions/6161776/convert-windows-filetime-to-second-in-unix-linux
-  large_int.HighPart = data.ftLastWriteTime.dwHighDateTime; large_int.LowPart = data.ftLastWriteTime.dwLowDateTime;
-  lua_pushnumber(L, (double)((large_int.QuadPart / TICKS_PER_MILISECOND - EPOCH_DIFFERENCE)/1000.0));
-  lua_setfield(L, -2, "modified");
-
-  large_int.HighPart = data.nFileSizeHigh; large_int.LowPart = data.nFileSizeLow;
-  lua_pushinteger(L, large_int.QuadPart);
-  lua_setfield(L, -2, "size");
-
-  lua_pushstring(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? "dir" : "file");
-  lua_setfield(L, -2, "type");
-
-  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
-  lua_setfield(L, -2, "symlink");
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+      lua_pushnil(L);
+      push_win32_error(L, GetLastError());
+      return 2;
+    }
+    lua_pushboolean(L, attr & FILE_ATTRIBUTE_REPARSE_POINT);
+    lua_setfield(L, -2, "symlink");
 #else
-  struct stat s;
-  int err = stat(path, &s);
-  if (err < 0) {
-    lua_pushnil(L);
-    lua_pushstring(L, strerror(errno));
-    return 2;
-  }
-
-  lua_pushinteger(L, s.st_size);
-  lua_setfield(L, -2, "size");
-
-  if (S_ISREG(s.st_mode)) {
-    lua_pushstring(L, "file");
-  } else if (S_ISDIR(s.st_mode)) {
-    lua_pushstring(L, "dir");
-  } else {
-    lua_pushnil(L);
-  }
-  lua_setfield(L, -2, "type");
-
-  double mtime;
-  #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
-    mtime = (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0);
-  #elif __APPLE__
-    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-      mtime = (double)s.st_mtimespec.tv_sec + (s.st_mtimespec.tv_nsec / 1000000000.0);
-    #else
-      mtime = (double)s.st_mtime + (s.st_atimensec / 1000000000.0);
-    #endif
-  #else
-    mtime = s.st_mtime;
-  #endif
-  lua_pushnumber(L, mtime);
-  lua_setfield(L, -2, "modified");
-
-  if (S_ISDIR(s.st_mode)) {
+    struct stat s;
     if (lstat(path, &s) == 0) {
       lua_pushboolean(L, S_ISLNK(s.st_mode));
       lua_setfield(L, -2, "symlink");
     }
-  }
 #endif
+  }
   return 1;
 }
 
