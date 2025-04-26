@@ -24,14 +24,14 @@ static SDL_Window *window;
 static void get_exe_filename(char *buf, int sz) {
 #if _WIN32
   int len;
-  wchar_t *buf_w = malloc(sizeof(wchar_t) * sz);
+  wchar_t *buf_w = SDL_malloc(sizeof(wchar_t) * sz);
   if (buf_w) {
     len = GetModuleFileNameW(NULL, buf_w, sz - 1);
     buf_w[len] = L'\0';
     // if the conversion failed we'll empty the string
     if (!WideCharToMultiByte(CP_UTF8, 0, buf_w, -1, buf, sz, NULL, NULL))
       buf[0] = '\0';
-    free(buf_w);
+    SDL_free(buf_w);
   } else {
     buf[0] = '\0';
   }

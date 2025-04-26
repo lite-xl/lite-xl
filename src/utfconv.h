@@ -49,13 +49,13 @@ static UNUSED LPWSTR utfconv_utf8towc(const char *str) {
   if (len == 0)
     return NULL;
 
-  output = (LPWSTR) malloc(sizeof(WCHAR) * len);
+  output = (LPWSTR) SDL_malloc(sizeof(WCHAR) * len);
   if (output == NULL)
     return NULL;
 
   len = MultiByteToWideChar(CP_UTF8, 0, str, -1, output, len);
   if (len == 0) {
-    free(output);
+    SDL_free(output);
     return NULL;
   }
 
@@ -71,13 +71,13 @@ static UNUSED char *utfconv_wctoutf8(LPCWSTR str) {
   if (len == 0)
     return NULL;
 
-  output = (char *) malloc(sizeof(char) * len);
+  output = (char *) SDL_malloc(sizeof(char) * len);
   if (output == NULL)
     return NULL;
 
   len = WideCharToMultiByte(CP_UTF8, 0, str, -1, output, len, NULL, NULL);
   if (len == 0) {
-    free(output);
+    SDL_free(output);
     return NULL;
   }
 

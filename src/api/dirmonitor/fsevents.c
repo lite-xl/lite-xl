@@ -19,7 +19,7 @@ struct dirmonitor_internal* init_dirmonitor() {
     mainloop_registered = true;
   }
 
-  struct dirmonitor_internal* monitor = malloc(sizeof(struct dirmonitor_internal));
+  struct dirmonitor_internal* monitor = SDL_calloc(1, sizeof(struct dirmonitor_internal));
   monitor->stream = NULL;
   monitor->changes = NULL;
   monitor->count = 0;
@@ -45,9 +45,9 @@ static void stop_monitor_stream(struct dirmonitor_internal* monitor) {
     close(monitor->fds[1]);
     if (monitor->count > 0) {
       for (size_t i = 0; i<monitor->count; i++) {
-        free(monitor->changes[i]);
+        SDL_free(monitor->changes[i]);
       }
-      free(monitor->changes);
+      SDL_free(monitor->changes);
       monitor->changes = NULL;
       monitor->count = 0;
     }
@@ -82,17 +82,17 @@ static void stream_callback(
   size_t total = 0;
   if (monitor->count == 0) {
     total = numEvents;
-    monitor->changes = calloc(numEvents, sizeof(char*));
+    monitor->changes = SDL_calloc(numEvents, sizeof(char*));
   } else {
     total = monitor->count + numEvents;
-    monitor->changes = realloc(
+    monitor->changes = SDL_realloc(
       monitor->changes,
       sizeof(char*) * total
     );
   }
   for (size_t idx = monitor->count; idx < total; idx++) {
     size_t pidx = idx - monitor->count;
-    monitor->changes[idx] = malloc(strlen(path_list[pidx])+1);
+    monitor->changes[idx] = SDL_malloc(strlen(path_list[pidx])+1);
     strcpy(monitor->changes[idx], path_list[pidx]);
   }
   monitor->count = total;
@@ -131,9 +131,9 @@ int translate_changes_dirmonitor(
   if (monitor->count > 0) {
     for (size_t i = 0; i<monitor->count; i++) {
       change_callback(strlen(monitor->changes[i]), monitor->changes[i], L);
-      free(monitor->changes[i]);
+      SDL_free(monitor->changes[i]);
     }
-    free(monitor->changes);
+    SDL_free(monitor->changes);
     monitor->changes = NULL;
     monitor->count = 0;
   }
