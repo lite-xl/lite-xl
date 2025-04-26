@@ -1,3 +1,5 @@
+#define SDL_MAIN_USE_CALLBACKS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL3/SDL.h>
@@ -5,6 +7,7 @@
 #include "api/api.h"
 #include "rencache.h"
 #include "renderer.h"
+#include "state.h"
 
 #include <signal.h>
 
@@ -103,7 +106,80 @@ void set_macos_bundle_resources(lua_State *L);
   #define LITE_ARCH_TUPLE ARCH_PROCESSOR "-" ARCH_PLATFORM
 #endif
 
-int main(int argc, char **argv) {
+static bool init_lua(struct app_state* state)
+{
+  lua_State *L = luaL_newstate();
+  state->L = L;
+
+  luaL_openlibs(L);
+  api_load_libs(L);
+
+
+  lua_newtable(L);
+  for (int i = 0; i < state->argc; i++) {
+    lua_pushstring(L, state->argv[i]);
+    lua_rawseti(L, -2, i + 1);
+  }
+  lua_setglobal(L, "ARGS");
+
+  lua_pushstring(L, SDL_GetPlatform());
+  lua_setglobal(L, "PLATFORM");
+
+  lua_pushstring(L, LITE_ARCH_TUPLE);
+  lua_setglobal(L, "ARCH");
+  
+  lua_pushboolean(L, state->has_restarted);
+  lua_setglobal(L, "RESTARTED");
+
+  char exename[2048];
+  get_exe_filename(exename, sizeof(exename));
+  if (*exename) {
+    lua_pushstring(L, exename);
+  } else {
+    // get_exe_filename failed
+    lua_pushstring(L, state->argv[0]);
+  }
+  lua_setglobal(L, "EXEFILE");
+
+  const char *init_lite_code = \
+    "core = {}\n"
+    "local os_exit = os.exit\n"
+    "os.exit = function(code, close)\n"
+    "  os_exit(code, close == nil and true or close)\n"
+    "end\n"
+    "local match = require('utf8extra').match\n"
+    "HOME = os.getenv('" LITE_OS_HOME "')\n"
+    "local exedir = match(EXEFILE, '^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
+    "local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
+    "dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
+    "core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
+    "core.init()\n";
+
+  if (luaL_loadstring(state->L, init_lite_code)) {
+    fprintf(stderr, "internal error when initailizing the application\n");
+    return false;
+  }
+
+  if (lua_pcall(state->L, 0, 1, 0) != 0)
+  {
+    char err_prelude[] = "An internal error occured while initializing the application\n\n";
+    char* err_string = lua_tostring(state->L, -1);
+
+    char *buf = SDL_calloc(sizeof(err_prelude) + strlen(err_string) + 1, sizeof(char));
+
+    sprintf(buf, "An internal error occured while initializing the application\n\n%s", err_string);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lite XL", buf, NULL);
+
+    SDL_free(buf);
+    return false;
+  }
+
+  return true;
+}
+
+SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv)
+{
+
 #ifndef _WIN32
   signal(SIGPIPE, SIG_IGN);
 #endif
@@ -134,39 +210,17 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
   }
 
-  int has_restarted = 0;
-  lua_State *L;
-init_lua:
-  L = luaL_newstate();
-  luaL_openlibs(L);
-  api_load_libs(L);
+  struct app_state *state = (struct app_state *)SDL_calloc(1, sizeof(struct app_state));
+  if (!state)
+    return SDL_APP_FAILURE;
 
 
-  lua_newtable(L);
-  for (int i = 0; i < argc; i++) {
-    lua_pushstring(L, argv[i]);
-    lua_rawseti(L, -2, i + 1);
-  }
-  lua_setglobal(L, "ARGS");
-
-  lua_pushstring(L, SDL_GetPlatform());
-  lua_setglobal(L, "PLATFORM");
-
-  lua_pushstring(L, LITE_ARCH_TUPLE);
-  lua_setglobal(L, "ARCH");
-  
-  lua_pushboolean(L, has_restarted);
-  lua_setglobal(L, "RESTARTED");
-
-  char exename[2048];
-  get_exe_filename(exename, sizeof(exename));
-  if (*exename) {
-    lua_pushstring(L, exename);
-  } else {
-    // get_exe_filename failed
-    lua_pushstring(L, argv[0]);
-  }
-  lua_setglobal(L, "EXEFILE");
+  *appstate = state;
+  state->has_restarted = 0;
+  state->argc = argc;
+  state->argv = argv;
+  if (!init_lua(state))
+    return SDL_APP_FAILURE;
 
 #ifdef SDL_PLATFORM_APPLE
   enable_momentum_scroll();
@@ -177,58 +231,48 @@ init_lua:
   SDL_SetEventEnabled(SDL_EVENT_TEXT_INPUT, true);
   SDL_SetEventEnabled(SDL_EVENT_TEXT_EDITING, true);
 
-  const char *init_lite_code = \
-    "local core\n"
-    "local os_exit = os.exit\n"
-    "os.exit = function(code, close)\n"
-    "  os_exit(code, close == nil and true or close)\n"
-    "end\n"
-    "xpcall(function()\n"
-    "  local match = require('utf8extra').match\n"
-    "  HOME = os.getenv('" LITE_OS_HOME "')\n"
-    "  local exedir = match(EXEFILE, '^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
-    "  local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
-    "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
-    "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
-    "  core.init()\n"
-    "  core.run()\n"
-    "end, function(err)\n"
-    "  local error_path = 'error.txt'\n"
-    "  io.stdout:write('Error: '..tostring(err)..'\\n')\n"
-    "  io.stdout:write(debug.traceback(nil, 2)..'\\n')\n"
-    "  if core and core.on_error then\n"
-    "    error_path = USERDIR .. PATHSEP .. error_path\n"
-    "    pcall(core.on_error, err)\n"
-    "  else\n"
-    "    local fp = io.open(error_path, 'wb')\n"
-    "    fp:write('Error: ' .. tostring(err) .. '\\n')\n"
-    "    fp:write(debug.traceback(nil, 2)..'\\n')\n"
-    "    fp:close()\n"
-    "    error_path = system.absolute_path(error_path)\n"
-    "  end\n"
-    "  system.show_fatal_error('Lite XL internal error',\n"
-    "    'An internal error occurred in a critical part of the application.\\n\\n'..\n"
-    "    'Error: '..tostring(err)..'\\n\\n'..\n"
-    "    'Details can be found in \\\"'..error_path..'\\\"')\n"
-    "  os.exit(1)\n"
-    "end)\n"
-    "return core and core.restart_request\n";
+  return SDL_APP_CONTINUE;
+}
 
-  if (luaL_loadstring(L, init_lite_code)) {
+SDL_AppResult SDL_AppIterate(void *appstate)
+{
+  struct app_state *state = (struct app_state*)appstate;
+
+  const char *init_lite_code = "return core.step()\n";
+
+
+  if (luaL_loadstring(state->L, init_lite_code)) {
     fprintf(stderr, "internal error when starting the application\n");
-    exit(1);
+    return SDL_APP_FAILURE;
   }
-  lua_pcall(L, 0, 1, 0);
-  if (lua_toboolean(L, -1)) {
-    lua_close(L);
+  lua_pcall(state->L, 0, 1, 0);
+  if (lua_toboolean(state->L, -1))
+    return SDL_APP_CONTINUE;
+
+  // check if we are suppose to restart
+  lua_getglobal(state->L, "core");
+  lua_getfield(state->L, -1, "restart_request");
+  lua_remove(state->L, -2);
+
+  if (lua_toboolean(state->L, -1))
+  {
+    lua_close(state->L);
     rencache_invalidate();
-    has_restarted = 1;
-    goto init_lua;
+    state->has_restarted = 1;
+    if (!init_lua(state))
+      return SDL_APP_FAILURE;
+
+    return SDL_APP_CONTINUE;
   }
 
-  lua_close(L);
+  return SDL_APP_SUCCESS;
+}
 
+void SDL_AppQuit(void *appstate, SDL_AppResult result)
+{
+  struct app_state *state = (struct app_state*)appstate;
+
+  lua_close(state->L);
   ren_free();
 
-  return EXIT_SUCCESS;
 }
