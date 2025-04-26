@@ -168,6 +168,10 @@ init_lua:
   }
   lua_setglobal(L, "EXEFILE");
 
+  const char* exedir = SDL_GetBasePath();
+  lua_pushstring(L, exedir);
+  lua_setglobal(L, "EXEDIR");
+
 #ifdef SDL_PLATFORM_APPLE
   enable_momentum_scroll();
   #ifdef MACOS_USE_BUNDLE
@@ -186,9 +190,8 @@ init_lua:
     "xpcall(function()\n"
     "  local match = require('utf8extra').match\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
-    "  local exedir = match(EXEFILE, '^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
-    "  local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
-    "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
+    "  local prefix = os.getenv('LITE_PREFIX') or match(EXEDIR, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
+    "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or EXEDIR .. '/data')) .. '/core/start.lua')\n"
     "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
     "  core.run()\n"
