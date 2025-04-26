@@ -121,7 +121,7 @@ static bool expand_command_buffer(RenWindow *window_renderer) {
   if (new_size == 0) {
     new_size = CMD_BUF_INIT_SIZE;
   }
-  uint8_t *new_command_buf = realloc(window_renderer->command_buf, new_size);
+  uint8_t *new_command_buf = SDL_realloc(window_renderer->command_buf, new_size);
   if (!new_command_buf) {
     return false;
   }

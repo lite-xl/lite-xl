@@ -1,3 +1,4 @@
+#include <SDL3/SDL.h>
 #include <windows.h>
 
 
@@ -19,7 +20,7 @@ int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, in
 
 
 struct dirmonitor* init_dirmonitor() {
-  return calloc(1, sizeof(struct dirmonitor_internal));
+  return SDL_calloc(1, sizeof(struct dirmonitor_internal));
 }
 
 
