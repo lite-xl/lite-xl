@@ -1203,6 +1203,11 @@ static int f_open_file_dialog(lua_State* L) {
   return 0;
 }
 
+static int f_in_sandbox(lua_State* L) {
+  lua_pushboolean(L, SDL_GetSandbox() != SDL_SANDBOX_NONE); 
+  return 1;
+}
+
 static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
   { "wait_event",            f_wait_event            },
@@ -1242,6 +1247,7 @@ static const luaL_Reg lib[] = {
   { "setenv",                f_setenv                },
   { "ftruncate",             f_ftruncate             },
   { "open_file_dialog",      f_open_file_dialog      },
+  { "in_sandbox",            f_in_sandbox            },
   { NULL, NULL }
 };
 

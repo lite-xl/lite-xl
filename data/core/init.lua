@@ -468,6 +468,10 @@ function core.init()
   end
 
   add_config_files_hooks()
+
+  if config.system_dialog == nil then
+    config.system_dialog = system.in_sandbox()
+  end
 end
 
 

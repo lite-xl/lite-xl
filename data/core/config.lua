@@ -258,6 +258,11 @@ config.skip_plugins_version = false
 ---@type boolean | { font: renderer.font, icon: string } | nil
 config.stonks = true
 
+--- Bla bla
+--- Defaults to nil
+--- @type boolean | nil
+config.system_dialog = nil
+
 -- holds the plugins real config table
 local plugins_config = {}
 
