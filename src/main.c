@@ -225,7 +225,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv)
 #ifdef SDL_PLATFORM_APPLE
   enable_momentum_scroll();
   #ifdef MACOS_USE_BUNDLE
-    set_macos_bundle_resources(L);
+    set_macos_bundle_resources(state->L);
   #endif
 #endif
   SDL_SetEventEnabled(SDL_EVENT_TEXT_INPUT, true);
