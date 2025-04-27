@@ -108,35 +108,7 @@ command.add(nil, {
         text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
       end
     end
-    core.command_view:enter("Open File", {
-      text = text,
-      submit = function(text)
-        local filename = core.project_absolute_path(common.home_expand(text))
-        core.root_view:open_doc(core.open_doc(filename))
-      end,
-      suggest = function (text)
-        return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project() and core.root_project().path))
-      end,
-      validate = function(text)
-          local filename = core.project_absolute_path(common.home_expand(text))
-          local path_stat, err = system.get_file_info(filename)
-          if err then
-            if err:find("No such file", 1, true) then
-              -- check if the containing directory exists
-              local dirname = common.dirname(filename)
-              local dir_stat = dirname and system.get_file_info(dirname)
-              if not dirname or (dir_stat and dir_stat.type == 'dir') then
-                return true
-              end
-            end
-            core.error("Cannot open file %s: %s", text, err)
-          elseif path_stat.type == 'dir' then
-            core.error("Cannot open %s, is a folder", text)
-          else
-            return true
-          end
-        end,
-    })
+    system.open_file_dialog(core.window, text)
   end,
 
   ["core:open-log"] = function()

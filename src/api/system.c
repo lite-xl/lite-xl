@@ -1168,6 +1168,40 @@ static int f_setenv(lua_State* L) {
   return 1;
 }
 
+static void dialog_callback(void *userdata, const char * const *filelist, int filter)
+{
+  RenWindow *window_renderer = userdata;
+
+  // an error occured
+  if (!filelist)
+    return;
+
+  // user didn't select anything or canceled
+  if (!*filelist)
+    return;
+
+  SDL_Event event;
+
+  while (*filelist)
+  {
+    SDL_zero(event);
+    event.type = SDL_EVENT_DROP_FILE;
+    event.drop.windowID = SDL_GetWindowID(window_renderer->window);
+    event.drop.data = SDL_strdup(*filelist);
+    SDL_PushEvent(&event);
+
+    ++filelist;
+  }
+}
+
+static int f_open_file_dialog(lua_State* L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  const char *path = luaL_optstring(L, 2, NULL);
+
+  SDL_ShowOpenFileDialog(dialog_callback, window_renderer, window_renderer->window, NULL, 0, path, true);
+
+  return 0;
+}
 
 static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
@@ -1207,6 +1241,7 @@ static const luaL_Reg lib[] = {
   { "text_input",            f_text_input            },
   { "setenv",                f_setenv                },
   { "ftruncate",             f_ftruncate             },
+  { "open_file_dialog",      f_open_file_dialog      },
   { NULL, NULL }
 };
 
