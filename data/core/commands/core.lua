@@ -1,6 +1,7 @@
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
+local config = require "core.config"
 local keymap = require "core.keymap"
 local LogView = require "core.logview"
 
@@ -22,6 +23,63 @@ local function check_directory_path(path)
       return nil
     end
     return abs_path
+end
+
+local function open_file(use_dialog)
+  local view = core.active_view
+  local text
+  if view.doc and view.doc.abs_filename then
+    local dirname, _ = view.doc.abs_filename:match("(.*)[/\\](.+)$")
+    if dirname then
+      if use_dialog then
+        text = dirname
+      else
+        dirname = core.normalize_to_project_dir(dirname)
+        text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
+      end
+    end
+  end
+
+  if use_dialog then
+    core.open_file_dialog(core.window, function(status, result)
+      if status == "accept" then
+      	for _, filename in ipairs(result --[[ @as string[] ]]) do
+          core.root_view:open_doc(core.open_doc(filename))
+      	end
+      end
+    end, text, true)
+  	return
+  end
+
+  core.command_view:enter("Open File", {
+    text = text,
+    submit = function(text)
+      local filename = core.project_absolute_path(common.home_expand(text))
+      core.root_view:open_doc(core.open_doc(filename))
+    end,
+    suggest = function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project() and core.root_project().path))
+    end,
+    validate = function(text)
+        local filename = core.project_absolute_path(common.home_expand(text))
+        local path_stat, err = system.get_file_info(filename)
+        if err then
+          if err:find("No such file", 1, true) then
+            -- check if the containing directory exists
+            local dirname = common.dirname(filename)
+            local dir_stat = dirname and system.get_file_info(dirname)
+            if not dirname or (dir_stat and dir_stat.type == 'dir') then
+              return true
+            end
+          end
+          core.error("Cannot open file %s: %s", text, err)
+        elseif path_stat.type == 'dir' then
+          core.error("Cannot open %s, is a folder", text)
+        else
+          return true
+        end
+      end,
+  })
 end
 
 command.add(nil, {
@@ -99,44 +157,15 @@ command.add(nil, {
   end,
 
   ["core:open-file"] = function()
-    local view = core.active_view
-    local text
-    if view.doc and view.doc.abs_filename then
-      local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
-      if dirname then
-        dirname = core.normalize_to_project_dir(dirname)
-        text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
-      end
-    end
-    core.command_view:enter("Open File", {
-      text = text,
-      submit = function(text)
-        local filename = core.project_absolute_path(common.home_expand(text))
-        core.root_view:open_doc(core.open_doc(filename))
-      end,
-      suggest = function (text)
-        return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project() and core.root_project().path))
-      end,
-      validate = function(text)
-          local filename = core.project_absolute_path(common.home_expand(text))
-          local path_stat, err = system.get_file_info(filename)
-          if err then
-            if err:find("No such file", 1, true) then
-              -- check if the containing directory exists
-              local dirname = common.dirname(filename)
-              local dir_stat = dirname and system.get_file_info(dirname)
-              if not dirname or (dir_stat and dir_stat.type == 'dir') then
-                return true
-              end
-            end
-            core.error("Cannot open file %s: %s", text, err)
-          elseif path_stat.type == 'dir' then
-            core.error("Cannot open %s, is a folder", text)
-          else
-            return true
-          end
-        end,
-    })
+    open_file(config.use_system_file_picker)
+  end,
+
+  ["core:open-file-picker"] = function()
+    open_file(true)
+  end,
+
+  ["core:open-file-commandview"] = function()
+    open_file(false)
   end,
 
   ["core:open-log"] = function()
