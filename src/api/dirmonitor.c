@@ -52,8 +52,12 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   return !result;
 }
 
+
 static int dirmonitor_check_thread(void* data) {
   struct dirmonitor* monitor = data;
+  uint32_t event_type = get_custom_event(CUSTOM_EVENT_DIRMONITOR);
+  assert(event_type != 0);
+
   while (monitor->length >= 0) {
     if (monitor->length == 0) {
       int result = get_changes_dirmonitor(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
@@ -63,8 +67,7 @@ static int dirmonitor_check_thread(void* data) {
       SDL_UnlockMutex(monitor->mutex);
     }
     SDL_Delay(1);
-    SDL_Event event = { .type = get_custom_event(CUSTOM_EVENT_DIRMONITOR) };
-    assert(event.type != 0);
+    SDL_Event event = { .type = event_type };
     SDL_PushEvent(&event);
   }
   return 0;
