@@ -1,11 +1,11 @@
 #include "api.h"
 #include "lua.h"
+#include "custom_events.h"
 #include <SDL3/SDL.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-
-static unsigned int DIR_EVENT_TYPE = 0;
+#include <assert.h>
 
 struct dirmonitor {
   SDL_Thread* thread;
@@ -52,7 +52,6 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
   return !result;
 }
 
-
 static int dirmonitor_check_thread(void* data) {
   struct dirmonitor* monitor = data;
   while (monitor->length >= 0) {
@@ -64,7 +63,8 @@ static int dirmonitor_check_thread(void* data) {
       SDL_UnlockMutex(monitor->mutex);
     }
     SDL_Delay(1);
-    SDL_Event event = { .type = DIR_EVENT_TYPE };
+    SDL_Event event = { .type = get_custom_event(CUSTOM_EVENT_DIRMONITOR) };
+    assert(event.type != 0);
     SDL_PushEvent(&event);
   }
   return 0;
@@ -72,8 +72,6 @@ static int dirmonitor_check_thread(void* data) {
 
 
 static int f_dirmonitor_new(lua_State* L) {
-  if (DIR_EVENT_TYPE == 0)
-    DIR_EVENT_TYPE = SDL_RegisterEvents(1);
   struct dirmonitor* monitor = lua_newuserdata(L, sizeof(struct dirmonitor));
   luaL_setmetatable(L, API_TYPE_DIRMONITOR);
   memset(monitor, 0, sizeof(struct dirmonitor));
