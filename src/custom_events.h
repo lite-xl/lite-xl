@@ -6,6 +6,7 @@
 
 typedef enum {
   CUSTOM_EVENT_DIRMONITOR = 0,
+  CUSTOM_EVENT_DIALOG,
   CUSTOM_EVENT_LAST,
 } CustomEventTypes;
 
