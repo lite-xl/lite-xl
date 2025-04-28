@@ -52,6 +52,9 @@ system = {}
 --- * "touchreleased" -> x, y, finger_id
 --- * "touchmoved" -> x, y, distance_x, distance_y, finger_id
 ---
+---Dialog events:
+--- * "dialogfinished" -> id, status, result
+---
 ---@return string type
 ---@return any? arg1
 ---@return any? arg2
@@ -373,5 +376,20 @@ function system.path_compare(path1, type1, path2, type2) end
 ---@param val string
 ---@return boolean ok True if call succeeded
 function system.setenv(key, val) end
+
+---
+---Opens a file dialog picker.
+---
+---**NOTE**: don't use this directly, use `core.open_file_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param initial_path? string
+function system.open_file_dialog(window, id, initial_path) end
 
 return system

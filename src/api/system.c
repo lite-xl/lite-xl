@@ -1,4 +1,6 @@
 #include <SDL3/SDL.h>
+#include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
@@ -10,6 +12,7 @@
 #include "api.h"
 #include "../rencache.h"
 #include "../renwindow.h"
+#include "custom_events.h"
 #ifdef _WIN32
   #include <direct.h>
   #include <windows.h>
@@ -26,6 +29,12 @@
   #include <sys/vfs.h>
 #endif
 #endif
+
+typedef enum {
+  DIALOG_OK,
+  DIALOG_CANCEL,
+  DIALOG_ERROR,
+} DialogState;
 
 static const char* button_name(int button) {
   switch (button) {
@@ -385,6 +394,36 @@ top:
       return 1;
 
     default:
+      if (e.type == get_custom_event(CUSTOM_EVENT_DIALOG)) {
+        lua_pushstring(L, "dialogfinished");
+        lua_pushinteger(L, (uintptr_t)e.user.data1); // ID
+
+        switch ((DialogState)e.user.code) {
+          case DIALOG_OK:
+            lua_pushstring(L, "accept");
+            char *dataptr = e.user.data2;
+            lua_newtable(L);
+            for (size_t i = 1; *dataptr != '\0'; i++) {
+              lua_pushstring(L, dataptr);
+              size_t len = lua_rawlen(L, -1) + 1;
+              lua_rawseti(L, -2, i);
+              dataptr += len;
+            }
+            SDL_free(e.user.data2);
+            return 4;
+          case DIALOG_CANCEL:
+            lua_pushstring(L, "cancel");
+            return 3;
+          case DIALOG_ERROR:
+            lua_pushstring(L, "error");
+            lua_pushstring(L, e.user.data2);
+            SDL_free(e.user.data2);
+            return 4;
+          default:
+            lua_pushstring(L, "unknown");
+            return 3;
+        }
+      }
       goto top;
   }
 
@@ -1168,6 +1207,52 @@ static int f_setenv(lua_State* L) {
   return 1;
 }
 
+static void open_file_dialog_callback(void *userdata, const char * const *filelist, int filter) {
+  SDL_Event event;
+  SDL_zero(event);
+  event.type = get_custom_event(CUSTOM_EVENT_DIALOG);
+  assert(event.type != 0);
+
+  event.user.data1 = userdata; // ID
+
+  if (filelist == NULL) {
+    event.user.code = DIALOG_ERROR;
+    event.user.data2 = SDL_strdup(SDL_GetError());
+  } else if (*filelist == NULL) {
+    event.user.code = DIALOG_CANCEL;
+  } else {
+    event.user.code = DIALOG_OK;
+
+    // Calculate total size needed for every entry
+    size_t bytes = 0;
+    for (size_t i = 0; filelist[i] != NULL; i++) {
+      bytes += SDL_strlen(filelist[i]) + 1;
+    }
+    
+    char *dataptr = event.user.data2 = SDL_malloc(bytes + 1); // +1 for NULL last entry
+    if (event.user.data2 == NULL) {
+      event.user.code = DIALOG_ERROR;
+    } else {
+      for (size_t i = 0; filelist[i] != NULL; i++) {
+        size_t len = SDL_strlen(filelist[i]) + 1;
+        SDL_memcpy(dataptr, filelist[i], len);
+        dataptr += len;
+      }
+      *dataptr = '\0'; // NULL last entry
+    }
+  }
+  SDL_PushEvent(&event);
+}
+
+static int f_open_file_dialog(lua_State* L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  uintptr_t id = luaL_checkinteger(L, 2);
+  const char *default_path = luaL_optstring(L, 3, NULL);
+
+  SDL_ShowOpenFileDialog(open_file_dialog_callback, (void *)id,
+                         window_renderer->window, NULL, 0, default_path, true);
+  return 0;
+}
 
 static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
@@ -1207,6 +1292,7 @@ static const luaL_Reg lib[] = {
   { "text_input",            f_text_input            },
   { "setenv",                f_setenv                },
   { "ftruncate",             f_ftruncate             },
+  { "open_file_dialog",      f_open_file_dialog      },
   { NULL, NULL }
 };
 
