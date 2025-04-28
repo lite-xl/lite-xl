@@ -1248,9 +1248,10 @@ static int f_open_file_dialog(lua_State* L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   uintptr_t id = luaL_checkinteger(L, 2);
   const char *default_path = luaL_optstring(L, 3, NULL);
+  bool allow_many = lua_toboolean(L, 4);
 
   SDL_ShowOpenFileDialog(open_file_dialog_callback, (void *)id,
-                         window_renderer->window, NULL, 0, default_path, true);
+                         window_renderer->window, NULL, 0, default_path, allow_many);
   return 0;
 }
 

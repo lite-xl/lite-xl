@@ -1083,9 +1083,10 @@ local last_file_dialog_tag = 0
 ---@param window renwindow
 ---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
 ---@param initial_path? string
-function core.open_file_dialog(window, callback, initial_path)
+---@param allow_many? boolean
+function core.open_file_dialog(window, callback, initial_path, allow_many)
   last_file_dialog_tag = last_file_dialog_tag + 1
-  system.open_file_dialog(window, last_file_dialog_tag, initial_path)
+  system.open_file_dialog(window, last_file_dialog_tag, initial_path, allow_many)
   core.active_file_dialogs[last_file_dialog_tag] = callback
 end
 

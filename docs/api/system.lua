@@ -390,6 +390,7 @@ function system.setenv(key, val) end
 ---@param window renwindow
 ---@param id integer
 ---@param initial_path? string
-function system.open_file_dialog(window, id, initial_path) end
+---@param allow_many? boolean
+function system.open_file_dialog(window, id, initial_path, allow_many) end
 
 return system
