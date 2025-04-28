@@ -393,4 +393,10 @@ function system.setenv(key, val) end
 ---@param allow_many? boolean
 function system.open_file_dialog(window, id, initial_path, allow_many) end
 
+---
+---Returns the current sandbox type.
+---
+---@return "none"|"unknown"|"flatpak"|"snap"|"macos"
+function system.get_sandbox() end
+
 return system

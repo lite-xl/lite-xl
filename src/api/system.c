@@ -1255,6 +1255,29 @@ static int f_open_file_dialog(lua_State* L) {
   return 0;
 }
 
+static int f_get_sandbox(lua_State* L) {
+  char *sandbox_name = "unknown";
+  switch (SDL_GetSandbox()) {
+    case SDL_SANDBOX_NONE:
+      sandbox_name = "none";
+      break;
+    case SDL_SANDBOX_UNKNOWN_CONTAINER:
+      sandbox_name = "unknown";
+      break;
+    case SDL_SANDBOX_FLATPAK:
+      sandbox_name = "flatpak";
+      break;
+    case SDL_SANDBOX_SNAP:
+      sandbox_name = "snap";
+      break;
+    case SDL_SANDBOX_MACOS:
+      sandbox_name = "macos";
+      break;
+  }
+  lua_pushstring(L, sandbox_name);
+  return 1;
+}
+
 static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
   { "wait_event",            f_wait_event            },
@@ -1294,6 +1317,7 @@ static const luaL_Reg lib[] = {
   { "setenv",                f_setenv                },
   { "ftruncate",             f_ftruncate             },
   { "open_file_dialog",      f_open_file_dialog      },
+  { "get_sandbox",           f_get_sandbox           },
   { NULL, NULL }
 };
 
