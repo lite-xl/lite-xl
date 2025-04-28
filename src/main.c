@@ -5,6 +5,7 @@
 #include "api/api.h"
 #include "rencache.h"
 #include "renderer.h"
+#include "custom_events.h"
 
 #include <signal.h>
 
@@ -118,6 +119,11 @@ int main(int argc, char **argv) {
   
   if (ren_init() != 0) {
     fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
+  }
+
+  if (!register_custom_events()) {
+    fprintf(stderr, "Error initializing custom events: %s\n", SDL_GetError());
+    exit(1);
   }
 
   int has_restarted = 0;
