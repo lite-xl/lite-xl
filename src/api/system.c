@@ -12,6 +12,7 @@
 #include "api.h"
 #include "../rencache.h"
 #include "../renwindow.h"
+#include "arena_allocator.h"
 #include "custom_events.h"
 #ifdef _WIN32
   #include <direct.h>
@@ -1207,13 +1208,36 @@ static int f_setenv(lua_State* L) {
   return 1;
 }
 
-static void open_file_dialog_callback(void *userdata, const char * const *filelist, int filter) {
+typedef struct {
+  uintptr_t id;
+  SDL_DialogFileFilter *filters;
+  size_t n_filters;
+} DialogData;
+
+static void free_dialog_filters(SDL_DialogFileFilter *filters, size_t n_filters) {
+  for (size_t i = 0; i < n_filters; i++) {
+    SDL_free((char *)filters[i].name);
+    SDL_free((char *)filters[i].pattern);
+  }
+}
+
+static void dialog_callback(void *userdata, const char * const *filelist, int filter) {
+  // TODO: support getting the selected filter?
+  //       as of SDL 3.2.10 only the windows backend supports that,
+  //       the others just return -1
   SDL_Event event;
   SDL_zero(event);
   event.type = get_custom_event(CUSTOM_EVENT_DIALOG);
   assert(event.type != 0);
+  DialogData *dd = userdata;
 
-  event.user.data1 = userdata; // ID
+  event.user.data1 = (void *)dd->id;
+
+  // Filters had to be available until this callback was called,
+  // so we can free them now
+  free_dialog_filters(dd->filters, dd->n_filters);
+  SDL_free(dd->filters);
+  SDL_free(dd);
 
   if (filelist == NULL) {
     event.user.code = DIALOG_ERROR;
@@ -1244,15 +1268,167 @@ static void open_file_dialog_callback(void *userdata, const char * const *fileli
   SDL_PushEvent(&event);
 }
 
-static int f_open_file_dialog(lua_State* L) {
+static SDL_DialogFileFilter *get_dialog_filters(lua_State* L, int index, lxl_arena *A, size_t *n_filters) {
+  if (index < 0) {
+    index += lua_gettop(L) + 1;
+  }
+
+  *n_filters = 0;
+  if (lua_isnoneornil(L, index)) {
+    return NULL;
+  }
+
+  size_t n = luaL_len(L, index);
+  if (n == 0) {
+    return NULL;
+  }
+
+  SDL_DialogFileFilter *filters = lxl_arena_malloc(A, n * sizeof(SDL_DialogFileFilter));
+
+  for (size_t i = 0; i < n; i++) {
+    size_t str_size = 0;
+    const char *tmp;
+
+    lua_geti(L, index, i + 1);
+
+    lua_getfield(L, -1, "name");
+    tmp = luaL_checklstring(L, -1, &str_size);
+    filters[i].name = lxl_arena_copy(A, tmp, str_size + 1);
+
+    lua_getfield(L, -2, "pattern");
+    tmp = luaL_checklstring(L, -1, &str_size);
+    filters[i].pattern = lxl_arena_copy(A, tmp, str_size + 1);
+
+    lua_pop(L, 3);
+  }
+
+  *n_filters = n;
+  return filters;
+}
+
+typedef struct {
+  bool allow_many;
+  char *default_location;
+  char *title;
+  char *accept_label;
+  char *cancel_label;
+} DialogOptions;
+
+static void get_dialog_options(lua_State* L, int index, SDL_FileDialogType type, lxl_arena *A, DialogOptions *options, SDL_DialogFileFilter **filters, size_t *n_filters) {
+  if (index < 0) {
+    index += lua_gettop(L) + 1;
+  }
+  options->allow_many = false;
+  options->default_location = NULL;
+  options->title = NULL;
+  options->accept_label = NULL;
+  options->cancel_label = NULL;
+  *filters = NULL;
+  *n_filters = 0;
+
+  if (lua_isnoneornil(L, index)) {
+    // No options specified
+    return;
+  }
+  luaL_checktype(L, index, LUA_TTABLE);
+
+  size_t str_size = 0;
+  const char* tmp;
+
+  lua_getfield(L, index, "default_location");
+  tmp = luaL_optlstring(L, -1, NULL, &str_size);
+  options->default_location = lxl_arena_copy(A, tmp, str_size + 1);
+
+  lua_getfield(L, index, "title");
+  tmp = luaL_optlstring(L, -1, NULL, &str_size);
+  options->title = lxl_arena_copy(A, tmp, str_size + 1);
+
+  lua_getfield(L, index, "accept_label");
+  tmp = luaL_optlstring(L, -1, NULL, &str_size);
+  options->accept_label = lxl_arena_copy(A, tmp, str_size + 1);
+
+  lua_getfield(L, index, "cancel_label");
+  tmp = luaL_optlstring(L, -1, NULL, &str_size);
+  options->cancel_label = lxl_arena_copy(A, tmp, str_size + 1);
+
+  lua_pop(L, 4);
+
+  if (type == SDL_FILEDIALOG_OPENFILE || type == SDL_FILEDIALOG_OPENFOLDER) {
+    lua_getfield(L, index, "allow_many");
+    options->allow_many = luaL_opt(L, lua_toboolean, -1, false);
+    lua_pop(L, 1);
+  }
+
+  if (type == SDL_FILEDIALOG_OPENFILE || type == SDL_FILEDIALOG_SAVEFILE) {
+    lua_getfield(L, index, "filters");
+    *filters = get_dialog_filters(L, -1, A, n_filters);
+    lua_pop(L, 1);
+  }
+}
+
+static int open_dialog(lua_State* L, SDL_FileDialogType type) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   uintptr_t id = luaL_checkinteger(L, 2);
-  const char *default_path = luaL_optstring(L, 3, NULL);
-  bool allow_many = lua_toboolean(L, 4);
+  DialogOptions options = {};
+  SDL_DialogFileFilter *arena_filters = NULL;
+  size_t n_filters = 0;
 
-  SDL_ShowOpenFileDialog(open_file_dialog_callback, (void *)id,
-                         window_renderer->window, NULL, 0, default_path, allow_many);
+  if (!lua_isnoneornil(L, 3)) {
+    get_dialog_options(
+      L, 3, type,
+      lxl_arena_init(L),
+      &options, &arena_filters, &n_filters
+    );
+  }
+
+  SDL_PropertiesID props = SDL_CreateProperties();
+  if (props == 0) {
+    return luaL_error(L, "Error while creating SDL Property: %s", SDL_GetError());
+  }
+
+  DialogData *dd = SDL_calloc(1, sizeof(DialogData));
+  if (dd == NULL) {
+    return luaL_error(L, "Unable to allocate DialogData memory");
+  }
+  dd->id = id;
+  dd->n_filters = n_filters;
+  dd->filters = SDL_malloc(n_filters * sizeof(SDL_DialogFileFilter));
+
+  if (dd->filters == NULL) {
+    SDL_free(dd);
+    return luaL_error(L, "Unable to allocate SDL_DialogFileFilter memory");
+  }
+
+  // SDL needs the filters to be available at least until the callback is called.
+  // arena_filters memory is handled by Lua so we can't use it as-is
+  for (size_t i = 0; i < n_filters; i++) {
+    dd->filters[i].name = SDL_strdup(arena_filters[i].name);
+    dd->filters[i].pattern = SDL_strdup(arena_filters[i].pattern);
+    if (dd->filters[i].name == NULL || dd->filters[i].pattern == NULL) {
+      free_dialog_filters(dd->filters, i);
+      SDL_free(dd->filters);
+      SDL_free(dd);
+      return luaL_error(L, "Unable to allocate memory for SDL_DialogFileFilter values");
+    }
+  }
+
+  SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_FILTERS_POINTER, dd->filters);
+  SDL_SetNumberProperty(props, SDL_PROP_FILE_DIALOG_NFILTERS_NUMBER, n_filters);
+  SDL_SetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, window_renderer->window);
+  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_LOCATION_STRING, options.default_location);
+  SDL_SetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, options.allow_many);
+  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, options.title);
+  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_ACCEPT_STRING, options.accept_label);
+  SDL_SetStringProperty(props, SDL_PROP_FILE_DIALOG_CANCEL_STRING, options.cancel_label);
+
+  SDL_ShowFileDialogWithProperties(type, dialog_callback, dd, props);
+
+  SDL_DestroyProperties(props);
   return 0;
+}
+
+static int f_open_file_dialog(lua_State* L) {
+  return open_dialog(L, SDL_FILEDIALOG_OPENFILE);
 }
 
 static int f_get_sandbox(lua_State* L) {
