@@ -1369,7 +1369,8 @@ static void get_dialog_options(lua_State* L, int index, SDL_FileDialogType type,
 static int open_dialog(lua_State* L, SDL_FileDialogType type) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   uintptr_t id = luaL_checkinteger(L, 2);
-  DialogOptions options = {};
+  DialogOptions options;
+  SDL_zero(options);
   SDL_DialogFileFilter *arena_filters = NULL;
   size_t n_filters = 0;
 
