@@ -86,6 +86,69 @@ local function open_file(use_dialog)
   })
 end
 
+local function open_directory(label, use_dialog, allow_many, callback)
+  local dirname = common.dirname(core.root_project().path)
+  local text
+  if dirname then
+    text = use_dialog and dirname or common.home_encode(dirname) .. PATHSEP
+  end
+
+  if use_dialog then
+    core.open_directory_dialog(core.window, function(status, result)
+      if status == "accept" then
+        callback(result)
+      end
+    end, {
+      default_location = text,
+      allow_many = allow_many,
+      title = label,
+    })
+  	return
+  end
+
+  core.command_view:enter(label, {
+    text = text,
+    submit = function(text)
+      local path = common.home_expand(text)
+      local abs_path = check_directory_path(path)
+      if not abs_path then
+        core.error("Cannot open directory %q", path)
+        return
+      end
+      callback({abs_path})
+    end,
+    suggest = suggest_directory
+  })
+end
+
+local function change_project_directory(use_dialog)
+  open_directory("Change Project Folder", use_dialog, false, function(abs_path)
+    if abs_path[1] == core.root_project().path then return end
+    core.confirm_close_docs(core.docs, function(dirpath)
+      core.open_project(dirpath)
+    end, abs_path[1])
+  end)
+end
+
+local function open_project_directory(use_dialog)
+  open_directory("Open Project", use_dialog, false, function(abs_path)
+    if abs_path[1] == core.root_project().path then
+      core.error("Directory %q is currently opened", abs_path[1])
+      return
+    end
+    system.exec(string.format("%q %q", EXEFILE, abs_path[1]))
+  end)
+end
+
+local function add_project_directory(use_dialog)
+  open_directory("Add Directory", use_dialog, true, function(abs_path)
+    for _, dir in ipairs(abs_path) do
+      print(dir)
+      core.add_project(system.absolute_path(dir))
+    end
+  end)
+end
+
 command.add(nil, {
   ["core:quit"] = function()
     core.quit()
@@ -194,70 +257,39 @@ command.add(nil, {
   end,
 
   ["core:change-project-folder"] = function()
-    local dirname = common.dirname(core.root_project().path)
-    local text
-    if dirname then
-      text = common.home_encode(dirname) .. PATHSEP
-    end
-    core.command_view:enter("Change Project Folder", {
-      text = text,
-      submit = function(text)
-        local path = common.home_expand(text)
-        local abs_path = check_directory_path(path)
-        if not abs_path then
-          core.error("Cannot open directory %q", path)
-          return
-        end
-        if abs_path == core.root_project().path then return end
-        core.confirm_close_docs(core.docs, function(dirpath)
-          core.open_project(dirpath)
-        end, abs_path)
-      end,
-      suggest = suggest_directory
-    })
+    change_project_directory(config.use_system_file_picker)
+  end,
+
+  ["core:change-project-folder-picker"] = function()
+    change_project_directory(true)
+  end,
+
+  ["core:change-project-folder-commandview"] = function()
+    change_project_directory(false)
   end,
 
   ["core:open-project-folder"] = function()
-    local dirname = common.dirname(core.root_project().path)
-    local text
-    if dirname then
-      text = common.home_encode(dirname) .. PATHSEP
-    end
-    core.command_view:enter("Open Project", {
-      text = text,
-      submit = function(text)
-        local path = common.home_expand(text)
-        local abs_path = check_directory_path(path)
-        if not abs_path then
-          core.error("Cannot open directory %q", path)
-          return
-        end
-        if abs_path == core.root_project().path then
-          core.error("Directory %q is currently opened", abs_path)
-          return
-        end
-        system.exec(string.format("%q %q", EXEFILE, abs_path))
-      end,
-      suggest = suggest_directory
-    })
+    open_project_directory(config.use_system_file_picker)
+  end,
+
+  ["core:open-project-folder-picker"] = function()
+    open_project_directory(true)
+  end,
+
+  ["core:open-project-folder-commandview"] = function()
+    open_project_directory(false)
   end,
 
   ["core:add-directory"] = function()
-    core.command_view:enter("Add Directory", {
-      submit = function(text)
-        text = common.home_expand(text)
-        local path_stat, err = system.get_file_info(text)
-        if not path_stat then
-          core.error("cannot open %q: %s", text, err)
-          return
-        elseif path_stat.type ~= 'dir' then
-          core.error("%q is not a directory", text)
-          return
-        end
-        core.add_project(system.absolute_path(text))
-      end,
-      suggest = suggest_directory
-    })
+    add_project_directory(config.use_system_file_picker)
+  end,
+
+  ["core:add-directory-picker"] = function()
+    add_project_directory(true)
+  end,
+
+  ["core:add-directory-commandview"] = function()
+    add_project_directory(false)
   end,
 
   ["core:remove-directory"] = function()
