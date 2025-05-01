@@ -1075,19 +1075,55 @@ end
 
 
 local last_file_dialog_tag = 0
+local function open_dialog(type, window, callback, options)
+  local types = {
+    ["openfile"] = system.open_file_dialog,
+    ["opendirectory"] = system.open_directory_dialog,
+    ["savefile"] = system.save_file_dialog,
+  }
+
+  local dialog_fn = types[type]
+  assert(dialog_fn, "Invalid dialog type")
+
+  last_file_dialog_tag = last_file_dialog_tag + 1
+  core.active_file_dialogs[last_file_dialog_tag] = callback
+  dialog_fn(window, last_file_dialog_tag, options)
+end
 
 ---Open the system file picker.
 ---
 ---Returns immediately.
+---The callback will be called with the result.
 ---
 ---@param window renwindow
 ---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
----@param initial_path? string
----@param allow_many? boolean
-function core.open_file_dialog(window, callback, initial_path, allow_many)
-  last_file_dialog_tag = last_file_dialog_tag + 1
-  system.open_file_dialog(window, last_file_dialog_tag, initial_path, allow_many)
-  core.active_file_dialogs[last_file_dialog_tag] = callback
+---@param options? system.dialogoptions.openfile
+function core.open_file_dialog(window, callback, options)
+  return open_dialog("openfile", window, callback, options)
+end
+
+---Open the system directory picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.opendirectory
+function core.open_directory_dialog(window, callback, options)
+  return open_dialog("opendirectory", window, callback, options)
+end
+
+---Open the system save file picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.savefile
+function core.save_file_dialog(window, callback, options)
+  return open_dialog("savefile", window, callback, options)
 end
 
 
