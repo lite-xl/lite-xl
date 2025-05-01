@@ -47,7 +47,10 @@ local function open_file(use_dialog)
           core.root_view:open_doc(core.open_doc(filename))
       	end
       end
-    end, text, true)
+    end, {
+      default_location = text,
+      allow_many = true,
+    })
   	return
   end
 
