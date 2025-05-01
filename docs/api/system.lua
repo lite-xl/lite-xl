@@ -17,6 +17,24 @@ system = {}
 ---@field public type system.fileinfotype Type of file
 ---@field public symlink boolean The directory is a symlink. This field is only set on directories.
 
+---@class system.dialogoptions.filter
+---@field name string
+---@fiels patters string
+
+---@class (exact) system.dialogoptions._base
+---@field public default_location? string
+---@field public title? string
+---@field public accept_label? string
+---@field public cancel_label? string
+
+---@class (exact) system.dialogoptions._open : system.dialogoptions._base
+---@field public allow_many? boolean
+
+---@class (exact) system.dialogoptions._file : system.dialogoptions._base
+---@field public filters? system.dialogoptions.filter[]
+
+---@class (exact) system.dialogoptions.openfile : system.dialogoptions._open, system.dialogoptions._file
+
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
 ---
@@ -378,7 +396,7 @@ function system.path_compare(path1, type1, path2, type2) end
 function system.setenv(key, val) end
 
 ---
----Opens a file dialog picker.
+---Opens a file picker.
 ---
 ---**NOTE**: don't use this directly, use `core.open_file_dialog` instead.
 ---
@@ -389,9 +407,8 @@ function system.setenv(key, val) end
 ---
 ---@param window renwindow
 ---@param id integer
----@param initial_path? string
----@param allow_many? boolean
-function system.open_file_dialog(window, id, initial_path, allow_many) end
+---@param options? system.dialogoptions.openfile
+function system.open_file_dialog(window, id, options) end
 
 ---
 ---Returns the current sandbox type.
