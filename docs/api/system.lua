@@ -34,6 +34,8 @@ system = {}
 ---@field public filters? system.dialogoptions.filter[]
 
 ---@class (exact) system.dialogoptions.openfile : system.dialogoptions._open, system.dialogoptions._file
+---@class (exact) system.dialogoptions.opendirectory : system.dialogoptions._open
+---@class (exact) system.dialogoptions.savefile : system.dialogoptions._file
 
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
@@ -409,6 +411,36 @@ function system.setenv(key, val) end
 ---@param id integer
 ---@param options? system.dialogoptions.openfile
 function system.open_file_dialog(window, id, options) end
+
+---
+---Opens a directory picker.
+---
+---**NOTE**: don't use this directly, use `core.open_directory_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.opendirectory
+function system.open_directory_dialog(window, id, options) end
+
+---
+---Opens a save file picker.
+---
+---**NOTE**: don't use this directly, use `core.save_file_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.savefile
+function system.save_file_dialog(window, id, options) end
 
 ---
 ---Returns the current sandbox type.
