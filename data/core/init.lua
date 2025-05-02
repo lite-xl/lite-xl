@@ -963,7 +963,6 @@ function core.step()
     return false
   end
 
-  -- handle events
   local width, height = core.window:get_size()
 
   -- update
