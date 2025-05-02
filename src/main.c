@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
   }
 
-  if (!register_custom_events()) {
+  if (!init_custom_events()) {
     fprintf(stderr, "Error initializing custom events: %s\n", SDL_GetError());
     exit(1);
   }
@@ -219,6 +219,10 @@ init_lua:
   }
 
   lua_close(L);
+
+  // At this point we're not going to call the event loop anymore,
+  // so we can free the custom events.
+  free_custom_events();
 
   ren_free();
 

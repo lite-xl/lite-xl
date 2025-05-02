@@ -31,6 +31,8 @@
 #endif
 #endif
 
+#define dialogfinished_event_name "dialogfinished"
+
 typedef enum {
   DIALOG_OK,
   DIALOG_CANCEL,
@@ -395,34 +397,15 @@ top:
       return 1;
 
     default:
-      if (e.type == get_custom_event(CUSTOM_EVENT_DIALOG)) {
-        lua_pushstring(L, "dialogfinished");
-        lua_pushinteger(L, (uintptr_t)e.user.data1); // ID
-
-        switch ((DialogState)e.user.code) {
-          case DIALOG_OK:
-            lua_pushstring(L, "accept");
-            char *dataptr = e.user.data2;
-            lua_newtable(L);
-            for (size_t i = 1; *dataptr != '\0'; i++) {
-              lua_pushstring(L, dataptr);
-              size_t len = lua_rawlen(L, -1) + 1;
-              lua_rawseti(L, -2, i);
-              dataptr += len;
-            }
-            SDL_free(e.user.data2);
-            return 4;
-          case DIALOG_CANCEL:
-            lua_pushstring(L, "cancel");
-            return 3;
-          case DIALOG_ERROR:
-            lua_pushstring(L, "error");
-            lua_pushstring(L, e.user.data2);
-            SDL_free(e.user.data2);
-            return 4;
-          default:
-            lua_pushstring(L, "unknown");
-            return 3;
+      // Custom event types are higher than SDL_EVENT_USER
+      if (e.type >= SDL_EVENT_USER) {
+        CustomEventCallback cec = get_custom_event_callback_by_type(e.type);
+        if (cec != NULL) {
+          int result = cec(L, &e);
+          // If the callback didn't return anything, skip to the next event
+          if (result != 0) {
+            return result;
+          }
         }
       }
       goto top;
@@ -1225,13 +1208,11 @@ static void dialog_callback(void *userdata, const char * const *filelist, int fi
   // TODO: support getting the selected filter?
   //       as of SDL 3.2.10 only the windows backend supports that,
   //       the others just return -1
-  SDL_Event event;
+  CustomEvent event;
   SDL_zero(event);
-  event.type = get_custom_event(CUSTOM_EVENT_DIALOG);
-  assert(event.type != 0);
   DialogData *dd = userdata;
 
-  event.user.data1 = (void *)dd->id;
+  event.data1 = (void *)dd->id;
 
   // Filters had to be available until this callback was called,
   // so we can free them now
@@ -1240,12 +1221,12 @@ static void dialog_callback(void *userdata, const char * const *filelist, int fi
   SDL_free(dd);
 
   if (filelist == NULL) {
-    event.user.code = DIALOG_ERROR;
-    event.user.data2 = SDL_strdup(SDL_GetError());
+    event.code = DIALOG_ERROR;
+    event.data2 = SDL_strdup(SDL_GetError());
   } else if (*filelist == NULL) {
-    event.user.code = DIALOG_CANCEL;
+    event.code = DIALOG_CANCEL;
   } else {
-    event.user.code = DIALOG_OK;
+    event.code = DIALOG_OK;
 
     // Calculate total size needed for every entry
     size_t bytes = 0;
@@ -1253,9 +1234,9 @@ static void dialog_callback(void *userdata, const char * const *filelist, int fi
       bytes += SDL_strlen(filelist[i]) + 1;
     }
     
-    char *dataptr = event.user.data2 = SDL_malloc(bytes + 1); // +1 for NULL last entry
-    if (event.user.data2 == NULL) {
-      event.user.code = DIALOG_ERROR;
+    char *dataptr = event.data2 = SDL_malloc(bytes + 1); // +1 for NULL last entry
+    if (event.data2 == NULL) {
+      event.code = DIALOG_ERROR;
     } else {
       for (size_t i = 0; filelist[i] != NULL; i++) {
         size_t len = SDL_strlen(filelist[i]) + 1;
@@ -1265,7 +1246,10 @@ static void dialog_callback(void *userdata, const char * const *filelist, int fi
       *dataptr = '\0'; // NULL last entry
     }
   }
-  SDL_PushEvent(&event);
+  if (!push_custom_event(dialogfinished_event_name, &event)) {
+    // TODO: panic?
+    SDL_free(event.data2);
+  }
 }
 
 static SDL_DialogFileFilter *get_dialog_filters(lua_State* L, int index, lxl_arena *A, size_t *n_filters) {
@@ -1428,6 +1412,37 @@ static int open_dialog(lua_State* L, SDL_FileDialogType type) {
   return 0;
 }
 
+static int dialogfinished_callback(lua_State *L, SDL_Event *e) {
+  lua_pushstring(L, "dialogfinished");
+  lua_pushinteger(L, (uintptr_t)e->user.data1); // ID
+
+  switch ((DialogState)e->user.code) {
+    case DIALOG_OK:
+      lua_pushstring(L, "accept");
+      char *dataptr = e->user.data2;
+      lua_newtable(L);
+      for (size_t i = 1; *dataptr != '\0'; i++) {
+        lua_pushstring(L, dataptr);
+        size_t len = lua_rawlen(L, -1) + 1;
+        lua_rawseti(L, -2, i);
+        dataptr += len;
+      }
+      SDL_free(e->user.data2);
+      return 4;
+    case DIALOG_CANCEL:
+      lua_pushstring(L, "cancel");
+      return 3;
+    case DIALOG_ERROR:
+      lua_pushstring(L, "error");
+      lua_pushstring(L, e->user.data2);
+      SDL_free(e->user.data2);
+      return 4;
+    default:
+      lua_pushstring(L, "unknown");
+      return 3;
+  }
+}
+
 static int f_open_file_dialog(lua_State* L) {
   return open_dialog(L, SDL_FILEDIALOG_OPENFILE);
 }
@@ -1510,6 +1525,9 @@ static const luaL_Reg lib[] = {
 
 
 int luaopen_system(lua_State *L) {
+  if (!register_custom_event(dialogfinished_event_name, dialogfinished_callback)) {
+    return luaL_error(L, "Unable to register custom dialogfinished event: %s", SDL_GetError());
+  }
   luaL_newmetatable(L, API_TYPE_NATIVE_PLUGIN);
   lua_pushcfunction(L, f_library_gc);
   lua_setfield(L, -2, "__gc");
