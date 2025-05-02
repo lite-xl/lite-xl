@@ -813,6 +813,12 @@ static int f_ftruncate(lua_State *L) {
   return 1;
 }
 
+static int f_set_update_rate(lua_State *L) {
+  const char *rate = luaL_optstring(L, 1, NULL);
+  bool result = SDL_SetHint(SDL_HINT_MAIN_CALLBACK_RATE, rate);
+  lua_pushboolean(L, result);
+  return 1;
+}
 
 static int f_mkdir(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
@@ -1237,6 +1243,7 @@ static const luaL_Reg lib[] = {
   { "text_input",            f_text_input            },
   { "setenv",                f_setenv                },
   { "ftruncate",             f_ftruncate             },
+  { "set_update_rate",       f_set_update_rate       },
   { NULL, NULL }
 };
 
