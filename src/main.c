@@ -240,15 +240,13 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 {
   struct app_state *state = (struct app_state*)appstate;
 
-  const char *init_lite_code = "return core.step()\n";
+  lua_getglobal(state->L, "core");
+  lua_getfield(state->L, -1, "step");
 
-
-  if (luaL_loadstring(state->L, init_lite_code)) {
-    fprintf(stderr, "internal error when starting the application\n");
-    return SDL_APP_FAILURE;
-  }
   lua_pcall(state->L, 0, 1, 0);
-  if (lua_toboolean(state->L, -1))
+  bool should_continue = lua_toboolean(state->L, -1);
+  lua_pop(state->L, 1);
+  if (should_continue)
     return SDL_APP_CONTINUE;
 
   // check if we are suppose to restart
@@ -256,7 +254,10 @@ SDL_AppResult SDL_AppIterate(void *appstate)
   lua_getfield(state->L, -1, "restart_request");
   lua_remove(state->L, -2);
 
-  if (lua_toboolean(state->L, -1))
+  bool restart_request = lua_toboolean(state->L, -1);
+  lua_pop(state->L, 1);
+
+  if (restart_request)
   {
     lua_close(state->L);
     rencache_invalidate();
