@@ -937,6 +937,9 @@ function core.on_event(type, ...)
     core.root_view:on_file_dropped(...)
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
+    system.set_update_rate("waitevent")
+  elseif type == "focusgained" then
+    system.set_update_rate(tostring(config.fps))
   elseif type == "quit" then
     core.quit()
   end

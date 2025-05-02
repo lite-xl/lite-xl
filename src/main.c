@@ -196,6 +196,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv)
   SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
   SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "1");
   SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+  // this acts as a sane default and will be overwitten by config.fps
+  SDL_SetHint(SDL_HINT_MAIN_CALLBACK_RATE, "60");
 
   /* This hint tells SDL to respect borderless window as a normal window.
   ** For example, the window will sit right on top of the taskbar instead
