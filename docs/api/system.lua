@@ -31,6 +31,7 @@ system = {}
 --- * "maximized"
 --- * "restored"
 --- * "focuslost"
+--- * "focusgained"
 ---
 ---File events:
 --- * "filedropped" -> filename, x, y

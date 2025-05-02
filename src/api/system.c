@@ -227,8 +227,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *e)
       ** several KEYDOWN events for the `tab` key; we flush all keydown
       ** events on focus so these are discarded */
       SDL_FlushEvent(SDL_EVENT_KEY_DOWN);
-      lua_pop(state->L,1);
-      return SDL_APP_CONTINUE;
+      lua_pushstring(state->L, "focusgained");
+      nargs = 1;
+      break;
 
 
     case SDL_EVENT_DROP_FILE:
