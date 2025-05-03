@@ -12,15 +12,15 @@ local icon_colors = {
 };
 
 local restore_command = {
-  symbol = "w", action = function() system.set_window_mode(core.window, "normal") end
+  symbol = "w", action = function() core.active_window():set_mode("normal") end
 }
 
 local maximize_command = {
-  symbol = "W", action = function() system.set_window_mode(core.window, "maximized") end
+  symbol = "W", action = function() core.active_window():set_mode("maximized") end
 }
 
 local title_commands = {
-  {symbol = "_", action = function() system.set_window_mode(core.window, "minimized") end},
+  {symbol = "_", action = function() core.active_window():set_mode("minimized") end},
   maximize_command,
   {symbol = "X", action = function() core.quit() end},
 }
@@ -46,10 +46,12 @@ function TitleView:configure_hit_test(borderless)
     local icon_w = style.icon_font:get_width("_")
     local icon_spacing = icon_w
     local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
-    system.set_window_hit_test(core.window, title_height, controls_width, icon_spacing)
+    system.set_window_hit_test(core.active_window(), title_height, controls_width, icon_spacing)
     -- core.hit_test_title_height = title_height
   else
-    system.set_window_hit_test(core.window)
+    for _, window in ipairs(core.windows) do
+      system.set_window_hit_test(window)
+    end
   end
 end
 

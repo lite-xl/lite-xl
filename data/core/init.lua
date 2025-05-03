@@ -28,8 +28,8 @@ local function save_session()
   local fp = io.open(USERDIR .. PATHSEP .. "session.lua", "w")
   if fp then
     fp:write("return {recents=", common.serialize(core.recent_projects),
-      ", window=", common.serialize(table.pack(system.get_window_size(core.window))),
-      ", window_mode=", common.serialize(system.get_window_mode(core.window)),
+      ", window=", common.serialize(table.pack(core.active_window():get_size())),
+      ", window_mode=", common.serialize(core.active_window():get_mode()),
       ", previous_find=", common.serialize(core.previous_find),
       ", previous_replace=", common.serialize(core.previous_replace),
       "}\n")
@@ -253,7 +253,9 @@ end
 
 
 function core.configure_borderless_window()
-  system.set_window_bordered(core.window, not config.borderless)
+  for _, window in ipairs(core.windows) do
+    window:set_bordered(not config.borderless)
+  end
   core.title_view:configure_hit_test(config.borderless)
   core.title_view.visible = config.borderless
 end
@@ -282,10 +284,32 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
+<<<<<<< HEAD
   local session = load_session()
   core.recent_projects = session.recents or {}
   core.previous_find = {}
   core.previous_replace = {}
+=======
+  core.windows = {}
+
+  local core_window = renwindow._restore()
+  if core_window == nil then
+    core_window = renwindow.create("")
+  end
+  table.insert(core.windows, core_window)
+
+  do
+    local session = load_session()
+    if session.window_mode == "normal" then
+      core.windows[1]:set_size(table.unpack(session.window))
+    elseif session.window_mode == "maximized" then
+      core.windows[1]:set_mode("maximized")
+    end
+    core.recent_projects = session.recents or {}
+    core.previous_find = session.previous_find or {}
+    core.previous_replace = session.previous_replace or {}
+  end
+>>>>>>> 5b20135b (move more window logic to renwindow api, move forward to multi windows)
 
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
@@ -318,7 +342,7 @@ function core.init()
   core.projects = {}
   core.cursor_clipboard = {}
   core.cursor_clipboard_whole_line = {}
-  core.window_mode = "normal"
+  core.windows_mode = "normal"
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
@@ -495,7 +519,7 @@ end
 function core.restart()
   core.exit(function()
     core.restart_request = true
-    core.window:_persist()
+    core.active_window():_persist()
   end)
 end
 
@@ -683,7 +707,7 @@ function core.set_active_view(view)
   -- Reset the IME even if the focus didn't change
   ime.stop()
   if view ~= core.active_view then
-    if core.window then system.text_input(core.window, view:supports_text_input()) end
+    if core.active_window() then system.text_input(core.active_window(), view:supports_text_input()) end
     if core.active_view and core.active_view.force_focus then
       core.next_active_view = view
       return
@@ -887,9 +911,9 @@ function core.on_event(type, ...)
   elseif type == "touchmoved" then
     core.root_view:on_touch_moved(...)
   elseif type == "resized" then
-    core.window_mode = system.get_window_mode(core.window)
+    core.windows_mode = core.active_window():get_mode()
   elseif type == "minimized" or type == "maximized" or type == "restored" then
-    core.window_mode = type == "restored" and "normal" or type
+    core.windows_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
     core.root_view:on_file_dropped(...)
   elseif type == "focuslost" then
@@ -934,7 +958,7 @@ function core.step()
     core.redraw = true
   end
 
-  local width, height = core.window:get_size()
+  local width, height = core.windows[1]:get_size()
 
   -- update
   core.root_view.size.x, core.root_view.size.y = width, height
@@ -953,13 +977,13 @@ function core.step()
 
   -- update window title
   local current_title = get_title_filename(core.active_view)
-  if current_title ~= nil and current_title ~= core.window_title then
-    system.set_window_title(core.window, core.compose_window_title(current_title))
-    core.window_title = current_title
+  if current_title ~= nil and current_title ~= core.windows_title then
+    core.windows[1]:set_title(core.compose_window_title(current_title))
+    core.windows_title = current_title
   end
 
   -- draw
-  renderer.begin_frame(core.window)
+  renderer.begin_frame(core.windows[1])
   core.clip_rect_stack[1] = { 0, 0, width, height }
   renderer.set_clip_rect(table.unpack(core.clip_rect_stack[1]))
   core.root_view:draw()
@@ -1031,7 +1055,7 @@ function core.run()
     if core.restart_request or core.quit_request then break end
 
     if not did_redraw then
-      if system.window_has_focus(core.window) or not did_step or run_threads_full < 2 then
+      if core.windows[1]:has_focus() or not did_step or run_threads_full < 2 then
         local now = system.get_time()
         if not next_step then -- compute the time until the next blink
           local t = now - core.blink_start
@@ -1094,5 +1118,19 @@ function core.deprecation_log(kind)
   core.warn("Used deprecated functionality [%s]. Check if your plugins are up to date.", kind)
 end
 
+function core.active_window()
+  for _, window in ipairs(core.windows) do
+    if window:has_focus() then
+      return window
+    end
+  end
+
+  -- a lot of the code will misbehave if no windows is available, so lets return the first one
+  if #core.windows > 0 then
+    return core.windows[1]
+  end
+
+  return nil
+end
 
 return core
