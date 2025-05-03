@@ -189,7 +189,7 @@ end
 local function load_workspace()
   local workspace = consume_workspace(core.root_project().path)
   if workspace then
-    local root = get_unlocked_root(core.root_view.root_node)
+    local root = get_unlocked_root(core.windows[1].root_view.root_node)
     local active_view = load_node(root, workspace.documents)
     if active_view then
       core.set_active_view(active_view)

@@ -4,6 +4,7 @@ local config = require "core.config"
 local Doc = require "core.doc"
 local Node = require "core.node"
 local common = require "core.common"
+local Window = require "core.window"
 local dirwatch = require "core.dirwatch"
 
 config.plugins.autoreload = common.merge({
@@ -84,9 +85,9 @@ local function doc_changes_visiblity(doc, visibility)
   end
 end
 
-local core_set_active_view = core.set_active_view
-function core.set_active_view(view)
-  core_set_active_view(view)
+local window_set_active_view = Window.set_active_view
+function Window:set_active_view(view)
+  window_set_active_view(self, view)
   doc_changes_visiblity(view.doc, true)
 end
 

@@ -382,7 +382,7 @@ local function get_partial_symbol()
 end
 
 local function get_active_view()
-  if core.active_view:is(DocView) then
+  if core.active_window().active_view:is(DocView) then
     return core.active_view
   end
 end

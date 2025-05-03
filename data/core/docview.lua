@@ -75,7 +75,7 @@ end
 function DocView:try_close(do_close)
   if self.doc:is_dirty()
   and #core.get_views_referencing_doc(self.doc) == 1 then
-    core.command_view:enter("Unsaved Changes; Confirm Close", {
+    self.root_view.window.command_view:enter("Unsaved Changes; Confirm Close", {
       submit = function(_, item)
         if item.text:match("^[cC]") then
           do_close()
@@ -413,7 +413,7 @@ function DocView:update()
   local line1, col1, line2, col2 = self.doc:get_selection()
   if (line1 ~= self.last_line1 or col1 ~= self.last_col1 or
       line2 ~= self.last_line2 or col2 ~= self.last_col2) and self.size.x > 0 then
-    if core.active_view == self and not ime.editing then
+    if self.root_view.window.active_view == self and not ime.editing then
       self:scroll_to_make_visible(line1, col1)
     end
     core.blink_reset()
@@ -422,7 +422,7 @@ function DocView:update()
   end
 
   -- update blink timer
-  if not config.disable_blink and system.window_has_focus(core.window) and self == core.active_view and not self.mouse_selecting then
+  if not config.disable_blink and system.window_has_focus(core.window) and self == self.root_view.window.active_view and not self.mouse_selecting then
     local T, t0 = config.blink_period, core.blink_start
     local ta, tb = core.blink_timer, system.get_time()
     if ((tb - t0) % T < T / 2) ~= ((ta - t0) % T < T / 2) then
@@ -494,7 +494,7 @@ function DocView:draw_line_body(line, x, y)
       end
     end
   end
-  if draw_highlight and core.active_view == self then
+  if draw_highlight and self.root_view.window.active_view == self then
     self:draw_line_highlight(x + self.scroll.x, y)
   end
 
@@ -558,13 +558,13 @@ end
 
 
 function DocView:draw_overlay()
-  if core.active_view == self then
+  if self.root_view.window.active_view == self then
     local minline, maxline = self:get_visible_line_range()
     -- draw caret if it overlaps this line
     local T = config.blink_period
     for _, line1, col1, line2, col2 in self.doc:get_selections() do
       if line1 >= minline and line1 <= maxline
-      and core.windows[1]:has_focus() then
+      and self.root_view.window.renwindow:has_focus() then
         if ime.editing then
           self:draw_ime_decoration(line1, col1, line2, col2)
         else
@@ -601,12 +601,12 @@ function DocView:draw()
   x, y = self:get_line_screen_position(minline)
   -- the clip below ensure we don't write on the gutter region. On the
   -- right side it is redundant with the Node's clip.
-  core.push_clip_rect(pos.x + gw, pos.y, self.size.x - gw, self.size.y)
+  self.root_view.window:push_clip_rect(pos.x + gw, pos.y, self.size.x - gw, self.size.y)
   for i = minline, maxline do
     y = y + (self:draw_line_body(i, x, y) or lh)
   end
   self:draw_overlay()
-  core.pop_clip_rect()
+  self.root_view.window:pop_clip_rect()
 
   self:draw_scrollbar()
 end

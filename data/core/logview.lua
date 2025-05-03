@@ -40,14 +40,14 @@ function LogView:__tostring() return "LogView" end
 LogView.context = "session"
 
 
-function LogView:new()
+function LogView:new(window)
   LogView.super.new(self)
+  self.window = window
   self.last_item = core.log_items[#core.log_items]
   self.expanding = {}
   self.scrollable = true
   self.yoffset = 0
-
-  core.status_view:show_message("i", style.text, "ctrl+click to copy entry")
+  window.status_view:show_message("i", style.text, "ctrl+click to copy entry")
 end
 
 
@@ -180,7 +180,7 @@ function LogView:draw()
   local tw = style.font:get_width(datestr)
   for _, item, x, y, w, h in self:each_item() do
     if y + h >= self.position.y and y <= self.position.y + self.size.y then
-      core.push_clip_rect(x, y, w, h)
+      self.window:push_clip_rect(x, y, w, h)
       x = x + style.padding.x
 
       x = common.draw_text(
@@ -217,7 +217,7 @@ function LogView:draw()
         _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
       end
 
-      core.pop_clip_rect()
+      self.window:pop_clip_rect()
     end
   end
   LogView.super.draw_scrollbar(self)

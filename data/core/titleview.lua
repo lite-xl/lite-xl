@@ -35,8 +35,9 @@ local function title_view_height()
   return style.font:get_height() + style.padding.y * 2
 end
 
-function TitleView:new()
+function TitleView:new(root_view)
   TitleView.super.new(self)
+  self.root_view = root_view
   self.visible = true
 end
 
@@ -46,12 +47,10 @@ function TitleView:configure_hit_test(borderless)
     local icon_w = style.icon_font:get_width("_")
     local icon_spacing = icon_w
     local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
-    system.set_window_hit_test(core.active_window(), title_height, controls_width, icon_spacing)
+    system.set_window_hit_test(self.root_view.window.renwindow, title_height, controls_width, icon_spacing)
     -- core.hit_test_title_height = title_height
   else
-    for _, window in ipairs(core.windows) do
-      system.set_window_hit_test(window)
-    end
+    system.set_window_hit_test(self.root_view.window.renwindow)
   end
 end
 
@@ -61,7 +60,7 @@ end
 
 function TitleView:update()
   self.size.y = self.visible and title_view_height() or 0
-  title_commands[2] = core.window_mode == "maximized" and restore_command or maximize_command
+  title_commands[2] = self.root_view.window.mode == "maximized" and restore_command or maximize_command
   TitleView.super.update(self)
 end
 
@@ -76,7 +75,7 @@ function TitleView:draw_window_title()
   common.draw_text(style.icon_font, icon_colors.color7, "7", nil, x, y, 0, h)
   common.draw_text(style.icon_font, icon_colors.color8, "8", nil, x, y, 0, h)
   x = common.draw_text(style.icon_font, icon_colors.color9, "9 ", nil, x, y, 0, h)
-  local title = core.compose_window_title(core.window_title)
+  local title = self.root_view.window:compose_window_title(self.root_view.window.title)
   common.draw_text(style.font, color, title, nil, x, y, 0, h)
 end
 

@@ -57,7 +57,6 @@ static int f_renwin_gc(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   if (window_renderer != persistant_window)
     ren_destroy(window_renderer);
-
   return 0;
 }
 
@@ -115,6 +114,12 @@ static int f_renwin_get_mode(lua_State *L) {
   return 1;
 }
 
+static int f_renwin_get_id(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  lua_pushinteger(L, SDL_GetWindowID(window_renderer->window));
+  return 1;
+}
+
 static int f_renwin_has_focus(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   unsigned flags = SDL_GetWindowFlags(window_renderer->window);
@@ -163,6 +168,7 @@ static const luaL_Reg renwindow_lib[] = {
   { "get_size",     f_renwin_get_size     },
   { "set_mode",     f_renwin_set_mode     },
   { "get_mode",     f_renwin_get_mode     },
+  { "get_id",       f_renwin_get_id       },
   { "has_focus",    f_renwin_has_focus    },
   { "raise",        f_renwin_raise        },
   { "set_bordered", f_renwin_set_bordered },

@@ -9,7 +9,7 @@ local tokenizer = require "core.tokenizer"
 
 
 local function doc()
-  return core.active_view.doc
+  return core.active_window().active_view.doc
 end
 
 
@@ -661,9 +661,9 @@ local commands = {
 
 }
 
-command.add(function(x, y)
-  if x == nil or y == nil or not core.active_view:extends(DocView) then return false end
-  local dv = core.active_view
+command.add(function(root_view, x, y)
+  if x == nil or y == nil or not core.active_window().active_view:extends(DocView) then return false end
+  local dv = core.active_window().active_view
   local x1,y1,x2,y2 = dv.position.x, dv.position.y, dv.position.x + dv.size.x, dv.position.y + dv.size.y
   return x >= x1 + dv:get_gutter_width() and x < x2 and y >= y1 and y < y2, dv, x, y
 end, {

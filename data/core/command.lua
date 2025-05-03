@@ -40,7 +40,7 @@ local command = {}
 command.map = {}
 
 ---@type core.command.predicate_function
-local always_true = function() return true end
+local always_true = function(...) return true, ... end
 
 
 ---This function takes in a predicate and produces a predicate function
@@ -63,9 +63,9 @@ function command.generate_predicate(predicate)
   if type(predicate) == "table" then
     local class = predicate
     if not strict then
-      predicate = function(...) return core.active_view:extends(class), core.active_view, ... end
+      predicate = function(...) return core.active_window().active_view:extends(class), core.active_window().active_view, ... end
     else
-      predicate = function(...) return core.active_view:is(class), core.active_view, ... end
+      predicate = function(...) return core.active_window().active_view:is(class), core.active_window().active_view, ... end
     end
   end
   ---@cast predicate core.command.predicate_function
@@ -117,7 +117,7 @@ function command.get_all_valid()
   local memoized_predicates = {}
   for name, cmd in pairs(command.map) do
     if memoized_predicates[cmd.predicate] == nil then
-      memoized_predicates[cmd.predicate] = cmd.predicate()
+      memoized_predicates[cmd.predicate] = cmd.predicate(core.active_window().root_view)
     end
     if memoized_predicates[cmd.predicate] then
       table.insert(res, name)

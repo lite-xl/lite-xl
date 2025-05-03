@@ -38,7 +38,8 @@ function ContextMenu:__tostring() return "ContextMenu" end
 ContextMenu.DIVIDER = DIVIDER
 
 ---Creates a new context menu.
-function ContextMenu:new()
+function ContextMenu:new(root_view)
+  self.root_view = root_view
   self.visible = false
   self.selected = -1
   self.height = 0
@@ -94,12 +95,12 @@ function ContextMenu:show(x, y, items, ...)
     local w, h = self.items.width, self.items.height
 
     -- by default the box is opened on the right and below
-    x = common.clamp(x, 0, core.root_view.size.x - w - style.padding.x)
-    y = common.clamp(y, 0, core.root_view.size.y - h)
+    x = common.clamp(x, 0, self.root_view.size.x - w - style.padding.x)
+    y = common.clamp(y, 0, self.root_view.size.y - h)
 
     self.position.x, self.position.y = x, y
     self.visible = true
-    core.set_active_view(self)
+    self.root_view.window:set_active_view(self)
     core.request_cursor("arrow")
     return true
   end
@@ -112,10 +113,10 @@ function ContextMenu:hide()
   self.items = nil
   self.selected = -1
   self.height = 0
-  if core.active_view == self then
-    core.set_active_view(core.last_active_view)
+  if self.root_view.window.active_view == self then
+    self.root_view.window:set_active_view(self.root_view.window.last_active_view)
   end
-  core.request_cursor(core.active_view.cursor)
+  core.request_cursor(self.root_view.window.active_view.cursor)
 end
 
 ---Returns an iterator that iterates over each context menu item and their dimensions.

@@ -19,7 +19,7 @@ config.plugins.findfile = common.merge({
 
 
 command.add(nil, {
-  ["core:find-file"] = function()
+  ["core:find-file"] = function(root_view)
     local files, complete = {}, false
     local refresh = coroutine.wrap(function()
       local start, total = system.get_time(), 0
@@ -42,7 +42,6 @@ command.add(nil, {
         end
       end
     end)
-
     local wait = refresh()
     if wait then
       core.add_thread(function()
@@ -53,7 +52,7 @@ command.add(nil, {
       end)
     end
     local original_files
-    core.command_view:enter("Open File From Project", {
+    root_view.window.command_view:enter("Open File From Project", {
       submit = function(text, item)
         text = item and item.text or text
         core.root_view:open_doc(core.open_doc(common.home_expand(text)))

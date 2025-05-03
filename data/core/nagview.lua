@@ -17,8 +17,9 @@ local NagView = View:extend()
 
 function NagView:__tostring() return "NagView" end
 
-function NagView:new()
+function NagView:new(root_view)
   NagView.super.new(self)
+  self.root_view = root_view
   self.size.y = 0
   self.show_height = 0
   self.force_focus = false
@@ -56,7 +57,7 @@ function NagView:get_target_height()
 end
 
 function NagView:get_scrollable_size()
-  local w, h = core.active_window():get_size()
+  local w, h = self.root_view.window.renwindow:get_size()
   if self.visible and self:get_target_height() > h then
     self.size.y = h
     return self:get_target_height()
@@ -69,8 +70,8 @@ end
 function NagView:dim_window_content()
   local ox, oy = self:get_content_offset()
   oy = oy + self.show_height
-  local w, h = core.root_view.size.x, core.root_view.size.y - oy
-  core.root_view:defer_draw(function()
+  local w, h = self.root_view.size.x, self.root_view.size.y - oy
+  self.root_view:defer_draw(function()
     local dim_color = { table.unpack(style.nagbar_dim) }
     dim_color[4] = style.nagbar_dim[4] * self.dim_alpha
     renderer.draw_rect(ox, oy, w, h, dim_color)
@@ -106,7 +107,7 @@ end
 
 function NagView:on_mouse_moved(mx, my, ...)
   if not self.visible then return end
-  core.set_active_view(self)
+  self.root_view.window:set_active_view(self)
   NagView.super.on_mouse_moved(self, mx, my, ...)
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
@@ -176,7 +177,7 @@ function NagView:update()
   if not self.visible and self.show_height <= 0 then return end
   NagView.super.update(self)
 
-  if self.visible and core.active_view == self and self.title then
+  if self.visible and self.root_view.window.active_view == self and self.title then
     local target_height = self:get_target_height()
     self:move_towards(self, "show_height", target_height, nil, "nagbar")
     self:move_towards(self, "underline_progress", 1, nil, "nagbar")
@@ -202,7 +203,7 @@ local function draw_nagview_message(self)
 
   ox = ox + style.padding.x
 
-  core.push_clip_rect(ox, oy, self.size.x, self.show_height)
+  self.root_view.window:push_clip_rect(ox, oy, self.size.x, self.show_height)
 
   -- if there are other items, show it
   if #self.queue > 0 then
@@ -243,14 +244,14 @@ local function draw_nagview_message(self)
 
   self:draw_scrollbar()
 
-  core.pop_clip_rect()
+  self.root_view.window:pop_clip_rect()
 end
 
 function NagView:draw()
   if (not self.visible and self.show_height <= 0) or not self.title then
     return
   end
-  core.root_view:defer_draw(draw_nagview_message, self)
+  self.root_view:defer_draw(draw_nagview_message, self)
 end
 
 function NagView:on_scale_change(new_scale, old_scale)
@@ -287,12 +288,12 @@ function NagView:next()
     self:change_hovered(common.find_index(self.options, "default_yes"))
 
     self.force_focus = true
-    core.set_active_view(self)
+    self.root_view.window:set_active_view(self)
     -- We add a hook to manage all the mouse_pressed events.
     register_mouse_pressed(self)
   else
     self.force_focus = false
-    core.set_active_view(core.next_active_view or core.last_active_view)
+    self.root_view.window:set_active_view(self.root_view.window.next_active_view or self.root_view.window.last_active_view)
     self.visible = false
     unregister_mouse_pressed(self)
   end

@@ -13,9 +13,9 @@ local case_sensitive = config.find_case_sensitive or false
 local find_regex = config.find_regex or false
 local found_expression
 
-local function doc()
-  local is_DocView = core.active_view:is(DocView) and not core.active_view:is(CommandView)
-  return is_DocView and core.active_view.doc or (last_view and last_view.doc)
+local function doc(rv)
+  local is_DocView = rv.window.active_view:is(DocView) and not rv.window.active_view:is(CommandView)
+  return is_DocView and rv.window.active_view.doc or (last_view and last_view.doc)
 end
 
 local function get_find_tooltip()
@@ -55,21 +55,20 @@ local function insert_unique(t, v)
 end
 
 
-local function find(label, search_fn)
-  last_view, last_sel = core.active_view,
-    { core.active_view.doc:get_selection() }
+local function find(dv, label, search_fn)
+  last_view, last_sel = dv, { dv.doc:get_selection() }
   local text = last_view.doc:get_text(table.unpack(last_sel))
   found_expression = false
 
-  core.status_view:show_tooltip(get_find_tooltip())
+  dv.root_view.window.status_view:show_tooltip(get_find_tooltip())
 
-  core.command_view:enter(label, {
+  dv.root_view.window.command_view:enter(label, {
     text = text,
     select_text = true,
     show_suggestions = false,
     submit = function(text, item)
       insert_unique(core.previous_find, text)
-      core.status_view:remove_tooltip()
+      dv.root_view.window.status_view:remove_tooltip()
       if found_expression then
         last_fn, last_text = search_fn, text
       else
@@ -84,7 +83,7 @@ local function find(label, search_fn)
       return core.previous_find
     end,
     cancel = function(explicit)
-      core.status_view:remove_tooltip()
+      dv.root_view.window.status_view:remove_tooltip()
       if explicit then
         last_view.doc:set_selection(table.unpack(last_sel))
         last_view:scroll_to_make_visible(table.unpack(last_sel))
@@ -94,9 +93,9 @@ local function find(label, search_fn)
 end
 
 
-local function replace(kind, default, fn)
-  core.status_view:show_tooltip(get_find_tooltip())
-  core.command_view:enter("Find To Replace " .. kind, {
+local function replace(dv, kind, default, fn)
+  dv.root_view.window.status_view:show_tooltip(get_find_tooltip())
+  dv.root_view.window.command_view:enter("Find To Replace " .. kind, {
     text = default,
     select_text = true,
     show_suggestions = false,
@@ -104,14 +103,14 @@ local function replace(kind, default, fn)
       insert_unique(core.previous_find, old)
 
       local s = string.format("Replace %s %q With", kind, old)
-      core.command_view:enter(s, {
+      dv.root_view.window.command_view:enter(s, {
         text = old,
         select_text = true,
         show_suggestions = false,
         submit = function(new)
-          core.status_view:remove_tooltip()
+          dv.root_view.window.status_view:remove_tooltip()
           insert_unique(core.previous_replace, new)
-          local results = doc():replace(function(text)
+          local results = dv.doc:replace(function(text)
             return fn(text, old, new)
           end)
           local n = 0
@@ -122,31 +121,28 @@ local function replace(kind, default, fn)
         end,
         suggest = function() return core.previous_replace end,
         cancel = function()
-          core.status_view:remove_tooltip()
+          dv.root_view.window.status_view:remove_tooltip()
         end
       })
     end,
     suggest = function() return core.previous_find end,
     cancel = function()
-      core.status_view:remove_tooltip()
+      dv.root_view.window.status_view:remove_tooltip()
     end
   })
 end
 
-local function has_selection()
-  return core.active_view:is(DocView) and core.active_view.doc:has_selection()
-end
 
-local function has_unique_selection()
-  if not doc() then return false end
+local function has_unique_selection(dv)
+  if not doc(dv.root_view) then return false end
   local text = nil
-  for idx, line1, col1, line2, col2 in doc():get_selections(true, true) do
+  for idx, line1, col1, line2, col2 in doc(dv.root_view):get_selections(true, true) do
     if line1 == line2 and col1 == col2 then return false end
-    local selection = doc():get_text(line1, col1, line2, col2)
+    local selection = doc(dv.root_view):get_text(line1, col1, line2, col2)
     if text ~= nil and text ~= selection then return false end
     text = selection
   end
-  return text ~= nil
+  return text ~= nil, dv
 end
 
 local function is_in_selection(line, col, l1, c1, l2, c2)
@@ -163,20 +159,20 @@ local function is_in_any_selection(line, col)
   return false
 end
 
-local function select_add_next(all)
+local function select_add_next(dv, all)
   local il1, ic1
-  for _, l1, c1, l2, c2 in doc():get_selections(true, true) do
+  for _, l1, c1, l2, c2 in doc(dv.root_view):get_selections(true, true) do
     if not il1 then
       il1, ic1 = l1, c1
     end
-    local text = doc():get_text(l1, c1, l2, c2)
+    local text = doc(dv.root_view):get_text(l1, c1, l2, c2)
     repeat
-      l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
+      l1, c1, l2, c2 = search.find(doc(dv.root_view), l2, c2, text, { wrap = true })
       if l1 == il1 and c1 == ic1 then break end
       if l2 and not is_in_any_selection(l2, c2) then
-        doc():add_selection(l2, c2, l1, c1)
+        doc(dv.root_view):add_selection(l2, c2, l1, c1)
         if not all then
-          core.active_view:scroll_to_make_visible(l2, c2)
+          dv:scroll_to_make_visible(l2, c2)
           return
         end
       end
@@ -186,25 +182,25 @@ local function select_add_next(all)
 end
 
 local function select_next(reverse)
-  local l1, c1, l2, c2 = doc():get_selection(true)
-  local text = doc():get_text(l1, c1, l2, c2)
+  local l1, c1, l2, c2 = doc(dv.root_view):get_selection(true)
+  local text = doc(dv.root_view):get_text(l1, c1, l2, c2)
   if reverse then
-    l1, c1, l2, c2 = search.find(doc(), l1, c1, text, { wrap = true, reverse = true })
+    l1, c1, l2, c2 = search.find(doc(dv.root_view), l1, c1, text, { wrap = true, reverse = true })
   else
-    l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
+    l1, c1, l2, c2 = search.find(doc(dv.root_view), l2, c2, text, { wrap = true })
   end
-  if l2 then doc():set_selection(l2, c2, l1, c1) end
+  if l2 then doc(dv.root_view):set_selection(l2, c2, l1, c1) end
 end
 
 ---@param in_selection? boolean whether to replace in the selections only, or in the whole file.
-local function find_replace(in_selection)
-  local l1, c1, l2, c2 = doc():get_selection()
+local function find_replace(dv, in_selection)
+  local l1, c1, l2, c2 = doc(dv.root_view):get_selection()
   local selected_text = ""
   if not in_selection then
-    selected_text = doc():get_text(l1, c1, l2, c2)
-    doc():set_selection(l2, c2, l2, c2)
+    selected_text = doc(dv.root_view):get_text(l1, c1, l2, c2)
+    doc(dv.root_view):set_selection(l2, c2, l2, c2)
   end
-  replace("Text", l1 == l2 and selected_text or "", function(text, old, new)
+  replace(dv, "Text", l1 == l2 and selected_text or "", function(text, old, new)
     if not find_regex then
       return text:gsub(old:gsub("%W", "%%%1"), new:gsub("%%", "%%%%"), nil)
     end
@@ -215,34 +211,34 @@ end
 
 command.add(has_unique_selection, {
   ["find-replace:select-next"] = select_next,
-  ["find-replace:select-previous"] = function() select_next(true) end,
+  ["find-replace:select-previous"] = function(dv) select_next(dv, true) end,
   ["find-replace:select-add-next"] = select_add_next,
-  ["find-replace:select-add-all"] = function() select_add_next(true) end
+  ["find-replace:select-add-all"] = function() select_add_next(dv, true) end
 })
 
 command.add("core.docview!", {
-  ["find-replace:find"] = function()
-    find("Find Text", function(doc, line, col, text, case_sensitive, find_regex, find_reverse)
+  ["find-replace:find"] = function(dv)
+    find(dv, "Find Text", function(doc, line, col, text, case_sensitive, find_regex, find_reverse)
       local opt = { wrap = true, no_case = not case_sensitive, regex = find_regex, reverse = find_reverse }
       return search.find(doc, line, col, text, opt)
     end)
   end,
 
-  ["find-replace:replace"] = function()
-    find_replace()
+  ["find-replace:replace"] = function(dv)
+    find_replace(dv)
   end,
 
-  ["find-replace:replace-in-selection"] = function()
-    find_replace(true)
+  ["find-replace:replace-in-selection"] = function(dv)
+    find_replace(dv, true)
   end,
 
-  ["find-replace:replace-symbol"] = function()
+  ["find-replace:replace-symbol"] = function(dv)
     local first = ""
-    if doc():has_selection() then
-      local text = doc():get_text(doc():get_selection())
+    if doc(dv.root_view):has_selection() then
+      local text = doc(dv.root_view):get_text(doc(dv.root_view):get_selection())
       first = text:match(config.symbol_pattern) or ""
     end
-    replace("Symbol", first, function(text, old, new)
+    replace(dv, "Symbol", first, function(text, old, new)
       local n = 0
       local res = text:gsub(config.symbol_pattern, function(sym)
         if old == sym then
@@ -255,12 +251,12 @@ command.add("core.docview!", {
   end,
 })
 
-local function valid_for_finding()
+local function valid_for_finding(root_view)
   -- Allow using this while in the CommandView
-  if core.active_view:is(CommandView) and last_view then
+  if root_view.window.active_view:is(CommandView) and last_view then
     return true, last_view
   end
-  return core.active_view:is(DocView), core.active_view
+  return root_view.window.active_view:is(DocView), root_view.window.active_view
 end
 
 command.add(valid_for_finding, {
@@ -295,16 +291,16 @@ command.add(valid_for_finding, {
   end,
 })
 
-command.add("core.commandview", {
-  ["find-replace:toggle-sensitivity"] = function()
+command.add(CommandView, {
+  ["find-replace:toggle-sensitivity"] = function(cv)
     case_sensitive = not case_sensitive
-    core.status_view:show_tooltip(get_find_tooltip())
+    cv.root_view.window.status_view:show_tooltip(get_find_tooltip())
     if last_sel then update_preview(last_sel, last_fn, last_text) end
   end,
 
-  ["find-replace:toggle-regex"] = function()
+  ["find-replace:toggle-regex"] = function(cv)
     find_regex = not find_regex
-    core.status_view:show_tooltip(get_find_tooltip())
+    cv.root_view.window.status_view:show_tooltip(get_find_tooltip())
     if last_sel then update_preview(last_sel, last_fn, last_text) end
   end
 })

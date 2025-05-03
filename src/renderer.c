@@ -838,13 +838,12 @@ void ren_resize_window(RenWindow *window_renderer) {
   renwin_update_scale(window_renderer);
 }
 
-// TODO: Does not work nicely with multiple windows
+
 void ren_update_rects(RenWindow *window_renderer, RenRect *rects, int count) {
-  static bool initial_frame = true;
   renwin_update_rects(window_renderer, rects, count);
-  if (initial_frame) {
+  if (!window_renderer->rendered_frame) {
     renwin_show_window(window_renderer);
-    initial_frame = false;
+    window_renderer->rendered_frame = true;
   }
 }
 
