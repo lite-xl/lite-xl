@@ -437,35 +437,6 @@ static int f_set_cursor(lua_State *L) {
 }
 
 
-static int f_set_window_title(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  const char *title = luaL_checkstring(L, 2);
-  SDL_SetWindowTitle(window_renderer->window, title);
-  return 0;
-}
-
-
-static const char *window_opts[] = { "normal", "minimized", "maximized", "fullscreen", 0 };
-enum { WIN_NORMAL, WIN_MINIMIZED, WIN_MAXIMIZED, WIN_FULLSCREEN };
-
-static int f_set_window_mode(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  int n = luaL_checkoption(L, 2, "normal", window_opts);
-  SDL_SetWindowFullscreen(window_renderer->window, n == WIN_FULLSCREEN);
-  if (n == WIN_NORMAL) { SDL_RestoreWindow(window_renderer->window); }
-  if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window_renderer->window); }
-  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window_renderer->window); }
-  return 0;
-}
-
-
-static int f_set_window_bordered(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**) luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  SDL_SetWindowBordered(window_renderer->window, lua_toboolean(L, 2));
-  return 0;
-}
-
-
 static int f_set_window_hit_test(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**) luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   if (lua_gettop(L) == 1) {
@@ -479,55 +450,6 @@ static int f_set_window_hit_test(lua_State *L) {
   return 0;
 }
 
-
-static int f_get_window_size(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  int x, y, w, h;
-  SDL_GetWindowSize(window_renderer->window, &w, &h);
-  SDL_GetWindowPosition(window_renderer->window, &x, &y);
-  lua_pushinteger(L, w);
-  lua_pushinteger(L, h);
-  lua_pushinteger(L, x);
-  lua_pushinteger(L, y);
-  return 4;
-}
-
-
-static int f_set_window_size(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  double w = luaL_checknumber(L, 2);
-  double h = luaL_checknumber(L, 3);
-  double x = luaL_checknumber(L, 4);
-  double y = luaL_checknumber(L, 5);
-  SDL_SetWindowSize(window_renderer->window, w, h);
-  SDL_SetWindowPosition(window_renderer->window, x, y);
-  ren_resize_window(window_renderer);
-  return 0;
-}
-
-
-static int f_window_has_focus(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
-  lua_pushboolean(L, flags & SDL_WINDOW_INPUT_FOCUS);
-  return 1;
-}
-
-
-static int f_get_window_mode(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
-  if (flags & SDL_WINDOW_FULLSCREEN) {
-    lua_pushstring(L, "fullscreen");
-  } else if (flags & SDL_WINDOW_MINIMIZED) {
-    lua_pushstring(L, "minimized");
-  } else if (flags & SDL_WINDOW_MAXIMIZED) {
-    lua_pushstring(L, "maximized");
-  } else {
-    lua_pushstring(L, "normal");
-  }
-  return 1;
-}
 
 static int f_set_text_input_rect(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
@@ -543,13 +465,6 @@ static int f_set_text_input_rect(lua_State *L) {
 static int f_clear_ime(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   SDL_ClearComposition(window_renderer->window);
-  return 0;
-}
-
-
-static int f_raise_window(lua_State *L) {
-  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  SDL_RaiseWindow(window_renderer->window);
   return 0;
 }
 
@@ -1173,17 +1088,9 @@ static const luaL_Reg lib[] = {
   { "poll_event",            f_poll_event            },
   { "wait_event",            f_wait_event            },
   { "set_cursor",            f_set_cursor            },
-  { "set_window_title",      f_set_window_title      },
-  { "set_window_mode",       f_set_window_mode       },
-  { "get_window_mode",       f_get_window_mode       },
-  { "set_window_bordered",   f_set_window_bordered   },
   { "set_window_hit_test",   f_set_window_hit_test   },
-  { "get_window_size",       f_get_window_size       },
-  { "set_window_size",       f_set_window_size       },
   { "set_text_input_rect",   f_set_text_input_rect   },
   { "clear_ime",             f_clear_ime             },
-  { "window_has_focus",      f_window_has_focus      },
-  { "raise_window",          f_raise_window          },
   { "show_fatal_error",      f_show_fatal_error      },
   { "rmdir",                 f_rmdir                 },
   { "chdir",                 f_chdir                 },
