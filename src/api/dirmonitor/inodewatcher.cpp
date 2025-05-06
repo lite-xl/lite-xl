@@ -1,3 +1,4 @@
+#include <SDL3/SDL.h>
 #include <AK/NumericLimits.h>
 #include <Kernel/API/InodeWatcherEvent.h>
 #include <Kernel/API/InodeWatcherFlags.h>
@@ -25,7 +26,7 @@ struct dirmonitor_internal {
 
 
 struct dirmonitor_internal* init_dirmonitor() {
-  struct dirmonitor_internal* monitor = (struct dirmonitor_internal*)calloc(sizeof(struct dirmonitor_internal), 1);
+  struct dirmonitor_internal* monitor = (struct dirmonitor_internal*)SDL_calloc(sizeof(struct dirmonitor_internal), 1);
   monitor->fd = create_inode_watcher(0);
   pipe(monitor->sig);
   fcntl(monitor->sig[0], F_SETFD, FD_CLOEXEC);

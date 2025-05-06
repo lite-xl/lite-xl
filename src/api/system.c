@@ -584,7 +584,7 @@ static int f_chdir(lua_State *L) {
   LPWSTR wpath = utfconv_utf8towc(path);
   if (wpath == NULL) { return luaL_error(L, UTFCONV_ERROR_INVALID_CONVERSION ); }
   int err = _wchdir(wpath);
-  free(wpath);
+  SDL_free(wpath);
 #else
   int err = chdir(path);
 #endif
@@ -625,17 +625,17 @@ static int f_absolute_path(lua_State *L) {
   if (!wpath) { return 0; }
 
   LPWSTR wfullpath = realpath(wpath, NULL);
-  free(wpath);
+  SDL_free(wpath);
   if (!wfullpath) { return 0; }
 
   char *res = utfconv_wctoutf8(wfullpath);
-  free(wfullpath);
+  SDL_free(wfullpath);
 #else
   char *res = realpath(path, NULL);
 #endif
   if (!res) { return 0; }
   lua_pushstring(L, res);
-  free(res);
+  SDL_free(res);
   return 1;
 }
 
@@ -652,11 +652,11 @@ static int f_get_file_info(lua_State *L) {
   }
   WIN32_FILE_ATTRIBUTE_DATA data;
   if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &data)) {
-    free(wpath);
+    SDL_free(wpath);
     lua_pushnil(L); push_win32_error(L, GetLastError());
     return 2;
   }
-  free(wpath);
+  SDL_free(wpath);
   ULARGE_INTEGER large_int = {0};
   #define TICKS_PER_MILISECOND 10000
   #define EPOCH_DIFFERENCE 11644473600000LL
@@ -795,7 +795,7 @@ static int f_mkdir(lua_State *L) {
   }
 
   int err = _wmkdir(wpath);
-  free(wpath);
+  SDL_free(wpath);
 #else
   int err = mkdir(path, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 #endif
@@ -877,7 +877,7 @@ static int f_sleep(lua_State *L) {
 static int f_exec(lua_State *L) {
   size_t len;
   const char *cmd = luaL_checklstring(L, 1, &len);
-  char *buf = malloc(len + 32);
+  char *buf = SDL_malloc(len + 32);
   if (!buf) { luaL_error(L, "buffer allocation failed"); }
 #if _WIN32
   sprintf(buf, "cmd /c \"%s\"", cmd);
@@ -887,7 +887,7 @@ static int f_exec(lua_State *L) {
   int res = system(buf);
   (void) res;
 #endif
-  free(buf);
+  SDL_free(buf);
   return 0;
 }
 

@@ -1,3 +1,4 @@
+#include <SDL3/SDL.h>
 #include <sys/event.h>
 #include <sys/stat.h>
 #include <stdlib.h>
@@ -12,7 +13,7 @@ struct dirmonitor_internal {
 
 
 struct dirmonitor_internal* init_dirmonitor() {
-  struct dirmonitor_internal* monitor = calloc(1, sizeof(struct dirmonitor_internal));
+  struct dirmonitor_internal* monitor = SDL_calloc(1, sizeof(struct dirmonitor_internal));
   monitor->fd = kqueue();
   return monitor;
 }

@@ -139,7 +139,7 @@ static void kill_list_free(process_kill_list_t *list) {
   while (node) {
     temp = node;
     node = node->next;
-    free(temp);
+    SDL_free(temp);
   }
   memset(list, 0, sizeof(process_kill_list_t));
 }
@@ -281,7 +281,7 @@ static int kill_list_worker(void *ud) {
         free_task:
         SDL_SignalCondition(list->work_done);
         process_handle_close(&current_task->handle);
-        free(current_task);
+        SDL_free(current_task);
       }
     }
     delay = list->head ? (list->head->start_time + PROCESS_TERM_DELAY) - SDL_GetTicks() : 0;
@@ -746,7 +746,7 @@ static int f_gc(lua_State* L) {
   if (poll_process(self, 0) && !self->detached) {
     // attempt to kill the process if still running and not detached
     signal_process(self, SIGNAL_TERM);
-    if (!list || !list->worker_thread || !(p = malloc(sizeof(process_kill_t)))) {
+    if (!list || !list->worker_thread || !(p = SDL_malloc(sizeof(process_kill_t)))) {
       // use synchronous waiting
       if (poll_process(self, PROCESS_TERM_DELAY)) {
         signal_process(self, SIGNAL_KILL);

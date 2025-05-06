@@ -202,7 +202,7 @@ static unsigned int font_get_glyph_id(RenFont *font, unsigned int codepoint) {
   if (codepoint > MAX_UNICODE) return 0;
   size_t row = codepoint / CHARMAP_COL;
   size_t col = codepoint - (row * CHARMAP_COL);
-  if (!font->charmap.rows[row]) font->charmap.rows[row] = check_alloc(calloc(sizeof(unsigned int), CHARMAP_COL));
+  if (!font->charmap.rows[row]) font->charmap.rows[row] = check_alloc(SDL_calloc(sizeof(unsigned int), CHARMAP_COL));
   if (font->charmap.rows[row][col] == 0) {
     unsigned int glyph_id = FT_Get_Char_Index(font->face, codepoint);
     // use -1 as a sentinel value for "glyph not available", a bit risky, but OpenType
@@ -236,7 +236,7 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
   }
   if (atlas_idx < 0) {
     font->glyphs.atlas[glyph_format] = check_alloc(
-      realloc(font->glyphs.atlas[glyph_format], sizeof(GlyphAtlas) * (font->glyphs.natlas[glyph_format] + 1))
+      SDL_realloc(font->glyphs.atlas[glyph_format], sizeof(GlyphAtlas) * (font->glyphs.natlas[glyph_format] + 1))
     );
     font->glyphs.atlas[glyph_format][font->glyphs.natlas[glyph_format]] = (GlyphAtlas) {
       .width = metric->x1 + FONT_WIDTH_OVERFLOW_PX, .nsurface = 0,
@@ -268,7 +268,7 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     if (h <= FONT_HEIGHT_OVERFLOW_PX) h += font->size;
     int depth = 0;
     SDL_PixelFormat format = glyphformat_to_pixelformat(glyph_format, &depth);
-    atlas->surfaces = check_alloc(realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
+    atlas->surfaces = check_alloc(SDL_realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
     atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateSurface(atlas->width, GLYPHS_PER_ATLAS * h, format));
     userdata = SDL_GetSurfaceProperties(atlas->surfaces[atlas->nsurface]);
     SDL_SetPointerProperty(userdata, "metric", NULL);
@@ -300,7 +300,7 @@ static GlyphMetric *font_load_glyph_metric(RenFont *font, unsigned int glyph_id,
     for (int i = 0; i < bitmaps; i++) {
       // save the metrics for all subpixel indexes
       if (!font->glyphs.metrics[i][row]) {
-        font->glyphs.metrics[i][row] = check_alloc(calloc(sizeof(GlyphMetric), GLYPHMAP_COL));
+        font->glyphs.metrics[i][row] = check_alloc(SDL_calloc(sizeof(GlyphMetric), GLYPHMAP_COL));
         font->glyphs.bytesize += sizeof(GlyphMetric) * GLYPHMAP_COL;
       }
       GlyphMetric *metric = &font->glyphs.metrics[i][row][col];
@@ -396,16 +396,16 @@ static void font_clear_glyph_cache(RenFont* font) {
       for (int surface_idx = 0; surface_idx < atlas->nsurface; surface_idx++) {
         SDL_DestroySurface(atlas->surfaces[surface_idx]);
       }
-      free(atlas->surfaces);
+      SDL_free(atlas->surfaces);
     }
-    free(font->glyphs.atlas[glyph_format_idx]);
+    SDL_free(font->glyphs.atlas[glyph_format_idx]);
     font->glyphs.atlas[glyph_format_idx] = NULL;
     font->glyphs.natlas[glyph_format_idx] = 0;
   }
   // clear glyph metric
   for (int subpixel_idx = 0; subpixel_idx < FONT_BITMAP_COUNT(font); subpixel_idx++) {
     for (int glyphmap_row = 0; glyphmap_row < GLYPHMAP_ROW; glyphmap_row++) {
-      free(font->glyphs.metrics[subpixel_idx][glyphmap_row]);
+      SDL_free(font->glyphs.metrics[subpixel_idx][glyphmap_row]);
       font->glyphs.metrics[subpixel_idx][glyphmap_row] = NULL;
     }
   }
@@ -428,7 +428,7 @@ static unsigned long font_file_read(FT_Stream stream, unsigned long offset, unsi
 static void font_file_close(FT_Stream stream) {
   if (stream && stream->descriptor.pointer)
     SDL_CloseIO((SDL_IOStream *) stream->descriptor.pointer);
-  free(stream);
+  SDL_free(stream);
 }
 
 static int font_set_face_metrics(RenFont *font, FT_Face face) {
@@ -467,7 +467,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   if (!file) return NULL; // error set by SDL_IOFromFile
   
   int len = strlen(path);
-  font = check_alloc(calloc(1, sizeof(RenFont) + len + 1));
+  font = check_alloc(SDL_calloc(1, sizeof(RenFont) + len + 1));
   strcpy(font->path, path);
   font->size = size;
   font->antialiasing = antialiasing;
@@ -478,7 +478,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
   font->scale = 1;
 #endif
 
-  stream = check_alloc(calloc(1, sizeof(FT_StreamRec)));
+  stream = check_alloc(SDL_calloc(1, sizeof(FT_StreamRec)));
   if (!stream) goto stream_failure;
   stream->read = &font_file_read;
   stream->close = &font_file_close;
@@ -497,7 +497,7 @@ stream_failure:
 failure:
   if (err != FT_Err_Ok) SDL_SetError("%s", get_ft_error(err));
   if (face) FT_Done_Face(face);
-  if (font) free(font);
+  if (font) SDL_free(font);
   return NULL;
 }
 
@@ -517,10 +517,10 @@ void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
   // free codepoint cache as well
   for (int i = 0; i < CHARMAP_ROW; i++) {
-    free(font->charmap.rows[i]);
+    SDL_free(font->charmap.rows[i]);
   }
   FT_Done_Face(font->face);
-  free(font);
+  SDL_free(font);
 }
 
 void ren_font_group_set_tab_size(RenFont **fonts, int n) {
@@ -754,7 +754,7 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 /*************** Window Management ****************/
 static void ren_add_window(RenWindow *window_renderer) {
   window_count += 1;
-  window_list = realloc(window_list, window_count * sizeof(RenWindow*));
+  window_list = SDL_realloc(window_list, window_count * sizeof(RenWindow*));
   window_list[window_count-1] = window_renderer;
 }
 
@@ -789,7 +789,7 @@ void ren_free(void) {
 
 RenWindow* ren_create(SDL_Window *win) {
   assert(win);
-  RenWindow* window_renderer = calloc(1, sizeof(RenWindow));
+  RenWindow* window_renderer = SDL_calloc(1, sizeof(RenWindow));
 
   window_renderer->window = win;
   renwin_init_surface(window_renderer);
@@ -804,10 +804,10 @@ void ren_destroy(RenWindow* window_renderer) {
   assert(window_renderer);
   ren_remove_window(window_renderer);
   renwin_free(window_renderer);
-  free(window_renderer->command_buf);
+  SDL_free(window_renderer->command_buf);
   window_renderer->command_buf = NULL;
   window_renderer->command_buf_size = 0;
-  free(window_renderer);
+  SDL_free(window_renderer);
 }
 
 void ren_resize_window(RenWindow *window_renderer) {

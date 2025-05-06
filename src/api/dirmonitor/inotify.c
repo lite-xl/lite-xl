@@ -1,3 +1,4 @@
+#include <SDL3/SDL.h>
 #include <sys/inotify.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,7 +14,7 @@ struct dirmonitor_internal {
 
 
 struct dirmonitor_internal* init_dirmonitor() {
-  struct dirmonitor_internal* monitor = calloc(1, sizeof(struct dirmonitor_internal));
+  struct dirmonitor_internal* monitor = SDL_calloc(1, sizeof(struct dirmonitor_internal));
   monitor->fd = inotify_init();
   pipe(monitor->sig);
   fcntl(monitor->sig[0], F_SETFD, FD_CLOEXEC);
