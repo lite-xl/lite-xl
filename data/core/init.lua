@@ -79,7 +79,6 @@ end
 function core.add_project(project)
   project = type(project) == "string" and Project(common.normalize_volume(project)) or project
   table.insert(core.projects, project)
-  core.redraw = true
   return project
 end
 
@@ -369,7 +368,6 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
-  core.redraw = true
   core.visited_files = {}
   core.restart_request = false
   core.quit_request = false
@@ -939,10 +937,12 @@ function core.on_event(type, ...)
     core.root_view:on_file_dropped(...)
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
+    system.set_update_rate("waitevent")
+  elseif type == "focusgained" then
+    system.set_update_rate(tostring(config.fps))
   elseif type == "quit" then
     core.quit()
   end
-  return did_keymap
 end
 
 
@@ -959,24 +959,8 @@ end
 
 
 function core.step()
-  -- handle events
-  local did_keymap = false
-
-  for type, a,b,c,d in system.poll_event do
-    if type == "textinput" and did_keymap then
-      did_keymap = false
-    elseif type == "mousemoved" then
-      core.try(core.on_event, type, a, b, c, d)
-    elseif type == "enteringforeground" then
-      -- to break our frame refresh in two if we get entering/entered at the same time.
-      -- required to avoid flashing and refresh issues on mobile
-      core.redraw = true
-      break
-    else
-      local _, res = core.try(core.on_event, type, a, b, c, d)
-      did_keymap = res or did_keymap
-    end
-    core.redraw = true
+  if core.quit_request or core.restart_request then
+    return false
   end
 
   local width, height = core.window:get_size()
@@ -984,8 +968,6 @@ function core.step()
   -- update
   core.root_view.size.x, core.root_view.size.y = width, height
   core.root_view:update()
-  if not core.redraw then return false end
-  core.redraw = false
 
   -- close unreferenced docs
   for i = #core.docs, 1, -1 do
@@ -1050,59 +1032,6 @@ local run_threads = coroutine.wrap(function()
     coroutine.yield(minimal_time_to_wake, true)
   end
 end)
-
-
-function core.run()
-  local next_step
-  local last_frame_time
-  local run_threads_full = 0
-  while true do
-    core.frame_start = system.get_time()
-    local time_to_wake, threads_done = run_threads()
-    if threads_done then
-      run_threads_full = run_threads_full + 1
-    end
-    local did_redraw = false
-    local did_step = false
-    local force_draw = core.redraw and last_frame_time and core.frame_start - last_frame_time > (1 / config.fps)
-    if force_draw or not next_step or system.get_time() >= next_step then
-      if core.step() then
-        did_redraw = true
-        last_frame_time = core.frame_start
-      end
-      next_step = nil
-      did_step = true
-    end
-    if core.restart_request or core.quit_request then break end
-
-    if not did_redraw then
-      if system.window_has_focus(core.window) or not did_step or run_threads_full < 2 then
-        local now = system.get_time()
-        if not next_step then -- compute the time until the next blink
-          local t = now - core.blink_start
-          local h = config.blink_period / 2
-          local dt = math.ceil(t / h) * h - t
-          local cursor_time_to_wake = dt + 1 / config.fps
-          next_step = now + cursor_time_to_wake
-        end
-        if system.wait_event(math.min(next_step - now, time_to_wake)) then
-          next_step = nil -- if we've recevied an event, perform a step
-        end
-      else
-        system.wait_event()
-        next_step = nil -- perform a step when we're not in focus if get we an event
-      end
-    else -- if we redrew, then make sure we only draw at most FPS/sec
-      run_threads_full = 0
-      local now = system.get_time()
-      local elapsed = now - core.frame_start
-      local next_frame = math.max(0, 1 / config.fps - elapsed)
-      next_step = next_step or (now + next_frame)
-      system.sleep(math.min(next_frame, time_to_wake))
-    end
-  end
-end
-
 
 function core.blink_reset()
   core.blink_start = system.get_time()
