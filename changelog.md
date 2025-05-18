@@ -1,5 +1,86 @@
 # Changes Log
 
+## [2.1.8] - 2025-06-xx
+
+This release will be the first to use [SDL3](https://wiki.libsdl.org/SDL3/FrontPage),
+which should fix a bunch of issues (and might cause others).
+This release also uses LTO to achieve some performance gain.
+
+### Features
+
+* Port to SDL3
+  ([#1756](https://github.com/lite-xl/lite-xl/pull/1756))
+
+* Add SDL App Metadata
+  ([#2068](https://github.com/lite-xl/lite-xl/pull/2068))
+
+* Warn against malformed patterns and disable them
+  ([#2029](https://github.com/lite-xl/lite-xl/pull/2029))
+
+* Update Windows setup files
+  ([#1988](https://github.com/lite-xl/lite-xl/pull/1988))
+
+* build.sh: add LTO support
+  ([#2049](https://github.com/lite-xl/lite-xl/pull/2049))
+
+* Highlight .rockspec files
+  ([#2080](https://github.com/lite-xl/lite-xl/pull/2080))
+
+* Make font loading function return proper error messages
+  ([#1919](https://github.com/lite-xl/lite-xl/pull/1919)
+
+* Defer bitmap rendering when possible
+  ([#1856](https://github.com/lite-xl/lite-xl/pull/1856))
+
+### Fixes
+
+* Update CSS plugin to support more units
+  ([#2010](https://github.com/lite-xl/lite-xl/pull/2010))
+
+* Add __tostring method to all objects
+  ([#1534](https://github.com/lite-xl/lite-xl/pull/1534))
+
+* Use current char to determine col in DocView:get_x_offset_col
+  ([#1946](https://github.com/lite-xl/lite-xl/pull/1946))
+
+* Allow / and \ as PATHSEP on Windows when fuzzy matching files
+  ([#1992](https://github.com/lite-xl/lite-xl/pull/1992))
+
+* Use correct charmap and glyphmap sizes
+  ([#1999](https://github.com/lite-xl/lite-xl/pull/1999))
+
+* Add digit separators for C++ syntax highlighting
+  ([#2026](https://github.com/lite-xl/lite-xl/pull/2026))
+
+* Prevent enumerating the directory tree in system.list_dir
+  ([#2059](https://github.com/lite-xl/lite-xl/pull/2059))
+
+* Fixed dirmonitor excessively high CPU usage on Linux
+  ([#2044](https://github.com/lite-xl/lite-xl/pull/2044))
+
+* Use correct charmap and glyphmap sizes
+  ([#1999](https://github.com/lite-xl/lite-xl/pull/1999))
+
+### Other changes
+
+* Replace memory functions with SDL equivalent
+  ([#2067](https://github.com/lite-xl/lite-xl/pull/2067))
+
+* Add postrelease workflow to update docs and release winget packages
+  ([#1983](https://github.com/lite-xl/lite-xl/pull/1983))
+
+* Move dependency resolving into source file
+  ([#1937](https://github.com/lite-xl/lite-xl/pull/1937))
+
+* Improve WASM support
+  ([#1779](https://github.com/lite-xl/lite-xl/pull/1779))
+
+* Update CI Script to fix MSYS2
+  ([#2028](https://github.com/lite-xl/lite-xl/pull/2028))
+
+* Fix missing includes
+  ([#2017](https://github.com/lite-xl/lite-xl/pull/2017))
+
 ## [2.1.7] - 2024-12-05
 
 This release fixes a bug related to scaling on macOS,
