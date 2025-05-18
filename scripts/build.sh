@@ -112,6 +112,7 @@ main() {
           lto_mode="-Db_lto_mode=$2"
           shift
         fi
+        shift
         ;;
       --cross-arch)
         cross="true"
