@@ -111,7 +111,7 @@ jobs:
       # installing md5sha1sum will eliminate a warning with arm64 and libusb
       - name: Install Dependencies
         run: |
-          brew install bash md5sha1sum sdl3
+          brew install bash md5sha1sum
           pip install meson ninja dmgbuild
 
       - name: Build
@@ -206,10 +206,10 @@ jobs:
           pacboy: >-
             gcc:p
             meson:p
-            ca-certificates:p
+            cmake:p
             ninja:p
             pkg-config:p
-            sdl3:p
+            ca-certificates:p
 
       - name: Set Environment Variables
         run: |
@@ -254,6 +254,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup MSVC
+        id: msvc-dev-cmd
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.arch.target }}
@@ -273,34 +274,18 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
               
-      - name: Install SDL
+      - name: Install pkgconf
         env: { VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite" }
-        run: vcpkg install sdl3:x64-windows-static pkgconf:x64-windows-release
+        run: vcpkg install pkgconf:x64-windows-release
 
-      - name: Add environment variables
+      # https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#name-conflicts-with-shell-bash
+      - name: Set environment variables
         run: |
-          echo "PKG_CONFIG_PATH=C:\vcpkg\installed\x64-windows-static\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "PKG_CONFIG=C:\vcpkg\installed\x64-windows-release\tools\pkgconf\pkgconf.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Set up environment variables
-        run: |
-          "INSTALL_NAME=lite-xl-$($env:GITHUB_REF -replace ".*/")-windows-msvc-${{ matrix.arch.name }}" >> $env:GITHUB_ENV
-          "INSTALL_REF=$($env:GITHUB_REF -replace ".*/")" >> $env:GITHUB_ENV
-          "LUA_SUBPROJECT_PATH=subprojects/$(awk -F ' *= *' '/directory/ { printf $2 }' subprojects/lua.wrap)" >> $env:GITHUB_ENV
-
-      - name: Download and patch subprojects
-        shell: bash
-        run: |
-          meson subprojects download
-          cat resources/windows/001-lua-unicode.diff | patch -Np1 -d "$LUA_SUBPROJECT_PATH"
-
-      - name: Configure
-        run: |
-          meson setup --wrap-mode=forcefallback build
+          echo "CC_LD=$((Get-Command link.exe).Source)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build
-        run: |
-          meson install -C build --destdir="../lite-xl"
+        run: bash scripts/build.sh --addons --debug --forcefallback --lto --portable --mode ${{ needs.version.outputs.buildtype }} -b build
 
       - name: Package
         run: |

@@ -164,7 +164,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install bash md5sha1sum sdl3
+          brew install bash md5sha1sum cmake
           pip install meson ninja dmgbuild
 
       - name: Build
@@ -276,7 +276,7 @@ jobs:
             ca-certificates:p
             ninja:p
             pkg-config:p
-            sdl3:p
+            cmake:p
 
       - name: Set Environment Variables
         run: |
