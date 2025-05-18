@@ -52,6 +52,9 @@ main() {
   local plugins="-Dbundle_plugins="
   local prefix=/
   local build_type="release"
+  local sdl3_version="${SDL3_VERSION:-3.2.8}"
+  local pkg_config_path
+  local cmake_build_type
   local force_fallback
   local bundle="-Dbundle=false"
   local portable="-Dportable=false"
@@ -191,10 +194,10 @@ main() {
     arch="${cross_arch:-$arch}"
     cross_file="--cross-file ${cross_file:-resources/cross/$platform-$arch.txt}"
     # reload build_dir because platform and arch might change
-    if [[ "$build_dir" == "" ]]; then
+    if [[ "${build_dir}" == "" ]]; then
       build_dir="$(get_default_build_dir "$platform" "$arch")"
     fi
-  elif [[ "$build_dir" == "" ]]; then
+  elif [[ "${build_dir}" == "" ]]; then
     build_dir="$(get_default_build_dir)"
   fi
 
@@ -217,9 +220,36 @@ main() {
     rm -rf "${build_dir}"
   fi
 
+  mkdir -p "${build_dir}"
+  if [[ -n "$force_fallback" ]]; then
+    # download, build and add SDL3 to the pkgconfig search path
+    pushd "${build_dir}"
+    [[ ! -f "SDL3-$sdl3_version.tar.gz" ]] && curl --insecure -L -o "SDL3-$sdl3_version.tar.gz" \
+      "https://github.com/libsdl-org/SDL/releases/download/release-$sdl3_version/SDL3-$sdl3_version.tar.gz"
+    [[ ! -f "SDL3-$sdl3_version/CMakeLists.txt" ]] && tar -xzf "SDL3-$sdl3_version.tar.gz"
+    case "$build_type" in
+      "release"|"debug") cmake_build_type="$build_type";;
+      "debugoptimized") cmake_build_type="RelWithDebInfo";;
+      "minsize") cmake_build_type="MinSizeRel";;
+      *) cmake_build_type="Release";;
+    esac
+    # use -DCMAKE_INSTALL_LIBDIR to work around possibility of cmake using lib64 instead of lib
+    cmake -S "SDL3-$sdl3_version" -B "SDL3-$sdl3_version/build" -GNinja \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([[ -n $lto ]] && echo ON || echo OFF) \
+      -DCMAKE_BUILD_TYPE=$cmake_build_type -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX="$(pwd -P)/prefix" \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DSDL_INSTALL=ON -DSDL_INSTALL_DOCS=OFF -DSDL_DEPS_SHARED=ON \
+      -DSDL_DBUS=ON -DSDL_IBUS=ON -DSDL_AUDIO=OFF -DSDL_GPU=OFF -DSDL_RPATH=OFF -DSDL_PIPEWIRE=OFF \
+      -DSDL_CAMERA=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_HIDAPI=OFF -DSDL_DIALOG=OFF \
+      -DSDL_POWER=OFF -DSDL_SENSOR=OFF -DSDL_VULKAN=OFF -DSDL_LIBUDEV=OFF -DSDL_SHARED=OFF -DSDL_STATIC=ON \
+      -DSDL_X11=ON -DSDL_WAYLAND=ON -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_VENDOR_INFO=lite-xl
+    cmake --build "SDL3-$sdl3_version/build" && cmake --install "SDL3-$sdl3_version/build"
+    pkg_config_path="--pkg-config-path=$(pwd -P)/prefix/lib/pkgconfig"
+    popd
+  fi
+
   if [[ -n "$plugins" ]] && [[ -z `command -v lpm` ]]; then
     mkdir -p "${build_dir}"
-    lpm_path="$(pwd)/${build_dir}/lpm$(get_executable_extension)"
+    lpm_path="$(pwd -P)/${build_dir}/lpm$(get_executable_extension)"
     if [[ ! -e "$lpm_path" ]]; then
       curl --insecure -L -o "$lpm_path" \
         "https://github.com/lite-xl/lite-xl-plugin-manager/releases/download/${LPM_VERSION:-latest}/lpm.$(get_platform_tuple)$(get_executable_extension)"
@@ -240,7 +270,8 @@ main() {
     $lto \
     $lto_mode \
     $plugins \
-    $reconfigure
+    $reconfigure \
+    $pkg_config_path
 
   meson compile -C "${build_dir}"
 

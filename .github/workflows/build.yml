@@ -99,7 +99,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install bash sdl3
+          brew install bash
           pip3 install meson ninja
 
       - name: Build & Package Mac (Bundle)
@@ -221,10 +221,10 @@ jobs:
           pacboy: >-
             gcc:p
             meson:p
-            ca-certificates:p
+            cmake:p
             ninja:p
             pkg-config:p
-            sdl3:p
+            ca-certificates:p
 
       - uses: actions/checkout@v4
 
@@ -254,6 +254,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup MSVC
+        id: msvc-dev-cmd
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86_64
@@ -272,20 +273,18 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
               
-      - name: Install SDL
+      - name: Install pkgconf
         env: { VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite" }
-        run: vcpkg install sdl3:x64-windows-static pkgconf:x64-windows-release
+        run: vcpkg install pkgconf:x64-windows-release
 
-      - name: Add environment variables
+      # https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#name-conflicts-with-shell-bash
+      - name: Set environment variables
         run: |
-          echo "PKG_CONFIG_PATH=C:\vcpkg\installed\x64-windows-static\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "PKG_CONFIG=C:\vcpkg\installed\x64-windows-release\tools\pkgconf\pkgconf.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Configure
-        run: meson setup --wrap-mode=forcefallback --buildtype=${{ needs.version.outputs.buildtype }} build
+          echo "CC_LD=$((Get-Command link.exe).Source)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build
-        run: meson install -C build --skip-subprojects --destdir="lite-xl"
+        run: bash scripts/build.sh --addons --debug --forcefallback --lto --portable --mode ${{ needs.version.outputs.buildtype }} -b build
 
       - name: Package
         run: cd build && 7z a -mx=9 "..\lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip" lite-xl && cd ..
