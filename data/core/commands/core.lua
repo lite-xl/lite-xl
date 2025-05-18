@@ -46,6 +46,8 @@ local function open_file(use_dialog)
       	for _, filename in ipairs(result --[[ @as string[] ]]) do
           core.root_view:open_doc(core.open_doc(filename))
       	end
+      elseif status == "error" then
+        core.error("Error while opening dialog: %s", result or "")
       end
     end, {
       default_location = default_text,
@@ -97,6 +99,8 @@ local function open_directory(label, use_dialog, allow_many, callback)
     core.open_directory_dialog(core.window, function(status, result)
       if status == "accept" then
         callback(result)
+      elseif status == "error" then
+        core.error("Error while opening dialog: %s", result or "")
       end
     end, {
       default_location = text,
