@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
   SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
   SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "1");
   SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
-
+  SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "composition");
   /* This hint tells SDL to respect borderless window as a normal window.
   ** For example, the window will sit right on top of the taskbar instead
   ** of obscuring it. */
@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
   init_window_icon();
-  
+
   if (ren_init(window) != 0) {
     fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
     exit(1);
