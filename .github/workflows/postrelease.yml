@@ -5,7 +5,7 @@ on:
 
 jobs:
   postrelease:
-    if: ${{ github.repository == 'lite-xl/lite-xl' && startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ github.repository == 'lite-xl/lite-xl' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'rc') }}
     runs-on: windows-latest
     steps:
       - name: Update winget-pkgs repository
