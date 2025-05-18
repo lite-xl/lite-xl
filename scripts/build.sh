@@ -45,7 +45,7 @@ main() {
   local build_type="debug"
   local prefix=/
   local build_type="release"
-  local sdl3_version="${SDL3_VERSION:-3.2.8}"
+  local sdl3_version="${SDL3_VERSION:-3.2.14}"
   local pkg_config_path
   local cmake_build_type
   local force_fallback
