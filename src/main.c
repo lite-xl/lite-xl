@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include "api/api.h"
+#include "renwindow.h"
 #include "rencache.h"
 #include "renderer.h"
 
@@ -197,6 +198,8 @@ init_lua:
 #endif
   SDL_SetEventEnabled(SDL_EVENT_TEXT_INPUT, true);
   SDL_SetEventEnabled(SDL_EVENT_TEXT_EDITING, true);
+  // ugly hack to get SDL3 to give us text input... in certain conditions
+  SDL_StartTextInput(window_renderer.window);
 
   const char *init_lite_code = \
     "local core\n"
