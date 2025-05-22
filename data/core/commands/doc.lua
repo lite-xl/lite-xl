@@ -427,6 +427,42 @@ local commands = {
     end
   end,
 
+  ["doc:indent-lines"] = function(dv)
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      if line1 == line2 and col1 == col2 then
+        local _, se = dv.doc.lines[line1]:find("^[ \t]+")
+        local l1, c1, l2, c2 = dv.doc:indent_text(false, line1, 1, line2, 1)
+        if l1 then
+          -- since we indented at start of line, the cursor is moved to start of first word
+          dv.doc:set_selections(idx, l1, c1 + col1 - (se or 0) - 1, l2, c2 + col2 - (se or 0) - 1)
+        end
+      else
+        local l1, c1, l2, c2 = dv.doc:indent_text(false, line1, col1, line2, col2)
+        if l1 then
+          dv.doc:set_selections(idx, l1, c1, l2, c2)
+        end
+      end
+    end
+  end,
+
+  ["doc:unindent-lines"] = function(dv)
+    for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      if line1 == line2 and col1 == col2 then
+        local _, se = dv.doc.lines[line1]:find("^[ \t]+")
+        local l1, c1, l2, c2 = dv.doc:indent_text(true, line1, 1, line2, 1)
+        if l1 then
+          -- since we indented at start of line, the cursor is moved to start of first word
+          dv.doc:set_selections(idx, l1, c1 + col1 - (se or 0) - 1, l2, c2 + col2 - (se or 0) - 1)
+        end
+      else
+        local l1, c1, l2, c2 = dv.doc:indent_text(true, line1, col1, line2, col2)
+        if l1 then
+          dv.doc:set_selections(idx, l1, c1, l2, c2)
+        end
+      end
+    end
+  end,
+
   ["doc:duplicate-lines"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
       append_line_if_last_line(line2)
