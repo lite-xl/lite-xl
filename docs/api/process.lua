@@ -6,232 +6,131 @@
 ---@class process
 process = {}
 
----Error triggered when the stdout, stderr or stdin fails while reading
----or writing, its value is platform dependent, so the value declared on this
----interface does not represents the real one.
----@type integer
-process.ERROR_PIPE = -1
+---@alias process.ioresult
+---| "ok"    # The operation suceeded.
+---| "error" # An error occured when reading / writing to the stream.
+---| "wait"  # No data is available for reading / writing.
+---| "eof"   # End of stream reached.
 
----Error triggered when a read or write action is blocking,
----its value is platform dependent, so the value declared on this
----interface does not represents the real one.
----@type integer
-process.ERROR_WOULDBLOCK = -2
-
----Error triggered when a process takes more time than that specified
----by the deadline parameter given on process:start(),
----its value is platform dependent, so the value declared on this
----interface does not represents the real one.
----@type integer
-process.ERROR_TIMEDOUT = -3
-
----Error triggered when trying to terminate or kill a non running process,
----its value is platform dependent, so the value declared on this
----interface does not represents the real one.
----@type integer
-process.ERROR_INVAL = -4
-
----Error triggered when no memory is available to allocate the process,
----its value is platform dependent, so the value declared on this
----interface does not represents the real one.
----@type integer
-process.ERROR_NOMEM = -5
-
----Used for the process:close_stream() method to close stdin.
----@type integer
-process.STREAM_STDIN = 0
-
----Used for the process:close_stream() method to close stdout.
----@type integer
-process.STREAM_STDOUT = 1
-
----Used for the process:close_stream() method to close stderr.
----@type integer
-process.STREAM_STDERR = 2
-
----Instruct process:wait() to wait until the process ends.
----@type integer
-process.WAIT_INFINITE = -1
-
----Instruct process:wait() to wait until the deadline given on process:start()
----@type integer
-process.WAIT_DEADLINE = -2
-
----Default behavior for redirecting streams.
----This flag is deprecated and for backwards compatibility with reproc only.
----The behavior of this flag may change in future versions of Lite XL.
----@type integer
-process.REDIRECT_DEFAULT = 0
-
----Allow Process API to read this stream via process:read functions.
----@type integer
-process.REDIRECT_PIPE = 1
-
----Redirect this stream to the parent.
----@type integer
-process.REDIRECT_PARENT = 2
-
----Discard this stream (piping it to /dev/null)
----@type integer
-process.REDIRECT_DISCARD = 3
-
----Redirect this stream to stdout.
----This flag can only be used on process.options.stderr.
----@type integer
-process.REDIRECT_STDOUT = 4
-
----@alias process.errortype
----| `process.ERROR_PIPE`
----| `process.ERROR_WOULDBLOCK`
----| `process.ERROR_TIMEDOUT`
----| `process.ERROR_INVAL`
----| `process.ERROR_NOMEM`
-
----@alias process.streamtype
----| `process.STREAM_STDIN`
----| `process.STREAM_STDOUT`
----| `process.STREAM_STDERR`
-
----@alias process.waittype
----| `process.WAIT_INFINITE`
----| `process.WAIT_DEADLINE`
+---@alias process.readstreamtype
+---| "stdout" # Standard output.
+---| "stderr" # Standard error.
 
 ---@alias process.redirecttype
----| `process.REDIRECT_DEFAULT`
----| `process.REDIRECT_PIPE`
----| `process.REDIRECT_PARENT`
----| `process.REDIRECT_DISCARD`
----| `process.REDIRECT_STDOUT`
+---| "parent"  # The stream is redirected to the parent process. This is the default.
+---| "pipe"    # The stream is available for reading / writing with process:read() or process:write().
+---| "discard" # The stream is discarded.
+---| "stdout"  # The stream is redirected into standard output (only applicable to `stderr`).
 
 ---
---- Options that can be passed to process.start()
+--- Options that can be passed to process.start().
+--- 
 ---@class process.options
----@field public timeout number
----@field public cwd string
----@field public stdin process.redirecttype
----@field public stdout process.redirecttype
----@field public stderr process.redirecttype
----@field public env table<string, string>
+---@field cwd? string The working directory of the child process.
+---@field detached? boolean If true, the child process is detached, and the standard IO and exit code will not be available to the parent process.
+---@field env? { [string]: string } A table containing environment variables to add to the child process. This table will override parent process' values.
+---@field stdin? process.redirecttype
+---@field stdout? process.redirecttype
+---@field stderr? process.redirecttype
 
 ---
----Create and start a new process
+---Starts a child process.
 ---
----@param command_and_params table First index is the command to execute
----and subsequente elements are parameters for the command.
+---On Windows, the function can accept a string instead of a table,
+---and the string will be treated as the commandline to run.
+---This bypasses any escaping done internally by the function
+---and can result in nasty vulnerabilities like BatBadBut.
+---Do not use this unless you know what you are doing.
+---
+---@param command_and_params string[]|string
 ---@param options process.options
 ---
----@return process | nil
----@return string errmsg
----@return process.errortype | integer errcode
+---@return process
 function process.start(command_and_params, options) end
-
----
----Translates an error code into a useful text message
----
----@param code integer
----
----@return string | nil
-function process.strerror(code) end
 
 ---
 ---Get the process id.
 ---
----@return integer id Process id or 0 if not running.
+---@return integer|nil
 function process:pid() end
 
 ---
----Read from the given stream type, if the process fails with a ERROR_PIPE it is
----automatically destroyed returning nil along error message and code.
+---Get the exit code of the process.
 ---
----@param stream process.streamtype
----@param len? integer Amount of bytes to read, defaults to 2048.
----
----@return string | nil
----@return string errmsg
----@return process.errortype | integer errcode
-function process:read(stream, len) end
-
----
----Read from stdout, if the process fails with a ERROR_PIPE it is
----automatically destroyed returning nil along error message and code.
----
----@param len? integer Amount of bytes to read, defaults to 2048.
----
----@return string | nil
----@return string errmsg
----@return process.errortype | integer errcode
-function process:read_stdout(len) end
-
----
----Read from stderr, if the process fails with a ERROR_PIPE it is
----automatically destroyed returning nil along error message and code.
----
----@param len? integer Amount of bytes to read, defaults to 2048.
----
----@return string | nil
----@return string errmsg
----@return process.errortype | integer errcode
-function process:read_stderr(len) end
-
----
----Write to the stdin, if the process fails with a ERROR_PIPE it is
----automatically destroyed returning nil along error message and code.
----
----@param data string
----
----@return integer | nil bytes The amount of bytes written or nil if error
----@return string errmsg
----@return process.errortype | integer errcode
-function process:write(data) end
-
----
----Allows you to close a stream pipe that you will not be using.
----
----@param stream process.streamtype
----
----@return integer | nil
----@return string errmsg
----@return process.errortype | integer errcode
-function process:close_stream(stream) end
-
----
----Wait the specified amount of time for the process to exit.
----
----@param timeout integer | process.waittype Time to wait in milliseconds,
----if 0, the function will only check if process is running without waiting.
----
----@return integer | nil exit_status The process exit status or nil on error
----@return string errmsg
----@return process.errortype | integer errcode
-function process:wait(timeout) end
-
----
----Sends SIGTERM to the process
----
----@return boolean | nil
----@return string errmsg
----@return process.errortype | integer errcode
-function process:terminate() end
-
----
----Sends SIGKILL to the process
----
----@return boolean | nil
----@return string errmsg
----@return process.errortype | integer errcode
-function process:kill() end
-
----
----Get the exit code of the process or nil if still running.
----
----@return number | nil
+---@return number|nil exitcode
 function process:returncode() end
 
 ---
----Check if the process is running
+---Check if the process is running.
 ---
 ---@return boolean
 function process:running() end
+
+---
+---Reads from the standard output or error of the child process.
+---
+---@param stream process.readstreamtype The stream to read from.
+---@param len? integer Amount of bytes to read, defaults to 4096.
+---
+---@return string content
+---@return process.ioresult result
+---@return string|nil errmsg
+function process:read(stream, len) end
+
+---
+---Reads from the standard output of the child process.
+---
+---@param len? integer Amount of bytes to read, defaults to 4096.
+---
+---@return string content
+---@return process.ioresult result
+---@return string|nil errmsg
+function process:read_stdout(len) end
+
+---
+---Reads from the standard output of the child process.
+---
+---@param len? integer Amount of bytes to read, defaults to 2048.
+---
+---@return string content
+---@return process.ioresult result
+---@return string|nil errmsg
+function process:read_stderr(len) end
+
+---
+---Writes to the standard input of the child process.
+---
+---@param data string
+---
+---@return integer bytes
+---@return process.ioresult result
+---@return string|nil errmsg
+function process:write(data) end
+
+---
+---Wait the specified amount of time for the child process to exit.
+---
+---@param timeout? integer Time to wait in milliseconds. Defaults to 0 (no wait).
+---@return integer|nil exitcode
+function process:wait(timeout) end
+
+---
+---Terminates the process gracefully.
+---
+---On Windows, this function tries to send WM_CLOSE to the process windows,
+---and falls back to sending Ctrl+Break to the process console.
+---If this fails, the function terminates the process with TerminateProcess().
+---On Linux, this function sends SIGTERM to the process.
+---
+function process:terminate() end
+
+---
+---Terminates the process forcefully.
+---
+---On Windows, this function terminates the process with TerminateProcess().
+---On Linux, this function sends SIGKILL to the process.
+---
+function process:kill() end
 
 
 return process
