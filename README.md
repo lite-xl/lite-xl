@@ -7,6 +7,8 @@
     keymap.unbind("ctrl+1lclick")
     keymap.unbind("ctrl+up")
     keymap.unbind("ctrl+down")
+    keymap.unbind("ctrl+shift+up")
+    keymap.unbind("ctrl+shift+down")
 
     # to modify settings(init.lua) to load chinese mono font, and to display tab char:
     # SarasaMonoSC-Regular.ttf, WenQuanYiZenHeiMono_wideMidDot.ttf are better, it make chinese char width vs english char width exactly 2:1
