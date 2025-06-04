@@ -174,7 +174,9 @@ init_lua:
   }
   lua_setglobal(L, "ARGS");
 
-  lua_pushstring(L, SDL_GetPlatform());
+  // hack to keep backwards compatibility with other PLATFORM enums
+  const char *platform = SDL_GetPlatform();
+  lua_pushstring(L, SDL_strcmp(platform, "macOS") == 0 ? "Mac OS X" : platform);
   lua_setglobal(L, "PLATFORM");
 
   lua_pushstring(L, LITE_ARCH_TUPLE);
