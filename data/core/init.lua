@@ -56,12 +56,13 @@ end
 
 function core.set_project_dir(new_dir, change_project_fn)
   local chdir_ok = pcall(system.chdir, new_dir)
-  if chdir_ok then
+  local list_dir_ok = system.list_dir(new_dir)
+  if chdir_ok and list_dir_ok then
     if change_project_fn then change_project_fn() end
     core.project_dir = common.normalize_volume(new_dir)
     core.project_directories = {}
   end
-  return chdir_ok
+  return chdir_ok and list_dir_ok ~= nil
 end
 
 
@@ -762,26 +763,40 @@ function core.init()
   -- Load user module, plugins and project module
   local got_user_error, got_project_error = not core.load_user_directory()
 
-  local project_dir_abs = system.absolute_path(project_dir)
-  -- We prevent set_project_dir below to effectively add and scan the directory because the
-  -- project module and its ignore files is not yet loaded.
-  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
-  if set_project_ok then
+  -- try to load a bunch of directories
+  local try_project_dirs = {project_dir}
+  if project_dir ~= "."     then table.insert(try_project_dirs, ".") end
+  -- if cwd is not accessible for some reason (SIP on apple when launched from Finder), try home folder
+  if PLATFORM == "Mac OS X" then table.insert(try_project_dirs, string.format("/Users/%s", os.getenv("USER"))) end
+  if PLATFORM == "Windows"  then table.insert(try_project_dirs, string.format("%s\\%s", os.getenv("HOMEDRIVE"), os.getenv("HOMEPATH"))) end
+  -- FIXME: better POSIX detection
+  if os.getenv("USER")      then table.insert(try_project_dirs, string.format("/home/%s", os.getenv("USER"))) end
+  -- discouraged since it can be blocked in sandboxed runtimes (SIP)
+  table.insert(try_project_dirs, os.getenv("HOMEDRIVE") and (os.getenv("HOMEDRIVE").."\\") or "/")
+  -- discouraged since it could be unreadable or embedded in the exe
+  table.insert(try_project_dirs, DATADIR)
+
+  local project_dir_abs
+  local function load_project_module()
     got_project_error = not core.load_project_module()
-    if project_dir_explicit then
-      update_recents_project("add", project_dir_abs)
+  end
+  for _, p in ipairs(try_project_dirs) do
+    local abs_dir = system.absolute_path(p)
+    if abs_dir and core.set_project_dir(abs_dir, load_project_module) then
+      if p == project_dir and project_dir_explicit then
+        update_recents_project("add", abs_dir)
+      end
+      project_dir_abs = abs_dir
+      break
+    else
+      if p == project_dir and not project_dir_explicit then
+        update_recents_project("remove", p)
+      end
     end
-  else
-    if not project_dir_explicit then
-      update_recents_project("remove", project_dir)
-    end
-    project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs, function()
-      got_project_error = not core.load_project_module()
-    end) then
-      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
-      os.exit(1)
-    end
+  end
+  if not project_dir_abs then
+    system.show_fatal_error("Error", "Please restart Lite XL with a readable project directory.")
+    os.exit(1)
   end
 
   -- Load core plugins after user ones to let the user override them
