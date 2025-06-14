@@ -684,7 +684,7 @@ function core.set_active_view(view)
   -- Reset the IME even if the focus didn't change
   ime.stop()
   if view ~= core.active_view then
-    system.text_input(core.window, view:supports_text_input())
+    if core.window then system.text_input(core.window, view:supports_text_input()) end
     if core.active_view and core.active_view.force_focus then
       core.next_active_view = view
       return
