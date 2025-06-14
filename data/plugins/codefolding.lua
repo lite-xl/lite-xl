@@ -17,7 +17,7 @@ local c_likes = {
 }
 local lua = { 
   { "%f[%a]function%s*[^(]*%s*%([^%)]*%)", "%f[%a_]end%f[%A]" },
-  { "%f[%a]do%f[%A]", "%f[%a_]end%f[%A]" },
+  { "%f[%a]while.*do%f[%A]", "%f[%a_]end%f[%A]" },
   { "%f[%a]if.*%f[%a]then%f[%A]", "%f[%a_]end%f[%A]" }
 }
 
