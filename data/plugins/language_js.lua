@@ -62,8 +62,9 @@ syntax.add {
     { regex = regex_pattern, syntax = inner_regex_syntax,             type = {"string", "string"}  },
     { pattern = { '"', '"', '\\' },                                   type = "string"   },
     { pattern = { "'", "'", '\\' },                                   type = "string"   },
+    { pattern = "``",                                                 type = "string"   },
     {
-      pattern = { "`", "`" }, type = "string",
+      pattern = { "`", "[^\\]`" }, type = "string",
       syntax = {
         symbols = {},
         patterns = {
