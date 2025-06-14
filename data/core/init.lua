@@ -248,7 +248,6 @@ function core.ensure_user_directory()
     if not system.get_file_info(init_filename) then
       write_user_init_file(init_filename)
     end
-    dofile(init_filename)
   end)
 end
 
