@@ -113,7 +113,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
     exit(1);
   }
-  SDL_EnableScreenSaver();
   SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, true);
   atexit(SDL_Quit);
   
@@ -161,11 +160,8 @@ init_lua:
     set_macos_bundle_resources(L);
   #endif
 #endif
-<<<<<<< HEAD
   SDL_SetEventEnabled(SDL_EVENT_TEXT_INPUT, true);
   SDL_SetEventEnabled(SDL_EVENT_TEXT_EDITING, true);
-=======
->>>>>>> 1e1b9328 (Revert "Removed storage module.")
 
   const char *init_lite_code = \
     "local core\n"
