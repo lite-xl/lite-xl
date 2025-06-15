@@ -1103,7 +1103,7 @@ end
 
 function DocView:dump_virtual_lines()
   for i = 1, #self.dcache do
-    print("V", i, self.dcache[i])
+    print("V", i, self.dcache[i], getvoffset(self.vcache[i]))
   end
 end
 
@@ -1187,14 +1187,19 @@ function DocView:retrieve_tokens(vline, line)
       vline = vline + new_vlines
     end
     -- Adjust the vcache as necessary to ensure that we have enough space.
-    local differential = #total_vlines - total_free_vlines
-    if differential ~= 0 then
-      table.move(self.vcache, start_vline + total_free_vlines, #self.vcache, start_vline + #total_vlines)
-      if differential < 0 then
-        for i = 1, -differential do table.remove(self.vcache) end
-      end
-      for i = end_line + 1, #self.dtovcache do
-        self.dtovcache[i] = self.dtovcache[i] + differential
+    -- Only do this, if we need more space, or if the next line is NOT invalidated.
+    -- If it *is* invalidated, we don't want to shrink this as we could be ascendingly going thorugh and
+    -- tokenizing things.
+    if (#total_vlines > total_free_vlines) or self.dcache[end_line+1] ~= false then
+      local differential = #total_vlines - total_free_vlines
+      if differential ~= 0 then
+        table.move(self.vcache, start_vline + total_free_vlines, #self.vcache, start_vline + #total_vlines)
+        if differential < 0 then
+          for i = 1, -differential do table.remove(self.vcache) end
+        end
+        for i = end_line + 1, #self.dtovcache do
+          self.dtovcache[i] = self.dtovcache[i] + differential
+        end
       end
     end
     table.move(total_vlines, 1, #total_vlines, start_vline, self.vcache)
