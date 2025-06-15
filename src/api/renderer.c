@@ -83,12 +83,18 @@ static int font_get_options(
   return 0;
 }
 
+#ifdef SDL_PLATFORM_APPLE
+#define DEFAULT_ALIASING FONT_ANTIALIASING_SUBPIXEL
+#else
+#define DEFAULT_ALIASING FONT_ANTIALIASING_GRAYSCALE
+#endif
+
 static int f_font_load(lua_State *L) {
   const char *filename  = luaL_checkstring(L, 1);
   float size = luaL_checknumber(L, 2);
   int style = 0;
   ERenFontHinting hinting = FONT_HINTING_SLIGHT;
-  ERenFontAntialiasing antialiasing = FONT_ANTIALIASING_SUBPIXEL;
+  ERenFontAntialiasing antialiasing = DEFAULT_ALIASING;
 
   int ret_code = font_get_options(L, &antialiasing, &hinting, &style);
   if (ret_code > 0)
