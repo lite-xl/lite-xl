@@ -519,8 +519,8 @@ function core.parse_plugin_details(path, file, mod_version_regex, priority_regex
 
   for line in f:lines() do
     if not version_match then
-      local _major, _minor, _patch = mod_version_regex:match(line)
-      if _major then
+      local status, _major, _minor, _patch = pcall(mod_version_regex.match, mod_version_regex, line)
+      if status and _major then
         _major = tonumber(_major) or 0
         _minor = tonumber(_minor) or 0
         _patch = tonumber(_patch) or 0
@@ -537,8 +537,8 @@ function core.parse_plugin_details(path, file, mod_version_regex, priority_regex
     end
 
     if not priority then
-      priority = priority_regex:match(line)
-      if priority then priority = tonumber(priority) end
+      local status, _priority = pcall(priority_regex.match, priority_regex, line)
+      if status and _priority then priority = tonumber(_priority) end
     end
 
     if version_match then
