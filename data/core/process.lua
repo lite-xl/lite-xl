@@ -77,7 +77,7 @@ function process.stream:read(bytes, options)
         local s = chunk:find("\n")
         if s then target = self.len - #chunk + s end
       end
-    elseif coroutine.running() then
+    elseif coroutine.isyieldable() then
       if options.timeout and system.get_time() - start > options.timeout then
         error("timeout expired")
       end
@@ -113,7 +113,7 @@ function process.stream:write(bytes, options)
   while #buf > 0 do
     local len = self.process.process:write(buf)
     if not len then break end
-    if not coroutine.running() then return len end
+    if not coroutine.isyieldable() then return len end
     buf = buf:sub(len + 1)
     coroutine.yield(options.scan or (1 / config.fps))
   end
@@ -135,7 +135,7 @@ end
 ---@param scan? number The amount of seconds to yield while scanning. If omittted, the scan rate will be the FPS.
 ---@return integer|nil exit_code The exit code for this process, or nil if the wait timed out.
 function process:wait(timeout, scan)
-  if not coroutine.running() then return self.process:wait(timeout) end
+  if not coroutine.isyieldable() then return self.process:wait(timeout) end
   local start = system.get_time()
   while self.process:running() and (system.get_time() - start > (timeout or math.huge)) do
     coroutine.yield(scan or (1 / config.fps))
