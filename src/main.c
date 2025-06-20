@@ -5,6 +5,7 @@
 #include "api/api.h"
 #include "rencache.h"
 #include "renderer.h"
+#include "custom_events.h"
 
 #include <signal.h>
 
@@ -136,6 +137,11 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
   }
 
+  if (!init_custom_events()) {
+    fprintf(stderr, "Error initializing custom events: %s\n", SDL_GetError());
+    exit(1);
+  }
+
   int has_restarted = 0;
   lua_State *L;
 init_lua:
@@ -229,6 +235,10 @@ init_lua:
   }
 
   lua_close(L);
+
+  // At this point we're not going to call the event loop anymore,
+  // so we can free the custom events.
+  free_custom_events();
 
   ren_free();
 
