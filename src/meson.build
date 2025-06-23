@@ -131,3 +131,7 @@ executable('lite-xl',
     install: true,
     win_subsystem: 'windows',
 )
+
+subproject('lpm', required : get_option('bundle_lpm'),
+    default_options: ['bindir=@0@'.format(lite_bindir), 'static=true']
+)
