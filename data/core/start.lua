@@ -53,7 +53,7 @@ error = {
   new = function(str, level) return getmetatable(str) == error and str or setmetatable({ message = str, stack = debug.traceback(nil, (level or 1) + 1) }, error) end, 
   __tostring = function(self) return self.message end,
   __call = function(self, str, level) 
-    error.throw(error.new(str, level or 2), level or 2) 
+    error.throw(error.new(str, (level or 1) + 1), (level or 1) + 1) 
   end
 } 
 setmetatable(error, error)
