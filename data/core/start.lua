@@ -96,22 +96,22 @@ function require(modname, ...)
 
   table.insert(require_stack, modname)
   local ok, result, loaderdata
-  local stacktrace
-  ok, result, loaderdata = xpcall(function(...) return lua_require(modname, ...) end, function(err)
+  local stacktrace, error_result
+  ok, result, loaderdata = xpcall(lua_require, function(err)
     if type(err) == "table" and err.message then
       stacktrace = err.stack
-      return err.message
+      error_result = err.message
     else
-      stacktrace = debug.traceback()
-      return err
+      stacktrace = debug.traceback(nil, 2)
+      error_result = err
     end
-  end, ...)
+  end, modname, ...)
   table.remove(require_stack)
 
   if not ok then
-    return error({ message = result, stack = stacktrace })
+    return error({ message = error_result, stack = stacktrace }, 0)
   end
-  return result, loaderdata
+  return error_result or result, loaderdata
 end
 
 ---Returns the current `require` path.
