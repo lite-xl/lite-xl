@@ -95,11 +95,21 @@ function require(modname, ...)
   end
 
   table.insert(require_stack, modname)
-  local ok, result, loaderdata = pcall(lua_require, modname, ...)
+  local ok, result, loaderdata
+  local stacktrace
+  ok, result, loaderdata = xpcall(function(...) return lua_require(modname, ...) end, function(err)
+    if type(err) == "table" and err.message then
+      stacktrace = err.stack
+      return err.message
+    else
+      stacktrace = debug.traceback()
+      return err
+    end
+  end, ...)
   table.remove(require_stack)
 
   if not ok then
-    return error(result)
+    return error({ message = result, stack = stacktrace })
   end
   return result, loaderdata
 end

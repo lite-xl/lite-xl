@@ -888,9 +888,15 @@ end
 function core.try(fn, ...)
   local err
   local ok, res = xpcall(fn, function(msg)
-    local item = core.error("%s", msg)
-    item.info = debug.traceback("", 2):gsub("\t", "")
-    err = msg
+    if type(msg) == 'table' and msg.message then
+      local item = core.error("%s", msg.message)
+      item.info = msg.stack:gsub("\t", "")
+      err = msg.message
+    else 
+      local item = core.error("%s", msg)
+      item.info = debug.traceback("", 2):gsub("\t", "")
+      err = msg
+    end
   end, ...)
   if ok then
     return true, res
