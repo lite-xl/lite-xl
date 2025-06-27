@@ -888,7 +888,7 @@ end
 function core.try(fn, ...)
   local err
   local ok, res = xpcall(fn, function(msg)
-    if type(msg) == 'table' and msg.message then
+    if type(msg) == 'table' and getmetatable(msg) == error then
       local item = core.error("%s", msg.message)
       item.info = msg.stack:gsub("\t", "")
       err = msg.message
