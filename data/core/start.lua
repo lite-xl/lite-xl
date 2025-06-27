@@ -50,25 +50,17 @@ table.unpack = table.unpack or unpack
 -- this allows us to rethrow errors and get proper stacktraces.
 error = {  
   throw = error, 
-  new = function(str, level) return setmetatable({ message = str, stack = debug.traceback(nil, (level or 1) + 1) }, error) end, 
+  new = function(str, level) return getmetatable(str) == error and str or setmetatable({ message = str, stack = debug.traceback(nil, (level or 1) + 1) }, error) end, 
   __tostring = function(self) return self.message end,
   __call = function(self, str, level) 
-    if getmetatable(str) == error then 
-      error.throw(str, level or 2) 
-    else 
-      error.throw(error.new(str, level or 2), level or 2) 
-    end 
+    error.throw(error.new(str, level or 2), level or 2) 
   end
 } 
 setmetatable(error, error)
 function rcall(func, always, ...)
   local rethrow = nil
   local results = { select(2, xpcall(func, function(err)
-    if type(err) == 'table' and getmetatable(err) == error then
-      rethrow = err
-    else
-      rethrow = error.new(err, 5)
-    end
+    rethrow = error.new(err, 5)
   end, ...)) }
   always(rethrow)
   if rethrow then error.throw(rethrow, 2) end
