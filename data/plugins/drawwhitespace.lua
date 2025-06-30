@@ -6,7 +6,6 @@ local DocView = require "core.docview"
 local common = require "core.common"
 local command = require "core.command"
 local config = require "core.config"
-local Highlighter = require "core.doc.highlighter"
 
 config.plugins.drawwhitespace = common.merge({
   enabled = false,
@@ -142,47 +141,6 @@ local function reset_cache_if_needed()
     or cached_settings.substitutions   ~= settings.substitutions
   then
     reset_cache()
-  end
-end
-
--- Move cache to make space for new lines
-local prev_insert_notify = Highlighter.insert_notify
-function Highlighter:insert_notify(line, n, ...)
-  prev_insert_notify(self, line, n, ...)
-  if not ws_cache[self] then
-    ws_cache[self] = {}
-  end
-  local to = math.min(line + n, #self.doc.lines)
-  for i=#self.doc.lines+n,to,-1 do
-    ws_cache[self][i] = ws_cache[self][i - n]
-  end
-  for i=line,to do
-    ws_cache[self][i] = nil
-  end
-end
-
--- Close the cache gap created by removed lines
-local prev_remove_notify = Highlighter.remove_notify
-function Highlighter:remove_notify(line, n, ...)
-  prev_remove_notify(self, line, n, ...)
-  if not ws_cache[self] then
-    ws_cache[self] = {}
-  end
-  local to = math.max(line + n, #self.doc.lines)
-  for i=line,to do
-    ws_cache[self][i] = ws_cache[self][i + n]
-  end
-end
-
--- Remove changed lines from the cache
-local prev_update_notify = Highlighter.update_notify
-function Highlighter:update_notify(line, n, ...)
-  prev_update_notify(self, line, n, ...)
-  if not ws_cache[self] then
-    ws_cache[self] = {}
-  end
-  for i=line,line+n do
-    ws_cache[self][i] = nil
   end
 end
 

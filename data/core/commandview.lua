@@ -13,8 +13,9 @@ local SingleLineDoc = Doc:extend()
 
 function SingleLineDoc:__tostring() return "SingleLineDoc" end
 
-function SingleLineDoc:insert(line, col, text)
-  SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
+function SingleLineDoc:insert(line, col, text, selections)
+  local stripped = text:gsub("\n", "")
+  SingleLineDoc.super.insert(self, line, col, stripped, selections)
 end
 
 ---@class core.commandview : core.docview
@@ -82,11 +83,9 @@ function CommandView:get_name()
 end
 
 
-function CommandView:get_line_screen_position(line, col)
-  local x = CommandView.super.get_line_screen_position(self, 1, col)
-  local _, y = self:get_content_offset()
-  local lh = self:get_line_height()
-  return x, y + (self.size.y - lh) / 2
+function CommandView:get_vline_position(vline, vcol)
+  local x, y = CommandView.super.get_vline_position(self, vline, vcol)
+  return x, y + (self.size.y - self:get_line_height()) / 2
 end
 
 
@@ -100,7 +99,7 @@ function CommandView:get_scrollable_size()
 end
 
 function CommandView:get_h_scrollable_size()
-  return 0
+  return math.huge
 end
 
 
@@ -117,9 +116,9 @@ end
 function CommandView:set_text(text, select)
   self.last_text = text
   self.doc:remove(1, 1, math.huge, math.huge)
-  self.doc:text_input(text)
+  self:text_input(text)
   if select then
-    self.doc:set_selection(math.huge, math.huge, 1, 1)
+    self:set_selection(math.huge, math.huge, 1, 1)
   end
 end
 
@@ -255,6 +254,7 @@ function CommandView:exit(submitted, inexplicit)
   local cancel = self.state.cancel
   self.state = default_state
   self.doc:reset()
+  self:invalidate_cache()
   self.suggestions = {}
   if not submitted then cancel(not inexplicit) end
   self.save_suggestion = nil
@@ -324,7 +324,7 @@ function CommandView:update()
       if #self.last_text < #current_text and
          string.find(suggested_text, current_text, 1, true) == 1 then
         self:set_text(suggested_text)
-        self.doc:set_selection(1, #current_text + 1, 1, math.huge)
+        self:set_selection(1, #current_text + 1, 1, math.huge)
       end
       self.last_text = current_text
     end
