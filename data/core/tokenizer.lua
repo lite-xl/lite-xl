@@ -295,7 +295,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
       -- If we're in subsyntax mode, always check to see if we end our syntax
       -- first, before the found delimeter, as ending the subsyntax takes
       -- precedence over ending the delimiter in the subsyntax.
-      if subsyntax_info then
+      if subsyntax_info and subsyntax_info.hard_lexical_stop then
         local ss, se = find_text(text, subsyntax_info, i, false, true)
         -- If we find that we end the subsyntax before the
         -- delimiter, push the token, and signal we shouldn't
