@@ -205,7 +205,7 @@ jobs:
 
   build_windows:
     name: Windows (x86_64) (MSYS)
-    runs-on: windows-2019
+    runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
@@ -249,7 +249,7 @@ jobs:
   build_windows_msvc:
     name: Windows (x86_64) (MSVC)
     needs: [version]
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
