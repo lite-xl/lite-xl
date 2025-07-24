@@ -38,6 +38,8 @@ local function reload_doc(doc)
     selections[idx] = { line1, col1, line2, col2 }
   end
   file:close()
+  local len = #doc.lines
+  doc:remove(1, 1, len, #doc.lines[len] + 1)
   doc:insert(1, 1, content)
 
   for idx, sel in pairs(selections) do
