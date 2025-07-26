@@ -329,7 +329,7 @@ function system.exec(command) end
 ---
 ---@param haystack string
 ---@param needle string
----@param file boolean Reverse the algorithm to prioritize the end
+---@param file? boolean Reverse the algorithm to prioritize the end
 ---of the haystack, eg: with a haystack "/my/path/to/file" and a needle
 ---"file", will get better score than with this option not set to true.
 ---

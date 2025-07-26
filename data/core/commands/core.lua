@@ -50,7 +50,7 @@ command.add(nil, {
   ["core:reload-module"] = function()
     core.command_view:enter("Reload Module", {
       submit = function(text, item)
-        local text = item and item.text or text
+        text = item and item.text or text
         core.reload_module(text)
         core.log("Reloaded module %q", text)
       end,
@@ -73,6 +73,7 @@ command.add(nil, {
         end
       end,
       suggest = function(text)
+        ---@type table
         local res = common.fuzzy_match(commands, text)
         for i, name in ipairs(res) do
           res[i] = {
@@ -130,7 +131,7 @@ command.add(nil, {
               end
             end
             core.error("Cannot open file %s: %s", text, err)
-          elseif path_stat.type == 'dir' then
+          elseif path_stat and path_stat.type == 'dir' then
             core.error("Cannot open %s, is a folder", text)
           else
             return true
