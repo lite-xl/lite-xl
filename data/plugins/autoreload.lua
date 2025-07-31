@@ -30,17 +30,20 @@ local function update_time(doc)
 end
 
 local function reload_doc(doc)
-  local file = io.open(doc.abs_filename, "rb")
-  local content = file:read("*a")
+  local content, crlf = doc:load_content(doc.abs_filename)
+  doc.crlf = crlf
 
   local selections = {}
   for idx, line1, col1, line2, col2 in doc:get_selections() do
     selections[idx] = { line1, col1, line2, col2 }
   end
-  file:close()
+  
   local len = #doc.lines
-  doc:remove(1, 1, len, #doc.lines[len] + 1)
+  doc:remove(1, 1, len, #doc.lines[len])
   doc:insert(1, 1, content)
+
+  doc:clean()
+  update_time(doc)
 
   for idx, sel in pairs(selections) do
     doc:set_selections(idx, sel[1], sel[2], sel[3], sel[4])
@@ -49,6 +52,7 @@ local function reload_doc(doc)
   core.redraw = true
   core.log_quiet("Auto-reloaded doc \"%s\"", doc.filename)
 end
+
 
 
 local timers = setmetatable({}, { __mode = "k" })
