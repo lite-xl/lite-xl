@@ -96,6 +96,15 @@ function Doc:reload()
   end
 end
 
+function Doc:load_content(filename)
+  local file = assert( io.open(filename, "rb") )
+  local content = file:read("*a")
+  file:close()
+  local crlf = select(2, content:gsub('\r\n', '\n'))
+  content = content:gsub('\r', '\n')
+  return content, crlf > 0
+end
+
 function Doc:save(filename, abs_filename)
   if not filename then
     assert(self.filename, "no filename set to default to")
