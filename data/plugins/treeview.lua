@@ -588,7 +588,6 @@ end
 local function treeitem() return view.hovered_item or view.selected_item end
 
 function TreeView:on_context_menu()
-  local item = treeitem()
   return {
     { text = "Open in System", command = "treeview:open-in-system" },
     ContextMenu.DIVIDER,
@@ -813,14 +812,13 @@ command.add(
     local text
     if not is_project_folder(item) then
       if item.type == "dir" then
-        text = item.filename .. PATHSEP
+        text = item.project:normalize_path(item.filename) .. PATHSEP
       elseif item.type == "file" then
-        local parent_dir = common.dirname(item.filename)
-        text = parent_dir and parent_dir .. PATHSEP
+        text = item.project:normalize_path(common.dirname(item.abs_filename)) .. PATHSEP
       end
     end
     core.command_view:enter("Filename", {
-      text = not is_project_folder(item) and item.filename .. PATHSEP or "",
+      text = text,
       submit = function(filename)
         local doc_filename = item.project:absolute_path(filename)
         local file = io.open(doc_filename, "a+")
@@ -839,14 +837,13 @@ command.add(
     local text
     if not is_project_folder(item) then
       if item.type == "dir" then
-        text = item.filename .. PATHSEP
+        text = item.project:normalize_path(item.filename) .. PATHSEP
       elseif item.type == "file" then
-        local parent_dir = common.dirname(item.filename)
-        text = parent_dir and parent_dir .. PATHSEP
+        text = item.project:normalize_path(common.dirname(item.abs_filename)) .. PATHSEP
       end
     end
     core.command_view:enter("Folder Name", {
-      text = not is_project_folder(item) and item.filename .. PATHSEP or "",
+      text = text,
       submit = function(filename)
         local dir_path = item.project:absolute_path(filename)
         common.mkdirp(dir_path)

@@ -142,6 +142,10 @@ function ContextMenu:on_mouse_pressed(button, x, y)
   self:hide()
   return true
 end 
+function ContextMenu:on_mouse_released(button, x, y) 
+  if not self.visible then return false end
+  return true
+end
 
 ---Event handler for mouse movements.
 ---@param px any
