@@ -27,11 +27,11 @@ command.add(ContextMenu, {
 
 command.add(function()
   local item = core.active_view:is(ContextMenu) and core.active_view:get_item_selected()
-  return item, core.root_view.context_menu
+  return item, core.root_view.context_menu, item
 end, {
-  ['context-menu:select'] = function(context_menu)
+  ['context-menu:submit'] = function(context_menu, item)
     if item.command then
-      context_menu:on_selected(context_menu:get_item_selected())
+      context_menu:on_selected(item)
       context_menu:hide()
     end
   end
