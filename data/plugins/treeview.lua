@@ -592,11 +592,11 @@ function TreeView:on_context_menu()
   return {
     { text = "Open in System", command = "treeview:open-in-system" },
     ContextMenu.DIVIDER,
-    not is_project_folder(item) and { text = "Rename", command = "treeview:rename" },
-    not is_project_folder(item) and { text = "Delete", command = "treeview:delete" },
-    item and item.type == "dir" and { text = "New File", command = "treeview:new-file" },
-    item and item.type == "dir" and  { text = "New Folder", command = "treeview:new-folder" },
-    item and not is_primary_project_folder(item.abs_filename) and is_project_folder(item) and { text = "Remove directory", command = "treeview:remove-project-directory" },
+    { text = "Rename", command = "treeview:rename" },
+    { text = "Delete", command = "treeview:delete" },
+    { text = "New File", command = "treeview:new-file" },
+    { text = "New Folder", command = "treeview:new-folder" },
+    { text = "Remove directory", command = "treeview:remove-project-directory" },
     { text = "Find in Directory", command = "treeview:search-in-directory" }
   }, self
 end
@@ -611,6 +611,80 @@ if projectsearch then
     end
   })
 end
+
+command.add(function()
+  local item = treeitem()
+  return not is_project_folder(item), item
+end, {
+  ["treeview:delete"] = function(item)
+    local filename = item.abs_filename
+    local relfilename = item.filename
+    if item.project ~= core.root_project() then
+      -- add secondary project dirs names to the file path to show
+      relfilename = common.basename(item.abs_filename) .. PATHSEP .. relfilename
+    end
+    local file_info = system.get_file_info(filename)
+    local file_type = file_info.type == "dir" and "Directory" or "File"
+    -- Ask before deleting
+    local opt = {
+      { text = "Yes", default_yes = true },
+      { text = "No", default_no = true }
+    }
+    core.nag_view:show(
+      string.format("Delete %s", file_type),
+      string.format(
+        "Are you sure you want to delete the %s?\n%s: %s",
+        file_type:lower(), file_type, relfilename
+      ),
+      opt,
+      function(item)
+        if item.text == "Yes" then
+          if file_info.type == "dir" then
+            local deleted, error, path = common.rm(filename, true)
+            if not deleted then
+              core.error("Error: %s - \"%s\" ", error, path)
+              return
+            end
+          else
+            local removed, error = os.remove(filename)
+            if not removed then
+              core.error("Error: %s - \"%s\"", error, filename)
+              return
+            end
+          end
+          core.log("Deleted \"%s\"", filename)
+        end
+      end
+    )
+  end,
+
+  ["treeview:rename"] = function(item)
+    local old_filename = core.normalize_to_project_dir(item.abs_filename)
+    local old_abs_filename = item.abs_filename
+    core.command_view:enter("Rename", {
+      text = old_filename,
+      submit = function(filename)
+        local abs_filename = item.project:absolute_path(filename)
+        local res, err = os.rename(old_abs_filename, abs_filename)
+        if res then -- successfully renamed
+          for _, doc in ipairs(core.docs) do
+            if doc.abs_filename and old_abs_filename == doc.abs_filename then
+              doc:set_filename(filename, abs_filename) -- make doc point to the new filename
+              doc:reset_syntax()
+              break -- only first needed
+            end
+          end
+          core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
+        else
+          core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
+        end
+      end,
+      suggest = function(text)
+        return common.path_suggest(text, item.project and item.project.path)
+      end
+    })
+  end
+})
 
 local previous_view = nil
 
@@ -734,74 +808,6 @@ command.add(
     local item = treeitem()
     return item ~= nil and (active_view or core.active_view) == view, item
   end, {
-  ["treeview:delete"] = function(item)
-    local filename = item.abs_filename
-    local relfilename = item.filename
-    if item.project ~= core.root_project() then
-      -- add secondary project dirs names to the file path to show
-      relfilename = common.basename(item.abs_filename) .. PATHSEP .. relfilename
-    end
-    local file_info = system.get_file_info(filename)
-    local file_type = file_info.type == "dir" and "Directory" or "File"
-    -- Ask before deleting
-    local opt = {
-      { text = "Yes", default_yes = true },
-      { text = "No", default_no = true }
-    }
-    core.nag_view:show(
-      string.format("Delete %s", file_type),
-      string.format(
-        "Are you sure you want to delete the %s?\n%s: %s",
-        file_type:lower(), file_type, relfilename
-      ),
-      opt,
-      function(item)
-        if item.text == "Yes" then
-          if file_info.type == "dir" then
-            local deleted, error, path = common.rm(filename, true)
-            if not deleted then
-              core.error("Error: %s - \"%s\" ", error, path)
-              return
-            end
-          else
-            local removed, error = os.remove(filename)
-            if not removed then
-              core.error("Error: %s - \"%s\"", error, filename)
-              return
-            end
-          end
-          core.log("Deleted \"%s\"", filename)
-        end
-      end
-    )
-  end,
-
-  ["treeview:rename"] = function(item)
-    local old_filename = core.normalize_to_project_dir(item.abs_filename)
-    local old_abs_filename = item.abs_filename
-    core.command_view:enter("Rename", {
-      text = old_filename,
-      submit = function(filename)
-        local abs_filename = item.project:absolute_path(filename)
-        local res, err = os.rename(old_abs_filename, abs_filename)
-        if res then -- successfully renamed
-          for _, doc in ipairs(core.docs) do
-            if doc.abs_filename and old_abs_filename == doc.abs_filename then
-              doc:set_filename(filename, abs_filename) -- make doc point to the new filename
-              doc:reset_syntax()
-              break -- only first needed
-            end
-          end
-          core.log("Renamed \"%s\" to \"%s\"", old_filename, filename)
-        else
-          core.error("Error while renaming \"%s\" to \"%s\": %s", old_abs_filename, abs_filename, err)
-        end
-      end,
-      suggest = function(text)
-        return common.path_suggest(text, item.project and item.project.path)
-      end
-    })
-  end,
 
   ["treeview:new-file"] = function(item)
     local text
