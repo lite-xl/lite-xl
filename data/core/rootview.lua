@@ -4,6 +4,7 @@ local style = require "core.style"
 local Node = require "core.node"
 local View = require "core.view"
 local DocView = require "core.docview"
+local ContextMenu = require "core.contextmenu"
 
 ---@class core.rootview : core.view
 ---@field super core.view
@@ -32,6 +33,7 @@ function RootView:new()
   self.defer_open_docs = {}
   self.first_dnd_processed = false
   self.first_update_done = false
+  self.context_menu = ContextMenu()
 end
 
 
@@ -169,6 +171,9 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
   if self.grab then
     self:on_mouse_released(self.grab.button, x, y)
   end
+  if self.context_menu:on_mouse_pressed(button, x, y, clicks) then
+    return true
+  end
   local div = self.root_node:get_divider_overlapping_point(x, y)
   local node = self.root_node:get_child_overlapping_point(x, y)
   if div and (node and not node.active_view:scrollbar_overlaps_point(x, y)) then
@@ -193,7 +198,6 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
     core.set_active_view(node.active_view)
-    self:grab_mouse(button, node.active_view)
     return self.on_view_mouse_pressed(button, x, y, clicks) or node.active_view:on_mouse_pressed(button, x, y, clicks)
   end
 end
@@ -240,7 +244,10 @@ function RootView:on_mouse_released(button, x, y, ...)
     end
     return
   end
-
+  
+  if self.context_menu:on_mouse_released(button, x, y, ...) then
+    return true
+  end
   if self.dragged_divider then
     self.dragged_divider = nil
   end
@@ -307,6 +314,10 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     self.grab.view:on_mouse_moved(x, y, dx, dy)
     core.request_cursor(self.grab.view.cursor)
     return
+  end
+
+  if self.context_menu:on_mouse_moved(x, y, dx, dy) then
+    return true
   end
 
   if core.active_view == core.nag_view then
@@ -527,6 +538,10 @@ function RootView:update()
   self:interpolate_drag_overlay(self.drag_overlay_tab)
   self:process_defer_open_docs()
   self.first_update_done = true
+  self.context_menu:update()
+  -- set this to true because at this point there are no dnd requests
+  -- that are caused by the initial dnd into dock user action
+  self.first_dnd_processed = true
 end
 
 
@@ -626,6 +641,7 @@ function RootView:draw()
   if self.dragged_node and self.dragged_node.dragging then
     self:draw_grabbed_tab()
   end
+  self.context_menu:draw()
   if core.cursor_change_req then
     system.set_cursor(core.cursor_change_req)
     core.cursor_change_req = nil

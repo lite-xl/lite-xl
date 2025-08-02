@@ -334,4 +334,7 @@ end
 function View:draw()
 end
 
+function View:on_context_menu()
+end
+
 return View
