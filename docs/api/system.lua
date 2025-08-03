@@ -374,4 +374,11 @@ function system.path_compare(path1, type1, path2, type2) end
 ---@return boolean ok True if call succeeded
 function system.setenv(key, val) end
 
+---
+---Gets a list of information that is useful for debugging.
+---Note: The values returned by this function is undocumented and may change in the future.
+---
+---@return string
+function system.get_debug_info() end
+
 return system

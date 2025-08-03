@@ -179,18 +179,48 @@ init_lua:
   SDL_SetEventEnabled(SDL_EVENT_TEXT_INPUT, true);
   SDL_SetEventEnabled(SDL_EVENT_TEXT_EDITING, true);
 
-  const char *init_lite_code = \
+  const char init_lite_code[] = \
     "local core\n"
+    "local start_lua\n"
     "local os_exit = os.exit\n"
     "os.exit = function(code, close)\n"
     "  os_exit(code, close == nil and true or close)\n"
+    "end\n"
+    "local args_copy = table.move(ARGS, 1, #ARGS, 1, {})\n"
+    "local get_debug_info = system.get_debug_info or (function(v) return v end)\n"
+    "function system.get_debug_info()\n"
+    "  local debug_info = get_debug_info {\n"
+    "    ['ARCH'] = ARCH,\n"
+    "    ['ARGS'] = '{\"' .. table.concat(args_copy, '\", \"') .. '\"}',\n"
+    "    ['DATADIR'] = DATADIR or 'Unknown',\n"
+    "    ['EXEFILE'] = EXEFILE,\n"
+    "    ['Lite XL'] = VERSION or 'Unknown',\n"
+    "    ['MOD_VERSION'] = MOD_VERSION_STRING or 'Unknown',\n"
+    "    ['PLATFORM'] = PLATFORM,\n"
+    "    ['start.lua'] = start_lua,\n"
+    "    ['USERDIR'] = USERDIR or 'Unknown',\n"
+    "    ['env'] = {},\n"
+    "  }\n"
+    "  local debug_str, env = {}, {}\n"
+    "  for k, v in pairs(debug_info) do\n"
+    "    if type(v) == 'string' then debug_str[#debug_str+1] = k .. ': ' .. v end\n"
+    "  end\n"
+    "  for k, v in pairs(debug_info.env) do\n"
+    "    if k:match('^SDL') or k:match('XDG') or k == 'HOME' or k == 'USERPROFILE' then\n"
+    "      env[#env+1] = string.format((k:match('%s') or v:match('%s')) and '%s=%q' or '%s=%s', k, v)\n"
+    "    end\n"
+    "  end\n"
+    "  table.sort(debug_str)\n"
+    "  table.sort(env)\n"
+    "  return 'Debug Information\\n=================\\n' .. table.concat(debug_str, '\\n') .. '\\n\\nEnvironment\\n===========\\n' .. table.concat(env, '\\n')\n"
     "end\n"
     "xpcall(function()\n"
     "  local match = require('utf8extra').match\n"
     "  HOME = os.getenv('" LITE_OS_HOME "')\n"
     "  local exedir = match(EXEFILE, '^(.*)" LITE_PATHSEP_PATTERN LITE_NONPATHSEP_PATTERN "$')\n"
     "  local prefix = os.getenv('LITE_PREFIX') or match(exedir, '^(.*)" LITE_PATHSEP_PATTERN "bin$')\n"
-    "  dofile((MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua')\n"
+    "  start_lua = (MACOS_RESOURCES or (prefix and prefix .. '/share/lite-xl' or exedir .. '/data')) .. '/core/start.lua'\n"
+    "  dofile(start_lua)\n"
     "  core = require(os.getenv('LITE_XL_RUNTIME') or 'core')\n"
     "  core.init()\n"
     "  core.run()\n"
@@ -204,7 +234,8 @@ init_lua:
     "  else\n"
     "    local fp = io.open(error_path, 'wb')\n"
     "    fp:write('Error: ' .. tostring(err) .. '\\n')\n"
-    "    fp:write(debug.traceback(nil, 2)..'\\n')\n"
+    "    fp:write(debug.traceback(nil, 2)..'\\n\\n')\n"
+    "    fp:write(system.get_debug_info()..'\\n')\n"
     "    fp:close()\n"
     "    error_path = system.absolute_path(error_path)\n"
     "  end\n"
@@ -216,8 +247,8 @@ init_lua:
     "end)\n"
     "return core and core.restart_request\n";
 
-  if (luaL_loadstring(L, init_lite_code)) {
-    fprintf(stderr, "internal error when starting the application\n");
+  if (luaL_loadbuffer(L, init_lite_code, sizeof(init_lite_code) - 1, "init_lite_code")) {
+    fprintf(stderr, "internal error when starting the application: %s\n", lua_tostring(L, -1));
     exit(1);
   }
   lua_pcall(L, 0, 1, 0);

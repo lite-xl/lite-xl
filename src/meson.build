@@ -119,6 +119,11 @@ elif host_machine.system() == 'darwin'
 endif
 
 lite_includes += include_directories('.')
+c_conf_data = configuration_data()
+c_conf_data.set_quoted('cargs', ' '.join(lite_cargs).replace('"', '\''))
+c_conf_data.set_quoted('link_args', ' '.join(lite_link_args).replace('"', '\''))
+lite_cargs += '-DLITE_BUILD_CARGS=' + c_conf_data.get('cargs')
+lite_cargs += '-DLITE_LINK_ARGS=' + c_conf_data.get('link_args')
 
 executable('lite-xl',
     lite_sources + lite_rc,
