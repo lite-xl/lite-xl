@@ -3,6 +3,7 @@ local command = require "core.command"
 local ContextMenu = require "core.contextmenu"
 
 command.add(function(x, y)
+  if not x and not y then x, y = core.root_view.mouse.x, core.root_view.mouse.y end
   local view = x and y and type(x) == 'number' and type(y) == 'number' and core.root_view.root_node:get_child_overlapping_point(x, y).active_view
   if not view then return nil end
   local results = { view:on_context_menu() }
