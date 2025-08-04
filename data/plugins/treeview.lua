@@ -588,7 +588,7 @@ end
 local function treeitem() return view.hovered_item or view.selected_item end
 
 function TreeView:on_context_menu()
-  return {
+  return { items = {
     { text = "Open in System", command = "treeview:open-in-system" },
     ContextMenu.DIVIDER,
     { text = "Rename", command = "treeview:rename" },
@@ -597,7 +597,7 @@ function TreeView:on_context_menu()
     { text = "New Folder", command = "treeview:new-folder" },
     { text = "Remove directory", command = "treeview:remove-project-directory" },
     { text = "Find in Directory", command = "treeview:search-in-directory" }
-  }, self
+  } }, self
 end
 
 local projectsearch = pcall(require, "plugins.projectsearch")
@@ -729,10 +729,7 @@ command.add(nil, {
   end
 })
 
-command.add(
-  function()
-    return core.active_view:extends(TreeView), TreeView
-  end, {
+command.add(TreeView, {
   ["treeview:next"] = function()
     local item, _, item_y = view:get_next(view.selected_item)
     view:set_selection(item, item_y)

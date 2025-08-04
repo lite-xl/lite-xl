@@ -20,6 +20,7 @@ local DIVIDER = {}
 
 ---A list of items with the same predicate.
 ---@see core.command.predicate
+---@class core.contextmenu.itemset
 ---@field predicate core.command.predicate
 ---@field items core.contextmenu.item[]
 
@@ -134,10 +135,13 @@ end
 
 function ContextMenu:on_mouse_pressed(button, x, y) 
   if not self.visible then return false end
-  if x >= self.position.x and y >= self.position.y and x < self.position.x + self.items.width and y < self.position.y + self.height then
-    if button == 'left' then
-      self:on_selected(self:get_item_selected())
+  if button =='left' and x >= self.position.x and y >= self.position.y and x < self.position.x + self.items.width and y < self.position.y + self.height then
+    local item = self:get_item_selected()
+    if not item or not item.command then return true end
+    if core.active_view == self then
+      core.set_active_view(core.last_active_view)
     end
+    self:on_selected(item)
   end
   self:hide()
   return true
@@ -158,6 +162,7 @@ function ContextMenu:on_mouse_moved(px, py)
   for i, item, x, y, w, h in self:each_item() do
     if px > x and px <= x + w and py > y and py <= y + h then
       self.selected = i
+      core.request_cursor("arrow")
       break
     end
   end
@@ -198,15 +203,6 @@ end
 ---@return core.contextmenu.item|nil
 function ContextMenu:get_item_selected()
   return (self.items or {})[self.selected]
-end
-
----Hides the context menu and performs the command if an item is selected.
-function ContextMenu:call_selected_item()
-    local selected = self:get_item_selected()
-    self:hide()
-    if selected then
-      self:on_selected(selected)
-    end
 end
 
 ---@type fun(self: table, k: string, dest: number, rate?: number, name?: string)

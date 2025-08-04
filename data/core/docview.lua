@@ -612,21 +612,14 @@ function DocView:draw()
 end
 
 function DocView:on_context_menu()
-  local cmds = {
+  return { items = {
     { text = "Cut",     command = "doc:cut" },
     { text = "Copy",    command = "doc:copy" },
     { text = "Paste",   command = "doc:paste" },
     ContextMenu.DIVIDER,
     { text = "Find",    command = "find-replace:find"    },
     { text = "Replace", command = "find-replace:replace" }
-  }
-  if config.plugins.scale ~= false and require("plugins.scale") then
-    table.move(cmds, 4, 6, 7)
-    cmds[4] = { text = "Font +",     command = "scale:increase" }
-    cmds[5] = { text = "Font -",     command = "scale:decrease" }
-    cmds[6] = { text = "Font Reset", command = "scale:reset"    }
-  end
-  return cmds
+  } }, self
 end
 
 return DocView

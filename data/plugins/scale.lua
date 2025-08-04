@@ -6,6 +6,7 @@ local config = require "core.config"
 local keymap = require "core.keymap"
 local style = require "core.style"
 local CommandView = require "core.commandview"
+local DocView = require "core.docview"
 
 config.plugins.scale = common.merge({
   -- The method used to apply the scaling: "code", "ui"
@@ -180,6 +181,18 @@ if config.plugins.scale.use_mousewheel then
     ["ctrl+wheeldown"] = "scale:decrease"
   }
 end
+
+local old_DocView_on_context_menu = DocView.on_context_menu
+function DocView:on_context_menu()
+  local args = { old_DocView_on_context_menu(self) }
+  local cmds = args[1]
+  table.move(cmds.items, 4, 6, 7)
+  cmds.items[4] = { text = "Font +",     command = "scale:increase" }
+  cmds.items[5] = { text = "Font -",     command = "scale:decrease" }
+  cmds.items[6] = { text = "Font Reset", command = "scale:reset"    }
+  return table.unpack(args)
+end
+
 
 return {
   ["set"] = set_scale,

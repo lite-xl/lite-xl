@@ -6,11 +6,11 @@ command.add(function(x, y)
   if not x and not y then x, y = core.root_view.mouse.x, core.root_view.mouse.y end
   local view = x and y and type(x) == 'number' and type(y) == 'number' and core.root_view.root_node:get_child_overlapping_point(x, y).active_view
   if not view then return nil end
-  local results = { view:on_context_menu() }
-  return results and results[1] and #results[1] > 0, x, y, table.unpack(results)
+  local results = { view:on_context_menu(x, y) }
+  return results[1] and results[1].items and #results[1].items > 0, x, y, table.unpack(results)
 end, {
-  ['context-menu:show'] = function(x, y, items, ...)
-    core.root_view.context_menu:show(x, y, items, ...)
+  ['context-menu:show'] = function(x, y, results, ...)
+    core.root_view.context_menu:show(x, y, results.items, ...)
   end
 })
 
