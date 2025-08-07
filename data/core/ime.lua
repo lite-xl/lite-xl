@@ -56,7 +56,7 @@ end
 ---@param length integer @Size of the utf-8 length of the selection
 function ime.on_text_editing(text, start, length, ...)
   if ime.editing or #text > 0 then
-    core.root_view:on_ime_text_editing(ime.ingest(text, start, length, ...))
+    core.active_window().root_view:on_ime_text_editing(ime.ingest(text, start, length, ...))
   end
 end
 

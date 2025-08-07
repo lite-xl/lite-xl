@@ -3,8 +3,13 @@ local common = require "core.common"
 local style = require "core.style"
 local Node = require "core.node"
 local View = require "core.view"
+local ime = require "core.ime"
 local DocView = require "core.docview"
 local ContextMenu = require "core.contextmenu"
+local CommandView = require "core.commandview"
+local StatusView = require "core.statusview"
+local NagView = require "core.nagview"
+local TitleView = require "core.titleview"
 
 ---@class core.rootview : core.view
 ---@field super core.view
@@ -35,6 +40,8 @@ function RootView:new(window)
   self.first_dnd_processed = false
   self.first_update_done = false
   self.context_menu = ContextMenu()
+  self.active_view = nil
+  self.last_active_view = nil
   ---@type core.contextmenu
   self.context_menu = ContextMenu(self)
   ---@type core.commandview
@@ -45,6 +52,16 @@ function RootView:new(window)
   self.nag_view = NagView(self)
   ---@type core.titleview
   self.title_view = TitleView(self)
+  
+  -- Some plugins (eg: console) require the nodes to be initialized to defaults
+  local cur_node = self.root_node
+  cur_node.is_primary_node = true
+  cur_node:split("up", self.title_view, {y = true})
+  cur_node = cur_node.b
+  cur_node:split("up", self.nag_view, {y = true})
+  cur_node = cur_node.b
+  cur_node = cur_node:split("down", self.command_view, {y = true})
+  cur_node = cur_node:split("down", self.status_view, {y = true})
 end
 
 
@@ -136,7 +153,7 @@ function RootView:set_active_view(view)
   -- Reset the IME even if the focus didn't change
   ime.stop()
   if view ~= self.active_view then
-    system.text_input(self.renwindow, view:supports_text_input())
+    system.text_input(self.window.renwindow, view:supports_text_input())
     if self.active_view and self.active_view.force_focus then
       self.next_active_view = view
       return
@@ -227,7 +244,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
       return true
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
-    self.window:set_active_view(node.active_view)
+    self:set_active_view(node.active_view)
     self:grab_mouse(button, node.active_view)
     return self.on_view_mouse_pressed(button, x, y, clicks) or node.active_view:on_mouse_pressed(button, x, y, clicks)
   end
@@ -351,9 +368,9 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     return true
   end
 
-  if self.window.active_view == self.window.nag_view then
+  if self.active_view == self.nag_view then
     core.request_cursor("arrow")
-    self.window.active_view:on_mouse_moved(x, y, dx, dy)
+    self.nag_view:on_mouse_moved(x, y, dx, dy)
     return
   end
 
@@ -491,7 +508,7 @@ end
 
 
 function RootView:on_text_input(...)
-  self.window.active_view:on_text_input(...)
+  self.active_view:on_text_input(...)
 end
 
 function RootView:on_touch_pressed(x, y, ...)
@@ -505,8 +522,8 @@ end
 
 function RootView:on_touch_moved(x, y, dx, dy, ...)
   if not self.touched_view then return end
-  if self.window.active_view == self.window.nag_view then
-    self.window.active_view:on_touch_moved(x, y, dx, dy, ...)
+  if self.active_view == self.window.nag_view then
+    self.active_view:on_touch_moved(x, y, dx, dy, ...)
     return
   end
 
@@ -539,7 +556,7 @@ function RootView:on_touch_moved(x, y, dx, dy, ...)
 end
 
 function RootView:on_ime_text_editing(...)
-  self.window.active_view:on_ime_text_editing(...)
+  self.active_view:on_ime_text_editing(...)
 end
 
 function RootView:on_focus_lost(...)

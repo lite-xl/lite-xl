@@ -79,7 +79,9 @@ end
 
 function core.open_project(project)
   local project = core.set_project(project)
-  core.active_window():close_all_docviews()
+  for _, window in core.windows do
+    window:close_all_docviews()
+  end
   reload_customizations()
   update_recents_project("add", project.path)
   command.perform("core:restart")
@@ -404,7 +406,7 @@ function core.init()
         msg[#msg + 1] = string.format("Plugins from directory \"%s\":\n%s", common.home_encode(entry.dir), table.concat(msg_list, "\n"))
       end
     end
-    core.nag_view:show(
+    core.active_window().root_view.nag_view:show(
       "Refused Plugins",
       string.format(
         "Some plugins are not loaded due to version mismatch. Expected version %s.\n\n%s.\n\n" ..
@@ -438,7 +440,7 @@ function core.confirm_close_docs(docs, close_fn, ...)
       { text = "Yes", default_yes = true },
       { text = "No", default_no = true }
     }
-    core.windows[1].nag_view:show("Unsaved Changes", text, opt, function(item)
+    core.windows[1].root_view.nag_view:show("Unsaved Changes", text, opt, function(item)
       if item.text == "Yes" then close_fn(table.unpack(args)) end
     end)
   else
@@ -487,7 +489,7 @@ end
 function core.restart()
   core.exit(function()
     core.restart_request = true
-    core.active_window():_persist()
+    core.active_window().renwindow:_persist()
   end)
 end
 
@@ -735,8 +737,8 @@ function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
     local s = style.log[level]
-    if core.status_view then
-      core.status_view:show_message(s.icon, s.color, text)
+    if core.active_window().root_view.status_view then
+      core.active_window().root_view.status_view:show_message(s.icon, s.color, text)
     end
   end
 

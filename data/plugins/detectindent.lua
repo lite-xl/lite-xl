@@ -325,7 +325,7 @@ local function set_indent_type(doc, type)
 end
 
 local function set_indent_type_command(dv)
-  core.command_view:enter("Specify indent style for this file", {
+  dv.root_view.command_view:enter("Specify indent style for this file", {
     submit = function(value)
       local doc = dv.doc
       value = value:lower()
@@ -353,7 +353,7 @@ local function set_indent_size(doc, size)
 end
 
 local function set_indent_size_command(dv)
-  core.command_view:enter("Specify indent size for current file", {
+  dv.command_view:enter("Specify indent size for current file", {
     submit = function(value)
       value = math.floor(tonumber(value))
       local doc = dv.doc
@@ -373,23 +373,23 @@ command.add("core.docview", {
 })
 
 command.add(
-  function()
-    return core.active_window().root_view.window.active_view:is(DocView)
-      and cache[core.active_window().root_view.window.active_view.doc]
-      and cache[core.active_window().root_view.window.active_view.doc].type == "soft"
+  function(root_view)
+    return root_view.active_view:is(DocView)
+      and cache[root_view.active_view.doc]
+      and cache[root_view.active_view.doc].type == "soft"
   end, {
-  ["indent:switch-file-to-tabs-indentation"] = function()
-    set_indent_type(core.active_window().root_view.window.active_view.doc, "hard")
+  ["indent:switch-file-to-tabs-indentation"] = function(root_view)
+    set_indent_type(root_view.active_view.doc, "hard")
   end
 })
 
 command.add(
-  function()
-    return core.active_window().root_view.window.active_view:is(DocView)
-      and cache[core.active_window().root_view.window.active_view.doc]
-      and cache[core.active_window().root_view.window.active_view.doc].type == "hard"
+  function(root_view)
+    return root_view.active_view:is(DocView)
+      and cache[root_view.active_view.doc]
+      and cache[root_view.active_view.doc].type == "hard"
   end, {
-  ["indent:switch-file-to-spaces-indentation"] = function()
-    set_indent_type(core.active_window().root_view.window.active_view.doc, "soft")
+  ["indent:switch-file-to-spaces-indentation"] = function(root_view)
+    set_indent_type(root_view.active_view.doc, "soft")
   end
 })

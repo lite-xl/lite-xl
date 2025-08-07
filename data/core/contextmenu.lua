@@ -113,10 +113,10 @@ function ContextMenu:hide()
   self.items = nil
   self.selected = -1
   self.height = 0
-  if self.root_view.window.active_view == self then
-    self.root_view.window:set_active_view(self.root_view.window.last_active_view)
+  if self.root_view.active_view == self then
+    self.root_view:set_active_view(self.root_view.last_active_view)
   end
-  core.request_cursor(self.root_view.window.active_view.cursor)
+  core.request_cursor(self.root_view.active_view.cursor)
 end
 
 ---Returns an iterator that iterates over each context menu item and their dimensions.
@@ -139,8 +139,8 @@ function ContextMenu:on_mouse_pressed(button, x, y)
   if button =='left' and x >= self.position.x and y >= self.position.y and x < self.position.x + self.items.width and y < self.position.y + self.height then
     local item = self:get_item_selected()
     if not item or not item.command then return true end
-    if core.active_view == self then
-      core.set_active_view(core.last_active_view)
+    if self.root_view.active_view == self then
+      self.root_view:set_active_view(self.root_view.last_active_view)
     end
     self:on_selected(item)
   end

@@ -75,7 +75,7 @@ end
 function DocView:try_close(do_close)
   if self.doc:is_dirty()
   and #core.get_views_referencing_doc(self.doc) == 1 then
-    self.root_view.window.command_view:enter("Unsaved Changes; Confirm Close", {
+    self.root_view.command_view:enter("Unsaved Changes; Confirm Close", {
       submit = function(_, item)
         if item.text:match("^[cC]") then
           do_close()
@@ -413,7 +413,7 @@ function DocView:update()
   local line1, col1, line2, col2 = self.doc:get_selection()
   if (line1 ~= self.last_line1 or col1 ~= self.last_col1 or
       line2 ~= self.last_line2 or col2 ~= self.last_col2) and self.size.x > 0 then
-    if self.root_view.window.active_view == self and not ime.editing then
+    if self.root_view.active_view == self and not ime.editing then
       self:scroll_to_make_visible(line1, col1)
     end
     core.blink_reset()
@@ -494,7 +494,7 @@ function DocView:draw_line_body(line, x, y)
       end
     end
   end
-  if draw_highlight and self.root_view.window.active_view == self then
+  if draw_highlight and self.root_view.active_view == self then
     self:draw_line_highlight(x + self.scroll.x, y)
   end
 
@@ -558,7 +558,7 @@ end
 
 
 function DocView:draw_overlay()
-  if self.root_view.window.active_view == self then
+  if self.root_view.active_view == self then
     local minline, maxline = self:get_visible_line_range()
     -- draw caret if it overlaps this line
     local T = config.blink_period

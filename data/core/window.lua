@@ -1,13 +1,9 @@
 local core = require "core"
 local Object = require "core.object"
 local RootView = require "core.rootview"
-local CommandView = require "core.commandview"
-local StatusView = require "core.statusview"
-local NagView = require "core.nagview"
-local TitleView = require "core.titleview"
-local ime = require "core.ime"
 local config = require "core.config"
 local keymap = require "core.keymap"
+local ime = require "core.ime"
 
 local Window = Object:extend()
 
@@ -19,21 +15,8 @@ function Window:new(renwindow)
   self.borderless = nil
   self.scale = { x = 1.0, y = 1.0 }
   self.clip_rect_stack = {{ 0,0,0,0 }}
-  self.active_view = nil
-  self.last_active_view = nil
   ---@type core.rootview
   self.root_view = RootView(self)
-
-  
-  -- Some plugins (eg: console) require the nodes to be initialized to defaults
-  local cur_node = self.root_view.root_node
-  cur_node.is_primary_node = true
-  cur_node:split("up", self.title_view, {y = true})
-  cur_node = cur_node.b
-  cur_node:split("up", self.nag_view, {y = true})
-  cur_node = cur_node.b
-  cur_node = cur_node:split("down", self.command_view, {y = true})
-  cur_node = cur_node:split("down", self.status_view, {y = true})
 end
 
 
@@ -92,7 +75,7 @@ end
 
 function Window:step()
   -- update window title
-  local current_title = get_title_filename(self.active_view)
+  local current_title = get_title_filename(self.root_view.active_view)
   if current_title ~= nil and current_title ~= self.title then
     self.renwindow:set_title(self.compose_window_title(current_title))
     self.title = current_title
@@ -109,8 +92,8 @@ end
 function Window:configure_borderless_window(borderless)
   self.borderless = borderless
   self.renwindow:set_bordered(not borderless)
-  self.title_view:configure_hit_test(borderless)
-  self.title_view.visible = borderless
+  self.root_view.title_view:configure_hit_test(borderless)
+  self.root_view.title_view.visible = borderless
 end
 
 function Window:on_event(type, ...)
@@ -124,16 +107,16 @@ function Window:on_event(type, ...)
     -- In some cases during IME composition input is still sent to us
     -- so we just ignore it.
     if ime.editing then return false end
-    did_keymap = keymap.on_key_pressed(...)
+    did_keymap = keymap.on_key_pressed(self, ...)
   elseif type == "keyreleased" then
-    keymap.on_key_released(...)
+    keymap.on_key_released(self, ...)
   elseif type == "mousemoved" then
     local x1, y1, x2, y2 = ...
     self.root_view:on_mouse_moved(x1 * self.scale.x, y1 * self.scale.y, x2 * self.scale.x, y2 * self.scale.y)
   elseif type == "mousepressed" then
     local bname, x, y, clicks = ...
     if not self.root_view:on_mouse_pressed(bname, x * self.scale.x, y * self.scale.y, clicks) then
-      did_keymap = keymap.on_mouse_pressed(bname, x * self.scale.x, y * self.scale.y, clicks)
+      did_keymap = keymap.on_mouse_pressed(self, bname, x * self.scale.x, y * self.scale.y, clicks)
     end
   elseif type == "mousereleased" then
     local bname, x, y = ...
@@ -142,7 +125,7 @@ function Window:on_event(type, ...)
     self.root_view:on_mouse_left()
   elseif type == "mousewheel" then
     if not self.root_view:on_mouse_wheel(...) then
-      did_keymap = keymap.on_mouse_wheel(...)
+      did_keymap = keymap.on_mouse_wheel(self, ...)
     end
   elseif type == "touchpressed" then
     self.root_view:on_touch_pressed(...)

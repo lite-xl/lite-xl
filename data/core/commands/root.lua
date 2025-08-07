@@ -9,51 +9,51 @@ local Node = require "core.node"
 
 local t = {
   ["root:close"] = function(node)
-    node:close_active_view(core.active_window().root_view.root_node)
+    node:close_active_view(node.root_view.root_node)
   end,
 
   ["root:close-or-quit"] = function(node)
     if node and (not node:is_empty() or not node.is_primary_node) then
-      node:close_active_view(core.active_window().root_view.root_node)
+      node:close_active_view(node.root_view.root_node)
     else
       core.quit()
     end
   end,
 
-  ["root:close-all"] = function()
-    core.confirm_close_docs(core.docs, core.active_window().root_view.close_all_docviews, core.active_window().root_view)
+  ["root:close-all"] = function(node)
+    core.confirm_close_docs(core.docs, node.root_view.close_all_docviews, node.root_view)
   end,
 
-  ["root:close-all-others"] = function()
-    local active_doc, docs = core.active_view and core.active_view.doc, {}
+  ["root:close-all-others"] = function(node)
+    local active_doc, docs = node.root_view.active_view and node.root_view.active_view.doc, {}
     for i, v in ipairs(core.docs) do if v ~= active_doc then table.insert(docs, v) end end
-    core.confirm_close_docs(docs, core.active_window().root_view.close_all_docviews, core.active_window().root_view, true)
+    core.confirm_close_docs(docs, node.root_view.close_all_docviews, node.root_view, true)
   end,
 
   ["root:move-tab-left"] = function(node)
-    local idx = node:get_view_idx(core.active_view)
+    local idx = node:get_view_idx(node.root_view.active_view)
     if idx > 1 then
       table.remove(node.views, idx)
-      table.insert(node.views, idx - 1, core.active_view)
+      table.insert(node.views, idx - 1, node.root_view.active_view)
     end
   end,
 
   ["root:move-tab-right"] = function(node)
-    local idx = node:get_view_idx(core.active_view)
+    local idx = node:get_view_idx(node.root_view.active_view)
     if idx < #node.views then
       table.remove(node.views, idx)
-      table.insert(node.views, idx + 1, core.active_view)
+      table.insert(node.views, idx + 1, node.root_view.active_view)
     end
   end,
 
   ["root:shrink"] = function(node)
-    local parent = node:get_parent_node(core.active_window().root_view.root_node)
+    local parent = node:get_parent_node(node.root_view.root_node)
     local n = (parent.a == node) and -0.1 or 0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
   end,
 
   ["root:grow"] = function(node)
-    local parent = node:get_parent_node(core.active_window().root_view.root_node)
+    local parent = node:get_parent_node(node.root_view.root_node)
     local n = (parent.a == node) and 0.1 or -0.1
     parent.divider = common.clamp(parent.divider + n, 0.1, 0.9)
   end
@@ -75,7 +75,7 @@ for _, dir in ipairs { "left", "right", "up", "down" } do
     local av = node.active_view
     node:split(dir)
     if av:is(DocView) then
-      core.active_window().root_view:open_doc(av.doc)
+      node.root_view:open_doc(av.doc)
     end
   end
 
@@ -88,10 +88,10 @@ for _, dir in ipairs { "left", "right", "up", "down" } do
       x = node.position.x + node.size.x / 2
       y = node.position.y + (dir == "up"   and -1 or node.size.y + style.divider_size)
     end
-    local node = core.active_window().root_view.root_node:get_child_overlapping_point(x, y)
+    local node = node.root_view.root_node:get_child_overlapping_point(x, y)
     local sx, sy = node:get_locked_size()
     if not sx and not sy then
-      core.set_active_view(node.active_view)
+      node.root_view:set_active_view(node.active_view)
     end
   end
 end
@@ -104,7 +104,7 @@ end, t)
 
 command.add(nil, {
   ["root:scroll"] = function(root_view, delta)
-    local view = root_view.overlapping_view or core.active_view
+    local view = root_view.overlapping_view or root_view.active_view
     if view and view.scrollable then
       view.scroll.to.y = view.scroll.to.y + delta * -config.mouse_wheel_scroll
       return true
@@ -112,7 +112,7 @@ command.add(nil, {
     return false
   end,
   ["root:horizontal-scroll"] = function(root_view, delta)
-    local view = root_view.overlapping_view or core.active_view
+    local view = root_view.overlapping_view or root_view.active_view
     if view and view.scrollable then
       view.scroll.to.x = view.scroll.to.x + delta * -config.mouse_wheel_scroll
       return true

@@ -107,7 +107,7 @@ end
 
 function NagView:on_mouse_moved(mx, my, ...)
   if not self.visible then return end
-  self.root_view.window:set_active_view(self)
+  self.root_view:set_active_view(self)
   NagView.super.on_mouse_moved(self, mx, my, ...)
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
@@ -158,7 +158,7 @@ function NagView:on_mouse_pressed(button, mx, my, clicks)
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
       self:change_hovered(i)
-      command.perform "dialog:select"
+      command.perform("dialog:select", self.root_view)
     end
   end
   return true
@@ -177,7 +177,7 @@ function NagView:update()
   if not self.visible and self.show_height <= 0 then return end
   NagView.super.update(self)
 
-  if self.visible and self.root_view.window.active_view == self and self.title then
+  if self.visible and self.root_view.active_view == self and self.title then
     local target_height = self:get_target_height()
     self:move_towards(self, "show_height", target_height, nil, "nagbar")
     self:move_towards(self, "underline_progress", 1, nil, "nagbar")
@@ -288,12 +288,12 @@ function NagView:next()
     self:change_hovered(common.find_index(self.options, "default_yes"))
 
     self.force_focus = true
-    self.root_view.window:set_active_view(self)
+    self.root_view:set_active_view(self)
     -- We add a hook to manage all the mouse_pressed events.
     register_mouse_pressed(self)
   else
     self.force_focus = false
-    self.root_view.window:set_active_view(self.root_view.window.next_active_view or self.root_view.window.last_active_view)
+    self.root_view:set_active_view(self.root_view.next_active_view or self.root_view.last_active_view)
     self.visible = false
     unregister_mouse_pressed(self)
   end

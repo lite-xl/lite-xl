@@ -26,9 +26,9 @@ command.add(ContextMenu, {
   end
 })
 
-command.add(function()
-  local item = core.active_view:is(ContextMenu) and core.active_view:get_item_selected()
-  return item, core.root_view.context_menu, item
+command.add(function(root_view)
+  local item = root_view.active_view:is(ContextMenu) and root_view.active_view:get_item_selected()
+  return item, root_view.context_menu, item
 end, {
   ['context-menu:submit'] = function(context_menu, item)
     if item.command then

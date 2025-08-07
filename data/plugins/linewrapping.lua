@@ -214,7 +214,7 @@ function LineWrapping.draw_guide(docview)
   if config.plugins.linewrapping.guide and docview.wrapped_settings.width ~= math.huge then
     local x, y = docview:get_content_offset()
     local gw = docview:get_gutter_width()
-    renderer.draw_rect(x + gw + docview.wrapped_settings.width, y, 1, core.root_view.size.y, style.selection)
+    renderer.draw_rect(x + gw + docview.wrapped_settings.width, y, 1, docview.root_view.size.y, style.selection)
   end
 end
 
@@ -511,7 +511,7 @@ function DocView:draw_line_body(line, x, y)
   for lidx, line1, col1, line2, col2 in self.doc:get_selections(true) do
     -- draw line highlight if caret is on this line
     if draw_highlight ~= false and config.highlight_current_line
-    and line1 == line and core.active_view == self then
+    and line1 == line and self.root_view.active_view == self then
       draw_highlight = (line1 == line2 and col1 == col2)
     end
   end
@@ -541,18 +541,18 @@ end
 
 local old_translate_end_of_line = translate.end_of_line
 function translate.end_of_line(doc, line, col)
-  if not core.active_view or core.active_view.doc ~= doc or not core.active_view.wrapped_settings then old_translate_end_of_line(doc, line, col) end
-  local idx, ncol = get_line_idx_col_count(core.active_view, line, col)
-  local nline, ncol2 = get_idx_line_col(core.active_view, idx + 1)
+  if not core.active_window().root_view.active_view or core.active_window().root_view.active_view.doc ~= doc or not core.active_window().root_view.active_view.wrapped_settings then old_translate_end_of_line(doc, line, col) end
+  local idx, ncol = get_line_idx_col_count(core.active_window().root_view.active_view, line, col)
+  local nline, ncol2 = get_idx_line_col(core.active_window().root_view.active_view, idx + 1)
   if nline ~= line then return line, math.huge end
   return line, ncol2 - 1
 end
 
 local old_translate_start_of_line = translate.start_of_line
 function translate.start_of_line(doc, line, col)
-  if not core.active_view or core.active_view.doc ~= doc or not core.active_view.wrapped_settings then old_translate_start_of_line(doc, line, col) end
-  local idx, ncol = get_line_idx_col_count(core.active_view, line, col)
-  local nline, ncol2 = get_idx_line_col(core.active_view, idx - 1)
+  if not core.active_window().root_view.active_view or core.active_window().root_view.active_view.doc ~= doc or not core.active_window().root_view.active_view.wrapped_settings then old_translate_start_of_line(doc, line, col) end
+  local idx, ncol = get_line_idx_col_count(core.active_window().root_view.active_view, line, col)
+  local nline, ncol2 = get_idx_line_col(core.active_window().root_view.active_view, idx - 1)
   if nline ~= line then return line, 1 end
   return line, ncol2 + 1
 end
@@ -572,20 +572,20 @@ function DocView.translate.next_line(doc, line, col, dv)
 end
 
 command.add(nil, {
-  ["line-wrapping:enable"] = function()
-    if core.active_view and core.active_view.doc then
-      core.active_view.wrapping_enabled = true
-      LineWrapping.update_docview_breaks(core.active_view)
+  ["line-wrapping:enable"] = function(root_view)
+    if root_view.active_view and root_view.active_view.doc then
+      root_view.active_view.wrapping_enabled = true
+      LineWrapping.update_docview_breaks(root_view.active_view)
     end
   end,
-  ["line-wrapping:disable"] = function()
-    if core.active_view and core.active_view.doc then
-      core.active_view.wrapping_enabled = false
-      LineWrapping.reconstruct_breaks(core.active_view, core.active_view:get_font(), math.huge)
+  ["line-wrapping:disable"] = function(root_view)
+    if root_view.active_view and root_view.active_view.doc then
+      root_view.active_view.wrapping_enabled = false
+      LineWrapping.reconstruct_breaks(root_view.active_view, root_view.active_view:get_font(), math.huge)
     end
   end,
-  ["line-wrapping:toggle"] = function()
-    if core.active_view and core.active_view.doc and core.active_view.wrapped_settings then
+  ["line-wrapping:toggle"] = function(root_view)
+    if root_view.active_view and root_view.active_view.doc and root_view.active_view.wrapped_settings then
       command.perform("line-wrapping:disable")
     else
       command.perform("line-wrapping:enable")

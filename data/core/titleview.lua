@@ -12,17 +12,17 @@ local icon_colors = {
 };
 
 local restore_command = {
-  symbol = "w", action = function() core.active_window():set_mode("normal") end
+  symbol = "w", action = function(self) self.root_view.window:set_mode("normal") end
 }
 
 local maximize_command = {
-  symbol = "W", action = function() core.active_window():set_mode("maximized") end
+  symbol = "W", action = function(self) self.root_view.window:set_mode("maximized") end
 }
 
 local title_commands = {
-  {symbol = "_", action = function() core.active_window():set_mode("minimized") end},
+  {symbol = "_", action = function(self) cself.root_view.window:set_mode("minimized") end},
   maximize_command,
-  {symbol = "X", action = function() core.quit() end},
+  {symbol = "X", action = function(self) core.quit() end},
 }
 
 ---@class core.titleview : core.view
@@ -108,9 +108,9 @@ end
 function TitleView:on_mouse_pressed(button, x, y, clicks)
   local caught = TitleView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught then return end
-  core.set_active_view(core.last_active_view)
+  self.root_view:set_active_view(self.root_view.last_active_view)
   if self.hovered_item then
-    self.hovered_item.action()
+    self.hovered_item.action(self)
   end
 end
 

@@ -128,6 +128,12 @@ config.plugins.autocomplete = common.merge({
   }
 }, config.plugins.autocomplete)
 
+local function get_active_view()
+  if core.active_window().root_view.active_view:is(DocView) then
+    return core.active_window().root_view.active_view
+  end
+end
+
 local autocomplete = {}
 
 autocomplete.map = {}
@@ -217,7 +223,7 @@ core.add_thread(function()
             else
               filename_message = "unnamed document"
             end
-            core.status_view:show_message("!", style.accent,
+            core.active_window().status_view:show_message("!", style.accent,
               "Too many symbols in "..filename_message..
               ": stopping auto-complete for this document according to "..
               "config.plugins.autocomplete.max_symbols."
@@ -295,7 +301,7 @@ local function reset_suggestions()
 
   triggered_manually = false
 
-  local doc = core.active_view.doc
+  local doc = get_active_view().doc
   if autocomplete.on_close then
     autocomplete.on_close(doc, suggestions[suggestions_idx])
     autocomplete.on_close = nil
@@ -303,7 +309,7 @@ local function reset_suggestions()
 end
 
 local function update_suggestions()
-  local doc = core.active_view.doc
+  local doc = get_active_view().doc
   local filename = doc and doc.filename or ""
 
   local map = autocomplete.map
@@ -375,17 +381,12 @@ local function update_suggestions()
 end
 
 local function get_partial_symbol()
-  local doc = core.active_view.doc
+  local doc = get_active_view().doc
   local line2, col2 = doc:get_selection()
   local line1, col1 = doc:position_offset(line2, col2, translate.start_of_word)
   return doc:get_text(line1, col1, line2, col2)
 end
 
-local function get_active_view()
-  if core.active_window().active_view:is(DocView) then
-    return core.active_view
-  end
-end
 
 local last_max_width = 0
 local function get_suggestions_rect(av)
@@ -440,15 +441,15 @@ local function get_suggestions_rect(av)
   -- additional line to display total items
   max_items = max_items + 1
 
-  if max_width > core.root_view.size.x then
-    max_width = core.root_view.size.x
+  if max_width > av.root_view.size.x then
+    max_width = av.root_view.size.x
   end
   if max_width < 150 * SCALE then
     max_width = 150 * SCALE
   end
 
   -- if portion not visiable to right, reposition to DocView right margin
-  if x + max_width > core.root_view.size.x then
+  if x + max_width > av.root_view.size.x then
     x = (av.size.x + av.position.x) - max_width
   end
 
@@ -625,13 +626,13 @@ local function draw_suggestions_box(av)
 
     local color = (i == suggestions_idx) and style.accent or style.text
     -- Push clip to avoid that the suggestion text gets drawn over suggestion type/icon
-    core.push_clip_rect(rx + icon_l_padding + style.padding.x, y,
+    av.root_view.window:push_clip_rect(rx + icon_l_padding + style.padding.x, y,
                         rw - info_size - icon_l_padding - icon_r_padding - style.padding.x, lh)
     local x_adv = common.draw_text(
       font, color, s.text, "left",
       rx + icon_l_padding + style.padding.x, y, rw, lh
     )
-    core.pop_clip_rect()
+    av.root_view.window:pop_clip_rect()
     -- If the text wasn't fully visible, draw an ellipsis
     if x_adv > rx + rw - info_size - icon_r_padding then
       local ellipsis_size = font:get_width("…")
@@ -733,8 +734,8 @@ Doc.remove = function(self, line1, col1, line2, col2)
   end
 end
 
-RootView.update = function(...)
-  update(...)
+RootView.update = function(self, ...)
+  update(self, ...)
 
   local av = get_active_view()
   if av then
@@ -753,13 +754,13 @@ RootView.update = function(...)
   end
 end
 
-RootView.draw = function(...)
-  draw(...)
+RootView.draw = function(self, ...)
+  draw(self, ...)
 
   local av = get_active_view()
-  if av then
+  if av and av.root_view == self then
     -- draw suggestions box after everything else
-    core.root_view:defer_draw(draw_suggestions_box, av)
+    self:defer_draw(draw_suggestions_box, av)
   end
 end
 

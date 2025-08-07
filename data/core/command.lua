@@ -63,9 +63,9 @@ function command.generate_predicate(predicate)
   if type(predicate) == "table" then
     local class = predicate
     if not strict then
-      predicate = function(...) return core.active_window().active_view:extends(class), core.active_window().active_view, ... end
+      predicate = function(rv, ...) return rv.active_view:extends(class), rv.active_view, ... end
     else
-      predicate = function(...) return core.active_window().active_view:is(class), core.active_window().active_view, ... end
+      predicate = function(rv, ...) return rv.active_view:is(class), rv.active_view, ... end
     end
   end
   ---@cast predicate core.command.predicate_function
@@ -112,12 +112,12 @@ end
 
 ---Returns all the commands that can be executed (their predicates evaluate to true).
 ---@return core.command.command_name[]
-function command.get_all_valid()
+function command.get_all_valid(root_view)
   local res = {}
   local memoized_predicates = {}
   for name, cmd in pairs(command.map) do
     if memoized_predicates[cmd.predicate] == nil then
-      memoized_predicates[cmd.predicate] = cmd.predicate(core.active_window().root_view)
+      memoized_predicates[cmd.predicate] = cmd.predicate(root_view or core.active_window().root_view)
     end
     if memoized_predicates[cmd.predicate] then
       table.insert(res, name)
@@ -131,7 +131,7 @@ end
 ---@param ... any
 ---@return boolean
 function command.is_valid(name, ...)
-  return command.map[name] and command.map[name].predicate(...)
+  return command.map[name] and command.map[name].predicate(core.active_window().root_view, ...)
 end
 
 local function perform(name, ...)

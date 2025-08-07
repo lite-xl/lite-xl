@@ -109,8 +109,8 @@ function ResultsView:open_selected_result()
     return
   end
   core.try(function()
-    local dv = core.root_view:open_doc(core.open_doc(res.file))
-    core.root_view.root_node:update_layout()
+    local dv = self.root_view:open_doc(core.open_doc(res.file))
+    self.root_view.root_node:update_layout()
     dv.doc:set_selection(res.line, res.col)
     dv:scroll_to_line(res.line, false, true)
   end)
@@ -242,13 +242,13 @@ local function begin_search(path, text, fn)
     return
   end
   local rv = ResultsView(path, text, fn)
-  core.root_view:get_active_node_default():add_view(rv)
+  core.active_window().root_view:get_active_node_default():add_view(rv)
   return rv
 end
 
 
 local function get_selected_text()
-  local view = core.active_view
+  local view = core.active_window().root_view.active_view
   local doc = (view and view.doc) and view.doc or nil
   if doc then
     return doc:get_text(table.unpack({ doc:get_selection() }))
@@ -341,43 +341,37 @@ command.add(nil, {
 
 
 command.add(ResultsView, {
-  ["project-search:select-previous"] = function()
-    local view = core.active_view
+  ["project-search:select-previous"] = function(view)
     view.selected_idx = math.max(view.selected_idx - 1, 1)
     view:scroll_to_make_selected_visible()
   end,
 
-  ["project-search:select-next"] = function()
-    local view = core.active_view
+  ["project-search:select-next"] = function(view)
     view.selected_idx = math.min(view.selected_idx + 1, #view.results)
     view:scroll_to_make_selected_visible()
   end,
 
-  ["project-search:open-selected"] = function()
-    core.active_view:open_selected_result()
+  ["project-search:open-selected"] = function(view)
+    view:open_selected_result()
   end,
 
-  ["project-search:refresh"] = function()
-    core.active_view:refresh()
+  ["project-search:refresh"] = function(view)
+    view:refresh()
   end,
 
-  ["project-search:move-to-previous-page"] = function()
-    local view = core.active_view
+  ["project-search:move-to-previous-page"] = function(view)
     view.scroll.to.y = view.scroll.to.y - view.size.y
   end,
 
-  ["project-search:move-to-next-page"] = function()
-    local view = core.active_view
+  ["project-search:move-to-next-page"] = function(view)
     view.scroll.to.y = view.scroll.to.y + view.size.y
   end,
 
-  ["project-search:move-to-start-of-doc"] = function()
-    local view = core.active_view
+  ["project-search:move-to-start-of-doc"] = function(view)
     view.scroll.to.y = 0
   end,
 
-  ["project-search:move-to-end-of-doc"] = function()
-    local view = core.active_view
+  ["project-search:move-to-end-of-doc"] = function(view)
     view.scroll.to.y = view:get_scrollable_size()
   end
 })
