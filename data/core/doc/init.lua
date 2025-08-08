@@ -67,23 +67,19 @@ function Doc:set_filename(filename, abs_filename)
 end
 
 function Doc:load(filename)
-  local fp = assert(io.open(filename, "rb"))
+  local content, crlf = self:load_content(filename)
+  self.crlf = crlf
   self:reset()
   self.lines = {}
-  local i = 1
-  for line in fp:lines() do
-    if line:byte(-1) == 13 then
-      line = line:sub(1, -2)
-      self.crlf = true
-    end
-    table.insert(self.lines, line .. "\n")
+  local lines = split_lines(content)
+  for i = 1, #lines do
+    table.insert(self.lines, lines[i] .. "\n")
     self.highlighter.lines[i] = false
-    i = i + 1
   end
   if #self.lines == 0 then
     table.insert(self.lines, "\n")
+    self.highlighter.lines[1] = false
   end
-  fp:close()
   self:reset_syntax()
 end
 
