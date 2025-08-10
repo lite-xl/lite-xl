@@ -342,6 +342,9 @@ end
 -- } }
 -- Any command whose predicate fails will not be included
 -- in the context menu.
+-- The following optional parameters can be returned in the above table:
+-- x: Specifies the x coordinate at which the context menu should show.
+-- y: Specifies the y coordinate at which the context menu should show.
 function View:on_context_menu(x, y)
 end
 
