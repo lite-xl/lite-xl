@@ -10,7 +10,7 @@ command.add(function(x, y)
   return results[1] and results[1].items and #results[1].items > 0, x, y, table.unpack(results)
 end, {
   ['context-menu:show'] = function(x, y, results, ...)
-    core.root_view.context_menu:show(x, y, results.items, ...)
+    core.root_view.context_menu:show(results.x or x, results.y or y, results.items, ...)
   end
 })
 
