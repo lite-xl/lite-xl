@@ -39,9 +39,81 @@ local command = {}
 ---@type { [string]: core.command.command }
 command.map = {}
 
+local command_history = {
+  -- ["command_name"] = {
+  --    next = "next_command_name",
+  --    prev = "prev_command_name"
+  -- },
+  --  ...
+}
+command.command_history = command_history
+command_history._start = nil
+command_history._end = nil
+
+--- inserts the provided command into the command_history
+---@param command_name string
+function command_history:insert(command_name)
+  -- if command already in list do nothing
+  if not command_history[command_name] then
+    if command_history._start == nil then
+      command_history._start = command_name
+    end
+    local last_command = command_history._end
+    command_history[command_name] = {
+      ["prev"] = last_command, -- first commands "prev" will be nil
+      ["next"] = nil
+    }
+    if last_command ~= nil then
+      command_history[last_command].next = command_name
+    end
+    command_history._end = command_name
+  end
+end
+
+--- updates the command history, moving the provided command to the front
+---@param command_name string
+function command_history:update(command_name)
+  if command_history._start == nil then return end
+  if not command_history[command_name] then
+    core.log_quiet("Attempting to update command history with a command that is not saved: \"%s\"", command_name)
+    return
+  end
+  local first_command_name = command_history._start
+  -- command already at front
+  if first_command_name == command_name then return end
+  -- update start node's previous pointer
+  command_history[first_command_name].prev = command_name
+  -- close the list going forwards
+  local node_to_update = command_history[command_name]
+  local prev_node = command_history[node_to_update.prev]
+  prev_node.next = node_to_update.next
+  if node_to_update.next then -- command is in middle of the history
+    -- close the list going backwards
+    local next_node = command_history[node_to_update.next]
+    next_node.prev = node_to_update.prev
+  else -- command is at end of the history
+    -- update the end pointer
+    command_history._end = node_to_update.prev
+  end
+  -- move the new node to the start
+  node_to_update.next = first_command_name
+  node_to_update.prev = nil
+  command_history._start = command_name
+end
+
+--- yields the ordered command names according to command history
+function command_history:get_history()
+  return coroutine.wrap(function()
+    local command_name = command_history._start
+    while command_name ~= nil do
+      coroutine.yield(command_name)
+      command_name = command_history[command_name].next
+    end
+  end)
+end
+
 ---@type core.command.predicate_function
 local always_true = function() return true end
-
 
 ---This function takes in a predicate and produces a predicate function
 ---that is internally used to dispatch and execute commands.
@@ -89,6 +161,7 @@ function command.add(predicate, map)
       core.log_quiet("Replacing existing command \"%s\"", name)
     end
     command.map[name] = { predicate = predicate, perform = fn }
+    command_history:insert(name)
   end
 end
 
@@ -114,13 +187,15 @@ end
 ---@return core.command.command_name[]
 function command.get_all_valid()
   local res = {}
-  local memoized_predicates = {}
-  for name, cmd in pairs(command.map) do
-    if memoized_predicates[cmd.predicate] == nil then
-      memoized_predicates[cmd.predicate] = cmd.predicate()
+  local evaluated_predicates = {}
+  -- get valid commands
+  for command_name in command_history:get_history() do
+    local cmd = command.map[command_name]
+    if evaluated_predicates[cmd.predicate] == nil then
+      evaluated_predicates[cmd.predicate] = cmd.predicate()
     end
-    if memoized_predicates[cmd.predicate] then
-      table.insert(res, name)
+    if evaluated_predicates[cmd.predicate] then
+      table.insert(res, command_name)
     end
   end
   return res
