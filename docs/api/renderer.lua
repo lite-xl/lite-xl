@@ -156,5 +156,13 @@ function renderer.draw_rect(x, y, width, height, color) end
 ---@return number x
 function renderer.draw_text(font, text, x, y, color) end
 
+---
+---Draw a Canvas.
+---
+---@param canvas canvas
+---@param x integer
+---@param y integer
+function renderer.draw_canvas(canvas, x, y) end
+
 
 return renderer

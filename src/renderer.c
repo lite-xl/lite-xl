@@ -751,6 +751,14 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
   }
 }
 
+/******************* Canvases **********************/
+
+void ren_draw_canvas(RenSurface *rs, SDL_Surface *surface, int x, int y) {
+  SDL_Rect dst_pos = {.x = x, .y = y, .w = 0, .h = 0};
+  SDL_BlitSurface(surface, NULL, rs->surface, &dst_pos);
+}
+
+
 /*************** Window Management ****************/
 static void ren_add_window(RenWindow *window_renderer) {
   window_count += 1;

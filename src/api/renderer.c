@@ -8,9 +8,12 @@
 #include "../renwindow.h"
 #endif
 #include "lua.h"
+#include "utils/color.h"
 
-// a reference index to a table that stores the fonts
+// a reference index to a table that stores fonts during a render cycle
 static int RENDERER_FONT_REF = LUA_NOREF;
+// a reference index to a table that stores canvases during a render cycle
+static int RENDERER_CANVAS_REF = LUA_NOREF;
 
 static int font_get_options(
   lua_State *L,
@@ -253,51 +256,6 @@ static int f_font_set_size(lua_State *L) {
   return 0;
 }
 
-static int color_value_error(lua_State *L, int idx, int table_idx) {
-  const char *type, *msg;
-  // generate an appropriate error message
-  if (luaL_getmetafield(L, -1, "__name") == LUA_TSTRING) {
-    type = lua_tostring(L, -1); // metatable name
-  } else if (lua_type(L, -1) == LUA_TLIGHTUSERDATA) {
-    type = "light userdata"; // special name for light userdata
-  } else {
-    type = lua_typename(L, lua_type(L, -1)); // default name
-  }
-  // the reason it went through so much hoops is to generate the correct error
-  // message (with function name and proper index).
-  msg = lua_pushfstring(L, "table[%d]: %s expected, got %s", table_idx, lua_typename(L, LUA_TNUMBER), type);
-  return luaL_argerror(L, idx, msg);
-}
-
-static int get_color_value(lua_State *L, int idx, int table_idx) {
-  lua_rawgeti(L, idx, table_idx);
-  return lua_isnumber(L, -1) ? lua_tonumber(L, -1) : color_value_error(L, idx, table_idx);
-}
-
-static int get_color_value_opt(lua_State *L, int idx, int table_idx, int default_value) {
-  lua_rawgeti(L, idx, table_idx);
-  if (lua_isnoneornil(L, -1))
-    return default_value;
-  else if (lua_isnumber(L, -1))
-    return lua_tonumber(L, -1);
-  else
-    return color_value_error(L, idx, table_idx);
-}
-
-static RenColor checkcolor(lua_State *L, int idx, int def) {
-  RenColor color;
-  if (lua_isnoneornil(L, idx)) {
-    return (RenColor) { def, def, def, 255 };
-  }
-  luaL_checktype(L, idx, LUA_TTABLE);
-  color.r = get_color_value(L, idx, 1);
-  color.g = get_color_value(L, idx, 2);
-  color.b = get_color_value(L, idx, 3);
-  color.a = get_color_value_opt(L, idx, 4, 255);
-  lua_pop(L, 4);
-  return color;
-}
-
 
 static int f_show_debug(lua_State *L) {
   luaL_checkany(L, 1);
@@ -334,6 +292,9 @@ static int f_end_frame(UNUSED lua_State *L) {
   // clear the font reference table
   lua_newtable(L);
   lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_FONT_REF);
+  // clear the canvas reference table
+  lua_newtable(L);
+  lua_rawseti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
   return 0;
 }
 
@@ -394,6 +355,25 @@ static int f_draw_text(lua_State *L) {
   return 1;
 }
 
+static int f_draw_canvas(lua_State *L) {
+  RenCanvas* canvas = luaL_checkudata(L, 1, API_TYPE_CANVAS);
+  int x = luaL_checkinteger(L, 2);
+  int y = luaL_checkinteger(L, 3);
+
+  lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
+  RenCanvasRef *ref = lua_touserdata(L, -1); // TODO: do we need to do checkudata?
+
+  // Save the canvas_ref to avoid it being GCd while in flight to the renderer
+  lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
+  lua_Integer i = luaL_len(L, -1);
+  lua_pushvalue(L, -2);
+  lua_rawseti(L, -2, i + 1);
+
+  RenRect rect = { .x = x, .y = y, .width = canvas->w, .height = canvas->h };
+  rencache_draw_canvas(ren_get_target_window(), rect, ref, canvas->version);
+  return 0;
+}
+
 static const luaL_Reg lib[] = {
   { "show_debug",         f_show_debug         },
   { "get_size",           f_get_size           },
@@ -402,6 +382,7 @@ static const luaL_Reg lib[] = {
   { "set_clip_rect",      f_set_clip_rect      },
   { "draw_rect",          f_draw_rect          },
   { "draw_text",          f_draw_text          },
+  { "draw_canvas",        f_draw_canvas        },
   { NULL,                 NULL                 }
 };
 
@@ -423,6 +404,10 @@ int luaopen_renderer(lua_State *L) {
   // gets a reference on the registry to store font data
   lua_newtable(L);
   RENDERER_FONT_REF = luaL_ref(L, LUA_REGISTRYINDEX);
+  
+  // gets a reference on the registry to store canvas data
+  lua_newtable(L);
+  RENDERER_CANVAS_REF = luaL_ref(L, LUA_REGISTRYINDEX);
 
   luaL_newlib(L, lib);
   luaL_newmetatable(L, API_TYPE_FONT);
