@@ -236,6 +236,34 @@ static int f_draw_text(lua_State *L) {
   return 1;
 }
 
+static int f_draw_canvas(lua_State *L) {
+  RenCanvas *canvas_dst = luaL_checkudata(L, 1, API_TYPE_CANVAS);
+  RenCanvas *canvas_src = luaL_checkudata(L, 2, API_TYPE_CANVAS);
+  
+  lua_Integer x = luaL_checkinteger(L, 3);
+  lua_Integer y = luaL_checkinteger(L, 4);
+  bool blend = luaXL_optboolean(L, 5, true);
+
+  lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
+  RenCanvasRef *ref_dst = lua_touserdata(L, -1);
+  ref_dst = cow_if_needed(L, ref_dst);
+
+  lua_getiuservalue(L, 2, USERDATA_CANVAS_REF);
+  RenCanvasRef *ref_src = lua_touserdata(L, -1);
+
+  SDL_Rect rect = { .x = x, .y = y, .w = canvas_src->w, .h = canvas_src->h };
+  SDL_BlendMode src_mode;
+  SDL_GetSurfaceBlendMode(ref_src->surface, &src_mode);
+  SDL_SetSurfaceBlendMode(ref_src->surface, blend ? SDL_BLENDMODE_BLEND : SDL_BLENDMODE_NONE);
+
+  SDL_BlitSurface(ref_src->surface, NULL, ref_dst->surface, &rect);
+
+  SDL_SetSurfaceBlendMode(ref_src->surface, src_mode);
+
+  canvas_dst->version++;
+  return 0;
+}
+
 
 static int f_ref_gc(lua_State *L) {
   RenCanvasRef* self = luaL_checkudata(L, 1, API_TYPE_CANVAS_REF);
@@ -253,6 +281,7 @@ static const luaL_Reg canvasLib[] = {
   { "set_clip_rect", f_set_clip_rect },
   { "draw_rect",     f_draw_rect     },
   { "draw_text",     f_draw_text     },
+  { "draw_canvas",   f_draw_canvas   },
   { NULL,            NULL            }
 };
 
