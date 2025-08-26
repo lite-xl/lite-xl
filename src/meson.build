@@ -9,6 +9,7 @@ lite_sources = [
     'api/utf8.c',
     'api/utils/colors.c',
     'api/utils/fonts.c',
+    'api/utils/lxlauxlib.c',
     'arena_allocator.c',
     'renderer.c',
     'renwindow.c',

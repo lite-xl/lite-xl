@@ -6,13 +6,14 @@
 #include <string.h>
 #include "utils/colors.h"
 #include "utils/fonts.h"
+#include "utils/lxlauxlib.h"
 #include <assert.h>
 
 static int f_new(lua_State *L) {
   lua_Integer w = luaL_checkinteger(L, 1);
   lua_Integer h = luaL_checkinteger(L, 2);
   RenColor color = checkcolor(L, 3, 0);
-  bool transparency = luaL_optinteger(L, 4, true);
+  bool transparency = luaXL_optboolean(L, 4, true);
 
   SDL_Surface *surface = SDL_CreateSurface(w, h, transparency ? SDL_PIXELFORMAT_RGBA32 : SDL_PIXELFORMAT_RGB24);
   SDL_FillSurfaceRect(surface, NULL, SDL_MapSurfaceRGBA(surface, color.r, color.g, color.b, color.a));
