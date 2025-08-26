@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 #include <string.h>
 #include "utils/colors.h"
+#include "utils/fonts.h"
 #include <assert.h>
 
 static int f_new(lua_State *L) {
@@ -40,10 +41,13 @@ static int f_get_size(lua_State *L) {
 }
 
 
+// When the Canvas is in-flight to the renderer, we want to avoid altering it
+// so that the original one is output, while still allowing to modify the Canvas.
+// So we move aside the original CanvasRef and associate a new copy to the Canvas.
 static RenCanvasRef *cow_if_needed(lua_State *L, RenCanvasRef *original) {
   RenCanvasRef *ref = original;
   if (ref->render_ref_count != 0) {
-    // The surface is in-flight to the renderer
+    // Note: SDL_DuplicateSurface copies the clip rect. We **do** want that.
     SDL_Surface *surface_copy = SDL_DuplicateSurface(ref->surface);
     ref = lua_newuserdata(L, sizeof(RenCanvasRef));
     luaL_setmetatable(L, API_TYPE_CANVAS_REF);
@@ -73,7 +77,6 @@ static int f_set_pixels(lua_State *L) {
 
   lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
   RenCanvasRef *ref = lua_touserdata(L, -1);
-
   ref = cow_if_needed(L, ref);
 
   const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(SDL_PIXELFORMAT_RGBA8888);
@@ -126,6 +129,8 @@ static int f_copy(lua_State *L) {
   SDL_Surface *surface_copy;
   if (full_surface && !scaled) {
     surface_copy = SDL_DuplicateSurface(ref->surface);
+    // DuplicateSurface copies the clip rect, so we reset it
+    SDL_SetSurfaceClipRect(surface_copy, NULL);
   } else if (full_surface) {
     surface_copy = SDL_ScaleSurface(ref->surface, new_w, new_h, mode);
   } else {
@@ -142,6 +147,7 @@ static int f_copy(lua_State *L) {
 
   return 1;
 }
+
 
 static int f_scaled(lua_State *L) {
   RenCanvas *canvas = luaL_checkudata(L, 1, API_TYPE_CANVAS);
@@ -161,6 +167,75 @@ static int f_scaled(lua_State *L) {
   return f_copy(L);
 }
 
+
+static int f_set_clip_rect(lua_State *L) {
+  luaL_checkudata(L, 1, API_TYPE_CANVAS);
+  lua_Integer x = luaL_checkinteger(L, 2);
+  lua_Integer y = luaL_checkinteger(L, 3);
+  lua_Integer w = luaL_checkinteger(L, 4);
+  lua_Integer h = luaL_checkinteger(L, 5);
+
+  lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
+  RenCanvasRef *ref = lua_touserdata(L, -1);
+
+  SDL_Rect rect = { .x = x, .y = y, .w = w, .h = h };
+  SDL_SetSurfaceClipRect(ref->surface, &rect);
+
+  return 0;
+}
+
+
+static int f_draw_rect(lua_State *L) {
+  RenCanvas *canvas = luaL_checkudata(L, 1, API_TYPE_CANVAS);
+  lua_Number x = luaL_checkinteger(L, 2);
+  lua_Number y = luaL_checkinteger(L, 3);
+  lua_Number w = luaL_checkinteger(L, 4);
+  lua_Number h = luaL_checkinteger(L, 5);
+  RenColor color = checkcolor(L, 6, 255);
+
+  lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
+  RenCanvasRef *ref = lua_touserdata(L, -1);
+  ref = cow_if_needed(L, ref);
+
+  RenSurface rs = {
+    .scale = 1,
+    .surface = ref->surface
+  };
+  RenRect rect = { .x = x, .y = y, .width = w, .height = h };
+  ren_draw_rect(&rs, rect, color);
+  canvas->version++;
+
+  return 0;
+}
+
+
+static int f_draw_text(lua_State *L) {
+  RenCanvas *canvas = luaL_checkudata(L, 1, API_TYPE_CANVAS);
+  RenFont* fonts[FONT_FALLBACK_MAX];
+  font_retrieve(L, fonts, 2);
+  size_t len;
+  const char *text = luaL_checklstring(L, 3, &len);
+  double x = luaL_checknumber(L, 4);
+  int y = luaL_checknumber(L, 5);
+  RenColor color = checkcolor(L, 6, 255);
+  RenTab tab = checktab(L, 7);
+
+  lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
+  RenCanvasRef *ref = lua_touserdata(L, -1);
+  ref = cow_if_needed(L, ref);
+
+  RenSurface rs = {
+    .scale = 1,
+    .surface = ref->surface
+  };
+  double end_x = ren_draw_text(&rs, fonts, text, len, x, y, color, tab);
+  lua_pushnumber(L, end_x);
+  canvas->version++;
+
+  return 1;
+}
+
+
 static int f_ref_gc(lua_State *L) {
   RenCanvasRef* self = luaL_checkudata(L, 1, API_TYPE_CANVAS_REF);
   assert(self->render_ref_count == 0);
@@ -168,12 +243,16 @@ static int f_ref_gc(lua_State *L) {
   return 0;
 }
 
+
 static const luaL_Reg canvasLib[] = {
-  { "set_pixels", f_set_pixels },
-  { "get_size",   f_get_size   },
-  { "copy",       f_copy       },
-  { "scaled",     f_scaled     },
-  { NULL,         NULL         }
+  { "set_pixels",    f_set_pixels    },
+  { "get_size",      f_get_size      },
+  { "copy",          f_copy          },
+  { "scaled",        f_scaled        },
+  { "set_clip_rect", f_set_clip_rect },
+  { "draw_rect",     f_draw_rect     },
+  { "draw_text",     f_draw_text     },
+  { NULL,            NULL            }
 };
 
 static const luaL_Reg canvasRefLib[] = {

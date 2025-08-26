@@ -1,4 +1,3 @@
-#include <math.h>
 #include <string.h>
 #include <assert.h>
 #include "api.h"
@@ -9,6 +8,7 @@
 #endif
 #include "lua.h"
 #include "utils/colors.h"
+#include "utils/fonts.h"
 
 // a reference index to a table that stores fonts during a render cycle
 static int RENDERER_FONT_REF = LUA_NOREF;
@@ -105,27 +105,6 @@ static int f_font_load(lua_State *L) {
   return 1;
 }
 
-static bool font_retrieve(lua_State* L, RenFont** fonts, int idx) {
-  bool is_table;
-  memset(fonts, 0, sizeof(RenFont*)*FONT_FALLBACK_MAX);
-  if (lua_type(L, idx) != LUA_TTABLE) {
-    fonts[0] = *(RenFont**)luaL_checkudata(L, idx, API_TYPE_FONT);
-    is_table = false;
-  } else {
-    is_table = true;
-    int len = luaL_len(L, idx); len = len > FONT_FALLBACK_MAX ? FONT_FALLBACK_MAX : len;
-    for (int i = 0; i < len; i++) {
-      lua_rawgeti(L, idx, i+1);
-      fonts[i] = *(RenFont**) luaL_checkudata(L, -1, API_TYPE_FONT);
-      lua_pop(L, 1);
-    }
-  }
-#ifdef LITE_USE_SDL_RENDERER
-  update_font_scale(ren_get_target_window(), fonts);
-#endif
-  return is_table;
-}
-
 static int f_font_copy(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX];
   bool table = font_retrieve(L, fonts, 1);
@@ -204,20 +183,6 @@ static int f_font_gc(lua_State *L) {
   ren_font_free(*self);
 
   return 0;
-}
-
-
-static RenTab checktab(lua_State *L, int idx) {
-  RenTab tab = {.offset = NAN};
-  if (lua_isnoneornil(L, idx)) {
-    return tab;
-  }
-  luaL_checktype(L, idx, LUA_TTABLE);
-  if (lua_getfield(L, idx, "tab_offset") == LUA_TNIL) {
-    return tab;
-  }
-  tab.offset = luaL_checknumber(L, -1);
-  return tab;
 }
 
 static int f_font_get_width(lua_State *L) {
