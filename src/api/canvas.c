@@ -288,7 +288,6 @@ static int f_draw_canvas(lua_State *L) {
 
 static int f_ref_gc(lua_State *L) {
   RenCanvasRef* self = luaL_checkudata(L, 1, API_TYPE_CANVAS_REF);
-  assert(self->render_ref_count == 0);
   SDL_DestroySurface(self->surface);
   return 0;
 }
