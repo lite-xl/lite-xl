@@ -61,7 +61,28 @@ static RenCanvasRef *cow_if_needed(lua_State *L, RenCanvasRef *original) {
 }
 
 
-// static int f_get_pixels(lua_State *L);
+static int f_get_pixels(lua_State *L) {
+  RenCanvas *canvas = luaL_checkudata(L, 1, API_TYPE_CANVAS);
+  lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
+  RenCanvasRef *ref = lua_touserdata(L, -1);
+
+  lua_Integer x = luaL_optinteger(L, 2, 0);
+  lua_Integer y = luaL_optinteger(L, 3, 0);
+  lua_Integer w = luaL_optinteger(L, 4, canvas->w);
+  lua_Integer h = luaL_optinteger(L, 5, canvas->h);
+
+  SDL_Surface *dst = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
+  SDL_Rect rect = { .x = x, .y = y, .w = w, .h = h };
+  SDL_BlitSurface(ref->surface, &rect, dst, NULL);
+
+  const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(SDL_PIXELFORMAT_RGBA32);
+  lua_pushlstring(L, dst->pixels, details->bytes_per_pixel * w * h);
+
+  SDL_DestroySurface(dst);
+  return 1;
+}
+
+
 static int f_set_pixels(lua_State *L) {
   RenCanvas *canvas = luaL_checkudata(L, 1, API_TYPE_CANVAS);
 
@@ -274,6 +295,7 @@ static int f_ref_gc(lua_State *L) {
 
 
 static const luaL_Reg canvasLib[] = {
+  { "get_pixels",    f_get_pixels    },
   { "set_pixels",    f_set_pixels    },
   { "get_size",      f_get_size      },
   { "copy",          f_copy          },

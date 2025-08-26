@@ -7,7 +7,6 @@ canvas = {}
 
 ---@alias canvas.scale_mode "linear" | "nearest"
 
-
 ---
 ---Creates a new canvas.
 ---
@@ -24,7 +23,22 @@ function canvas.new(width, height, color) end
 function canvas:get_size() end
 
 ---
+---Returns the pixels of the specified portion of the Canvas.
+---
+---If the coordinates are not specified, the whole Canvas is considered.
+---The pixel format is RGBA32.
+---
+---@param x? integer
+---@param y? integer
+---@param width? integer
+---@param height? integer
+---@return string pixels
+function canvas:get_pixels(pixels, x, y, width, height) end
+
+---
 ---Overwrites the pixels of the Canvas with the specified ones.
+---
+---The pixel format *must be* RGBA32.
 ---
 ---@param pixels string
 ---@param x integer
