@@ -4,7 +4,7 @@
 #include "../renderer.h"
 #include <SDL3/SDL.h>
 #include <string.h>
-#include "utils/color.h"
+#include "utils/colors.h"
 #include <assert.h>
 
 static int f_new(lua_State *L) {

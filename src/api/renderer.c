@@ -8,7 +8,7 @@
 #include "../renwindow.h"
 #endif
 #include "lua.h"
-#include "utils/color.h"
+#include "utils/colors.h"
 
 // a reference index to a table that stores fonts during a render cycle
 static int RENDERER_FONT_REF = LUA_NOREF;

@@ -1,5 +1,5 @@
-#include <lauxlib.h>
-#include "color.h"
+#include "lauxlib.h"
+#include "colors.h"
 #include "lua.h"
 
 static int color_value_error(lua_State *L, int idx, int table_idx) {

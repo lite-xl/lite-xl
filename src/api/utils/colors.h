@@ -1,5 +1,5 @@
-#ifndef API_UTILS_COLOR_H
-#define API_UTILS_COLOR_H
+#ifndef API_UTILS_COLORS_H
+#define API_UTILS_COLORS_H
 
 #include "renderer.h"
 #include <lua.h>
