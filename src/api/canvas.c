@@ -217,7 +217,7 @@ static int f_draw_text(lua_State *L) {
   size_t len;
   const char *text = luaL_checklstring(L, 3, &len);
   double x = luaL_checknumber(L, 4);
-  int y = luaL_checknumber(L, 5);
+  int y = luaL_checkinteger(L, 5);
   RenColor color = checkcolor(L, 6, 255);
   RenTab tab = checktab(L, 7);
 
