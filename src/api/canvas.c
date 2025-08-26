@@ -85,7 +85,7 @@ static int f_set_pixels(lua_State *L) {
   // Dropping const on bytes here is likely fine, as we won't be changing it
   // and the surface will be destroyed by the end of this function
   SDL_Surface *src = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA8888, (void *) bytes, pitch);
-
+  SDL_SetSurfaceBlendMode(src, SDL_BLENDMODE_NONE);
   SDL_BlitSurface(src, NULL, ref->surface, &dst_pos);
   canvas->version++;
   SDL_DestroySurface(src);
