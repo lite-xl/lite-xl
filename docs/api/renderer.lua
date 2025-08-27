@@ -170,5 +170,14 @@ function renderer.draw_text(font, text, x, y, color, tab_data) end
 ---@param y integer
 function renderer.draw_canvas(canvas, x, y) end
 
+---
+---Copy a portion of the window to a new Canvas.
+---
+---@param x integer
+---@param y integer
+---@param w integer
+---@param h integer
+---@return canvas canvas
+function renderer.to_canvas(x, y, w, h) end
 
 return renderer

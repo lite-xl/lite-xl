@@ -3,9 +3,7 @@
 #include "api.h"
 #include "../renderer.h"
 #include "../rencache.h"
-#ifdef LITE_USE_SDL_RENDERER
 #include "../renwindow.h"
-#endif
 #include "lua.h"
 #include "utils/colors.h"
 #include "utils/fonts.h"
@@ -339,6 +337,33 @@ static int f_draw_canvas(lua_State *L) {
   return 0;
 }
 
+static int f_to_canvas(lua_State *L) {
+  lua_Number x = luaL_checkinteger(L, 1);
+  lua_Number y = luaL_checkinteger(L, 2);
+  lua_Number w = luaL_checkinteger(L, 3);
+  lua_Number h = luaL_checkinteger(L, 4);
+
+  // TODO: this is duplicated code from canvas.f_new, maybe add this to the utils?
+  SDL_Surface *dst = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
+  RenSurface rs = renwin_get_surface(ren_get_target_window());
+  SDL_Rect rect = { .x = x, .y = y, .w = w, .h = h };
+  SDL_BlitSurface(rs.surface, &rect, dst, NULL);
+
+  RenCanvas *canvas = lua_newuserdatauv(L, sizeof(RenCanvas), USERDATA_LAST - 1);
+  luaL_setmetatable(L, API_TYPE_CANVAS);
+  canvas->w = w;
+  canvas->h = h;
+  canvas->version = 0;
+
+  RenCanvasRef *ref = lua_newuserdata(L, sizeof(RenCanvasRef));
+  luaL_setmetatable(L, API_TYPE_CANVAS_REF);
+  lua_setiuservalue(L, -2, USERDATA_CANVAS_REF);
+  ref->render_ref_count = 0;
+  ref->surface = dst;
+
+  return 1;
+}
+
 static const luaL_Reg lib[] = {
   { "show_debug",         f_show_debug         },
   { "get_size",           f_get_size           },
@@ -348,6 +373,7 @@ static const luaL_Reg lib[] = {
   { "draw_rect",          f_draw_rect          },
   { "draw_text",          f_draw_text          },
   { "draw_canvas",        f_draw_canvas        },
+  { "to_canvas",          f_to_canvas          },
   { NULL,                 NULL                 }
 };
 
