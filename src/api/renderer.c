@@ -323,14 +323,17 @@ static int f_draw_canvas(lua_State *L) {
   int x = luaL_checkinteger(L, 2);
   int y = luaL_checkinteger(L, 3);
 
+  // Save the CanvasRef to avoid it being GCd while in flight to the renderer
+  lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
+  if (!lua_istable(L, -1)) {
+    return luaL_error(L, "Unable to add reference to Canvas");
+  }
+
   lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
   RenCanvasRef *ref = lua_touserdata(L, -1); // TODO: do we need to do checkudata?
 
-  // Save the canvas_ref to avoid it being GCd while in flight to the renderer
-  lua_rawgeti(L, LUA_REGISTRYINDEX, RENDERER_CANVAS_REF);
-  lua_Integer i = luaL_len(L, -1);
-  lua_pushvalue(L, -2);
-  lua_rawseti(L, -2, i + 1);
+  lua_pushboolean(L, true);
+  lua_rawset(L, -3);
 
   RenRect rect = { .x = x, .y = y, .width = canvas->w, .height = canvas->h };
   rencache_draw_canvas(ren_get_target_window(), rect, ref, canvas->version);
