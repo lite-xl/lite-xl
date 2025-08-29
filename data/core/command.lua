@@ -80,7 +80,7 @@ end
 ---If a command already exists, it will be replaced.
 ---@see core.command.predicate
 ---@see core.command.command_name
----@param predicate core.command.predicate
+---@param predicate? core.command.predicate
 ---@param map { [core.command.command_name]: fun(...: any) }
 function command.add(predicate, map)
   predicate = command.generate_predicate(predicate)

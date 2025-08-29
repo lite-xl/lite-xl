@@ -50,7 +50,7 @@ command.add(nil, {
   ["core:reload-module"] = function()
     core.command_view:enter("Reload Module", {
       submit = function(text, item)
-        local text = item and item.text or text
+        text = item and item.text or text
         core.reload_module(text)
         core.log("Reloaded module %q", text)
       end,
@@ -73,8 +73,9 @@ command.add(nil, {
         end
       end,
       suggest = function(text)
-        local res = common.fuzzy_match(commands, text)
-        for i, name in ipairs(res) do
+        local res = {}
+        local matched = common.fuzzy_match(commands, text)
+        for i, name in ipairs(matched) do
           res[i] = {
             text = command.prettify_name(name),
             info = keymap.get_binding(name),
@@ -100,16 +101,16 @@ command.add(nil, {
 
   ["core:open-file"] = function()
     local view = core.active_view
-    local text
+    local default_text
     if view.doc and view.doc.abs_filename then
       local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
       if dirname then
         dirname = core.normalize_to_project_dir(dirname)
-        text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
+        default_text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
       end
     end
     core.command_view:enter("Open File", {
-      text = text,
+      text = default_text,
       submit = function(text)
         local filename = core.project_absolute_path(common.home_expand(text))
         core.root_view:open_doc(core.open_doc(filename))
@@ -130,7 +131,8 @@ command.add(nil, {
               end
             end
             core.error("Cannot open file %s: %s", text, err)
-          elseif path_stat.type == 'dir' then
+          elseif --[[@cast path_stat -nil]] path_stat.type == 'dir' then
+            -- TODO: remove the above cast once https://github.com/LuaLS/lua-language-server/discussions/3102 is implemented.
             core.error("Cannot open %s, is a folder", text)
           else
             return true
