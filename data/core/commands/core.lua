@@ -64,27 +64,52 @@ command.add(nil, {
     })
   end,
 
-  ["core:find-command"] = function()
-    local commands = command.get_all_valid()
+["core:find-command"] = function()
+    if not core._commands_cache then
+        core._commands_cache = command.get_all_valid()
+    end
+
     core.command_view:enter("Do Command", {
-      submit = function(text, item)
-        if item then
-          command.perform(item.command)
+        show_last = true,
+        save_last = true,
+        submit = function(text, item)
+            if item then
+                command.perform(item.command)
+            end
+        end,
+        suggest = function(text)
+            local search_text = text:lower()
+            
+            if search_text == "" then
+
+                local sorted = {}
+                for _, name in ipairs(core._commands_cache) do
+                    table.insert(sorted, {
+                        text = command.prettify_name(name),
+                        info = keymap.get_binding(name),
+                        command = name
+                    })
+                end
+                table.sort(sorted, function(a, b)
+                    return a.text:lower() < b.text:lower()
+                end)
+                return sorted
+            else
+
+                local results = common.fuzzy_match(core._commands_cache, search_text)
+                local format = {}
+                for _, name in ipairs(results) do
+                    table.insert(format, {
+                        text = command.prettify_name(name),
+                        info = keymap.get_binding(name),
+                        command = name
+                    })
+                end
+                return format
+            end
         end
-      end,
-      suggest = function(text)
-        local res = common.fuzzy_match(commands, text)
-        for i, name in ipairs(res) do
-          res[i] = {
-            text = command.prettify_name(name),
-            info = keymap.get_binding(name),
-            command = name,
-          }
-        end
-        return res
-      end
     })
-  end,
+end,
 
   ["core:new-doc"] = function()
     core.root_view:open_doc(core.open_doc())
