@@ -768,6 +768,29 @@ static void ren_remove_window(RenWindow *window_renderer) {
   }
 }
 
+int video_init(void) {
+  static int ren_inited = 0;
+  if (!ren_inited) {
+    if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
+      return -1;     
+    SDL_EnableScreenSaver();
+    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+    SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+    SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "1");
+    /* This hint tells SDL to respect borderless window as a normal window.
+    ** For example, the window will sit right on top of the taskbar instead
+    ** of obscuring it. */
+    SDL_SetHint("SDL_BORDERLESS_WINDOWED_STYLE", "1");
+    /* This hint tells SDL to allow the user to resize a borderless windoow.
+    ** It also enables aero-snap on Windows apparently. */
+    SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
+    SDL_SetHint("SDL_MOUSE_DOUBLE_CLICK_RADIUS", "4");
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
+    ren_inited = 1;
+  }
+  return 0;
+}
+
 int ren_init(void) {
   FT_Error err;
 

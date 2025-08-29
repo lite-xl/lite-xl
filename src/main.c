@@ -109,41 +109,25 @@ int main(int argc, char **argv) {
 #endif
 
   SDL_SetAppMetadata("Lite XL", LITE_PROJECT_VERSION_STR, "com.lite_xl.LiteXL");
-
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
-    fprintf(stderr, "Error initializing SDL: %s", SDL_GetError());
+  if (!SDL_Init(SDL_INIT_EVENTS)) {
+    fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
     exit(1);
   }
-  SDL_EnableScreenSaver();
   SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, true);
   atexit(SDL_Quit);
-
-  SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-  SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
-  SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "1");
-  SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
-
-  /* This hint tells SDL to respect borderless window as a normal window.
-  ** For example, the window will sit right on top of the taskbar instead
-  ** of obscuring it. */
-  SDL_SetHint("SDL_BORDERLESS_WINDOWED_STYLE", "1");
-  /* This hint tells SDL to allow the user to resize a borderless windoow.
-  ** It also enables aero-snap on Windows apparently. */
-  SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
-  SDL_SetHint(SDL_HINT_MOUSE_DOUBLE_CLICK_RADIUS, "4");
-
+  
   if (ren_init() != 0) {
     fprintf(stderr, "Error initializing renderer: %s\n", SDL_GetError());
   }
 
   int has_restarted = 0;
   lua_State *L;
+
 init_lua:
   L = luaL_newstate();
   luaL_openlibs(L);
   api_load_libs(L);
-
-
+  
   lua_newtable(L);
   for (int i = 0; i < argc; i++) {
     lua_pushstring(L, argv[i]);
