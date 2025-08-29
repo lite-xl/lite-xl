@@ -138,7 +138,7 @@ end
 ---@param x number
 ---@param y number
 ---@param clicks integer
----return boolean
+---@return boolean
 function View:on_mouse_pressed(button, x, y, clicks)
   if not self.scrollable then return end
   local result = self.v_scrollbar:on_mouse_pressed(button, x, y, clicks)
