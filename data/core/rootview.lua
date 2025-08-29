@@ -395,7 +395,7 @@ function RootView:on_file_dropped(filename, x, y)
         },
         function(opt)
           if opt.text == "Current window" then
-            core.add_project_directory(abspath)
+            core.add_project(abspath)
           elseif opt.text == "New window" then
             system.exec(string.format("%q %q", EXEFILE, filename))
           end
