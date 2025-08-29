@@ -140,23 +140,6 @@ void update_font_scale(RenWindow *window_renderer, RenFont **fonts) {
 }
 #endif
 
-static const char* utf8_to_codepoint(const char *p, const char *endp, unsigned *dst) {
-  const unsigned char *up = (unsigned char*)p;
-  unsigned res, n;
-  switch (*p & 0xf0) {
-    case 0xf0 :  res = *up & 0x07;  n = 3;  break;
-    case 0xe0 :  res = *up & 0x0f;  n = 2;  break;
-    case 0xd0 :
-    case 0xc0 :  res = *up & 0x1f;  n = 1;  break;
-    default   :  res = *up;         n = 0;  break;
-  }
-  while (up < (const unsigned char *)endp && n--) {
-    res = (res << 6) | (*(++up) & 0x3f);
-  }
-  *dst = res;
-  return (const char*)up + 1;
-}
-
 static int font_set_load_options(RenFont* font) {
   int load_target = font->antialiasing == FONT_ANTIALIASING_NONE ? FT_LOAD_TARGET_MONO
     : (font->hinting == FONT_HINTING_SLIGHT ? FT_LOAD_TARGET_LIGHT : FT_LOAD_TARGET_NORMAL);
@@ -576,12 +559,11 @@ float font_get_xadvance(RenFont *font, unsigned int codepoint, GlyphMetric *metr
 
 double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, RenTab tab, int *x_offset) {
   double width = 0;
-  const char* end = text + len;
 
   bool set_x_offset = x_offset == NULL;
-  while (text < end) {
+  while (len > 0) {
     unsigned int codepoint;
-    text = utf8_to_codepoint(text, end, &codepoint);
+    codepoint = SDL_StepUTF8(&text, &len);
     GlyphMetric *metric = NULL;
     font_group_get_glyph(fonts, codepoint, 0, NULL, &metric);
     width += font_get_xadvance(fonts[0], codepoint, metric, width, tab);
@@ -625,7 +607,6 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   double pen_x = x * surface_scale;
   double original_pen_x = pen_x;
   y *= surface_scale;
-  const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
@@ -634,9 +615,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
 
-  while (text < end) {
+  while (len > 0) {
     unsigned int codepoint, r, g, b;
-    text = utf8_to_codepoint(text, end,  &codepoint);
+    codepoint = SDL_StepUTF8(&text, &len);
     SDL_Surface *font_surface = NULL; GlyphMetric *metric = NULL;
     RenFont* font = font_group_get_glyph(fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &font_surface, &metric);
     if (!metric)
@@ -700,8 +681,8 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     float adv = font_get_xadvance(fonts[0], codepoint, metric, pen_x - original_pen_x, tab);
 
     if(!last) last = font;
-    else if(font != last || text == end) {
-      double local_pen_x = text == end ? pen_x + adv : pen_x;
+    else if(font != last || len == 0) {
+      double local_pen_x = len == 0 ? pen_x + adv : pen_x;
       if (underline)
         ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
       if (strikethrough)
