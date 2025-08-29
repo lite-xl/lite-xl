@@ -29,7 +29,9 @@ function RootView:new()
   self.grab = nil -- = {view = nil, button = nil}
   self.overlapping_view = nil
   self.touched_view = nil
+  self.defer_open_docs = {}
   self.first_dnd_processed = false
+  self.first_update_done = false
 end
 
 
@@ -379,17 +381,55 @@ function RootView:on_file_dropped(filename, x, y)
   if result then return result end
   local info = system.get_file_info(filename)
   if info and info.type == "dir" then
+    local abspath = system.absolute_path(filename) --[[@as string]]
+    if self.first_update_done then
+      -- ask the user if they want to open it here or somewhere else
+      core.nag_view:show(
+        "Open directory",
+        string.format('You are trying to open "%s"\n', common.home_encode(abspath))
+        .. "Do you want to open this directory here, or in a new window?",
+        {
+          { text = "Current window", default_yes = true },
+          { text = "New window", default_no = true },
+          { text = "Cancel" }
+        },
+        function(opt)
+          if opt.text == "Current window" then
+            core.add_project(abspath)
+          elseif opt.text == "New window" then
+            system.exec(string.format("%q %q", EXEFILE, filename))
+          end
+        end
+      )
+      return true
+    end
+    -- in macOS, when dropping folders into Lite XL in the dock,
+    -- the OS tries to start an instance of Lite XL with each folder as a DND request.
+    -- When this happens, the DND request always arrive before the first update() call.
+    -- We need to change the current project folder for the first request, and start
+    -- new instances for the rest to emulate existing behavior.
     if self.first_dnd_processed then
-      -- first update done, open in new window
+      -- FIXME: port to process API
       system.exec(string.format("%q %q", EXEFILE, filename))
     else
-      -- DND event before first update, this is sent by macOS when folder is dropped into the dock
+      -- change project directory
       core.confirm_close_docs(core.docs, function(dirpath)
         core.open_folder_project(dirpath)
       end, system.absolute_path(filename))
       self.first_dnd_processed = true
     end
-  else
+    return true
+  end
+  -- defer opening docs in case nagview is visible (which will cause a locked node error)
+  table.insert(self.defer_open_docs, { filename, x, y })
+  return true
+end
+
+function RootView:process_defer_open_docs()
+  if core.active_view == core.nag_view then return end
+  for _, drop in ipairs(self.defer_open_docs) do
+    -- file dragged into lite-xl, try to open it
+    local filename, x, y = table.unpack(drop)
     local ok, doc = core.try(core.open_doc, filename)
     if ok then
       local node = core.root_view.root_node:get_child_overlapping_point(x, y)
@@ -397,7 +437,7 @@ function RootView:on_file_dropped(filename, x, y)
       core.root_view:open_doc(doc)
     end
   end
-  return true
+  self.defer_open_docs = {}
 end
 
 
@@ -485,9 +525,8 @@ function RootView:update()
   self:update_drag_overlay()
   self:interpolate_drag_overlay(self.drag_overlay)
   self:interpolate_drag_overlay(self.drag_overlay_tab)
-  -- set this to true because at this point there are no dnd requests
-  -- that are caused by the initial dnd into dock user action
-  self.first_dnd_processed = true
+  self:process_defer_open_docs()
+  self.first_update_done = true
 end
 
 
