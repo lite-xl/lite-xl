@@ -421,7 +421,7 @@ function DocView:update()
   end
 
   -- update blink timer
-  if self == core.active_view and not self.mouse_selecting then
+  if not config.disable_blink and system.window_has_focus(core.window) and self == core.active_view and not self.mouse_selecting then
     local T, t0 = config.blink_period, core.blink_start
     local ta, tb = core.blink_timer, system.get_time()
     if ((tb - t0) % T < T / 2) ~= ((ta - t0) % T < T / 2) then
