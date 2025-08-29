@@ -322,6 +322,7 @@ function core.init()
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
+  core.active_file_dialogs = {}
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
@@ -892,6 +893,15 @@ function core.on_event(type, ...)
     core.window_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
     core.root_view:on_file_dropped(...)
+  elseif type == "dialogfinished" then
+    local id, status, result = ...
+    local callback = core.active_file_dialogs[id]
+    if not callback then
+      core.error("Invalid dialog id %d", id)
+    else
+      core.active_file_dialogs[id] = nil
+      callback(status, result)
+    end
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
   elseif type == "quit" then
@@ -1061,6 +1071,59 @@ end
 
 function core.blink_reset()
   core.blink_start = system.get_time()
+end
+
+
+local last_file_dialog_tag = 0
+local function open_dialog(type, window, callback, options)
+  local types = {
+    ["openfile"] = system.open_file_dialog,
+    ["opendirectory"] = system.open_directory_dialog,
+    ["savefile"] = system.save_file_dialog,
+  }
+
+  local dialog_fn = types[type]
+  assert(dialog_fn, "Invalid dialog type")
+
+  last_file_dialog_tag = last_file_dialog_tag + 1
+  core.active_file_dialogs[last_file_dialog_tag] = callback
+  dialog_fn(window, last_file_dialog_tag, options)
+end
+
+---Open the system file picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.openfile
+function core.open_file_dialog(window, callback, options)
+  return open_dialog("openfile", window, callback, options)
+end
+
+---Open the system directory picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.opendirectory
+function core.open_directory_dialog(window, callback, options)
+  return open_dialog("opendirectory", window, callback, options)
+end
+
+---Open the system save file picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.savefile
+function core.save_file_dialog(window, callback, options)
+  return open_dialog("savefile", window, callback, options)
 end
 
 
