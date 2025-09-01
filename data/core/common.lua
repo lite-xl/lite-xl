@@ -182,9 +182,9 @@ end
 ---order of similarity is returned.
 ---@param haystack string
 ---@param needle string
----@param files boolean If true, the matching process will be performed in reverse to better match paths.
+---@param files? boolean If true, the matching process will be performed in reverse to better match paths.
 ---@return number
----@overload fun(haystack: string[], needle: string, files: boolean): string[]
+---@overload fun(haystack: string[], needle: string, files?: boolean): string[]
 function common.fuzzy_match(haystack, needle, files)
   if type(haystack) == "table" then
     return fuzzy_match_items(haystack, needle, files)
