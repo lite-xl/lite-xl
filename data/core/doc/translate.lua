@@ -3,6 +3,7 @@ local config = require "core.config"
 
 -- functions for translating a Doc position to another position these functions
 -- can be passed to Doc:move_to|select_to|delete_to()
+-- The doc variable can also be passed a Docview in order to account for virtual lines.
 
 local translate = {}
 
@@ -13,18 +14,12 @@ end
 
 
 function translate.previous_char(doc, line, col)
-  repeat
-    line, col = doc:position_offset(line, col, -1)
-  until not common.is_utf8_cont(doc:get_char(line, col))
-  return line, col
+  return doc:position_offset(line, col, -1)
 end
 
 
 function translate.next_char(doc, line, col)
-  repeat
-    line, col = doc:position_offset(line, col, 1)
-  until not common.is_utf8_cont(doc:get_char(line, col))
-  return line, col
+  return doc:position_offset(line, col, 1)
 end
 
 
