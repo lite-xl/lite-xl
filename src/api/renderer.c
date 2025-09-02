@@ -5,8 +5,7 @@
 #include "../rencache.h"
 #include "../renwindow.h"
 #include "lua.h"
-#include "utils/colors.h"
-#include "utils/fonts.h"
+#include "utils/lxlauxlib.h"
 
 // a reference index to a table that stores fonts during a render cycle
 static int RENDERER_FONT_REF = LUA_NOREF;
@@ -187,7 +186,7 @@ static int f_font_get_width(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
   size_t len;
   const char *text = luaL_checklstring(L, 2, &len);
-  RenTab tab = checktab(L, 3);
+  RenTab tab = luaXL_checktab(L, 3);
 
   lua_pushnumber(L, ren_font_group_get_width(fonts, text, len, tab, NULL));
   return 1;
@@ -286,7 +285,7 @@ static int f_draw_rect(lua_State *L) {
   lua_Number w = luaL_checknumber(L, 3);
   lua_Number h = luaL_checknumber(L, 4);
   RenRect rect = rect_to_grid(x, y, w, h);
-  RenColor color = checkcolor(L, 5, 255);
+  RenColor color = luaXL_checkcolor(L, 5, 255);
   rencache_draw_rect(ren_get_target_window(), rect, color);
   return 0;
 }
@@ -311,8 +310,8 @@ static int f_draw_text(lua_State *L) {
   const char *text = luaL_checklstring(L, 2, &len);
   double x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
-  RenColor color = checkcolor(L, 5, 255);
-  RenTab tab = checktab(L, 6);
+  RenColor color = luaXL_checkcolor(L, 5, 255);
+  RenTab tab = luaXL_checktab(L, 6);
   x = rencache_draw_text(ren_get_target_window(), fonts, text, len, x, y, color, tab);
   lua_pushnumber(L, x);
   return 1;

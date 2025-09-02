@@ -4,15 +4,13 @@
 #include "../renderer.h"
 #include <SDL3/SDL.h>
 #include <string.h>
-#include "utils/colors.h"
-#include "utils/fonts.h"
 #include "utils/lxlauxlib.h"
 #include <assert.h>
 
 static int f_new(lua_State *L) {
   lua_Integer w = luaL_checkinteger(L, 1);
   lua_Integer h = luaL_checkinteger(L, 2);
-  RenColor color = checkcolor(L, 3, 0);
+  RenColor color = luaXL_checkcolor(L, 3, 0);
   bool transparency = luaXL_optboolean(L, 4, true);
 
   SDL_Surface *surface = SDL_CreateSurface(w, h, transparency ? SDL_PIXELFORMAT_RGBA32 : SDL_PIXELFORMAT_RGB24);
@@ -213,7 +211,7 @@ static int f_draw_rect(lua_State *L) {
   lua_Number y = luaL_checkinteger(L, 3);
   lua_Number w = luaL_checkinteger(L, 4);
   lua_Number h = luaL_checkinteger(L, 5);
-  RenColor color = checkcolor(L, 6, 255);
+  RenColor color = luaXL_checkcolor(L, 6, 255);
 
   lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
   RenCanvasRef *ref = lua_touserdata(L, -1);
@@ -239,8 +237,8 @@ static int f_draw_text(lua_State *L) {
   const char *text = luaL_checklstring(L, 3, &len);
   double x = luaL_checknumber(L, 4);
   int y = luaL_checkinteger(L, 5);
-  RenColor color = checkcolor(L, 6, 255);
-  RenTab tab = checktab(L, 7);
+  RenColor color = luaXL_checkcolor(L, 6, 255);
+  RenTab tab = luaXL_checktab(L, 7);
 
   lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
   RenCanvasRef *ref = lua_touserdata(L, -1);

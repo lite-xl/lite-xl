@@ -7,8 +7,6 @@ lite_sources = [
     'api/process.c',
     'api/canvas.c',
     'api/utf8.c',
-    'api/utils/colors.c',
-    'api/utils/fonts.c',
     'api/utils/lxlauxlib.c',
     'arena_allocator.c',
     'renderer.c',
