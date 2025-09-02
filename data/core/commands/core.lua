@@ -78,7 +78,7 @@ command.add(nil, {
         for i, name in ipairs(matched) do
           res[i] = {
             text = command.prettify_name(name),
-            info = keymap.get_binding(name),
+            info = keymap.binding_to_string(keymap.get_binding(name)),
             command = name,
           }
         end
@@ -247,4 +247,10 @@ command.add(nil, {
       end
     })
   end,
+})
+
+command.add(function() return keymap.current_strokes end, {
+  ["keymap:cancel-stroke"] = function()
+    keymap.current_strokes = nil
+  end
 })

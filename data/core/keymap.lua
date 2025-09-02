@@ -4,7 +4,7 @@ local config = require "core.config"
 local ime = require "core.ime"
 local keymap = {}
 
----@alias keymap.shortcut string
+---@alias keymap.shortcut string | string[]
 ---@alias keymap.command string
 ---@alias keymap.modkey string
 ---@alias keymap.pressed boolean
@@ -23,6 +23,11 @@ keymap.map = {}
 ---@type keymap.rmap
 keymap.reverse_map = {}
 
+---Current multi-stroke state.
+---@type string[] | nil
+keymap.current_strokes = nil
+
+
 local macos = PLATFORM == "Mac OS X"
 
 -- Thanks to mathewmariani, taken from his lite-macos github repository.
@@ -35,7 +40,7 @@ local modkey_map = modkeys_os.map
 local modkeys = modkeys_os.keys
 
 
----Normalizes a stroke sequence to follow the modkeys table
+---Normalizes a single stroke sequence to follow the modkeys table.
 ---@param stroke string
 ---@return string
 local function normalize_stroke(stroke)
@@ -56,6 +61,19 @@ local function normalize_stroke(stroke)
 end
 
 
+---Normalizes one or multiple strokes as per the modkey table.
+---@param strokes string | string[]
+---@return string[]
+local function normalize_strokes(strokes)
+  if type(strokes) == "string" then return { normalize_stroke(strokes) } end
+  local ret = {}
+  for _, stroke in ipairs(strokes) do
+    table.insert(ret, normalize_stroke(stroke))
+  end
+  return ret
+end
+
+
 ---Generates a stroke sequence including currently pressed mod keys.
 ---@param key string
 ---@return string
@@ -70,16 +88,64 @@ local function key_to_stroke(key)
 end
 
 
+---Returns the value at `tbl[keys[1]]...[keys[#keys]]`.
+---@param tbl table<any, any> Base table
+---@param keys any[] Keys
+---@return any? # `tbl[keys[1]]...[keys[#keys]]`
+local function get_nested(tbl, keys)
+  local r = tbl
+  for _, key in ipairs(keys) do
+    r = type(r) == "table" and r[key] or nil
+    if not r then break end
+  end
+  return r
+end
+
+
+---Sets the value of `tbl[keys[1]]...[keys[#keys]]` to v.
+---@param tbl table<any, any> Base table
+---@param keys any[] Keys
+---@param v any?
+local function set_nested(tbl, keys, v)
+  local dst = tbl
+  for i = 1, #keys - 1 do
+    local k = keys[i]
+    dst[k] = type(dst[k]) == "table" and dst[k] or { }
+    dst = dst[k]
+  end
+  dst[keys[#keys]] = v
+end
+
+
+---Checks two strokes for equality.
+---@param s1 keymap.shortcut
+---@param s2 keymap.shortcut
+---@return boolean
+local function stroke_equals(s1, s2)
+  if type(s1) ~= "table" then
+    return type(s2) ~= "table" and (s1 == s2) or (#s2 == 1 and s1 == s2[1])
+  end
+  local len = #s1
+  if len ~= #s2 then return false end
+  for i = 1, len do
+    if s1[i] ~= s2[i] then
+      return false
+    end
+  end
+  return true
+end
+
+
 ---Remove the given value from an array associated to a key in a table.
----@param tbl table<string, string> The table containing the key
+---@param tbl table<string, string  | string[]> The table containing the key
 ---@param k string The key containing the array
----@param v? string The value to remove from the array
+---@param v? string | string[] The value to remove from the array
 local function remove_only(tbl, k, v)
   if tbl[k] then
     if v then
       local j = 0
       for i=1, #tbl[k] do
-        while tbl[k][i + j] == v do
+        while stroke_equals(tbl[k][i + j], v) do
           j = j + 1
         end
         tbl[k][i] = tbl[k][i + j]
@@ -95,12 +161,13 @@ end
 ---@param map keymap.map
 local function remove_duplicates(map)
   for stroke, commands in pairs(map) do
-    local normalized_stroke = normalize_stroke(stroke)
+    local strokes = normalize_strokes(stroke)
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
-    if keymap.map[normalized_stroke] then
-      for _, registered_cmd in ipairs(keymap.map[normalized_stroke]) do
+    local registered_cmds = get_nested(keymap.map, strokes)
+    if registered_cmds then
+      for _, registered_cmd in ipairs(registered_cmds) do
         local j = 0
         for i=1, #commands do
           while commands[i + j] == registered_cmd do
@@ -118,24 +185,29 @@ local function remove_duplicates(map)
   end
 end
 
+
 ---Add bindings by replacing commands that were previously assigned to a shortcut.
 ---@param map keymap.map
 function keymap.add_direct(map)
   for stroke, commands in pairs(map) do
-    stroke = normalize_stroke(stroke)
-
+    local strokes = normalize_strokes(stroke)
     if type(commands) == "string" or type(commands) == "function" then
       commands = { commands }
     end
-    if keymap.map[stroke] then
-      for _, cmd in ipairs(keymap.map[stroke]) do
-        remove_only(keymap.reverse_map, cmd, stroke)
+    local cmds = get_nested(keymap.map, strokes)
+    if cmds then
+      for s, cmd in pairs(cmds) do
+        if type(s) == "number" then
+          remove_only(keymap.reverse_map, cmd, strokes)
+        else
+          commands[s] = cmd
+        end
       end
     end
-    keymap.map[stroke] = commands
+    set_nested(keymap.map, strokes, commands)
     for _, cmd in ipairs(commands) do
       keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
-      table.insert(keymap.reverse_map[cmd], stroke)
+      table.insert(keymap.reverse_map[cmd], strokes)
     end
   end
 end
@@ -148,38 +220,58 @@ end
 function keymap.add(map, overwrite)
   remove_duplicates(map)
   for stroke, commands in pairs(map) do
+    local strokes = normalize_strokes(stroke)
     if macos then
-      stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
+      for i, s in ipairs(strokes) do
+        strokes[i] = s:gsub("%f[%a]ctrl%f[%A]", "cmd")
+      end
     end
-    stroke = normalize_stroke(stroke)
     if overwrite then
-      if keymap.map[stroke] then
-        for _, cmd in ipairs(keymap.map[stroke]) do
-          remove_only(keymap.reverse_map, cmd, stroke)
+      local cmds = get_nested(keymap.map, strokes)
+      if cmds then
+        for s, cmd in pairs(cmds) do
+          if type(s) == "number" then
+            remove_only(keymap.reverse_map, cmd, strokes)
+          else
+            commands[s] = cmd
+          end
         end
       end
-      keymap.map[stroke] = commands
+      set_nested(keymap.map, strokes, commands)
     else
-      keymap.map[stroke] = keymap.map[stroke] or {}
+      local cmds = get_nested(keymap.map, strokes) or { }
       for i = #commands, 1, -1 do
-        table.insert(keymap.map[stroke], 1, commands[i])
+        table.insert(cmds, 1, commands[i])
       end
+      set_nested(keymap.map, strokes, cmds)
     end
     for _, cmd in ipairs(commands) do
       keymap.reverse_map[cmd] = keymap.reverse_map[cmd] or {}
-      table.insert(keymap.reverse_map[cmd], stroke)
+      table.insert(keymap.reverse_map[cmd], strokes)
     end
   end
 end
 
 
 ---Unregisters the given shortcut and associated command.
----@param shortcut string
+---@param shortcut string | string[]
 ---@param cmd string
 function keymap.unbind(shortcut, cmd)
-  shortcut = normalize_stroke(shortcut)
-  remove_only(keymap.map, shortcut, cmd)
-  remove_only(keymap.reverse_map, cmd, shortcut)
+  local strokes = normalize_strokes(shortcut)
+  remove_only(keymap.reverse_map, cmd, strokes)
+  local last_sub = table.remove(strokes)
+  remove_only(get_nested(keymap.map, strokes) or { }, last_sub, cmd)
+  table.insert(strokes, last_sub)
+  -- remove empty submaps to avoid entering multi stroke state if all commands
+  -- prefixed with shortcut or a subsequence have been removed
+  while #strokes > 0 do
+    local submap = get_nested(keymap.map, strokes)
+    if next(submap) then
+      break
+    end
+    set_nested(keymap.map, strokes, nil)
+    table.remove(strokes)
+  end
 end
 
 
@@ -193,9 +285,17 @@ end
 
 ---Returns all the shortcuts associated to a command packed in a table.
 ---@param cmd string
----@return table<integer, string> | nil shortcuts
+---@return keymap.shortcut[] | nil shortcuts
 function keymap.get_bindings(cmd)
   return keymap.reverse_map[cmd]
+end
+
+---Returns a string representation of a shortcut.
+---@param shortcut? keymap.shortcut
+---@return string
+function keymap.binding_to_string(shortcut)
+  if not shortcut then return "" end
+  return type(shortcut) ~= "table" and shortcut or table.concat(shortcut, " ")
 end
 
 
@@ -212,7 +312,9 @@ function keymap.on_key_pressed(k, ...)
     end
   else
     local stroke = key_to_stroke(k)
-    local commands, performed = keymap.map[stroke], false
+    keymap.current_strokes = keymap.current_strokes or {}
+    table.insert(keymap.current_strokes, stroke)
+    local commands, performed = get_nested(keymap.map, keymap.current_strokes), false
     if commands then
       for _, cmd in ipairs(commands) do
         if type(cmd) == "function" then
@@ -225,10 +327,19 @@ function keymap.on_key_pressed(k, ...)
         else
           performed = command.perform(cmd, ...)
         end
-        if performed then break end
+        if performed then
+          keymap.current_strokes = nil
+          return true
+        end
       end
-      return performed
+      -- mark the keypress as handled if we're in a valid multistroke prefix
+      for k, substroke in pairs(commands) do
+        if type(k) == "string" then
+          return true
+        end
+      end
     end
+    keymap.current_strokes = nil
   end
   return false
 end

@@ -67,7 +67,7 @@ local function update_items_size(items, update_binding)
   local width, height = 0, 0
   for _, item in ipairs(items) do
     if update_binding and item ~= DIVIDER then
-      item.info = keymap.get_binding(item.command)
+      item.info = keymap.binding_to_string(keymap.get_binding(item.command))
     end
     local lw, lh = get_item_size(item)
     width = math.max(width, lw)
