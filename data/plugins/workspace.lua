@@ -58,7 +58,7 @@ local function save_view(view)
       type = "doc",
       active = (core.active_view == view),
       filename = view.doc.filename,
-      selection = { view.doc:get_selection() },
+      selection = { view:get_selection() },
       scroll = { x = view.scroll.to.x, y = view.scroll.to.y },
       crlf = view.doc.crlf,
       text = view.doc.new_file and view.doc:get_text(1, 1, math.huge, math.huge)
@@ -96,8 +96,8 @@ local function load_view(t)
         dv.doc:insert(1, 1, t.text)
         dv.doc.crlf = t.crlf
       end
-      dv.doc:set_selection(table.unpack(t.selection))
-      dv.last_line1, dv.last_col1, dv.last_line2, dv.last_col2 = dv.doc:get_selection()
+      dv:set_selection(table.unpack(t.selection))
+      dv.last_line1, dv.last_col1, dv.last_line2, dv.last_col2 = dv:get_selection()
       dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
       dv.scroll.y, dv.scroll.to.y = t.scroll.y, t.scroll.y
     end
