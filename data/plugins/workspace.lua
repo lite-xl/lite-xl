@@ -172,17 +172,19 @@ end
 
 
 local function save_workspace()
-  local project_dir = common.basename(core.root_project().path)
-  local id_list = {}
-  for filename, id in workspace_keys_for(project_dir) do
-    id_list[id] = true
+  if core.root_project() then
+    local project_dir = common.basename(core.root_project().path)
+    local id_list = {}
+    for filename, id in workspace_keys_for(project_dir) do
+      id_list[id] = true
+    end
+    local id = 1
+    while id_list[id] do
+      id = id + 1
+    end
+    local root = get_unlocked_root(core.windows[1].root_view.root_node)
+    storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories() })
   end
-  local id = 1
-  while id_list[id] do
-    id = id + 1
-  end
-  local root = get_unlocked_root(core.root_view.root_node)
-  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories() })
 end
 
 
@@ -216,7 +218,7 @@ function core.run(...)
     end
     local exit = core.exit
     function core.exit(quit_fn, force)
-      if force then core.try(save_workspace) end
+      core.try(save_workspace)
       exit(quit_fn, force)
     end
     
