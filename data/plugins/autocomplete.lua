@@ -376,7 +376,7 @@ end
 
 local function get_partial_symbol()
   local doc = core.active_view.doc
-  local line2, col2 = doc:get_selection()
+  local line2, col2 = core.active_view:get_selection()
   local line1, col1 = doc:position_offset(line2, col2, translate.start_of_word)
   return doc:get_text(line1, col1, line2, col2)
 end
@@ -394,7 +394,7 @@ local function get_suggestions_rect(av)
     return 0, 0, 0, 0
   end
 
-  local line, col = av.doc:get_selection()
+  local line, col = av:get_selection()
   local x, y = av:get_line_screen_position(line, col - #partial)
   y = y + av:get_line_height() + style.padding.y
   local font = av:get_font()
@@ -686,9 +686,9 @@ local function show_autocomplete()
       update_suggestions()
 
       if not triggered_manually then
-        last_line, last_col = av.doc:get_selection()
+        last_line, last_col = av:get_selection()
       else
-        local line, col = av.doc:get_selection()
+        local line, col = av:get_selection()
         local char = av.doc:get_char(line, col-1, line, col-1)
 
         if char:match("%s") or (char:match("%p") and col ~= last_col) then
@@ -721,8 +721,8 @@ RootView.on_text_input = function(...)
   show_autocomplete()
 end
 
-Doc.remove = function(self, line1, col1, line2, col2)
-  on_text_remove(self, line1, col1, line2, col2)
+Doc.remove = function(self, line1, col1, line2, col2, selections)
+  on_text_remove(self, line1, col1, line2, col2, selections)
 
   if triggered_manually and line1 == line2 then
     if last_col >= col1 then
@@ -739,7 +739,7 @@ RootView.update = function(...)
   local av = get_active_view()
   if av then
     -- reset suggestions if caret was moved
-    local line, col = av.doc:get_selection()
+    local line, col = av:get_selection()
 
     if not triggered_manually then
       if line ~= last_line or col ~= last_col then
@@ -776,7 +776,7 @@ function autocomplete.open(on_close)
   local av = get_active_view()
   if av then
     partial = get_partial_symbol()
-    last_line, last_col = av.doc:get_selection()
+    last_line, last_col = av:get_selection()
     update_suggestions()
   end
 end
@@ -851,7 +851,7 @@ command.add(predicate, {
       local current_partial = get_partial_symbol()
       local sz = #current_partial
 
-      for _, line1, col1, line2, _ in doc:get_selections(true) do
+      for idx, line1, col1, line2, col2 in dv:get_selections(true) do
         local n = col1 - 1
         local line = doc.lines[line1]
         for i = 1, sz + 1 do
@@ -865,7 +865,7 @@ command.add(predicate, {
         end
       end
 
-      doc:text_input(item.text)
+      dv:text_input(item.text)
     end
     reset_suggestions()
   end,
