@@ -149,7 +149,7 @@ function ContextMenu:on_mouse_pressed(button, x, y)
   end
   self:hide()
   return true
-end 
+end
 
 function ContextMenu:on_mouse_released(button, x, y)
   if not self.visible then return false end
