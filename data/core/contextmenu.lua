@@ -13,19 +13,23 @@ local divider_padding = 5
 local DIVIDER = {}
 
 ---An item in the context menu.
+---
+---If the command predicate fails, it won't be included in the menu.
+---@see core.command.command
 ---@class core.contextmenu.item
 ---@field text string
----@field info string|nil If provided, this text is displayed on the right side of the menu.
----@field command string|fun()
+---@field info string? Text displayed on the right side of the menu.
+---@field command string|fun(...)
 
----A list of items with the same predicate.
----@see core.command.predicate
----@class core.contextmenu.itemset
----@field predicate core.command.predicate
----@field items core.contextmenu.item[]
+---Definition of the context menu properties.
+---
+---@class core.contextmenu.contextdetails
+---@field items core.contextmenu.item[] Array of items to show
+---@field x integer? Context menu origin x coordinate. Defaults to the mouse position.
+---@field y integer? Context menu origin y coordinate. Defaults to the mouse position.
 
 ---A context menu.
----@class core.contextmenu : core.object
+---@class core.contextmenu : core.view
 ---@field visible boolean
 ---@field selected number
 ---@field position core.view.position
@@ -133,7 +137,7 @@ function ContextMenu:each_item()
   end)
 end
 
-function ContextMenu:on_mouse_pressed(button, x, y) 
+function ContextMenu:on_mouse_pressed(button, x, y)
   if not self.visible then return false end
   if button =='left' and x >= self.position.x and y >= self.position.y and x < self.position.x + self.items.width and y < self.position.y + self.height then
     local item = self:get_item_selected()
@@ -146,7 +150,8 @@ function ContextMenu:on_mouse_pressed(button, x, y)
   self:hide()
   return true
 end 
-function ContextMenu:on_mouse_released(button, x, y) 
+
+function ContextMenu:on_mouse_released(button, x, y)
   if not self.visible then return false end
   return true
 end
@@ -159,7 +164,7 @@ function ContextMenu:on_mouse_moved(px, py)
   if not self.visible then return false end
 
   self.selected = -1
-  for i, item, x, y, w, h in self:each_item() do
+  for i, _, x, y, w, h in self:each_item() do
     if px > x and px <= x + w and py > y and py <= y + h then
       self.selected = i
       core.request_cursor("arrow")
