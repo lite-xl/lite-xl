@@ -37,7 +37,7 @@ char *lxl_arena_strdup(lxl_arena *arena, const char *str) {
   return lxl_arena_copy(arena, (void *) str, (strlen(str) + 1) * sizeof(char));
 }
 
-char *lxl_arena_copy(lxl_arena *arena, void *ptr, size_t len) {
+char *lxl_arena_copy(lxl_arena *arena, const void *ptr, size_t len) {
   if (!ptr) return NULL;
   char *output = lxl_arena_malloc(arena, sizeof(char) * len);
   return output ? memcpy(output, ptr, len) : NULL;

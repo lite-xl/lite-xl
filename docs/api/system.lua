@@ -17,6 +17,26 @@ system = {}
 ---@field public type system.fileinfotype Type of file
 ---@field public symlink boolean The directory is a symlink. This field is only set on directories.
 
+---@class system.dialogoptions.filter
+---@field name string
+---@fiels patters string
+
+---@class (exact) system.dialogoptions._base
+---@field public default_location? string
+---@field public title? string
+---@field public accept_label? string
+---@field public cancel_label? string
+
+---@class (exact) system.dialogoptions._open : system.dialogoptions._base
+---@field public allow_many? boolean
+
+---@class (exact) system.dialogoptions._file : system.dialogoptions._base
+---@field public filters? system.dialogoptions.filter[]
+
+---@class (exact) system.dialogoptions.openfile : system.dialogoptions._open, system.dialogoptions._file
+---@class (exact) system.dialogoptions.opendirectory : system.dialogoptions._open
+---@class (exact) system.dialogoptions.savefile : system.dialogoptions._file
+
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
 ---
@@ -51,6 +71,9 @@ system = {}
 --- * "touchpressed" -> x, y, finger_id
 --- * "touchreleased" -> x, y, finger_id
 --- * "touchmoved" -> x, y, distance_x, distance_y, finger_id
+---
+---Dialog events:
+--- * "dialogfinished" -> id, status, result
 ---
 ---@return string type
 ---@return any? arg1
@@ -373,5 +396,56 @@ function system.path_compare(path1, type1, path2, type2) end
 ---@param val string
 ---@return boolean ok True if call succeeded
 function system.setenv(key, val) end
+
+---
+---Opens a file picker.
+---
+---**NOTE**: don't use this directly, use `core.open_file_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.openfile
+function system.open_file_dialog(window, id, options) end
+
+---
+---Opens a directory picker.
+---
+---**NOTE**: don't use this directly, use `core.open_directory_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.opendirectory
+function system.open_directory_dialog(window, id, options) end
+
+---
+---Opens a save file picker.
+---
+---**NOTE**: don't use this directly, use `core.save_file_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.savefile
+function system.save_file_dialog(window, id, options) end
+
+---
+---Returns the current sandbox type.
+---
+---@return "none"|"unknown"|"flatpak"|"snap"|"macos"
+function system.get_sandbox() end
 
 return system
