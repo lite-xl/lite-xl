@@ -334,4 +334,17 @@ end
 function View:draw()
 end
 
+
+---Returns the list of context menu items to show.
+---
+---Called with the coordinates "of the right click".
+---They're not present if, for example, the menu was invoked from a keyboard.
+---
+---If a falsy value is returned, no context menu is presented.
+---@param x integer?
+---@param y integer?
+---@return core.contextmenu.contextdetails? | false
+function View:on_context_menu(x, y)
+end
+
 return View
