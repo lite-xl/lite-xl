@@ -105,10 +105,6 @@ void set_macos_bundle_resources(lua_State *L);
 #endif
 
 int main(int argc, char **argv) {
-#ifndef _WIN32
-  signal(SIGPIPE, SIG_IGN);
-#endif
-
   SDL_SetAppMetadata("Lite XL", LITE_PROJECT_VERSION_STR, "com.lite_xl.LiteXL");
   if (!SDL_Init(SDL_INIT_EVENTS)) {
     fprintf(stderr, "Error initializing sdl: %s", SDL_GetError());
