@@ -561,7 +561,7 @@ end
 
 local mod_version_regex =
   regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
-local priority_regex = regex.compile([[\-\-.*priority\s*:\s*([\d\.]+)]])
+local priority_regex = regex.compile([[\-\-.*priority\s*:\s*(\-?[\d\.]+)]])
 function core.get_plugin_details(path)
   local info = system.get_file_info(path)
   local file = path
