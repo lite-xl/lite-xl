@@ -205,7 +205,7 @@ jobs:
 
   build_windows:
     name: Windows (x86_64) (MSYS)
-    runs-on: windows-latest
+    runs-on: windows-2022
     defaults:
       run:
         shell: msys2 {0}
