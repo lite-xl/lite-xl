@@ -55,6 +55,7 @@ function ResultsView:begin_search(path, text, fn)
   self.results = {}
   self.last_file_idx = 1
   self.query = text
+  self.search_started = system.get_time()
   self.searching = true
   self.selected_idx = 0
 
@@ -70,6 +71,7 @@ function ResultsView:begin_search(path, text, fn)
       end
     end
     self.searching = false
+    self.search_total_time = system.get_time() - self.search_started
     self.brightness = 100
     core.redraw = true
   end, self.results)
@@ -111,8 +113,8 @@ function ResultsView:open_selected_result()
   core.try(function()
     local dv = core.root_view:open_doc(core.open_doc(res.file))
     core.root_view.root_node:update_layout()
-    dv.doc:set_selection(res.line, res.col)
-    dv:scroll_to_line(res.line, false, true)
+    dv:set_selection(res.line, res.col)
+    dv:scroll_to_line(res.line, false, true, res.col)
   end)
   return true
 end
@@ -195,8 +197,8 @@ function ResultsView:draw()
     text = string.format("Searching (%d files, %d matches) for %q...",
       self.last_file_idx, #self.results, self.query)
   else
-    text = string.format("Found %d matches for %q",
-      #self.results, self.query)
+    text = string.format("Found %d matches for %q in %f seconds.",
+      #self.results, self.query, self.search_total_time)
   end
   local color = common.lerp(style.text, style.accent, self.brightness / 100)
   renderer.draw_text(style.font, text, x, y, color)
@@ -251,7 +253,7 @@ local function get_selected_text()
   local view = core.active_view
   local doc = (view and view.doc) and view.doc or nil
   if doc then
-    return doc:get_text(table.unpack({ doc:get_selection() }))
+    return doc:get_text(table.unpack({ view:get_selection() }))
   end
 end
 
