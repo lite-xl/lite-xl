@@ -81,6 +81,9 @@ static int f_renwin_get_size(lua_State *L) {
   int x, y, w, h;
   SDL_GetWindowSize(window_renderer->window, &w, &h);
   SDL_GetWindowPosition(window_renderer->window, &x, &y);
+  float scale = SDL_GetWindowDisplayScale(window_renderer->window);
+  w *= scale;
+  h *= scale;
   lua_pushinteger(L, w);
   lua_pushinteger(L, h);
   return 2;

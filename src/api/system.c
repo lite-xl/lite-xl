@@ -58,6 +58,12 @@ static HitTestInfo window_hit_info[1] = {{0, 0, 0}};
 #define RESIZE_FROM_TOP 0
 #define RESIZE_FROM_RIGHT 0
 
+static float get_window_display_scale(int window_id){
+  RenWindow* window_renderer = ren_find_window_from_id(window_id);
+  return SDL_GetWindowDisplayScale(window_renderer->window);
+}
+
+
 static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *pt, void *data) {
   const HitTestInfo *hit_info = (HitTestInfo *) data;
   const int resize_border = hit_info->resize_border;
@@ -232,12 +238,14 @@ top:
 
     case SDL_EVENT_DROP_FILE:
       SDL_GetMouseState(&mx, &my);
+      float scale = get_window_display_scale(e.motion.windowID);
+  
       lua_pushstring(L, "filedropped");
       lua_pushinteger(L, e.drop.windowID);
       lua_pushstring(L, e.drop.data);
       // a DND into dock event fired before a window is created
-      lua_pushinteger(L, mx);
-      lua_pushinteger(L, my);
+      lua_pushinteger(L, mx * scale);
+      lua_pushinteger(L, my * scale);
       return 5;
       
     case SDL_EVENT_KEY_DOWN:
@@ -286,11 +294,13 @@ top:
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
       {
         if (e.button.button == 1) { SDL_CaptureMouse(1); }
+        float scale = get_window_display_scale(e.motion.windowID);
+        
         lua_pushstring(L, "mousepressed");
         lua_pushinteger(L, e.button.windowID);
         lua_pushstring(L, button_name(e.button.button));
-        lua_pushinteger(L, e.button.x);
-        lua_pushinteger(L, e.button.y);
+        lua_pushinteger(L, e.button.x * scale);
+        lua_pushinteger(L, e.button.y * scale);
         lua_pushinteger(L, e.button.clicks);
         return 6;
       }
@@ -298,11 +308,13 @@ top:
     case SDL_EVENT_MOUSE_BUTTON_UP:
       {
         if (e.button.button == 1) { SDL_CaptureMouse(0); }
+        float scale = get_window_display_scale(e.motion.windowID);
+        
         lua_pushstring(L, "mousereleased");
         lua_pushinteger(L, e.button.windowID);
         lua_pushstring(L, button_name(e.button.button));
-        lua_pushinteger(L, e.button.x);
-        lua_pushinteger(L, e.button.y);
+        lua_pushinteger(L, e.button.x * scale);
+        lua_pushinteger(L, e.button.y * scale);
         return 5;
       }
 
@@ -315,12 +327,13 @@ top:
           e.motion.xrel += event_plus.motion.xrel;
           e.motion.yrel += event_plus.motion.yrel;
         }
+        float scale = get_window_display_scale(e.motion.windowID);
         lua_pushstring(L, "mousemoved");
         lua_pushinteger(L, e.motion.windowID);
-        lua_pushinteger(L, e.motion.x);
-        lua_pushinteger(L, e.motion.y);
-        lua_pushinteger(L, e.motion.xrel);
-        lua_pushinteger(L, e.motion.yrel);
+        lua_pushinteger(L, e.motion.x * scale);
+        lua_pushinteger(L, e.motion.y * scale);
+        lua_pushinteger(L, e.motion.xrel * scale);
+        lua_pushinteger(L, e.motion.yrel * scale);
         return 6;
       }
 
