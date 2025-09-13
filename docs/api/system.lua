@@ -17,6 +17,26 @@ system = {}
 ---@field public type system.fileinfotype Type of file
 ---@field public symlink boolean The directory is a symlink. This field is only set on directories.
 
+---@class system.dialogoptions.filter
+---@field name string
+---@fiels patters string
+
+---@class (exact) system.dialogoptions._base
+---@field public default_location? string
+---@field public title? string
+---@field public accept_label? string
+---@field public cancel_label? string
+
+---@class (exact) system.dialogoptions._open : system.dialogoptions._base
+---@field public allow_many? boolean
+
+---@class (exact) system.dialogoptions._file : system.dialogoptions._base
+---@field public filters? system.dialogoptions.filter[]
+
+---@class (exact) system.dialogoptions.openfile : system.dialogoptions._open, system.dialogoptions._file
+---@class (exact) system.dialogoptions.opendirectory : system.dialogoptions._open
+---@class (exact) system.dialogoptions.savefile : system.dialogoptions._file
+
 ---
 ---Core function used to retrieve the current event been triggered by SDL.
 ---
@@ -51,6 +71,9 @@ system = {}
 --- * "touchpressed" -> x, y, finger_id
 --- * "touchreleased" -> x, y, finger_id
 --- * "touchmoved" -> x, y, distance_x, distance_y, finger_id
+---
+---Dialog events:
+--- * "dialogfinished" -> id, status, result
 ---
 ---@return string type
 ---@return any? arg1
@@ -105,8 +128,9 @@ function system.get_window_mode(window) end
 ---
 ---Toggle between bordered and borderless.
 ---
+---@param window renwindow
 ---@param bordered boolean
-function system.set_window_bordered(bordered) end
+function system.set_window_bordered(window, bordered) end
 
 ---
 ---When then window is run borderless (without system decorations), this
@@ -115,10 +139,11 @@ function system.set_window_bordered(bordered) end
 ---To disable custom window management, call this function without any
 ---arguments
 ---
+---@param window renwindow Target window
 ---@param title_height? number Height of the window decoration
 ---@param controls_width? number Width of window controls (maximize,minimize and close buttons, etc).
 ---@param resize_border? number The amount of pixels reserved for resizing
-function system.set_window_hit_test(title_height, controls_width, resize_border) end
+function system.set_window_hit_test(window, title_height, controls_width, resize_border) end
 
 ---
 ---Get the size and coordinates of the window.
@@ -150,17 +175,27 @@ function system.set_window_size(window, width, height, x, y) end
 function system.window_has_focus(window) end
 
 ---
+---Enables or disables text input.
+---
+---@param window renwindow
+---@param enabled boolean
+function system.text_input(window, enabled) end
+
+---
 ---Sets the position of the IME composition window.
 ---
+---@param window renwindow
 ---@param x number
 ---@param y number
 ---@param width number
 ---@param height number
-function system.set_text_input_rect(x, y, width, height) end
+function system.set_text_input_rect(window, x, y, width, height) end
 
 ---
 ---Clears any ongoing composition on the IME
-function system.clear_ime() end
+---
+---@param window renwindow
+function system.clear_ime(window) end
 
 ---
 ---Raise the main window and give it input focus.
@@ -317,7 +352,7 @@ function system.exec(command) end
 ---
 ---@param haystack string
 ---@param needle string
----@param file boolean Reverse the algorithm to prioritize the end
+---@param file? boolean Reverse the algorithm to prioritize the end
 ---of the haystack, eg: with a haystack "/my/path/to/file" and a needle
 ---"file", will get better score than with this option not set to true.
 ---
@@ -361,5 +396,56 @@ function system.path_compare(path1, type1, path2, type2) end
 ---@param val string
 ---@return boolean ok True if call succeeded
 function system.setenv(key, val) end
+
+---
+---Opens a file picker.
+---
+---**NOTE**: don't use this directly, use `core.open_file_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.openfile
+function system.open_file_dialog(window, id, options) end
+
+---
+---Opens a directory picker.
+---
+---**NOTE**: don't use this directly, use `core.open_directory_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.opendirectory
+function system.open_directory_dialog(window, id, options) end
+
+---
+---Opens a save file picker.
+---
+---**NOTE**: don't use this directly, use `core.save_file_dialog` instead.
+---
+---Returns immediately.
+---
+---When the operation completes, an event will be received by the event loop,
+---containing the results.
+---
+---@param window renwindow
+---@param id integer
+---@param options? system.dialogoptions.savefile
+function system.save_file_dialog(window, id, options) end
+
+---
+---Returns the current sandbox type.
+---
+---@return "none"|"unknown"|"flatpak"|"snap"|"macos"
+function system.get_sandbox() end
 
 return system

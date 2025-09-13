@@ -7,11 +7,63 @@ lite_sources = [
     'api/process.c',
     'api/utf8.c',
     'arena_allocator.c',
+    'custom_events.c',
     'renderer.c',
     'renwindow.c',
     'rencache.c',
     'main.c',
 ]
+
+#===============================================================================
+# Dependencies
+#===============================================================================
+libm = cc.find_library('m', required : false)
+libdl = cc.find_library('dl', required : false)
+
+default_fallback_options = ['warning_level=0', 'werror=false']
+
+# Lua has no official .pc file
+# so distros come up with their own names
+lua_names = [
+    'lua5.4', # Debian
+    'lua-5.4', # FreeBSD
+    'lua',    # Fedora
+]
+
+if get_option('use_system_lua')
+    foreach lua : lua_names
+        last_lua = (lua == lua_names[-1] or get_option('wrap_mode') == 'forcefallback')
+        lua_dep = dependency(lua, required : false,
+        )
+        if lua_dep.found()
+            break
+        endif
+
+        if last_lua
+            # If we could not find lua on the system and fallbacks are disabled
+            # try the compiler as a last ditch effort, since Lua has no official
+            # pkg-config support.
+            lua_dep = cc.find_library('lua', required : true)
+        endif
+    endforeach
+else
+    lua_dep = dependency('', fallback: ['lua', 'lua_dep'], required : true,
+        default_options: default_fallback_options + ['default_library=static', 'line_editing=disabled', 'interpreter=false']
+    )
+endif
+
+pcre2_dep = dependency('libpcre2-8', fallback: ['pcre2', 'libpcre2_8'],
+    default_options: default_fallback_options + ['default_library=static', 'grep=false', 'test=false']
+)
+
+freetype_dep = dependency('freetype2', fallback: ['freetype2', 'freetype_dep'],
+    default_options: default_fallback_options + ['default_library=static', 'zlib=disabled', 'bzip2=disabled', 'png=disabled', 'harfbuzz=disabled', 'brotli=disabled']
+)
+
+
+sdl_dep = dependency('sdl3', static: true)
+
+lite_deps = [lua_dep, sdl_dep, freetype_dep, pcre2_dep, libm, libdl]
 
 lite_sources += 'api/dirmonitor.c'
 # dirmonitor backend
@@ -63,6 +115,7 @@ if host_machine.system() == 'windows'
     lite_rc += windows.compile_resources('..' / 'resources' / 'icons' / 'icon.rc')
     lite_rc += windows.compile_resources('..' / 'resources' / 'windows' / 'manifest.rc')
 elif host_machine.system() == 'darwin'
+    add_languages('objc')
     lite_sources += 'bundle_open.m'
 endif
 

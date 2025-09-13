@@ -29,6 +29,8 @@ local title_commands = {
 ---@field super core.view
 local TitleView = View:extend()
 
+function TitleView:__tostring() return "TitleView" end
+
 local function title_view_height()
   return style.font:get_height() + style.padding.y * 2
 end
@@ -44,10 +46,10 @@ function TitleView:configure_hit_test(borderless)
     local icon_w = style.icon_font:get_width("_")
     local icon_spacing = icon_w
     local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
-    system.set_window_hit_test(title_height, controls_width, icon_spacing)
+    system.set_window_hit_test(core.window, title_height, controls_width, icon_spacing)
     -- core.hit_test_title_height = title_height
   else
-    system.set_window_hit_test()
+    system.set_window_hit_test(core.window)
   end
 end
 

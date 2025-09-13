@@ -15,7 +15,7 @@ typedef struct lxl_arena lxl_arena;
 lxl_arena *lxl_arena_init(lua_State *L);
 void *lxl_arena_malloc(lxl_arena *arena, size_t size);
 void *lxl_arena_zero(lxl_arena *arena, size_t size);
-char *lxl_arena_copy(lxl_arena *arena, void *ptr, size_t len);
+char *lxl_arena_copy(lxl_arena *arena, const void *ptr, size_t len);
 char *lxl_arena_strdup(lxl_arena *arena, const char *str);
 void lxl_arena_free(lxl_arena *arena, void *ptr);
 

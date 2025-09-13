@@ -1,15 +1,15 @@
 #include "api.h"
 #include "lua.h"
-#include <SDL.h>
+#include "custom_events.h"
+#include <SDL3/SDL.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-
-static unsigned int DIR_EVENT_TYPE = 0;
+#include <assert.h>
 
 struct dirmonitor {
   SDL_Thread* thread;
-  SDL_mutex* mutex;
+  SDL_Mutex* mutex;
   char buffer[64512];
   volatile int length;
   struct dirmonitor_internal* internal;
@@ -55,6 +55,7 @@ static int f_check_dir_callback(int watch_id, const char* path, void* L) {
 
 static int dirmonitor_check_thread(void* data) {
   struct dirmonitor* monitor = data;
+
   while (monitor->length >= 0) {
     if (monitor->length == 0) {
       int result = get_changes_dirmonitor(monitor->internal, monitor->buffer, sizeof(monitor->buffer));
@@ -64,16 +65,15 @@ static int dirmonitor_check_thread(void* data) {
       SDL_UnlockMutex(monitor->mutex);
     }
     SDL_Delay(1);
-    SDL_Event event = { .type = DIR_EVENT_TYPE };
-    SDL_PushEvent(&event);
+    CustomEvent event;
+    SDL_zero(event);
+    push_custom_event("dirmonitor", &event);
   }
   return 0;
 }
 
 
 static int f_dirmonitor_new(lua_State* L) {
-  if (DIR_EVENT_TYPE == 0)
-    DIR_EVENT_TYPE = SDL_RegisterEvents(1);
   struct dirmonitor* monitor = lua_newuserdata(L, sizeof(struct dirmonitor));
   luaL_setmetatable(L, API_TYPE_DIRMONITOR);
   memset(monitor, 0, sizeof(struct dirmonitor));
@@ -90,7 +90,7 @@ static int f_dirmonitor_gc(lua_State* L) {
   deinit_dirmonitor(monitor->internal);
   SDL_UnlockMutex(monitor->mutex);
   SDL_WaitThread(monitor->thread, NULL);
-  free(monitor->internal);
+  SDL_free(monitor->internal);
   SDL_DestroyMutex(monitor->mutex);
   return 0;
 }
@@ -164,6 +164,9 @@ static const luaL_Reg dirmonitor_lib[] = {
 
 
 int luaopen_dirmonitor(lua_State* L) {
+  if (!register_custom_event("dirmonitor", NULL)) {
+    return luaL_error(L, "Unable to register custom dirmonitor event: %s", SDL_GetError());
+  }
   luaL_newmetatable(L, API_TYPE_DIRMONITOR);
   luaL_setfuncs(L, dirmonitor_lib, 0);
   lua_pushvalue(L, -1);

@@ -171,15 +171,6 @@ config.line_endings = PLATFORM == "Windows" and "crlf" or "lf"
 ---@type number
 config.line_limit = 80
 
----Maximum number of project files to keep track of.
----If the number of files in the project exceeds this number,
----Lite XL will not be able to keep track of them.
----They will be not be searched when searching for files or text.
----
----Defaults to 2000.
----@type number
-config.max_project_files = 2000
-
 ---Enables/disables all transitions.
 ---
 ---Defaults to true.
@@ -266,6 +257,13 @@ config.skip_plugins_version = false
 ---Defaults to true.
 ---@type boolean | { font: renderer.font, icon: string } | nil
 config.stonks = true
+
+---Use the system file picker instead of the command palette
+---when opening files.
+---
+---Defaults to false if no sandbox is detected.
+---@type boolean
+config.use_system_file_picker = system.get_sandbox() ~= "none"
 
 -- holds the plugins real config table
 local plugins_config = {}

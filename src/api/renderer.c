@@ -1,3 +1,4 @@
+#include <math.h>
 #include <string.h>
 #include <assert.h>
 #include "api.h"
@@ -96,7 +97,7 @@ static int f_font_load(lua_State *L) {
   RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
   *font = ren_font_load(filename, size, antialiasing, hinting, style);
   if (!*font)
-    return luaL_error(L, "failed to load font");
+    return luaL_error(L, "failed to load font: %s", SDL_GetError());
   luaL_setmetatable(L, API_TYPE_FONT);
   return 1;
 }
@@ -142,7 +143,7 @@ static int f_font_copy(lua_State *L) {
     RenFont** font = lua_newuserdata(L, sizeof(RenFont*));
     *font = ren_font_copy(fonts[i], size, antialiasing, hinting, style);
     if (!*font)
-      return luaL_error(L, "failed to copy font");
+      return luaL_error(L, "failed to copy font: %s", SDL_GetError());
     luaL_setmetatable(L, API_TYPE_FONT);
     if (table)
       lua_rawseti(L, -2, i+1);
@@ -203,12 +204,26 @@ static int f_font_gc(lua_State *L) {
 }
 
 
+static RenTab checktab(lua_State *L, int idx) {
+  RenTab tab = {.offset = NAN};
+  if (lua_isnoneornil(L, idx)) {
+    return tab;
+  }
+  luaL_checktype(L, idx, LUA_TTABLE);
+  if (lua_getfield(L, idx, "tab_offset") == LUA_TNIL) {
+    return tab;
+  }
+  tab.offset = luaL_checknumber(L, -1);
+  return tab;
+}
+
 static int f_font_get_width(lua_State *L) {
   RenFont* fonts[FONT_FALLBACK_MAX]; font_retrieve(L, fonts, 1);
   size_t len;
   const char *text = luaL_checklstring(L, 2, &len);
+  RenTab tab = checktab(L, 3);
 
-  lua_pushnumber(L, ren_font_group_get_width(fonts, text, len, NULL));
+  lua_pushnumber(L, ren_font_group_get_width(fonts, text, len, tab, NULL));
   return 1;
 }
 
@@ -373,7 +388,8 @@ static int f_draw_text(lua_State *L) {
   double x = luaL_checknumber(L, 3);
   int y = luaL_checknumber(L, 4);
   RenColor color = checkcolor(L, 5, 255);
-  x = rencache_draw_text(ren_get_target_window(), fonts, text, len, x, y, color);
+  RenTab tab = checktab(L, 6);
+  x = rencache_draw_text(ren_get_target_window(), fonts, text, len, x, y, color, tab);
   lua_pushnumber(L, x);
   return 1;
 }

@@ -1,9 +1,9 @@
--- mod-version:3
+-- mod-version:4
 local syntax = require "core.syntax"
 
 syntax.add {
   name = "Lua",
-  files = "%.lua$",
+  files = { "%.lua$", "%.rockspec$" },
   headers = "^#!.*[ /]lua",
   comment = "--",
   block_comment = { "--[[", "]]" },

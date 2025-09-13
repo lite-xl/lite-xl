@@ -148,9 +148,6 @@ end
 function keymap.add(map, overwrite)
   remove_duplicates(map)
   for stroke, commands in pairs(map) do
-    if macos then
-      stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
-    end
     stroke = normalize_stroke(stroke)
     if overwrite then
       if keymap.map[stroke] then
@@ -288,7 +285,6 @@ end
 
 keymap.add_direct {
   ["ctrl+shift+p"] = "core:find-command",
-  ["ctrl+p"] = "core:find-file",
   ["ctrl+o"] = "core:open-file",
   ["ctrl+n"] = "core:new-doc",
   ["ctrl+shift+c"] = "core:change-project-folder",

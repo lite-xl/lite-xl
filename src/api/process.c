@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <SDL.h>
-#include <SDL_thread.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_thread.h>
 #include <assert.h>
 
 #if _WIN32
@@ -85,8 +85,8 @@ typedef struct process_kill_s {
 
 typedef struct {
   bool stop;
-  SDL_mutex *mutex;
-  SDL_cond *has_work, *work_done;
+  SDL_Mutex *mutex;
+  SDL_Condition *has_work, *work_done;
   SDL_Thread *worker_thread;
   process_kill_t *head;
   process_kill_t *tail;
@@ -133,13 +133,13 @@ static void kill_list_free(process_kill_list_t *list) {
   process_kill_t *node, *temp;
   SDL_WaitThread(list->worker_thread, NULL);
   SDL_DestroyMutex(list->mutex);
-  SDL_DestroyCond(list->has_work);
-  SDL_DestroyCond(list->work_done);
+  SDL_DestroyCondition(list->has_work);
+  SDL_DestroyCondition(list->work_done);
   node = list->head;
   while (node) {
     temp = node;
     node = node->next;
-    free(temp);
+    SDL_free(temp);
   }
   memset(list, 0, sizeof(process_kill_list_t));
 }
@@ -148,8 +148,8 @@ static void kill_list_free(process_kill_list_t *list) {
 static bool kill_list_init(process_kill_list_t *list) {
   memset(list, 0, sizeof(process_kill_list_t));
   list->mutex = SDL_CreateMutex();
-  list->has_work = SDL_CreateCond();
-  list->work_done = SDL_CreateCond();
+  list->has_work = SDL_CreateCondition();
+  list->work_done = SDL_CreateCondition();
   list->head = list->tail = NULL;
   list->stop = false;
   if (!list->mutex || !list->has_work || !list->work_done) {
@@ -190,10 +190,10 @@ static void kill_list_wait_all(process_kill_list_t *list) {
   SDL_LockMutex(list->mutex);
   // wait until list is empty
   while (list->head)
-    SDL_CondWait(list->work_done, list->mutex);
+    SDL_WaitCondition(list->work_done, list->mutex);
   // tell the worker to stop
   list->stop = true;
-  SDL_CondSignal(list->has_work);
+  SDL_SignalCondition(list->has_work);
   SDL_UnlockMutex(list->mutex);
 }
 
@@ -257,7 +257,7 @@ static int kill_list_worker(void *ud) {
 
     // wait until we have work to do
     while (!list->head && !list->stop)
-      SDL_CondWait(list->has_work, list->mutex); // LOCK MUTEX
+      SDL_WaitCondition(list->has_work, list->mutex); // LOCK MUTEX
 
     if (list->stop) break;
 
@@ -279,9 +279,9 @@ static int kill_list_worker(void *ud) {
         kill_list_push(list, current_task);
       } else {
         free_task:
-        SDL_CondSignal(list->work_done);
+        SDL_SignalCondition(list->work_done);
         process_handle_close(&current_task->handle);
-        free(current_task);
+        SDL_free(current_task);
       }
     }
     delay = list->head ? (list->head->start_time + PROCESS_TERM_DELAY) - SDL_GetTicks() : 0;
@@ -599,7 +599,7 @@ static int process_start(lua_State* L) {
   return retval;
 }
 
-static int g_read(lua_State* L, int stream, unsigned long read_size) {
+static int g_read(lua_State* L, int stream, lua_Integer read_size) {
   process_t* self = (process_t*) luaL_checkudata(L, 1, API_TYPE_PROCESS);
   long length = 0;
   if (stream != STDOUT_FD && stream != STDERR_FD)
@@ -628,17 +628,22 @@ static int g_read(lua_State* L, int stream, unsigned long read_size) {
   #else
     luaL_Buffer b;
     luaL_buffinit(L, &b);
-    uint8_t* buffer = (uint8_t*)luaL_prepbuffsize(&b, READ_BUF_SIZE);
-    length = read(self->child_pipes[stream][0], buffer, read_size > READ_BUF_SIZE ? READ_BUF_SIZE : read_size);
-    if (length == 0 && !poll_process(self, WAIT_NONE))
-      return 0;
-    else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-      length = 0;
-    if (length < 0) {
-      signal_process(self, SIGNAL_TERM);
-      return 0;
-    }
-    luaL_addsize(&b, length);
+    do {
+      uint8_t* buffer = (uint8_t*)luaL_prepbuffer(&b);
+      length = read(self->child_pipes[stream][0], buffer, read_size < LUAL_BUFFERSIZE ? read_size : LUAL_BUFFERSIZE);
+      if (length == 0 && !poll_process(self, WAIT_NONE))
+        break;
+      else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        length = 0;
+      if (length < 0) {
+        signal_process(self, SIGNAL_TERM);
+        return 0;
+      }
+      if (length) {
+        luaL_addsize(&b, length);
+        read_size -= length;
+      }
+    } while (read_size > 0 && length > 0);
     luaL_pushresult(&b);
   #endif
   return 1;
@@ -746,7 +751,7 @@ static int f_gc(lua_State* L) {
   if (poll_process(self, 0) && !self->detached) {
     // attempt to kill the process if still running and not detached
     signal_process(self, SIGNAL_TERM);
-    if (!list || !list->worker_thread || !(p = malloc(sizeof(process_kill_t)))) {
+    if (!list || !list->worker_thread || !(p = SDL_malloc(sizeof(process_kill_t)))) {
       // use synchronous waiting
       if (poll_process(self, PROCESS_TERM_DELAY)) {
         signal_process(self, SIGNAL_KILL);
@@ -759,7 +764,7 @@ static int f_gc(lua_State* L) {
       p->tries = 1;
       SDL_LockMutex(list->mutex);
       kill_list_push(list, p);
-      SDL_CondSignal(list->has_work);
+      SDL_SignalCondition(list->has_work);
       SDL_UnlockMutex(list->mutex);
     }
   }

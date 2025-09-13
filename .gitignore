@@ -23,3 +23,5 @@ LiteXL*
 !resources/windows/*.diff
 !resources/windows/*.exe.manifest.in
 !resources/macos/*.py
+!scripts/innosetup/lite-xl@*.bmp
+!scripts/innosetup/lite-xl-banner@*.bmp

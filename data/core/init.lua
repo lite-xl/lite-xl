@@ -14,6 +14,7 @@ local CommandView
 local NagView
 local DocView
 local Doc
+local Project
 
 local core = {}
 
@@ -54,52 +55,41 @@ local function update_recents_project(action, dir_path_abs)
 end
 
 
-function core.set_project_dir(new_dir, change_project_fn)
-  local chdir_ok = pcall(system.chdir, new_dir)
-  if chdir_ok then
-    if change_project_fn then change_project_fn() end
-    core.project_dir = common.normalize_volume(new_dir)
-    core.project_directories = {}
+function core.add_project(project)
+  project = type(project) == "string" and Project(common.normalize_volume(project)) or project
+  table.insert(core.projects, project)
+  update_recents_project("add", project.path)
+  core.redraw = true
+  return project
+end
+
+
+function core.remove_project(project, force)
+  for i = (force and 1 or 2), #core.projects do
+    if project == core.projects[i] or project == core.projects[i].path then
+      local project = core.projects[i]
+      table.remove(core.projects, i)
+      return project
+    end
   end
-  return chdir_ok
+  return false
 end
 
 
-local function reload_customizations()
-  local user_error = not core.load_user_directory()
-  local project_error = not core.load_project_module()
-  if user_error or project_error then
-    -- Use core.add_thread to delay opening the LogView, as opening
-    -- it directly here disturbs the normal save operations.
-    core.add_thread(function()
-      local LogView = require "core.logview"
-      local rn = core.root_view.root_node
-      for _,v in pairs(core.root_view.root_node:get_children()) do
-        if v:is(LogView) then
-          rn:get_node_for_view(v):set_active_view(v)
-          return
-        end
-      end
-      command.perform("core:open-log")
-    end)
-  end
+function core.set_project(project)
+  while #core.projects > 0 do core.remove_project(core.projects[#core.projects], true) end
+  local project = core.add_project(project)
+  return project
 end
 
 
-function core.open_folder_project(dir_path_abs)
-  if core.set_project_dir(dir_path_abs, core.on_quit_project) then
-    core.root_view:close_all_docviews()
-    reload_customizations()
-    update_recents_project("add", dir_path_abs)
-    core.add_project_directory(dir_path_abs)
-    core.on_enter_project(dir_path_abs)
-  end
+function core.open_project(project)
+  local project = core.set_project(project)
+  core.root_view:close_all_docviews()
+  update_recents_project("add", project.path)
+  command.perform("core:restart")
 end
 
-
-local function strip_leading_path(filename)
-    return filename:sub(2)
-end
 
 local function strip_trailing_slash(filename)
   if filename:match("[^:]["..PATHSEP.."]$") then
@@ -107,352 +97,6 @@ local function strip_trailing_slash(filename)
   end
   return filename
 end
-
-
-function core.project_subdir_is_shown(dir, filename)
-  return not dir.files_limit or dir.shown_subdir[filename]
-end
-
-
-local function show_max_files_warning(dir)
-  local message = dir.slow_filesystem and
-    "Filesystem is too slow: project files will not be indexed." or
-    "Too many files in project directory: stopped reading at "..
-    config.max_project_files.." files. For more information see "..
-    "usage.md at https://github.com/lite-xl/lite-xl."
-  core.warn(message)
-end
-
-
--- bisects the sorted file list to get to things in ln(n)
-local function file_bisect(files, is_superior, start_idx, end_idx)
-  local inf, sup = start_idx or 1, end_idx or #files
-  while sup - inf > 8 do
-    local curr = math.floor((inf + sup) / 2)
-    if is_superior(files[curr]) then
-      sup = curr - 1
-    else
-      inf = curr
-    end
-  end
-  while inf <= sup and not is_superior(files[inf]) do
-    inf = inf + 1
-  end
-  return inf
-end
-
-
-local function file_search(files, info)
-  local idx = file_bisect(files, function(file)
-    return system.path_compare(info.filename, info.type, file.filename, file.type)
-  end)
-  if idx > 1 and files[idx-1].filename == info.filename then
-    return idx - 1, true
-  end
-  return idx, false
-end
-
-
-local function files_info_equal(a, b)
-  return (a == nil and b == nil) or (a and b and a.filename == b.filename and a.type == b.type)
-end
-
-
-local function project_subdir_bounds(dir, filename, start_index)
-  local found = true
-  if not start_index then
-    start_index, found = file_search(dir.files, { type = "dir", filename = filename })
-  end
-  if found then
-    local end_index = file_bisect(dir.files, function(file)
-      return not common.path_belongs_to(file.filename, filename)
-    end, start_index + 1)
-    return start_index, end_index - start_index, dir.files[start_index]
-  end
-end
-
-
--- Should be called on any directory that registers a change, or on a directory we open if we're over the file limit.
--- Uses relative paths at the project root (i.e. target = "", target = "first-level-directory", target = "first-level-directory/second-level-directory")
-local function refresh_directory(topdir, target)
-  local directory_start_idx, directory_end_idx = 1, #topdir.files
-  if target and target ~= "" then
-    directory_start_idx, directory_end_idx = project_subdir_bounds(topdir, target)
-    directory_end_idx = directory_start_idx + directory_end_idx - 1
-    directory_start_idx = directory_start_idx + 1
-  end
-
-  local files = dirwatch.get_directory_files(topdir, topdir.name, (target or ""), 0, function() return false end)
-  local change = false
-
-  -- If this file doesn't exist, we should be calling this on our parent directory, assume we'll do that.
-  -- Unwatch just in case.
-  if files == nil then
-    topdir.watch:unwatch(topdir.name .. PATHSEP .. (target or ""))
-    return true
-  end
-
-  local new_idx, old_idx = 1, directory_start_idx
-  local new_directories = {}
-  -- Run through each sorted list and compare them. If we find a new entry, insert it and flag as new. If we're missing an entry
-  -- remove it and delete the entry from the list.
-  while old_idx <= directory_end_idx or new_idx <= #files do
-    local old_info, new_info = topdir.files[old_idx], files[new_idx]
-    if not files_info_equal(new_info, old_info) then
-      change = true
-      -- If we're a new file, and we exist *before* the other file in the list, then add to the list.
-      if not old_info or (new_info and system.path_compare(new_info.filename, new_info.type, old_info.filename, old_info.type)) then
-        table.insert(topdir.files, old_idx, new_info)
-        old_idx, new_idx = old_idx + 1, new_idx + 1
-        if new_info.type == "dir" then
-          table.insert(new_directories, new_info)
-        end
-        directory_end_idx = directory_end_idx + 1
-      else
-      -- If it's not there, remove the entry from the list as being out of order.
-        table.remove(topdir.files, old_idx)
-        if old_info.type == "dir" then
-          topdir.watch:unwatch(topdir.name .. PATHSEP .. old_info.filename)
-        end
-        directory_end_idx = directory_end_idx - 1
-      end
-    else
-      -- If this file is a directory, determine in ln(n) the size of the directory, and skip every file in it.
-      local size = old_info and old_info.type == "dir" and select(2, project_subdir_bounds(topdir, old_info.filename, old_idx)) or 1
-      old_idx, new_idx = old_idx + size, new_idx + 1
-    end
-  end
-  for i, v in ipairs(new_directories) do
-    topdir.watch:watch(topdir.name .. PATHSEP .. v.filename)
-    if not topdir.files_limit or core.project_subdir_is_shown(topdir, v.filename) then
-      refresh_directory(topdir, v.filename)
-    end
-  end
-  if change then
-    core.redraw = true
-    topdir.is_dirty = true
-  end
-  return change
-end
-
-
--- Predicate function to inhibit directory recursion in get_directory_files
--- based on a time limit and the number of files.
-local function timed_max_files_pred(dir, filename, entries_count, t_elapsed)
-  local n_limit = entries_count <= config.max_project_files
-  local t_limit = t_elapsed < 20 / config.fps
-  return n_limit and t_limit and core.project_subdir_is_shown(dir, filename)
-end
-
-
-function core.add_project_directory(path)
-  -- top directories has a file-like "item" but the item.filename
-  -- will be simply the name of the directory, without its path.
-  -- The field item.topdir will identify it as a top level directory.
-  path = common.normalize_volume(path)
-  local topdir = {
-    name = path,
-    item = {filename = common.basename(path), type = "dir", topdir = true},
-    files_limit = false,
-    is_dirty = true,
-    shown_subdir = {},
-    watch_thread = nil,
-    watch = dirwatch.new()
-  }
-  table.insert(core.project_directories, topdir)
-
-  local fstype = PLATFORM == "Linux" and system.get_fs_type(topdir.name) or "unknown"
-  topdir.force_scans = (fstype == "nfs" or fstype == "fuse")
-  local t, complete, entries_count = dirwatch.get_directory_files(topdir, topdir.name, "", 0, timed_max_files_pred)
-  topdir.files = t
-  if not complete then
-    topdir.slow_filesystem = not complete and (entries_count <= config.max_project_files)
-    topdir.files_limit = true
-    show_max_files_warning(topdir)
-    refresh_directory(topdir)
-  else
-    for i,v in ipairs(t) do
-      if v.type == "dir" then topdir.watch:watch(path .. PATHSEP .. v.filename) end
-    end
-  end
-  topdir.watch:watch(topdir.name)
-  -- each top level directory gets a watch thread. if the project is small, or
-  -- if the ablity to use directory watches hasn't been compromised in some way
-  -- either through error, or amount of files, then this should be incredibly
-  -- quick; essentially one syscall per check. Otherwise, this may take a bit of
-  -- time; the watch will yield in this coroutine after 0.01 second, for 0.1 seconds.
-  topdir.watch_thread = core.add_thread(function()
-    while true do
-      local changed = topdir.watch:check(function(target)
-        if target == topdir.name then return refresh_directory(topdir) end
-        local dirpath = target:sub(#topdir.name + 2)
-        local abs_dirpath = topdir.name .. PATHSEP .. dirpath
-        if dirpath then
-          -- check if the directory is in the project files list, if not exit.
-          local dir_index, dir_match = file_search(topdir.files, {filename = dirpath, type = "dir"})
-          if not dir_match or not core.project_subdir_is_shown(topdir, topdir.files[dir_index].filename) then return end
-        end
-        return refresh_directory(topdir, dirpath)
-      end, 0.01, 0.01)
-      -- properly exit coroutine if project not open anymore to clear dir watch
-      local project_dir_open = false
-      for _, prj in ipairs(core.project_directories) do
-        if topdir == prj then
-          project_dir_open = true
-          break
-        end
-      end
-      if project_dir_open then
-        coroutine.yield(changed and 0 or 0.05)
-      else
-        return
-      end
-    end
-  end)
-
-  if path == core.project_dir then
-    core.project_files = topdir.files
-  end
-  core.redraw = true
-  return topdir
-end
-
-
--- The function below is needed to reload the project directories
--- when the project's module changes.
-function core.rescan_project_directories()
-  local save_project_dirs = {}
-  local n = #core.project_directories
-  for i = 1, n do
-    local dir = core.project_directories[i]
-    save_project_dirs[i] = {name = dir.name, shown_subdir = dir.shown_subdir}
-  end
-  core.project_directories = {}
-  for i = 1, n do -- add again the directories in the project
-    local dir = core.add_project_directory(save_project_dirs[i].name)
-    if dir.files_limit then
-      -- We need to sort the list of shown subdirectories so that higher level
-      -- directories are populated first. We use the function system.path_compare
-      -- because it order the entries in the appropriate order.
-      -- TODO: we may consider storing the table shown_subdir as a sorted table
-      -- since the beginning.
-      local subdir_list = {}
-      for subdir in pairs(save_project_dirs[i].shown_subdir) do
-        table.insert(subdir_list, subdir)
-      end
-      table.sort(subdir_list, function(a, b) return system.path_compare(a, "dir", b, "dir") end)
-      for _, subdir in ipairs(subdir_list) do
-        local show = save_project_dirs[i].shown_subdir[subdir]
-        for j = 1, #dir.files do
-          if dir.files[j].filename == subdir then
-            -- The instructions below match when happens in TreeView:on_mouse_pressed.
-            -- We perform the operations only once iff the subdir is in dir.files.
-            -- In theory set_show below may fail and return false but is it is listed
-            -- there it means it succeeded before so we are optimistically assume it
-            -- will not fail for the sake of simplicity.
-            core.update_project_subdir(dir, subdir, show)
-            break
-          end
-        end
-      end
-    end
-  end
-end
-
-
-function core.project_dir_by_name(name)
-  for i = 1, #core.project_directories do
-    if core.project_directories[i].name == name then
-      return core.project_directories[i]
-    end
-  end
-end
-
-
-function core.update_project_subdir(dir, filename, expanded)
-  assert(dir.files_limit, "function should be called only when directory is in files limit mode")
-  dir.shown_subdir[filename] = expanded
-  if expanded then
-    dir.watch:watch(dir.name .. PATHSEP .. filename)
-  else
-    dir.watch:unwatch(dir.name .. PATHSEP .. filename)
-  end
-  return refresh_directory(dir, filename)
-end
-
-
--- Find files and directories recursively reading from the filesystem.
--- Filter files and yields file's directory and info table. This latter
--- is filled to be like required by project directories "files" list.
-local function find_files_rec(root, path)
-  local all = system.list_dir(root .. path) or {}
-  for _, file in ipairs(all) do
-    local file = path .. PATHSEP .. file
-    local info = system.get_file_info(root .. file)
-    if info then
-      info.filename = strip_leading_path(file)
-      if info.type == "file" then
-        coroutine.yield(root, info)
-      elseif not common.match_pattern(common.basename(info.filename), config.ignore_files) then
-        find_files_rec(root, PATHSEP .. info.filename)
-      end
-    end
-  end
-end
-
-
--- Iterator function to list all project files
-local function project_files_iter(state)
-  local dir = core.project_directories[state.dir_index]
-  if state.co then
-    -- We have a coroutine to fetch for files, use the coroutine.
-    -- Used for directories that exceeds the files nuumber limit.
-    local ok, name, file = coroutine.resume(state.co, dir.name, "")
-    if ok and name then
-      return name, file
-    else
-      -- The coroutine terminated, increment file/dir counter to scan
-      -- next project directory.
-      state.co = false
-      state.file_index = 1
-      state.dir_index = state.dir_index + 1
-      dir = core.project_directories[state.dir_index]
-    end
-  else
-    -- Increase file/dir counter
-    state.file_index = state.file_index + 1
-    while dir and state.file_index > #dir.files do
-      state.dir_index = state.dir_index + 1
-      state.file_index = 1
-      dir = core.project_directories[state.dir_index]
-    end
-  end
-  if not dir then return end
-  if dir.files_limit then
-    -- The current project directory is files limited: create a couroutine
-    -- to read files from the filesystem.
-    state.co = coroutine.create(find_files_rec)
-    return project_files_iter(state)
-  end
-  return dir.name, dir.files[state.file_index]
-end
-
-
-function core.get_project_files()
-  local state = { dir_index = 1, file_index = 0 }
-  return project_files_iter, state
-end
-
-
-function core.project_files_number()
-  local n = 0
-  for i = 1, #core.project_directories do
-    if core.project_directories[i].files_limit then return end
-    n = n + #core.project_directories[i].files
-  end
-  return n
-end
-
 
 -- create a directory using mkdir but may need to create the parent
 -- directories as well.
@@ -591,79 +235,27 @@ local config = require "core.config"
 
 -- You may activate some plugins on a per-project basis to override the user's settings.
 -- config.plugins.trimwitespace = true
-]])
-  init_file:close()
+]]):close()
 end
 
 
-function core.load_user_directory()
+function core.ensure_user_directory()
   return core.try(function()
-    local stat_dir = system.get_file_info(USERDIR)
-    if not stat_dir then
+    if not system.get_file_info(USERDIR) then
       create_user_directory()
     end
     local init_filename = USERDIR .. PATHSEP .. "init.lua"
-    local stat_file = system.get_file_info(init_filename)
-    if not stat_file then
+    if not system.get_file_info(init_filename) then
       write_user_init_file(init_filename)
     end
-    dofile(init_filename)
   end)
 end
 
 
-function core.remove_project_directory(path)
-  -- skip the fist directory because it is the project's directory
-  for i = 2, #core.project_directories do
-    local dir = core.project_directories[i]
-    if dir.name == path then
-      table.remove(core.project_directories, i)
-      return true
-    end
-  end
-  return false
-end
-
-
 function core.configure_borderless_window()
-  system.set_window_bordered(not config.borderless)
+  system.set_window_bordered(core.window, not config.borderless)
   core.title_view:configure_hit_test(config.borderless)
   core.title_view.visible = config.borderless
-end
-
-
-local function add_config_files_hooks()
-  -- auto-realod style when user's module is saved by overriding Doc:Save()
-  local doc_save = Doc.save
-  local user_filename = system.absolute_path(USERDIR .. PATHSEP .. "init.lua")
-  function Doc:save(filename, abs_filename)
-    local module_filename = system.absolute_path(".lite_project.lua")
-    doc_save(self, filename, abs_filename)
-    if self.abs_filename == user_filename or self.abs_filename == module_filename then
-      reload_customizations()
-      core.rescan_project_directories()
-      core.configure_borderless_window()
-    end
-  end
-end
-
-
--- The function below works like system.absolute_path except it
--- doesn't fail if the file does not exist. We consider that the
--- current dir is core.project_dir so relative filename are considered
--- to be in core.project_dir.
--- Please note that .. or . in the filename are not taken into account.
--- This function should get only filenames normalized using
--- common.normalize_path function.
-function core.project_absolute_path(filename)
-  if common.is_absolute_path(filename) then
-    return common.normalize_path(filename)
-  elseif not core.project_dir then
-    local cwd = system.absolute_path(".")
-    return cwd .. PATHSEP .. common.normalize_path(filename)
-  else
-    return core.project_dir .. PATHSEP .. filename
-  end
 end
 
 
@@ -680,6 +272,7 @@ function core.init()
   TitleView = require "core.titleview"
   CommandView = require "core.commandview"
   NagView = require "core.nagview"
+  Project = require "core.project"
   DocView = require "core.docview"
   Doc = require "core.doc"
 
@@ -689,52 +282,47 @@ function core.init()
     EXEDIR  = common.normalize_volume(EXEDIR)
   end
 
-  core.window = renwindow._restore()
-  if core.window == nil then
-    core.window = renwindow.create("")
-  end
-  do
-    local session = load_session()
-    if session.window_mode == "normal" then
-      system.set_window_size(core.window, table.unpack(session.window))
-    elseif session.window_mode == "maximized" then
-      system.set_window_mode(core.window, "maximized")
-    end
-    core.recent_projects = session.recents or {}
-    core.previous_find = session.previous_find or {}
-    core.previous_replace = session.previous_replace or {}
-  end
+  local session = load_session()
+  core.recent_projects = session.recents or {}
+  core.previous_find = {}
+  core.previous_replace = {}
 
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
   local files = {}
-  for i = 2, #ARGS do
-    local arg_filename = strip_trailing_slash(ARGS[i])
-    local info = system.get_file_info(arg_filename) or {}
-    if info.type == "dir" then
-      project_dir = arg_filename
-      project_dir_explicit = true
-    else
-      -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
-      if not ARGS[i]:match("^-psn") then
-        local file_abs = core.project_absolute_path(arg_filename)
-        if file_abs then
-          table.insert(files, file_abs)
-          project_dir = file_abs:match("^(.+)[/\\].+$")
+  if not RESTARTED then
+    for i = 2, #ARGS do
+      local arg_filename = strip_trailing_slash(ARGS[i])
+      local info = system.get_file_info(arg_filename) or {}
+      if info.type == "dir" then
+        project_dir = arg_filename
+        project_dir_explicit = true
+      else
+        -- on macOS we can get an argument like "-psn_0_52353" that we just ignore.
+        if not ARGS[i]:match("^-psn") then
+          local file_abs = common.is_absolute_path(arg_filename) and arg_filename or (system.absolute_path(".") .. PATHSEP .. common.normalize_path(arg_filename))
+          if file_abs then
+            table.insert(files, file_abs)
+            project_dir = file_abs:match("^(.+)[/\\].+$")
+          end
         end
       end
     end
   end
+  -- Ensure that we have a user directory.
+  core.ensure_user_directory()
 
   core.frame_start = 0
   core.clip_rect_stack = {{ 0,0,0,0 }}
   core.docs = {}
+  core.projects = {}
   core.cursor_clipboard = {}
   core.cursor_clipboard_whole_line = {}
   core.window_mode = "normal"
   core.threads = setmetatable({}, { __mode = "k" })
   core.blink_start = system.get_time()
   core.blink_timer = core.blink_start
+  core.active_file_dialogs = {}
   core.redraw = true
   core.visited_files = {}
   core.restart_request = false
@@ -765,15 +353,10 @@ function core.init()
   -- Load default commands first so plugins can override them
   command.add_defaults()
 
-  -- Load user module, plugins and project module
-  local got_user_error, got_project_error = not core.load_user_directory()
-
   local project_dir_abs = system.absolute_path(project_dir)
-  -- We prevent set_project_dir below to effectively add and scan the directory because the
+  -- We prevent set_project below to effectively add and scan the directory because the
   -- project module and its ignore files is not yet loaded.
-  local set_project_ok = project_dir_abs and core.set_project_dir(project_dir_abs)
-  if set_project_ok then
-    got_project_error = not core.load_project_module()
+  if project_dir_abs and pcall(core.set_project, project_dir_abs) then
     if project_dir_explicit then
       update_recents_project("add", project_dir_abs)
     end
@@ -782,36 +365,30 @@ function core.init()
       update_recents_project("remove", project_dir)
     end
     project_dir_abs = system.absolute_path(".")
-    if not core.set_project_dir(project_dir_abs, function()
-      got_project_error = not core.load_project_module()
-    end) then
-      system.show_fatal_error("Lite XL internal error", "cannot set project directory to cwd")
-      os.exit(1)
-    end
+    local status, err = pcall(core.set_project, project_dir_abs)
   end
 
   -- Load core and user plugins giving preference to user ones with same name.
   local plugins_success, plugins_refuse_list = core.load_plugins()
 
-  do
-    local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
-    core.log("Opening project %q from directory %s", pname, pdir)
+  core.window = core.window or renwindow._restore() or renwindow.create("")
+  if session.window_mode == "normal" then
+    system.set_window_size(core.window, table.unpack(session.window))
+  elseif session.window_mode == "maximized" then
+    system.set_window_mode(core.window, "maximized")
   end
 
-  -- We add the project directory now because the project's module is loaded.
-  core.add_project_directory(project_dir_abs)
 
-  -- We assume we have just a single project directory here. Now that StatusView
-  -- is there show max files warning if needed.
-  if core.project_directories[1].files_limit then
-    show_max_files_warning(core.project_directories[1])
+  do
+    local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
+    core.log_quiet("Opening project %q from directory %s", pname, pdir)
   end
 
   for _, filename in ipairs(files) do
     core.root_view:open_doc(core.open_doc(filename))
   end
 
-  if not plugins_success or got_user_error or got_project_error then
+  if not plugins_success then
     -- defer LogView to after everything is initialized,
     -- so that EmptyView won't be added after LogView.
     core.add_thread(function()
@@ -846,8 +423,6 @@ function core.init()
         if item.text == "Exit" then os.exit(1) end
       end)
   end
-
-  add_config_files_hooks()
 end
 
 
@@ -900,49 +475,44 @@ function core.temp_filename(ext, dir)
       .. string.format("%06x", temp_file_counter) .. (ext or "")
 end
 
--- override to perform an operation before quitting or entering the
--- current project
-do
-  local do_nothing = function() end
-  core.on_quit_project = do_nothing
-  core.on_enter_project = do_nothing
-end
 
-
-local function quit_with_function(quit_fn, force)
+function core.exit(quit_fn, force)
   if force then
     core.delete_temp_files()
-    core.on_quit_project()
+    while #core.projects > 0 do core.remove_project(core.projects[#core.projects], true) end
     save_session()
     quit_fn()
   else
-    core.confirm_close_docs(core.docs, quit_with_function, quit_fn, true)
+    core.confirm_close_docs(core.docs, core.exit, quit_fn, true)
   end
 end
 
+
 function core.quit(force)
-  quit_with_function(function() core.quit_request = true end, force)
+  core.exit(function() core.quit_request = true end, force)
 end
 
 
 function core.restart()
-  quit_with_function(function()
+  core.exit(function()
     core.restart_request = true
     core.window:_persist()
   end)
 end
 
 
-local mod_version_regex =
-  regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
-local function get_plugin_details(filename)
-  local info = system.get_file_info(filename)
-  if info ~= nil and info.type == "dir" then
-    filename = filename .. PATHSEP .. "init.lua"
-    info = system.get_file_info(filename)
-  end
-  if not info or not filename:match("%.lua$") then return false end
-  local f = io.open(filename, "r")
+local function require_lua_plugin(plugin)
+  return require("plugins." .. plugin.name)
+end
+
+
+local function load_lua_plugin_if_exists(plugin)
+  return system.get_file_info(plugin.file) and dofile(plugin.file)
+end
+
+
+function core.parse_plugin_details(path, file, mod_version_regex, priority_regex)
+  local f = io.open(file, "r")
   if not f then return false end
   local priority = false
   local version_match = false
@@ -950,8 +520,8 @@ local function get_plugin_details(filename)
 
   for line in f:lines() do
     if not version_match then
-      local _major, _minor, _patch = mod_version_regex:match(line)
-      if _major then
+      local status, _major, _minor, _patch = pcall(mod_version_regex.match, mod_version_regex, line)
+      if status and _major then
         _major = tonumber(_major) or 0
         _minor = tonumber(_minor) or 0
         _patch = tonumber(_patch) or 0
@@ -968,8 +538,8 @@ local function get_plugin_details(filename)
     end
 
     if not priority then
-      priority = line:match('%-%-.*%f[%a]priority%s*:%s*(%d+)')
-      if priority then priority = tonumber(priority) end
+      local status, _priority = pcall(priority_regex.match, priority_regex, line)
+      if status and _priority then priority = tonumber(_priority) end
     end
 
     if version_match then
@@ -977,11 +547,46 @@ local function get_plugin_details(filename)
     end
   end
   f:close()
-  return true, {
+  local version = major and {major, minor, patch} or {}
+  return {
+    name = common.basename(path),
+    file = file,
     version_match = version_match,
-    version = major and {major, minor, patch} or {},
-    priority = priority or 100
+    version = version,
+    priority = priority or 100,
+    version_string = major and table.concat(version, ".") or "unknown"
   }
+end
+
+
+local mod_version_regex =
+  regex.compile([[--.*mod-version:(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:$|\s)]])
+local priority_regex = regex.compile([[\-\-.*priority\s*:\s*(\-?[\d\.]+)]])
+function core.get_plugin_details(path)
+  local info = system.get_file_info(path)
+  local file = path
+  if info ~= nil and info.type == "dir" then
+    file = path .. PATHSEP .. "init.lua"
+    info = system.get_file_info(file)
+  end
+  local details = info and core.parse_plugin_details(path:gsub("%.lua$", ""), file, mod_version_regex, priority_regex)
+  if details then details.load = require_lua_plugin end
+  return details
+end
+
+
+core.plugin_list = {}
+-- Can be called from within plugins; don't insert things lower than your own priority.
+function core.add_plugins(plugins)
+  for i,v in ipairs(plugins) do table.insert(core.plugin_list, v) end
+
+  -- sort by priority or name for plugins that have same priority
+  table.sort(core.plugin_list, function(a, b)
+    if a.priority ~= b.priority then
+      return a.priority < b.priority
+    end
+    return a.name < b.name
+  end)
 end
 
 
@@ -991,77 +596,56 @@ function core.load_plugins()
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
   }
-  local files, ordered = {}, {}
+  local files, ordered = {}, {
+    { priority = -2, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
+    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
+  }
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
       if not files[filename] then
-        table.insert(
-          ordered, {file = filename}
-        )
+        local details = core.get_plugin_details(plugin_dir .. PATHSEP .. filename)
+        if details then table.insert(ordered, details) end
       end
       -- user plugins will always replace system plugins
       files[filename] = plugin_dir
     end
   end
-
-  for _, plugin in ipairs(ordered) do
-    local dir = files[plugin.file]
-    local name = plugin.file:match("(.-)%.lua$") or plugin.file
-    local is_lua_file, details = get_plugin_details(dir .. PATHSEP .. plugin.file)
-
-    plugin.valid = is_lua_file
-    plugin.name = name
-    plugin.dir = dir
-    plugin.priority = details and details.priority or 100
-    plugin.version_match = details and details.version_match or false
-    plugin.version = details and details.version or {}
-    plugin.version_string = #plugin.version > 0 and table.concat(plugin.version, ".") or "unknown"
-  end
-
-  -- sort by priority or name for plugins that have same priority
-  table.sort(ordered, function(a, b)
-    if a.priority ~= b.priority then
-      return a.priority < b.priority
-    end
-    return a.name < b.name
-  end)
+  core.add_plugins(ordered)
 
   local load_start = system.get_time()
-  for _, plugin in ipairs(ordered) do
-    if plugin.valid then
-      if not config.skip_plugins_version and not plugin.version_match then
-        core.log_quiet(
-          "Version mismatch for plugin %q[%s] from %s",
-          plugin.name,
-          plugin.version_string,
-          plugin.dir
-        )
-        local rlist = plugin.dir:find(USERDIR, 1, true) == 1
-          and 'userdir' or 'datadir'
-        local list = refused_list[rlist].plugins
-        table.insert(list, plugin)
-      elseif config.plugins[plugin.name] ~= false then
-        local start = system.get_time()
-        local ok, loaded_plugin = core.try(require, "plugins." .. plugin.name)
-        if ok then
-          local plugin_version = ""
-          if plugin.version_string ~= MOD_VERSION_STRING then
-            plugin_version = "["..plugin.version_string.."]"
-          end
-          core.log_quiet(
-            "Loaded plugin %q%s from %s in %.1fms",
-            plugin.name,
-            plugin_version,
-            plugin.dir,
-            (system.get_time() - start) * 1000
-          )
+  for i = 1, #core.plugin_list do
+    local plugin = core.plugin_list[i]
+    if not config.skip_plugins_version and not plugin.version_match then
+      core.log_quiet(
+        "Version mismatch for plugin %q[%s] from %s",
+        plugin.name,
+        plugin.version_string,
+        common.dirname(plugin.file)
+      )
+      local rlist = plugin.file:find(USERDIR, 1, true) == 1
+        and 'userdir' or 'datadir'
+      table.insert(refused_list[rlist].plugins, plugin)
+    elseif config.plugins[plugin.name] ~= false then
+      local start = system.get_time()
+      local ok, loaded_plugin = core.try(plugin.load, plugin)
+      if ok then
+        local plugin_version = ""
+        if plugin.version_string and  plugin.version_string ~= MOD_VERSION_STRING then
+          plugin_version = "["..plugin.version_string.."]"
         end
-        if not ok then
-          no_errors = false
-        elseif config.plugins[plugin.name].onload then
+        core.log_quiet(
+          "Loaded plugin %q%s from %s in %.1fms",
+          plugin.name,
+          plugin_version,
+          common.dirname(plugin.file),
+          (system.get_time() - start) * 1000
+        )
+        if config.plugins[plugin.name].onload then
           core.try(config.plugins[plugin.name].onload, loaded_plugin)
         end
+      else
+        no_errors = false
       end
     end
   end
@@ -1070,20 +654,6 @@ function core.load_plugins()
     (system.get_time() - load_start) * 1000
   )
   return no_errors, refused_list
-end
-
-
-function core.load_project_module()
-  local filename = ".lite_project.lua"
-  if system.get_file_info(filename) then
-    return core.try(function()
-      local fn, err = loadfile(filename)
-      if not fn then error("Error when loading project module:\n\t" .. err) end
-      fn()
-      core.log_quiet("Loaded project module")
-    end)
-  end
-  return true
 end
 
 
@@ -1114,7 +684,7 @@ function core.set_active_view(view)
   -- Reset the IME even if the focus didn't change
   ime.stop()
   if view ~= core.active_view then
-    system.text_input(view:supports_text_input())
+    if core.window then system.text_input(core.window, view:supports_text_input()) end
     if core.active_view and core.active_view.force_focus then
       core.next_active_view = view
       return
@@ -1166,24 +736,26 @@ function core.pop_clip_rect()
   renderer.set_clip_rect(x, y, w, h)
 end
 
-
-function core.normalize_to_project_dir(filename)
-  filename = common.normalize_path(filename)
-  if common.path_belongs_to(filename, core.project_dir) then
-    filename = common.relative_path(core.project_dir, filename)
+function core.root_project() return core.projects[1] end
+function core.project_for_path(path)
+  for i, project in ipairs(core.projects) do
+    if project.path:find(path, 1, true) then return project end
   end
-  return filename
+  return nil
 end
-
+-- Legacy interface; do not use. Use a specific project instead. When in doubt, use root_project.
+function core.normalize_to_project_dir(path) core.deprecation_log("core.normalize_to_project_dir") return core.root_project():normalize_path(path) end
+function core.project_absolute_path(path) core.deprecation_log("core.project_absolute_path") return core.root_project() and core.root_project():absolute_path(path) or system.absolute_path(path) end
 
 function core.open_doc(filename)
-  local new_file = not filename or not system.get_file_info(filename)
+  local new_file = true
   local abs_filename
   if filename then
     -- normalize filename and set absolute filename then
     -- try to find existing doc for filename
-    filename = core.normalize_to_project_dir(filename)
-    abs_filename = core.project_absolute_path(filename)
+    filename = core.root_project():normalize_path(filename)
+    abs_filename = core.root_project():absolute_path(filename)
+    new_file = not system.get_file_info(abs_filename)
     for _, doc in ipairs(core.docs) do
       if doc.abs_filename and abs_filename == doc.abs_filename then
         return doc
@@ -1321,6 +893,15 @@ function core.on_event(type, ...)
     core.window_mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
     core.root_view:on_file_dropped(...)
+  elseif type == "dialogfinished" then
+    local id, status, result = ...
+    local callback = core.active_file_dialogs[id]
+    if not callback then
+      core.error("Invalid dialog id %d", id)
+    else
+      core.active_file_dialogs[id] = nil
+      callback(status, result)
+    end
   elseif type == "focuslost" then
     core.root_view:on_focus_lost(...)
   elseif type == "quit" then
@@ -1491,6 +1072,59 @@ end
 
 function core.blink_reset()
   core.blink_start = system.get_time()
+end
+
+
+local last_file_dialog_tag = 0
+local function open_dialog(type, window, callback, options)
+  local types = {
+    ["openfile"] = system.open_file_dialog,
+    ["opendirectory"] = system.open_directory_dialog,
+    ["savefile"] = system.save_file_dialog,
+  }
+
+  local dialog_fn = types[type]
+  assert(dialog_fn, "Invalid dialog type")
+
+  last_file_dialog_tag = last_file_dialog_tag + 1
+  core.active_file_dialogs[last_file_dialog_tag] = callback
+  dialog_fn(window, last_file_dialog_tag, options)
+end
+
+---Open the system file picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.openfile
+function core.open_file_dialog(window, callback, options)
+  return open_dialog("openfile", window, callback, options)
+end
+
+---Open the system directory picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.opendirectory
+function core.open_directory_dialog(window, callback, options)
+  return open_dialog("opendirectory", window, callback, options)
+end
+
+---Open the system save file picker.
+---
+---Returns immediately.
+---The callback will be called with the result.
+---
+---@param window renwindow
+---@param callback fun(status: "accept"|"cancel"|"error"|"unknown", result: string[]|string|nil)
+---@param options? system.dialogoptions.savefile
+function core.save_file_dialog(window, callback, options)
+  return open_dialog("savefile", window, callback, options)
 end
 
 

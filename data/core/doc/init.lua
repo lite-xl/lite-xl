@@ -9,6 +9,7 @@ local common = require "core.common"
 ---@class core.doc : core.object
 local Doc = Object:extend()
 
+function Doc:__tostring() return "Doc" end
 
 local function split_lines(text)
   local res = {}
@@ -25,7 +26,7 @@ function Doc:new(filename, abs_filename, new_file)
   if filename then
     self:set_filename(filename, abs_filename)
     if not new_file then
-      self:load(filename)
+      self:load(abs_filename)
     end
   end
   if new_file then
@@ -89,7 +90,7 @@ end
 function Doc:reload()
   if self.filename then
     local sel = { self:get_selection() }
-    self:load(self.filename)
+    self:load(self.abs_filename)
     self:clean()
     self:set_selection(table.unpack(sel))
   end
@@ -109,15 +110,15 @@ function Doc:save(filename, abs_filename)
     -- On Windows, opening a hidden file with wb fails with a permission error.
     -- To get around this, we must open the file as r+b and truncate.
     -- Since r+b fails if file doesn't exist, fall back to wb.
-    fp = io.open(filename, "r+b")
+    fp = io.open(abs_filename, "r+b")
     if fp then
       system.ftruncate(fp)
     else
       -- file probably doesn't exist, create one
-      fp = assert ( io.open(filename, "wb") )
+      fp = assert (io.open(abs_filename, "wb"))
     end
   else
-    fp = assert ( io.open(filename, "wb") )
+    fp = assert (io.open(abs_filename, "wb"))
   end
 
   for _, line in ipairs(self.lines) do

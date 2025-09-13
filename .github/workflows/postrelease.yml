@@ -1,0 +1,25 @@
+name: Postrelease
+on:
+  release:
+    types: [released]
+
+jobs:
+  postrelease:
+    if: ${{ github.repository == 'lite-xl/lite-xl' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, 'rc') }}
+    runs-on: windows-latest
+    steps:
+      - name: Update winget-pkgs repository
+        env: { GH_TOKEN: "${{ secrets.WINGET_TOKEN }}" }
+        run: gh repo sync lite-xl/winget-pkgs
+
+      - name: Release to winget
+        uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: LiteXLTeam.LiteXL
+          installers-regex: '^lite-xl-v[0-9\.]+-x86_64-windows-setup\.exe$'
+          fork-user: 'lite-xl'
+          token: ${{ secrets.WINGET_TOKEN }}
+
+      - name: Update documentation link
+        env: { GH_TOKEN: "${{ secrets.DOCS_TOKEN }}" }
+        run: gh -R lite-xl/docs workflow run deploy.yml

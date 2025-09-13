@@ -1,0 +1,61 @@
+{
+  "lite-xls": [
+    {
+      "files": [
+        {
+          "arch": [
+            "x86_64-darwin",
+            "aarch64-darwin"
+          ],
+          "checksum": "SKIP",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-universal-darwin-portable.tar.gz"
+        },
+        {
+          "arch": "x86_64-linux",
+          "checksum": "SKIP",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-x86_64-linux-portable.tar.gz"
+        },
+        {
+          "arch": "x86_64-windows",
+          "checksum": "SKIP",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/continuous/lite-xl-continuous-x86_64-windows-portable.zip"
+        }
+      ],
+      "mod_version": "4",
+      "version": "3.0-continuous"
+    },
+    {
+      "files": [
+        {
+          "arch": "x86_64-linux",
+          "checksum": "430afb894801200c3fcf4123e3bb17006b369c25bc59c39bf04b4bcafeb96ee6",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/v2.1.7/lite-xl-v2.1.7-linux-x86_64-portable.tar.gz"
+        }
+      ],
+      "mod_version": "3.0.0",
+      "version": "2.1.7"
+    },
+    {
+      "files": [
+        {
+          "arch": "x86_64-linux",
+          "checksum": "13523ff6713dc839338fd306263f714d13a062a4a718a01df12f0d3fd98a187f",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/v2.1.6/lite-xl-v2.1.6-linux-x86_64-portable.tar.gz"
+        }
+      ],
+      "mod_version": "3.0.0",
+      "version": "2.1.6"
+    },
+    {
+      "files": [
+        {
+          "arch": "x86_64-linux",
+          "checksum": "ae1ad1a5fa5820a812f83e0624d1198b349f55045f3ec045e292fcefa542eab0",
+          "url": "https://github.com/lite-xl/lite-xl/releases/download/v2.1.5/lite-xl-v2.1.5-linux-x86_64-portable.tar.gz"
+        }
+      ],
+      "mod_version": "3.0.0",
+      "version": "2.1.5"
+    }
+  ]
+}

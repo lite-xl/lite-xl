@@ -7,6 +7,8 @@ local View = require "core.view"
 ---@field super core.view
 local EmptyView = View:extend()
 
+function EmptyView:__tostring() return "EmptyView" end
+
 function EmptyView:get_name()
   return "Get Started"
 end

@@ -1,4 +1,4 @@
--- mod-version:3
+-- mod-version:4
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
@@ -10,6 +10,7 @@ local ContextMenu = require "core.contextmenu"
 local RootView = require "core.rootview"
 local CommandView = require "core.commandview"
 local DocView = require "core.docview"
+local Dirwatch = require "core.dirwatch"
 
 config.plugins.treeview = common.merge({
   -- Default treeview width
@@ -17,7 +18,10 @@ config.plugins.treeview = common.merge({
   highlight_focused_file = true,
   expand_dirs_to_focused_file = false,
   scroll_to_focused_file = false,
-  animate_scroll_to_focused_file = true
+  animate_scroll_to_focused_file = true,
+  show_hidden = false,
+  show_ignored = true,
+  visible = true
 }, config.plugins.treeview)
 
 local tooltip_offset = style.font:get_height()
@@ -28,12 +32,14 @@ local tooltip_alpha_rate = 1
 
 
 local function get_depth(filename)
+  if filename == "" then return 0 end
   local n = 1
   for _ in filename:gmatch(PATHSEP) do
     n = n + 1
   end
   return n
 end
+
 
 local function replace_alpha(color, alpha)
   local r, g, b = table.unpack(color)
@@ -43,18 +49,24 @@ end
 
 local TreeView = View:extend()
 
+function TreeView:__tostring() return "TreeView" end
+
 function TreeView:new()
   TreeView.super.new(self)
   self.scrollable = true
-  self.visible = true
+  self.visible = config.plugins.treeview.visible
   self.init_size = true
   self.target_size = config.plugins.treeview.size
+  self.show_hidden = config.plugins.treeview.show_hidden
+  self.show_ignored = config.plugins.treeview.show_ignored
   self.cache = {}
+  self.expanded = {}
   self.tooltip = { x = 0, y = 0, begin = 0, alpha = 0 }
   self.last_scroll_y = 0
 
   self.item_icon_width = 0
   self.item_text_spacing = 0
+  self.watches = { }
 end
 
 
@@ -66,34 +78,57 @@ function TreeView:set_target_size(axis, value)
 end
 
 
-function TreeView:get_cached(dir, item, dirname)
-  local dir_cache = self.cache[dirname]
-  if not dir_cache then
-    dir_cache = {}
-    self.cache[dirname] = dir_cache
-  end
-  -- to discriminate top directories from regular files or subdirectories
-  -- we add ':' at the end of the top directories' filename. it will be
-  -- used only to identify the entry into the cache.
-  local cache_name = item.filename .. (item.topdir and ":" or "")
-  local t = dir_cache[cache_name]
-  if not t or t.type ~= item.type then
-    t = {}
-    local basename = common.basename(item.filename)
-    if item.topdir then
-      t.filename = basename
-      t.expanded = true
-      t.depth = 0
-      t.abs_filename = dirname
+
+function TreeView:get_cached(project, path)
+  local t = self.cache[path]
+  if not t then
+    if not self.watches[project] then self.watches[project] = Dirwatch.new() end
+    local truncated = path:sub(#project.path + 2)
+    local basename = common.basename(path)
+    local info
+    if self.show_ignored then
+      info = system.get_file_info(path)
     else
-      t.filename = item.filename
-      t.depth = get_depth(item.filename)
-      t.abs_filename = dirname .. PATHSEP .. item.filename
+      info = project:get_file_info(path)
     end
-    t.name = basename
-    t.type = item.type
-    t.dir_name = dir.name -- points to top level "dir" item
-    dir_cache[cache_name] = t
+    if not info then return nil end
+    t = {
+      filename = basename,
+      depth = get_depth(truncated),
+      abs_filename = path,
+      project = project,
+      name = basename,
+      type = info.type,
+      project = project,
+      ignored = self.show_ignored and project:is_ignored(info, path)
+    }
+    if self.expanded[path] ~= nil then 
+      t.expanded = self.expanded[path]
+    else 
+      t.expanded = (info.type == "dir" and #truncated <= 1) 
+    end
+    if t.expanded then self.watches[project]:watch(path) end
+    self.cache[path] = t
+  end
+  if t.expanded and t.type == "dir" and not t.files then
+    t.files = {}
+    for i, file in ipairs(system.list_dir(path)) do
+      local l = path .. PATHSEP .. file
+      local f
+      if self.show_ignored then
+        f = system.get_file_info(l)
+      else
+        f = project:get_file_info(l)
+      end
+      if f and f.type then
+        f.name = file
+        f.abs_filename = l
+        f.ignored = self.show_ignored and project:is_ignored(f, l)
+        table.insert(t.files, f)
+      end
+      self.cache[l] = nil
+    end
+    table.sort(t.files, function(a, b) return system.path_compare(a.name, a.type, b.name, b.type) end)
   end
   return t
 end
@@ -109,66 +144,29 @@ function TreeView:get_item_height()
 end
 
 
-function TreeView:invalidate_cache(dirname)
-  for _, v in pairs(self.cache[dirname]) do
-    v.skip = nil
-  end
-end
-
-
-function TreeView:check_cache()
-  for i = 1, #core.project_directories do
-    local dir = core.project_directories[i]
-    -- invalidate cache's skip values if directory is declared dirty
-    if dir.is_dirty and self.cache[dir.name] then
-      self:invalidate_cache(dir.name)
+function TreeView:get_items(project, path, x, y, w, h)
+  local dir = self:get_cached(project, path)
+  coroutine.yield(dir, x, y, w, h)
+  local count_lines = 1
+  if dir and dir.files and dir.expanded then
+    for i, file in ipairs(dir.files) do
+      if self.show_hidden or not file.name:find("^%.") then
+        count_lines = count_lines + self:get_items(project, path .. PATHSEP .. file.name, x, y + count_lines * h, w, h)
+      end
     end
-    dir.is_dirty = false
   end
+  return count_lines
 end
 
 
 function TreeView:each_item()
   return coroutine.wrap(function()
-    self:check_cache()
     local count_lines = 0
     local ox, oy = self:get_content_offset()
-    local y = oy + style.padding.y
-    local w = self.size.x
     local h = self:get_item_height()
-
-    for k = 1, #core.project_directories do
-      local dir = core.project_directories[k]
-      local dir_cached = self:get_cached(dir, dir.item, dir.name)
-      coroutine.yield(dir_cached, ox, y, w, h)
-      count_lines = count_lines + 1
-      y = y + h
-      local i = 1
-      if dir.files then -- if consumed max sys file descriptors this can be nil
-        while i <= #dir.files and dir_cached.expanded do
-          local item = dir.files[i]
-          local cached = self:get_cached(dir, item, dir.name)
-
-          coroutine.yield(cached, ox, y, w, h)
-          count_lines = count_lines + 1
-          y = y + h
-          i = i + 1
-
-          if not cached.expanded then
-            if cached.skip then
-              i = cached.skip
-            else
-              local depth = cached.depth
-              while i <= #dir.files do
-                if get_depth(dir.files[i].filename) <= depth then break end
-                i = i + 1
-              end
-              cached.skip = i
-            end
-          end
-        end -- while files
-      end
-    end -- for directories
+    for k, project in ipairs(core.projects) do
+      count_lines = count_lines + self:get_items(project, project.path, ox, oy + style.padding.y + h * count_lines, self.size.x, h)
+    end
     self.count_lines = count_lines
   end)
 end
@@ -372,6 +370,8 @@ function TreeView:get_item_icon(item, active, hovered)
   local color = style.text
   if active or hovered then
     color = style.accent
+  elseif item.ignored then
+    color = style.dim
   end
   return character, font, color
 end
@@ -382,6 +382,8 @@ function TreeView:get_item_text(item, active, hovered)
   local color = style.text
   if active or hovered then
     color = style.accent
+  elseif item.ignored then
+    color = style.dim
   end
   return text, font, color
 end
@@ -513,18 +515,16 @@ function TreeView:toggle_expand(toggle, item)
     else
       item.expanded = not item.expanded
     end
-    local hovered_dir = core.project_dir_by_name(item.dir_name)
-    if hovered_dir and hovered_dir.files_limit then
-      core.update_project_subdir(hovered_dir, item.depth == 0 and "" or item.filename, item.expanded)
+    self.expanded[item.abs_filename] = item.expanded
+    if self.watches[item.project] then
+      self.watches[item.project]:watch(item.abs_filename, item.expanded)
     end
   end
 end
 
-
 function TreeView:open_doc(filename)
   core.root_view:open_doc(core.open_doc(filename))
 end
-
 
 -- init
 local view = TreeView()
@@ -550,6 +550,26 @@ if config.plugins.toolbarview ~= false and toolbar_plugin then
     end,
   })
 end
+
+
+local old_remove_project = core.remove_project
+function core.remove_project(project, force)
+  local project = old_remove_project(project, force)
+  view.cache = {}
+  view.watches[project] = nil
+end
+
+core.add_thread(function()
+  while true do
+    for k,v in pairs(view.watches) do
+      v:check(function(directory)
+        view.cache[directory] = nil
+      end)
+    end
+    coroutine.yield(0.01)
+  end
+end)
+
 
 -- Add a context menu to the treeview
 local menu = ContextMenu()
@@ -590,17 +610,12 @@ function core.on_quit_project()
   on_quit_project()
 end
 
-local function is_project_folder(path)
-  for _,dir in pairs(core.project_directories) do
-    if dir.name == path then
-      return true
-    end
-  end
-  return false
+local function is_project_folder(item)
+  return item.abs_filename == item.project.path
 end
 
 local function is_primary_project_folder(path)
-  return core.project_dir == path
+  return core.root_project().path == path
 end
 
 
@@ -615,7 +630,7 @@ menu:register(function() return core.active_view:is(TreeView) and treeitem() end
 menu:register(
   function()
     local item = treeitem()
-    return core.active_view:is(TreeView) and item and not is_project_folder(item.abs_filename)
+    return core.active_view:is(TreeView) and item and not is_project_folder(item)
   end,
   {
     { text = "Rename", command = "treeview:rename" },
@@ -639,7 +654,7 @@ menu:register(
     local item = treeitem()
     return core.active_view:is(TreeView) and item
       and not is_primary_project_folder(item.abs_filename)
-      and is_project_folder(item.abs_filename)
+      and is_project_folder(item)
   end,
   {
     { text = "Remove directory", command = "treeview:remove-project-directory" },
@@ -652,6 +667,16 @@ local previous_view = nil
 command.add(nil, {
   ["treeview:toggle"] = function()
     view.visible = not view.visible
+  end,
+
+  ["treeview:toggle-hidden"] = function()
+    view.show_hidden = not view.show_hidden
+    view.cache = {}
+  end,
+
+  ["treeview:toggle-ignored"] = function()
+    view.show_ignored = not view.show_ignored
+    view.cache = {}
   end,
 
   ["treeview:toggle-focus"] = function()
@@ -781,9 +806,9 @@ command.add(
   ["treeview:delete"] = function(item)
     local filename = item.abs_filename
     local relfilename = item.filename
-    if item.dir_name ~= core.project_dir then
+    if item.project ~= core.root_project() then
       -- add secondary project dirs names to the file path to show
-      relfilename = common.basename(item.dir_name) .. PATHSEP .. relfilename
+      relfilename = common.basename(item.abs_filename) .. PATHSEP .. relfilename
     end
     local file_info = system.get_file_info(filename)
     local file_type = file_info.type == "dir" and "Directory" or "File"
@@ -821,15 +846,12 @@ command.add(
   end,
 
   ["treeview:rename"] = function(item)
-    local old_filename = item.filename
+    local old_filename = core.normalize_to_project_dir(item.abs_filename)
     local old_abs_filename = item.abs_filename
     core.command_view:enter("Rename", {
       text = old_filename,
       submit = function(filename)
-        local abs_filename = filename
-        if not common.is_absolute_path(filename) then
-          abs_filename = item.dir_name .. PATHSEP .. filename
-        end
+        local abs_filename = item.project:absolute_path(filename)
         local res, err = os.rename(old_abs_filename, abs_filename)
         if res then -- successfully renamed
           for _, doc in ipairs(core.docs) do
@@ -845,14 +867,14 @@ command.add(
         end
       end,
       suggest = function(text)
-        return common.path_suggest(text, item.dir_name)
+        return common.path_suggest(text, item.project and item.project.path)
       end
     })
   end,
 
   ["treeview:new-file"] = function(item)
     local text
-    if not is_project_folder(item.abs_filename) then
+    if not is_project_folder(item) then
       if item.type == "dir" then
         text = item.filename .. PATHSEP
       elseif item.type == "file" then
@@ -861,10 +883,9 @@ command.add(
       end
     end
     core.command_view:enter("Filename", {
-      text = text,
+      text = not is_project_folder(item) and item.filename .. PATHSEP or "",
       submit = function(filename)
-        local doc_filename = item.dir_name .. PATHSEP .. filename
-        core.log(doc_filename)
+        local doc_filename = item.project:absolute_path(filename)
         local file = io.open(doc_filename, "a+")
         file:write("")
         file:close()
@@ -872,14 +893,14 @@ command.add(
         core.log("Created %s", doc_filename)
       end,
       suggest = function(text)
-        return common.path_suggest(text, item.dir_name)
+        return common.path_suggest(text, item.project and item.project.path)
       end
     })
   end,
 
   ["treeview:new-folder"] = function(item)
     local text
-    if not is_project_folder(item.abs_filename) then
+    if not is_project_folder(item) then
       if item.type == "dir" then
         text = item.filename .. PATHSEP
       elseif item.type == "file" then
@@ -888,14 +909,14 @@ command.add(
       end
     end
     core.command_view:enter("Folder Name", {
-      text = text,
+      text = not is_project_folder(item) and item.filename .. PATHSEP or "",
       submit = function(filename)
-        local dir_path = item.dir_name .. PATHSEP .. filename
+        local dir_path = item.project:absolute_path(filename)
         common.mkdirp(dir_path)
         core.log("Created %s", dir_path)
       end,
       suggest = function(text)
-        return common.path_suggest(text, item.dir_name)
+        return common.path_suggest(text, item.project and item.project.path)
       end
     })
   end,
@@ -931,11 +952,11 @@ end
 command.add(function()
     local item = treeitem()
     return item
-           and not is_primary_project_folder(item.abs_filename)
-           and is_project_folder(item.abs_filename), item
+      and not is_primary_project_folder(item.abs_filename)
+      and is_project_folder(item), item
   end, {
   ["treeview:remove-project-directory"] = function(item)
-    core.remove_project_directory(item.dir_name)
+    core.remove_project(item.project)
   end,
 })
 
@@ -961,6 +982,8 @@ command.add(
 
 keymap.add {
   ["ctrl+\\"]     = "treeview:toggle",
+  ["ctrl+h"]      = "treeview:toggle-hidden",
+  ["ctrl+i"]      = "treeview:toggle-ignored",
   ["up"]          = "treeview:previous",
   ["down"]        = "treeview:next",
   ["left"]        = "treeview:collapse",
