@@ -116,8 +116,9 @@ static SDL_HitTestResult SDLCALL hit_test(SDL_Window *window, const SDL_Point *p
 }
 
 static const char *numpad[] = { "end", "down", "pagedown", "left", "", "right", "home", "up", "pageup", "ins", "delete" };
+enum e_key_behavior { BEHAVIOR_DEFAULT, BEHAVIOR_KEYCODE, BEHAVIOR_SCANCODE };
 
-static const char *get_key_name(const SDL_Event *e, char *buf) {
+static const char *get_key_name(const SDL_Event *e, char *buf, enum e_key_behavior behavior) {
   SDL_Scancode scancode = e->key.scancode;
   /* Is the scancode from the keypad and the number-lock off?
   ** We assume that SDL_SCANCODE_KP_1 up to SDL_SCANCODE_KP_9 and SDL_SCANCODE_KP_0
@@ -136,7 +137,7 @@ static const char *get_key_name(const SDL_Event *e, char *buf) {
        and others, are masked with SDLK_SCANCODE_MASK, which moves them outside
        the unicode range (>0x10FFFF). Users can remap these buttons, so we need
        to return the correct name, not scancode based. */
-    if ((e->key.key < 128) || (e->key.key & SDLK_SCANCODE_MASK))
+    if (behavior == BEHAVIOR_KEYCODE || (behavior != BEHAVIOR_SCANCODE && ((e->key.key < 128) || (e->key.key & SDLK_SCANCODE_MASK))))
       strcpy(buf, SDL_GetKeyName(e->key.key));
     else
       strcpy(buf, SDL_GetScancodeName(scancode));
@@ -253,8 +254,10 @@ top:
       }
 #endif
       lua_pushstring(L, "keypressed");
-      lua_pushstring(L, get_key_name(&e, buf));
-      return 2;
+      lua_pushstring(L, get_key_name(&e, buf, BEHAVIOR_DEFAULT));
+      lua_pushstring(L, get_key_name(&e, buf, BEHAVIOR_KEYCODE));
+      lua_pushstring(L, get_key_name(&e, buf, BEHAVIOR_SCANCODE));
+      return 4;
 
     case SDL_EVENT_KEY_UP:
 #ifdef __APPLE__
@@ -267,8 +270,10 @@ top:
       }
 #endif
       lua_pushstring(L, "keyreleased");
-      lua_pushstring(L, get_key_name(&e, buf));
-      return 2;
+      lua_pushstring(L, get_key_name(&e, buf, BEHAVIOR_DEFAULT));
+      lua_pushstring(L, get_key_name(&e, buf, BEHAVIOR_KEYCODE));
+      lua_pushstring(L, get_key_name(&e, buf, BEHAVIOR_SCANCODE));
+      return 4;
 
     case SDL_EVENT_TEXT_INPUT:
       lua_pushstring(L, "textinput");
