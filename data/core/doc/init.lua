@@ -84,7 +84,6 @@ end
 
 function Doc:reload()
   if self.filename then
-    local sel = { self:get_selection() }
     self:load(self.abs_filename)
     self:clean()
   end
