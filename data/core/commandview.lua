@@ -235,6 +235,8 @@ function CommandView:enter(label, ...)
   if options.text or options.select_text then
     local text = options.text or old_text
     self:set_text(text, self.state.select_text)
+  else
+    self:sanitize_selection()
   end
   -- Replace with a simple
   -- self:set_text(self.state.text, self.state.select_text)
