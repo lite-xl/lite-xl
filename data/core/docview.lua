@@ -1338,8 +1338,8 @@ function DocView:accumulate_tokens(tokens, func, options)
           table.insert(t, "doc")
           table.insert(t, doc_line)
           table.insert(t, offset + col_start - 1)
-          table.insert(t, offset + col_start + #part_text - 2)
-          offset = offset + #part_text
+          table.insert(t, offset + col_start + (part_text:ulen() or #part_text) - 2)
+          offset = offset + (part_text:ulen() or #part_text)
         else
           table.insert(t, "virtual")
           table.insert(t, doc_line)
