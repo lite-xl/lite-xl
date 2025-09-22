@@ -1,3 +1,4 @@
+#include <math.h>
 #include "api.h"
 #include "../renwindow.h"
 #include "lua.h"
@@ -67,23 +68,25 @@ static int f_renwin_set_title(lua_State *L) {
   return 0;
 }
 
+// Sets the window size in physical pixels on the screen. 
+// What this functions takes must match the output of f_renwin_get_size().
 static int f_renwin_set_size(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  double w = luaL_checknumber(L, 2);
-  double h = luaL_checknumber(L, 3);
+  float scale = SDL_GetWindowDisplayScale(window_renderer->window);
+  double h = round(luaL_checknumber(L, 3) / scale);
+  double w = round(luaL_checknumber(L, 2) / scale);
   SDL_SetWindowSize(window_renderer->window, w, h);
   ren_resize_window(window_renderer);
   return 0;
 }
 
+// Returns the window size in physical pixels on the screen (as opposed to scaled pixels
+// on retina-like displays)
 static int f_renwin_get_size(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   int x, y, w, h;
-  SDL_GetWindowSize(window_renderer->window, &w, &h);
+  SDL_GetWindowSizeInPixels(window_renderer->window, &w, &h);
   SDL_GetWindowPosition(window_renderer->window, &x, &y);
-  float scale = SDL_GetWindowDisplayScale(window_renderer->window);
-  w *= scale;
-  h *= scale;
   lua_pushinteger(L, w);
   lua_pushinteger(L, h);
   return 2;
