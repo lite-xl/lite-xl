@@ -347,7 +347,7 @@ void rencache_end_frame(RenWindow *window_renderer) {
           ren_set_clip_rect(window_renderer, intersect_rects(ccmd->rect, r));
           break;
         case DRAW_RECT:
-          ren_draw_rect(&rs, rcmd->rect, rcmd->color);
+          ren_draw_rect(&rs, rcmd->rect, rcmd->color, false);
           break;
         case DRAW_TEXT:
           ren_font_group_set_tab_size(tcmd->fonts, tcmd->tab_size);
@@ -360,7 +360,7 @@ void rencache_end_frame(RenWindow *window_renderer) {
 
     if (show_debug) {
       RenColor color = { rand(), rand(), rand(), 50 };
-      ren_draw_rect(&rs, r, color);
+      ren_draw_rect(&rs, r, color, false);
     }
   }
 

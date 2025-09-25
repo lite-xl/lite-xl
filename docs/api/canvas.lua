@@ -90,7 +90,8 @@ function renderer.set_clip_rect(x, y, width, height) end
 ---@param width integer
 ---@param height integer
 ---@param color renderer.color
-function renderer.draw_rect(x, y, width, height, color) end
+---@param replace boolean Overwrite the content with the specified color. Useful when dealing with alpha.
+function renderer.draw_rect(x, y, width, height, color, replace) end
 
 ---
 ---Draw text and return the x coordinate where the text finished drawing.

@@ -212,6 +212,7 @@ static int f_draw_rect(lua_State *L) {
   lua_Number w = luaL_checkinteger(L, 4);
   lua_Number h = luaL_checkinteger(L, 5);
   RenColor color = luaXL_checkcolor(L, 6, 255);
+  bool replace = luaXL_optboolean(L, 7, false);
 
   lua_getiuservalue(L, 1, USERDATA_CANVAS_REF);
   RenCanvasRef *ref = lua_touserdata(L, -1);
@@ -222,7 +223,7 @@ static int f_draw_rect(lua_State *L) {
     .surface = ref->surface
   };
   RenRect rect = { .x = x, .y = y, .width = w, .height = h };
-  ren_draw_rect(&rs, rect, color);
+  ren_draw_rect(&rs, rect, color, replace);
   canvas->version++;
 
   return 0;
@@ -254,6 +255,7 @@ static int f_draw_text(lua_State *L) {
 
   return 1;
 }
+
 
 static int f_draw_canvas(lua_State *L) {
   RenCanvas *canvas_dst = luaL_checkudata(L, 1, API_TYPE_CANVAS);

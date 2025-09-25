@@ -54,7 +54,7 @@ void ren_font_group_set_tab_size(RenFont **font, int n);
 double ren_font_group_get_width(RenFont **font, const char *text, size_t len, RenTab tab, int *x_offset);
 double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color, RenTab tab);
 
-void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
+void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color, bool replace);
 
 void ren_draw_canvas(RenSurface *rs, SDL_Surface *surface, int x, int y);
 
