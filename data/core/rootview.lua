@@ -97,7 +97,7 @@ function RootView:get_active_node_default()
   if node.locked then
     local default_view = self:get_primary_node().views[1]
     assert(default_view, "internal error: cannot find original document node.")
-    self.window:set_active_view(default_view)
+    self:set_active_view(default_view)
     node = self:get_active_node()
   end
   return node

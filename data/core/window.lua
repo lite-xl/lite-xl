@@ -31,7 +31,7 @@ function Window:has_focus()
 end
 
 function Window:compose_window_title(title)
-  return (title == "" or title == nil) and "Lite XL" or title .. " - Lite XL"
+  return (title == "" or title == nil) and "Lite XL" or (title .. " - Lite XL")
 end
 
 function Window:show_title_bar(show)
@@ -77,7 +77,7 @@ function Window:step()
   -- update window title
   local current_title = get_title_filename(self.root_view.active_view)
   if current_title ~= nil and current_title ~= self.title then
-    self.renwindow:set_title(self.compose_window_title(current_title))
+    self.renwindow:set_title(self:compose_window_title(current_title))
     self.title = current_title
   end
   -- draw
