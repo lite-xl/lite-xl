@@ -139,7 +139,7 @@ bool push_custom_event(const char *name, CustomEvent *event) {
 CustomEventCallback get_custom_event_callback_by_name(const char *name) {
   if (name == NULL || name[0] == '\0' || name[0] == TYPENAME_MARKER) {
     SDL_SetError("Invalid event name");
-    return false;
+    return NULL;
   }
 
   CustomEventData *ce = SDL_GetPointerProperty(custom_events_property, name, NULL);
