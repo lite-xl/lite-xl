@@ -19,8 +19,8 @@ static void init_window_icon(SDL_Window *window) {
 
 static int f_renwin_create(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
-  float width = luaL_optnumber(L, 4, 0);
-  float height = luaL_optnumber(L, 5, 0);
+  float width = luaL_optnumber(L, 2, 0);
+  float height = luaL_optnumber(L, 3, 0);
 
   if (video_init() != 0)
     return luaL_error(L, "Error creating lite-xl window: %s", SDL_GetError());
