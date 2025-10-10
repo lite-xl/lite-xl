@@ -290,9 +290,9 @@ function StatusView:register_docview_items()
     end,
     command = function(button, x, y)
       if button == "left" then
-        command.perform "indent:set-file-indent-size"
+        self:perform("indent:set-file-indent-size")
       elseif button == "right" then
-        command.perform "indent:set-file-indent-type"
+        self:perform("indent:set-file-indent-type")
       end
     end,
     separator = self.separator2
@@ -1019,7 +1019,7 @@ function StatusView:on_mouse_pressed(button, x, y, clicks)
     and
     not self.root_view.active_view:is(LogView)
   then
-    command.perform "core:open-log"
+    self:perform("core:open-log")
   else
     if y >= self.position.y and button == "left" and clicks == 1 then
       self.position.dx = x
@@ -1105,7 +1105,7 @@ function StatusView:on_mouse_released(button, x, y)
 
   if x > item_x and (item_x + item_w) > x then
     if item.command then
-      command.perform(item.command)
+      self:perform(item.command)
     elseif item.on_click then
       item.on_click(button, x, y)
     end

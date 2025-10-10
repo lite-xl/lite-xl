@@ -345,4 +345,8 @@ end
 function View:on_context_menu(x, y)
 end
 
+function View:perform(...)
+  return self.root_view:perform(...)
+end
+
 return View

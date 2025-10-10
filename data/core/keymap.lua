@@ -223,7 +223,7 @@ function keymap.on_key_pressed(window, k, options)
             performed = true
           end
         else
-          performed = command.perform(cmd, window.root_view, options or {})
+          performed = window.root_view:perform(cmd, options)
         end
         if performed then break end
       end

@@ -159,23 +159,23 @@ end,
 command.add(function(root_view)
     local node = root_view.root_node:get_child_overlapping_point(root_view.mouse.x, root_view.mouse.y)
     if not node then return false end
-    return (node.hovered_tab or node.hovered_scroll_button > 0) and true, node
+    return (node.hovered_tab or node.hovered_scroll_button > 0), root_view
   end,
   {
-    ["root:switch-to-hovered-previous-tab"] = function(node)
-      command.perform("root:switch-to-previous-tab", node)
+    ["root:switch-to-hovered-previous-tab"] = function(root_view)
+      root_view:perform("root:switch-to-previous-tab")
     end,
 
-    ["root:switch-to-hovered-next-tab"] = function(node)
-      command.perform("root:switch-to-next-tab", node)
+    ["root:switch-to-hovered-next-tab"] = function(root_view)
+      root_view:perform("root:switch-to-next-tab")
     end,
 
-    ["root:scroll-hovered-tabs-backward"] = function(node)
-      command.perform("root:scroll-tabs-backward", node)
+    ["root:scroll-hovered-tabs-backward"] = function(root_view)
+      root_view:perform("root:scroll-tabs-backward")
     end,
 
-    ["root:scroll-hovered-tabs-forward"] = function(node)
-      command.perform("root:scroll-tabs-forward", node)
+    ["root:scroll-hovered-tabs-forward"] = function(root_view)
+      root_view:perform("root:scroll-tabs-forward")
     end
   }
 )
@@ -187,11 +187,11 @@ command.add(function(root_view, options)
   return node and node:is_in_tab_area(x, y), root_view
 end, {
   ["tabbar:new-doc"] = function(root_view)
-    command.perform("core:new-doc", root_view)
+    root_view:perform("core:new-doc", root_view)
   end
 })
 command.add("core.emptyview", {
   ["emptyview:new-doc"] = function(empty_view)
-    command.perform("core:new-doc", empty_view.root_view)
+    empty_view:perform("core:new-doc")
   end
 })

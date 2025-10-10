@@ -70,7 +70,7 @@ command.add(nil, {
     root_view.command_view:enter("Do Command", {
       submit = function(text, item)
         if item then
-          command.perform(item.command, root_view)
+          root_view:perform(item.command)
         end
       end,
       suggest = function(text)

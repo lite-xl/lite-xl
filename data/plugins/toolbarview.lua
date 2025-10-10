@@ -96,7 +96,7 @@ function ToolbarView:on_mouse_pressed(button, x, y, clicks)
   if caught then return caught end
   self.root_view:set_active_view(self.root_view.last_active_view)
   if self.hovered_item and command.is_valid(self.hovered_item.command) then
-    command.perform(self.hovered_item.command)
+    self.root_view:perform(self.hovered_item.command)
   end
   return true
 end

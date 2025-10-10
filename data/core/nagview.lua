@@ -158,7 +158,7 @@ function NagView:on_mouse_pressed(button, mx, my, clicks)
   for i, _, x,y,w,h in self:each_option() do
     if mx >= x and my >= y and mx < x + w and my < y + h then
       self:change_hovered(i)
-      command.perform("dialog:select", self.root_view)
+      self.root_view:perform("dialog:select")
     end
   end
   return true
@@ -167,9 +167,9 @@ end
 function NagView:on_text_input(text)
   if not self.visible then return end
   if text:lower() == "y" then
-    command.perform "dialog:select-yes"
+    self.root_view:perform "dialog:select-yes"
   elseif text:lower() == "n" then
-    command.perform "dialog:select-no"
+    self.root_view:perform "dialog:select-no"
   end
 end
 

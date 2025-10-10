@@ -50,7 +50,7 @@ local function save(filename)
       if item.text == "Yes" then
         core.add_thread(function()
           -- we need to run this in a thread because of the odd way the nagview is.
-          command.perform("doc:save-as", core.active_window().root_view)
+          core.active_window().root_view:perform("doc:save-as")
         end)
       end
     end)
@@ -126,7 +126,7 @@ local function set_cursor(dv, x, y, snap_type)
   local line, col = dv:resolve_screen_position(x, y)
   dv.doc:set_selection(line, col, line, col)
   if snap_type == "word" or snap_type == "lines" then
-    command.perform("doc:select-" .. snap_type)
+    dv:perform("doc:select-" .. snap_type)
   end
   dv.mouse_selecting = { line, col, snap_type }
   core.blink_reset()
@@ -489,7 +489,7 @@ local commands = {
       local comment = current_syntax.block_comment
       if not comment then
         if dv.doc.syntax.comment then
-          command.perform "doc:toggle-line-comments"
+          dv:perform("doc:toggle-line-comments")
         end
         return
       end
@@ -598,7 +598,7 @@ local commands = {
     if dv.doc.filename then
       save()
     else
-      command.perform("doc:save-as")
+      dv:perform("doc:save-as")
     end
   end,
 

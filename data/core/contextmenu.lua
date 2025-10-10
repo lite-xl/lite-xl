@@ -174,7 +174,7 @@ end
 ---@param item core.contextmenu.item
 function ContextMenu:on_selected(item)
   if type(item.command) == "string" then
-    command.perform(item.command, self.root_view, table.unpack(self.items.arguments))
+    self.root_view:perform(item.command, table.unpack(self.items.arguments))
   else
     item.command(self.root_view, table.unpack(self.items.arguments))
   end

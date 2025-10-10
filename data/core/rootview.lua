@@ -1,6 +1,7 @@
 local core = require "core"
 local common = require "core.common"
 local style = require "core.style"
+local command = require "core.command"
 local Node = require "core.node"
 local View = require "core.view"
 local ime = require "core.ime"
@@ -694,6 +695,10 @@ function RootView:draw()
     system.set_cursor(core.cursor_change_req)
     core.cursor_change_req = nil
   end
+end
+
+function RootView:perform(cmd, options, ...)
+  return command.perform(cmd, self, options or {}, ...)
 end
 
 return RootView

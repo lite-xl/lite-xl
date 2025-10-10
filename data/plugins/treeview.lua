@@ -700,7 +700,7 @@ command.add(TreeView, {
   ["treeview:select-and-open"] = function(view)
     if view.hovered_item then
       view:set_selection(view.hovered_item)
-      command.perform("treeview:open", view.root_view)
+      view:perform("treeview:open")
     end
   end,
 
@@ -875,7 +875,7 @@ if projectsearch then
     return view.hovered_item and view.hovered_item.type == "dir", view, view.hovered_item
   end, {
     ["treeview:search-in-directory"] = function(view, item)
-      command.perform("project-search:find", view.hovered_item.abs_filename)
+      view:perform("project-search:find", view.hovered_item.abs_filename)
     end
   })
 end
