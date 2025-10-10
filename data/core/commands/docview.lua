@@ -488,7 +488,7 @@ end, {
     local line, col = dv:resolve_screen_position(x, y)
     local removal_target = nil
     for idx, line1, col1 in dv:get_selections(true) do
-      if line1 == line and col1 == col and #doc().selections > 4 then
+      if line1 == line and col1 == col and #dv.selections > 4 then
         removal_target = idx
       end
     end
