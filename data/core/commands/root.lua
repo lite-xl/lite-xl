@@ -102,7 +102,9 @@ command.add(function(root_view)
   return not sx and not sy, node
 end, t)
 
-command.add(nil, {
+command.add(function(root_view, options) 
+  return options.delta, root_view, options.delta
+end, {
   ["root:scroll"] = function(root_view, delta)
     local view = root_view.overlapping_view or root_view.active_view
     if view and view.scrollable then
@@ -121,13 +123,14 @@ command.add(nil, {
   end
 })
 
-command.add(function(root_view, node)
-    if not Node:is_extended_by(node) then node = nil end
-    -- No node was specified, use the active one
-    node = node or root_view:get_active_node()
-    if not node then return false end
-    return true, node
-  end,
+command.add(function(root_view, options)
+  local node = options.node
+  if not Node:is_extended_by(node) then node = nil end
+  -- No node was specified, use the active one
+  node = node or root_view:get_active_node()
+  if not node then return false end
+  return true, node
+end,
   {
     ["root:switch-to-previous-tab"] = function(node)
       local idx = node:get_view_idx(node.active_view)
@@ -178,7 +181,8 @@ command.add(function(root_view)
 )
 
 -- double clicking the tab bar, or on the emptyview should open a new doc
-command.add(function(root_view, x, y)
+command.add(function(root_view, options)
+  local x, y = options.x, options.y
   local node = x and y and root_view.root_node:get_child_overlapping_point(x, y)
   return node and node:is_in_tab_area(x, y), root_view
 end, {

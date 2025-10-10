@@ -84,7 +84,7 @@ end
 function ContextMenu:show(x, y, items, ...)
   local items_list = { width = 0, height = 0, arguments = { ... } }
   for _, item in ipairs(items) do
-    if item and (not item.command or command.is_valid(item.command, ...)) then
+    if item and (not item.command or command.is_valid(item.command, self.root_view, ...)) then
       table.insert(items_list, item)
     end
   end
@@ -100,7 +100,7 @@ function ContextMenu:show(x, y, items, ...)
 
     self.position.x, self.position.y = x, y
     self.visible = true
-    self.root_view.window:set_active_view(self)
+    self.root_view:set_active_view(self)
     core.request_cursor("arrow")
     return true
   end
@@ -174,9 +174,9 @@ end
 ---@param item core.contextmenu.item
 function ContextMenu:on_selected(item)
   if type(item.command) == "string" then
-    command.perform(item.command, table.unpack(self.items.arguments))
+    command.perform(item.command, self.root_view, table.unpack(self.items.arguments))
   else
-    item.command(table.unpack(self.items.arguments))
+    item.command(self.root_view, table.unpack(self.items.arguments))
   end
 end
 

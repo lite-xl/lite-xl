@@ -117,7 +117,7 @@ function command.get_all_valid(root_view)
   local memoized_predicates = {}
   for name, cmd in pairs(command.map) do
     if memoized_predicates[cmd.predicate] == nil then
-      memoized_predicates[cmd.predicate] = cmd.predicate(root_view or core.active_window().root_view)
+      memoized_predicates[cmd.predicate] = cmd.predicate(root_view or core.active_window().root_view, {})
     end
     if memoized_predicates[cmd.predicate] then
       table.insert(res, name)

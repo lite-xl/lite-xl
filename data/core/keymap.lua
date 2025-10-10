@@ -202,7 +202,7 @@ end
 --------------------------------------------------------------------------------
 -- Events listening
 --------------------------------------------------------------------------------
-function keymap.on_key_pressed(window, k, ...)
+function keymap.on_key_pressed(window, k, options)
   local mk = modkey_map[k]
   if mk then
     keymap.modkeys[mk] = true
@@ -216,14 +216,14 @@ function keymap.on_key_pressed(window, k, ...)
     if commands then
       for _, cmd in ipairs(commands) do
         if type(cmd) == "function" then
-          local ok, res = core.try(cmd, ...)
+          local ok, res = core.try(cmd, window.root_view, options or {})
           if ok then
             performed = not (res == false)
           else
             performed = true
           end
         else
-          performed = command.perform(cmd, window.root_view, ...)
+          performed = command.perform(cmd, window.root_view, options or {})
         end
         if performed then break end
       end
@@ -233,29 +233,29 @@ function keymap.on_key_pressed(window, k, ...)
   return false
 end
 
-function keymap.on_mouse_wheel(window, delta_y, delta_x, ...)
+function keymap.on_mouse_wheel(window, delta_y, delta_x)
   local y_direction = delta_y > 0 and "up" or "down"
   local x_direction = delta_x > 0 and "left" or "right"
   -- Try sending a "cumulative" event for both scroll directions
   if delta_y ~= 0 and delta_x ~= 0 then
-    local result = keymap.on_key_pressed(window, "wheel" .. y_direction .. x_direction, delta_y, delta_x, ...)
+    local result = keymap.on_key_pressed(window, "wheel" .. y_direction .. x_direction, { delta = delta_y, y = delta_y, x = delta_x })
     if not result then
-      result = keymap.on_key_pressed(window, "wheelyx", delta_y, delta_x, ...)
+      result = keymap.on_key_pressed(window, "wheelyx", { delta = delta_x, y = delta_y, x = delta_x })
     end
     if result then return true end
   end
   -- Otherwise send each direction as its own separate event
   local y_result, x_result
   if delta_y ~= 0 then
-    y_result = keymap.on_key_pressed(window, "wheel" .. y_direction, delta_y, ...)
+    y_result = keymap.on_key_pressed(window, "wheel" .. y_direction, { delta = delta_y, y = delta_y })
     if not y_result then
-      y_result = keymap.on_key_pressed(window, "wheel", delta_y, ...)
+      y_result = keymap.on_key_pressed(window, "wheel", { delta = delta_y, y = delta_y })
     end
   end
   if delta_x ~= 0 then
-    x_result = keymap.on_key_pressed(window, "wheel" .. x_direction, delta_x, ...)
+    x_result = keymap.on_key_pressed(window, "wheel" .. x_direction, { delta = delta_x, x = delta_x })
     if not x_result then
-      x_result = keymap.on_key_pressed(window, "hwheel", delta_x, ...)
+      x_result = keymap.on_key_pressed(window, "hwheel", { delta = delta_x, x = delta_x })
     end
   end
   return y_result or x_result
@@ -263,10 +263,10 @@ end
 
 function keymap.on_mouse_pressed(window, button, x, y, clicks)
   local click_number = (((clicks - 1) % config.max_clicks) + 1)
-  return not (keymap.on_key_pressed(window, click_number  .. button:sub(1,1) .. "click", x, y, clicks) or
-    keymap.on_key_pressed(window, button:sub(1,1) .. "click", x, y, clicks) or
-    keymap.on_key_pressed(window, click_number .. "click", x, y, clicks) or
-    keymap.on_key_pressed(window, "click", x, y, clicks))
+  return not (keymap.on_key_pressed(window, click_number  .. button:sub(1,1) .. "click", { x = x, y = y, clicks = clicks }) or
+    keymap.on_key_pressed(window, button:sub(1,1) .. "click", { x = x, y = y, clicks = clicks }) or
+    keymap.on_key_pressed(window, click_number .. "click", { x = x, y = y, clicks = clicks }) or
+    keymap.on_key_pressed(window, "click", { x = x, y = y, clicks = clicks }))
 end
 
 function keymap.on_key_released(window, k)

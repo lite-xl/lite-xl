@@ -304,7 +304,8 @@ local commands = {
     end
   end,
 
-  ["doc:paste-primary-selection"] = function(dv, x, y)
+  ["doc:paste-primary-selection"] = function(dv, options)
+    local x, y = options.x, options.y
     if type(x) == "number" and type(y) == "number" then
       set_cursor(dv, x, y, "set")
       -- Workaround to avoid that a middle mouse drag starts selecting
@@ -641,7 +642,8 @@ local commands = {
     core.log("Removed \"%s\"", filename)
   end,
 
-  ["doc:select-to-cursor"] = function(dv, x, y, clicks)
+  ["doc:select-to-cursor"] = function(dv, options)
+    local x, y, clicks = options.x, options.y, options.clicks
     local line1, col1 = select(3, doc():get_selection())
     local line2, col2 = dv:resolve_screen_position(x, y)
     dv.mouse_selecting = { line1, col1, nil }
@@ -661,7 +663,8 @@ local commands = {
 
 }
 
-command.add(function(root_view, x, y)
+command.add(function(root_view, options)
+  local x, y = options.x, options.y
   if x == nil or y == nil or not root_view.active_view:extends(DocView) then return false end
   local dv = root_view.active_view
   local x1,y1,x2,y2 = dv.position.x, dv.position.y, dv.position.x + dv.size.x, dv.position.y + dv.size.y

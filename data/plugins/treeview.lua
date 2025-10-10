@@ -619,7 +619,7 @@ function TreeView:on_context_menu()
     { text = "New Folder", command = "treeview:new-folder" },
     { text = "Remove directory", command = "treeview:remove-project-directory" },
     { text = "Find in Directory", command = "treeview:search-in-directory" }
-  } }, self
+  } }
 end
 
 -- Register the TreeView commands and keymap
