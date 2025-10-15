@@ -530,7 +530,7 @@ end
 function TreeView.attach(root_view)
   -- init
   local view = TreeView()
-  local node = root_view:get_active_node()
+  local node = root_view:get_primary_node()
   view.node = node:split("left", view, {x = true}, true)
   root_view.treeview = view
 
