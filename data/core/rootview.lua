@@ -73,7 +73,7 @@ end
 
 ---@return core.node
 function RootView:get_active_node()
-  local node = self.root_node:get_node_for_view(self.window.active_view)
+  local node = self.root_node:get_node_for_view(self.active_view)
   if not node then node = self:get_primary_node() end
   return node
 end
@@ -93,7 +93,7 @@ end
 
 ---@return core.node
 function RootView:get_active_node_default()
-  local node = self.root_node:get_node_for_view(self.window.active_view)
+  local node = self.root_node:get_node_for_view(self.active_view)
   if not node then node = self:get_primary_node() end
   if node.locked then
     local default_view = self:get_primary_node().views[1]
