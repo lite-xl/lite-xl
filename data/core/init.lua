@@ -3,6 +3,7 @@ require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
 local style = require "colors.default"
+local storage
 local command
 local keymap
 local dirwatch
@@ -267,6 +268,7 @@ function core.init()
   keymap = require "core.keymap"
   dirwatch = require "core.dirwatch"
   ime = require "core.ime"
+  storage = require "core.storage"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
@@ -590,6 +592,47 @@ function core.add_plugins(plugins)
 end
 
 
+local function load_project_module(plugin)
+  if system.get_file_info(plugin.file) then
+    local trusted_project_files = storage.load("trust", "projects") or {}
+    local is_trusted = config.load_untrusted_project_modules
+    for _, trusted in ipairs(trusted_project_files) do
+      if trusted.path == plugin.file or (trusted.root and plugin.file:find(trusted.path, 1, true) == 1) then
+        is_trusted = true
+        break
+      end
+    end
+    if is_trusted then return load_lua_plugin_if_exists(plugin) end
+    core.add_thread(function()
+      core.nag_view:show("Untrusted Project Module",
+        string.format(
+          "The project module located at %s is untrusted. Trust this file?",
+          plugin.file
+        ),
+        {
+          { text = "Trust", default_no = true },
+          { text = "Trust All", default_no = true },
+          { text = "View File", default_no = true },
+          { text = "Don't Trust", default_yes = true }
+        }, function(item)
+          if item.text == "Trust" or item.text == "Trust All" then
+            table.insert(trusted_project_files, { 
+              path = item.text == "Trust All" and common.dirname(plugin.file) or plugin.file,
+              root = item.text == "Trust All"
+            })
+            storage.save("trust", "projects", trusted_project_files)
+            command.perform("core:restart")
+          elseif item.text == "View File" then
+            core.add_thread(function()
+              core.root_view:open_doc(core.open_doc(plugin.file))
+            end)
+          end
+        end)
+      end)
+    end
+end
+
+
 function core.load_plugins()
   local no_errors = true
   local refused_list = {
@@ -598,7 +641,7 @@ function core.load_plugins()
   }
   local files, ordered = {}, {
     { priority = -2, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
-    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
+    { priority = -1, load = load_project_module, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
   }
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
