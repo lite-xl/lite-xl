@@ -3,7 +3,6 @@ require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
 local style = require "colors.default"
-local storage
 local command
 local keymap
 local dirwatch
@@ -268,7 +267,6 @@ function core.init()
   keymap = require "core.keymap"
   dirwatch = require "core.dirwatch"
   ime = require "core.ime"
-  storage = require "core.storage"
   RootView = require "core.rootview"
   StatusView = require "core.statusview"
   TitleView = require "core.titleview"
