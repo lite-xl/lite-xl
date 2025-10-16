@@ -5,6 +5,7 @@ local Project = Object:extend()
 local core = require "core"
 local common = require "core.common"
 local config = require "core.config"
+local storage = require "core.storage"
 
 -- inspect config.ignore_files patterns and prepare ready to use entries.
 local function compile_ignore_files()
@@ -29,9 +30,23 @@ end
 
 function Project:new(path)
   self.path = path
+  local trusted = storage.load("trusted", "projects") or {}
+  local directory = path
+  self.trusted = trusted[path]
+  while self.trusted == nil and directory do
+    if trusted[directory] and trusted[directory].all then
+      self.trusted = trusted[path]
+    end
+    directory = common.dirname(directory)
+  end
   self.name = common.basename(path)
   self.compiled = compile_ignore_files()
   return self
+end
+
+
+function Project:trust(options)
+  storage.save("trusted", "projects", common.merge(storage.load("trust", "projects") or {}, { [self.path] = options }))
 end
 
 

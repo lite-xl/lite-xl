@@ -593,39 +593,23 @@ end
 
 
 local function load_project_module(plugin)
-  if system.get_file_info(plugin.file) then
-    local trusted_project_files = storage.load("trust", "projects") or {}
-    local is_trusted = config.load_untrusted_project_modules
-    for _, trusted in ipairs(trusted_project_files) do
-      if trusted.path == plugin.file or (trusted.root and plugin.file:find(trusted.path, 1, true) == 1) then
-        is_trusted = true
-        break
-      end
-    end
-    if is_trusted then return load_lua_plugin_if_exists(plugin) end
+  if core.root_project().trusted then return load_lua_plugin_if_exists(plugin) end
+  if system.get_file_info(plugin.file) and core.root_project().trusted == nil then
     core.add_thread(function()
       core.nag_view:show("Untrusted Project Module",
-        string.format(
-          "The project module located at %s is untrusted. Trust this file?",
-          plugin.file
-        ),
+        string.format("The project module located at %s is untrusted. Trust this file?", plugin.file),
         {
-          { text = "Trust", default_no = true },
-          { text = "Trust All", default_no = true },
+          { text = "Trust", default_no = true, command = "core:trust-project" },
+          { text = "Trust All", default_no = true, command = "core:trust-project" },
           { text = "View File", default_no = true },
-          { text = "Don't Trust", default_yes = true }
+          { text = "Don't Trust", default_yes = true, command = "core:untrust-project" }
         }, function(item)
-          if item.text == "Trust" or item.text == "Trust All" then
-            table.insert(trusted_project_files, { 
-              path = item.text == "Trust All" and common.dirname(plugin.file) or plugin.file,
-              root = item.text == "Trust All"
-            })
-            storage.save("trust", "projects", trusted_project_files)
-            command.perform("core:restart")
-          elseif item.text == "View File" then
+          if item.text == "View File" then
             core.add_thread(function()
               core.root_view:open_doc(core.open_doc(plugin.file))
             end)
+          else
+            command.perform(item.command)
           end
         end)
       end)
