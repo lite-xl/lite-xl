@@ -593,7 +593,7 @@ end
 
 
 local function load_project_module(plugin)
-  if core.root_project().trusted then return load_lua_plugin_if_exists(plugin) end
+  if core.root_project().trusted or config.always_trust_projects then return load_lua_plugin_if_exists(plugin) end
   if system.get_file_info(plugin.file) and core.root_project().trusted == nil then
     core.add_thread(function()
       core.nag_view:show("Untrusted Project Module",

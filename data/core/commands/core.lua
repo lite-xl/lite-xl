@@ -157,7 +157,7 @@ command.add(function()
   return not core.root_project().trusted 
 end, { 
   ['core:trust-project'] = function() 
-    core.root_project():trust({})
+    core.root_project():trust(true)
     command.perform("core:restart")
 end })
 command.add(function() 

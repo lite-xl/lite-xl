@@ -34,7 +34,7 @@ function Project:new(path)
   local directory = path
   self.trusted = trusted[path]
   while self.trusted == nil and directory do
-    if trusted[directory] and trusted[directory].all then
+    if type(trusted[directory]) == 'table' and trusted[directory].all then
       self.trusted = trusted[path]
     end
     directory = common.dirname(directory)
