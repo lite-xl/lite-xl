@@ -310,8 +310,8 @@ end
 
 
 command.add(nil, {
-  ["project-search:find"] = function(root_view, path)
-    root_view.command_view:enter("Find Text In " .. (path or "Project"), {
+  ["project-search:find"] = function(root_view, options)
+    root_view.command_view:enter("Find Text In " .. (options.path or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
@@ -320,16 +320,16 @@ command.add(nil, {
     })
   end,
 
-  ["project-search:find-regex"] = function(path)
-    root_view.command_view:enter("Find Regex In " .. (path or "Project"), {
+  ["project-search:find-regex"] = function(root_view, options)
+    root_view.command_view:enter("Find Regex In " .. (options.path or "Project"), {
       submit = function(text)
         projectsearch.search_regex(text, path, true)
       end
     })
   end,
 
-  ["project-search:fuzzy-find"] = function(path)
-    root_view.command_view:enter("Fuzzy Find Text In " .. (path or "Project"), {
+  ["project-search:fuzzy-find"] = function(root_view, options)
+    root_view.command_view:enter("Fuzzy Find Text In " .. (options.path or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
