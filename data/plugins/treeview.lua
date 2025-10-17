@@ -875,7 +875,7 @@ if projectsearch then
     return view.hovered_item and view.hovered_item.type == "dir", view, view.hovered_item
   end, {
     ["treeview:search-in-directory"] = function(view, item)
-      view:perform("project-search:find", view.hovered_item.abs_filename)
+      view:perform("project-search:find", { path = view.hovered_item.abs_filename })
     end
   })
 end
