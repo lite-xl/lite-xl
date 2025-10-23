@@ -79,6 +79,10 @@ function RootView:get_active_node()
 end
 
 
+function RootView:show_title_bar(show)
+  self.title_view.visible = show
+end
+
 ---@return core.node
 local function get_primary_node(node)
   if node.is_primary_node then
@@ -700,5 +704,6 @@ end
 function RootView:perform(cmd, options, ...)
   return command.perform(cmd, self, options or {}, ...)
 end
+
 
 return RootView

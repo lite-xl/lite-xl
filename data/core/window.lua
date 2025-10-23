@@ -34,9 +34,6 @@ function Window:compose_window_title(title)
   return (title == "" or title == nil) and "Lite XL" or (title .. " - Lite XL")
 end
 
-function Window:show_title_bar(show)
-  self.title_view.visible = show
-end
 
 function Window:get_views_referencing_doc(doc)
   local res = {}
