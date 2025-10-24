@@ -52,7 +52,8 @@ alias lite-xl-dev="LITE_USERDIR=$HOME/.config/lite-xl-dev ${INSTALL_DIR}/lite-xl
 
 - Changes related to virtual lines: file the PR against https://github.com/adamharrison/lite-xl/tree/PR/virtual-lines
 - Changes related to multi-window support: file the PR against https://github.com/adamharrison/lite-xl/tree/PR/multi-windows-ipc
-- Any other changes: file the PR against https://github.com/adamharrison/lite-xl/tree/3.0-preview
+- Any other changes to the core editor: file the PR against https://github.com/adamharrison/lite-xl/tree/3.0-preview
+- For non-core plugins, file PRs against https://github.com/adamharrison/lite-xl-plugins/tree/3.0
 
 Then send a message on the #lite-xl Discord channel to make people aware of the PR.
 
