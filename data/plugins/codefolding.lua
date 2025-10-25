@@ -346,7 +346,7 @@ end
 
 local old_mouse_pressed = DocView.on_mouse_pressed
 function DocView:on_mouse_pressed(button, x, y, clicks)
-  if old_mouse_pressed(button, x, y, clicks) then return true end
+  if old_mouse_pressed(self, button, x, y, clicks) then return true end
   local blocks = self:get_folding_blocks()
   if self.hovering_foldable and self.expanded[self.hovering_foldable] == false then
     self:toggle_expand(self.hovering_foldable, true)
