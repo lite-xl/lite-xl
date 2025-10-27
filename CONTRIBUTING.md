@@ -4,13 +4,14 @@ First, please join the Discord server: https://discord.gg/RWzqC3nx7K, where most
 
 # State as of October 2025
 
-Work is mostly focused towards version 3 which includes some important rewrites to make the editor more robust, have a better plugin API, and add better support for multiple windows. 
+Work is mostly focused towards version 3 which includes some important rewrites to make the editor more robust, have a better plugin API, and add support for multiple windows. 
 
 As of 2025-10-25, only the core plugins are considered ported to the new plugin API. Some of the non-core ones have, but your mileage will vary a lot. 
 
 # Using the preview version
 
-You can help by simply using the 3.0 preview version. It can be installed with the core plugins using lpm:
+You can help by using the 3.0 preview version, and reporting any bug you encounter.
+It can be run via [lpm](https://github.com/lite-xl/lite-xl-plugin-manager) like this:
 
 ```
 lpm run https://github.com/adamharrison/lite-xl.git:3.0-preview 3.0-preview --update
@@ -24,14 +25,16 @@ If you're willing to get your hands dirty, bug fixes in the form of PRs are also
 
 ## Compiling the development version
 
-As of 2025-10-25, work is happening simultaneously on multiple branches, which are regularly merged by Adam Harrison on a branch called `3.0-preview`. This is the state you want to check out:
+As of 2025-10-25, work is happening simultaneously on multiple branches, which are regularly merged by @adamharrison on a branch called `3.0-preview`. This is the state you want to check out:
 
 ```
 git clone https://github.com/adamharrison/lite-xl
 git checkout 3.0-preview
 ```
 
-Regular compilation instructions from [README.md](README.md) apply. If you want to work with two distinct installations of lite-xl (the stable version 2, and a development version 3) here's a suggestion how to do it on Linux:
+Regular building instructions from [README.md](README.md#quick-build-guide) apply.
+
+If you want to work with two distinct installations of Lite XL (the stable version 2, and a development version 3) here's a suggestion for how to do it on Linux:
 
 ```
 # Assuming you have all the dependencies installed.
