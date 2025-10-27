@@ -13,7 +13,7 @@ command.add("core.nagview", {
   end,
   ["dialog:select-yes"] = function(v)
     if v ~= v.root_view.nag_view then return end
-    v:change_hovered(common.find_index(zv.options, "default_yes"))
+    v:change_hovered(common.find_index(v.options, "default_yes"))
     v.root_view:perform("dialog:select")
   end,
   ["dialog:select-no"] = function(v)
