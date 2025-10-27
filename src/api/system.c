@@ -60,7 +60,7 @@ static HitTestInfo window_hit_info[1] = {{0, 0, 0}};
 
 static float get_window_display_scale(int window_id){
   RenWindow* window_renderer = ren_find_window_from_id(window_id);
-  return SDL_GetWindowDisplayScale(window_renderer->window);
+  return window_renderer ? SDL_GetWindowDisplayScale(window_renderer->window) : 1.0f;
 }
 
 

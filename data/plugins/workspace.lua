@@ -208,15 +208,15 @@ local function load_workspace()
   local workspace = consume_workspace(core.root_project().path)
   if workspace then
     for idx, workspace_window in ipairs(workspace.windows) do
-      local window = idx == 1 and core.windows[1] or core.add_window(Window(renwindow._restore(workspace_window.id) or renwindow.create("")))
+      local window = core.windows[idx] or core.add_window(Window(renwindow._restore(workspace_window.id) or renwindow.create("")))
       local root = get_unlocked_root(window.root_view.root_node)
       local active_view = load_node(root, workspace_window.documents)
       if active_view then
         window.root_view:set_active_view(active_view)
       end
-      if workspace_window.window_mode == "normal" then
+      if workspace_window.mode == "normal" then
         window.renwindow:set_size(table.unpack(workspace_window.dimensions))
-      elseif workspace.window_mode == "maximized" then
+      elseif workspace_window.mode == "maximized" then
         window.renwindow:set_mode("maximized")
       end
     end
