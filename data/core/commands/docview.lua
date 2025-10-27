@@ -290,7 +290,7 @@ local write_commands = {
     for idx, line1, col1, line2, col2 in doc_multiline_selections(dv, true) do
       append_line_if_last_line(dv, line2)
       if line1 > 1 then
-        local text = doc().lines[line1 - 1]
+        local text = dv.doc.lines[line1 - 1]
         dv.doc:insert(line2 + 1, 1, text)
         dv.doc:remove(line1 - 1, 1, line1, 1)
         dv:set_selections(idx, line1 - 1, col1, line2 - 1, col2)
