@@ -3,6 +3,7 @@ local core = require "core"
 local common = require "core.common"
 local DocView = require "core.docview"
 local LogView = require "core.logview"
+local Window = require "core.window"
 local storage = require "core.storage"
 
 local STORAGE_MODULE = "ws"
@@ -182,8 +183,23 @@ local function save_workspace()
     while id_list[id] do
       id = id + 1
     end
-    local root = get_unlocked_root(core.windows[1].root_view.root_node)
-    storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories() })
+    local windows = {}
+    for _, window in ipairs(core.windows) do
+      table.insert(windows, {
+        id = window.id,
+        documents = save_node(get_unlocked_root(window.root_view.root_node)),
+        mode = window.renwindow:get_mode(),
+        dimensions = { window.renwindow:get_size() }
+      })
+    end
+    
+    storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { 
+      path = core.root_project().path, 
+      directories = save_directories(),
+      previous_find = core.previous_find,
+      previous_replace = core.previous_replace,
+      windows = windows
+    })
   end
 end
 
@@ -191,14 +207,24 @@ end
 local function load_workspace()
   local workspace = consume_workspace(core.root_project().path)
   if workspace then
-    local root = get_unlocked_root(core.windows[1].root_view.root_node)
-    local active_view = load_node(root, workspace.documents)
-    if active_view then
-      core.active_window().root_view:set_active_view(active_view)
+    for idx, workspace_window in ipairs(workspace.windows) do
+      local window = idx == 1 and core.windows[1] or core.add_window(Window(renwindow._restore(workspace_window.id) or renwindow.create("")))
+      local root = get_unlocked_root(window.root_view.root_node)
+      local active_view = load_node(root, workspace_window.documents)
+      if active_view then
+        window.root_view:set_active_view(active_view)
+      end
+      if workspace_window.window_mode == "normal" then
+        window.renwindow:set_size(table.unpack(workspace_window.dimensions))
+      elseif workspace.window_mode == "maximized" then
+        window.renwindow:set_mode("maximized")
+      end
     end
     for i, dir_name in ipairs(workspace.directories) do
       core.add_project(system.absolute_path(dir_name))
     end
+    core.previous_find = workspace.previous_find or {}
+    core.previous_replace = workspace.previous_find or {}
   end
 end
 

@@ -3,6 +3,7 @@ require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
 local style = require "colors.default"
+local storage
 local command
 local keymap
 local dirwatch
@@ -12,26 +13,6 @@ local Doc
 local Project
 
 local core = {}
-
-local function load_session()
-  local ok, t = pcall(dofile, USERDIR .. PATHSEP .. "session.lua")
-  return ok and t or {}
-end
-
-
-local function save_session()
-  local fp = io.open(USERDIR .. PATHSEP .. "session.lua", "w")
-  if fp then
-    fp:write("return {recents=", common.serialize(core.recent_projects),
-      ", window=", common.serialize(table.pack(core.active_window().renwindow:get_size())),
-      ", window_mode=", common.serialize(core.active_window().renwindow:get_mode()),
-      ", previous_find=", common.serialize(core.previous_find),
-      ", previous_replace=", common.serialize(core.previous_replace),
-      "}\n")
-    fp:close()
-  end
-end
-
 
 local function update_recents_project(action, dir_path_abs)
   local dirname = common.normalize_volume(dir_path_abs)
@@ -257,6 +238,7 @@ end
 
 function core.add_window(window)
   table.insert(core.windows, window)
+  return window
 end
 
 function core.remove_window(window)
@@ -277,6 +259,7 @@ function core.init()
   Window = require "core.window"
   Project = require "core.project"
   Doc = require "core.doc"
+  storage = require "core.storage"
 
   if PATHSEP == '\\' then
     USERDIR = common.normalize_volume(USERDIR)
@@ -300,23 +283,10 @@ function core.init()
   core.quit_request = false
   
   core.windows = {}
-  local core_window = renwindow._restore()
-  if core_window == nil then
-    core_window = renwindow.create("")
-  end
-  core.add_window(Window(core_window))
 
-  do
-    local session = load_session()
-    if session.window_mode == "normal" then
-      core.windows[1].renwindow:set_size(table.unpack(session.window))
-    elseif session.window_mode == "maximized" then
-      core.windows[1].renwindow:set_mode("maximized")
-    end
-    core.recent_projects = session.recents or {}
-    core.previous_find = session.previous_find or {}
-    core.previous_replace = session.previous_replace or {}
-  end
+  core.recent_projects = storage.load("core", "projects") or {}
+  core.previous_find = {}
+  core.previous_replace = {}
 
   local project_dir = core.recent_projects[1] or "."
   local project_dir_explicit = false
@@ -362,7 +332,11 @@ function core.init()
   end
 
   -- Load core and user plugins giving preference to user ones with same name.
-  local plugins_success, plugins_refuse_list = core.load_plugins()
+  -- Additionally, do window set up at priority 0, so that plugins can override
+  -- window setup if they want to set up some sort of alternate renderer.
+  local plugins_success, plugins_refuse_list = core.load_plugins({ { priority = 0, load = function()
+    core.add_window(Window(renwindow._restore() or renwindow.create("")))
+  end } })
 
   do
     local pdir, pname = project_dir_abs:match("(.*)[/\\\\](.*)")
@@ -465,7 +439,7 @@ function core.exit(quit_fn, force)
   if force then
     core.delete_temp_files()
     while #core.projects > 0 do core.remove_project(core.projects[#core.projects], true) end
-    save_session()
+    storage.save("core", "projects", core.recent_projects)
     quit_fn()
   else
     core.confirm_close_docs(core.docs, core.exit, quit_fn, true)
@@ -570,21 +544,22 @@ function core.add_plugins(plugins)
     if a.priority ~= b.priority then
       return a.priority < b.priority
     end
-    return a.name < b.name
+    return (a.name or "") < (b.name or "")
   end)
 end
 
 
-function core.load_plugins()
+function core.load_plugins(steps)
   local no_errors = true
   local refused_list = {
     userdir = {dir = USERDIR, plugins = {}},
     datadir = {dir = DATADIR, plugins = {}},
   }
   local files, ordered = {}, {
-    { priority = -2, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
-    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
+    { priority = -20, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
+    { priority = -10, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
   }
+  for _, step in ipairs(steps) do table.insert(ordered, step) end
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
     for _, filename in ipairs(system.list_dir(plugin_dir) or {}) do
@@ -601,7 +576,7 @@ function core.load_plugins()
   local load_start = system.get_time()
   for i = 1, #core.plugin_list do
     local plugin = core.plugin_list[i]
-    if not config.skip_plugins_version and not plugin.version_match then
+    if not config.skip_plugins_version and plugin.version_match == false then
       core.log_quiet(
         "Version mismatch for plugin %q[%s] from %s",
         plugin.name,
@@ -611,25 +586,25 @@ function core.load_plugins()
       local rlist = plugin.file:find(USERDIR, 1, true) == 1
         and 'userdir' or 'datadir'
       table.insert(refused_list[rlist].plugins, plugin)
-    elseif config.plugins[plugin.name] ~= false then
+    elseif not plugin.name or config.plugins[plugin.name] ~= false then
       local start = system.get_time()
       local ok, loaded_plugin = core.try(plugin.load, plugin)
-      if ok then
+      if ok and plugin.name then
         local plugin_version = ""
-        if plugin.version_string and  plugin.version_string ~= MOD_VERSION_STRING then
+        if plugin.version_string and plugin.version_string ~= MOD_VERSION_STRING then
           plugin_version = "["..plugin.version_string.."]"
         end
         core.log_quiet(
           "Loaded plugin %q%s from %s in %.1fms",
           plugin.name,
           plugin_version,
-          common.dirname(plugin.file),
+          common.dirname(plugin.file or "."),
           (system.get_time() - start) * 1000
         )
         if config.plugins[plugin.name].onload then
           core.try(config.plugins[plugin.name].onload, loaded_plugin)
         end
-      else
+      elseif not ok then
         no_errors = false
       end
     end
@@ -729,7 +704,7 @@ function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
     local s = style.log[level]
-    if core.active_window().root_view.status_view then
+    if core.active_window() and core.active_window().root_view.status_view then
       core.active_window().root_view.status_view:show_message(s.icon, s.color, text)
     end
   end
