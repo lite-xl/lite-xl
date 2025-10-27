@@ -1,6 +1,8 @@
-Here are a few ways you help improve Lite-XL.
+Here are a few ways you can help improve Lite-XL.
 
-First, please join the Discord server: https://discord.gg/RWzqC3nx7K, where most of the coordination happens.
+First, please join the [Discord server](https://discord.gg/RWzqC3nx7K) or the [Matrix space](
+https://matrix.to/#/#lite-xl:matrix.org) where most of the coordination happens. Those spaces
+are bridged so you need only join one.
 
 # State as of October 2025
 
@@ -17,7 +19,8 @@ It can be run via [lpm](https://github.com/lite-xl/lite-xl-plugin-manager) like 
 lpm run https://github.com/adamharrison/lite-xl.git:3.0-preview 3.0-preview --update
 ```
 
-Please report any issue on [Github](https://github.com/lite-xl/lite-xl/issues), or on the Discord server on channel #lite-xl.
+Please report any issue either on [Github](https://github.com/lite-xl/lite-xl/issues),
+[Discord](https://discord.gg/RWzqC3nx7K), or Matrix (`#lite-xl:matrix.org`).
 
 # Contributing code
 
@@ -55,8 +58,8 @@ alias lite-xl-dev="LITE_USERDIR=$HOME/.config/lite-xl-dev ${INSTALL_DIR}/lite-xl
 
 - Changes related to virtual lines: file the PR against https://github.com/adamharrison/lite-xl/tree/PR/virtual-lines
 - Changes related to multi-window support: file the PR against https://github.com/adamharrison/lite-xl/tree/PR/multi-windows-ipc
-- Any other changes to the core editor: file the PR against https://github.com/adamharrison/lite-xl/tree/3.0-preview
+- Any other changes to the core editor: file the PR against https://github.com/adamharrison/lite-xl/tree/3.0-preview, or against master (https://github.com/lite-xl/lite-xl).
 - For non-core plugins, file PRs against https://github.com/adamharrison/lite-xl-plugins/tree/3.0
 
-Then send a message on the #lite-xl Discord channel to make people aware of the PR.
+Then send a message on the #lite-xl Discord or Matrix channel to make people aware of the PR.
 
