@@ -229,13 +229,6 @@ function core.ensure_user_directory()
   end)
 end
 
-
-function core.configure_borderless_window()
-  for _, window in ipairs(core.windows) do
-    window:configure_borderless_window(config.borderless)
-  end
-end
-
 function core.add_window(window)
   table.insert(core.windows, window)
   return window
@@ -355,8 +348,6 @@ function core.init()
     end)
   end
 
-  core.configure_borderless_window()
-
   if #plugins_refuse_list.userdir.plugins > 0 or #plugins_refuse_list.datadir.plugins > 0 then
     local opt = {
       { text = "Exit", default_no = true },
@@ -455,7 +446,9 @@ end
 function core.restart()
   core.exit(function()
     core.restart_request = true
-    core.active_window().renwindow:_persist()
+    for _, window in ipairs(core.windows) do
+      window.renwindow:_persist()
+    end
   end)
 end
 

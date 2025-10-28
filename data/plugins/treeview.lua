@@ -528,7 +528,6 @@ function TreeView:open_doc(filename)
 end
 
 function TreeView.attach(root_view)
-  -- init
   local view = TreeView()
   local node = root_view:get_primary_node()
   view.node = node:split("left", view, {x = true}, true)

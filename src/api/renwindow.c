@@ -5,7 +5,8 @@
 #include <SDL3/SDL.h>
 #include <stdlib.h>
 
-static RenWindow *persistant_window = NULL;
+#define PERSISTENT_WINDOWS_MAX 16
+static RenWindow* persistent_windows[PERSISTENT_WINDOWS_MAX] = {0};
 
 static void init_window_icon(SDL_Window *window) {
 #if !defined(_WIN32) && !defined(__APPLE__)
@@ -56,7 +57,11 @@ static int f_renwin_create(lua_State *L) {
 
 static int f_renwin_gc(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  if (window_renderer != persistant_window)
+  int exists = 0;
+  for (int i = 0; i < PERSISTENT_WINDOWS_MAX; ++i)
+    if (window_renderer == persistent_windows[i])
+      exists = 1;
+  if (!exists)
     ren_destroy(window_renderer);
   return 0;
 }
@@ -165,22 +170,30 @@ static int f_renwin_set_bordered(lua_State *L) {
 
 static int f_renwin_persist(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-
-  persistant_window = window_renderer;
+  for (int i = 0; i < PERSISTENT_WINDOWS_MAX; ++i) {
+    if (!persistent_windows[i]) {
+      persistent_windows[i] = window_renderer;
+      break;
+    }
+  }
   return 0;
 }
 
 static int f_renwin_restore(lua_State *L) {
-  if (!persistant_window) {
+  int id = luaL_optinteger(L, 1, 0);
+  RenWindow **window_renderer = NULL;
+  for (int i = 0; i < PERSISTENT_WINDOWS_MAX && persistent_windows[i]; ++i) {
+    if (window_renderer) {
+      persistent_windows[i - 1] = persistent_windows[i];
+      persistent_windows[i] = NULL;
+    } else if (!id || SDL_GetWindowID(persistent_windows[i]->window) == id) {
+      window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
+      luaL_setmetatable(L, API_TYPE_RENWINDOW);
+      *window_renderer = persistent_windows[i];
+    }
+  }
+  if (!window_renderer)
     lua_pushnil(L);
-  }
-  else {
-    RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
-    luaL_setmetatable(L, API_TYPE_RENWINDOW);
-    *window_renderer = persistant_window;
-    persistant_window = NULL;
-  }
-
   return 1;
 }
 
