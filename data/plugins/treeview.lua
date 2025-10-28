@@ -562,10 +562,10 @@ end, {
 for _, window in ipairs(core.windows) do
   TreeView.attach(window.root_view)
 end
-local old_add_window = core.add_window
-function core.add_window(window)
-  old_add_window(window)
-  TreeView.attach(window.root_view)
+local old_root_view_new = RootView.new
+function RootView:new(...)
+  old_root_view_new(self, ...)
+  TreeView.attach(self)
 end
 
 
