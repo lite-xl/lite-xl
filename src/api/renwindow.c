@@ -84,11 +84,29 @@ static int f_renwin_set_size(lua_State *L) {
 // on retina-like displays)
 static int f_renwin_get_size(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  int x, y, w, h;
+  int w, h;
   SDL_GetWindowSizeInPixels(window_renderer->window, &w, &h);
-  SDL_GetWindowPosition(window_renderer->window, &x, &y);
   lua_pushinteger(L, w);
   lua_pushinteger(L, h);
+  return 2;
+}
+
+
+static int f_renwin_set_position(lua_State* L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  int x = luaL_checkinteger(L, 2);
+  int y = luaL_checkinteger(L, 3);
+  SDL_SetWindowPosition(window_renderer->window, x, y);
+  return 0;
+}
+
+
+static int f_renwin_get_position(lua_State* L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  int x, y;
+  SDL_GetWindowPosition(window_renderer->window, &x, &y);
+  lua_pushinteger(L, x);
+  lua_pushinteger(L, y);
   return 2;
 }
 
@@ -159,8 +177,8 @@ static int f_renwin_restore(lua_State *L) {
   else {
     RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
     luaL_setmetatable(L, API_TYPE_RENWINDOW);
-
     *window_renderer = persistant_window;
+    persistant_window = NULL;
   }
 
   return 1;
@@ -170,6 +188,8 @@ static const luaL_Reg renwindow_lib[] = {
   { "create",       f_renwin_create       },
   { "__gc",         f_renwin_gc           },
   { "set_title",    f_renwin_set_title    },
+  { "set_position", f_renwin_set_position },
+  { "get_position", f_renwin_get_position },
   { "set_size",     f_renwin_set_size     },
   { "get_size",     f_renwin_get_size     },
   { "set_mode",     f_renwin_set_mode     },

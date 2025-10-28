@@ -189,6 +189,7 @@ local function save_workspace()
         id = window.id,
         documents = save_node(get_unlocked_root(window.root_view.root_node)),
         mode = window.renwindow:get_mode(),
+        position = { window.renwindow:get_position() },
         dimensions = { window.renwindow:get_size() }
       })
     end
@@ -216,6 +217,7 @@ local function load_workspace()
       end
       if workspace_window.mode == "normal" then
         window.renwindow:set_size(table.unpack(workspace_window.dimensions))
+        window.renwindow:set_position(table.unpack(workspace_window.position))
       elseif workspace_window.mode == "maximized" then
         window.renwindow:set_mode("maximized")
       end
