@@ -17,6 +17,7 @@ function Window:new(renwindow)
   self.clip_rect_stack = {{ 0,0,0,0 }}
   ---@type core.rootview
   self.root_view = RootView(self)
+  self:configure_borderless_window(config.borderless)
 end
 
 

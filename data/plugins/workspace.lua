@@ -209,7 +209,13 @@ local function load_workspace()
   local workspace = consume_workspace(core.root_project().path)
   if workspace then
     for idx, workspace_window in ipairs(workspace.windows) do
-      local window = core.windows[idx] or core.add_window(Window(renwindow._restore(workspace_window.id) or renwindow.create("")))
+      local window = nil
+      for _, existing_window in ipairs(core.windows) do
+        if existing_window.id == workspace_window.id then
+          window = existing_window
+        end
+      end
+      window = window or core.add_window(Window(renwindow._restore(workspace_window.id) or renwindow.create("")))
       local root = get_unlocked_root(window.root_view.root_node)
       local active_view = load_node(root, workspace_window.documents)
       if active_view then
