@@ -23,6 +23,8 @@ config.plugins.linewrapping = common.merge({
   enable_by_default = false,
   -- Requires tokenization
   require_tokenization = false,
+  -- List of Lua patterns matching files extensions to linewrap.
+  files = { "%.txt$", "%.md$", "%.markdown$" },
   -- The config specification used by gui generators
   config_spec = {
     name = "Line Wrapping",
@@ -53,7 +55,7 @@ config.plugins.linewrapping = common.merge({
     },
     {
       label = "Enable by Default",
-      description = "Whether or not to enable wrapping by default when opening files.",
+      description = "Whether or not to enable wrapping by default when opening files matching with the filename pattern specified in \"Files\".",
       path = "enable_by_default",
       type = "toggle",
       default = false
@@ -64,7 +66,14 @@ config.plugins.linewrapping = common.merge({
       path = "require_tokenization",
       type = "toggle",
       default = false
-    }
+    },
+    {
+    label = "Files",
+    description = "List of Lua patterns matching file names to linewrap.",
+    path = "files",
+    type = "list_strings",
+    default = { "%.txt$", "%.md$", "%.markdown$" }
+    },
   }
 }, config.plugins.linewrapping)
 
@@ -78,6 +87,12 @@ local function get_tokens(doc, line)
     return doc.highlighter:each_token(line)
   end
   return spew_tokens, doc, line
+end
+
+local function matches_any(filename, ptns)
+  for _, ptn in ipairs(ptns) do
+    if filename:find(ptn) then return true end
+  end
 end
 
 -- Computes the breaks for a given line, width and mode. Returns a list of columns
@@ -366,7 +381,10 @@ function DocView:new(doc)
   old_new(self, doc)
   if not open_files[doc] then open_files[doc] = {} end
   table.insert(open_files[doc], self)
-  if config.plugins.linewrapping.enable_by_default then
+  if config.plugins.linewrapping.enable_by_default
+      and (matches_any(self.doc.abs_filename or "", config.plugins.linewrapping.files)
+        or matches_any(self.doc.filename     or "", config.plugins.linewrapping.files))
+  then
     self.wrapping_enabled = true
     LineWrapping.update_docview_breaks(self)
   else
