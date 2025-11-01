@@ -358,13 +358,13 @@ function DocView:text_input(text, idx)
     if self.overwrite
     and not had_selection
     and col1 < (self.lines[line1]:ulen() or #self.lines[line1])
-    and text:ulen() == 1 then
+    and (text:ulen() or #text) == 1 then
       local line2, col2 = translate.next_char(self, line1, col1)
       self.doc:remove(line1, col1, line2, col2, self.selections)
     end
 
     self.doc:insert(line1, col1, text, self.selections)
-    self:move_to_cursor(sidx, text:ulen())
+    self:move_to_cursor(sidx, text:ulen() or #text)
   end
 end
 
@@ -1364,7 +1364,7 @@ end
 function DocView:get_vline_length(vline)
   local length = 0
   for _, text, style, type in self:each_vline_token(vline) do
-    length = length + text:ulen()
+    length = length + (text:ulen() or #text)
   end
   return length
 end
@@ -1479,7 +1479,7 @@ function DocView:position_offset_byte(line, col, offset)
       line = self:retrieve_tokens(nil, line + 1)
       pos = 1
     end
-    return #self.doc.lines, self.doc.lines[#self.doc.lines]:ulen()
+    return #self.doc.lines, self.doc.lines[#self.doc.lines]:ulen() or #self.doc.lines[#self.doc.lines]
   else
     local from_token_end
     while line and line > 0 do

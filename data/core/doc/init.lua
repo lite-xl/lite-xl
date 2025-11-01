@@ -159,7 +159,7 @@ function Doc:sanitize_position(line, col)
   elseif line < 1 then
     return 1, 1
   end
-  return line, common.clamp(col, 1, self.lines[line]:ulen())
+  return line, common.clamp(col, 1, self.lines[line]:ulen() or #self.lines[line])
 end
 
 function Doc:position_offset_func(line, col, fn, ...)
@@ -173,10 +173,10 @@ function Doc:position_offset_byte(line, col, offset)
   col = col + offset
   while line > 1 and col < 1 do
     line = line - 1
-    col = col + self.lines[line]:ulen()
+    col = col + (self.lines[line]:ulen() or #self.lines[line])
   end
-  while line < #self.lines and col > self.lines[line]:ulen() do
-    col = col - self.lines[line]:ulen()
+  while line < #self.lines and col > (self.lines[line]:ulen() or #self.lines[line]) do
+    col = col - (self.lines[line]:ulen() or #self.lines[line])
     line = line + 1
   end
   return self:sanitize_position(line, col)
