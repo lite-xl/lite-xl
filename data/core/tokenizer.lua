@@ -236,7 +236,10 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     -- specifically if we're not utf8; we have special corner case code which doesn't use `ufind` or `usub` or the like
     -- this helps with cases where a single token is quite long with a lot of escaped delimiters (i.e. a json string in a C file where quotes are escaped with backslahes)
     -- it causes the tokenizer to choke on long lines that have lots of these escapes
-    local is_utf8 = not p.pattern or p.pattern.is_ascii ~= true
+    local is_utf8 = (not p.pattern or p.pattern.is_ascii ~= true)
+
+    -- in the case where we have utf8 looking characters, but it's not valid utf8, just don't bother trying to annotate
+    if is_utf8 and not text:ulen() then return end
     
     local res = is_utf8 and { 1, offset - 1 } or { text:ucharpos(1) or 1, offset > 1 and text:ucharpos(offset - 1) or (offset - 1) }
 
@@ -308,7 +311,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     return table.unpack(res)
   end
 
-  local text_len = text:ulen()
+  local text_len = text:ulen() or #text
   local start_time = system.get_time()
   local starting_i = i
   while i <= text_len do
