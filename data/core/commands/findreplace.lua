@@ -201,10 +201,6 @@ local function select_next(reverse)
 end
 
 
-local function select_remove_last()
-  
-end
-
 ---@param in_selection? boolean whether to replace in the selections only, or in the whole file.
 local function find_replace(in_selection)
   local l1, c1, l2, c2 = doc():get_selection()
