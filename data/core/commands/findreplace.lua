@@ -163,9 +163,9 @@ local function is_in_any_selection(line, col)
   return false
 end
 
-local function select_add_next(all)
+local function select_add_next(all, replace)
   local il1, ic1
-  for _, l1, c1, l2, c2 in doc():get_selections(true, true) do
+  for idx, l1, c1, l2, c2 in doc():get_selections(true, true) do
     if not il1 then
       il1, ic1 = l1, c1
     end
@@ -174,7 +174,11 @@ local function select_add_next(all)
       l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
       if l1 == il1 and c1 == ic1 then break end
       if l2 and not is_in_any_selection(l2, c2) then
-        doc():add_selection(l2, c2, l1, c1)
+        if replace then
+          doc():set_selections(idx, l2, c2, l1, c1)
+        else
+          doc():add_selection(l2, c2, l1, c1)
+        end
         if not all then
           core.active_view:scroll_to_make_visible(l2, c2)
           return
@@ -194,6 +198,11 @@ local function select_next(reverse)
     l1, c1, l2, c2 = search.find(doc(), l2, c2, text, { wrap = true })
   end
   if l2 then doc():set_selection(l2, c2, l1, c1) end
+end
+
+
+local function select_remove_last()
+  
 end
 
 ---@param in_selection? boolean whether to replace in the selections only, or in the whole file.
@@ -217,7 +226,8 @@ command.add(has_unique_selection, {
   ["find-replace:select-next"] = select_next,
   ["find-replace:select-previous"] = function() select_next(true) end,
   ["find-replace:select-add-next"] = select_add_next,
-  ["find-replace:select-add-all"] = function() select_add_next(true) end
+  ["find-replace:select-add-all"] = function() select_add_next(true) end,
+  ["find-replace:select-skip-last"] = function() select_add_next(false, true) end
 })
 
 command.add("core.docview!", {
