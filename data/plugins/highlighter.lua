@@ -35,6 +35,13 @@ end
 function Highlighter:on_doc_change(type, text, line1, col1, line2, col2)
   if type == "insert" or type == "remove" then self:start(math.min(line1, line2)) end
   if type == "reset" then self:reset() end
+  if type == "insert" and text:find("\n") then 
+    local _, newlines = text:gsub("\n", "")
+    for i = line1, line1 + newlines do self.lines[i] = nil end
+    table.move(self.lines, line1, #self.lines, line1 + newlines)
+  elseif type == "remove" and line1 ~= line2 then 
+    table.move(self.lines, line2, #self.lines, line1)
+  end
   self:step()
 end
 
