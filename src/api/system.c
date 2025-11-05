@@ -705,23 +705,35 @@ static int f_get_file_info(lua_State *L) {
   lua_pushstring(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ? "dir" : "file");
   lua_setfield(L, -2, "type");
 
-  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
+  lua_pushboolean(L, data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
   lua_setfield(L, -2, "symlink");
 #else
-  struct stat s;
-  int err = stat(path, &s);
+  struct stat s1, s2;
+  int err = lstat(path, &s1);
   if (err < 0) {
     lua_pushnil(L);
     lua_pushstring(L, strerror(errno));
     return 2;
   }
 
-  lua_pushinteger(L, s.st_size);
+  bool is_symlink = S_ISLNK(s1.st_mode);
+  lua_pushboolean(L, is_symlink);
+  lua_setfield(L, -2, "symlink");
+
+  struct stat *s = &s1;
+  if (is_symlink) {
+    err = stat(path, &s2);
+    // Use the result of lstat if the symlink is broken
+    if (!err)
+      s = &s2;
+  }
+
+  lua_pushinteger(L, s->st_size);
   lua_setfield(L, -2, "size");
 
-  if (S_ISREG(s.st_mode)) {
+  if (S_ISREG(s->st_mode)) {
     lua_pushstring(L, "file");
-  } else if (S_ISDIR(s.st_mode)) {
+  } else if (S_ISDIR(s->st_mode)) {
     lua_pushstring(L, "dir");
   } else {
     lua_pushnil(L);
@@ -730,25 +742,18 @@ static int f_get_file_info(lua_State *L) {
 
   double mtime;
   #if _BSD_SOURCE || _SVID_SOURCE || _XOPEN_SOURCE > 700 || _POSIX_C_SOURCE >= 200809L
-    mtime = (double)s.st_mtim.tv_sec + (s.st_mtim.tv_nsec / 1000000000.0);
+    mtime = (double)s->st_mtim.tv_sec + (s->st_mtim.tv_nsec / 1000000000.0);
   #elif __APPLE__
     #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-      mtime = (double)s.st_mtimespec.tv_sec + (s.st_mtimespec.tv_nsec / 1000000000.0);
+      mtime = (double)s->st_mtimespec.tv_sec + (s->st_mtimespec.tv_nsec / 1000000000.0);
     #else
-      mtime = (double)s.st_mtime + (s.st_atimensec / 1000000000.0);
+      mtime = (double)s->st_mtime + (s->st_atimensec / 1000000000.0);
     #endif
   #else
-    mtime = s.st_mtime;
+    mtime = s->st_mtime;
   #endif
   lua_pushnumber(L, mtime);
   lua_setfield(L, -2, "modified");
-
-  if (S_ISDIR(s.st_mode)) {
-    if (lstat(path, &s) == 0) {
-      lua_pushboolean(L, S_ISLNK(s.st_mode));
-      lua_setfield(L, -2, "symlink");
-    }
-  }
 #endif
   return 1;
 }
