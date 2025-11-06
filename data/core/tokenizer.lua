@@ -227,6 +227,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
       end
     end
 
+
     if p.regex and type(p.regex) ~= "table" then
       p._regex = p._regex or regex.compile(p.regex)
       code = p._regex
@@ -288,7 +289,8 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
           end
         else
           for i = res[1] - 1, 1, -1 do
-            if text:byte(i) ~= target[3]:byte() and (i == 1 or not common.is_utf8_cont(text, i - 1)) then break end
+            -- This is assuming ONLY single byte escapes. A reasonable assumption for now, but should probably be expanded.
+            if text:byte(i) ~= target[3]:byte() then break end
             count = count + 1
           end
           if count % 2 == 0 then
