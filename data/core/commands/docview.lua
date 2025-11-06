@@ -54,11 +54,11 @@ local function cut_or_copy(dv, delete)
       core.cursor_clipboard_whole_line[idx] = true
       if delete then
         if line1 < #dv.doc.lines then
-          dv:remove(line1, 1, line1 + 1, 1)
+          dv.doc:remove(line1, 1, line1 + 1, 1)
         elseif #dv.doc.lines == 1 then
-          dv:remove(line1, 1, line1, math.huge)
+          dv.doc:remove(line1, 1, line1, math.huge)
         else
-          dv:remove(line1 - 1, math.huge, line1, math.huge)
+          dv.doc:remove(line1 - 1, math.huge, line1, math.huge)
         end
         dv:set_selections(idx, line1, col1, line2, col2)
       end
