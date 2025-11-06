@@ -128,14 +128,14 @@ function DocView:get_virtual_line_offset(vline, vcol)
   return x + gw + vx, y + vy
 end
 
-function DocView:get_vline_position(vline, vcol) 
+function DocView:get_vline_position(vline, vcol, visible) 
   local y = (vline-1) * self:get_line_height()
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
-  for _, text, style, type in self:each_vline_token(vline) do
+  for _, text, style, type in self:each_vline_token(vline, visible) do
     local font = style.font or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
     local length = text:ulen() or #text
@@ -160,15 +160,15 @@ function DocView:get_vline_position(vline, vcol)
   return xoffset, y
 end
 
-function DocView:get_line_position(line, col)
-  local vline, vcol = self:get_vline(line, col)
+function DocView:get_line_position(line, col, visible)
+  local vline, vcol = self:get_vline(line, col, visible)
   return self:get_vline_position(vline, vcol)
 end
 
 function DocView:get_line_screen_position(line, col)
   local ox, oy = self:get_content_offset()
   local gw = self:get_gutter_width()
-  local x, y = self:get_line_position(line, col)
+  local x, y = self:get_line_position(line, col, true)
   return x + ox + gw, oy + y
 end
 
@@ -1133,6 +1133,8 @@ function DocView:retrieve_tokens(vline, line, visible)
   local original_vline = vline or line
   local minline, maxline = self:get_visible_virtual_line_range()
   local screen_visual_height = (maxline - minline) * 2
+  -- Ensure that we don't flicker on syntax higlighting on bootup by assuming at least some visual field.
+  if screen_visual_height == 0 then screen_visual_height = 160 end
   
   while ((vline and vline > #self.vcache) or (line and line > #self.dcache)) and #self.dcache < #self.doc.lines do
     local vlines = {}
@@ -1379,7 +1381,7 @@ function DocView:get_vlines(line)
   return vlines
 end
 
-function DocView:get_vline(line, col, rounding)
+function DocView:get_vline(line, col, rounding, visible)
   if not line then line = 1 end
   if not col then col = 1 end
   if not rounding then rounding = "next" end
