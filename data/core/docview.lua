@@ -646,8 +646,8 @@ end
 
 function DocView:get_visible_line_range()
   local minline, maxline = self:get_visible_virtual_line_range()
-  local line1 = self:get_dline(minline)
-  local line2 = self:get_dline(maxline)
+  local line1 = self:get_dline(minline, nil, nil, true)
+  local line2 = self:get_dline(maxline, nil, nil, true)
   return line1, line2
 end
 
@@ -1408,14 +1408,14 @@ end
 
 -- if we are translating from virtual to doc space, and there is ambiguity about which
 -- `rounding` should be either "prev" or "next".
-function DocView:get_dline(vline, vcol, rounding)
+function DocView:get_dline(vline, vcol, rounding, visible)
   if vline <= 0 then return 1, 1 end
   if not vcol then vcol = 1 end
   if not rounding then rounding = "next" end
   local total_line_length = 0
   local last_dline = #self.doc.lines
   local last_doc_token_line, last_doc_token_offset
-  for _, text, _, type, dline, offset in self:each_vline_token(vline) do
+  for _, text, _, type, dline, offset in self:each_vline_token(vline, visible) do
     local length = text:ulen() or #text
     if total_line_length + length >= vcol then
       if type == "doc" then
