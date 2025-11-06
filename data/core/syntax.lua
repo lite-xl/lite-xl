@@ -46,6 +46,9 @@ function syntax.add(t)
           ok, err = check_pattern(pattern.pattern and "pattern" or "regex", p[j])
           if not ok then name = string.format("#%d:%d <%s>", i, j, p[j]) end
         end
+        if #p >= 3 and #p[3] ~= 1 then 
+          ok, err = false, "Delimiter escapes in patterns are required to be exactly one byte."
+        end
       elseif type(p) == "string" then
         ok, err = check_pattern(pattern.pattern and "pattern" or "regex", p)
         if not ok then name = string.format("#%d <%s>", i, p) end
