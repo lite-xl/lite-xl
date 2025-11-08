@@ -216,11 +216,6 @@ config.blink_period = 0.8
 ---@type boolean
 config.disable_blink = false
 
----Draws whitespaces as dots.
----This option is deprecated.
----Please use the drawwhitespace plugin instead.
----@deprecated
-config.draw_whitespace = false
 
 ---Disables system-drawn window borders.
 ---

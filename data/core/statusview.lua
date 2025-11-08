@@ -686,23 +686,6 @@ function StatusView:draw_item_tooltip(item)
 end
 
 
----Older method of retrieving the status bar items and which is now
----deprecated in favour of core.status_view:add_item().
----@deprecated
----@param nowarn boolean
----@return table left
----@return table right
-function StatusView:get_items(nowarn)
-  if not nowarn and not self.get_items_warn then
-    core.warn(
-      "Overriding StatusView:get_items() is deprecated, "
-      .. "use core.status_view:add_item() instead."
-    )
-    self.get_items_warn = true
-  end
-  return {"{:dummy:}"}, {"{:dummy:}"}
-end
-
 
 ---Helper function to copy a styled text table into another.
 ---@param t1 core.statusview.styledtext
@@ -714,42 +697,6 @@ local function table_add(t1, t2)
 end
 
 
----Helper function to merge deprecated items to a temp items table.
----@param destination table
----@param items core.statusview.styledtext
----@param alignment core.statusview.item.alignment
-local function merge_deprecated_items(destination, items, alignment)
-  local start = true
-  local items_start, items_end = {}, {}
-  for i, value in ipairs(items) do
-    if value ~= "{:dummy:}" then
-      if start then
-        table.insert(items_start, i, value)
-      else
-        table.insert(items_end, value)
-      end
-    else
-      start = false
-    end
-  end
-
-  local position = alignment == StatusView.Item.LEFT and "left" or "right"
-
-  local item_start = StatusView.Item({
-    name = "deprecated:"..position.."-start",
-    alignment = alignment,
-    get_item = items_start
-  })
-
-  local item_end = StatusView.Item({
-    name = "deprecated:"..position.."-end",
-    alignment = alignment,
-    get_item = items_end
-  })
-
-  table.insert(destination, 1, item_start)
-  table.insert(destination, item_end)
-end
 
 
 ---Append a space item into the given items list.
@@ -811,6 +758,12 @@ local function remove_spacing(self, styled_text)
 end
 
 
+function StatusView:get_combined_items()
+  local t = {}
+  table_add(t, self.items)
+  return t
+end
+
 ---Set the active items that will be displayed on the left or right side
 ---of the status bar checking their predicates and performing positioning
 ---calculations for proper functioning of tooltips and clicks.
@@ -824,14 +777,8 @@ function StatusView:update_active_items()
   self.active_items = {}
 
   ---@type core.statusview.item[]
-  local combined_items = {}
-  table_add(combined_items, self.items)
-
-  -- load deprecated items for compatibility
-  local dleft, dright = self:get_items(true)
-  merge_deprecated_items(combined_items, dleft, StatusView.Item.LEFT)
-  merge_deprecated_items(combined_items, dright, StatusView.Item.RIGHT)
-
+  local combined_items = self:get_combined_items()
+  
   local lfirst, rfirst = true, true
 
   -- calculate left and right width
