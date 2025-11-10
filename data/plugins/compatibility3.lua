@@ -239,7 +239,19 @@ function Doc:__index(key)
   local view = core.get_views_referencing_doc(self)[1]
   if not view or view[key] == nil then return nil end
   core.deprecation_log("doc." .. key)
+  if type(view[key]) == 'function' then
+    return function(doc, ...) return view[key](view, ...) end
+  end
   return view[key]
+end
+function Doc:__newindex(key, value) 
+  local view = core.get_views_referencing_doc(self)[1]
+  if view and view[key] then
+    core.deprecation_log("set doc." .. key)
+    view[key] = value
+  else
+    rawset(self, key, value)
+  end
 end
 
 setmetatable(core, {
