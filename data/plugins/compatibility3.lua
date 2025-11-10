@@ -237,7 +237,9 @@ function Doc:__index(key)
   local result = rawget(Doc, key)
   if result then return result end
   local view = core.get_views_referencing_doc(self)[1]
-  return view and view[key]
+  if not view or view[key] == nil then return nil end
+  core.deprecation_log("doc." .. key)
+  return view[key]
 end
 
 setmetatable(core, {
