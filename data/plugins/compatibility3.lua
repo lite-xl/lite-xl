@@ -4,6 +4,7 @@ local config = require "core.config"
 local command = require "core.command"
 local View = require "core.view"
 local Node = require "core.node"
+local Doc = require "core.doc"
 local CommandView = require "core.commandview"
 local StatusView = require "core.statusview"
 local ContextMenu = require "core.contextmenu"
@@ -194,6 +195,7 @@ end
 
 
 -- Support old method of defining context menus.
+-- Added in for TreeView extender.
 local old_new = View.new
 function View:new()
   old_new(self)
@@ -227,6 +229,16 @@ function treemt:__index(key)
   return old_treeview_index[key] or (core.active_window() and core.active_window().root_view.treeview and rawget(core.active_window().root_view.treeview, key))
 end
 
+
+-- Added in specifically for plugins that use old Doc selections.
+-- Like LSP, Widget, etc..
+local old_doc_index = Doc.__index
+function Doc:__index(key) 
+  local result = rawget(Doc, key)
+  if result then return result end
+  local view = core.get_views_referencing_doc(self)[1]
+  return view and view[key]
+end
 
 setmetatable(core, {
   __index = function(self, key)
