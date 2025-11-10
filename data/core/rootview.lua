@@ -490,7 +490,7 @@ function RootView:on_file_dropped(filename, x, y)
 end
 
 function RootView:process_defer_open_docs()
-  if core.active_view == core.nag_view then return end
+  if self.active_view == self.nag_view then return end
   for _, drop in ipairs(self.defer_open_docs) do
     -- file dragged into lite-xl, try to open it
     local filename, x, y = table.unpack(drop)
