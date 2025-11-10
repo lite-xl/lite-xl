@@ -181,6 +181,9 @@ top:
       lua_pushstring(L, "quit");
       return 1;
     case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+      lua_pushstring(L, "close");
+      lua_pushinteger(L, e.window.windowID);
+      return 2;
     case SDL_EVENT_WINDOW_DESTROYED:
       lua_pushstring(L, "closed");
       lua_pushinteger(L, e.window.windowID);

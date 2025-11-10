@@ -28,6 +28,7 @@ function NagView:new(root_view)
   self.target_height = 0
   self.on_mouse_pressed_root = nil
   self.dim_alpha = 0
+  self.visible = false
 end
 
 function NagView:get_title()

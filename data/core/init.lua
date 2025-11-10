@@ -386,6 +386,8 @@ function core.confirm_close_docs(docs, close_fn, ...)
     end
   end
   if dirty_count > 0 then
+    if core.confirm_closing then return end
+    core.confirm_closing = true
     local text
     if dirty_count == 1 then
       text = string.format("\"%s\" has unsaved changes. Quit anyway?", dirty_name)
@@ -397,7 +399,8 @@ function core.confirm_close_docs(docs, close_fn, ...)
       { text = "Yes", default_yes = true },
       { text = "No", default_no = true }
     }
-    core.windows[1].root_view.nag_view:show("Unsaved Changes", text, opt, function(item)
+    core.active_window().root_view.nag_view:show("Unsaved Changes", text, opt, function(item)
+      core.confirm_closing = false
       if item.text == "Yes" then close_fn(table.unpack(args)) end
     end)
   else

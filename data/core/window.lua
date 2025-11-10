@@ -139,7 +139,7 @@ function Window:on_event(type, ...)
     self.root_view:on_file_dropped(...)
   elseif type == "focuslost" then
     self.root_view:on_focus_lost(...)
-  elseif type == "closed" then
+  elseif type == "closed" or type == "close" then
     if #core.windows > 1 then
       self.renwindow = nil
       collectgarbage("collect")
