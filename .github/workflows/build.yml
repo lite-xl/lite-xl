@@ -80,8 +80,8 @@ jobs:
     strategy:
       matrix:
         config:
-          - { runner: macos-13, arch: x86_64-darwin }
-          - { runner: macos-14, arch: aarch64-darwin }
+          - { runner: macos-15-intel, arch: x86_64-darwin }
+          - { runner: macos-15, arch: aarch64-darwin }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - name: System Information
@@ -123,7 +123,7 @@ jobs:
   build_darwin_universal:
     name: Darwin (Universal)
     needs: [version, build_darwin]
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
 
