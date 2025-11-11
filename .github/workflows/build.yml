@@ -113,7 +113,7 @@ jobs:
           tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl
 
       - name: Upload (Intermediate)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}
           path: |
@@ -137,7 +137,7 @@ jobs:
           pip3 install dmgbuild
 
       - name: Download Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           pattern: '*darwin*'
           merge-multiple: true
@@ -164,7 +164,7 @@ jobs:
         run: tar -C lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable -zcvf lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz .
 
       - name: Upload (Release)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-release
           path: |
@@ -195,7 +195,7 @@ jobs:
           run: bash scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
 
       - name: Upload (Release)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable-release
           path: |
@@ -238,7 +238,7 @@ jobs:
         run: bash scripts/package-innosetup.sh --debug --version ${{ needs.version.outputs.ref }} -b build
 
       - name: Upload (Release)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable-release
           path: |
@@ -290,7 +290,7 @@ jobs:
         run: cd build && 7z a -mx=9 "..\lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip" lite-xl && cd ..
 
       - name: Upload Artifacts (Intermediate)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows (MSVC)
           compression-level: 0
@@ -308,7 +308,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Download Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           pattern: lite-xl-*-release
           merge-multiple: true
