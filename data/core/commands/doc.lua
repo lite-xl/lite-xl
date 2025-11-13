@@ -588,7 +588,7 @@ local commands = {
         save(common.home_expand(filename))
       end,
       suggest = function (text)
-        return common.home_encode_list(common.path_suggest(common.home_expand(text)))
+        return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project().path))
       end
     })
   end,
