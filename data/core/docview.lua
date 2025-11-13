@@ -384,7 +384,7 @@ function DocView:on_doc_change(type, text, line1, col1, line2, col2)
     for idx, cline1, ccol1, cline2, ccol2 in self:get_selections(true, true) do
       if cline1 < line1 then break end
       local line_addition = (line1 < cline1 or col1 < ccol1) and lines - 1 or 0
-      local column_addition = line1 == cline1 and ccol1 > col1 and #text or 0
+      local column_addition = line1 == cline1 and ccol1 > col1 and (text:ulen() or #text) or 0
       self:set_selections(idx, cline1 + line_addition, ccol1 + column_addition, cline2 + line_addition, ccol2 + column_addition)
     end
   end
@@ -713,7 +713,7 @@ function DocView:on_mouse_moved(x, y, ...)
       if l1 > l2 then l1, l2 = l2, l1 end
       self.doc.selections = { }
       for i = l1, l2 do
-        self:set_selections(i - l1 + 1, i, math.min(c1, #self.doc.lines[i]), i, math.min(c2, #self.doc.lines[i]))
+        self:set_selections(i - l1 + 1, i, math.min(c1, self.doc.lines[i]:ulen() or #self.doc.lines[i]), i, math.min(c2, self.doc.lines[i]:ulen() or #self.doc.lines[i]))
       end
     else
       if snap_type then
@@ -1014,7 +1014,7 @@ end
 -- `{ "virtual", line, text, false, style }
 function DocView:tokenize(line, visible)
   if line <= 0 or line > #self.doc.lines then return {} end
-  return { "doc", line, 1, #self.doc.lines[line], { } }
+  return { "doc", line, 1, self.doc.lines[line]:ulen() or #self.doc.lines[line], { } }
 end
 
 
