@@ -107,7 +107,6 @@ config.plugins.drawwhitespace = common.merge({
 
 local draw_whitespace = {}
 draw_whitespace = common.merge({}, config.plugins.drawwhitespace)
-draw_whitespace.enabled = false
 for i, sub in ipairs(draw_whitespace.substitutions) do
   draw_whitespace.substitutions[i] = common.merge(config.plugins.drawwhitespace, sub)
 end
