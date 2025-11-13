@@ -155,7 +155,7 @@ end
 function Doc:sanitize_position(line, col)
   local nlines = #self.lines
   if line > nlines then
-    return nlines, #self.lines[nlines]
+    return nlines, (self.lines[nlines]:ulen() or #self.lines[nlines])
   elseif line < 1 then
     return 1, 1
   end
@@ -242,7 +242,6 @@ end
 function Doc:raw_insert(line, col, text, undo_stack, time, selections)
   -- split text into lines and merge with line at insertion point
   local lines = split_lines(text)
-  local len = #lines[#lines]
   local before = self.lines[line]:usub(1, col - 1)
   local after = self.lines[line]:usub(col)
   for i = 1, #lines - 1 do
