@@ -255,7 +255,7 @@ function Doc:raw_insert(line, col, text, undo_stack, time, selections)
   common.splice(self.lines, line, 1, lines)
 
   -- push undo
-  local line2, col2 = self:position_offset(line, col, #text)
+  local line2, col2 = self:position_offset(line, col, text:ulen() or #text)
   if selections then push_undo(undo_stack, time, "selection", table.unpack(selections)) end
   push_undo(undo_stack, time, "remove", line, col, line2, col2)
 
