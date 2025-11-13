@@ -109,7 +109,7 @@ local function insert_paste(dv, value, whole_line, idx)
     -- If it's at the start of the line it doesn't get carried,
     -- so we move it of as many characters as we're adding.
     if col1 == 1 then
-      dv:move_to_cursor(idx, #value+1)
+      dv:move_to_cursor(idx, (value:ulen() or #value)+1)
     end
   else
     dv:text_input(value:gsub("\r", ""), idx)
