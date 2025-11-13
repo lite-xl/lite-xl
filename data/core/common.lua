@@ -721,6 +721,19 @@ function common.rm(path, recursively)
   return true
 end
 
+
+
+---Returns the line and column positions for a pair of line/cols in ascending order.
+-- Usually used for selection manipulation.
+---@param line1 integer
+---@param col1 integer
+---@param line2 integer
+---@param col2 integer
+---@return line1 The first line in ascending order.
+---@return col1 The column of the first line in ascending order.
+---@return line2 The line of the second line in ascending order.
+---@return col2 The column of the second line in ascending order.
+---@return bool Whether or not the order of the pairs was reversed.
 function common.sort_positions(line1, col1, line2, col2)
   if line1 > line2 or line1 == line2 and col1 > col2 then
     return line2, col2, line1, col1, true
