@@ -168,7 +168,7 @@ function Doc:position_offset_func(line, col, fn, ...)
 end
 
 
-function Doc:position_offset_byte(line, col, offset)
+function Doc:position_offset_char(line, col, offset)
   line, col = self:sanitize_position(line, col)
   col = col + offset
   while line > 1 and col < 1 do
@@ -192,7 +192,7 @@ function Doc:position_offset(line, col, ...)
   if type(...) ~= "number" then
     return self:position_offset_func(line, col, ...)
   elseif select("#", ...) == 1 then
-    return self:position_offset_byte(line, col, ...)
+    return self:position_offset_char(line, col, ...)
   elseif select("#", ...) == 2 then
     return self:position_offset_linecol(line, col, ...)
   else

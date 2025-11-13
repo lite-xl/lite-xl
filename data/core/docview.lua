@@ -1456,10 +1456,32 @@ function DocView:get_vselections(sort_intra, idx_reverse)
       idx_reverse == true and ((#vselections / 4) + 1) or ((idx_reverse or -1) + 1)
 end
 
-DocView.position_offset_func = Doc.position_offset_func
-DocView.position_offset = Doc.position_offset
-DocView.position_offset_linecol = Doc.position_offset_linecol
-function DocView:position_offset_byte(line, col, offset)
+
+function DocView:position_offset_func(line, col, fn, ...)
+  line, col = self:sanitize_position(line, col)
+  return fn(self, line, col, ...)
+end
+
+
+function DocView:position_offset_linecol(line, col, lineoffset, coloffset)
+  return self:sanitize_position(line + lineoffset, col + coloffset)
+end
+
+
+function DocView:position_offset(line, col, ...)
+  if type(...) ~= "number" then
+    return self:position_offset_func(line, col, ...)
+  elseif select("#", ...) == 1 then
+    return self:position_offset_char(line, col, ...)
+  elseif select("#", ...) == 2 then
+    return self:position_offset_linecol(line, col, ...)
+  else
+    error("bad number of arguments")
+  end
+end
+
+
+function DocView:position_offset_char(line, col, offset)
   local pos
   line, pos = self:retrieve_tokens(nil, line)
   if offset > 0 then
