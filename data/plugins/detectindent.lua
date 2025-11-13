@@ -353,7 +353,7 @@ local function set_indent_size(doc, size)
 end
 
 local function set_indent_size_command(dv)
-  dv.command_view:enter("Specify indent size for current file", {
+  dv.root_view.command_view:enter("Specify indent size for current file", {
     submit = function(value)
       value = math.floor(tonumber(value))
       local doc = dv.doc
