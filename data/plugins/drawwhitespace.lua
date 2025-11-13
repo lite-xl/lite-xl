@@ -226,7 +226,7 @@ end
 function draw_whitespace:toggle_global(setting)
   if setting == nil then setting = not self.enabled end
   self.enabled = setting
-  for _, dv in core.root_view.root_node:get_children() do
+  for _, dv in ipairs(core.root_view.root_node:get_children()) do
     if dv:is(DocView) then
       dv:invalidate_cache()
     end
@@ -234,7 +234,7 @@ function draw_whitespace:toggle_global(setting)
 end
 
 function draw_whitespace:toggle_dv(dv, setting)
-  if setting == nil then setting = not dv.enabled end
+  if setting == nil then setting = not dv.draw_whitespace end
   dv.draw_whitespace = setting
   dv:invalidate_cache()
 end
@@ -243,9 +243,9 @@ command.add(DocView, {
   ["draw-whitespace:toggle"]  = function(dv, setting) draw_whitespace:toggle_dv(dv, setting) end,
   ["draw-whitespace:disable"] = function(dv) draw_whitespace:toggle_dv(dv, false) end,
   ["draw-whitespace:enable"]  = function(dv) draw_whitespace:toggle_dv(dv, true) end,
-  ["draw-whitespace:toggle-global"]  = function(setting) draw_whitespace:toggle_global(setting) end,
-  ["draw-whitespace:disable-global"] = function() draw_whitespace:toggle_global(false) end,
-  ["draw-whitespace:enable-global"]  = function() draw_whitespace:toggle_global(true) end
+  ["draw-whitespace:toggle-global"]  = function(dv, setting) draw_whitespace:toggle_global(setting) end,
+  ["draw-whitespace:disable-global"] = function(dv) draw_whitespace:toggle_global(false) end,
+  ["draw-whitespace:enable-global"]  = function(dv) draw_whitespace:toggle_global(true) end
 })
 
 return draw_whitespace
