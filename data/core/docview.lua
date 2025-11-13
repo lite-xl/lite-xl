@@ -854,12 +854,15 @@ end
 
 
 local default_color = { common.color "#FFFFFF" }
-function DocView:draw_line_text(vline, x, y)
-  local default_font = self:get_font()
-  local tx, ty = x, y + self:get_line_text_y_offset()
+function DocView:draw_token(tx, ty, text, style)
+  return renderer.draw_text(style.font or self:get_font(), text:gsub("\n$", ""), tx, ty, style.color or default_color)
+end
 
-  for _, text, style in self:each_vline_token(vline) do
-    tx = renderer.draw_text(style.font or default_font, text:gsub("\n$", ""), tx, ty, style.color or default_color)
+
+function DocView:draw_line_text(vline, x, y)
+  local tx, ty = x, y + self:get_line_text_y_offset()
+  for _, text, style in self:each_vline_token(vline, true) do
+    tx = self:draw_token(tx, ty, text, style)
   end
   return self:get_line_height()
 end
@@ -1077,7 +1080,7 @@ local function tokenize_line(self, visible, vlines, line, start_new_vline)
     table.insert(vlines, mkvoffset(line, 1))
   end
   for j = 1, #tokens, 5 do
-    local text = self:get_token_text(tokens[j], tokens[j+1], tokens[j+2], tokens[j+3])
+    local text = self:get_token_text(tokens[j], tokens[j+1], tokens[j+2], tokens[j+3], tokens[j+4])
     if text:find("\n$") then
       new_vlines = new_vlines + 1
       if j < #tokens - 5 then
@@ -1100,7 +1103,7 @@ function DocView:previous_tokens_end_in_newline(line)
       end
     end
   end
-  return not prev_dcache or self:get_token_text(prev_dcache[#prev_dcache - 4], prev_dcache[#prev_dcache - 3], prev_dcache[#prev_dcache - 2], prev_dcache[#prev_dcache - 1]):find("\n$")
+  return not prev_dcache or self:get_token_text(prev_dcache[#prev_dcache - 4], prev_dcache[#prev_dcache - 3], prev_dcache[#prev_dcache - 2], prev_dcache[#prev_dcache - 1], prev_dcache[#prev_dcache]):find("\n$")
 end
 
 function DocView:dump_virtual_lines()
@@ -1265,8 +1268,8 @@ function DocView:ensure_cache(start_vline, end_vline, visible)
   return start_vline, end_vline
 end
 
-function DocView:get_token_text(type, doc_line, col_start, col_end)
-  return type == "doc" and self.doc.lines[doc_line]:usub(col_start, col_end) or col_start
+function DocView:get_token_text(type, doc_line, col_start, col_end, options)
+  return (options and options.text) or (type == "doc" and self.doc.lines[doc_line]:usub(col_start, col_end) or col_start)
 end
 
 
@@ -1281,7 +1284,7 @@ local function vline_iter(state, position)
   local line, offset = getvoffset(position)
   if line <= 0 or line > line2 or (line == line2 and offset >= offset2) then return nil end
   -- specifically for vlines, we do not include the newline character, as it is implied
-  local text = self:get_token_text(self.dcache[line][offset], self.dcache[line][offset+1], self.dcache[line][offset+2], self.dcache[line][offset+3])
+  local text = self:get_token_text(self.dcache[line][offset], self.dcache[line][offset+1], self.dcache[line][offset+2], self.dcache[line][offset+3], self.dcache[line][offset+4])
   if offset + 5 > #self.dcache[line] then
     -- skip over all empty lines
     local newline = line
@@ -1306,7 +1309,7 @@ local function dline_iter(state, idx)
   local self, line = table.unpack(state)
   local tokens = self.dcache[line]
   if not idx or idx > #tokens then return nil end
-  local text = self:get_token_text(tokens[idx], tokens[idx+1], tokens[idx+2], tokens[idx+3])
+  local text = self:get_token_text(tokens[idx], tokens[idx+1], tokens[idx+2], tokens[idx+3], tokens[idx+3])
   return idx + 5, text, tokens[idx+4], tokens[idx]
 end
 
@@ -1333,7 +1336,7 @@ function DocView:accumulate_tokens(tokens, func, options)
   for i = 1, #tokens, 5 do
     if tokens[i] == "doc" or options.virtual then
       local type, doc_line, col_start, col_end, token_style = tokens[i], tokens[i + 1], tokens[i + 2], tokens[i + 3], tokens[i + 4]
-      local token_text = self:get_token_text(type, doc_line, col_start, col_end)
+      local token_text = self:get_token_text(type, doc_line, col_start, col_end, token_style)
       local offset = 1
       func(function(part_text, part_style)
         if token_text:find(part_text, offset, true) == offset then

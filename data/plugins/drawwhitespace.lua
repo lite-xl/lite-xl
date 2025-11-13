@@ -1,4 +1,4 @@
--- mod-version:4
+-- mod-version:4 priority: 2000
 
 local core = require "core"
 local style = require "core.style"
@@ -27,8 +27,7 @@ config.plugins.drawwhitespace = common.merge({
       sub = "·",
       -- You can put any of the previous options here too.
       -- For example:
-      -- show_middle_min = 2,
-      -- show_leading = false,
+      -- show_middle_min = 2
     },
     {
       char = "\t",
@@ -106,213 +105,148 @@ config.plugins.drawwhitespace = common.merge({
 }, config.plugins.drawwhitespace)
 
 
-local ws_cache
-local cached_settings
-local function reset_cache()
-  ws_cache = setmetatable({}, { __mode = "k" })
-  local settings = config.plugins.drawwhitespace
-  cached_settings = {
-    show_leading = settings.show_leading,
-    show_trailing = settings.show_trailing,
-    show_middle = settings.show_middle,
-    show_middle_min = settings.show_middle_min,
-    color = settings.color,
-    leading_color = settings.leading_color,
-    middle_color = settings.middle_color,
-    trailing_color = settings.trailing_color,
-    substitutions = settings.substitutions,
-  }
-end
-reset_cache()
-
-local function reset_cache_if_needed()
-  local settings = config.plugins.drawwhitespace
-  if
-    not ws_cache or
-    cached_settings.show_leading       ~= settings.show_leading
-    or cached_settings.show_trailing   ~= settings.show_trailing
-    or cached_settings.show_middle     ~= settings.show_middle
-    or cached_settings.show_middle_min ~= settings.show_middle_min
-    or cached_settings.color           ~= settings.color
-    or cached_settings.leading_color   ~= settings.leading_color
-    or cached_settings.middle_color    ~= settings.middle_color
-    or cached_settings.trailing_color  ~= settings.trailing_color
-    -- we assume that the entire table changes
-    or cached_settings.substitutions   ~= settings.substitutions
-  then
-    reset_cache()
-  end
+local draw_whitespace = {}
+draw_whitespace = common.merge({}, config.plugins.drawwhitespace)
+draw_whitespace.enabled = false
+for i, sub in ipairs(draw_whitespace.substitutions) do
+  draw_whitespace.substitutions[i] = common.merge(config.plugins.drawwhitespace, sub)
 end
 
-
-local function get_option(substitution, option)
-  if substitution[option] == nil then
-    return config.plugins.drawwhitespace[option]
+local old_draw_token = DocView.draw_token
+function DocView:draw_token(tx, ty, text, style)
+  if not style.dw then return old_draw_token(self, tx, ty, text, style) end
+  local width = (style.font or self:get_font()):get_width(text) + tx
+  if not style.dw.selection then 
+    old_draw_token(self, tx, ty, style.dw.text, style) 
+    return width
   end
-  return substitution[option]
+  local start_selection, end_selection
+  for idx, line1, col1, line2, col2 in self:get_selections() do
+    if line1 <= style.dw.line and line2 >= style.dw.line then
+      if line1 < style.dw.line and line2 > style.dw.line then
+        start_selection, end_selection = style.dw.col1, style.dw.col2
+        break
+      elseif line1 < style.dw.line then
+        start_selection = style.dw.col1
+        end_selection = math.max(col2, end_selection or col1)
+      elseif line2 > style.dw.line then
+        start_selection = math.min(col1, start_selection or col2)
+        end_selection = style.dw.col2
+      else
+        start_selection = math.min(col1, start_selection or col2)
+        end_selection = math.max(col2, end_selection or col1)
+      end
+    end
+  end
+  if start_selection and start_selection <= style.dw.col2 and end_selection >= style.dw.col1 then
+    old_draw_token(self, tx, ty, style.dw.text:usub(start_selection - style.dw.col1 + 1, end_selection - style.dw.col1 + 1), style)
+    return width
+  end
+  return old_draw_token(self, tx, ty, text, style)
 end
 
-local draw_line_text = DocView.draw_line_text
-function DocView:draw_line_text(idx, x, y)
-  if
-    not config.plugins.drawwhitespace.enabled
-    or
-    getmetatable(self) ~= DocView
-  then
-    return draw_line_text(self, idx, x, y)
-  end
-
-  local font = (self:get_font() or style.syntax_fonts["whitespace"] or style.syntax_fonts["comment"])
-  local font_size = font:get_size()
-  local _, indent_size = self.doc:get_indent_info()
-
-  reset_cache_if_needed()
-  if
-    not ws_cache[self.doc.highlighter]
-    or ws_cache[self.doc.highlighter].font ~= font
-    or ws_cache[self.doc.highlighter].font_size ~= font_size
-    or ws_cache[self.doc.highlighter].indent_size ~= indent_size
-  then
-    ws_cache[self.doc.highlighter] =
-      setmetatable(
-        { font = font, font_size = font_size, indent_size = indent_size },
-        { __mode = "k" }
-      )
-  end
-
-  if not ws_cache[self.doc.highlighter][idx] then -- need to cache line
-    local cache = {}
-
-    local tx
-    local text = self.doc.lines[idx]
-
-    for _, substitution in pairs(config.plugins.drawwhitespace.substitutions) do
-      local char = substitution.char
-      local sub = substitution.sub
-      local offset = 1
-
-      local show_leading = get_option(substitution, "show_leading")
-      local show_middle = get_option(substitution, "show_middle")
-      local show_trailing = get_option(substitution, "show_trailing")
-
-      local show_middle_min = get_option(substitution, "show_middle_min")
-
-      local base_color = get_option(substitution, "color")
-      local leading_color = get_option(substitution, "leading_color") or base_color
-      local middle_color = get_option(substitution, "middle_color") or base_color
-      local trailing_color = get_option(substitution, "trailing_color") or base_color
-
-      local pattern = char.."+"
-      while true do
-        local s, e = text:find(pattern, offset)
-        if not s then break end
-
-        tx = self:get_col_x_offset(idx, s)
-
-        local color = base_color
-        local draw = false
-
-        if e >= #text - 1 then
-          draw = show_trailing
-          color = trailing_color
-        elseif s == 1 then
-          draw = show_leading
-          color = leading_color
-        else
-          draw = show_middle and (e - s + 1 >= show_middle_min)
-          color = middle_color
-        end
-
-        if draw then
-          local last_cache_idx = #cache
-          -- We need to draw tabs one at a time because they might have a
-          -- different size than the substituting character.
-          -- This also applies to any other char if we use non-monospace fonts
-          -- but we ignore this case for now.
-          if char == "\t" then
-            for i = s,e do
-              tx = self:get_col_x_offset(idx, i)
-              cache[last_cache_idx + 1] = sub
-              cache[last_cache_idx + 2] = tx
-              cache[last_cache_idx + 3] = font:get_width(sub)
-              cache[last_cache_idx + 4] = color
-              last_cache_idx = last_cache_idx + 4
-            end
+local old_tokenize = DocView.tokenize
+function DocView:tokenize(line, ...)
+  local tokens = old_tokenize(self, line, ...)
+  if not self.draw_whitespace and not draw_whitespace.enabled then return tokens end
+  
+  local new_tokens = {}  
+  for idx, type, line, col1, col2, style in self:each_token(tokens) do
+    if type == "doc" then
+      local text = self:get_token_text(type, line, col1, col2, style)
+      local substituted_tokens = {}
+      for _, sub in pairs(draw_whitespace.substitutions) do
+        local offset = 1  
+        while true do
+          local pattern = sub.char
+          -- Do tabs individually, because they have different widths from regular characters.
+          if sub.char ~= "\t" then pattern = pattern.."+" end
+          local s, e = text:ufind(pattern, offset)
+          if not s then break end
+          
+          local color = sub.color
+          local draw = false
+          if e >= col2 - 1 and idx == #tokens then
+            draw = sub.show_trailing
+            color = sub.trailing_color or color
+          elseif s == 1 and col1 == 1 then
+            draw = sub.show_leading
+            color = sub.leading_color or color
           else
-            cache[last_cache_idx + 1] = string.rep(sub, e - s + 1)
-            cache[last_cache_idx + 2] = tx
-            cache[last_cache_idx + 3] = font:get_width(cache[last_cache_idx + 1])
-            cache[last_cache_idx + 4] = color
+            draw = sub.show_middle and (e - s + 1 >= sub.show_middle_min)
+            color = sub.middle_color or color
           end
-        end
-        offset = e + 1
-      end
-    end
-    ws_cache[self.doc.highlighter][idx] = cache
-  end
-
-  -- draw from cache
-  local x1, _, x2, _ = self:get_content_bounds()
-  x1 = x1 + x
-  x2 = x2 + x
-  local ty = y + self:get_line_text_y_offset()
-  local cache = ws_cache[self.doc.highlighter][idx]
-  for i=1,#cache,4 do
-    local tx = cache[i + 1] + x
-    local tw = cache[i + 2]
-    local sub = cache[i]
-    local color = cache[i + 3]
-    local partials = {}
-    if config.plugins.drawwhitespace.show_selected_only and self.doc:has_any_selection() then
-      for _, l1, c1, l2, c2 in self.doc:get_selections(true) do
-        if idx > l1 and idx < l2 then
-          -- Between selection lines, so everything is selected
-          table.insert(partials, false)
-        elseif idx == l1 and idx == l2 then
-          -- Both ends of the selection are on the same line
-          local _x1 = math.max(cache[i + 1], self:get_col_x_offset(idx, c1))
-          local _x2 = math.min((cache[i + 1] + tw), self:get_col_x_offset(idx, c2))
-          if _x1 < _x2 then
-            table.insert(partials, {_x1 + x, 0, _x2 - _x1, math.huge})
+          if draw then
+            table.insert(substituted_tokens, { 
+              selection = sub.show_selected_only, 
+              line = line,
+              color = color,
+              text = string.rep(sub.sub, e - s + 1),
+              col1 = s + col1 - 1,
+              col2 = e + col1 - 1 
+            })
           end
-        elseif idx >= l1 and idx <= l2 then
-          -- On one of the selection ends
-          if idx == l1 then -- Start of the selection
-            local _x = math.max(cache[i + 1], self:get_col_x_offset(idx, c1))
-            table.insert(partials, {_x + x, 0, math.huge, math.huge})
-          else -- End of the selection
-            local _x = math.min((cache[i + 1] + tw), self:get_col_x_offset(idx, c2))
-            table.insert(partials, {0, 0, _x + x, math.huge})
-          end
+          offset = e + 1
         end
       end
-    end
-
-    if #partials == 0 and not config.plugins.drawwhitespace.show_selected_only then
-      renderer.draw_text(font, sub, tx, ty, color)
+      table.sort(substituted_tokens, function(a,b) return a.col1 < b.col1 end)
+      local offset = col1
+      for i, token in ipairs(substituted_tokens) do
+        if token.col1 > offset then
+          table.insert(new_tokens, type)
+          table.insert(new_tokens, line)
+          table.insert(new_tokens, offset)
+          table.insert(new_tokens, token.col1 - 1)
+          table.insert(new_tokens, style)
+        end
+        table.insert(new_tokens, type)
+        table.insert(new_tokens, line)
+        table.insert(new_tokens, token.col1)
+        table.insert(new_tokens, token.col2)
+        table.insert(new_tokens, common.merge(style, { dw = token, color = token.color }))
+        offset = token.col2 + 1
+      end
+      if offset <= col2 then
+        table.insert(new_tokens, type)
+        table.insert(new_tokens, line)
+        table.insert(new_tokens, offset)
+        table.insert(new_tokens, col2)
+        table.insert(new_tokens, style)
+      end
     else
-      for _, p in pairs(partials) do
-        if p then core.push_clip_rect(table.unpack(p)) end
-        renderer.draw_text(font, sub, tx, ty, color)
-        if p then core.pop_clip_rect() end
-      end
+      table.insert(new_tokens, type)
+      table.insert(new_tokens, line)
+      table.insert(new_tokens, col1)
+      table.insert(new_tokens, col2)
+      table.insert(new_tokens, style)
     end
   end
-
-  return draw_line_text(self, idx, x, y)
+  return new_tokens
 end
 
+function draw_whitespace:toggle_global(setting)
+  if setting == nil then setting = not self.enabled end
+  self.enabled = setting
+  for _, dv in core.root_view.root_node:get_children() do
+    if dv:is(DocView) then
+      dv:invalidate_cache()
+    end
+  end
+end
 
-command.add(nil, {
-  ["draw-whitespace:toggle"]  = function()
-    config.plugins.drawwhitespace.enabled = not config.plugins.drawwhitespace.enabled
-  end,
+function draw_whitespace:toggle_dv(dv, setting)
+  if setting == nil then setting = not dv.enabled end
+  dv.draw_whitespace = setting
+  dv:invalidate_cache()
+end
 
-  ["draw-whitespace:disable"] = function()
-    config.plugins.drawwhitespace.enabled = false
-  end,
-
-  ["draw-whitespace:enable"]  = function()
-    config.plugins.drawwhitespace.enabled = true
-  end,
+command.add(DocView, {
+  ["draw-whitespace:toggle"]  = function(dv, setting) draw_whitespace:toggle_dv(dv, setting) end,
+  ["draw-whitespace:disable"] = function(dv) draw_whitespace:toggle_dv(dv, false) end,
+  ["draw-whitespace:enable"]  = function(dv) draw_whitespace:toggle_dv(dv, true) end,
+  ["draw-whitespace:toggle-global"]  = function(setting) draw_whitespace:toggle_global(setting) end,
+  ["draw-whitespace:disable-global"] = function() draw_whitespace:toggle_global(false) end,
+  ["draw-whitespace:enable-global"]  = function() draw_whitespace:toggle_global(true) end
 })
+
+return draw_whitespace
