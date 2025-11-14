@@ -856,12 +856,11 @@ end
 local default_color = { common.color "#FFFFFF" }
 function DocView:draw_token(tx, ty, text, style)
   local font = style.font or self:get_font()
-  local y_offset = self:get_line_text_y_offset()
   text = text:gsub("\n$", "")
   if style.background then
     renderer.draw_rect(tx, ty, font:get_width(text), self:get_line_height(), style.background)
   end
-  return renderer.draw_text(font, text, tx, ty + y_offset, style.color or default_color)
+  return renderer.draw_text(font, text, tx, ty + self.text_y_offset, style.color or default_color)
 end
 
 
@@ -1006,6 +1005,9 @@ function DocView:draw()
 
   local vminline, vmaxline = self:get_visible_virtual_line_range()
   local minline, maxline = self:ensure_cache(vminline, vmaxline, true)
+
+  -- these are cached calls, as it is fairly expensive over many calls.
+  self.text_y_offset = self:get_line_text_y_offset()
   
   local lh = self:get_line_height()
   local _, y = self:get_virtual_line_offset(minline)
@@ -1148,8 +1150,10 @@ end
 
 -- returns the doc line and token offset associated with this line/vline.
 function DocView:retrieve_tokens(vline, line, visible)
-  self:flush_deferred_invalidations()
-  self.deferred_invalidation = {}
+  if self.deferred_invalidation and #self.deferred_invalidation > 0 then
+    self:flush_deferred_invalidations()
+    self.deferred_invalidation = {}
+  end
   -- tokenize up until we have the tokens required for the specified line or vline
   local original_vline = vline or line
   
@@ -1359,10 +1363,9 @@ function DocView:get_vlines(line)
   return vlines
 end
 
-function DocView:get_vline(line, col, rounding, visible)
+function DocView:get_vline(line, col)
   if not line then line = 1 end
   if not col then col = 1 end
-  if not rounding then rounding = "next" end
   line = self:retrieve_tokens(nil, line)
   if not line then return #self.vcache + 1, 1 end
   local vline, vcol = self.dtovcache[line], 1
@@ -1391,7 +1394,6 @@ end
 function DocView:get_dline(vline, vcol, rounding, visible)
   if vline <= 0 then return 1, 1 end
   if not vcol then vcol = 1 end
-  if not rounding then rounding = "next" end
   local total_line_length = 0
   local last_dline = #self.doc.lines
   local last_doc_token_line, last_doc_token_offset
