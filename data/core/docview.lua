@@ -1152,18 +1152,13 @@ function DocView:retrieve_tokens(vline, line, visible)
   self.deferred_invalidation = {}
   -- tokenize up until we have the tokens required for the specified line or vline
   local original_vline = vline or line
-  local minline, maxline = self:get_visible_virtual_line_range()
-  local screen_visual_height = (maxline - minline) * 2
-  -- Ensure that we don't flicker on syntax higlighting on bootup by assuming at least some visual field.
-  if screen_visual_height == 0 then screen_visual_height = 160 end
   
   while ((vline and vline > #self.vcache) or (line and line > #self.dcache)) and #self.dcache < #self.doc.lines do
     local vlines = {}
     local prev_newline = self:previous_tokens_end_in_newline(#self.dcache)
     local current_vline = prev_newline and #self.vcache + 1 or #self.vcache
     repeat
-      local line_visible = original_vline and visible and math.abs(current_vline - original_vline) < screen_visual_height
-      local tokens, new_vlines = tokenize_line(self, line_visible, vlines, #self.dcache + 1, prev_newline)
+      local tokens, new_vlines = tokenize_line(self, visible, vlines, #self.dcache + 1, prev_newline)
       table.insert(self.dcache, tokens)
       self.dtovcache[#self.dcache] = current_vline
       current_vline = current_vline + new_vlines
@@ -1223,8 +1218,7 @@ function DocView:retrieve_tokens(vline, line, visible)
     local start_new_vline = self:tokens_end_in_newline(start_line - 1) 
     for i = start_line, end_line do
       self.dtovcache[i] = vline
-      local line_visible = original_vline and visible and math.abs(vline - original_vline) < screen_visual_height
-      local tokens, new_vlines = tokenize_line(self, line_visible, total_vlines, i, start_new_vline)
+      local tokens, new_vlines = tokenize_line(self, visible, total_vlines, i, start_new_vline)
       start_new_vline = new_vlines > 0
       self.dcache[i] = tokens
       vline = vline + new_vlines
