@@ -1425,6 +1425,40 @@ function DocView:get_vselections(sort_intra, idx_reverse)
       idx_reverse == true and ((#vselections / 4) + 1) or ((idx_reverse or -1) + 1)
 end
 
+-- utility function designed to be used in plugins
+-- accumulates all tokens, but calls `func(output(input, merge_style), text, style)` for the `doc` tokens
+-- if input matches text over the course of the function call, will treat these as `doc` tokens, otherwise `virtual` tokens
+function DocView:accumulate_tokens(dv, tokens, func, options)
+  local t = {}
+  options = options or {}
+  for i = 1, #tokens, 5 do
+    if tokens[i] == "doc" or options.virtual then
+      local type, doc_line, col_start, col_end, token_style = tokens[i], tokens[i + 1], tokens[i + 2], tokens[i + 3], tokens[i + 4]
+      local token_text = self:get_token_text(type, doc_line, col_start, col_end, token_style)
+      local offset = 1
+      func(function(part_text, part_style)
+        if token_text:find(part_text, offset, true) == offset then
+          table.insert(t, "doc")
+          table.insert(t, doc_line)
+          table.insert(t, offset + col_start - 1)
+          table.insert(t, offset + col_start + (part_text:ulen() or #part_text) - 2)
+          offset = offset + (part_text:ulen() or #part_text)
+        else
+          table.insert(t, "virtual")
+          table.insert(t, doc_line)
+          table.insert(t, part_text)
+          table.insert(t, false)
+        end
+        table.insert(t, part_style and common.merge(token_style, part_style) or token_style)
+      end, token_text, token_style, i)
+    else
+      table.move(tokens, i, i + 4, #t + 1, t)
+    end
+  end
+  return t
+end
+
+
 
 function DocView:position_offset_func(line, col, fn, ...)
   line, col = self:sanitize_position(line, col)
