@@ -148,7 +148,7 @@ function DocView:tokenize(line, visible)
   local tokenized = highlighter:get_line(line)
   -- Walk through all doc tokens, and then map them onto what we've tokenized.
   local colorized = {}
-  for idx, type, doc_line, start_offset, end_offset, token_style in self:each_token(tokens) do
+  for idx, type, doc_line, start_offset, end_offset, token_style in common.each_token(tokens) do
     if type == "doc" then
       local offset = 1
       for i = 1, #tokenized.tokens, 2 do

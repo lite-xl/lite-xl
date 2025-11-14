@@ -192,32 +192,16 @@ function DocView:tokenize(line, ...)
       local offset = col1
       for i, token in ipairs(substituted_tokens) do
         if token.col1 > offset then
-          table.insert(new_tokens, type)
-          table.insert(new_tokens, line)
-          table.insert(new_tokens, offset)
-          table.insert(new_tokens, token.col1 - 1)
-          table.insert(new_tokens, style)
+          common.push_token(new_tokens, type, line, offset, token.col1 - 1, style)
         end
-        table.insert(new_tokens, type)
-        table.insert(new_tokens, line)
-        table.insert(new_tokens, token.col1)
-        table.insert(new_tokens, token.col2)
-        table.insert(new_tokens, common.merge(style, { dw = token, color = token.color }))
+        common.push_token(new_tokens, type, line, token.col1, token.col2, common.merge(style, { dw = token, color = token.color }))
         offset = token.col2 + 1
       end
       if offset <= col2 then
-        table.insert(new_tokens, type)
-        table.insert(new_tokens, line)
-        table.insert(new_tokens, offset)
-        table.insert(new_tokens, col2)
-        table.insert(new_tokens, style)
+        common.push_token(type, line, offset, col2, style)
       end
     else
-      table.insert(new_tokens, type)
-      table.insert(new_tokens, line)
-      table.insert(new_tokens, col1)
-      table.insert(new_tokens, col2)
-      table.insert(new_tokens, style)
+      common.push_token(type, line, col1, col2, style)
     end
   end
   return new_tokens

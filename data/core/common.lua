@@ -742,4 +742,97 @@ function common.sort_positions(line1, col1, line2, col2)
 end
 
 
+function common.push_token(tokens, t, line, col1, col2, style)
+  table.insert(tokens, t)
+  table.insert(tokens, line)
+  table.insert(tokens, col1)
+  table.insert(tokens, col2)
+  table.insert(tokens, style)
+end
+
+
+function common.paint_tokens(tokens, s, e, style)
+  local i = 1
+  local offset
+  local t
+  while i < #tokens do
+    if tokens[i] == "doc" and (s <= tokens[i+3] and e >= tokens[i+2]) then
+      if not t then 
+        t = { }
+        table.move(tokens, 1, i - 1, 1, t)
+      end
+      if s > tokens[i+2] then
+        table.insert(t, tokens[i])
+        table.insert(t, tokens[i+1])
+        table.insert(t, tokens[i+2])
+        table.insert(t, s - 1)
+        table.insert(t, tokens[i+4])
+      end
+      table.insert(t, tokens[i])
+      table.insert(t, tokens[i+1])
+      table.insert(t, math.max(s, tokens[i+2]))
+      table.insert(t, math.min(e, tokens[i+3]))
+      table.insert(t, common.merge(tokens[i+4], style))
+      if e < tokens[i+3] then
+        table.insert(t, tokens[i])
+        table.insert(t, tokens[i+1])
+        table.insert(t, e + 1)
+        table.insert(t, tokens[i+3])
+        table.insert(t, tokens[i+4])
+      end
+    elseif t then
+      break
+    end
+    i = i + 5
+  end
+  if i < #tokens then
+    table.move(tokens, i, #tokens, #t + 1, t)
+  end
+  return t or tokens
+end
+
+-- utility function designed to be used in plugins
+-- accumulates all tokens, but calls `func(output(input, merge_style), text, style)` for the `doc` tokens
+-- if input matches text over the course of the function call, will treat these as `doc` tokens, otherwise `virtual` tokens
+function common.accumulate_tokens(tokens, func, options)
+  local t = {}
+  options = options or {}
+  for i = 1, #tokens, 5 do
+    if tokens[i] == "doc" or options.virtual then
+      local type, doc_line, col_start, col_end, token_style = tokens[i], tokens[i + 1], tokens[i + 2], tokens[i + 3], tokens[i + 4]
+      local token_text = self:get_token_text(type, doc_line, col_start, col_end, token_style)
+      local offset = 1
+      func(function(part_text, part_style)
+        if token_text:find(part_text, offset, true) == offset then
+          table.insert(t, "doc")
+          table.insert(t, doc_line)
+          table.insert(t, offset + col_start - 1)
+          table.insert(t, offset + col_start + (part_text:ulen() or #part_text) - 2)
+          offset = offset + (part_text:ulen() or #part_text)
+        else
+          table.insert(t, "virtual")
+          table.insert(t, doc_line)
+          table.insert(t, part_text)
+          table.insert(t, false)
+        end
+        table.insert(t, part_style and common.merge(token_style, part_style) or token_style)
+      end, token_text, token_style, i)
+    else
+      table.move(tokens, i, i + 4, #t + 1, t)
+    end
+  end
+  return t
+end
+
+
+local function token_iter(tokens, idx)
+  if idx > #tokens then return nil end
+  return idx + 5, tokens[idx], tokens[idx+1], tokens[idx+2], tokens[idx+3], tokens[idx+4]
+end
+
+
+function common.each_token(tokens, idx) 
+  return token_iter, tokens, (((idx or 1) - 1) * 5) + 1 
+end
+
 return common
