@@ -1080,6 +1080,18 @@ local function mkvoffset(line, offset) return ((line << 32) | offset) end
 local function getvoffset(number) if not number then return nil end return number >> 32, number & 0xFFFFFFFF end
 
 local function tokenize_line(self, visible, vlines, line, start_new_vline)
+  if visible == nil then
+    local minline, maxline = self:get_visible_virtual_line_range()
+    if self.vcache[minline] and self.vcache[maxline] then
+      local line1 = getvoffset(self.vcache[minline])
+      local line2 = getvoffset(self.vcache[maxline])
+      if line >= line1 or line2 <= line then
+        visible = true
+      end
+    else
+      visible = true
+    end
+  end
   local tokens = self:tokenize(line, visible)
   local new_vlines = 0
   if #tokens > 0 and start_new_vline then
