@@ -856,16 +856,17 @@ end
 local default_color = { common.color "#FFFFFF" }
 function DocView:draw_token(tx, ty, text, style)
   local font = style.font or self:get_font()
+  local y_offset = self:get_line_text_y_offset()
   text = text:gsub("\n$", "")
   if style.background then
-    renderer.draw_rect(tx, ty, font:get_width(text), self:get_line_height())
+    renderer.draw_rect(tx, ty, font:get_width(text), self:get_line_height(), style.background)
   end
-  return renderer.draw_text(font, text, tx, ty, style.color or default_color)
+  return renderer.draw_text(font, text, tx, ty + y_offset, style.color or default_color)
 end
 
 
 function DocView:draw_line_text(vline, x, y)
-  local tx, ty = x, y + self:get_line_text_y_offset()
+  local tx, ty = x, y
   for _, text, style in self:each_vline_token(vline, true) do
     tx = self:draw_token(tx, ty, text, style)
   end
@@ -1304,11 +1305,6 @@ local function vline_iter(state, position)
 end
 
 
-local function token_iter(state, idx)
-  local self, tokens = table.unpack(state)
-  if idx > #tokens then return nil end
-  return idx + 5, tokens[idx], tokens[idx+1], tokens[idx+2], tokens[idx+3], tokens[idx+4]
-end
 
 local function dline_iter(state, idx)
   local self, line = table.unpack(state)
@@ -1331,39 +1327,7 @@ function DocView:each_line_token(line)
   local l = self:retrieve_tokens(nil, line)
   return dline_iter, { self, line }, l and 1
 end
-function DocView:each_token(tokens, idx) return token_iter, { self, tokens }, (((idx or 1) - 1) * 5) + 1 end
--- utility function designed to be used in plugins
--- accumulates all tokens, but calls `func(output(input, merge_style), text, style)` for the `doc` tokens
--- if input matches text over the course of the function call, will treat these as `doc` tokens, otherwise `virtual` tokens
-function DocView:accumulate_tokens(tokens, func, options)
-  local t = {}
-  options = options or {}
-  for i = 1, #tokens, 5 do
-    if tokens[i] == "doc" or options.virtual then
-      local type, doc_line, col_start, col_end, token_style = tokens[i], tokens[i + 1], tokens[i + 2], tokens[i + 3], tokens[i + 4]
-      local token_text = self:get_token_text(type, doc_line, col_start, col_end, token_style)
-      local offset = 1
-      func(function(part_text, part_style)
-        if token_text:find(part_text, offset, true) == offset then
-          table.insert(t, "doc")
-          table.insert(t, doc_line)
-          table.insert(t, offset + col_start - 1)
-          table.insert(t, offset + col_start + (part_text:ulen() or #part_text) - 2)
-          offset = offset + (part_text:ulen() or #part_text)
-        else
-          table.insert(t, "virtual")
-          table.insert(t, doc_line)
-          table.insert(t, part_text)
-          table.insert(t, false)
-        end
-        table.insert(t, part_style and common.merge(token_style, part_style) or token_style)
-      end, token_text, token_style)
-    else
-      table.move(tokens, i, i + 4, #t + 1, t)
-    end
-  end
-  return t
-end
+
 function DocView:get_vline_width(vline)
   local width = 0
   for _, text, style, type in self:each_vline_token(vline) do
