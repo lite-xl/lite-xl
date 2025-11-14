@@ -1428,7 +1428,7 @@ end
 -- utility function designed to be used in plugins
 -- accumulates all tokens, but calls `func(output(input, merge_style), text, style)` for the `doc` tokens
 -- if input matches text over the course of the function call, will treat these as `doc` tokens, otherwise `virtual` tokens
-function DocView:accumulate_tokens(dv, tokens, func, options)
+function DocView:accumulate_tokens(tokens, func, options)
   local t = {}
   options = options or {}
   for i = 1, #tokens, 5 do
