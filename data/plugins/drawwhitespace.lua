@@ -150,7 +150,7 @@ function DocView:tokenize(line, ...)
   if not self.draw_whitespace and not draw_whitespace.enabled then return tokens end
   
   local new_tokens = {}  
-  for idx, type, line, col1, col2, style in self:each_token(tokens) do
+  for idx, type, line, col1, col2, style in common.each_token(tokens) do
     if type == "doc" then
       local text = self:get_token_text(type, line, col1, col2, style)
       local substituted_tokens = {}
@@ -198,10 +198,10 @@ function DocView:tokenize(line, ...)
         offset = token.col2 + 1
       end
       if offset <= col2 then
-        common.push_token(type, line, offset, col2, style)
+        common.push_token(new_tokens, type, line, offset, col2, style)
       end
     else
-      common.push_token(type, line, col1, col2, style)
+      common.push_token(new_tokens, type, line, col1, col2, style)
     end
   end
   return new_tokens
