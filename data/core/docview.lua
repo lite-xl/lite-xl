@@ -855,7 +855,12 @@ end
 
 local default_color = { common.color "#FFFFFF" }
 function DocView:draw_token(tx, ty, text, style)
-  return renderer.draw_text(style.font or self:get_font(), text:gsub("\n$", ""), tx, ty, style.color or default_color)
+  local font = style.font or self:get_font()
+  text = text:gsub("\n$", "")
+  if style.background then
+    renderer.draw_rect(tx, ty, font:get_width(text), self:get_line_height())
+  end
+  return renderer.draw_text(font, text, tx, ty, style.color or default_color)
 end
 
 
