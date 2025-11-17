@@ -8,14 +8,6 @@ local DocView = require "core.docview"
 local tokenizer = require "core.tokenizer"
 
 
-local function doc(rv)
-  return rv.active_view.doc
-end
-
-local function docview(rv)
-  return rv.active_view
-end
-
 local function append_line_if_last_line(dv, line)
   if line >= #dv.doc.lines then
     dv:insert(line, math.huge, "\n")
@@ -271,7 +263,7 @@ local write_commands = {
   ["docview:duplicate-lines"] = function(dv)
     for idx, line1, col1, line2, col2 in doc_multiline_selections(dv, true) do
       append_line_if_last_line(dv, line2)
-      local text = doc():get_text(line1, 1, line2 + 1, 1)
+      local text = dv.doc:get_text(line1, 1, line2 + 1, 1)
       dv.doc:insert(line2 + 1, 1, text)
       local n = line2 - line1 + 1
       dv:set_selections(idx, line1 + n, col1, line2 + n, col2)
