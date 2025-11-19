@@ -92,6 +92,8 @@ config.symbol_pattern = "[%a_][%w_]*"
 ---The default is ``" \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"``
 ---@type string
 config.non_word_chars = " \t\n/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
+config.symbol_chars = "/\\()\"':,.;<>~!@#$%^&*|+=[]{}`?-"
+config.space_chars = " \t\n"
 
 ---The timeout, in seconds, before several consecutive actions
 ---are merged as a single undo step.
