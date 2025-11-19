@@ -265,6 +265,9 @@ config.stonks = true
 ---@type boolean
 config.use_system_file_picker = system.get_sandbox() ~= "none"
 
+---Whether or not to load untrusted project modules.
+config.always_trust_projects = false
+
 -- holds the plugins real config table
 local plugins_config = {}
 
