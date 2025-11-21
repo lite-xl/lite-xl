@@ -12,7 +12,8 @@ syntax.add {
         "<%s*/%s*[sS][cC][rR][iI][pP][tT]%s*>"
       },
       syntax = ".js",
-      type = "function"
+      type = "function",
+      hard_lexical_stop = true
     },
     {
       pattern = {
@@ -20,7 +21,8 @@ syntax.add {
         "<%s*/%s*[sS][tT][yY][lL][eE]%s*>"
       },
       syntax = ".css",
-      type = "function"
+      type = "function",
+      hard_lexical_stop = true
     },
     { pattern = { "<!%-%-", "%-%->" },     type = "comment"  },
     { pattern = { '%f[^>][^<]', '%f[<]' }, type = "normal"   },
