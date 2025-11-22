@@ -835,7 +835,7 @@ command.add(
     local text
     if not is_project_folder(item) then
       if item.type == "dir" then
-        text = item.project:normalize_path(item.filename) .. PATHSEP
+        text = item.project:normalize_path(item.abs_filename) .. PATHSEP
       elseif item.type == "file" then
         text = item.project:normalize_path(common.dirname(item.abs_filename)) .. PATHSEP
       end
