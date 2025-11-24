@@ -43,6 +43,7 @@ function RootView:new(window)
   self.context_menu = ContextMenu()
   self.active_view = nil
   self.last_active_view = nil
+  self.init_size = true
   ---@type core.contextmenu
   self.context_menu = ContextMenu(self)
   ---@type core.commandview
@@ -583,6 +584,10 @@ end
 
 function RootView:update()
   Node.copy_position_and_size(self.root_node, self)
+  if self.init_size then -- for the initial load
+    self.root_node:update_layout()
+    self.init_size = false
+  end
   self.root_node:update()
   self.root_node:update_layout()
 

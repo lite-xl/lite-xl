@@ -103,15 +103,13 @@ function TreeView:get_cached(project, path)
       project = project,
       ignored = self.show_ignored and project:is_ignored(info, path)
     }
-    if self.expanded[path] ~= nil then 
-      t.expanded = self.expanded[path]
-    else 
-      t.expanded = (info.type == "dir" and #truncated <= 1) 
+    if self.expanded[path] == nil then 
+      self.expanded[path] = (info.type == "dir" and #truncated <= 1) 
     end
-    if t.expanded then self.watches[project]:watch(path) end
+    if self.expanded[path] then self.watches[project]:watch(path) end
     self.cache[path] = t
   end
-  if t.expanded and t.type == "dir" and not t.files then
+  if self.expanded[path] and t.type == "dir" and not t.files then
     t.files = {}
     for i, file in ipairs(system.list_dir(path)) do
       local l = path .. PATHSEP .. file
@@ -149,7 +147,7 @@ function TreeView:get_items(project, path, x, y, w, h)
   local dir = self:get_cached(project, path)
   coroutine.yield(dir, x, y, w, h)
   local count_lines = 1
-  if dir and dir.files and dir.expanded then
+  if dir and dir.files and self.expanded[dir.abs_filename] then
     for i, file in ipairs(dir.files) do
       if self.show_hidden or not file.name:find("^%.") then
         count_lines = count_lines + self:get_items(project, path .. PATHSEP .. file.name, x, y + count_lines * h, w, h)
@@ -210,7 +208,7 @@ function TreeView:set_selection_to_path(path, expand, scroll_to, instant)
         local _, to = string.find(path, item.abs_filename..PATHSEP, 1, true)
         if to and to == #item.abs_filename + #PATHSEP then
           to_select, to_select_y = item, y
-          if expand and not item.expanded then
+          if expand and not self.expanded[item.abs_filename] then
             -- Use TreeView:toggle_expand to update the directory structure.
             -- Directly using item.expanded doesn't update the cached tree.
             self:toggle_expand(true, item)
@@ -365,7 +363,7 @@ end
 function TreeView:get_item_icon(item, active, hovered)
   local character = "f"
   if item.type == "dir" then
-    character = item.expanded and "D" or "d"
+    character = self.expanded[item.abs_filename] and "D" or "d"
   end
   local font = style.icon_font
   local color = style.text
@@ -411,7 +409,7 @@ end
 
 function TreeView:draw_item_chevron(item, active, hovered, x, y, w, h)
   if item.type == "dir" then
-    local chevron_icon = item.expanded and "-" or "+"
+    local chevron_icon = self.expanded[item.abs_filename] and "-" or "+"
     local chevron_color = hovered and style.accent or style.text
     common.draw_text(style.icon_font, chevron_color, chevron_icon, nil, x, y, 0, h)
   end
@@ -512,13 +510,12 @@ function TreeView:toggle_expand(toggle, item)
 
   if item.type == "dir" then
     if type(toggle) == "boolean" then
-      item.expanded = toggle
+      self.expanded[item.abs_filename] = toggle
     else
-      item.expanded = not item.expanded
+      self.expanded[item.abs_filename] = not self.expanded[item.abs_filename]
     end
-    self.expanded[item.abs_filename] = item.expanded
     if self.watches[item.project] then
-      self.watches[item.project]:watch(item.abs_filename, item.expanded)
+      self.watches[item.project]:watch(item.abs_filename, self.expanded[item.abs_filename])
     end
   end
 end
@@ -590,12 +587,6 @@ core.add_thread(function()
     coroutine.yield(0.01)
   end
 end)
-
-local on_quit_project = core.on_quit_project
-function core.on_quit_project()
-  view.cache = {}
-  on_quit_project()
-end
 
 local function is_project_folder(item)
   return item.abs_filename == item.project.path
@@ -705,7 +696,7 @@ command.add(TreeView, {
 
   ["treeview:collapse"] = function(view)
     if view.selected_item then
-      if view.selected_item.type == "dir" and view.selected_item.expanded then
+      if view.selected_item.type == "dir" and view.expanded[view.selected_item.abs_filename] then
         view:toggle_expand(false)
       else
         local parent_item, y = view:get_parent(view.selected_item)
@@ -720,7 +711,7 @@ command.add(TreeView, {
     local item = view.selected_item
     if not item or item.type ~= "dir" then return end
 
-    if item.expanded then
+    if view.expanded[item.abs_filename] then
       local next_item, _, next_y = view:get_next(item)
       if next_item.depth > item.depth then
         view:set_selection(next_item, next_y)

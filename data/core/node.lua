@@ -26,6 +26,7 @@ function Node:new(root_view, type)
   self.tab_offset = 1
   self.tab_width = style.tab_width
   self.move_towards = View.move_towards
+  self.init_size = true
 end
 
 
@@ -69,8 +70,10 @@ function Node:split(dir, view, locked, resizable)
   end
   if dir == "up" or dir == "left" then
     self.a, self.b = self.b, self.a
+    self:update_layout()
     return self.a
   end
+  self:update_layout()
   return self.b
 end
 
@@ -472,8 +475,14 @@ function Node:update()
     end
     self:tab_hovered_update(self.root_view.mouse.x, self.root_view.mouse.y)
     local tab_width = self:target_tab_width()
-    self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
-    self:move_towards("tab_width", tab_width, nil, "tabs")
+    if self.init_size then
+      self.tab_shift = tab_width * (self.tab_offset - 1)
+      self.tab_width = tab_width
+      self.init_size = false
+    else
+      self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
+      self:move_towards("tab_width", tab_width, nil, "tabs")
+    end
   else
     self.a:update()
     self.b:update()

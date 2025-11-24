@@ -804,7 +804,7 @@ function core.step()
   for _, window in ipairs(core.windows) do
     window:update()
   end
-  if not core.redraw then return false end
+  if not core.redraw or core.restart_request or core.quit_request then return false end
   core.redraw = false
   
   -- close unreferenced docs

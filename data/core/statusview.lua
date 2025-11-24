@@ -189,6 +189,7 @@ function StatusView:new(root_view)
   self.hovered_panel = ""
   self.hide_messages = false
   self.visible = true
+  self.init_size = true
 
   self:register_docview_items()
   self:register_command_items()
@@ -1080,9 +1081,10 @@ function StatusView:update()
 
   local height = style.font:get_height() + style.padding.y * 2;
 
-  if self.size.y + 1 < height then
+  if not self.init_size and self.size.y + 1 < height then
     self:move_towards(self.size, "y", height, nil, "statusbar")
   else
+    self.init_size = false
     self.size.y = height
   end
 
