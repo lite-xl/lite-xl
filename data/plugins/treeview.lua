@@ -823,7 +823,6 @@ command.add(
           core.error("Error: unable to create a new file in \"%s\": %s", doc_filename, err)
           return
         end
-        file:write("")
         file:close()
         view:open_doc(doc_filename)
         core.log("Created %s", doc_filename)
