@@ -254,6 +254,9 @@ local commands = {
 
   ["doc:paste"] = function(dv)
     local clipboard = system.get_clipboard()
+    if not clipboard or clipboard == "" then
+    	return
+    end
     -- If the clipboard has changed since our last look, use that instead
     if core.cursor_clipboard["full"] ~= clipboard then
       core.cursor_clipboard = {}
