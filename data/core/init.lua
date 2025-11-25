@@ -325,7 +325,7 @@ function core.init()
   -- Load core and user plugins giving preference to user ones with same name.
   -- Additionally, do window set up at priority 0, so that plugins can override
   -- window setup if they want to set up some sort of alternate renderer.
-  local plugins_success, plugins_refuse_list = core.load_plugins({ { priority = 0, load = function()
+  local plugins_success, plugins_refuse_list = core.load_plugins({ { name = "Window Creation", priority = 0, load = function()
     core.add_window(Window(renwindow._restore() or renwindow.create("")))
   end } })
 
@@ -371,6 +371,7 @@ function core.init()
         if item.text == "Exit" then os.exit(1) end
       end)
   end
+  core.log_quiet("lite-xl startup in %.1fms", (system.get_time() - START) * 1000)
 end
 
 
@@ -569,6 +570,7 @@ function core.load_plugins(steps)
 
   local load_start = system.get_time()
   for i = 1, #core.plugin_list do
+    local start = system.get_time()
     local plugin = core.plugin_list[i]
     if not config.skip_plugins_version and plugin.version_match == false then
       core.log_quiet(
@@ -581,12 +583,14 @@ function core.load_plugins(steps)
         and 'userdir' or 'datadir'
       table.insert(refused_list[rlist].plugins, plugin)
     elseif not plugin.name or config.plugins[plugin.name] ~= false then
-      local start = system.get_time()
       local ok, loaded_plugin = core.try(plugin.load, plugin)
       if ok and plugin.name then
         local plugin_version = ""
         if plugin.version_string and plugin.version_string ~= MOD_VERSION_STRING then
           plugin_version = "["..plugin.version_string.."]"
+        end
+        if config.plugins[plugin.name].onload then
+          core.try(config.plugins[plugin.name].onload, loaded_plugin)
         end
         core.log_quiet(
           "Loaded plugin %q%s from %s in %.1fms",
@@ -595,18 +599,11 @@ function core.load_plugins(steps)
           common.dirname(plugin.file or "."),
           (system.get_time() - start) * 1000
         )
-        if config.plugins[plugin.name].onload then
-          core.try(config.plugins[plugin.name].onload, loaded_plugin)
-        end
       elseif not ok then
         no_errors = false
       end
     end
   end
-  core.log_quiet(
-    "Loaded all plugins in %.1fms",
-    (system.get_time() - load_start) * 1000
-  )
   return no_errors, refused_list
 end
 
@@ -779,7 +776,7 @@ function core.on_event(type, window_id, ...)
   return false
 end
 
-
+core.frame_count = 0
 function core.step()
   -- handle events
   local did_keymap = false
@@ -817,6 +814,10 @@ function core.step()
   end
   for _, window in ipairs(core.windows) do
     window:step()
+  end
+  core.frame_count = core.frame_count + 1
+  if core.frame_count == 1 then
+    core.log_quiet("lite-xl first frame in %.1fms", (system.get_time() - START) * 1000)
   end
   return true
 end

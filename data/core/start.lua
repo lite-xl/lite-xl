@@ -1,4 +1,5 @@
 -- this file is used by lite-xl to setup the Lua environment when starting
+START = system.get_time()
 VERSION = "@PROJECT_VERSION@"
 MOD_VERSION_MAJOR = 4
 MOD_VERSION_MINOR = 0
