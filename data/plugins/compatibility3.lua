@@ -197,6 +197,7 @@ end
 -- Support old method of defining context menus.
 -- Added in for TreeView extender.
 local old_new = View.new
+local global_context_menus = {}
 function View:new()
   old_new(self)
   self.context_menu_items = {}
@@ -219,9 +220,22 @@ function View:new()
         end
       end
     end
+    for i, regd in ipairs(global_context_menus) do
+      if regd.predicate() then
+        for _, item in ipairs(regd.items) do
+          table.insert(menu.items, item)
+        end
+      end
+    end
     return menu
   end
 end
+
+package.loaded['plugins.contextmenu'] = {
+  register = function(contextmenu, predicate, items)
+    table.insert(global_context_menus, { predicate = predicate, items = items })
+  end
+}
 
 local treemt = getmetatable(TreeView)
 local old_treeview_index = treemt.__index
