@@ -1174,6 +1174,7 @@ function DocView:retrieve_tokens(vline, line, visible)
   -- if we have the tokens,return them
   if vline and self.vcache[vline] then return getvoffset(self.vcache[vline]) end
   if line and self.dcache[line] then return line, 1 end
+  if vline and vline < 1 then return 1, 1 end
   -- If we're here, it means we need to tokenize a block of lines in the middle of the document. Start from the beginning up until the relevant line.
   if (vline and vline < #self.vcache) or (line and line < #self.dcache) then    
     local start_line, end_line
