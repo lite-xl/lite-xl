@@ -2,7 +2,7 @@ require "core.strict"
 require "core.regex"
 local common = require "core.common"
 local config = require "core.config"
-local style = require "colors.default"
+local style
 local storage
 local command
 local keymap
@@ -244,14 +244,8 @@ function core.init()
   core.log_items = {}
   core.log_quiet("Lite XL version %s - mod-version %s", VERSION, MOD_VERSION_STRING)
 
-  command = require "core.command"
-  keymap = require "core.keymap"
-  dirwatch = require "core.dirwatch"
-  Window = require "core.window"
   Project = require "core.project"
-  Doc = require "core.doc"
   storage = require "core.storage"
-
   if PATHSEP == '\\' then
     USERDIR = common.normalize_volume(USERDIR)
     DATADIR = common.normalize_volume(DATADIR)
@@ -304,8 +298,6 @@ function core.init()
   -- Ensure that we have a user directory.
   core.ensure_user_directory()
 
-  -- Load default commands first so plugins can override them
-  command.add_defaults()
 
   local project_dir_abs = system.absolute_path(project_dir)
   -- We prevent set_project below to effectively add and scan the directory because the
@@ -326,6 +318,14 @@ function core.init()
   -- Additionally, do window set up at priority 0, so that plugins can override
   -- window setup if they want to set up some sort of alternate renderer.
   local plugins_success, plugins_refuse_list = core.load_plugins({ { name = "Window Creation", priority = 0, load = function()
+    -- Load default commands first so plugins can override them
+    style = require "colors.default"
+    Window = require "core.window"
+    command = require "core.command"
+    keymap = require "core.keymap"
+    dirwatch = require "core.dirwatch"
+    Doc = require "core.doc"
+    command.add_defaults()
     core.add_window(Window(renwindow._restore() or renwindow.create("")))
   end } })
 
@@ -596,7 +596,7 @@ function core.load_plugins(steps)
           "Loaded plugin %q%s from %s in %.1fms",
           plugin.name,
           plugin_version,
-          common.dirname(plugin.file or "."),
+          common.dirname(plugin.file or ".") or "core",
           (system.get_time() - start) * 1000
         )
       elseif not ok then
@@ -691,8 +691,8 @@ end
 function core.custom_log(level, show, backtrace, fmt, ...)
   local text = string.format(fmt, ...)
   if show then
-    local s = style.log[level]
     if core.active_window() and core.active_window().root_view.status_view then
+      local s = style.log[level]
       core.active_window().root_view.status_view:show_message(s.icon, s.color, text)
     end
   end

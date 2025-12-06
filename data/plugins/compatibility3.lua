@@ -2,6 +2,7 @@
 local core = require "core"
 local config = require "core.config"
 local command = require "core.command"
+local style = require "colors.default"
 local View = require "core.view"
 local Node = require "core.node"
 local Doc = require "core.doc"
