@@ -119,7 +119,7 @@ function DocView:tokenize(line, visible)
   local offset = docstart
   local docend = docstart + width
 
-  for _, type, l, s, e, style in self:each_token(old_tokenize(self, line, visible)) do
+  for _, type, l, s, e, style in common.each_token(old_tokenize(self, line, visible)) do
     local font = self:get_font() or style.font
     while true do
       local text = self:get_token_text(type, l, s, e)
