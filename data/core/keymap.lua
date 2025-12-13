@@ -148,9 +148,6 @@ end
 function keymap.add(map, overwrite)
   remove_duplicates(map)
   for stroke, commands in pairs(map) do
-    if macos then
-      stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
-    end
     stroke = normalize_stroke(stroke)
     if overwrite then
       if keymap.map[stroke] then
@@ -343,7 +340,7 @@ keymap.add_direct {
   ["insert"] = "docview:toggle-overwrite",
   ["ctrl+insert"] = "docview:copy",
   ["shift+insert"] = "docview:paste",
-  ["escape"] = { "command:escape", "docview:select-none", "dialog:select-no" },
+  ["escape"] = { "command:escape", "docview:select-none", "context-menu:hide", "dialog:select-no" },
   ["tab"] = { "command:complete", "docview:indent" },
   ["shift+tab"] = "docview:unindent",
   ["backspace"] = "docview:backspace",
@@ -354,7 +351,7 @@ keymap.add_direct {
   ["shift+delete"] = "docview:delete",
   ["ctrl+delete"] = "docview:delete-to-next-word-end",
   ["ctrl+shift+delete"] = "docview:delete-to-next-word-end",
-  ["return"] = { "command:submit", "docview:newline", "dialog:select" },
+  ["return"] = { "command:submit","context-menu:submit" "docview:newline", "dialog:select" },
   ["keypad enter"] = { "command:submit", "docview:newline", "dialog:select" },
   ["ctrl+return"] = "docview:newline-below",
   ["ctrl+shift+return"] = "docview:newline-above",
@@ -389,9 +386,11 @@ keymap.add_direct {
 
   ["shift+1lclick"] = "docview:select-to-cursor",
   ["ctrl+1lclick"] = "docview:split-cursor",
-  ["1lclick"] = "docview:set-cursor",
+  ["1lclick"] = { "context-menu:select", "context-menu:hide", "docview:set-cursor" },
   ["2lclick"] = { "docview:set-cursor-word", "emptyview:new-doc", "tabbar:new-doc" },
   ["3lclick"] = "docview:set-cursor-line",
+  ["rclick"] = "context-menu:show",
+  ["menu"] = "context-menu:show",
   ["mclick"] = "docview:paste-primary-selection",
   ["shift+left"] = "docview:select-to-previous-char",
   ["shift+right"] = "docview:select-to-next-char",

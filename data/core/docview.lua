@@ -7,6 +7,7 @@ local translate = require "core.doc.translate"
 local Doc = require "core.doc"
 local ime = require "core.ime"
 local View = require "core.view"
+local ContextMenu = require "core.contextmenu"
 
 ---@class core.docview : core.view
 ---@field super core.view
@@ -1020,6 +1021,7 @@ function DocView:draw()
   self:draw_scrollbar()
 end
 
+
 -- Plugins hook this to return a line/col list from `doc`, or provide a virtual line.
 -- `{ "doc", line, 1, #self.doc.lines[line], style }`
 -- `{ "virtual", line, text, false, style }
@@ -1547,5 +1549,16 @@ function DocView:position_offset_char(line, col, offset)
   end
 end
 
+
+function DocView:on_context_menu()
+  return { items = {
+    { text = "Cut",     command = "doc:cut" },
+    { text = "Copy",    command = "doc:copy" },
+    { text = "Paste",   command = "doc:paste" },
+    ContextMenu.DIVIDER,
+    { text = "Find",    command = "find-replace:find"    },
+    { text = "Replace", command = "find-replace:replace" }
+  } }, self
+end
 
 return DocView

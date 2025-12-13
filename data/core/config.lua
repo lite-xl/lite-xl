@@ -258,6 +258,13 @@ config.skip_plugins_version = false
 ---@type boolean | { font: renderer.font, icon: string } | nil
 config.stonks = true
 
+---Use the system file picker instead of the command palette
+---when opening files.
+---
+---Defaults to false if no sandbox is detected.
+---@type boolean
+config.use_system_file_picker = system.get_sandbox() ~= "none"
+
 -- holds the plugins real config table
 local plugins_config = {}
 
