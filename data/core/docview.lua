@@ -1020,6 +1020,7 @@ function DocView:draw()
   self:draw_scrollbar()
 end
 
+
 -- Plugins hook this to return a line/col list from `doc`, or provide a virtual line.
 -- `{ "doc", line, 1, #self.doc.lines[line], style }`
 -- `{ "virtual", line, text, false, style }

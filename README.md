@@ -278,7 +278,7 @@ rm -rf $HOME/.local/share/icons/hicolor/scalable/apps/lite-xl.svg \
 Any additional functionality that can be added through a plugin should be done
 as a plugin, after which a pull request to the [Lite XL plugins repository] can be made.
 
-Pull requests to improve or modify the editor itself are welcome.
+Pull requests to improve or modify the editor itself are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## Licenses
 

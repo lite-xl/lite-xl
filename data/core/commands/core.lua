@@ -1,6 +1,7 @@
 local core = require "core"
 local common = require "core.common"
 local command = require "core.command"
+local config = require "core.config"
 local keymap = require "core.keymap"
 local LogView = require "core.logview"
 local Window = require "core.window"
@@ -23,6 +24,134 @@ local function check_directory_path(path)
       return nil
     end
     return abs_path
+end
+
+local function open_file(root_view, use_dialog)
+  local view = root_view.active_view
+  local default_text
+  if view.doc and view.doc.abs_filename then
+    local dirname, _ = view.doc.abs_filename:match("(.*)[/\\](.+)$")
+    if dirname then
+      if use_dialog then
+        default_text = dirname
+      else
+        dirname = core.normalize_to_project_dir(dirname)
+        default_text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
+      end
+    end
+  end
+
+  if use_dialog then
+    core.open_file_dialog(root_view.window, function(status, result)
+      if status == "accept" then
+      	for _, filename in ipairs(result --[[ @as string[] ]]) do
+          root_view:open_doc(core.open_doc(filename))
+      	end
+      elseif status == "error" then
+        core.error("Error while opening dialog: %s", result or "")
+      end
+    end, {
+      default_location = default_text,
+      allow_many = true,
+    })
+  	return
+  end
+
+  root_view.command_view:enter("Open File", {
+    text = default_text,
+    submit = function(text)
+      local filename = core.project_absolute_path(common.home_expand(text))
+      root_view:open_doc(core.open_doc(filename))
+    end,
+    suggest = function (text)
+      return common.home_encode_list(common.path_suggest(common.home_expand(text), root_view.root_project() and core.root_project().path))
+    end,
+    validate = function(text)
+        local filename = core.project_absolute_path(common.home_expand(text))
+        local path_stat, err = system.get_file_info(filename)
+        if err then
+          if err:find("No such file", 1, true) then
+            -- check if the containing directory exists
+            local dirname = common.dirname(filename)
+            local dir_stat = dirname and system.get_file_info(dirname)
+            if not dirname or (dir_stat and dir_stat.type == 'dir') then
+              return true
+            end
+          end
+          core.error("Cannot open file %s: %s", text, err)
+        elseif --[[@cast path_stat -nil]] path_stat.type == 'dir' then
+          -- TODO: remove the above cast once https://github.com/LuaLS/lua-language-server/discussions/3102 is implemented.
+          core.error("Cannot open %s, is a folder", text)
+        else
+          return true
+        end
+      end,
+  })
+end
+
+local function open_directory(root_view, label, use_dialog, allow_many, callback)
+  local dirname = common.dirname(core.root_project().path)
+  local text
+  if dirname then
+    text = use_dialog and dirname or common.home_encode(dirname) .. PATHSEP
+  end
+
+  if use_dialog then
+    core.open_directory_dialog(root_view.window, function(status, result)
+      if status == "accept" then
+        callback(result)
+      elseif status == "error" then
+        core.error("Error while opening dialog: %s", result or "")
+      end
+    end, {
+      default_location = text,
+      allow_many = allow_many,
+      title = label,
+    })
+  	return
+  end
+
+  root_view.command_view:enter(label, {
+    text = text,
+    submit = function(text)
+      local path = common.home_expand(text)
+      local abs_path = check_directory_path(path)
+      if not abs_path then
+        core.error("Cannot open directory %q", path)
+        return
+      end
+      callback({abs_path})
+    end,
+    suggest = suggest_directory
+  })
+end
+
+local function change_project_directory(root_view, use_dialog)
+  open_directory(root_view, "Change Project Folder", use_dialog, false, function(abs_path)
+    if abs_path[1] == core.root_project().path then return end
+    core.confirm_close_docs(core.docs, function(dirpath)
+      core.open_project(dirpath)
+    end, abs_path[1])
+  end)
+end
+
+local function open_project_directory(root_view, use_dialog)
+  open_directory(root_view, "Open Project", use_dialog, false, function(abs_path)
+    if abs_path[1] == core.root_project().path then
+      core.error("Directory %q is currently opened", abs_path[1])
+      return
+    end
+    system.exec(string.format("%q %q", EXEFILE, abs_path[1]))
+  end)
+end
+
+local function add_project_directory(use_dialog)
+  open_directory(root_view, "Add Directory", use_dialog, true, function(abs_path)
+    for _, dir in ipairs(abs_path) do
+      print(dir)
+      core.add_project(system.absolute_path(dir))
+    end
+  end)
 end
 
 command.add(nil, {
@@ -101,45 +230,15 @@ command.add(nil, {
   end,
 
   ["core:open-file"] = function(root_view)
-    local view = root_view.active_view
-    local text
-    if view.doc and view.doc.abs_filename then
-      local dirname, filename = view.doc.abs_filename:match("(.*)[/\\](.+)$")
-      if dirname then
-        dirname = core.normalize_to_project_dir(dirname)
-        text = dirname == core.root_project().path and "" or common.home_encode(dirname) .. PATHSEP
-      end
-    end
-    root_view.command_view:enter("Open File", {
-      text = text,
-      submit = function(text)
-        local filename = core.project_absolute_path(common.home_expand(text))
-        root_view:open_doc(core.open_doc(filename))
-      end,
-      suggest = function (text)
-        return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project() and core.root_project().path))
-      end,
-      validate = function(text)
-          local filename = core.project_absolute_path(common.home_expand(text))
-          local path_stat, err = system.get_file_info(filename)
-          if err then
-            if err:find("No such file", 1, true) then
-              -- check if the containing directory exists
-              local dirname = common.dirname(filename)
-              local dir_stat = dirname and system.get_file_info(dirname)
-              if not dirname or (dir_stat and dir_stat.type == 'dir') then
-                return true
-              end
-            end
-            core.error("Cannot open file %s: %s", text, err)
-          elseif --[[@cast path_stat -nil]] path_stat.type == 'dir' then
-            -- TODO: remove the above cast once https://github.com/LuaLS/lua-language-server/discussions/3102 is implemented.
-            core.error("Cannot open %s, is a folder", text)
-          else
-            return true
-          end
-        end,
-    })
+    open_file(root_view, config.use_system_file_picker)
+  end,
+
+  ["core:open-file-picker"] = function(root_view)
+    open_file(root_view, true)
+  end,
+
+  ["core:open-file-commandview"] = function(root_view)
+    open_file(root_view, false)
   end,
 
   ["core:open-log"] = function(root_view)
@@ -167,72 +266,41 @@ command.add(nil, {
     window:configure_borderless_window(core.windows[1].borderless)
     window.renwindow:set_size(window.renwindow:get_size())
   end,
-
+  
   ["core:change-project-folder"] = function(root_view)
-    local dirname = common.dirname(core.root_project().path)
-    local text
-    if dirname then
-      text = common.home_encode(dirname) .. PATHSEP
-    end
-    root_view.command_view:enter("Change Project Folder", {
-      text = text,
-      submit = function(text)
-        local path = common.home_expand(text)
-        local abs_path = check_directory_path(path)
-        if not abs_path then
-          core.error("Cannot open directory %q", path)
-          return
-        end
-        if abs_path == core.root_project().path then return end
-        core.confirm_close_docs(core.docs, function(dirpath)
-          core.open_project(dirpath)
-        end, abs_path)
-      end,
-      suggest = suggest_directory
-    })
+    change_project_directory(root_view, config.use_system_file_picker)
+  end,
+
+  ["core:change-project-folder-picker"] = function(root_view)
+    change_project_directory(root_view, true)
+  end,
+
+  ["core:change-project-folder-commandview"] = function(root_view)
+    change_project_directory(root_view, false)
   end,
 
   ["core:open-project-folder"] = function(root_view)
-    local dirname = common.dirname(core.root_project().path)
-    local text
-    if dirname then
-      text = common.home_encode(dirname) .. PATHSEP
-    end
-    root_view.command_view:enter("Open Project", {
-      text = text,
-      submit = function(text)
-        local path = common.home_expand(text)
-        local abs_path = check_directory_path(path)
-        if not abs_path then
-          core.error("Cannot open directory %q", path)
-          return
-        end
-        if abs_path == core.root_project().path then
-          core.error("Directory %q is currently opened", abs_path)
-          return
-        end
-        process.start({ EXEFILE, abs_path }, { detach = true })
-      end,
-      suggest = suggest_directory
-    })
+    open_project_directory(root_view, config.use_system_file_picker)
+  end,
+
+  ["core:open-project-folder-picker"] = function(root_view)
+    open_project_directory(root_view, true)
+  end,
+
+  ["core:open-project-folder-commandview"] = function(root_view)
+    open_project_directory(root_view, false)
   end,
 
   ["core:add-directory"] = function(root_view)
-    root_view.command_view:enter("Add Directory", {
-      submit = function(text)
-        text = common.home_expand(text)
-        local path_stat, err = system.get_file_info(text)
-        if not path_stat then
-          core.error("cannot open %q: %s", text, err)
-          return
-        elseif path_stat.type ~= 'dir' then
-          core.error("%q is not a directory", text)
-          return
-        end
-        core.add_project(system.absolute_path(text))
-      end,
-      suggest = suggest_directory
-    })
+    add_project_directory(root_view, config.use_system_file_picker)
+  end,
+
+  ["core:add-directory-picker"] = function(root_view)
+    add_project_directory(root_view, true)
+  end,
+
+  ["core:add-directory-commandview"] = function(root_view)
+    add_project_directory(root_view, false)
   end,
 
   ["core:remove-directory"] = function(root_view)

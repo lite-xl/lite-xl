@@ -137,6 +137,15 @@ function Window:on_event(type, ...)
     self.mode = type == "restored" and "normal" or type
   elseif type == "filedropped" then
     self.root_view:on_file_dropped(...)
+  elseif type == "dialogfinished" then
+    local id, status, result = ...
+    local callback = core.active_file_dialogs[id]
+    if not callback then
+      core.error("Invalid dialog id %d", id)
+    else
+      core.active_file_dialogs[id] = nil
+      callback(status, result)
+    end
   elseif type == "focuslost" then
     self.root_view:on_focus_lost(...)
   elseif type == "closed" or type == "close" then

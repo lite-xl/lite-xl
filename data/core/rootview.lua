@@ -40,7 +40,6 @@ function RootView:new(window)
   self.defer_open_docs = {}
   self.first_dnd_processed = false
   self.first_update_done = false
-  self.context_menu = ContextMenu()
   self.active_view = nil
   self.last_active_view = nil
   self.init_size = true

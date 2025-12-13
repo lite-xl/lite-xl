@@ -148,9 +148,6 @@ end
 function keymap.add(map, overwrite)
   remove_duplicates(map)
   for stroke, commands in pairs(map) do
-    if macos then
-      stroke = stroke:gsub("%f[%a]ctrl%f[%A]", "cmd")
-    end
     stroke = normalize_stroke(stroke)
     if overwrite then
       if keymap.map[stroke] then
@@ -355,7 +352,7 @@ keymap.add_direct {
   ["shift+delete"] = "docview:delete",
   ["ctrl+delete"] = "docview:delete-to-next-word-end",
   ["ctrl+shift+delete"] = "docview:delete-to-next-word-end",
-  ["return"] = { "command:submit","context-menu:submit", "docview:newline", "dialog:select" },
+  ["return"] = { "command:submit", "context-menu:submit", "docview:newline", "dialog:select" },
   ["keypad enter"] = { "command:submit", "docview:newline", "dialog:select" },
   ["ctrl+return"] = "docview:newline-below",
   ["ctrl+shift+return"] = "docview:newline-above",
@@ -375,8 +372,8 @@ keymap.add_direct {
 
   ["left"] = { "docview:move-to-previous-char", "dialog:previous-entry" },
   ["right"] = { "docview:move-to-next-char", "dialog:next-entry"},
-  ["up"] = { "command:select-previous", "docview:move-to-previous-line" },
-  ["down"] = { "command:select-next", "docview:move-to-next-line" },
+  ["up"] = { "command:select-previous", "context-menu:focus-previous", "docview:move-to-previous-line" },
+  ["down"] = { "command:select-next", "context-menu:focus-next", "docview:move-to-next-line" },
   ["ctrl+left"] = "docview:move-to-previous-word-start",
   ["ctrl+right"] = "docview:move-to-next-word-end",
   ["ctrl+["] = "docview:move-to-previous-block-start",

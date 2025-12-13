@@ -8,6 +8,7 @@ renwindow = {}
 ---
 ---Create a new window
 ---
+---@param title string the title given to the newly created window
 ---@param width integer? if nil or less than 1 will be calculated from display
 ---@param height integer? if nil or less than 1 will be calculated from display
 ---
@@ -27,10 +28,14 @@ function renwindow:set_title(title) end
 ---@return number height
 function renwindow:set_size(w, h) end
 
+=======
+function renwindow.create(title, width, height) end
+>>>>>>> upstream/master
 
 ---
---- Get width and height of a window 
+---Get width and height of a window
 ---
+<<<<<<< HEAD
 ---@return number width
 ---@return number height
 function renwindow:get_size() end
@@ -69,3 +74,16 @@ function renwindow:raise() end
 ---
 ---@param bordered boolean
 function renwindow:set_bordered(bordered) end
+=======
+---@param window renwindow
+---
+---@return number width
+---@return number height
+function renwindow.get_size(window) end
+
+---
+---Restore Window
+---
+---@return number
+function renwindow._restore() end
+>>>>>>> upstream/master
