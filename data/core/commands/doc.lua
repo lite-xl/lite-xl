@@ -39,7 +39,6 @@ local function save(filename)
 end
 
 local commands = {
-
   ["doc:toggle-line-ending"] = function(dv)
     dv.doc.crlf = not dv.doc.crlf
   end,

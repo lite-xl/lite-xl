@@ -809,7 +809,7 @@ command.add(
     local text
     if not is_project_folder(item) then
       if item.type == "dir" then
-        text = item.project:normalize_path(item.filename) .. PATHSEP
+        text = item.project:normalize_path(item.abs_filename) .. PATHSEP
       elseif item.type == "file" then
         text = item.project:normalize_path(common.dirname(item.abs_filename)) .. PATHSEP
       end
@@ -818,8 +818,11 @@ command.add(
       text = text,
       submit = function(filename)
         local doc_filename = item.project:absolute_path(filename)
-        local file = io.open(doc_filename, "a+")
-        file:write("")
+        local file, err = io.open(doc_filename, "a+")
+        if not file then
+          core.error("Error: unable to create a new file in \"%s\": %s", doc_filename, err)
+          return
+        end
         file:close()
         view:open_doc(doc_filename)
         core.log("Created %s", doc_filename)
@@ -834,7 +837,7 @@ command.add(
     local text
     if not is_project_folder(item) then
       if item.type == "dir" then
-        text = item.project:normalize_path(item.filename) .. PATHSEP
+        text = item.project:normalize_path(item.abs_filename) .. PATHSEP
       elseif item.type == "file" then
         text = item.project:normalize_path(common.dirname(item.abs_filename)) .. PATHSEP
       end

@@ -296,7 +296,7 @@ function system.get_fs_type(path) end
 ---
 ---Retrieve the text currently stored on the clipboard.
 ---
----@return string
+---@return string?
 function system.get_clipboard() end
 
 ---

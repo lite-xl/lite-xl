@@ -325,9 +325,9 @@ top:
 
     case SDL_EVENT_MOUSE_WHEEL:
       lua_pushstring(L, "mousewheel");
-      lua_pushinteger(L, e.wheel.y);
+      lua_pushnumber(L, e.wheel.y);
       // Use -x to keep consistency with vertical scrolling values (e.g. shift+scroll)
-      lua_pushinteger(L, -e.wheel.x);
+      lua_pushnumber(L, -e.wheel.x);
       return 3;
 
     case SDL_EVENT_FINGER_DOWN:
