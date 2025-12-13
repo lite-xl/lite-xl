@@ -351,7 +351,7 @@ keymap.add_direct {
   ["shift+delete"] = "docview:delete",
   ["ctrl+delete"] = "docview:delete-to-next-word-end",
   ["ctrl+shift+delete"] = "docview:delete-to-next-word-end",
-  ["return"] = { "command:submit","context-menu:submit" "docview:newline", "dialog:select" },
+  ["return"] = { "command:submit","context-menu:submit", "docview:newline", "dialog:select" },
   ["keypad enter"] = { "command:submit", "docview:newline", "dialog:select" },
   ["ctrl+return"] = "docview:newline-below",
   ["ctrl+shift+return"] = "docview:newline-above",
