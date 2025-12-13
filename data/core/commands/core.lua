@@ -64,7 +64,7 @@ local function open_file(root_view, use_dialog)
       root_view:open_doc(core.open_doc(filename))
     end,
     suggest = function (text)
-      return common.home_encode_list(common.path_suggest(common.home_expand(text), root_view.root_project() and core.root_project().path))
+      return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project() and core.root_project().path))
     end,
     validate = function(text)
         local filename = core.project_absolute_path(common.home_expand(text))
