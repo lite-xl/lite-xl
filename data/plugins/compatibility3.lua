@@ -244,6 +244,43 @@ function treemt:__index(key)
   return old_treeview_index[key] or (core.active_window() and core.active_window().root_view.treeview and rawget(core.active_window().root_view.treeview, key))
 end
 
+local function tokenize_system_string(command)
+  local arguments = {}
+  local tokens = {}
+  local i = 1
+  local open_quote = false
+  local last_token = 1
+  while true do
+    local s, e, token = command:find("(\\*[\"' \\])", i)
+    if not s then break end
+    if #token % 2 == 1 then
+      local last_char = command:sub(e, e)
+      if not open_quote and last_char == " " then
+        table.insert(tokens, command:sub(last_token, s - 1))
+        last_token = e + 1
+        table.insert(arguments, table.concat(tokens, ""))
+        tokens = {}
+      elseif last_char == "\"" or last_char == "'" and (open_quote == last_char or not open_quote) then
+        table.insert(tokens, command:sub(last_token, e - 1))
+        if open_quote == last_char then
+          open_quote = false
+        elseif not open_quote then
+          open_quote = last_char
+        end
+        last_token = e + 1
+      end
+    end
+    i = e + 1
+  end
+  if open_quote then table.insert(tokens, open_quote) end
+  table.insert(tokens, command:sub(last_token))
+  table.insert(arguments, table.concat(tokens, ""))
+  return arguments
+end
+
+function system.exec(command)
+  process.start(tokenize_system_string(command), { detach = true })
+end
 
 -- Added in specifically for plugins that use old Doc selections.
 -- Like LSP, Widget, etc..
