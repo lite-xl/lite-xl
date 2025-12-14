@@ -860,9 +860,9 @@ function DocView:draw_token(tx, ty, text, style)
   local y_offset = self:get_line_text_y_offset()
   text = text:gsub("\n$", "")
   if style.background then
-    renderer.draw_rect(tx, ty, font:get_width(text), self:get_line_height(), style.background)
+    renderer.draw_rect(tx, ty, font:get_width(text, nil, style), self:get_line_height(), style.background)
   end
-  return renderer.draw_text(font, text, tx, ty + y_offset, style.color or default_color)
+  return font:draw(text, tx, ty + y_offset, style.color or default_color, nil, style)
 end
 
 

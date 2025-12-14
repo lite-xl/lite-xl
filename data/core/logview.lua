@@ -159,7 +159,7 @@ local function draw_text_multiline(font, text, x, y, color)
   local th = font:get_height()
   local resx = x
   for line in text:gmatch("[^\n]+") do
-    resx = renderer.draw_text(style.font, line, x, y, color)
+    resx = style.font:draw(line, x, y, color)
     y = y + th
   end
   return resx, y

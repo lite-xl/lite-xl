@@ -201,7 +201,7 @@ function ResultsView:draw()
       #self.results, self.query, self.search_total_time)
   end
   local color = common.lerp(style.text, style.accent, self.brightness / 100)
-  renderer.draw_text(style.font, text, x, y, color)
+  style.font:draw(text, x, y, color)
 
   -- horizontal line
   local x = ox + style.padding.x

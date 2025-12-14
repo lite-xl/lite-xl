@@ -115,8 +115,8 @@ end
 
 local function highlighter_each_token(tokens, i)
   i = i + 1
-  if i * 2 > #tokens then return nil end
-  return i, tokens[(i - 1) * 2 + 1], tokens[(i - 1) * 2 + 2]
+  if i * 3 > #tokens then return nil end
+  return i, tokens[(i - 1) * 3 + 1], tokens[(i - 1) * 3 + 2], tokens[(i - 1) * 3 + 3]
 end
 
 function Highlighter:each_token(line)
@@ -128,7 +128,7 @@ end
 function Highlighter:get_syntaxful_line(line, force)
   local t = {}
   if not self.lines[line] and not force then return self.doc.lines[line] end
-  for _, type, text in self:each_token(line) do
+  for _, type, text, hints in self:each_token(line) do
     table.insert(t, (type == "comment" or type == "string") and string.rep(" ", text:ulen() or #text) or text)
   end
   return table.concat(t)
@@ -151,15 +151,15 @@ function DocView:tokenize(line, visible)
   for idx, type, doc_line, start_offset, end_offset, token_style in common.each_token(tokens) do
     if type == "doc" then
       local offset = 1
-      for i = 1, #tokenized.tokens, 2 do
-        local type, text = tokenized.tokens[i], tokenized.tokens[i+1]
+      for i = 1, #tokenized.tokens, 3 do
+        local type, text, hints = tokenized.tokens[i], tokenized.tokens[i+1], tokenized.tokens[i+2]
         local width = text:ulen() or #text
         if offset <= end_offset and offset + width >= start_offset then
           table.insert(colorized, "doc")
           table.insert(colorized, doc_line)
           table.insert(colorized, math.max(start_offset, offset))
           table.insert(colorized, math.min(end_offset, offset + width - 1))
-          table.insert(colorized, common.merge(token_style, { color = style.syntax[type], font = style.syntax_fonts[type], type = type }))
+          table.insert(colorized, common.merge(common.merge(token_style, { color = style.syntax[type], type = type }), hints))
         end
         if offset > end_offset then break end
         offset = offset + width

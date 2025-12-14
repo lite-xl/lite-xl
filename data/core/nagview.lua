@@ -218,7 +218,7 @@ local function draw_nagview_message(self)
   oy = oy + style.padding.y + (self.target_height - self:get_message_height()) / 2
   for msg_line in self.message:gmatch("(.-)\n") do
     local ty = oy + self:get_line_text_y_offset()
-    renderer.draw_text(style.font, msg_line, ox, ty, style.nagbar_text)
+    style.font:draw(msg_line, ox, ty, style.nagbar_text)
     oy = oy + lh
   end
 

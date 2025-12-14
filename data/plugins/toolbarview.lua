@@ -15,7 +15,8 @@ function ToolbarView:new()
   self.visible = true
   self.init_size = true
   self.tooltip = false
-  self.toolbar_font = style.icon_big_font
+  self.icon_size = 23
+  self.toolbar_font = style.icon_font
   self.toolbar_commands = {
     {symbol = "f", command = "core:new-doc"},
     {symbol = "D", command = "core:open-file"},
@@ -28,7 +29,7 @@ end
 
 
 function ToolbarView:update()
-  local dest_size = self.visible and (self.toolbar_font:get_height() + style.padding.y * 2) or 0
+  local dest_size = self.visible and (self.toolbar_font:get_height(self.icon_size) + style.padding.y * 2) or 0
   if self.init_size then
     self.size.y = dest_size
     self.init_size = nil
@@ -50,12 +51,12 @@ end
 
 function ToolbarView:get_icon_width()
   local max_width = 0
-  for i,v in ipairs(self.toolbar_commands) do max_width = math.max(max_width, (v.font or self.toolbar_font):get_width(v.symbol)) end
+  for i,v in ipairs(self.toolbar_commands) do max_width = math.max(max_width, (v.font or self.toolbar_font):get_width(v.symbol, self.icon_size)) end
   return max_width
 end
 
 function ToolbarView:each_item()
-  local icon_h, icon_w = self.toolbar_font:get_height(), self:get_icon_width()
+  local icon_h, icon_w = self.toolbar_font:get_height(self.icon_size), self:get_icon_width()
   local toolbar_spacing = icon_w / 2
   local ox, oy = self:get_content_offset()
   local index = 0
@@ -85,7 +86,7 @@ function ToolbarView:draw()
 
   for item, x, y, w, h in self:each_item() do
     local color = item == self.hovered_item and command.is_valid(item.command) and style.text or style.dim
-    common.draw_text(item.font or self.toolbar_font, color, item.symbol, nil, x, y, 0, h)
+    common.draw_text(item.font or self.toolbar_font, color, item.symbol, nil, x, y, 0, h, self.icon_size)
   end
 end
 

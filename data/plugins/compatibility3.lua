@@ -6,6 +6,7 @@ local style = require "colors.default"
 local View = require "core.view"
 local Node = require "core.node"
 local Doc = require "core.doc"
+local Font = require "core.font"
 local CommandView = require "core.commandview"
 local StatusView = require "core.statusview"
 local ContextMenu = require "core.contextmenu"
@@ -283,6 +284,7 @@ local function tokenize_system_string(command)
 end
 
 function system.exec(command)
+  core.deprecation_log("system.exec")
   process.start(tokenize_system_string(command), { detach = true })
 end
 
@@ -326,3 +328,8 @@ setmetatable(core, {
     return nil
   end
 });
+
+function Font:copy(size)
+  core.deprecation_log("Font.copy")
+  return self
+end

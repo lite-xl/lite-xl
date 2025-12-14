@@ -7,6 +7,7 @@ local keymap = require "core.keymap"
 local style = require "core.style"
 local CommandView = require "core.commandview"
 local DocView = require "core.docview"
+local Font = require "core.font"
 
 config.plugins.scale = common.merge({
   -- The method used to apply the scaling: "code", "ui"
@@ -21,6 +22,15 @@ local scale_steps = 0.05
 
 local current_scale = SCALE
 local default_scale = SCALE
+
+local old_font_cache = Font.cache
+function Font:cache(size, options)
+  if config.plugins.scale.mode ~= "ui" and self == style.code_font then
+    if not size then size = self.default_options.size end
+    size = size * current_scale
+  end
+  return old_font_cache(self, size, options)
+end
 
 local function set_scale(root_view, scale)
   scale = common.clamp(scale, 0.2, 6)
@@ -44,7 +54,6 @@ local function set_scale(root_view, scale)
 
   if config.plugins.scale.mode == "ui" then
     SCALE = scale
-
     style.padding.x               = style.padding.x               * s
     style.padding.y               = style.padding.y               * s
     style.divider_size            = style.divider_size            * s
@@ -52,16 +61,6 @@ local function set_scale(root_view, scale)
     style.expanded_scrollbar_size = style.expanded_scrollbar_size * s
     style.caret_width             = style.caret_width             * s
     style.tab_width               = style.tab_width               * s
-
-    for _, name in ipairs {"font", "big_font", "icon_font", "icon_big_font", "code_font"} do
-      style[name]:set_size(s * style[name]:get_size())
-    end
-  else
-    style.code_font:set_size(s * style.code_font:get_size())
-  end
-
-  for name, font in pairs(style.syntax_fonts) do
-    style.syntax_fonts[name]:set_size(s * font:get_size())
   end
 
   -- restore scroll positions

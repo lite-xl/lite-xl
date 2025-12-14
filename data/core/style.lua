@@ -1,5 +1,6 @@
 local common = require "core.common"
 local style = {}
+local font = require "core.font"
 
 style.divider_size = common.round(1 * SCALE)
 style.scrollbar_size = common.round(4 * SCALE)
@@ -35,20 +36,11 @@ style.margin = {
 --
 -- On High DPI monitor or non RGB monitor you may consider using antialiasing grayscale instead.
 -- The antialiasing grayscale with full hinting is interesting for crisp font rendering.
-style.font = renderer.font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf", 15 * SCALE)
-style.big_font = style.font:copy(46 * SCALE)
-style.icon_font = renderer.font.load(DATADIR .. "/fonts/icons.ttf", 16 * SCALE, {antialiasing="grayscale", hinting="full"})
-style.icon_big_font = style.icon_font:copy(23 * SCALE)
-style.code_font = renderer.font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf", 15 * SCALE)
+style.font = font.load(DATADIR .. "/fonts/FiraSans-Regular.ttf")
+style.icon_font = font.load(DATADIR .. "/fonts/icons.ttf", { size = 16, antialiasing = "grayscale", hinting = "full" })
+style.code_font = font.load(DATADIR .. "/fonts/JetBrainsMono-Regular.ttf")
 
 style.syntax = {}
-
--- This can be used to override fonts per syntax group.
--- The syntax highlighter will take existing values from this table and
--- override style.code_font on a per-token basis, so you can choose to eg.
--- render comments in an italic font if you want to.
-style.syntax_fonts = {}
--- style.syntax_fonts["comment"] = renderer.font.load(path_to_font, size_of_font, rendering_options)
 
 style.log = {}
 

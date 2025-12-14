@@ -500,24 +500,14 @@ local function wrap_line(line, max_chars)
   return line
 end
 
-local previous_scale = SCALE
-local desc_font = style.code_font:copy(
-  config.plugins.autocomplete.desc_font_size * SCALE
-)
-local function draw_description_box(text, av, sx, sy, sw, sh)
-  if previous_scale ~= SCALE then
-    desc_font = style.code_font:copy(
-      config.plugins.autocomplete.desc_font_size * SCALE
-    )
-    previous_scale = SCALE
-  end
 
-  local font = desc_font
-  local lh = font:get_height()
+local function draw_description_box(text, av, sx, sy, sw, sh)
+  local font = style.code_font
+  local lh = font:get_height(config.plugins.autocomplete.desc_font_size)
   local y = sy + style.padding.y
   local x = sx + sw + style.padding.x / 4
   local width = 0
-  local char_width = font:get_width(" ")
+  local char_width = font:get_width(" ", config.plugins.autocomplete.desc_font_size)
   local draw_left = false;
 
   local max_chars = 0
@@ -536,11 +526,11 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
     local wrapper_lines = wrap_line(line, max_chars)
     if type(wrapper_lines) == "table" then
       for _, wrapped_line in pairs(wrapper_lines) do
-        width = math.max(width, font:get_width(wrapped_line))
+        width = math.max(width, font:get_width(wrapped_line, config.plugins.autocomplete.desc_font_size))
         table.insert(lines, wrapped_line)
       end
     else
-      width = math.max(width, font:get_width(line))
+      width = math.max(width, font:get_width(line, config.plugins.autocomplete.desc_font_size))
       table.insert(lines, line)
     end
   end
@@ -549,7 +539,7 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
     x = sx - (style.padding.x / 4) - width - (style.padding.x * 2)
   end
 
-  local height = #lines * font:get_height()
+  local height = #lines * font:get_height(config.plugins.autocomplete.desc_font_size)
 
   -- draw background rect
   renderer.draw_rect(
@@ -564,7 +554,7 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
   for _, line in pairs(lines) do
     common.draw_text(
       font, style.text, line, "left",
-      x + style.padding.x, y, width, lh
+      x + style.padding.x, y, width, lh, config.plugins.autocomplete.desc_font_size
     )
     y = y + lh
   end

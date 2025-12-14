@@ -4,19 +4,23 @@ local config = require "core.config"
 local common = require "core.common"
 
 local tokenizer = {}
+local empty_hints = {}
 local bad_patterns = {}
 
-local function push_token(t, type, text)
+local function push_token(t, type, text, hints)
   if not text or #text == 0 then return end
   type = type or "normal"
-  local prev_type = t[#t-1]
-  local prev_text = t[#t]
+  local prev_type = t[#t-2]
+  local prev_text = t[#t-1]
+  local prev_hint = t[#t]
   if prev_type and (prev_type == type or (prev_text:ufind("^%s*$") and type ~= "incomplete")) then
-    t[#t-1] = type
-    t[#t] = prev_text .. text
+    t[#t-2] = type
+    t[#t-1] = prev_text .. text
+    t[#t]   = prev_hint
   else
     table.insert(t, type)
     table.insert(t, text)
+    table.insert(t, hints or empty_hints)
   end
 end
 
@@ -42,13 +46,13 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
         -- ↑ (i - 2) to convert from [3; n] to [1; n]
       if fin >= start then
         local text = full_text:usub(start, fin)
-        push_token(t, syn.symbols[text] or type, text)
+        push_token(t, syn.symbols[text] or type, text, pattern.hints)
       end
     end
   else
     local start, fin = find_results[1], find_results[2]
     local text = full_text:usub(start, fin)
-    push_token(t, syn.symbols[text] or pattern.type, text)
+    push_token(t, syn.symbols[text] or pattern.type, text, pattern.hints)
   end
 end
 
@@ -350,7 +354,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
         -- treat the bit after as a token to be normally parsed
         -- (as it's the syntax delimiter).
         if ss and (s == nil or ss < s) then
-          push_token(res, token_type, text:usub(i, ss - 1))
+          push_token(res, token_type, text:usub(i, ss - 1), p.hints)
           i = ss
           cont = false
         end
@@ -361,14 +365,14 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
         if s then
           -- Push remaining token before the end delimiter
           if s > i then
-            push_token(res, token_type, text:usub(i, s - 1))
+            push_token(res, token_type, text:usub(i, s - 1), p.hints)
           end
           -- Push the end delimiter
-          push_tokens(res, current_syntax, p, text, find_results)
+          push_tokens(res, current_syntax, p, text, find_results, p.hints)
           set_subsyntax_pattern_idx(0)
           i = e + 1
         else
-          push_token(res, token_type, text:usub(i))
+          push_token(res, token_type, text:usub(i), p.hints)
           break
         end
       end
@@ -380,7 +384,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
       local find_results = { find_text(text, subsyntax_info, i, true, true) }
       local s, e = find_results[1], find_results[2]
       if s then
-        push_tokens(res, current_syntax, subsyntax_info, text, find_results)
+        push_tokens(res, current_syntax, subsyntax_info, text, find_results, subsyntax_info.hints)
         -- On finding unescaped delimiter, pop it.
         pop_subsyntax()
         i = e + 1
@@ -416,7 +420,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
             "Too many token types: got %d needed %d.", n_types, #find_results - 1)
         end
         -- matched pattern; make and add tokens
-        push_tokens(res, current_syntax, p, text, find_results)
+        push_tokens(res, current_syntax, p, text, find_results, p.hints)
         -- update state if this was a start|end pattern pair
         if type(p.pattern or p.regex) == "table" then
           -- If we have a subsyntax, push that onto the subsyntax stack.

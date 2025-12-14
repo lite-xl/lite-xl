@@ -340,10 +340,10 @@ function common.match_pattern(text, pattern, ...)
 end
 
 
----Draws text onto the window.
+---Draws text onto the window, based on the current global settings and SCALE.
 ---The function returns the X and Y coordinates of the bottom-right
 ---corner of the text.
----@param font renderer.font
+---@param font font
 ---@param color renderer.color
 ---@param text string
 ---@param align string
@@ -356,15 +356,15 @@ end
 ---@param h number
 ---@return number x_advance
 ---@return number y_advance
-function common.draw_text(font, color, text, align, x,y,w,h)
-  local tw, th = font:get_width(text), font:get_height()
+function common.draw_text(font, color, text, align, x,y,w,h, size)
+  local tw, th = font:get_width(text, size), font:get_height(size)
   if align == "center" then
     x = x + (w - tw) / 2
   elseif align == "right" then
     x = x + (w - tw)
   end
   y = common.round(y + (h - th) / 2)
-  return renderer.draw_text(font, text, x, y, color), y + th
+  return font:draw(text, x, y, color), y + th
 end
 
 

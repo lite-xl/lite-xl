@@ -129,9 +129,7 @@ local style = require "core.style"
 --
 -- font names used by lite:
 -- style.font          : user interface
--- style.big_font      : big text in welcome screen
 -- style.icon_font     : icons
--- style.icon_big_font : toolbar icons
 -- style.code_font     : code
 --
 -- the function to load the font accept a 3rd optional argument like:

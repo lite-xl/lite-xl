@@ -8,6 +8,7 @@ local CommandView = require "core.commandview"
 local LogView = require "core.logview"
 local View = require "core.view"
 local Object = require "core.object"
+local Font = require "core.font"
 
 
 ---@alias core.statusview.styledtext table<integer, renderer.font|renderer.color|string>
@@ -611,7 +612,7 @@ local function draw_items(self, items, x, y, draw_fn)
   local color = style.text
 
   for _, item in ipairs(items) do
-    if Object.is(item, renderer.font) then
+    if Object.is(item, renderer.font) or Object.is(item, Font) then
       font = item
     elseif type(item) == "table" then
       color = item
@@ -676,8 +677,7 @@ function StatusView:draw_item_tooltip(item)
       style.background3
     )
 
-    renderer.draw_text(
-      style.font,
+    style.font:draw(
       text,
       x + (style.padding.x * 2),
       self.position.y - h - style.padding.y,
@@ -1191,7 +1191,7 @@ function StatusView:draw()
     self.root_view:defer_draw(function()
       local font = type(config.stonks) == "table" and config.stonks.font or style.icon_font
       local icon = type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" )
-      local xadv = renderer.draw_text(font, icon, gx, gy, gc)
+      local xadv = font:draw(icon, gx, gy, gc)
       local x2, y2 = self.root_view.size.x - (xadv - gx), self.root_view.size.y - font:get_height()
       gx, gy = common.clamp(gx + dx, 0, x2), common.clamp(gy + dy, 0, y2)
       local odx, ody = dx, dy
