@@ -46,7 +46,7 @@ end
 
 
 function Project:trust(options)
-  storage.save("trusted", "projects", common.merge(storage.load("trust", "projects") or {}, { [self.path] = options }))
+  storage.save("trusted", "projects", common.merge(storage.load("trust", "projects") or {}, { [self.path] = options == true and {} or options }))
 end
 
 
