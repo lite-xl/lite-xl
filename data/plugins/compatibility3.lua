@@ -256,9 +256,13 @@ local function tokenize_system_string(command)
     if #token % 2 == 1 then
       local last_char = command:sub(e, e)
       if not open_quote and last_char == " " then
-        table.insert(tokens, command:sub(last_token, s - 1))
+        if s - last_token > 0 then
+          table.insert(tokens, command:sub(last_token, s - 1))
+        end
         last_token = e + 1
-        table.insert(arguments, table.concat(tokens, ""))
+        if #tokens > 0 then
+          table.insert(arguments, table.concat(tokens, ""))
+        end
         tokens = {}
       elseif last_char == "\"" or last_char == "'" and (open_quote == last_char or not open_quote) then
         table.insert(tokens, command:sub(last_token, e - 1))
