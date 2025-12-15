@@ -162,7 +162,6 @@ syntax.add {
     { pattern = { "{",  "}"  },                                                syntax = not_python_type },
 
     { pattern = ":%s*()#.*",                   type = { "operator", "comment" }                         },
-    { pattern = { ":%s*", "%f[^%[%]%w_]"},                                     syntax = python_type     },
 
   }, python_patterns),
 
