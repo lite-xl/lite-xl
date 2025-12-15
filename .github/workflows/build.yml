@@ -49,7 +49,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -91,7 +91,7 @@ jobs:
           gcc -v
           xcodebuild -version
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Python Setup
         uses: actions/setup-python@v6
@@ -113,7 +113,7 @@ jobs:
           tar -C build -czvf lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}-portable.tar.gz lite-xl
 
       - name: Upload (Intermediate)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-${{ matrix.config.arch }}
           path: |
@@ -125,7 +125,7 @@ jobs:
     needs: [version, build_darwin]
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Python Setup
         uses: actions/setup-python@v6
@@ -137,7 +137,7 @@ jobs:
           pip3 install dmgbuild
 
       - name: Download Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: '*darwin*'
           merge-multiple: true
@@ -164,7 +164,7 @@ jobs:
         run: tar -C lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable -zcvf lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-portable.tar.gz .
 
       - name: Upload (Release)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-universal-darwin-release
           path: |
@@ -177,7 +177,7 @@ jobs:
     needs: [version]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build
         uses: docker://ghcr.io/lite-xl/lite-xl-build-box-manylinux:v4
@@ -195,7 +195,7 @@ jobs:
           run: bash scripts/package-appimage.sh --debug --version ${{ needs.version.outputs.ref }} -b build
 
       - name: Upload (Release)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-linux-portable-release
           path: |
@@ -226,7 +226,7 @@ jobs:
             pkg-config:p
             ca-certificates:p
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build
         run: bash scripts/build.sh --addons --debug --forcefallback --lto --portable --mode ${{ needs.version.outputs.buildtype }} -b build
@@ -238,7 +238,7 @@ jobs:
         run: bash scripts/package-innosetup.sh --debug --version ${{ needs.version.outputs.ref }} -b build
 
       - name: Upload (Release)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows-portable-release
           path: |
@@ -251,7 +251,7 @@ jobs:
     needs: [version]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC
         id: msvc-dev-cmd
@@ -290,7 +290,7 @@ jobs:
         run: cd build && 7z a -mx=9 "..\lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows.zip" lite-xl && cd ..
 
       - name: Upload Artifacts (Intermediate)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: lite-xl-${{ needs.version.outputs.ref }}-x86_64-windows (MSVC)
           compression-level: 0
@@ -306,9 +306,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Download Artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: lite-xl-*-release
           merge-multiple: true
