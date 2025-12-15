@@ -161,23 +161,7 @@ syntax.add {
     { pattern = { "%[", "%]" },                                                syntax = not_python_type },
     { pattern = { "{",  "}"  },                                                syntax = not_python_type },
 
-    { pattern = { "^%s*()def%f[%s]",    ":" }, type = { "normal", "keyword" }, syntax = python_func     }, -- this and the following prevent one-liner highlight bugs
-
-    { pattern = { "^%s*()for%f[%s]",    ":" }, type = { "normal", "keyword" }, syntax = not_python_type },
-    { pattern = { "^%s*()if%f[%s]",     ":" }, type = { "normal", "keyword" }, syntax = not_python_type },
-    { pattern = { "^%s*()elif%f[%s]",   ":" }, type = { "normal", "keyword" }, syntax = not_python_type },
-    { pattern = { "^%s*()while%f[%s]",  ":" }, type = { "normal", "keyword" }, syntax = not_python_type },
-    { pattern = { "^%s*()match%f[%s]",  ":" }, type = { "normal", "keyword" }, syntax = not_python_type },
-    { pattern = { "^%s*()case%f[%s]",   ":" }, type = { "normal", "keyword" }, syntax = not_python_type },
-    { pattern = { "^%s*()except%f[%s]", ":" }, type = { "normal", "keyword" }, syntax = not_python_type },
-
-    { pattern =  "else():",                    type = { "keyword", "normal" }                           },
-    { pattern =  "try():",                     type = { "keyword", "normal" }                           },
-
-    { pattern = "lambda()%s.+:",               type = { "keyword", "normal" }                           },
-    { pattern = "class%s+()[%a_][%w_]+().*:",  type = { "keyword", "keyword2", "normal" }               },
-
-
+    { pattern = ":%s*()#.*",                   type = { "operator", "comment" }                         },
     { pattern = { ":%s*", "%f[^%[%]%w_]"},                                     syntax = python_type     },
 
   }, python_patterns),
