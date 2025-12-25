@@ -104,6 +104,8 @@ function DocView:new(doc)
   self.read_only = false
   self.vlines = setmetatable({ dv = self }, { __index = get_vline_text })
   self.lines = doc.lines
+  self.widths = {}
+  self.max_width = 0
   self:invalidate_cache()
   self.selections = { 1, 1, 1, 1 }
   self.last_selection = 1
@@ -611,7 +613,10 @@ function DocView:get_scrollable_size()
 end
 
 function DocView:get_h_scrollable_size()
-  return math.huge
+  if not self.max_width then
+    self.max_width = self:compute_max_width()
+  end
+  return math.max(self.max_width + style.padding.x * 4, self.size.x)
 end
 
 
@@ -1097,20 +1102,24 @@ local function tokenize_line(self, visible, vlines, line, start_new_vline)
     end
   end
   local tokens = self:tokenize(line, visible)
-  local new_vlines = 0
+  local widths = {}
+  local width = 0
   if #tokens > 0 and start_new_vline then
     table.insert(vlines, mkvoffset(line, 1))
   end
   for j = 1, #tokens, 5 do
     local text = self:get_token_text(tokens[j], tokens[j+1], tokens[j+2], tokens[j+3], tokens[j+4])
+    local text_width = (tokens[j+4].font or self:get_font()):get_width(text)
+    width = width + text_width
     if text:find("\n$") then
-      new_vlines = new_vlines + 1
+      table.insert(widths, width)
+      width = 0
       if j < #tokens - 5 then
         table.insert(vlines, mkvoffset(line, j + 5))
       end
     end
   end
-  return tokens, new_vlines
+  return tokens, widths
 end
 
 function DocView:previous_tokens_end_in_newline(line)
@@ -1150,6 +1159,18 @@ function DocView:flush_deferred_invalidations()
   end
 end
 
+function DocView:compute_max_width()
+  local m = 0
+  local vminline, vmaxline = self:get_visible_virtual_line_range()
+  local minline, maxline = self:ensure_cache(vminline, vmaxline, true)
+  for _, width in ipairs(self.widths) do
+    if width and width > m then 
+      m = width 
+    end
+  end
+  return m
+end
+
 -- returns the doc line and token offset associated with this line/vline.
 function DocView:retrieve_tokens(vline, line, visible)
   if self.deferred_invalidation and #self.deferred_invalidation > 0 then
@@ -1164,12 +1185,18 @@ function DocView:retrieve_tokens(vline, line, visible)
     local prev_newline = self:previous_tokens_end_in_newline(#self.dcache)
     local current_vline = prev_newline and #self.vcache + 1 or #self.vcache
     repeat
-      local tokens, new_vlines = tokenize_line(self, visible, vlines, #self.dcache + 1, prev_newline)
+      local tokens, widths = tokenize_line(self, visible, vlines, #self.dcache + 1, prev_newline)
       table.insert(self.dcache, tokens)
       self.dtovcache[#self.dcache] = current_vline
-      current_vline = current_vline + new_vlines
-      prev_newline = new_vlines > 0
-      if new_vlines > 0 then break end
+      for i = 1, #widths do 
+        self.widths[i + current_vline - 1] = widths[i] 
+        if self.max_width and widths[i] > self.max_width then
+          self.max_width = widths[i]
+        end
+      end
+      current_vline = current_vline + #widths
+      prev_newline = #widths > 0
+      if #widths > 0 then break end
     until #self.dcache >= #self.doc.lines - 1
     table.move(vlines, 1, #vlines, #self.vcache + 1, self.vcache)
   end
@@ -1225,10 +1252,16 @@ function DocView:retrieve_tokens(vline, line, visible)
     local start_new_vline = self:tokens_end_in_newline(start_line - 1) 
     for i = start_line, end_line do
       self.dtovcache[i] = vline
-      local tokens, new_vlines = tokenize_line(self, visible, total_vlines, i, start_new_vline)
-      start_new_vline = new_vlines > 0
+      local tokens, widths = tokenize_line(self, visible, total_vlines, i, start_new_vline)
+      start_new_vline = #widths > 0
       self.dcache[i] = tokens
-      vline = vline + new_vlines
+      for i = 1, #widths do 
+        self.widths[i + vline - 1] = widths[i] 
+        if self.max_width and widths[i] > self.max_width then
+          self.max_width = widths[i]
+        end
+      end
+      vline = vline + #widths
     end
     -- Adjust the vcache as necessary to ensure that we have enough space.
     -- Only do this, if we need more space, or if the next line is NOT invalidated.
@@ -1267,6 +1300,10 @@ function DocView:invalidate_cache(start_doc_line, end_doc_line)
     while self.vcache[#self.vcache] ~= nil do
       local line, offset = getvoffset(self.vcache[#self.vcache])
       if line and line < start_doc_line then break end
+      if self.widths[#self.vcache] and self.widths[#self.vcache] == self.max_width then
+        self.max_width = nil
+      end
+      self.widths[#self.vcache] = false
       table.remove(self.vcache)
     end
   else
@@ -1277,6 +1314,10 @@ function DocView:invalidate_cache(start_doc_line, end_doc_line)
           local l, offset = getvoffset(self.vcache[vline])
           if l ~= line then break end
           self.vcache[vline] = false
+          if self.widths[vline] == self.max_width then
+            self.max_width = nil
+          end
+          self.widths[vline] = false
         end
       end
     end
