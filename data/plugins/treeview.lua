@@ -613,7 +613,7 @@ end
 
 command.add(function()
   local item = treeitem()
-  return not is_project_folder(item), item
+  return core.active_view == view and not is_project_folder(item), item
 end, {
   ["treeview:delete"] = function(item)
     local filename = item.abs_filename
