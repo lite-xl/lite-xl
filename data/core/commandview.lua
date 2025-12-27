@@ -100,7 +100,7 @@ function CommandView:get_scrollable_size()
 end
 
 function CommandView:get_h_scrollable_size()
-  return 0
+  return math.huge
 end
 
 
