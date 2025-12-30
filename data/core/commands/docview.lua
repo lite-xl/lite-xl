@@ -116,6 +116,23 @@ local function insert_paste(dv, value, whole_line, idx)
   end
 end
 
+local function merged_line_blocks()
+  local sels = {}
+  for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+    if #sels > 0 and sels[#sels][2] >= line1 - 1 then
+      sels[#sels][2] = line2
+    else
+      table.insert(sels, { line1, line2 })
+    end
+  end
+  local i = 0
+  return function()
+    i = i + 1
+    if i > #sels then return nil end
+    return i, sels[i][1], sels[i][2]
+  end
+end
+
 local write_commands = {
   ["docview:cut"] = function()
     cut_or_copy(true)
@@ -290,26 +307,38 @@ local write_commands = {
   end,
 
   ["docview:move-lines-up"] = function(dv)
+    local sels = {}
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      table.insert(sels, { line1 - 1, col1, line2 - 1, col2 })
+    end
+    for idx, line1, line2 in merged_line_blocks(true) do
       append_line_if_last_line(line2)
       if line1 > 1 then
         local text = doc().lines[line1 - 1]
         dv.doc:insert(line2 + 1, 1, text)
         dv.doc:remove(line1 - 1, 1, line1, 1)
-        dv:set_selections(idx, line1 - 1, col1, line2 - 1, col2)
       end
+    end
+    for idx, sel in ipairs(sels) do
+      dv:set_selections(idx, table.unpack(sel))
     end
   end,
 
   ["docview:move-lines-down"] = function(dv)
+    local sels = {}
     for idx, line1, col1, line2, col2 in doc_multiline_selections(true) do
+      table.insert(sels, { line1 + 1, col1, line2 + 1, col2 })
+    end
+    for idx, line1, line2 in merged_line_blocks(true) do
       append_line_if_last_line(line2 + 1)
       if line2 < #dv.doc.lines then
         local text = dv.doc.lines[line2 + 1]
         dv.doc:remove(line2 + 1, 1, line2 + 2, 1)
         dv.doc:insert(line1, 1, text)
-        dv:set_selections(idx, line1 + 1, col1, line2 + 1, col2)
       end
+    end
+    for idx, sel in ipairs(sels) do
+      dv:set_selections(idx, table.unpack(sel))
     end
   end,
 
