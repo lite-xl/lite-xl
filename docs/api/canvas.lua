@@ -80,7 +80,7 @@ function canvas:scaled(new_width, new_height, scale_mode) end
 ---@param y integer
 ---@param width integer
 ---@param height integer
-function renderer.set_clip_rect(x, y, width, height) end
+function canvas:set_clip_rect(x, y, width, height) end
 
 ---
 ---Draw a rectangle.
@@ -91,7 +91,7 @@ function renderer.set_clip_rect(x, y, width, height) end
 ---@param height integer
 ---@param color renderer.color
 ---@param replace boolean Overwrite the content with the specified color. Useful when dealing with alpha.
-function renderer.draw_rect(x, y, width, height, color, replace) end
+function canvas:draw_rect(x, y, width, height, color, replace) end
 
 ---
 ---Draw text and return the x coordinate where the text finished drawing.
@@ -104,7 +104,7 @@ function renderer.draw_rect(x, y, width, height, color, replace) end
 ---@param tab_data? renderer.tab_data
 ---
 ---@return number x
-function renderer.draw_text(font, text, x, y, color, tab_data) end
+function canvas:draw_text(font, text, x, y, color, tab_data) end
 
 ---
 ---Draw a Canvas.
@@ -113,6 +113,6 @@ function renderer.draw_text(font, text, x, y, color, tab_data) end
 ---@param x integer
 ---@param y integer
 ---@param blend boolean Whether to blend the Canvas, or replace the pixels
-function renderer.draw_canvas(canvas, x, y, blend) end
+function canvas:draw_canvas(canvas, x, y, blend) end
 
 return canvas
