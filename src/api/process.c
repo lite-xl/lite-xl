@@ -636,6 +636,7 @@ static int g_read(lua_State* L, int stream, lua_Integer read_size) {
 
       if (length == 0) {
         is_eof = true;
+        poll_process(self, WAIT_NONE);
         break;
       } else if (length < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
         length = 0;
