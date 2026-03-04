@@ -577,7 +577,7 @@ function core.on_quit_project()
 end
 
 local function is_project_folder(item)
-  return item.abs_filename == item.project.path
+  return item and item.abs_filename == item.project.path
 end
 
 local function is_primary_project_folder(path)
@@ -613,7 +613,7 @@ end
 
 command.add(function()
   local item = treeitem()
-  return not is_project_folder(item), item
+  return core.active_view == view and not is_project_folder(item), item
 end, {
   ["treeview:delete"] = function(item)
     local filename = item.abs_filename
