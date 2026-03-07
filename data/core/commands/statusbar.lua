@@ -4,8 +4,8 @@ local common = require "core.common"
 local style = require "core.style"
 local StatusView = require "core.statusview"
 
-local function status_view_item_names()
-  local items = core.status_view:get_items_list()
+local function status_view_item_names(status_view)
+  local items = status_view:get_items_list()
   local names = {}
   for _, item in ipairs(items) do
     table.insert(names, item.name)
@@ -13,10 +13,10 @@ local function status_view_item_names()
   return names
 end
 
-local function status_view_items_data(names)
+local function status_view_items_data(status_view, names)
   local data = {}
   for _, name in ipairs(names) do
-    local item = core.status_view:get_item(name)
+    local item = status_view:get_item(name)
     table.insert(data, {
       text = command.prettify_name(item.name),
       info = item.alignment == StatusView.Item.LEFT and "Left" or "Right",
@@ -26,46 +26,46 @@ local function status_view_items_data(names)
   return data
 end
 
-local function status_view_get_items(text)
-  local names = status_view_item_names()
+local function status_view_get_items(status_view, text)
+  local names = status_view_item_names(status_view)
   local results = common.fuzzy_match(names, text)
-  results = status_view_items_data(results)
+  results = status_view_items_data(status_view, results)
   return results
 end
 
 command.add(nil, {
-  ["status-bar:toggle"] = function()
-    core.status_view:toggle()
+  ["status-bar:toggle"] = function(root_view)
+    root_view.status_view:toggle()
   end,
-  ["status-bar:show"] = function()
-    core.status_view:show()
+  ["status-bar:show"] = function(root_view)
+    root_view.status_view:show()
   end,
-  ["status-bar:hide"] = function()
-    core.status_view:hide()
+  ["status-bar:hide"] = function(root_view)
+    root_view.status_view:hide()
   end,
-  ["status-bar:disable-messages"] = function()
-    core.status_view:display_messages(false)
+  ["status-bar:disable-messages"] = function(root_view)
+    root_view.status_view:display_messages(false)
   end,
-  ["status-bar:enable-messages"] = function()
-    core.status_view:display_messages(true)
+  ["status-bar:enable-messages"] = function(root_view)
+    root_view.status_view:display_messages(true)
   end,
-  ["status-bar:hide-item"] = function()
-    core.command_view:enter("Status bar item to hide", {
+  ["status-bar:hide-item"] = function(root_view)
+    root_view.command_view:enter("Status bar item to hide", {
       submit = function(text, item)
-        core.status_view:hide_items(item.name)
+        root_view.status_view:hide_items(item.name)
       end,
-      suggest = status_view_get_items
+      suggest = function(...) return status_view_get_items(root_view.status_view, ...) end
     })
   end,
-  ["status-bar:show-item"] = function()
-    core.command_view:enter("Status bar item to show", {
+  ["status-bar:show-item"] = function(root_view)
+    root_view.command_view:enter("Status bar item to show", {
       submit = function(text, item)
-        core.status_view:show_items(item.name)
+        root_view.status_view:show_items(item.name)
       end,
-      suggest = status_view_get_items
+      suggest = function(...) return status_view_get_items(root_view.status_view, ...) end
     })
   end,
-  ["status-bar:reset-items"] = function()
-    core.status_view:show_items()
+  ["status-bar:reset-items"] = function(root_view)
+    root_view.status_view:show_items()
   end,
 })

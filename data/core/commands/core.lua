@@ -4,6 +4,7 @@ local command = require "core.command"
 local config = require "core.config"
 local keymap = require "core.keymap"
 local LogView = require "core.logview"
+local Window = require "core.window"
 
 
 local fullscreen = false
@@ -25,8 +26,8 @@ local function check_directory_path(path)
     return abs_path
 end
 
-local function open_file(use_dialog)
-  local view = core.active_view
+local function open_file(root_view, use_dialog)
+  local view = root_view.active_view
   local default_text
   if view.doc and view.doc.abs_filename then
     local dirname, _ = view.doc.abs_filename:match("(.*)[/\\](.+)$")
@@ -41,10 +42,10 @@ local function open_file(use_dialog)
   end
 
   if use_dialog then
-    core.open_file_dialog(core.window, function(status, result)
+    core.open_file_dialog(root_view.window, function(status, result)
       if status == "accept" then
       	for _, filename in ipairs(result --[[ @as string[] ]]) do
-          core.root_view:open_doc(core.open_doc(filename))
+          root_view:open_doc(core.open_doc(filename))
       	end
       elseif status == "error" then
         core.error("Error while opening dialog: %s", result or "")
@@ -56,11 +57,11 @@ local function open_file(use_dialog)
   	return
   end
 
-  core.command_view:enter("Open File", {
+  root_view.command_view:enter("Open File", {
     text = default_text,
     submit = function(text)
       local filename = core.project_absolute_path(common.home_expand(text))
-      core.root_view:open_doc(core.open_doc(filename))
+      root_view:open_doc(core.open_doc(filename))
     end,
     suggest = function (text)
       return common.home_encode_list(common.path_suggest(common.home_expand(text), core.root_project() and core.root_project().path))
@@ -88,7 +89,7 @@ local function open_file(use_dialog)
   })
 end
 
-local function open_directory(label, use_dialog, allow_many, callback)
+local function open_directory(root_view, label, use_dialog, allow_many, callback)
   local dirname = common.dirname(core.root_project().path)
   local text
   if dirname then
@@ -96,7 +97,7 @@ local function open_directory(label, use_dialog, allow_many, callback)
   end
 
   if use_dialog then
-    core.open_directory_dialog(core.window, function(status, result)
+    core.open_directory_dialog(root_view.window, function(status, result)
       if status == "accept" then
         callback(result)
       elseif status == "error" then
@@ -110,7 +111,7 @@ local function open_directory(label, use_dialog, allow_many, callback)
   	return
   end
 
-  core.command_view:enter(label, {
+  root_view.command_view:enter(label, {
     text = text,
     submit = function(text)
       local path = common.home_expand(text)
@@ -125,8 +126,8 @@ local function open_directory(label, use_dialog, allow_many, callback)
   })
 end
 
-local function change_project_directory(use_dialog)
-  open_directory("Change Project Folder", use_dialog, false, function(abs_path)
+local function change_project_directory(root_view, use_dialog)
+  open_directory(root_view, "Change Project Folder", use_dialog, false, function(abs_path)
     if abs_path[1] == core.root_project().path then return end
     core.confirm_close_docs(core.docs, function(dirpath)
       core.open_project(dirpath)
@@ -134,8 +135,8 @@ local function change_project_directory(use_dialog)
   end)
 end
 
-local function open_project_directory(use_dialog)
-  open_directory("Open Project", use_dialog, false, function(abs_path)
+local function open_project_directory(root_view, use_dialog)
+  open_directory(root_view, "Open Project", use_dialog, false, function(abs_path)
     if abs_path[1] == core.root_project().path then
       core.error("Directory %q is currently opened", abs_path[1])
       return
@@ -145,7 +146,7 @@ local function open_project_directory(use_dialog)
 end
 
 local function add_project_directory(use_dialog)
-  open_directory("Add Directory", use_dialog, true, function(abs_path)
+  open_directory(root_view, "Add Directory", use_dialog, true, function(abs_path)
     for _, dir in ipairs(abs_path) do
       print(dir)
       core.add_project(system.absolute_path(dir))
@@ -166,18 +167,18 @@ command.add(nil, {
     core.quit(true)
   end,
 
-  ["core:toggle-fullscreen"] = function()
+  ["core:toggle-fullscreen"] = function(root_view)
     fullscreen = not fullscreen
     if fullscreen then
-      restore_title_view = core.title_view.visible
+      restore_title_view = root_view.title_view.visible
     end
-    system.set_window_mode(core.window, fullscreen and "fullscreen" or "normal")
-    core.show_title_bar(not fullscreen and restore_title_view)
-    core.title_view:configure_hit_test(not fullscreen and restore_title_view)
+    root_view.window.renwindow:set_mode(fullscreen and "fullscreen" or "normal")
+    root_view:show_title_bar(not fullscreen and restore_title_view)
+    root_view.title_view:configure_hit_test(not fullscreen and restore_title_view)
   end,
 
-  ["core:reload-module"] = function()
-    core.command_view:enter("Reload Module", {
+  ["core:reload-module"] = function(root_view)
+    root_view.command_view:enter("Reload Module", {
       submit = function(text, item)
         text = item and item.text or text
         core.reload_module(text)
@@ -193,12 +194,12 @@ command.add(nil, {
     })
   end,
 
-  ["core:find-command"] = function()
-    local commands = command.get_all_valid()
-    core.command_view:enter("Do Command", {
+  ["core:find-command"] = function(root_view)
+    local commands = command.get_all_valid(root_view)
+    root_view.command_view:enter("Do Command", {
       submit = function(text, item)
         if item then
-          command.perform(item.command)
+          root_view:perform(item.command)
         end
       end,
       suggest = function(text)
@@ -216,93 +217,99 @@ command.add(nil, {
     })
   end,
 
-  ["core:new-doc"] = function()
-    core.root_view:open_doc(core.open_doc())
+  ["core:new-doc"] = function(root_view)
+    root_view:open_doc(core.open_doc())
   end,
 
-  ["core:new-named-doc"] = function()
-    core.command_view:enter("File name", {
+  ["core:new-named-doc"] = function(root_view)
+    root_view.command_view:enter("File name", {
       submit = function(text)
-        core.root_view:open_doc(core.open_doc(text))
+        root_view:open_doc(core.open_doc(text))
       end
     })
   end,
 
-  ["core:open-file"] = function()
-    open_file(config.use_system_file_picker)
+  ["core:open-file"] = function(root_view)
+    open_file(root_view, config.use_system_file_picker)
   end,
 
-  ["core:open-file-picker"] = function()
-    open_file(true)
+  ["core:open-file-picker"] = function(root_view)
+    open_file(root_view, true)
   end,
 
-  ["core:open-file-commandview"] = function()
-    open_file(false)
+  ["core:open-file-commandview"] = function(root_view)
+    open_file(root_view, false)
   end,
 
-  ["core:open-log"] = function()
-    local node = core.root_view:get_active_node_default()
-    node:add_view(LogView())
+  ["core:open-log"] = function(root_view)
+    root_view:get_active_node_default():add_view(LogView(root_view))
   end,
 
-  ["core:open-user-module"] = function()
+  ["core:open-user-module"] = function(root_view)
     local user_module_doc = core.open_doc(USERDIR .. "/init.lua")
     if not user_module_doc then return end
-    core.root_view:open_doc(user_module_doc)
+    root_view:open_doc(user_module_doc)
   end,
 
-  ["core:open-project-module"] = function()
+  ["core:open-project-module"] = function(root_view)
     if not system.get_file_info(".lite_project.lua") then
       core.try(core.write_init_project_module, ".lite_project.lua")
     end
     local doc = core.open_doc(".lite_project.lua")
-    core.root_view:open_doc(doc)
+    root_view:open_doc(doc)
     doc:save()
   end,
-
-  ["core:change-project-folder"] = function()
-    change_project_directory(config.use_system_file_picker)
+  
+  ["core:new-window"] = function(root_view)
+    local window = Window(renwindow.create(""))
+    core.add_window(window)
+    window:configure_borderless_window(core.windows[1].borderless)
+    window.renwindow:set_size(window.renwindow:get_size())
+  end,
+  
+  ["core:change-project-folder"] = function(root_view)
+    change_project_directory(root_view, config.use_system_file_picker)
   end,
 
-  ["core:change-project-folder-picker"] = function()
-    change_project_directory(true)
+  ["core:change-project-folder-picker"] = function(root_view)
+    change_project_directory(root_view, true)
   end,
 
-  ["core:change-project-folder-commandview"] = function()
-    change_project_directory(false)
+  ["core:change-project-folder-commandview"] = function(root_view)
+    change_project_directory(root_view, false)
   end,
 
-  ["core:open-project-folder"] = function()
-    open_project_directory(config.use_system_file_picker)
+  ["core:open-project-folder"] = function(root_view)
+    open_project_directory(root_view, config.use_system_file_picker)
   end,
 
-  ["core:open-project-folder-picker"] = function()
-    open_project_directory(true)
+  ["core:open-project-folder-picker"] = function(root_view)
+    open_project_directory(root_view, true)
   end,
 
-  ["core:open-project-folder-commandview"] = function()
-    open_project_directory(false)
+  ["core:open-project-folder-commandview"] = function(root_view)
+    open_project_directory(root_view, false)
   end,
 
-  ["core:add-directory"] = function()
-    add_project_directory(config.use_system_file_picker)
+  ["core:add-directory"] = function(root_view)
+    add_project_directory(root_view, config.use_system_file_picker)
   end,
 
-  ["core:add-directory-picker"] = function()
-    add_project_directory(true)
+  ["core:add-directory-picker"] = function(root_view)
+    add_project_directory(root_view, true)
   end,
 
-  ["core:add-directory-commandview"] = function()
-    add_project_directory(false)
+  ["core:add-directory-commandview"] = function(root_view)
+    add_project_directory(root_view, false)
   end,
 
-  ["core:remove-directory"] = function()
+  ["core:remove-directory"] = function(root_view)
     local dir_list = {}
     local n = #core.projects
     for i = n, 2, -1 do
       dir_list[n - i + 1] = core.projects[i].name
     end
-    core.command_view:enter("Remove Directory", {
+    root_view.command_view:enter("Remove Directory", {
       submit = function(text, item)
         text = common.home_expand(item and item.text or text)
         if not core.remove_project(text) then

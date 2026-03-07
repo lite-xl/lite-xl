@@ -55,6 +55,7 @@ function ResultsView:begin_search(path, text, fn)
   self.results = {}
   self.last_file_idx = 1
   self.query = text
+  self.search_started = system.get_time()
   self.searching = true
   self.selected_idx = 0
 
@@ -70,6 +71,7 @@ function ResultsView:begin_search(path, text, fn)
       end
     end
     self.searching = false
+    self.search_total_time = system.get_time() - self.search_started
     self.brightness = 100
     core.redraw = true
   end, self.results)
@@ -110,9 +112,9 @@ function ResultsView:open_selected_result()
   end
   core.try(function()
     local dv = core.root_view:open_doc(core.open_doc(res.file))
-    core.root_view.root_node:update_layout()
-    dv.doc:set_selection(res.line, res.col)
-    dv:scroll_to_line(res.line, false, true)
+    self.root_view.root_node:update_layout()
+    dv:set_selection(res.line, res.col)
+    dv:scroll_to_line(res.line, false, true, res.col)
   end)
   return true
 end
@@ -195,11 +197,11 @@ function ResultsView:draw()
     text = string.format("Searching (%d files, %d matches) for %q...",
       self.last_file_idx, #self.results, self.query)
   else
-    text = string.format("Found %d matches for %q",
-      #self.results, self.query)
+    text = string.format("Found %d matches for %q in %f seconds.",
+      #self.results, self.query, self.search_total_time)
   end
   local color = common.lerp(style.text, style.accent, self.brightness / 100)
-  renderer.draw_text(style.font, text, x, y, color)
+  style.font:draw(text, x, y, color)
 
   -- horizontal line
   local x = ox + style.padding.x
@@ -213,7 +215,7 @@ function ResultsView:draw()
 
   -- results
   local _, _, bw = self:get_content_bounds()
-  core.push_clip_rect(ox, oy+yoffset + style.divider_size, bw, self.size.y-yoffset)
+  self.root_view.window:push_clip_rect(ox, oy+yoffset + style.divider_size, bw, self.size.y-yoffset)
   local y1, y2 = self.position.y, self.position.y + self.size.y
   for i, item, x,y,w,h in self:each_visible_result() do
     local color = style.text
@@ -227,7 +229,7 @@ function ResultsView:draw()
     x = common.draw_text(style.code_font, color, item.text, "left", x, y, w, h)
     self.max_h_scroll = math.max(self.max_h_scroll, x)
   end
-  core.pop_clip_rect()
+  self.root_view.window:pop_clip_rect()
 
   self:draw_scrollbar()
 end
@@ -242,16 +244,16 @@ local function begin_search(path, text, fn)
     return
   end
   local rv = ResultsView(path, text, fn)
-  core.root_view:get_active_node_default():add_view(rv)
+  core.active_window().root_view:get_active_node_default():add_view(rv)
   return rv
 end
 
 
 local function get_selected_text()
-  local view = core.active_view
+  local view = core.active_window().root_view.active_view
   local doc = (view and view.doc) and view.doc or nil
   if doc then
-    return doc:get_text(table.unpack({ doc:get_selection() }))
+    return doc:get_text(table.unpack({ view:get_selection() }))
   end
 end
 
@@ -310,30 +312,30 @@ end
 
 
 command.add(nil, {
-  ["project-search:find"] = function(path)
-    core.command_view:enter("Find Text In " .. (path or "Project"), {
+  ["project-search:find"] = function(root_view, options)
+    root_view.command_view:enter("Find Text In " .. (options.path or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
-        projectsearch.search_plain(text, path, true)
+        projectsearch.search_plain(text, options.path, true)
       end
     })
   end,
 
-  ["project-search:find-regex"] = function(path)
-    core.command_view:enter("Find Regex In " .. (path or "Project"), {
+  ["project-search:find-regex"] = function(root_view, options)
+    root_view.command_view:enter("Find Regex In " .. (options.path or "Project"), {
       submit = function(text)
-        projectsearch.search_regex(text, path, true)
+        projectsearch.search_regex(text, options.path, true)
       end
     })
   end,
 
-  ["project-search:fuzzy-find"] = function(path)
-    core.command_view:enter("Fuzzy Find Text In " .. (path or "Project"), {
+  ["project-search:fuzzy-find"] = function(root_view, options)
+    root_view.command_view:enter("Fuzzy Find Text In " .. (options.path or "Project"), {
       text = get_selected_text(),
       select_text = true,
       submit = function(text)
-        projectsearch.search_fuzzy(text, path, true)
+        projectsearch.search_fuzzy(text, options.path, true)
       end
     })
   end,
@@ -341,43 +343,37 @@ command.add(nil, {
 
 
 command.add(ResultsView, {
-  ["project-search:select-previous"] = function()
-    local view = core.active_view
+  ["project-search:select-previous"] = function(view)
     view.selected_idx = math.max(view.selected_idx - 1, 1)
     view:scroll_to_make_selected_visible()
   end,
 
-  ["project-search:select-next"] = function()
-    local view = core.active_view
+  ["project-search:select-next"] = function(view)
     view.selected_idx = math.min(view.selected_idx + 1, #view.results)
     view:scroll_to_make_selected_visible()
   end,
 
-  ["project-search:open-selected"] = function()
-    core.active_view:open_selected_result()
+  ["project-search:open-selected"] = function(view)
+    view:open_selected_result()
   end,
 
-  ["project-search:refresh"] = function()
-    core.active_view:refresh()
+  ["project-search:refresh"] = function(view)
+    view:refresh()
   end,
 
-  ["project-search:move-to-previous-page"] = function()
-    local view = core.active_view
+  ["project-search:move-to-previous-page"] = function(view)
     view.scroll.to.y = view.scroll.to.y - view.size.y
   end,
 
-  ["project-search:move-to-next-page"] = function()
-    local view = core.active_view
+  ["project-search:move-to-next-page"] = function(view)
     view.scroll.to.y = view.scroll.to.y + view.size.y
   end,
 
-  ["project-search:move-to-start-of-doc"] = function()
-    local view = core.active_view
+  ["project-search:move-to-start-of-doc"] = function(view)
     view.scroll.to.y = 0
   end,
 
-  ["project-search:move-to-end-of-doc"] = function()
-    local view = core.active_view
+  ["project-search:move-to-end-of-doc"] = function(view)
     view.scroll.to.y = view:get_scrollable_size()
   end
 })

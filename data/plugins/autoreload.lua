@@ -4,6 +4,7 @@ local config = require "core.config"
 local Doc = require "core.doc"
 local Node = require "core.node"
 local common = require "core.common"
+local RootView = require "core.rootview"
 local dirwatch = require "core.dirwatch"
 
 config.plugins.autoreload = common.merge({
@@ -66,7 +67,7 @@ end
 
 local function check_prompt_reload(doc)
   if doc and doc.deferred_reload then
-    core.nag_view:show("File Changed", doc.filename .. " has changed. Reload this file?", {
+    core.active_window().nag_view:show("File Changed", doc.filename .. " has changed. Reload this file?", {
       { font = style.font, text = "Yes", default_yes = true },
       { font = style.font, text = "No" , default_no = true }
     }, function(item)
@@ -84,9 +85,9 @@ local function doc_changes_visiblity(doc, visibility)
   end
 end
 
-local core_set_active_view = core.set_active_view
-function core.set_active_view(view)
-  core_set_active_view(view)
+local RootView_set_active_view = RootView.set_active_view
+function RootView:set_active_view(view)
+  RootView_set_active_view(self, view)
   doc_changes_visiblity(view.doc, true)
 end
 
@@ -108,7 +109,7 @@ core.add_thread(function()
               reload_doc(doc)
             else
               doc.deferred_reload = true
-              if doc == core.active_view.doc then check_prompt_reload(doc) end
+              if doc == core.active_window().root_view.active_view.doc then check_prompt_reload(doc) end
             end
           end
         end

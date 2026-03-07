@@ -1,4 +1,5 @@
 -- this file is used by lite-xl to setup the Lua environment when starting
+START = system.get_time()
 VERSION = "@PROJECT_VERSION@"
 MOD_VERSION_MAJOR = 4
 MOD_VERSION_MINOR = 0
@@ -95,11 +96,14 @@ function require(modname, ...)
   end
 
   table.insert(require_stack, modname)
-  local ok, result, loaderdata = pcall(lua_require, modname, ...)
+  local stack
+  local ok, result, loaderdata = xpcall(lua_require, function(err)
+    stack = debug.traceback(modname .. ": " .. err)
+  end, modname, ...)
   table.remove(require_stack)
 
   if not ok then
-    return error(result)
+    return error(stack)
   end
   return result, loaderdata
 end

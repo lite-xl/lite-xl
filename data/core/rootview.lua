@@ -1,10 +1,16 @@
 local core = require "core"
 local common = require "core.common"
 local style = require "core.style"
+local command = require "core.command"
 local Node = require "core.node"
 local View = require "core.view"
+local ime = require "core.ime"
 local DocView = require "core.docview"
 local ContextMenu = require "core.contextmenu"
+local CommandView = require "core.commandview"
+local StatusView = require "core.statusview"
+local NagView = require "core.nagview"
+local TitleView = require "core.titleview"
 
 ---@class core.rootview : core.view
 ---@field super core.view
@@ -14,9 +20,10 @@ local RootView = View:extend()
 
 function RootView:__tostring() return "RootView" end
 
-function RootView:new()
+function RootView:new(window)
   RootView.super.new(self)
-  self.root_node = Node()
+  self.window = window
+  self.root_node = Node(self)
   self.deferred_draws = {}
   self.mouse = { x = 0, y = 0 }
   self.drag_overlay = { x = 0, y = 0, w = 0, h = 0, visible = false, opacity = 0,
@@ -33,7 +40,29 @@ function RootView:new()
   self.defer_open_docs = {}
   self.first_dnd_processed = false
   self.first_update_done = false
-  self.context_menu = ContextMenu()
+  self.active_view = nil
+  self.last_active_view = nil
+  self.init_size = true
+  ---@type core.contextmenu
+  self.context_menu = ContextMenu(self)
+  ---@type core.commandview
+  self.command_view = CommandView(self)
+  ---@type core.statusview
+  self.status_view = StatusView(self)
+  ---@type core.nagview
+  self.nag_view = NagView(self)
+  ---@type core.titleview
+  self.title_view = TitleView(self)
+  
+  -- Some plugins (eg: console) require the nodes to be initialized to defaults
+  local cur_node = self.root_node
+  cur_node.is_primary_node = true
+  cur_node:split("up", self.title_view, {y = true})
+  cur_node = cur_node.b
+  cur_node:split("up", self.nag_view, {y = true})
+  cur_node = cur_node.b
+  cur_node = cur_node:split("down", self.command_view, {y = true})
+  cur_node = cur_node:split("down", self.status_view, {y = true})
 end
 
 
@@ -44,11 +73,15 @@ end
 
 ---@return core.node
 function RootView:get_active_node()
-  local node = self.root_node:get_node_for_view(core.active_view)
+  local node = self.root_node:get_node_for_view(self.active_view)
   if not node then node = self:get_primary_node() end
   return node
 end
 
+
+function RootView:show_title_bar(show)
+  self.title_view.visible = show
+end
 
 ---@return core.node
 local function get_primary_node(node)
@@ -61,14 +94,15 @@ local function get_primary_node(node)
 end
 
 
+
 ---@return core.node
 function RootView:get_active_node_default()
-  local node = self.root_node:get_node_for_view(core.active_view)
+  local node = self.root_node:get_node_for_view(self.active_view)
   if not node then node = self:get_primary_node() end
   if node.locked then
     local default_view = self:get_primary_node().views[1]
     assert(default_view, "internal error: cannot find original document node.")
-    core.set_active_view(default_view)
+    self:set_active_view(default_view)
     node = self:get_active_node()
   end
   return node
@@ -115,10 +149,28 @@ function RootView:open_doc(doc)
   local view = DocView(doc)
   node:add_view(view)
   self.root_node:update_layout()
-  view:scroll_to_line(view.doc:get_selection(), true, true)
+  view:scroll_to_line(view:get_selection(), true, true)
   return view
 end
 
+function RootView:set_active_view(view)
+  assert(view, "Tried to set active view to nil")
+  -- Reset the IME even if the focus didn't change
+  ime.stop()
+  if view ~= self.active_view then
+    system.text_input(self.window.renwindow, view:supports_text_input())
+    if self.active_view and self.active_view.force_focus then
+      self.next_active_view = view
+      return
+    end
+    self.next_active_view = nil
+    if view.doc and view.doc.filename then
+      core.set_visited(view.doc.filename)
+    end
+    self.last_active_view = self.active_view
+    self.active_view = view
+  end
+end
 
 ---@param keep_active boolean
 function RootView:close_all_docviews(keep_active)
@@ -157,7 +209,7 @@ end
 ---@param x number
 ---@param y number
 ---@param clicks integer
-function RootView.on_view_mouse_pressed(button, x, y, clicks)
+function RootView:on_view_mouse_pressed(button, x, y, clicks)
 end
 
 
@@ -197,7 +249,7 @@ function RootView:on_mouse_pressed(button, x, y, clicks)
       return true
     end
   elseif not self.dragged_node then -- avoid sending on_mouse_pressed events when dragging tabs
-    core.set_active_view(node.active_view)
+    self:set_active_view(node.active_view)
     self:grab_mouse(button, node.active_view)
     return self.on_view_mouse_pressed(button, x, y, clicks) or node.active_view:on_mouse_pressed(button, x, y, clicks)
   end
@@ -321,9 +373,9 @@ function RootView:on_mouse_moved(x, y, dx, dy)
     return true
   end
 
-  if core.active_view == core.nag_view then
+  if self.active_view == self.nag_view then
     core.request_cursor("arrow")
-    core.active_view:on_mouse_moved(x, y, dx, dy)
+    self.nag_view:on_mouse_moved(x, y, dx, dy)
     return
   end
 
@@ -409,7 +461,7 @@ function RootView:on_file_dropped(filename, x, y)
           if opt.text == "Current window" then
             core.add_project(abspath)
           elseif opt.text == "New window" then
-            system.exec(string.format("%q %q", EXEFILE, filename))
+            process.start({ EXEFILE, filename }, { detach = true })
           end
         end
       )
@@ -421,8 +473,8 @@ function RootView:on_file_dropped(filename, x, y)
     -- We need to change the current project folder for the first request, and start
     -- new instances for the rest to emulate existing behavior.
     if self.first_dnd_processed then
-      -- FIXME: port to process API
-      system.exec(string.format("%q %q", EXEFILE, filename))
+      -- first update done, open in new window
+      process.start({ EXEFILE, filename }, { detach = true })
     else
       -- change project directory
       core.confirm_close_docs(core.docs, function(dirpath)
@@ -438,15 +490,15 @@ function RootView:on_file_dropped(filename, x, y)
 end
 
 function RootView:process_defer_open_docs()
-  if core.active_view == core.nag_view then return end
+  if self.active_view == self.nag_view then return end
   for _, drop in ipairs(self.defer_open_docs) do
     -- file dragged into lite-xl, try to open it
     local filename, x, y = table.unpack(drop)
     local ok, doc = core.try(core.open_doc, filename)
     if ok then
-      local node = core.root_view.root_node:get_child_overlapping_point(x, y)
+      local node = self.root_node:get_child_overlapping_point(x, y)
       node:set_active_view(node.active_view)
-      core.root_view:open_doc(doc)
+      self:open_doc(doc)
     end
   end
   self.defer_open_docs = {}
@@ -461,7 +513,7 @@ end
 
 
 function RootView:on_text_input(...)
-  core.active_view:on_text_input(...)
+  self.active_view:on_text_input(...)
 end
 
 function RootView:on_touch_pressed(x, y, ...)
@@ -475,8 +527,8 @@ end
 
 function RootView:on_touch_moved(x, y, dx, dy, ...)
   if not self.touched_view then return end
-  if core.active_view == core.nag_view then
-    core.active_view:on_touch_moved(x, y, dx, dy, ...)
+  if self.active_view == self.window.nag_view then
+    self.active_view:on_touch_moved(x, y, dx, dy, ...)
     return
   end
 
@@ -509,7 +561,7 @@ function RootView:on_touch_moved(x, y, dx, dy, ...)
 end
 
 function RootView:on_ime_text_editing(...)
-  core.active_view:on_ime_text_editing(...)
+  self.active_view:on_ime_text_editing(...)
 end
 
 function RootView:on_focus_lost(...)
@@ -531,6 +583,10 @@ end
 
 function RootView:update()
   Node.copy_position_and_size(self.root_node, self)
+  if self.init_size then -- for the initial load
+    self.root_node:update_layout()
+    self.init_size = false
+  end
   self.root_node:update()
   self.root_node:update_layout()
 
@@ -648,5 +704,10 @@ function RootView:draw()
     core.cursor_change_req = nil
   end
 end
+
+function RootView:perform(cmd, options, ...)
+  return command.perform(cmd, self, options or {}, ...)
+end
+
 
 return RootView

@@ -31,8 +31,8 @@ local function clone(t)
 end
 
 
-local function predicate()
-  return state ~= "playing"
+local function predicate(rv)
+  return state ~= "playing", rv
 end
 
 
@@ -49,14 +49,14 @@ command.add(predicate, {
     end
   end,
 
-  ["macro:play"] = function()
+  ["macro:play"] = function(rv)
     state = "playing"
     core.log("Playing macro... (%d events)", #event_buffer)
     local mk = keymap.modkeys
     keymap.modkeys = clone(modkeys)
     for _, ev in ipairs(event_buffer) do
       on_event(table.unpack(ev))
-      core.root_view:update()
+      root_view:update()
     end
     keymap.modkeys = mk
     state = "stopped"

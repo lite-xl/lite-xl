@@ -40,14 +40,14 @@ function LogView:__tostring() return "LogView" end
 LogView.context = "session"
 
 
-function LogView:new()
+function LogView:new(root_view)
   LogView.super.new(self)
+  self.root_view = root_view
   self.last_item = core.log_items[#core.log_items]
   self.expanding = {}
   self.scrollable = true
   self.yoffset = 0
-
-  core.status_view:show_message("i", style.text, "ctrl+click to copy entry")
+  self.root_view.status_view:show_message("i", style.text, "ctrl+click to copy entry")
 end
 
 
@@ -113,7 +113,7 @@ function LogView:on_mouse_pressed(button, px, py, clicks)
   if selected then
     if keymap.modkeys["ctrl"] then
       system.set_clipboard(core.get_log(selected))
-      core.status_view:show_message("i", style.text, "copied entry #"..index.." to clipboard.")
+      self.root_view.status_view:show_message("i", style.text, "copied entry #"..index.." to clipboard.")
     else
       self:expand_item(selected)
     end
@@ -159,7 +159,7 @@ local function draw_text_multiline(font, text, x, y, color)
   local th = font:get_height()
   local resx = x
   for line in text:gmatch("[^\n]+") do
-    resx = renderer.draw_text(style.font, line, x, y, color)
+    resx = style.font:draw(line, x, y, color)
     y = y + th
   end
   return resx, y
@@ -180,7 +180,7 @@ function LogView:draw()
   local tw = style.font:get_width(datestr)
   for _, item, x, y, w, h in self:each_item() do
     if y + h >= self.position.y and y <= self.position.y + self.size.y then
-      core.push_clip_rect(x, y, w, h)
+      self.root_view.window:push_clip_rect(x, y, w, h)
       x = x + style.padding.x
 
       x = common.draw_text(
@@ -217,7 +217,7 @@ function LogView:draw()
         _, y = common.draw_text(style.font, style.text, line, "left", x, y, w, lh)
       end
 
-      core.pop_clip_rect()
+      self.root_view.window:pop_clip_rect()
     end
   end
   LogView.super.draw_scrollbar(self)

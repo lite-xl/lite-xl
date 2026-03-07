@@ -15,7 +15,8 @@ function ToolbarView:new()
   self.visible = true
   self.init_size = true
   self.tooltip = false
-  self.toolbar_font = style.icon_big_font
+  self.icon_size = 23
+  self.toolbar_font = style.icon_font
   self.toolbar_commands = {
     {symbol = "f", command = "core:new-doc"},
     {symbol = "D", command = "core:open-file"},
@@ -28,7 +29,7 @@ end
 
 
 function ToolbarView:update()
-  local dest_size = self.visible and (self.toolbar_font:get_height() + style.padding.y * 2) or 0
+  local dest_size = self.visible and (self.toolbar_font:get_height(self.icon_size) + style.padding.y * 2) or 0
   if self.init_size then
     self.size.y = dest_size
     self.init_size = nil
@@ -42,7 +43,7 @@ end
 function ToolbarView:toggle_visible()
   self.visible = not self.visible
   if self.tooltip then
-    core.status_view:remove_tooltip()
+    self.root_view.status_view:remove_tooltip()
     self.tooltip = false
   end
   self.hovered_item = nil
@@ -50,12 +51,12 @@ end
 
 function ToolbarView:get_icon_width()
   local max_width = 0
-  for i,v in ipairs(self.toolbar_commands) do max_width = math.max(max_width, (v.font or self.toolbar_font):get_width(v.symbol)) end
+  for i,v in ipairs(self.toolbar_commands) do max_width = math.max(max_width, (v.font or self.toolbar_font):get_width(v.symbol, self.icon_size)) end
   return max_width
 end
 
 function ToolbarView:each_item()
-  local icon_h, icon_w = self.toolbar_font:get_height(), self:get_icon_width()
+  local icon_h, icon_w = self.toolbar_font:get_height(self.icon_size), self:get_icon_width()
   local toolbar_spacing = icon_w / 2
   local ox, oy = self:get_content_offset()
   local index = 0
@@ -85,7 +86,7 @@ function ToolbarView:draw()
 
   for item, x, y, w, h in self:each_item() do
     local color = item == self.hovered_item and command.is_valid(item.command) and style.text or style.dim
-    common.draw_text(item.font or self.toolbar_font, color, item.symbol, nil, x, y, 0, h)
+    common.draw_text(item.font or self.toolbar_font, color, item.symbol, nil, x, y, 0, h, self.icon_size)
   end
 end
 
@@ -94,9 +95,9 @@ function ToolbarView:on_mouse_pressed(button, x, y, clicks)
   if not self.visible then return end
   local caught = ToolbarView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught then return caught end
-  core.set_active_view(core.last_active_view)
+  self.root_view:set_active_view(self.root_view.last_active_view)
   if self.hovered_item and command.is_valid(self.hovered_item.command) then
-    command.perform(self.hovered_item.command)
+    self.root_view:perform(self.hovered_item.command)
   end
   return true
 end
@@ -105,7 +106,7 @@ end
 function ToolbarView:on_mouse_left()
   ToolbarView.super.on_mouse_left(self)
   if self.tooltip then
-    core.status_view:remove_tooltip()
+    self.root_view.status_view:remove_tooltip()
     self.tooltip = false
   end
   self.hovered_item = nil
@@ -124,13 +125,13 @@ function ToolbarView:on_mouse_moved(px, py, ...)
       self.hovered_item = item
       local binding = keymap.get_binding(item.command)
       local name = command.prettify_name(item.command)
-      core.status_view:show_tooltip(binding and { name, style.dim, "  ", binding } or { name })
+      self.root_view.status_view:show_tooltip(binding and { name, style.dim, "  ", binding } or { name })
       self.tooltip = true
       return
     end
   end
   if self.tooltip and not (px > x_min and px <= x_max and py > y_min and py <= y_max) then
-    core.status_view:remove_tooltip()
+    self.root_view.status_view:remove_tooltip()
     self.tooltip = false
   end
 end

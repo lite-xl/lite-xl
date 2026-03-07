@@ -501,18 +501,6 @@ failure:
   return NULL;
 }
 
-RenFont* ren_font_copy(RenFont* font, float size, ERenFontAntialiasing antialiasing, ERenFontHinting hinting, int style) {
-  antialiasing = antialiasing == -1 ? font->antialiasing : antialiasing;
-  hinting = hinting == -1 ? font->hinting : hinting;
-  style = style == -1 ? font->style : style;
-
-  return ren_font_load(font->path, size, antialiasing, hinting, style); // SDL_SetError() will be called appropriately
-}
-
-const char* ren_font_get_path(RenFont *font) {
-  return font->path;
-}
-
 void ren_font_free(RenFont* font) {
   font_clear_glyph_cache(font);
   // free codepoint cache as well
@@ -535,18 +523,6 @@ int ren_font_group_get_tab_size(RenFont **fonts) {
 
 float ren_font_group_get_size(RenFont **fonts) {
   return fonts[0]->size;
-}
-
-void ren_font_group_set_size(RenFont **fonts, float size, int surface_scale) {
-  for (int i = 0; i < FONT_FALLBACK_MAX && fonts[i]; ++i) {
-    font_clear_glyph_cache(fonts[i]);
-    fonts[i]->size = size;
-    fonts[i]->tab_size = 2;
-    #ifdef LITE_USE_SDL_RENDERER
-    fonts[i]->scale = surface_scale;
-    #endif
-    font_set_face_metrics(fonts[i], fonts[i]->face);
-  }
 }
 
 int ren_font_group_get_height(RenFont **fonts) {
@@ -838,13 +814,12 @@ void ren_resize_window(RenWindow *window_renderer) {
   renwin_update_scale(window_renderer);
 }
 
-// TODO: Does not work nicely with multiple windows
+
 void ren_update_rects(RenWindow *window_renderer, RenRect *rects, int count) {
-  static bool initial_frame = true;
   renwin_update_rects(window_renderer, rects, count);
-  if (initial_frame) {
+  if (!window_renderer->rendered_frame) {
     renwin_show_window(window_renderer);
-    initial_frame = false;
+    window_renderer->rendered_frame = true;
   }
 }
 

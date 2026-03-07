@@ -13,8 +13,9 @@ local SingleLineDoc = Doc:extend()
 
 function SingleLineDoc:__tostring() return "SingleLineDoc" end
 
-function SingleLineDoc:insert(line, col, text)
-  SingleLineDoc.super.insert(self, line, col, text:gsub("\n", ""))
+function SingleLineDoc:insert(line, col, text, selections)
+  local stripped = text:gsub("\n", "")
+  SingleLineDoc.super.insert(self, line, col, stripped, selections)
 end
 
 ---@class core.commandview : core.docview
@@ -50,8 +51,9 @@ local default_state = {
 }
 
 
-function CommandView:new()
+function CommandView:new(root_view)
   CommandView.super.new(self, SingleLineDoc())
+  self.root_view = root_view
   self.suggestion_idx = 1
   self.suggestions_offset = 1
   self.suggestions = {}
@@ -70,23 +72,14 @@ function CommandView:new()
 end
 
 
----@deprecated
-function CommandView:set_hidden_suggestions()
-  core.warn("Using deprecated function CommandView:set_hidden_suggestions")
-  self.state.show_suggestions = false
-end
-
-
 function CommandView:get_name()
   return View.get_name(self)
 end
 
 
-function CommandView:get_line_screen_position(line, col)
-  local x = CommandView.super.get_line_screen_position(self, 1, col)
-  local _, y = self:get_content_offset()
-  local lh = self:get_line_height()
-  return x, y + (self.size.y - lh) / 2
+function CommandView:get_vline_position(vline, vcol)
+  local x, y = CommandView.super.get_vline_position(self, vline, vcol)
+  return x, y + (self.size.y - self:get_line_height()) / 2
 end
 
 
@@ -100,7 +93,7 @@ function CommandView:get_scrollable_size()
 end
 
 function CommandView:get_h_scrollable_size()
-  return 0
+  return math.huge
 end
 
 
@@ -117,9 +110,9 @@ end
 function CommandView:set_text(text, select)
   self.last_text = text
   self.doc:remove(1, 1, math.huge, math.huge)
-  self.doc:text_input(text)
+  self:text_input(text)
   if select then
-    self.doc:set_selection(math.huge, math.huge, 1, 1)
+    self:set_selection(math.huge, math.huge, 1, 1)
   end
 end
 
@@ -201,47 +194,18 @@ end
 ---@param label string
 ---@varargs any
 ---@overload fun(label:string, options: core.commandview.state)
-function CommandView:enter(label, ...)
+function CommandView:enter(label, options)
   if self.state ~= default_state then
     return
   end
-  local options = select(1, ...)
-
-  if type(options) ~= "table" then
-    core.warn("Using CommandView:enter in a deprecated way")
-    local submit, suggest, cancel, validate = ...
-    options = {
-      submit = submit,
-      suggest = suggest,
-      cancel = cancel,
-      validate = validate,
-    }
-  end
-
-  -- Support deprecated CommandView:set_hidden_suggestions
-  -- Remove this when set_hidden_suggestions is not supported anymore
-  if options.show_suggestions == nil then
-    options.show_suggestions = self.state.show_suggestions
-  end
-
   self.state = common.merge(default_state, options)
-
-  -- We need to keep the text entered with CommandView:set_text to
-  -- maintain compatibility with deprecated usage, but still allow
-  -- overwriting with options.text
-  local old_text = self:get_text()
-  if old_text ~= "" then
-    core.warn("Using deprecated function CommandView:set_text")
-  end
   if options.text or options.select_text then
     local text = options.text or old_text
     self:set_text(text, self.state.select_text)
+  else
+    self:sanitize_selection()
   end
-  -- Replace with a simple
-  -- self:set_text(self.state.text, self.state.select_text)
-  -- once old usage is removed
-
-  core.set_active_view(self)
+  self.root_view:set_active_view(self)
   self:update_suggestions()
   self.gutter_text_brightness = 100
   self.label = label .. ": "
@@ -249,12 +213,13 @@ end
 
 
 function CommandView:exit(submitted, inexplicit)
-  if core.active_view == self then
-    core.set_active_view(core.last_active_view)
+  if self.root_view.active_view == self then
+    self.root_view:set_active_view(self.root_view.last_active_view)
   end
   local cancel = self.state.cancel
   self.state = default_state
   self.doc:reset()
+  self:invalidate_cache()
   self.suggestions = {}
   if not submitted then cancel(not inexplicit) end
   self.save_suggestion = nil
@@ -309,7 +274,7 @@ end
 function CommandView:update()
   CommandView.super.update(self)
 
-  if core.active_view ~= self and self.state ~= default_state then
+  if self.root_view.active_view ~= self and self.state ~= default_state then
     self:exit(false, true)
   end
 
@@ -324,7 +289,7 @@ function CommandView:update()
       if #self.last_text < #current_text and
          string.find(suggested_text, current_text, 1, true) == 1 then
         self:set_text(suggested_text)
-        self.doc:set_selection(1, #current_text + 1, 1, math.huge)
+        self:set_selection(1, #current_text + 1, 1, math.huge)
       end
       self.last_text = current_text
     end
@@ -353,7 +318,7 @@ function CommandView:update()
 
   -- update size based on whether this is the active_view
   local dest = 0
-  if self == core.active_view then
+  if self == self.root_view.active_view then
     dest = style.font:get_height() + style.padding.y * 2
   end
   self:move_towards(self.size, "y", dest, nil, "commandview")
@@ -369,10 +334,10 @@ function CommandView:draw_line_gutter(idx, x, y)
   local yoffset = self:get_line_text_y_offset()
   local pos = self.position
   local color = common.lerp(style.text, style.accent, self.gutter_text_brightness / 100)
-  core.push_clip_rect(pos.x, pos.y, self:get_gutter_width(), self.size.y)
+  self.root_view.window:push_clip_rect(pos.x, pos.y, self:get_gutter_width(), self.size.y)
   x = x + style.padding.x
-  renderer.draw_text(self:get_font(), self.label, x, y + yoffset, color)
-  core.pop_clip_rect()
+  self:get_font():draw(self.label, x, y + yoffset, color)
+  self.root_view.window:pop_clip_rect()
   return self:get_line_height()
 end
 
@@ -384,7 +349,7 @@ local function draw_suggestions_box(self)
   local h = math.ceil(self.suggestions_height)
   local rx, ry, rw, rh = self.position.x, self.position.y - h - dh, self.size.x, h
 
-  core.push_clip_rect(rx, ry, rw, rh)
+  self.root_view.window:push_clip_rect(rx, ry, rw, rh)
   -- draw suggestions background
   if #self.suggestions > 0 then
     renderer.draw_rect(rx, ry, rw, rh, style.background3)
@@ -407,14 +372,14 @@ local function draw_suggestions_box(self)
       common.draw_text(self:get_font(), style.dim, item.info, "right", x, y, w, lh)
     end
   end
-  core.pop_clip_rect()
+  self.root_view.window:pop_clip_rect()
 end
 
 
 function CommandView:draw()
   CommandView.super.draw(self)
   if self.state.show_suggestions then
-    core.root_view:defer_draw(draw_suggestions_box, self)
+    self.root_view:defer_draw(draw_suggestions_box, self)
   end
 end
 

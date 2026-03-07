@@ -19,7 +19,7 @@ config.plugins.findfile = common.merge({
 
 
 command.add(nil, {
-  ["core:find-file"] = function()
+  ["core:find-file"] = function(root_view)
     local files, complete = {}, false
     local refresh = coroutine.wrap(function()
       local start, total = system.get_time(), 0
@@ -27,13 +27,13 @@ command.add(nil, {
         for project, item in project:files() do
           if complete then return end
           if #files > config.plugins.findfile.file_limit then 
-            core.command_view:update_suggestions() 
+            root_view.command_view:update_suggestions() 
             return 
           end
           table.insert(files, i == 1 and item.filename:sub(#project.path + 2) or common.home_encode(item.filename))
           local diff = system.get_time() - start
           if diff > config.plugins.findfile.max_loop_time then
-            core.command_view:update_suggestions()
+            root_view.command_view:update_suggestions()
             total = total + diff
             if total > config.plugins.findfile.max_search_time then return end
             coroutine.yield(config.plugins.findfile.interval)
@@ -42,7 +42,6 @@ command.add(nil, {
         end
       end
     end)
-
     local wait = refresh()
     if wait then
       core.add_thread(function()
@@ -53,10 +52,10 @@ command.add(nil, {
       end)
     end
     local original_files
-    core.command_view:enter("Open File From Project", {
+    root_view.command_view:enter("Open File From Project", {
       submit = function(text, item)
         text = item and item.text or text
-        core.root_view:open_doc(core.open_doc(common.home_expand(text)))
+        root_view:open_doc(core.open_doc(common.home_expand(text)))
         complete = true
       end,
       suggest = function(text)

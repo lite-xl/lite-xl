@@ -7,6 +7,7 @@ local keymap = require "core.keymap"
 local style = require "core.style"
 local CommandView = require "core.commandview"
 local DocView = require "core.docview"
+local Font = require "core.font"
 
 config.plugins.scale = common.merge({
   -- The method used to apply the scaling: "code", "ui"
@@ -22,13 +23,22 @@ local scale_steps = 0.05
 local current_scale = SCALE
 local default_scale = SCALE
 
-local function set_scale(scale)
+local old_font_cache = Font.cache
+function Font:cache(size, options)
+  if config.plugins.scale.mode ~= "ui" and self == style.code_font then
+    if not size then size = self.default_options.size end
+    size = size * current_scale
+  end
+  return old_font_cache(self, size, options)
+end
+
+local function set_scale(root_view, scale)
   scale = common.clamp(scale, 0.2, 6)
 
   -- save scroll positions
   local v_scrolls = {}
   local h_scrolls = {}
-  for _, view in ipairs(core.root_view.root_node:get_children()) do
+  for _, view in ipairs(root_view.root_node:get_children()) do
     local n = view:get_scrollable_size()
     if n ~= math.huge and n > view.size.y then
       v_scrolls[view] = view.scroll.y / (n - view.size.y)
@@ -44,7 +54,6 @@ local function set_scale(scale)
 
   if config.plugins.scale.mode == "ui" then
     SCALE = scale
-
     style.padding.x               = style.padding.x               * s
     style.padding.y               = style.padding.y               * s
     style.divider_size            = style.divider_size            * s
@@ -52,16 +61,6 @@ local function set_scale(scale)
     style.expanded_scrollbar_size = style.expanded_scrollbar_size * s
     style.caret_width             = style.caret_width             * s
     style.tab_width               = style.tab_width               * s
-
-    for _, name in ipairs {"font", "big_font", "icon_font", "icon_big_font", "code_font"} do
-      style[name]:set_size(s * style[name]:get_size())
-    end
-  else
-    style.code_font:set_size(s * style.code_font:get_size())
-  end
-
-  for name, font in pairs(style.syntax_fonts) do
-    style.syntax_fonts[name]:set_size(s * font:get_size())
   end
 
   -- restore scroll positions
@@ -77,25 +76,25 @@ local function set_scale(scale)
   core.redraw = true
 end
 
-local function get_scale()
+local function get_scale(root_view)
   return current_scale
 end
 
-local function res_scale()
-  set_scale(default_scale)
+local function res_scale(root_view)
+  set_scale(root_view, default_scale)
 end
 
-local function inc_scale()
-  set_scale(current_scale + scale_steps)
+local function inc_scale(root_view)
+  set_scale(root_view, current_scale + scale_steps)
 end
 
-local function dec_scale()
-  set_scale(current_scale - scale_steps)
+local function dec_scale(root_view)
+  set_scale(root_view, current_scale - scale_steps)
 end
 
 if default_scale ~= config.plugins.scale.default_scale then
   if type(config.plugins.scale.default_scale) == "number" then
-    set_scale(config.plugins.scale.default_scale)
+    set_scale(root_view, config.plugins.scale.default_scale)
   end
 end
 
@@ -138,7 +137,7 @@ config.plugins.scale.config_spec = {
     on_apply = function(value)
       if type(value) == "string" then value = default_scale end
       if value ~= current_scale then
-        set_scale(value)
+        set_scale(core.active_window().root_view, value)
       end
     end
   },
@@ -164,9 +163,9 @@ config.plugins.scale.config_spec = {
 
 
 command.add(nil, {
-  ["scale:reset"   ] = function() res_scale() end,
-  ["scale:decrease"] = function() dec_scale() end,
-  ["scale:increase"] = function() inc_scale() end,
+  ["scale:reset"   ] = function(root_view) res_scale(root_view) end,
+  ["scale:decrease"] = function(root_view) dec_scale(root_view) end,
+  ["scale:increase"] = function(root_view) inc_scale(root_view) end,
 })
 
 keymap.add {

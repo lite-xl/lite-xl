@@ -2,15 +2,16 @@ local core = require "core"
 local command = require "core.command"
 local ContextMenu = require "core.contextmenu"
 
-command.add(function(x, y)
-  if not x and not y then x, y = core.root_view.mouse.x, core.root_view.mouse.y end
-  local view = x and y and type(x) == 'number' and type(y) == 'number' and core.root_view.root_node:get_child_overlapping_point(x, y).active_view
-  if not view then return nil end
-  local results = { view:on_context_menu(x, y) }
-  return results[1] and results[1].items and #results[1].items > 0, x, y, table.unpack(results)
+command.add(function(root_view, options)
+  local x, y = options.x, options.y
+  if not x and not y then x, y = root_view.mouse.x, root_view.mouse.y end
+  local view = x and y and type(x) == 'number' and type(y) == 'number' and root_view.root_node:get_child_overlapping_point(x, y).active_view
+  local results = view and view:on_context_menu(x, y)
+  if not results then return nil end
+  return #results.items > 0, root_view, x, y, results.items
 end, {
-  ['context-menu:show'] = function(x, y, results, ...)
-    core.root_view.context_menu:show(results.x or x, results.y or y, results.items, ...)
+  ['context-menu:show'] = function(root_view, x, y, items)
+    root_view.context_menu:show(x, y, items)
   end
 })
 
@@ -26,9 +27,9 @@ command.add(ContextMenu, {
   end
 })
 
-command.add(function()
-  local item = core.active_view:is(ContextMenu) and core.active_view:get_item_selected()
-  return item, core.root_view.context_menu, item
+command.add(function(root_view)
+  local item = root_view.active_view:is(ContextMenu) and root_view.active_view:get_item_selected()
+  return item, root_view.context_menu, item
 end, {
   ['context-menu:submit'] = function(context_menu, item)
     if item.command then

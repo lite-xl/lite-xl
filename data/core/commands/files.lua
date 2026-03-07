@@ -3,8 +3,8 @@ local command = require "core.command"
 local common = require "core.common"
 
 command.add(nil, {
-  ["files:create-directory"] = function()
-    core.command_view:enter("New directory name", {
+  ["files:create-directory"] = function(root_view)
+    root_view.command_view:enter("New directory name", {
       submit = function(text)
         local success, err, path = common.mkdirp(text)
         if not success then

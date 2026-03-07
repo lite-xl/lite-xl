@@ -3,6 +3,7 @@ local core = require "core"
 local common = require "core.common"
 local DocView = require "core.docview"
 local LogView = require "core.logview"
+local Window = require "core.window"
 local storage = require "core.storage"
 
 local STORAGE_MODULE = "ws"
@@ -56,9 +57,9 @@ local function save_view(view)
   if mt == DocView then
     return {
       type = "doc",
-      active = (core.active_view == view),
+      active = (view.root_view.active_view == view),
       filename = view.doc.filename,
-      selection = { view.doc:get_selection() },
+      selection = { view:get_selection() },
       scroll = { x = view.scroll.to.x, y = view.scroll.to.y },
       crlf = view.doc.crlf,
       text = view.doc.new_file and view.doc:get_text(1, 1, math.huge, math.huge)
@@ -69,7 +70,7 @@ local function save_view(view)
     if mod == mt then
       return {
         type = "view",
-        active = (core.active_view == view),
+        active = (view.root_view.active_view == view),
         module = name,
         scroll = { x = view.scroll.to.x, y = view.scroll.to.y, to = { x = view.scroll.to.x, y = view.scroll.to.y } },
       }
@@ -96,8 +97,8 @@ local function load_view(t)
         dv.doc:insert(1, 1, t.text)
         dv.doc.crlf = t.crlf
       end
-      dv.doc:set_selection(table.unpack(t.selection))
-      dv.last_line1, dv.last_col1, dv.last_line2, dv.last_col2 = dv.doc:get_selection()
+      dv:set_selection(table.unpack(t.selection))
+      dv.last_line1, dv.last_col1, dv.last_line2, dv.last_col2 = dv:get_selection()
       dv.scroll.x, dv.scroll.to.x = t.scroll.x, t.scroll.x
       dv.scroll.y, dv.scroll.to.y = t.scroll.y, t.scroll.y
     end
@@ -172,31 +173,66 @@ end
 
 
 local function save_workspace()
-  local project_dir = common.basename(core.root_project().path)
-  local id_list = {}
-  for filename, id in workspace_keys_for(project_dir) do
-    id_list[id] = true
+  if core.root_project() then
+    local project_dir = common.basename(core.root_project().path)
+    local id_list = {}
+    for filename, id in workspace_keys_for(project_dir) do
+      id_list[id] = true
+    end
+    local id = 1
+    while id_list[id] do
+      id = id + 1
+    end
+    local windows = {}
+    for _, window in ipairs(core.windows) do
+      table.insert(windows, {
+        id = window.id,
+        documents = save_node(get_unlocked_root(window.root_view.root_node)),
+        mode = window.renwindow:get_mode(),
+        position = { window.renwindow:get_position() },
+        dimensions = { window.renwindow:get_size() }
+      })
+    end
+    
+    storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { 
+      path = core.root_project().path, 
+      directories = save_directories(),
+      previous_find = core.previous_find,
+      previous_replace = core.previous_replace,
+      windows = windows
+    })
   end
-  local id = 1
-  while id_list[id] do
-    id = id + 1
-  end
-  local root = get_unlocked_root(core.root_view.root_node)
-  storage.save(STORAGE_MODULE, project_dir .. "-" .. id, { path = core.root_project().path, documents = save_node(root), directories = save_directories() })
 end
 
 
 local function load_workspace()
   local workspace = consume_workspace(core.root_project().path)
   if workspace then
-    local root = get_unlocked_root(core.root_view.root_node)
-    local active_view = load_node(root, workspace.documents)
-    if active_view then
-      core.set_active_view(active_view)
+    for idx, workspace_window in ipairs(workspace.windows) do
+      local window = nil
+      for _, existing_window in ipairs(core.windows) do
+        if existing_window.id == workspace_window.id then
+          window = existing_window
+        end
+      end
+      window = window or core.add_window(Window(renwindow._restore(workspace_window.id) or renwindow.create("")))
+      local root = get_unlocked_root(window.root_view.root_node)
+      local active_view = load_node(root, workspace_window.documents)
+      if active_view then
+        window.root_view:set_active_view(active_view)
+      end
+      if workspace_window.mode == "normal" then
+        window.renwindow:set_size(table.unpack(workspace_window.dimensions))
+        window.renwindow:set_position(table.unpack(workspace_window.position))
+      elseif workspace_window.mode == "maximized" then
+        window.renwindow:set_mode("maximized")
+      end
     end
     for i, dir_name in ipairs(workspace.directories) do
       core.add_project(system.absolute_path(dir_name))
     end
+    core.previous_find = workspace.previous_find or {}
+    core.previous_replace = workspace.previous_find or {}
   end
 end
 
@@ -216,7 +252,7 @@ function core.run(...)
     end
     local exit = core.exit
     function core.exit(quit_fn, force)
-      if force then core.try(save_workspace) end
+      core.try(save_workspace)
       exit(quit_fn, force)
     end
     

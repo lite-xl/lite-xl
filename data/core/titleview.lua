@@ -12,17 +12,17 @@ local icon_colors = {
 };
 
 local restore_command = {
-  symbol = "w", action = function() system.set_window_mode(core.window, "normal") end
+  symbol = "w", action = function(self) self.root_view.window:set_mode("normal") end
 }
 
 local maximize_command = {
-  symbol = "W", action = function() system.set_window_mode(core.window, "maximized") end
+  symbol = "W", action = function(self) self.root_view.window:set_mode("maximized") end
 }
 
 local title_commands = {
-  {symbol = "_", action = function() system.set_window_mode(core.window, "minimized") end},
+  {symbol = "_", action = function(self) cself.root_view.window:set_mode("minimized") end},
   maximize_command,
-  {symbol = "X", action = function() core.quit() end},
+  {symbol = "X", action = function(self) core.quit() end},
 }
 
 ---@class core.titleview : core.view
@@ -35,8 +35,9 @@ local function title_view_height()
   return style.font:get_height() + style.padding.y * 2
 end
 
-function TitleView:new()
+function TitleView:new(root_view)
   TitleView.super.new(self)
+  self.root_view = root_view
   self.visible = true
 end
 
@@ -46,10 +47,10 @@ function TitleView:configure_hit_test(borderless)
     local icon_w = style.icon_font:get_width("_")
     local icon_spacing = icon_w
     local controls_width = (icon_w + icon_spacing) * #title_commands + icon_spacing
-    system.set_window_hit_test(core.window, title_height, controls_width, icon_spacing)
+    system.set_window_hit_test(self.root_view.window.renwindow, title_height, controls_width, icon_spacing)
     -- core.hit_test_title_height = title_height
   else
-    system.set_window_hit_test(core.window)
+    system.set_window_hit_test(self.root_view.window.renwindow)
   end
 end
 
@@ -59,7 +60,7 @@ end
 
 function TitleView:update()
   self.size.y = self.visible and title_view_height() or 0
-  title_commands[2] = core.window_mode == "maximized" and restore_command or maximize_command
+  title_commands[2] = self.root_view.window.mode == "maximized" and restore_command or maximize_command
   TitleView.super.update(self)
 end
 
@@ -74,7 +75,7 @@ function TitleView:draw_window_title()
   common.draw_text(style.icon_font, icon_colors.color7, "7", nil, x, y, 0, h)
   common.draw_text(style.icon_font, icon_colors.color8, "8", nil, x, y, 0, h)
   x = common.draw_text(style.icon_font, icon_colors.color9, "9 ", nil, x, y, 0, h)
-  local title = core.compose_window_title(core.window_title)
+  local title = self.root_view.window:compose_window_title(self.root_view.window.title)
   common.draw_text(style.font, color, title, nil, x, y, 0, h)
 end
 
@@ -107,9 +108,9 @@ end
 function TitleView:on_mouse_pressed(button, x, y, clicks)
   local caught = TitleView.super.on_mouse_pressed(self, button, x, y, clicks)
   if caught then return end
-  core.set_active_view(core.last_active_view)
+  self.root_view:set_active_view(self.root_view.last_active_view)
   if self.hovered_item then
-    self.hovered_item.action()
+    self.hovered_item.action(self)
   end
 end
 

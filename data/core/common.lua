@@ -153,7 +153,7 @@ end
 
 local function compare_score(a, b)
   if a.score == b.score then
-    return a.text < b.text
+    return tostring(a.text) < tostring(b.text)
   end
   return a.score > b.score
 end
@@ -340,10 +340,10 @@ function common.match_pattern(text, pattern, ...)
 end
 
 
----Draws text onto the window.
+---Draws text onto the window, based on the current global settings and SCALE.
 ---The function returns the X and Y coordinates of the bottom-right
 ---corner of the text.
----@param font renderer.font
+---@param font font
 ---@param color renderer.color
 ---@param text string
 ---@param align string
@@ -356,15 +356,15 @@ end
 ---@param h number
 ---@return number x_advance
 ---@return number y_advance
-function common.draw_text(font, color, text, align, x,y,w,h)
-  local tw, th = font:get_width(text), font:get_height()
+function common.draw_text(font, color, text, align, x,y,w,h, size)
+  local tw, th = font:get_width(text, size), font:get_height(size)
   if align == "center" then
     x = x + (w - tw) / 2
   elseif align == "right" then
     x = x + (w - tw)
   end
   y = common.round(y + (h - th) / 2)
-  return renderer.draw_text(font, text, x, y, color), y + th
+  return font:draw(text, x, y, color), y + th
 end
 
 
@@ -721,5 +721,85 @@ function common.rm(path, recursively)
   return true
 end
 
+
+
+---Returns the line and column positions for a pair of line/cols in ascending order.
+-- Usually used for selection manipulation.
+---@param line1 integer
+---@param col1 integer
+---@param line2 integer
+---@param col2 integer
+---@return line1 The first line in ascending order.
+---@return col1 The column of the first line in ascending order.
+---@return line2 The line of the second line in ascending order.
+---@return col2 The column of the second line in ascending order.
+---@return bool Whether or not the order of the pairs was reversed.
+function common.sort_positions(line1, col1, line2, col2)
+  if line1 > line2 or line1 == line2 and col1 > col2 then
+    return line2, col2, line1, col1, true
+  end
+  return line1, col1, line2, col2, false
+end
+
+
+function common.push_token(tokens, t, line, col1, col2, style)
+  table.insert(tokens, t)
+  table.insert(tokens, line)
+  table.insert(tokens, col1)
+  table.insert(tokens, col2)
+  table.insert(tokens, style)
+end
+
+
+function common.paint_tokens(tokens, s, e, style)
+  local i = 1
+  local offset
+  local t
+  while i < #tokens do
+    if tokens[i] == "doc" and (s <= tokens[i+3] and e >= tokens[i+2]) then
+      if not t then 
+        t = { }
+        table.move(tokens, 1, i - 1, 1, t)
+      end
+      if s > tokens[i+2] then
+        table.insert(t, tokens[i])
+        table.insert(t, tokens[i+1])
+        table.insert(t, tokens[i+2])
+        table.insert(t, s - 1)
+        table.insert(t, tokens[i+4])
+      end
+      table.insert(t, tokens[i])
+      table.insert(t, tokens[i+1])
+      table.insert(t, math.max(s, tokens[i+2]))
+      table.insert(t, math.min(e, tokens[i+3]))
+      table.insert(t, common.merge(tokens[i+4], style))
+      if e < tokens[i+3] then
+        table.insert(t, tokens[i])
+        table.insert(t, tokens[i+1])
+        table.insert(t, e + 1)
+        table.insert(t, tokens[i+3])
+        table.insert(t, tokens[i+4])
+      end
+    elseif t then
+      break
+    end
+    i = i + 5
+  end
+  if i < #tokens then
+    table.move(tokens, i, #tokens, #t + 1, t)
+  end
+  return t or tokens
+end
+
+
+local function token_iter(tokens, idx)
+  if idx > #tokens then return nil end
+  return idx + 5, tokens[idx], tokens[idx+1], tokens[idx+2], tokens[idx+3], tokens[idx+4]
+end
+
+
+function common.each_token(tokens, idx) 
+  return token_iter, tokens, (((idx or 1) - 1) * 5) + 1 
+end
 
 return common

@@ -56,7 +56,7 @@ end
 ---@param length integer @Size of the utf-8 length of the selection
 function ime.on_text_editing(text, start, length, ...)
   if ime.editing or #text > 0 then
-    core.root_view:on_ime_text_editing(ime.ingest(text, start, length, ...))
+    core.active_window().root_view:on_ime_text_editing(ime.ingest(text, start, length, ...))
   end
 end
 
@@ -65,7 +65,7 @@ end
 function ime.stop()
   if ime.editing then
     -- SDL_ClearComposition for now doesn't work everywhere
-    system.clear_ime(core.window)
+    system.clear_ime(core.active_window())
     ime.on_text_editing("", 0, 0)
   end
 end
@@ -84,7 +84,7 @@ function ime.set_location(x, y, w, h)
      ime.last_location.h ~= h
   then
     ime.last_location.x, ime.last_location.y, ime.last_location.w, ime.last_location.h = x, y, w, h
-    system.set_text_input_rect(core.window, x, y, w, h)
+    system.set_text_input_rect(core.active_window(), x, y, w, h)
   end
 end
 

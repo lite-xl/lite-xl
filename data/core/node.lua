@@ -11,7 +11,8 @@ local Node = Object:extend()
 
 function Node:__tostring() return "Node" end
 
-function Node:new(type)
+function Node:new(root_view, type)
+  self.root_view = root_view
   self.type = type or "leaf"
   self.position = { x = 0, y = 0 }
   self.size = { x = 0, y = 0 }
@@ -25,56 +26,13 @@ function Node:new(type)
   self.tab_offset = 1
   self.tab_width = style.tab_width
   self.move_towards = View.move_towards
+  self.init_size = true
 end
 
 
 function Node:propagate(fn, ...)
   self.a[fn](self.a, ...)
   self.b[fn](self.b, ...)
-end
-
-
----@deprecated
-function Node:on_mouse_moved(x, y, ...)
-  core.deprecation_log("Node:on_mouse_moved")
-  if self.type == "leaf" then
-    self.active_view:on_mouse_moved(x, y, ...)
-  else
-    self:propagate("on_mouse_moved", x, y, ...)
-  end
-end
-
-
----@deprecated
-function Node:on_mouse_released(...)
-  core.deprecation_log("Node:on_mouse_released")
-  if self.type == "leaf" then
-    self.active_view:on_mouse_released(...)
-  else
-    self:propagate("on_mouse_released", ...)
-  end
-end
-
-
----@deprecated
-function Node:on_mouse_left()
-  core.deprecation_log("Node:on_mouse_left")
-  if self.type == "leaf" then
-    self.active_view:on_mouse_left()
-  else
-    self:propagate("on_mouse_left")
-  end
-end
-
-
----@deprecated
-function Node:on_touch_moved(...)
-  core.deprecation_log("Node:on_touch_moved")
-  if self.type == "leaf" then
-    self.active_view:on_touch_moved(...)
-  else
-    self:propagate("on_touch_moved", ...)
-  end
 end
 
 
@@ -95,23 +53,27 @@ local type_map = { up="vsplit", down="vsplit", left="hsplit", right="hsplit" }
 function Node:split(dir, view, locked, resizable)
   assert(self.type == "leaf", "Tried to split non-leaf node")
   local node_type = assert(type_map[dir], "Invalid direction")
-  local last_active = core.active_view
-  local child = Node()
+  local last_active = self.root_view.active_view
+  local child = Node(self.root_view)
   child:consume(self)
-  self:consume(Node(node_type))
+  self:consume(Node(self.root_view, node_type))
   self.a = child
-  self.b = Node()
+  self.b = Node(self.root_view)
   if view then self.b:add_view(view) end
   if locked then
     assert(type(locked) == 'table')
     self.b.locked = locked
     self.b.resizable = resizable or false
-    core.set_active_view(last_active)
+    if last_active then
+      self.root_view:set_active_view(last_active)
+    end
   end
   if dir == "up" or dir == "left" then
     self.a, self.b = self.b, self.a
+    self:update_layout()
     return self.a
   end
+  self:update_layout()
   return self.b
 end
 
@@ -138,7 +100,7 @@ function Node:remove_view(root, view)
     end
     local next_primary
     if self.is_primary_node then
-      next_primary = core.root_view:select_next_primary_node()
+      next_primary = self.root_view:select_next_primary_node()
     end
     if locked_size or (self.is_primary_node and not next_primary) then
       self.views = {}
@@ -158,7 +120,7 @@ function Node:remove_view(root, view)
       end
     end
   end
-  core.last_active_view = nil
+  self.root_view.last_active_view = nil
 end
 
 function Node:close_view(root, view)
@@ -185,6 +147,7 @@ function Node:add_view(view, idx)
   end
   idx = common.clamp(idx or (#self.views + 1), 1, (#self.views + 1))
   table.insert(self.views, idx, view)
+  view.root_view = self.root_view
   self:set_active_view(view)
 end
 
@@ -193,7 +156,7 @@ function Node:set_active_view(view)
   assert(self.type == "leaf", "Tried to set active view on non-leaf node")
   local last_active_view = self.active_view
   self.active_view = view
-  core.set_active_view(view)
+  self.root_view:set_active_view(view)
   if last_active_view and last_active_view ~= view then
     last_active_view:on_mouse_left()
   end
@@ -282,7 +245,7 @@ end
 
 function Node:should_show_tabs()
   if self.locked then return false end
-  local dn = core.root_view.dragged_node
+  local dn = self.root_view.dragged_node
   if #self.views > 1
      or (dn and dn.dragging) then -- show tabs while dragging
     return true
@@ -510,10 +473,16 @@ function Node:update()
     for _, view in ipairs(self.views) do
       view:update()
     end
-    self:tab_hovered_update(core.root_view.mouse.x, core.root_view.mouse.y)
+    self:tab_hovered_update(self.root_view.mouse.x, self.root_view.mouse.y)
     local tab_width = self:target_tab_width()
-    self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
-    self:move_towards("tab_width", tab_width, nil, "tabs")
+    if self.init_size then
+      self.tab_shift = tab_width * (self.tab_offset - 1)
+      self.tab_width = tab_width
+      self.init_size = false
+    else
+      self:move_towards("tab_shift", tab_width * (self.tab_offset - 1), nil, "tabs")
+      self:move_towards("tab_width", tab_width, nil, "tabs")
+    end
   else
     self.a:update()
     self.b:update()
@@ -573,9 +542,9 @@ function Node:draw_tab(view, is_active, is_hovered, is_close_hovered, x, y, w, h
   -- Title
   x = x + cpad
   w = cx - x
-  core.push_clip_rect(x, y, w, h)
+  self.root_view.window:push_clip_rect(x, y, w, h)
   self:draw_tab_title(view, style.font, is_active, is_hovered, x, y, w, h)
-  core.pop_clip_rect()
+  self.root_view.window:pop_clip_rect()
 end
 
 function Node:draw_tabs()
@@ -583,7 +552,7 @@ function Node:draw_tabs()
   local x = self.position.x
   local ds = style.divider_size
   local dots_width = style.font:get_width("…")
-  core.push_clip_rect(x, y, self.size.x, h)
+  self.root_view.window:push_clip_rect(x, y, self.size.x, h)
   renderer.draw_rect(x, y, self.size.x, h, style.background2)
   renderer.draw_rect(x, y + h - ds, self.size.x, ds, style.divider)
   local tabs_number = self:get_visible_tabs_number()
@@ -608,7 +577,7 @@ function Node:draw_tabs()
     common.draw_text(style.icon_font, right_button_style, ">", nil, xrb + scroll_padding, yrb, 0, h)
   end
 
-  core.pop_clip_rect()
+  self.root_view.window:pop_clip_rect()
 end
 
 
@@ -618,9 +587,9 @@ function Node:draw()
       self:draw_tabs()
     end
     local pos, size = self.active_view.position, self.active_view.size
-    core.push_clip_rect(pos.x, pos.y, size.x, size.y)
+    self.root_view.window:push_clip_rect(pos.x, pos.y, size.x, size.y)
     self.active_view:draw()
-    core.pop_clip_rect()
+    self.root_view.window:pop_clip_rect()
   else
     local x, y, w, h = self:get_divider_rect()
     renderer.draw_rect(x, y, w, h, style.divider)

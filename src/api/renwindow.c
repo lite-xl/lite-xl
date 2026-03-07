@@ -1,10 +1,12 @@
+#include <math.h>
 #include "api.h"
 #include "../renwindow.h"
 #include "lua.h"
 #include <SDL3/SDL.h>
 #include <stdlib.h>
 
-static RenWindow *persistant_window = NULL;
+#define PERSISTENT_WINDOWS_MAX 16
+static RenWindow* persistent_windows[PERSISTENT_WINDOWS_MAX] = {0};
 
 static void init_window_icon(SDL_Window *window) {
 #if !defined(_WIN32) && !defined(__APPLE__)
@@ -55,48 +57,162 @@ static int f_renwin_create(lua_State *L) {
 
 static int f_renwin_gc(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  if (window_renderer != persistant_window)
+  int exists = 0;
+  for (int i = 0; i < PERSISTENT_WINDOWS_MAX; ++i)
+    if (window_renderer == persistent_windows[i])
+      exists = 1;
+  if (!exists)
     ren_destroy(window_renderer);
-
   return 0;
 }
 
+static int f_renwin_set_title(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  const char *title = luaL_checkstring(L, 2);
+  SDL_SetWindowTitle(window_renderer->window, title);
+  return 0;
+}
+
+// Sets the window size in physical pixels on the screen. 
+// What this functions takes must match the output of f_renwin_get_size().
+static int f_renwin_set_size(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  float scale = SDL_GetWindowDisplayScale(window_renderer->window);
+  double h = round(luaL_checknumber(L, 3) / scale);
+  double w = round(luaL_checknumber(L, 2) / scale);
+  SDL_SetWindowSize(window_renderer->window, w, h);
+  ren_resize_window(window_renderer);
+  return 0;
+}
+
+// Returns the window size in physical pixels on the screen (as opposed to scaled pixels
+// on retina-like displays)
 static int f_renwin_get_size(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   int w, h;
-  ren_get_size(window_renderer, &w, &h);
-  lua_pushnumber(L, w);
-  lua_pushnumber(L, h);
+  SDL_GetWindowSizeInPixels(window_renderer->window, &w, &h);
+  lua_pushinteger(L, w);
+  lua_pushinteger(L, h);
   return 2;
+}
+
+
+static int f_renwin_set_position(lua_State* L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  int x = luaL_checkinteger(L, 2);
+  int y = luaL_checkinteger(L, 3);
+  SDL_SetWindowPosition(window_renderer->window, x, y);
+  return 0;
+}
+
+
+static int f_renwin_get_position(lua_State* L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  int x, y;
+  SDL_GetWindowPosition(window_renderer->window, &x, &y);
+  lua_pushinteger(L, x);
+  lua_pushinteger(L, y);
+  return 2;
+}
+
+static const char *window_opts[] = { "normal", "minimized", "maximized", "fullscreen", 0 };
+enum { WIN_NORMAL, WIN_MINIMIZED, WIN_MAXIMIZED, WIN_FULLSCREEN };
+
+static int f_renwin_set_mode(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  int n = luaL_checkoption(L, 2, "normal", window_opts);
+  SDL_SetWindowFullscreen(window_renderer->window, n == WIN_FULLSCREEN);
+  if (n == WIN_NORMAL) { SDL_RestoreWindow(window_renderer->window); }
+  if (n == WIN_MAXIMIZED) { SDL_MaximizeWindow(window_renderer->window); }
+  if (n == WIN_MINIMIZED) { SDL_MinimizeWindow(window_renderer->window); }
+  return 0;
+}
+
+static int f_renwin_get_mode(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
+  if (flags & SDL_WINDOW_FULLSCREEN) {
+    lua_pushstring(L, "fullscreen");
+  } else if (flags & SDL_WINDOW_MINIMIZED) {
+    lua_pushstring(L, "minimized");
+  } else if (flags & SDL_WINDOW_MAXIMIZED) {
+    lua_pushstring(L, "maximized");
+  } else {
+    lua_pushstring(L, "normal");
+  }
+  return 1;
+}
+
+static int f_renwin_get_id(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  lua_pushinteger(L, SDL_GetWindowID(window_renderer->window));
+  return 1;
+}
+
+static int f_renwin_has_focus(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  unsigned flags = SDL_GetWindowFlags(window_renderer->window);
+  lua_pushboolean(L, flags & SDL_WINDOW_INPUT_FOCUS);
+  return 1;
+}
+
+static int f_renwin_raise(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  SDL_RaiseWindow(window_renderer->window);
+  return 0;
+}
+
+static int f_renwin_set_bordered(lua_State *L) {
+  RenWindow *window_renderer = *(RenWindow**) luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
+  SDL_SetWindowBordered(window_renderer->window, lua_toboolean(L, 2));
+  return 0;
 }
 
 static int f_renwin_persist(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-
-  persistant_window = window_renderer;
+  for (int i = 0; i < PERSISTENT_WINDOWS_MAX; ++i) {
+    if (!persistent_windows[i]) {
+      persistent_windows[i] = window_renderer;
+      break;
+    }
+  }
   return 0;
 }
 
 static int f_renwin_restore(lua_State *L) {
-  if (!persistant_window) {
+  int id = luaL_optinteger(L, 1, 0);
+  RenWindow **window_renderer = NULL;
+  for (int i = 0; i < PERSISTENT_WINDOWS_MAX && persistent_windows[i]; ++i) {
+    if (window_renderer) {
+      persistent_windows[i - 1] = persistent_windows[i];
+      persistent_windows[i] = NULL;
+    } else if (!id || SDL_GetWindowID(persistent_windows[i]->window) == id) {
+      window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
+      luaL_setmetatable(L, API_TYPE_RENWINDOW);
+      *window_renderer = persistent_windows[i];
+    }
+  }
+  if (!window_renderer)
     lua_pushnil(L);
-  }
-  else {
-    RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
-    luaL_setmetatable(L, API_TYPE_RENWINDOW);
-
-    *window_renderer = persistant_window;
-  }
-
   return 1;
 }
 
 static const luaL_Reg renwindow_lib[] = {
-  { "create",     f_renwin_create     },
-  { "__gc",       f_renwin_gc         },
-  { "get_size",   f_renwin_get_size   },
-  { "_persist",   f_renwin_persist    },
-  { "_restore",   f_renwin_restore    },
+  { "create",       f_renwin_create       },
+  { "__gc",         f_renwin_gc           },
+  { "set_title",    f_renwin_set_title    },
+  { "set_position", f_renwin_set_position },
+  { "get_position", f_renwin_get_position },
+  { "set_size",     f_renwin_set_size     },
+  { "get_size",     f_renwin_get_size     },
+  { "set_mode",     f_renwin_set_mode     },
+  { "get_mode",     f_renwin_get_mode     },
+  { "get_id",       f_renwin_get_id       },
+  { "has_focus",    f_renwin_has_focus    },
+  { "raise",        f_renwin_raise        },
+  { "set_bordered", f_renwin_set_bordered },
+  { "_persist",     f_renwin_persist      },
+  { "_restore",     f_renwin_restore      },
   {NULL, NULL}
 };
 

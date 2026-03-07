@@ -128,6 +128,12 @@ config.plugins.autocomplete = common.merge({
   }
 }, config.plugins.autocomplete)
 
+local function get_active_view()
+  if core.active_window().root_view.active_view:is(DocView) then
+    return core.active_window().root_view.active_view
+  end
+end
+
 local autocomplete = {}
 
 autocomplete.map = {}
@@ -217,7 +223,7 @@ core.add_thread(function()
             else
               filename_message = "unnamed document"
             end
-            core.status_view:show_message("!", style.accent,
+            core.active_window().root_view.status_view:show_message("!", style.accent,
               "Too many symbols in "..filename_message..
               ": stopping auto-complete for this document according to "..
               "config.plugins.autocomplete.max_symbols."
@@ -295,7 +301,7 @@ local function reset_suggestions()
 
   triggered_manually = false
 
-  local doc = core.active_view.doc
+  local doc = get_active_view().doc
   if autocomplete.on_close then
     autocomplete.on_close(doc, suggestions[suggestions_idx])
     autocomplete.on_close = nil
@@ -303,7 +309,7 @@ local function reset_suggestions()
 end
 
 local function update_suggestions()
-  local doc = core.active_view.doc
+  local doc = get_active_view().doc
   local filename = doc and doc.filename or ""
 
   local map = autocomplete.map
@@ -375,17 +381,12 @@ local function update_suggestions()
 end
 
 local function get_partial_symbol()
-  local doc = core.active_view.doc
-  local line2, col2 = doc:get_selection()
+  local doc = get_active_view().doc
+  local line2, col2 = get_active_view():get_selection()
   local line1, col1 = doc:position_offset(line2, col2, translate.start_of_word)
   return doc:get_text(line1, col1, line2, col2)
 end
 
-local function get_active_view()
-  if core.active_view:is(DocView) then
-    return core.active_view
-  end
-end
 
 local last_max_width = 0
 local function get_suggestions_rect(av)
@@ -394,7 +395,7 @@ local function get_suggestions_rect(av)
     return 0, 0, 0, 0
   end
 
-  local line, col = av.doc:get_selection()
+  local line, col = av:get_selection()
   local x, y = av:get_line_screen_position(line, col - #partial)
   y = y + av:get_line_height() + style.padding.y
   local font = av:get_font()
@@ -440,15 +441,15 @@ local function get_suggestions_rect(av)
   -- additional line to display total items
   max_items = max_items + 1
 
-  if max_width > core.root_view.size.x then
-    max_width = core.root_view.size.x
+  if max_width > av.root_view.size.x then
+    max_width = av.root_view.size.x
   end
   if max_width < 150 * SCALE then
     max_width = 150 * SCALE
   end
 
   -- if portion not visiable to right, reposition to DocView right margin
-  if x + max_width > core.root_view.size.x then
+  if x + max_width > av.root_view.size.x then
     x = (av.size.x + av.position.x) - max_width
   end
 
@@ -499,24 +500,14 @@ local function wrap_line(line, max_chars)
   return line
 end
 
-local previous_scale = SCALE
-local desc_font = style.code_font:copy(
-  config.plugins.autocomplete.desc_font_size * SCALE
-)
-local function draw_description_box(text, av, sx, sy, sw, sh)
-  if previous_scale ~= SCALE then
-    desc_font = style.code_font:copy(
-      config.plugins.autocomplete.desc_font_size * SCALE
-    )
-    previous_scale = SCALE
-  end
 
-  local font = desc_font
-  local lh = font:get_height()
+local function draw_description_box(text, av, sx, sy, sw, sh)
+  local font = style.code_font
+  local lh = font:get_height(config.plugins.autocomplete.desc_font_size)
   local y = sy + style.padding.y
   local x = sx + sw + style.padding.x / 4
   local width = 0
-  local char_width = font:get_width(" ")
+  local char_width = font:get_width(" ", config.plugins.autocomplete.desc_font_size)
   local draw_left = false;
 
   local max_chars = 0
@@ -535,11 +526,11 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
     local wrapper_lines = wrap_line(line, max_chars)
     if type(wrapper_lines) == "table" then
       for _, wrapped_line in pairs(wrapper_lines) do
-        width = math.max(width, font:get_width(wrapped_line))
+        width = math.max(width, font:get_width(wrapped_line, config.plugins.autocomplete.desc_font_size))
         table.insert(lines, wrapped_line)
       end
     else
-      width = math.max(width, font:get_width(line))
+      width = math.max(width, font:get_width(line, config.plugins.autocomplete.desc_font_size))
       table.insert(lines, line)
     end
   end
@@ -548,7 +539,7 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
     x = sx - (style.padding.x / 4) - width - (style.padding.x * 2)
   end
 
-  local height = #lines * font:get_height()
+  local height = #lines * font:get_height(config.plugins.autocomplete.desc_font_size)
 
   -- draw background rect
   renderer.draw_rect(
@@ -563,7 +554,7 @@ local function draw_description_box(text, av, sx, sy, sw, sh)
   for _, line in pairs(lines) do
     common.draw_text(
       font, style.text, line, "left",
-      x + style.padding.x, y, width, lh
+      x + style.padding.x, y, width, lh, config.plugins.autocomplete.desc_font_size
     )
     y = y + lh
   end
@@ -625,13 +616,13 @@ local function draw_suggestions_box(av)
 
     local color = (i == suggestions_idx) and style.accent or style.text
     -- Push clip to avoid that the suggestion text gets drawn over suggestion type/icon
-    core.push_clip_rect(rx + icon_l_padding + style.padding.x, y,
+    av.root_view.window:push_clip_rect(rx + icon_l_padding + style.padding.x, y,
                         rw - info_size - icon_l_padding - icon_r_padding - style.padding.x, lh)
     local x_adv = common.draw_text(
       font, color, s.text, "left",
       rx + icon_l_padding + style.padding.x, y, rw, lh
     )
-    core.pop_clip_rect()
+    av.root_view.window:pop_clip_rect()
     -- If the text wasn't fully visible, draw an ellipsis
     if x_adv > rx + rw - info_size - icon_r_padding then
       local ellipsis_size = font:get_width("…")
@@ -686,9 +677,9 @@ local function show_autocomplete()
       update_suggestions()
 
       if not triggered_manually then
-        last_line, last_col = av.doc:get_selection()
+        last_line, last_col = av:get_selection()
       else
-        local line, col = av.doc:get_selection()
+        local line, col = av:get_selection()
         local char = av.doc:get_char(line, col-1, line, col-1)
 
         if char:match("%s") or (char:match("%p") and col ~= last_col) then
@@ -721,8 +712,8 @@ RootView.on_text_input = function(...)
   show_autocomplete()
 end
 
-Doc.remove = function(self, line1, col1, line2, col2)
-  on_text_remove(self, line1, col1, line2, col2)
+Doc.remove = function(self, line1, col1, line2, col2, selections)
+  on_text_remove(self, line1, col1, line2, col2, selections)
 
   if triggered_manually and line1 == line2 then
     if last_col >= col1 then
@@ -733,13 +724,13 @@ Doc.remove = function(self, line1, col1, line2, col2)
   end
 end
 
-RootView.update = function(...)
-  update(...)
+RootView.update = function(self, ...)
+  update(self, ...)
 
   local av = get_active_view()
   if av then
     -- reset suggestions if caret was moved
-    local line, col = av.doc:get_selection()
+    local line, col = av:get_selection()
 
     if not triggered_manually then
       if line ~= last_line or col ~= last_col then
@@ -753,13 +744,13 @@ RootView.update = function(...)
   end
 end
 
-RootView.draw = function(...)
-  draw(...)
+RootView.draw = function(self, ...)
+  draw(self, ...)
 
   local av = get_active_view()
-  if av then
+  if av and av.root_view == self then
     -- draw suggestions box after everything else
-    core.root_view:defer_draw(draw_suggestions_box, av)
+    self:defer_draw(draw_suggestions_box, av)
   end
 end
 
@@ -776,7 +767,7 @@ function autocomplete.open(on_close)
   local av = get_active_view()
   if av then
     partial = get_partial_symbol()
-    last_line, last_col = av.doc:get_selection()
+    last_line, last_col = av:get_selection()
     update_suggestions()
   end
 end
@@ -851,7 +842,7 @@ command.add(predicate, {
       local current_partial = get_partial_symbol()
       local sz = #current_partial
 
-      for _, line1, col1, line2, _ in doc:get_selections(true) do
+      for idx, line1, col1, line2, col2 in dv:get_selections(true) do
         local n = col1 - 1
         local line = doc.lines[line1]
         for i = 1, sz + 1 do
@@ -865,7 +856,7 @@ command.add(predicate, {
         end
       end
 
-      doc:text_input(item.text)
+      dv:text_input(item.text)
     end
     reset_suggestions()
   end,

@@ -54,6 +54,7 @@ function TreeView:__tostring() return "TreeView" end
 function TreeView:new()
   TreeView.super.new(self)
   self.scrollable = true
+  self.previous_view = nil
   self.visible = config.plugins.treeview.visible
   self.init_size = true
   self.target_size = config.plugins.treeview.size
@@ -102,15 +103,13 @@ function TreeView:get_cached(project, path)
       project = project,
       ignored = self.show_ignored and project:is_ignored(info, path)
     }
-    if self.expanded[path] ~= nil then 
-      t.expanded = self.expanded[path]
-    else 
-      t.expanded = (info.type == "dir" and #truncated <= 1) 
+    if self.expanded[path] == nil then 
+      self.expanded[path] = (info.type == "dir" and #truncated <= 1) 
     end
-    if t.expanded then self.watches[project]:watch(path) end
+    if self.expanded[path] then self.watches[project]:watch(path) end
     self.cache[path] = t
   end
-  if t.expanded and t.type == "dir" and not t.files then
+  if self.expanded[path] and t.type == "dir" and not t.files then
     t.files = {}
     for i, file in ipairs(system.list_dir(path)) do
       local l = path .. PATHSEP .. file
@@ -148,7 +147,7 @@ function TreeView:get_items(project, path, x, y, w, h)
   local dir = self:get_cached(project, path)
   coroutine.yield(dir, x, y, w, h)
   local count_lines = 1
-  if dir and dir.files and dir.expanded then
+  if dir and dir.files and self.expanded[dir.abs_filename] then
     for i, file in ipairs(dir.files) do
       if self.show_hidden or not file.name:find("^%.") then
         count_lines = count_lines + self:get_items(project, path .. PATHSEP .. file.name, x, y + count_lines * h, w, h)
@@ -209,7 +208,7 @@ function TreeView:set_selection_to_path(path, expand, scroll_to, instant)
         local _, to = string.find(path, item.abs_filename..PATHSEP, 1, true)
         if to and to == #item.abs_filename + #PATHSEP then
           to_select, to_select_y = item, y
-          if expand and not item.expanded then
+          if expand and not self.expanded[item.abs_filename] then
             -- Use TreeView:toggle_expand to update the directory structure.
             -- Directly using item.expanded doesn't update the cached tree.
             self:toggle_expand(true, item)
@@ -309,15 +308,15 @@ function TreeView:update()
   -- this will make sure hovered_item is updated
   local dy = math.abs(self.last_scroll_y - self.scroll.y)
   if dy > 0 then
-    self:on_mouse_moved(core.root_view.mouse.x, core.root_view.mouse.y, 0, 0)
+    self:on_mouse_moved(self.root_view.mouse.x, self.root_view.mouse.y, 0, 0)
     self.last_scroll_y = self.scroll.y
   end
 
   local config = config.plugins.treeview
   if config.highlight_focused_file then
     -- Try to only highlight when we actually change tabs
-    local current_node = core.root_view:get_active_node()
-    local current_active_view = core.active_view
+    local current_node = self.root_view:get_active_node()
+    local current_active_view = self.root_view.active_view
     if current_node and not current_node.locked
      and current_active_view ~= self and current_active_view ~= self.last_active_view then
       self.selected_item = nil
@@ -349,7 +348,7 @@ function TreeView:draw_tooltip()
   local x, y = self.tooltip.x + tooltip_offset, self.tooltip.y + tooltip_offset
   w, h = w + style.padding.x, h + style.padding.y
 
-  if x + w > core.root_view.root_node.size.x then -- check if we can span right
+  if x + w > self.root_view.root_node.size.x then -- check if we can span right
     x = x - w -- span left instead
   end
 
@@ -364,7 +363,7 @@ end
 function TreeView:get_item_icon(item, active, hovered)
   local character = "f"
   if item.type == "dir" then
-    character = item.expanded and "D" or "d"
+    character = self.expanded[item.abs_filename] and "D" or "d"
   end
   local font = style.icon_font
   local color = style.text
@@ -410,7 +409,7 @@ end
 
 function TreeView:draw_item_chevron(item, active, hovered, x, y, w, h)
   if item.type == "dir" then
-    local chevron_icon = item.expanded and "-" or "+"
+    local chevron_icon = self.expanded[item.abs_filename] and "-" or "+"
     local chevron_color = hovered and style.accent or style.text
     common.draw_text(style.icon_font, chevron_color, chevron_icon, nil, x, y, 0, h)
   end
@@ -455,7 +454,7 @@ function TreeView:draw()
 
   self:draw_scrollbar()
   if self.hovered_item and self.tooltip.x and self.tooltip.alpha > 0 then
-    core.root_view:defer_draw(self.draw_tooltip, self)
+    self.root_view:defer_draw(self.draw_tooltip, self)
   end
 end
 
@@ -511,70 +510,83 @@ function TreeView:toggle_expand(toggle, item)
 
   if item.type == "dir" then
     if type(toggle) == "boolean" then
-      item.expanded = toggle
+      self.expanded[item.abs_filename] = toggle
     else
-      item.expanded = not item.expanded
+      self.expanded[item.abs_filename] = not self.expanded[item.abs_filename]
     end
-    self.expanded[item.abs_filename] = item.expanded
     if self.watches[item.project] then
-      self.watches[item.project]:watch(item.abs_filename, item.expanded)
+      self.watches[item.project]:watch(item.abs_filename, self.expanded[item.abs_filename])
     end
   end
 end
 
 function TreeView:open_doc(filename)
-  core.root_view:open_doc(core.open_doc(filename))
+  self.root_view:open_doc(core.open_doc(filename))
 end
 
--- init
-local view = TreeView()
-local node = core.root_view:get_active_node()
-view.node = node:split("left", view, {x = true}, true)
+function TreeView.attach(root_view)
+  local view = TreeView()
+  local node = root_view:get_primary_node()
+  view.node = node:split("left", view, {x = true}, true)
+  root_view.treeview = view
 
--- The toolbarview plugin is special because it is plugged inside
--- a treeview pane which is itelf provided in a plugin.
--- We therefore break the usual plugin's logic that would require each
--- plugin to be independent of each other. In addition it is not the
--- plugin module that plug itself in the active node but it is plugged here
--- in the treeview node.
-local toolbar_view = nil
-local toolbar_plugin, ToolbarView = pcall(require, "plugins.toolbarview")
-if config.plugins.toolbarview ~= false and toolbar_plugin then
-  toolbar_view = ToolbarView()
-  view.node:split("down", toolbar_view, {y = true})
-  local min_toolbar_width = toolbar_view:get_min_width()
-  view:set_target_size("x", math.max(config.plugins.treeview.size, min_toolbar_width))
-  command.add(nil, {
-    ["toolbar:toggle"] = function()
-      toolbar_view:toggle_visible()
-    end,
-  })
+  -- The toolbarview plugin is special because it is plugged inside
+  -- a treeview pane which is itelf provided in a plugin.
+  -- We therefore break the usual plugin's logic that would require each
+  -- plugin to be independent of each other. In addition it is not the
+  -- plugin module that plug itself in the active node but it is plugged here
+  -- in the treeview node.
+  local toolbar_view = nil
+  local toolbar_plugin, ToolbarView = pcall(require, "plugins.toolbarview")
+  if config.plugins.toolbarview ~= false and toolbar_plugin then
+    toolbar_view = ToolbarView()
+    view.node:split("down", toolbar_view, {y = true})
+    local min_toolbar_width = toolbar_view:get_min_width()
+    view:set_target_size("x", math.max(config.plugins.treeview.size, min_toolbar_width))
+    view.toolbar_view = toolbar_view
+  end
 end
+
+command.add(function(root_view)
+  return root_view.treeview and root_view.treeview.toolbar_view, root_view.treeview.toolbar_view
+end, {
+  ["toolbar:toggle"] = function(toolbar_view)
+    toolbar_view:toggle_visible()
+  end,
+})
+
+for _, window in ipairs(core.windows) do
+  TreeView.attach(window.root_view)
+end
+local old_root_view_new = RootView.new
+function RootView:new(...)
+  old_root_view_new(self, ...)
+  TreeView.attach(self)
+end
+
 
 
 local old_remove_project = core.remove_project
 function core.remove_project(project, force)
   local project = old_remove_project(project, force)
-  view.cache = {}
-  view.watches[project] = nil
+  for _, window in ipairs(core.windows) do
+    window.root_view.treeview.cache = {}
+    window.root_view.treeview.watches[project] = nil
+  end
 end
 
 core.add_thread(function()
   while true do
-    for k,v in pairs(view.watches) do
-      v:check(function(directory)
-        view.cache[directory] = nil
-      end)
+    for _, window in ipairs(core.windows) do
+      for k,v in pairs(window.root_view.treeview.watches) do
+        v:check(function(directory)
+          window.root_view.treeview.cache[directory] = nil
+        end)
+      end
     end
     coroutine.yield(0.01)
   end
 end)
-
-local on_quit_project = core.on_quit_project
-function core.on_quit_project()
-  view.cache = {}
-  on_quit_project()
-end
 
 local function is_project_folder(item)
   return item.abs_filename == item.project.path
@@ -585,7 +597,7 @@ local function is_primary_project_folder(path)
 end
 
 
-local function treeitem() return view.hovered_item or view.selected_item end
+function TreeView:item() return self.hovered_item or self.selected_item end
 
 function TreeView:on_context_menu()
   return { items = {
@@ -597,25 +609,125 @@ function TreeView:on_context_menu()
     { text = "New Folder", command = "treeview:new-folder" },
     { text = "Remove directory", command = "treeview:remove-project-directory" },
     { text = "Find in Directory", command = "treeview:search-in-directory" }
-  } }, self
+  } }
 end
 
-local projectsearch = pcall(require, "plugins.projectsearch")
-if projectsearch then
-  command.add(function()
-    return view.hovered_item and view.hovered_item.type == "dir"
-  end, {
-    ["treeview:search-in-directory"] = function(item)
-      command.perform("project-search:find", view.hovered_item.abs_filename)
+-- Register the TreeView commands and keymap
+command.add(nil, {
+  ["treeview:toggle"] = function(root_view)
+    root_view.treeview.visible = not root_view.treeview.visible
+  end,
+
+  ["treeview:toggle-hidden"] = function(root_view)
+    root_view.treeview.show_hidden = not root_view.treeview.show_hidden
+    root_view.treeview.cache = {}
+  end,
+
+  ["treeview:toggle-ignored"] = function(root_view)
+    root_view.treeview.show_ignored = not root_view.treeview.show_ignored
+    root_view.treeview.cache = {}
+  end,
+
+  ["treeview:toggle-focus"] = function(root_view)
+    if not root_view.active_view:is(TreeView) then
+      if root_view.active_view:is(CommandView) then
+        root_view.treeview.previous_view = root_view.last_active_view
+      else
+        root_view.treeview.previous_view = root_view.active_view
+      end
+      if not root_view.treeview.previous_view then
+        root_view.treeview.previous_view = root_view:get_primary_node().active_view
+      end
+      root_view:set_active_view(view)
+      if not view.selected_item then
+        for it, _, y in view:each_item() do
+          view:set_selection(it, y)
+          break
+        end
+      end
+    else
+      root_view:set_active_view(
+        root_view.treeview.previous_view or root_view:get_primary_node().active_view
+      )
     end
-  })
-end
+  end
+})
 
-command.add(function()
-  local item = treeitem()
-  return not is_project_folder(item), item
+command.add(TreeView, {
+  ["treeview:next"] = function(view)
+    local item, _, item_y = view:get_next(view.selected_item)
+    view:set_selection(item, item_y)
+  end,
+
+  ["treeview:previous"] = function(view)
+    local item, _, item_y = view:get_previous(view.selected_item)
+    view:set_selection(item, item_y)
+  end,
+
+  ["treeview:open"] = function(view)
+    local item = view.selected_item
+    if not item then return end
+    if item.type == "dir" then
+      view:toggle_expand()
+    else
+      core.try(function()
+        if view.root_view.last_active_view and view.root_view.active_view == view then
+          view.root_view:set_active_view(view.root_view.last_active_view)
+        end
+        view:open_doc(core.normalize_to_project_dir(item.abs_filename))
+      end)
+    end
+  end,
+
+  ["treeview:deselect"] = function(view)
+    view.selected_item = nil
+  end,
+
+  ["treeview:select"] = function(view)
+    view:set_selection(view.hovered_item)
+  end,
+
+  ["treeview:select-and-open"] = function(view)
+    if view.hovered_item then
+      view:set_selection(view.hovered_item)
+      view:perform("treeview:open")
+    end
+  end,
+
+  ["treeview:collapse"] = function(view)
+    if view.selected_item then
+      if view.selected_item.type == "dir" and view.expanded[view.selected_item.abs_filename] then
+        view:toggle_expand(false)
+      else
+        local parent_item, y = view:get_parent(view.selected_item)
+        if parent_item then
+          view:set_selection(parent_item, y)
+        end
+      end
+    end
+  end,
+
+  ["treeview:expand"] = function(view)
+    local item = view.selected_item
+    if not item or item.type ~= "dir" then return end
+
+    if view.expanded[item.abs_filename] then
+      local next_item, _, next_y = view:get_next(item)
+      if next_item.depth > item.depth then
+        view:set_selection(next_item, next_y)
+      end
+    else
+      view:toggle_expand(true)
+    end
+  end
+})
+
+
+command.add(function(root_view)
+  local view = root_view.active_view
+  return view:is(TreeView) and view.item and view:item() ~= nil, view, view.item and view:item()
 end, {
-  ["treeview:delete"] = function(item)
+  ["treeview:delete"] = function(view, item)
     local filename = item.abs_filename
     local relfilename = item.filename
     if item.project ~= core.root_project() then
@@ -629,7 +741,7 @@ end, {
       { text = "Yes", default_yes = true },
       { text = "No", default_no = true }
     }
-    core.nag_view:show(
+    view.root_view.nag_view:show(
       string.format("Delete %s", file_type),
       string.format(
         "Are you sure you want to delete the %s?\n%s: %s",
@@ -657,10 +769,10 @@ end, {
     )
   end,
 
-  ["treeview:rename"] = function(item)
+  ["treeview:rename"] = function(view, item)
     local old_filename = core.normalize_to_project_dir(item.abs_filename)
     local old_abs_filename = item.abs_filename
-    core.command_view:enter("Rename", {
+    view.root_view.command_view:enter("Rename", {
       text = old_filename,
       submit = function(filename)
         local abs_filename = item.project:absolute_path(filename)
@@ -687,134 +799,19 @@ end, {
 
 local previous_view = nil
 
--- Register the TreeView commands and keymap
-command.add(nil, {
-  ["treeview:toggle"] = function()
-    view.visible = not view.visible
-  end,
-
-  ["treeview:toggle-hidden"] = function()
-    view.show_hidden = not view.show_hidden
-    view.cache = {}
-  end,
-
-  ["treeview:toggle-ignored"] = function()
-    view.show_ignored = not view.show_ignored
-    view.cache = {}
-  end,
-
-  ["treeview:toggle-focus"] = function()
-    if not core.active_view:is(TreeView) then
-      if core.active_view:is(CommandView) then
-        previous_view = core.last_active_view
-      else
-        previous_view = core.active_view
-      end
-      if not previous_view then
-        previous_view = core.root_view:get_primary_node().active_view
-      end
-      core.set_active_view(view)
-      if not view.selected_item then
-        for it, _, y in view:each_item() do
-          view:set_selection(it, y)
-          break
-        end
-      end
-
-    else
-      core.set_active_view(
-        previous_view or core.root_view:get_primary_node().active_view
-      )
-    end
-  end
-})
-
-command.add(TreeView, {
-  ["treeview:next"] = function()
-    local item, _, item_y = view:get_next(view.selected_item)
-    view:set_selection(item, item_y)
-  end,
-
-  ["treeview:previous"] = function()
-    local item, _, item_y = view:get_previous(view.selected_item)
-    view:set_selection(item, item_y)
-  end,
-
-  ["treeview:open"] = function()
-    local item = view.selected_item
-    if not item then return end
-    if item.type == "dir" then
-      view:toggle_expand()
-    else
-      core.try(function()
-        if core.last_active_view and core.active_view == view then
-          core.set_active_view(core.last_active_view)
-        end
-        view:open_doc(core.normalize_to_project_dir(item.abs_filename))
-      end)
-    end
-  end,
-
-  ["treeview:deselect"] = function()
-    view.selected_item = nil
-  end,
-
-  ["treeview:select"] = function()
-    view:set_selection(view.hovered_item)
-  end,
-
-  ["treeview:select-and-open"] = function()
-    if view.hovered_item then
-      view:set_selection(view.hovered_item)
-      command.perform "treeview:open"
-    end
-  end,
-
-  ["treeview:collapse"] = function()
-    if view.selected_item then
-      if view.selected_item.type == "dir" and view.selected_item.expanded then
-        view:toggle_expand(false)
-      else
-        local parent_item, y = view:get_parent(view.selected_item)
-        if parent_item then
-          view:set_selection(parent_item, y)
-        end
-      end
-    end
-  end,
-
-  ["treeview:expand"] = function()
-    local item = view.selected_item
-    if not item or item.type ~= "dir" then return end
-
-    if item.expanded then
-      local next_item, _, next_y = view:get_next(item)
-      if next_item.depth > item.depth then
-        view:set_selection(next_item, next_y)
-      end
-    else
-      view:toggle_expand(true)
-    end
-  end,
-})
-
-
-command.add(
-  function(active_view)
-    local item = treeitem()
-    return item ~= nil and (active_view or core.active_view) == view, item
-  end, {
-
-  ["treeview:new-file"] = function(item)
+command.add(function(rv)
+  return rv.treeview and rv.treeview:item(), rv.treeview, rv.treeview:item()
+end, {
+  ["treeview:new-file"] = function(view, item)
     local text
     if not is_project_folder(item) then
       if item.type == "dir" then
-        text = item.project:normalize_path(item.abs_filename) .. PATHSEP
+        text = item.project:normalize_path(item.filename) .. PATHSEP
       elseif item.type == "file" then
         text = item.project:normalize_path(common.dirname(item.abs_filename)) .. PATHSEP
       end
     end
-    core.command_view:enter("Filename", {
+    view.root_view.command_view:enter("Filename", {
       text = text,
       submit = function(filename)
         local doc_filename = item.project:absolute_path(filename)
@@ -833,7 +830,7 @@ command.add(
     })
   end,
 
-  ["treeview:new-folder"] = function(item)
+  ["treeview:new-folder"] = function(view, item)
     local text
     if not is_project_folder(item) then
       if item.type == "dir" then
@@ -842,7 +839,7 @@ command.add(
         text = item.project:normalize_path(common.dirname(item.abs_filename)) .. PATHSEP
       end
     end
-    core.command_view:enter("Folder Name", {
+    view.root_view.command_view:enter("Folder Name", {
       text = text,
       submit = function(filename)
         local dir_path = item.project:absolute_path(filename)
@@ -855,19 +852,30 @@ command.add(
     })
   end,
 
-  ["treeview:open-in-system"] = function(item)
+  ["treeview:open-in-system"] = function(view, item)
     if PLATFORM == "Windows" then
-      system.exec(string.format("start \"\" %q", item.abs_filename))
+      process.start({ "start", "", item.abs_filename }, { detach = true })
     elseif string.find(PLATFORM, "Mac") then
-      system.exec(string.format("open %q", item.abs_filename))
+      process.start({ "open", item.abs_filename }, { detach = true })
     elseif PLATFORM == "Linux" or string.find(PLATFORM, "BSD") then
-      system.exec(string.format("xdg-open %q", item.abs_filename))
+      process.start({ "xdg-open", item.abs_filename }, { detach = true })
     end
   end
 })
 
-command.add(function()
-    local item = treeitem()
+local projectsearch = pcall(require, "plugins.projectsearch")
+if projectsearch then
+  command.add(function(view)
+    return view.hovered_item and view.hovered_item.type == "dir", view, view.hovered_item
+  end, {
+    ["treeview:search-in-directory"] = function(view, item)
+      view:perform("project-search:find", { path = view.hovered_item.abs_filename })
+    end
+  })
+end
+
+command.add(function(root_view)
+    local item = root_view.treeview and root_view.treeview:item()
     return item
       and not is_primary_project_folder(item.abs_filename)
       and is_project_folder(item), item
@@ -904,10 +912,8 @@ config.plugins.treeview.config_spec = {
     description = "Default treeview width.",
     path = "size",
     type = "number",
-    default = toolbar_view and math.ceil(toolbar_view:get_min_width() / SCALE)
-      or 200 * SCALE,
-    min = toolbar_view and toolbar_view:get_min_width() / SCALE
-      or 200 * SCALE,
+    default = 200 * SCALE,
+    min = 200 * SCALE,
     get_value = function(value)
       return value / SCALE
     end,
@@ -915,9 +921,13 @@ config.plugins.treeview.config_spec = {
       return value * SCALE
     end,
     on_apply = function(value)
-      view:set_target_size("x", math.max(
-        value, toolbar_view and toolbar_view:get_min_width() or 200 * SCALE
-      ))
+      for i, window in ipairs(core.windows) do
+        if window.root_view.treeview then
+          window.root_view.treeview:set_target_size("x", math.max(
+            value, toolbar_view and toolbar_view:get_min_width() or 200 * SCALE
+          ))
+        end
+      end
     end
   },
   {
@@ -932,8 +942,4 @@ config.plugins.treeview.config_spec = {
   }
 }
 
--- Return the treeview with toolbar and contextmenu to allow
--- user or plugin modifications
-view.toolbar = toolbar_view
-
-return view
+return TreeView

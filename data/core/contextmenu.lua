@@ -40,7 +40,8 @@ function ContextMenu:__tostring() return "ContextMenu" end
 ContextMenu.DIVIDER = DIVIDER
 
 ---Creates a new context menu.
-function ContextMenu:new()
+function ContextMenu:new(root_view)
+  self.root_view = root_view
   self.visible = false
   self.selected = -1
   self.height = 0
@@ -85,7 +86,7 @@ end
 function ContextMenu:show(x, y, items, ...)
   local items_list = { width = 0, height = 0, arguments = { ... } }
   for _, item in ipairs(items) do
-    if item and (not item.command or command.is_valid(item.command, ...)) then
+    if item and (not item.command or command.is_valid(item.command, self.root_view, ...)) then
       table.insert(items_list, item)
     end
   end
@@ -96,12 +97,12 @@ function ContextMenu:show(x, y, items, ...)
     local w, h = self.items.width, self.items.height
 
     -- by default the box is opened on the right and below
-    x = common.clamp(x, 0, core.root_view.size.x - w - style.padding.x)
-    y = common.clamp(y, 0, core.root_view.size.y - h)
+    x = common.clamp(x, 0, self.root_view.size.x - w - style.padding.x)
+    y = common.clamp(y, 0, self.root_view.size.y - h)
 
     self.position.x, self.position.y = x, y
     self.visible = true
-    core.set_active_view(self)
+    self.root_view:set_active_view(self)
     core.request_cursor("arrow")
     return true
   end
@@ -114,10 +115,10 @@ function ContextMenu:hide()
   self.items = nil
   self.selected = -1
   self.height = 0
-  if core.active_view == self then
-    core.set_active_view(core.last_active_view)
+  if self.root_view.active_view == self then
+    self.root_view:set_active_view(self.root_view.last_active_view)
   end
-  core.request_cursor(core.active_view.cursor)
+  core.request_cursor(self.root_view.active_view.cursor)
 end
 
 ---Returns an iterator that iterates over each context menu item and their dimensions.
@@ -140,8 +141,8 @@ function ContextMenu:on_mouse_pressed(button, x, y)
   if button =='left' and x >= self.position.x and y >= self.position.y and x < self.position.x + self.items.width and y < self.position.y + self.height then
     local item = self:get_item_selected()
     if not item or not item.command then return true end
-    if core.active_view == self then
-      core.set_active_view(core.last_active_view)
+    if self.root_view.active_view == self then
+      self.root_view:set_active_view(self.root_view.last_active_view)
     end
     self:on_selected(item)
   end
@@ -176,9 +177,9 @@ end
 ---@param item core.contextmenu.item
 function ContextMenu:on_selected(item)
   if type(item.command) == "string" then
-    command.perform(item.command, table.unpack(self.items.arguments))
+    self.root_view:perform(item.command, table.unpack(self.items.arguments))
   else
-    item.command(table.unpack(self.items.arguments))
+    item.command(self.root_view, table.unpack(self.items.arguments))
   end
 end
 

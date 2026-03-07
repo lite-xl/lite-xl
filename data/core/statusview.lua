@@ -8,6 +8,7 @@ local CommandView = require "core.commandview"
 local LogView = require "core.logview"
 local View = require "core.view"
 local Object = require "core.object"
+local Font = require "core.font"
 
 
 ---@alias core.statusview.styledtext table<integer, renderer.font|renderer.color|string>
@@ -162,14 +163,14 @@ StatusView.Item = StatusViewItem
 
 ---Predicated used on the default docview widgets.
 ---@return boolean
-local function predicate_docview()
-  return  core.active_view:is(DocView)
-    and not core.active_view:is(CommandView)
+local function predicate_docview(root_view, self, status_view)
+  return status_view.root_view.active_view:is(DocView)
+    and not status_view.root_view.active_view:is(CommandView)
 end
 
 
 ---Constructor
-function StatusView:new()
+function StatusView:new(root_view)
   StatusView.super.new(self)
   self.message_timeout = 0
   self.message = {}
@@ -189,6 +190,7 @@ function StatusView:new()
   self.hovered_panel = ""
   self.hide_messages = false
   self.visible = true
+  self.init_size = true
 
   self:register_docview_items()
   self:register_command_items()
@@ -206,7 +208,7 @@ function StatusView:register_docview_items()
     name = "doc:file",
     alignment = StatusView.Item.LEFT,
     get_item = function()
-      local dv = core.active_view
+      local dv = self.root_view.active_view
       return {
         dv.doc:is_dirty() and style.accent or style.text, style.icon_font, "f",
         style.dim, style.font, self.separator2, style.text,
@@ -220,8 +222,8 @@ function StatusView:register_docview_items()
     name = "doc:position",
     alignment = StatusView.Item.LEFT,
     get_item = function()
-      local dv = core.active_view
-      local line, col = dv.doc:get_selection()
+      local dv = self.root_view.active_view
+      local line, col = dv:get_selection()
       local _, indent_size = dv.doc:get_indent_info()
       -- Calculating tabs when the doc is using the "hard" indent type.
       local ntabs = 0
@@ -251,8 +253,8 @@ function StatusView:register_docview_items()
     name = "doc:position-percent",
     alignment = StatusView.Item.LEFT,
     get_item = function()
-      local dv = core.active_view
-      local line = dv.doc:get_selection()
+      local dv = self.root_view.active_view
+      local line = dv:get_selection()
       return {
         string.format("%.f%%", line / #dv.doc.lines * 100)
       }
@@ -265,8 +267,8 @@ function StatusView:register_docview_items()
     name = "doc:selections",
     alignment = StatusView.Item.LEFT,
     get_item = function()
-      local dv = core.active_view
-      local nsel = math.floor(#dv.doc.selections / 4)
+      local dv = self.root_view.active_view
+      local nsel = math.floor(#dv.selections / 4)
       if nsel > 1 then
         return { style.text, nsel, " selections" }
       end
@@ -280,7 +282,7 @@ function StatusView:register_docview_items()
     name = "doc:indentation",
     alignment = StatusView.Item.RIGHT,
     get_item = function()
-      local dv = core.active_view
+      local dv = self.root_view.active_view
       local indent_type, indent_size, indent_confirmed = dv.doc:get_indent_info()
       local indent_label = (indent_type == "hard") and "tabs: " or "spaces: "
       return {
@@ -290,9 +292,9 @@ function StatusView:register_docview_items()
     end,
     command = function(button, x, y)
       if button == "left" then
-        command.perform "indent:set-file-indent-size"
+        self:perform("indent:set-file-indent-size")
       elseif button == "right" then
-        command.perform "indent:set-file-indent-type"
+        self:perform("indent:set-file-indent-type")
       end
     end,
     separator = self.separator2
@@ -325,7 +327,7 @@ function StatusView:register_docview_items()
     name = "doc:lines",
     alignment = StatusView.Item.RIGHT,
     get_item = function()
-      local dv = core.active_view
+      local dv = self.root_view.active_view
       return {
         style.text, #dv.doc.lines, " lines",
       }
@@ -338,7 +340,7 @@ function StatusView:register_docview_items()
     name = "doc:line-ending",
     alignment = StatusView.Item.RIGHT,
     get_item = function()
-      local dv = core.active_view
+      local dv = self.root_view.active_view
       return {
         style.text, dv.doc.crlf and "CRLF" or "LF"
       }
@@ -352,7 +354,7 @@ function StatusView:register_docview_items()
     alignment = StatusView.Item.RIGHT,
     get_item = function()
       return {
-        style.text, core.active_view.doc.overwrite and "OVR" or "INS"
+        style.text, self.root_view.active_view.doc.overwrite and "OVR" or "INS"
       }
     end,
     command = "doc:toggle-overwrite",
@@ -610,7 +612,7 @@ local function draw_items(self, items, x, y, draw_fn)
   local color = style.text
 
   for _, item in ipairs(items) do
-    if Object.is(item, renderer.font) then
+    if Object.is(item, renderer.font) or Object.is(item, Font) then
       font = item
     elseif type(item) == "table" then
       color = item
@@ -656,7 +658,7 @@ end
 ---Draw the tooltip of a given status bar item.
 ---@param item core.statusview.item
 function StatusView:draw_item_tooltip(item)
-  core.root_view:defer_draw(function()
+  self.root_view:defer_draw(function()
     local text = item.tooltip
     local w = style.font:get_width(text)
     local h = style.font:get_height()
@@ -675,8 +677,7 @@ function StatusView:draw_item_tooltip(item)
       style.background3
     )
 
-    renderer.draw_text(
-      style.font,
+    style.font:draw(
       text,
       x + (style.padding.x * 2),
       self.position.y - h - style.padding.y,
@@ -685,23 +686,6 @@ function StatusView:draw_item_tooltip(item)
   end)
 end
 
-
----Older method of retrieving the status bar items and which is now
----deprecated in favour of core.status_view:add_item().
----@deprecated
----@param nowarn boolean
----@return table left
----@return table right
-function StatusView:get_items(nowarn)
-  if not nowarn and not self.get_items_warn then
-    core.warn(
-      "Overriding StatusView:get_items() is deprecated, "
-      .. "use core.status_view:add_item() instead."
-    )
-    self.get_items_warn = true
-  end
-  return {"{:dummy:}"}, {"{:dummy:}"}
-end
 
 
 ---Helper function to copy a styled text table into another.
@@ -714,42 +698,6 @@ local function table_add(t1, t2)
 end
 
 
----Helper function to merge deprecated items to a temp items table.
----@param destination table
----@param items core.statusview.styledtext
----@param alignment core.statusview.item.alignment
-local function merge_deprecated_items(destination, items, alignment)
-  local start = true
-  local items_start, items_end = {}, {}
-  for i, value in ipairs(items) do
-    if value ~= "{:dummy:}" then
-      if start then
-        table.insert(items_start, i, value)
-      else
-        table.insert(items_end, value)
-      end
-    else
-      start = false
-    end
-  end
-
-  local position = alignment == StatusView.Item.LEFT and "left" or "right"
-
-  local item_start = StatusView.Item({
-    name = "deprecated:"..position.."-start",
-    alignment = alignment,
-    get_item = items_start
-  })
-
-  local item_end = StatusView.Item({
-    name = "deprecated:"..position.."-end",
-    alignment = alignment,
-    get_item = items_end
-  })
-
-  table.insert(destination, 1, item_start)
-  table.insert(destination, item_end)
-end
 
 
 ---Append a space item into the given items list.
@@ -811,6 +759,12 @@ local function remove_spacing(self, styled_text)
 end
 
 
+function StatusView:get_combined_items()
+  local t = {}
+  table_add(t, self.items)
+  return t
+end
+
 ---Set the active items that will be displayed on the left or right side
 ---of the status bar checking their predicates and performing positioning
 ---calculations for proper functioning of tooltips and clicks.
@@ -824,20 +778,14 @@ function StatusView:update_active_items()
   self.active_items = {}
 
   ---@type core.statusview.item[]
-  local combined_items = {}
-  table_add(combined_items, self.items)
-
-  -- load deprecated items for compatibility
-  local dleft, dright = self:get_items(true)
-  merge_deprecated_items(combined_items, dleft, StatusView.Item.LEFT)
-  merge_deprecated_items(combined_items, dright, StatusView.Item.RIGHT)
-
+  local combined_items = self:get_combined_items()
+  
   local lfirst, rfirst = true, true
 
   -- calculate left and right width
   for _, item in ipairs(combined_items) do
     item.cached_item = {}
-    if item.visible and item:predicate() then
+    if item.visible and item.predicate(self.root_view, item, self) then
       local styled_text = type(item.get_item) == "function"
         and item.get_item(item) or item.get_item
 
@@ -1013,13 +961,13 @@ end
 
 function StatusView:on_mouse_pressed(button, x, y, clicks)
   if not self.visible then return end
-  core.set_active_view(core.last_active_view)
+  self.root_view:set_active_view(self.root_view.last_active_view)
   if
     system.get_time() < self.message_timeout
     and
-    not core.active_view:is(LogView)
+    not self.root_view.active_view:is(LogView)
   then
-    command.perform "core:open-log"
+    self:perform("core:open-log")
   else
     if y >= self.position.y and button == "left" and clicks == 1 then
       self.position.dx = x
@@ -1105,7 +1053,7 @@ function StatusView:on_mouse_released(button, x, y)
 
   if x > item_x and (item_x + item_w) > x then
     if item.command then
-      command.perform(item.command)
+      self:perform(item.command)
     elseif item.on_click then
       item.on_click(button, x, y)
     end
@@ -1133,9 +1081,10 @@ function StatusView:update()
 
   local height = style.font:get_height() + style.padding.y * 2;
 
-  if self.size.y + 1 < height then
+  if not self.init_size and self.size.y + 1 < height then
     self:move_towards(self.size, "y", height, nil, "statusbar")
   else
+    self.init_size = false
     self.size.y = height
   end
 
@@ -1179,7 +1128,7 @@ function StatusView:draw()
     end
     if #self.active_items > 0 then
       --- draw left pane
-      core.push_clip_rect(
+      self.root_view.window:push_clip_rect(
         0, self.position.y,
         self.left_width + style.padding.x, self.size.y
       )
@@ -1194,18 +1143,18 @@ function StatusView:draw()
             )
           end
           if item.on_draw then
-            core.push_clip_rect(item_x, self.position.y, item.w, self.size.y)
+            self.root_view.window:push_clip_rect(item_x, self.position.y, item.w, self.size.y)
             item.on_draw(item_x, self.position.y, self.size.y, hovered)
-            core.pop_clip_rect()
+            self.root_view.window:pop_clip_rect()
           else
             self:draw_items(item.cached_item, false, item_x - style.padding.x)
           end
         end
       end
-      core.pop_clip_rect()
+      self.root_view.window:pop_clip_rect()
 
       --- draw right pane
-      core.push_clip_rect(
+      self.root_view.window:push_clip_rect(
         self.size.x - (self.right_width + style.padding.x), self.position.y,
         self.right_width + style.padding.x, self.size.y
       )
@@ -1228,7 +1177,7 @@ function StatusView:draw()
           end
         end
       end
-      core.pop_clip_rect()
+      self.root_view.window:pop_clip_rect()
 
       -- draw tooltip
       if self.hovered_item.tooltip ~= "" and self.hovered_item.active then
@@ -1239,11 +1188,11 @@ function StatusView:draw()
 
   if clicks > 5 then
     if config.stonks == nil then clicks = -1 end
-    core.root_view:defer_draw(function()
+    self.root_view:defer_draw(function()
       local font = type(config.stonks) == "table" and config.stonks.font or style.icon_font
       local icon = type(config.stonks) == "table" and config.stonks.icon or ( config.stonks and "g" or "h" )
-      local xadv = renderer.draw_text(font, icon, gx, gy, gc)
-      local x2, y2 = core.root_view.size.x - (xadv - gx), core.root_view.size.y - font:get_height()
+      local xadv = font:draw(icon, gx, gy, gc)
+      local x2, y2 = self.root_view.size.x - (xadv - gx), self.root_view.size.y - font:get_height()
       gx, gy = common.clamp(gx + dx, 0, x2), common.clamp(gy + dy, 0, y2)
       local odx, ody = dx, dy
       if gx <= 0 then dx = math.abs(dx) elseif gx >= x2 then dx = -math.abs(dx) end
