@@ -645,7 +645,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     int end_x = metric->x1 + start_x; // x0 is assumed to be 0
     int glyph_end = metric->x1, glyph_start = 0;
     if (!font_surface && !is_whitespace(codepoint))
-      ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
+      ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color, false);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
       for (int line = metric->y0; line < metric->y1; ++line) {
@@ -703,9 +703,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     else if(font != last || text == end) {
       double local_pen_x = text == end ? pen_x + adv : pen_x;
       if (underline)
-        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height - 1, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color, false);
       if (strikethrough)
-        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height / 2, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color);
+        ren_draw_rect(rs, (RenRect){last_pen_x, y / surface_scale + last->height / 2, (local_pen_x - last_pen_x) / surface_scale, last->underline_thickness * surface_scale}, color, false);
       last = font;
       last_pen_x = pen_x;
     }
@@ -724,7 +724,7 @@ static inline RenColor blend_pixel(RenColor dst, RenColor src) {
   return dst;
 }
 
-void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
+void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color, bool replace) {
   if (color.a == 0) { return; }
 
   SDL_Surface *surface = rs->surface;
@@ -735,8 +735,8 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
                          rect.width * surface_scale,
                          rect.height * surface_scale };
 
-  if (color.a == 0xff) {
-    uint32_t translated = SDL_MapSurfaceRGB(surface, color.r, color.g, color.b);
+  if (color.a == 0xff || replace) {
+    uint32_t translated = SDL_MapSurfaceRGBA(surface, color.r, color.g, color.b, color.a);
     SDL_FillSurfaceRect(surface, &dest_rect, translated);
   } else {
     // Seems like SDL doesn't handle clipping as we expect when using
@@ -750,6 +750,14 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
     SDL_BlitSurfaceScaled(draw_rect_surface, NULL, surface, &dest_rect, SDL_SCALEMODE_LINEAR);
   }
 }
+
+/******************* Canvases **********************/
+
+void ren_draw_canvas(RenSurface *rs, SDL_Surface *surface, int x, int y) {
+  SDL_Rect dst_pos = {.x = x, .y = y, .w = 0, .h = 0};
+  SDL_BlitSurface(surface, NULL, rs->surface, &dst_pos);
+}
+
 
 /*************** Window Management ****************/
 static void ren_add_window(RenWindow *window_renderer) {

@@ -23,6 +23,7 @@ C API in the four namespaces that follow:
 * [renderer](api/renderer.lua)
 * [regex](api/regex.lua)
 * [process](api/process.lua)
+* [canvas](api/canvas.lua)
 
 Finally, all global variables are documented in the file named
 [globals.lua](api/globals.lua).
