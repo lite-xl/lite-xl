@@ -46,6 +46,27 @@ end }
 table.pack = table.pack or pack or function(...) return {...} end
 table.unpack = table.unpack or unpack
 
+-- redefine error to throw error objects
+-- this allows us to rethrow errors and get proper stacktraces.
+error = {  
+  throw = error, 
+  new = function(str, level) return getmetatable(str) == error and str or setmetatable({ message = str, stack = debug.traceback(nil, (level or 1) + 1) }, error) end, 
+  __tostring = function(self) return self.message end,
+  __call = function(self, str, level) 
+    error.throw(error.new(str, (level or 1) + 1), (level or 1) + 1) 
+  end
+} 
+setmetatable(error, error)
+function rcall(func, always, ...)
+  local rethrow = nil
+  local results = { select(2, xpcall(func, function(err)
+    rethrow = error.new(err, 5)
+  end, ...)) }
+  always(rethrow)
+  if rethrow then error.throw(rethrow, 2) end
+  return table.unpack(results)
+end
+
 local lua_require = require
 local require_stack = { "" }
 ---Loads the given module, returns any value returned by the searcher (`true` when `nil`).
@@ -95,13 +116,9 @@ function require(modname, ...)
   end
 
   table.insert(require_stack, modname)
-  local ok, result, loaderdata = pcall(lua_require, modname, ...)
-  table.remove(require_stack)
-
-  if not ok then
-    return error(result)
-  end
-  return result, loaderdata
+  return rcall(lua_require, function()
+    table.remove(require_stack)
+  end, modname, ...)
 end
 
 ---Returns the current `require` path.
