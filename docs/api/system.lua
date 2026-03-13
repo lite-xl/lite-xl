@@ -14,8 +14,8 @@ system = {}
 ---@class system.fileinfo
 ---@field public modified number A timestamp in seconds.
 ---@field public size number Size in bytes.
----@field public type system.fileinfotype Type of file
----@field public symlink boolean The directory is a symlink. This field is only set on directories.
+---@field public type system.fileinfotype Type of file.
+---@field public symlink boolean The target is a symlink.
 
 ---@class system.dialogoptions.filter
 ---@field name string
