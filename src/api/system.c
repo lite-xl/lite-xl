@@ -31,6 +31,12 @@
 #endif
 #endif
 
+#ifdef __APPLE__
+#include <SDL_syswm.h>
+#include <objc/runtime.h>
+#include <objc/message.h>
+#endif
+
 #define dialogfinished_event_name "dialogfinished"
 
 typedef enum {
@@ -474,6 +480,15 @@ static int f_set_window_title(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
   const char *title = luaL_checkstring(L, 2);
   SDL_SetWindowTitle(window_renderer->window, title);
+#ifdef __APPLE__
+  SDL_SysWMinfo wm_info = { 0 };
+  const char *filename = luaL_optstring(L, 3, NULL);
+  if (filename != NULL && SDL_GetWindowWMInfo(window_renderer->window, &wm_info) && wm_info.subsystem == SDL_SYSWM_COCOA) {
+    id filename_str = ((id(*)(id, SEL, const char *))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), filename);
+    ((void(*)(id, SEL, id))objc_msgSend)((id)wm_info.info.cocoa.window, sel_registerName("setRepresentedFilename:"), filename_str);
+    ((void(*)(id, SEL))objc_msgSend)(filename_str, sel_registerName("release"));
+  }
+#endif
   return 0;
 }
 
