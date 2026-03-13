@@ -1,0 +1,5 @@
+[wrap-file]
+directory = lite-xl-plugin-manager-1.4.0
+source_url = https://github.com/lite-xl/lite-xl-plugin-manager/archive/refs/tags/v1.4.0.tar.gz
+source_filename = v1.4.0.tar.gz
+source_hash = 1f85a223e58412f6ca6e4a0610c28af1d73a079374cae178058374f92dc2a559
