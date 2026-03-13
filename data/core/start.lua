@@ -8,7 +8,6 @@ MOD_VERSION_STRING = string.format("%d.%d.%d", MOD_VERSION_MAJOR, MOD_VERSION_MI
 SCALE = tonumber(os.getenv("LITE_SCALE") or os.getenv("GDK_SCALE") or os.getenv("QT_SCALE_FACTOR")) or 1
 PATHSEP = package.config:sub(1, 1)
 
-EXEDIR = EXEFILE:match("^(.+)[/\\][^/\\]+$")
 if MACOS_RESOURCES then
   DATADIR = MACOS_RESOURCES
 else
