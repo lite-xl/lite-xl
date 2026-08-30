@@ -124,6 +124,7 @@ typedef struct RenFont {
   ERenFontAntialiasing antialiasing;
   ERenFontHinting hinting;
   unsigned char style;
+  bool is_monospace;
   char path[];
 } RenFont;
 
@@ -455,6 +456,7 @@ static int font_set_face_metrics(RenFont *font, FT_Face face) {
   if ((err = FT_Load_Char(face, ' ', (font_set_load_options(font) | FT_LOAD_BITMAP_METRICS_ONLY | FT_LOAD_NO_HINTING) & ~FT_LOAD_FORCE_AUTOHINT)) != 0)
     return err;
   font->space_advance = face->glyph->advance.x / 64.0f;
+  font->is_monospace = FT_IS_FIXED_WIDTH(face);
   return 0;
 }
 
@@ -577,6 +579,32 @@ float font_get_xadvance(RenFont *font, unsigned int codepoint, GlyphMetric *metr
 double ren_font_group_get_width(RenFont **fonts, const char *text, size_t len, RenTab tab, int *x_offset) {
   double width = 0;
   const char* end = text + len;
+  RenFont *first = fonts[0];
+
+  /* Fast path: a fixed-width primary font, over a run with no tab and no
+  ** multibyte character, advances by a constant amount per character -- the
+  ** width is just the character count times that advance, with no per-glyph
+  ** cache lookup. This is the hot path for pathologically long lines. */
+  if (first->is_monospace) {
+    bool simple = true;
+    for (const char *p = text; p < end; p++) {
+      if ((unsigned char) *p >= 0x80 || *p == '\t') { simple = false; break; }
+    }
+    if (simple) {
+      width = (double) len * first->space_advance;
+      if (x_offset) {
+        GlyphMetric *metric = NULL;
+        if (len > 0)
+          font_group_get_glyph(fonts, (unsigned char) text[0], 0, NULL, &metric);
+        *x_offset = metric ? metric->bitmap_left : 0;
+      }
+#ifdef LITE_USE_SDL_RENDERER
+      return width / first->scale;
+#else
+      return width;
+#endif
+    }
+  }
 
   bool set_x_offset = x_offset == NULL;
   while (text < end) {
