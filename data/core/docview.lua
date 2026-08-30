@@ -171,32 +171,57 @@ end
 
 
 function DocView:get_col_x_offset(line, col)
+  local hl_line = self.doc.highlighter:get_line(line)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
+
+  -- Per-line memo, keyed by column, kept on the highlighter's line record so
+  -- it is dropped automatically when the line is re-tokenized. The guard
+  -- fields catch a font family / size or tab-width change (the scale plugin
+  -- resizes the syntax fonts together with the default one, so tracking the
+  -- default font's size covers those too).
+  local font_size = default_font:get_size()
+  local memo = hl_line.col_x_offset
+  if not (memo and memo.font == default_font
+          and memo.size == font_size and memo.indent == indent_size) then
+    memo = { font = default_font, size = font_size, indent = indent_size }
+    hl_line.col_x_offset = memo
+  end
+  local cached = memo[col]
+  if cached then return cached end
+
   default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
+  local opts = { tab_offset = 0 }
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
     local length = #text
+    opts.tab_offset = xoffset
     if column + length <= col then
-      xoffset = xoffset + font:get_width(text, {tab_offset = xoffset})
+      xoffset = xoffset + font:get_width(text, opts)
       column = column + length
       if column >= col then
-        return xoffset
+        break
       end
     else
-      for char in common.utf8_chars(text) do
-        if column >= col then
-          return xoffset
-        end
-        xoffset = xoffset + font:get_width(char, {tab_offset = xoffset})
-        column = column + #char
+      -- `col` falls inside this token. Measure the prefix up to `col` in a
+      -- single call rather than one character at a time (which also
+      -- allocated a table per character); get_width handles any tabs within
+      -- the prefix itself.
+      local rel = col - column
+      while rel < length and common.is_utf8_cont(text, rel + 1) do
+        rel = rel + 1
       end
+      if rel > 0 then
+        xoffset = xoffset + font:get_width(text:sub(1, rel), opts)
+      end
+      break
     end
   end
 
+  memo[col] = xoffset
   return xoffset
 end
 
@@ -208,24 +233,45 @@ function DocView:get_x_offset_col(line, x)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
   default_font:set_tab_size(indent_size)
+  local opts = { tab_offset = 0 }
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     if font ~= default_font then font:set_tab_size(indent_size) end
-    local width = font:get_width(text, {tab_offset = xoffset})
+    opts.tab_offset = xoffset
+    local width = font:get_width(text, opts)
     -- Don't take the shortcut if the width matches x,
     -- because we need last_i which should be calculated using utf-8.
     if xoffset + width < x then
       xoffset = xoffset + width
       i = i + #text
     else
-      for char in common.utf8_chars(text) do
-        local w = font:get_width(char, {tab_offset = xoffset})
-        if xoffset + w >= x then
-          return (x <= xoffset + (w / 2)) and i or i + #char
+      -- `x` falls within this token. Binary-search the character boundary
+      -- rather than walking the token one character at a time, then measure
+      -- just the glyph `x` lands in for the half-glyph rounding.
+      local lo, hi = 0, #text -- byte offsets into the token; `lo` stays char-aligned
+      while hi - lo > 1 do
+        local mid = (lo + hi) // 2
+        while mid > lo and common.is_utf8_cont(text, mid + 1) do mid = mid - 1 end
+        if mid == lo then break end
+        opts.tab_offset = xoffset
+        if xoffset + font:get_width(text:sub(1, mid), opts) <= x then
+          lo = mid
+        else
+          hi = mid
         end
-        xoffset = xoffset + w
-        i = i + #char
       end
+      if lo >= #text then
+        return i + #text
+      end
+      opts.tab_offset = xoffset
+      local prefix_w = lo > 0 and font:get_width(text:sub(1, lo), opts) or 0
+      local clen = 1
+      while lo + clen < #text and common.is_utf8_cont(text, lo + clen + 1) do
+        clen = clen + 1
+      end
+      opts.tab_offset = xoffset + prefix_w
+      local w = font:get_width(text:sub(lo + 1, lo + clen), opts)
+      return (x <= xoffset + prefix_w + w / 2) and (i + lo) or (i + lo + clen)
     end
   end
 
