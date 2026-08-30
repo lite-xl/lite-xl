@@ -82,7 +82,13 @@ local function tokenize_file(path, syn)
   local digests, dump = {}, {}
   local state = nil
   for i, line in ipairs(lines) do
-    local ok, tokens, new_state = pcall(tokenizer.tokenize, syn, line, state)
+    -- Resolve the line fully: tokenize() can pause on a very long line and
+    -- return a `resume`; loop until it is done so the digest is the complete
+    -- token stream, not a mid-line checkpoint.
+    local ok, tokens, new_state, rsm = pcall(tokenizer.tokenize, syn, line, state)
+    while ok and rsm do
+      ok, tokens, new_state, rsm = pcall(tokenizer.tokenize, syn, line, new_state, rsm)
+    end
     if not ok then
       -- The tokenizer raised (e.g. invalid UTF-8 on an unpatched tree).
       -- Record that fact -- keyed to the line content only, not the error
@@ -131,6 +137,9 @@ local function compute()
   -- neutralise it -- it has nothing to do with tokenizing.
   core.threads = core.threads or {}
   core.add_thread = function() end
+  -- The golden is the Lua reference; the C core (if built) is checked against
+  -- it by test/tokenizer/diff.lua, not baked into golden.txt.
+  require("core.config").tokenizer_c = false
   for _, lang in ipairs(LANGUAGES) do require("plugins." .. lang) end
   local result = {}
   for _, name in ipairs(list_corpus()) do
