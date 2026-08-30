@@ -36,6 +36,11 @@ static int f_renwin_create(lua_State *L) {
     }
   }
 
+  // create the userdata first: if this throws (OOM) there's no window to leak
+  RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
+  *window_renderer = NULL;
+  luaL_setmetatable(L, API_TYPE_RENWINDOW);
+
   SDL_Window *window = SDL_CreateWindow(
     title, width, height,
     SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN
@@ -45,9 +50,6 @@ static int f_renwin_create(lua_State *L) {
   }
   init_window_icon(window);
 
-  RenWindow **window_renderer = (RenWindow**)lua_newuserdata(L, sizeof(RenWindow*));
-  luaL_setmetatable(L, API_TYPE_RENWINDOW);
-
   *window_renderer = ren_create(window);
 
   return 1;
@@ -55,7 +57,7 @@ static int f_renwin_create(lua_State *L) {
 
 static int f_renwin_gc(lua_State *L) {
   RenWindow *window_renderer = *(RenWindow**)luaL_checkudata(L, 1, API_TYPE_RENWINDOW);
-  if (window_renderer != persistant_window)
+  if (window_renderer && window_renderer != persistant_window)
     ren_destroy(window_renderer);
 
   return 0;
