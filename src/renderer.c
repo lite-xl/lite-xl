@@ -98,6 +98,9 @@ typedef struct {
 // a bitmap atlas with a fixed width, each surface acting as a bump allocator
 typedef struct {
   SDL_Surface **surfaces;
+  // parallel to `surfaces`: the last glyph metric bump-allocated onto each
+  // surface (NULL for an empty surface). Used to stack glyphs vertically.
+  GlyphMetric **surface_metric;
   unsigned int width, nsurface;
 } GlyphAtlas;
 
@@ -240,22 +243,20 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     );
     font->glyphs.atlas[glyph_format][font->glyphs.natlas[glyph_format]] = (GlyphAtlas) {
       .width = metric->x1 + FONT_WIDTH_OVERFLOW_PX, .nsurface = 0,
-      .surfaces = NULL,
+      .surfaces = NULL, .surface_metric = NULL,
     };
     font->glyphs.bytesize += sizeof(GlyphAtlas);
     atlas_idx = font->glyphs.natlas[glyph_format]++;
   }
   metric->atlas_idx = atlas_idx;
   GlyphAtlas *atlas = &font->glyphs.atlas[glyph_format][atlas_idx];
-  SDL_PropertiesID userdata;
 
   // find the surface with the minimum height that can fit the glyph (limited to last 100 surfaces)
   int surface_idx = -1, max_surface_idx = (int) atlas->nsurface - 100, min_waste = INT_MAX;
   for (int i = atlas->nsurface - 1; i >= 0 && i > max_surface_idx; i--) {
-    userdata = SDL_GetSurfaceProperties(atlas->surfaces[i]);
-    assert(SDL_HasProperty(userdata, "metric"));
-    GlyphMetric *m = (GlyphMetric *) SDL_GetPointerProperty(userdata, "metric", NULL);
-    int new_min_waste = (int) atlas->surfaces[i]->h - (int) m->y1;
+    GlyphMetric *m = atlas->surface_metric[i];
+    int used = m ? (int) m->y1 : 0;
+    int new_min_waste = (int) atlas->surfaces[i]->h - used;
     if (new_min_waste >= metric->y1 && new_min_waste < min_waste) {
       surface_idx = i;
       min_waste = new_min_waste;
@@ -269,19 +270,19 @@ static SDL_Surface *font_allocate_glyph_surface(RenFont *font, FT_GlyphSlot slot
     int depth = 0;
     SDL_PixelFormat format = glyphformat_to_pixelformat(glyph_format, &depth);
     atlas->surfaces = check_alloc(SDL_realloc(atlas->surfaces, sizeof(SDL_Surface *) * (atlas->nsurface + 1)));
+    atlas->surface_metric = check_alloc(SDL_realloc(atlas->surface_metric, sizeof(GlyphMetric *) * (atlas->nsurface + 1)));
     atlas->surfaces[atlas->nsurface] = check_alloc(SDL_CreateSurface(atlas->width, GLYPHS_PER_ATLAS * h, format));
-    userdata = SDL_GetSurfaceProperties(atlas->surfaces[atlas->nsurface]);
-    SDL_SetPointerProperty(userdata, "metric", NULL);
+    atlas->surface_metric[atlas->nsurface] = NULL;
     surface_idx = atlas->nsurface++;
-    font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(SDL_Surface) + atlas->width * GLYPHS_PER_ATLAS * h * glyph_format);
+    font->glyphs.bytesize += (sizeof(SDL_Surface *) + sizeof(GlyphMetric *) + sizeof(SDL_Surface)
+                              + (size_t) atlas->width * GLYPHS_PER_ATLAS * h * (depth / 8));
   }
   metric->surface_idx = surface_idx;
-  userdata = SDL_GetSurfaceProperties(atlas->surfaces[surface_idx]);
-  if (SDL_HasProperty(userdata, "metric")) {
-    GlyphMetric *last_metric = (GlyphMetric *) SDL_GetPointerProperty(userdata, "metric", NULL);
+  GlyphMetric *last_metric = atlas->surface_metric[surface_idx];
+  if (last_metric) {
     metric->y0 = last_metric->y1; metric->y1 += last_metric->y1;
   }
-  SDL_SetPointerProperty(userdata, "metric", (void *) metric);
+  atlas->surface_metric[surface_idx] = metric;
   return atlas->surfaces[surface_idx];
 }
 
@@ -397,6 +398,7 @@ static void font_clear_glyph_cache(RenFont* font) {
         SDL_DestroySurface(atlas->surfaces[surface_idx]);
       }
       SDL_free(atlas->surfaces);
+      SDL_free(atlas->surface_metric);
     }
     SDL_free(font->glyphs.atlas[glyph_format_idx]);
     font->glyphs.atlas[glyph_format_idx] = NULL;
