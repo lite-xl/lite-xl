@@ -171,8 +171,25 @@ end
 
 
 function DocView:get_col_x_offset(line, col)
+  local hl_line = self.doc.highlighter:get_line(line)
   local default_font = self:get_font()
   local _, indent_size = self.doc:get_indent_info()
+
+  -- Per-line memo, keyed by column, kept on the highlighter's line record so
+  -- it is dropped automatically when the line is re-tokenized. The guard
+  -- fields catch a font family / size or tab-width change (the scale plugin
+  -- resizes the syntax fonts together with the default one, so tracking the
+  -- default font's size covers those too).
+  local font_size = default_font:get_size()
+  local memo = hl_line.col_x_offset
+  if not (memo and memo.font == default_font
+          and memo.size == font_size and memo.indent == indent_size) then
+    memo = { font = default_font, size = font_size, indent = indent_size }
+    hl_line.col_x_offset = memo
+  end
+  local cached = memo[col]
+  if cached then return cached end
+
   default_font:set_tab_size(indent_size)
   local column = 1
   local xoffset = 0
@@ -186,7 +203,7 @@ function DocView:get_col_x_offset(line, col)
       xoffset = xoffset + font:get_width(text, opts)
       column = column + length
       if column >= col then
-        return xoffset
+        break
       end
     else
       -- `col` falls inside this token. Measure the prefix up to `col` in a
@@ -200,10 +217,11 @@ function DocView:get_col_x_offset(line, col)
       if rel > 0 then
         xoffset = xoffset + font:get_width(text:sub(1, rel), opts)
       end
-      return xoffset
+      break
     end
   end
 
+  memo[col] = xoffset
   return xoffset
 end
 
