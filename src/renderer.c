@@ -628,6 +628,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
+  /* format details are a pure function of the format; look them up once here
+  ** instead of once per glyph scanline in the blit loop below */
+  const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
 
   RenFont* last = NULL;
   double last_pen_x = x;
@@ -648,22 +651,21 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
+      const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
+      // horizontal clipping is independent of the scanline; do it once here
+      if (start_x + (glyph_end - glyph_start) >= clip_end_x)
+        glyph_end = glyph_start + (clip_end_x - start_x);
+      if (start_x < clip.x) {
+        int offset = clip.x - start_x;
+        start_x += offset;
+        glyph_start += offset;
+      }
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line - metric->y0 + y - metric->bitmap_top + (fonts[0]->baseline * surface_scale);
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
           break;
-        if (start_x + (glyph_end - glyph_start) >= clip_end_x)
-          glyph_end = glyph_start + (clip_end_x - start_x);
-        if (start_x < clip.x) {
-          int offset = clip.x - start_x;
-          start_x += offset;
-          glyph_start += offset;
-        }
-        
-        const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
-        const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
 
         uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * surface_format->bytes_per_pixel]);
         uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface_format->bytes_per_pixel];
