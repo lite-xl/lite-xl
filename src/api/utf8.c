@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "../unidata.h"
+#include "utf8.h"
 
 /* UTF-8 string operations */
 
@@ -1158,6 +1159,49 @@ static int gmatch_aux (lua_State *L) {
   }
   return 0;  /* not found */
 }
+
+/* -- internal matcher entry point (see utf8.h) ----------------------------- */
+
+int lite_lua_pattern_match(lua_State *L,
+    const char *subject, size_t subject_len,
+    const char *pattern, size_t pattern_len,
+    size_t from, int anchored,
+    long *match_start, long *match_end,
+    lite_pattern_captures *caps) {
+  const char *s = subject, *es = subject + subject_len;
+  const char *p = pattern, *ep = pattern + pattern_len;
+  const char *init = (from <= subject_len) ? s + from : es;
+  MatchState ms;
+  ms.L = L;
+  ms.src_init = s;
+  ms.src_end = es;
+  ms.p_end = ep;
+  ms.matchdepth = MAXCCALLS;
+  do {
+    const char *res;
+    ms.level = 0;
+    assert(ms.matchdepth == MAXCCALLS);
+    if ((res = match(&ms, init, p)) != NULL) {
+      *match_start = (long)(init - s);
+      *match_end = (long)(res - s);
+      if (caps) {
+        int i, n = ms.level;
+        if (n > LITE_PATTERN_MAXCAPTURES) n = LITE_PATTERN_MAXCAPTURES;
+        caps->n = n;
+        for (i = 0; i < n; i++) {
+          caps->start[i] = (long)(ms.capture[i].init - s);
+          caps->len[i] = (ms.capture[i].len == CAP_POSITION)
+            ? -1 : (long)ms.capture[i].len;
+        }
+      }
+      return 1;
+    }
+    if (init == es) break;
+    init = utf8_next(init, es);
+  } while (init <= es && !anchored);
+  return 0;
+}
+
 
 static int Lutf8_gmatch (lua_State *L) {
   luaL_checkstring(L, 1);
