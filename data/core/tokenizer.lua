@@ -5,6 +5,10 @@ local config = require "core.config"
 local tokenizer = {}
 local bad_patterns = {}
 
+-- Optional C tokenizer core. It reproduces tokenize() byte-for-byte for lines
+-- that don't touch a subsyntax, and declines (returns false) otherwise.
+local tokenizer_c = rawget(_G, "tokenizer_c")
+
 local function push_token(t, type, text)
   if not text or #text == 0 then return end
   type = type or "normal"
@@ -131,7 +135,7 @@ end
 ---@param incoming_syntax table
 ---@param text string
 ---@param state string
-function tokenizer.tokenize(incoming_syntax, text, state, resume)
+local function tokenize(incoming_syntax, text, state, resume)
   local res
   local i = 1
 
@@ -382,6 +386,21 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
   end
 
   return res, state
+end
+
+tokenizer.tokenize_lua = tokenize
+
+---@param incoming_syntax table
+---@param text string
+---@param state string
+function tokenizer.tokenize(incoming_syntax, text, state, resume)
+  if tokenizer_c and config.tokenizer_c ~= false and not resume
+  and #incoming_syntax.patterns > 0 then
+    local ok, tokens, cstate =
+      tokenizer_c.tokenize(incoming_syntax, text, state or "\0")
+    if ok then return tokens, cstate end
+  end
+  return tokenize(incoming_syntax, text, state, resume)
 end
 
 
