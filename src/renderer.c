@@ -754,7 +754,7 @@ void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {
 /*************** Window Management ****************/
 static void ren_add_window(RenWindow *window_renderer) {
   window_count += 1;
-  window_list = SDL_realloc(window_list, window_count * sizeof(RenWindow*));
+  window_list = check_alloc(SDL_realloc(window_list, window_count * sizeof(RenWindow*)));
   window_list[window_count-1] = window_renderer;
 }
 
@@ -808,11 +808,14 @@ int ren_init(void) {
 void ren_free(void) {
   SDL_DestroySurface(draw_rect_surface);
   FT_Done_FreeType(library);
+  SDL_free(window_list);
+  window_list = NULL;
+  window_count = 0;
 }
 
 RenWindow* ren_create(SDL_Window *win) {
   assert(win);
-  RenWindow* window_renderer = SDL_calloc(1, sizeof(RenWindow));
+  RenWindow* window_renderer = check_alloc(SDL_calloc(1, sizeof(RenWindow)));
 
   window_renderer->window = win;
   renwin_init_surface(window_renderer);

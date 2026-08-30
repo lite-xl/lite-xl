@@ -15,18 +15,27 @@ struct dirmonitor_internal {
 
 struct dirmonitor_internal* init_dirmonitor() {
   struct dirmonitor_internal* monitor = SDL_calloc(1, sizeof(struct dirmonitor_internal));
+  if (!monitor)
+    return NULL;
   monitor->fd = inotify_init();
-  pipe(monitor->sig);
-  fcntl(monitor->sig[0], F_SETFD, FD_CLOEXEC);
-  fcntl(monitor->sig[1], F_SETFD, FD_CLOEXEC);
+  // keep the fds at -1 when unavailable so deinit_dirmonitor() doesn't
+  // close(0)/close(1) if inotify_init() or pipe() fails
+  if (pipe(monitor->sig) != 0) {
+    monitor->sig[0] = monitor->sig[1] = -1;
+  } else {
+    fcntl(monitor->sig[0], F_SETFD, FD_CLOEXEC);
+    fcntl(monitor->sig[1], F_SETFD, FD_CLOEXEC);
+  }
   return monitor;
 }
 
 
 void deinit_dirmonitor(struct dirmonitor_internal* monitor) {
-  close(monitor->fd);
-  close(monitor->sig[0]);
-  close(monitor->sig[1]);
+  // fds are -1 rather than 0 when inotify_init()/pipe() failed, so this
+  // never closes stdin/stdout by accident
+  if (monitor->fd >= 0) close(monitor->fd);
+  if (monitor->sig[0] >= 0) close(monitor->sig[0]);
+  if (monitor->sig[1] >= 0) close(monitor->sig[1]);
 }
 
 
