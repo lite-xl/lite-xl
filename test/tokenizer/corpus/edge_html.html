@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Subsyntax &amp; entity test</title>
+  <style>
+    body { font: 14px/1.5 system-ui; color: #222; }
+    /* nested comment inside embedded CSS */
+    a::after { content: "]]>"; }
+  </style>
+</head>
+<body>
+  <!-- an HTML comment with <tags> inside -->
+  <p class='single' data-x="double">Text with &lt;escaped&gt; bits.</p>
+  <script>
+    const x = `template ${1 + 2} literal`;
+    // a JS line comment
+    function f(a) { return a /* inline */ > 0 ? "y" : 'n'; }
+  </script>
+</body>
+</html>

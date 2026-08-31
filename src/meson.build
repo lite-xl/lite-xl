@@ -6,6 +6,7 @@ lite_sources = [
     'api/system.c',
     'api/process.c',
     'api/utf8.c',
+    'api/tokenizer.c',
     'arena_allocator.c',
     'custom_events.c',
     'renderer.c',
