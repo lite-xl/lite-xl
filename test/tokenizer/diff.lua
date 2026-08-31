@@ -127,6 +127,29 @@ function M.init()
     "\n%d files, %d lines  |  C handled %d  declined %d  skipped %d  |  mismatch %d\n",
     nfiles, nlines, handled, declined, skipped, mismatch))
 
+  -- the pause/resume path: a very long line tokenized with a tiny budget, so
+  -- it pauses many times, must produce the identical stream to one shot
+  do
+    local syn = syntax.get("t.c")
+    local shapes = {
+      "int a = " .. string.rep("bb + ", 40000) .. "0;",
+      "/* " .. string.rep("word ", 40000) .. "*/",
+      "x" .. string.rep(" ", 160000) .. "y",
+      "s = \"" .. string.rep("q", 120000) .. "\";",
+    }
+    for _, line in ipairs(shapes) do
+      local _, one = tc.tokenize(syn, line, "\0", nil, 0)
+      local ok2, many, mst, rsm = tc.tokenize(syn, line, "\0", nil, 0.0002)
+      local calls = 1
+      while rsm do ok2, many, mst, rsm = tc.tokenize(syn, line, mst, rsm); calls = calls + 1 end
+      if not one or not many or key(one) ~= key(many) then
+        mismatch = mismatch + 1
+        io.stdout:write(string.format("resume mismatch (%d chars, %d calls)\n", #line, calls))
+      end
+    end
+    if mismatch == 0 then io.stdout:write("resume: 4 shapes match one-shot\n") end
+  end
+
   -- throughput over the biggest file
   if biggest and biggest_lines > 50 then
     local function run_lua()

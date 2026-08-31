@@ -3,11 +3,13 @@
  *
  * tokenizer.lua is the reference implementation and the plugin-facing API.
  * This module provides one function, `tokenizer_c.tokenize(syntax, text,
- * state)`, that reproduces `tokenizer.tokenize` byte-for-byte by running the
- * whole per-position scan -- including subsyntax push/pop and the byte-string
- * state stack -- in C instead of crossing into Lua at every position. A line
- * with a `resume` checkpoint, or one the C core cannot model, is declined
- * (returns false) and tokenizer.lua handles it itself.
+ * state, resume, budget)`, that reproduces `tokenizer.tokenize` byte-for-byte
+ * by running the whole per-position scan -- subsyntax push/pop and the
+ * byte-string state stack included -- in C instead of crossing into Lua at
+ * every position. Like the Lua tokenizer it pauses on a pathological line
+ * once `budget` seconds are up and returns a `resume` to be passed back. A
+ * line the C core cannot model is declined (returns false) and tokenizer.lua
+ * handles it itself.
  *
  * Each syntax table is snapshotted into a `csyntax` once, cached on the table
  * as a `__gc` userdata (`_ctok`), rebuilt if the pattern count changes.
@@ -22,6 +24,7 @@
 
 #include <lua.h>
 #include <lauxlib.h>
+#include <SDL3/SDL.h>
 
 #include "utf8.h"
 
@@ -523,6 +526,7 @@ typedef struct { const char *type; long end; } tok;
 typedef struct {
   const char *text;
   size_t len;
+  long start;             /* byte offset this call's scan began at (for merge) */
   tok *v;
   int n, cap;
   csyntax *base;
@@ -554,7 +558,7 @@ static void push_token(builder *B, const char *type, long a, long b) {
   if (!type) type = g_normal;
   if (B->n > 0) {
     tok *prev = &B->v[B->n - 1];
-    long pa = (B->n >= 2) ? B->v[B->n - 2].end : 0;
+    long pa = (B->n >= 2) ? B->v[B->n - 2].end : B->start;
     if (prev->type == type || is_ws_run(B->text, pa, prev->end)) {
       prev->type = type;
       prev->end = b;
@@ -670,10 +674,10 @@ static int find_text(builder *B, cpattern *cp, long from, int at_start,
 
 /* -- the state stack ----------------------------------------------------- *
  * A mirror of tokenize()'s locals. `st` is the byte-string state stack; the
- * rest is what retrieve_syntax_state() derives from it. The C snapshot the
- * `cs` pointers come from stays reachable (anchored on syntax tables and
- * per-pattern `sub_ref`s), and tokenization never yields, so those pointers
- * are stable for the length of a scan. */
+ * rest is what retrieve_syntax_state() derives from it. The `csyntax` a `cs`
+ * points at stays reachable (anchored on syntax tables and per-pattern
+ * `sub_ref`s) and is only rebuilt when its pattern count changes -- which the
+ * highlighter never does mid-line -- so the pointers hold for one scan(). */
 
 typedef struct {
   unsigned char st[MAX_SYN_DEPTH + 1];
@@ -720,9 +724,14 @@ static int retrieve(builder *B, sstate *S) {
   return 1;
 }
 
-/* Run the scan. Returns 1 on success (tokens + out_state built), 0 to decline. */
+/* Run the scan from byte `start` to the end of the line, or until `deadline`
+   (an SDL performance-counter value; 0 = no limit) is passed -- then it stops,
+   sets *incomplete, and leaves *out_byte at the position reached so the caller
+   can resume. Returns 1 on success (tokens + out_state built), 0 to decline. */
 static int scan(builder *B, const unsigned char *state, int state_len,
-                unsigned char *out_state, int *out_state_len) {
+                long start, Uint64 deadline,
+                unsigned char *out_state, int *out_state_len,
+                long *out_byte, int *incomplete) {
   sstate S;
   if (state_len > MAX_SYN_DEPTH) return 0;
   S.stlen = state_len;
@@ -731,12 +740,18 @@ static int scan(builder *B, const unsigned char *state, int state_len,
 
   if (!retrieve(B, &S)) return 0;
 
-  long i = 0, len = (long)B->len;
+  long i = start, len = (long)B->len, checked = start;
+  int checked_n = 0;
   const char *text = B->text;
   long pos[MAX_POS_CAPS], ms, me;
   int npos;
+  *incomplete = 0;
 
   while (i < len) {
+    if (deadline && (i - checked >= 512 || B->n - checked_n >= 2048)) {
+      checked = i; checked_n = B->n;
+      if (SDL_GetPerformanceCounter() >= deadline) { *incomplete = 1; break; }
+    }
     /* --- continue an open pair --- */
     if (S.cur_pat > 0) {
       if (S.cur_pat > S.cur->npat) return 0;
@@ -832,45 +847,159 @@ static int scan(builder *B, const unsigned char *state, int state_len,
 
   memcpy(out_state, S.st, S.stlen);
   *out_state_len = S.stlen;
+  *out_byte = i;
   return 1;
 }
 
 /* -- Lua entry point ----------------------------------------------------- *
- * tokenizer_c.tokenize(syntax, text, state) ->
- *     true, tokens, new_state    (handled)
- *   | false                      (declined; caller uses the Lua path)     */
+ * tokenizer_c.tokenize(syntax, text, state, resume, budget) ->
+ *     true, tokens, new_state, resume?   (handled; `resume` non-nil = paused)
+ *   | false                              (declined; caller uses the Lua path)
+ *
+ * `budget` is the seconds a single call may spend before it pauses on a very
+ * long line, emits a trailing "incomplete" token and returns a `resume` table
+ *   { c = true, i = <byte offset>, state = <state string>, res = <tokens> }
+ * to be passed straight back. `tokens` is accumulated across calls. */
+
+static int pop_trailing_incomplete(lua_State *L, int t) {
+  int n = (int)lua_rawlen(L, t);
+  while (n >= 2) {
+    lua_rawgeti(L, t, n - 1);
+    int inc = lua_type(L, -1) == LUA_TSTRING
+           && strcmp(lua_tostring(L, -1), "incomplete") == 0;
+    lua_pop(L, 1);
+    if (!inc) break;
+    lua_pushnil(L); lua_rawseti(L, t, n);
+    lua_pushnil(L); lua_rawseti(L, t, n - 1);
+    n -= 2;
+  }
+  return n;
+}
 
 static int f_tokenize(lua_State *L) {
   luaL_checktype(L, 1, LUA_TTABLE);
   size_t tlen = 0;
   const char *text = luaL_checklstring(L, 2, &tlen);
-  size_t slen = 0;
-  const char *state = lua_tolstring(L, 3, &slen);
-  if (!state) { state = ""; slen = 0; }
+
+  int resuming = lua_type(L, 4) == LUA_TTABLE;
+  double budget = luaL_optnumber(L, 5, 0.0);
+
+  unsigned char st[MAX_SYN_DEPTH + 1];
+  int stlen = 0;
+  long start_byte = 0;
+
+  if (resuming) {
+    lua_getfield(L, 4, "i");
+    start_byte = (long)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    lua_getfield(L, 4, "state");
+    size_t n = 0; const char *rs = lua_tolstring(L, -1, &n);
+    if (rs && n <= MAX_SYN_DEPTH) { memcpy(st, rs, n); stlen = (int)n; }
+    lua_pop(L, 1);
+  } else {
+    size_t n = 0; const char *s = lua_tolstring(L, 3, &n);
+    if (s && n <= MAX_SYN_DEPTH) { memcpy(st, s, n); stlen = (int)n; }
+  }
+  if (start_byte < 0 || start_byte > (long)tlen) start_byte = 0;
 
   csyntax *cs = get_csyntax(L, 1);
   if (!cs || cs->unusable) { lua_pushboolean(L, 0); return 1; }
 
   builder B = {0};
-  B.text = text; B.len = tlen; B.base = cs; B.L = L;
+  B.text = text; B.len = tlen; B.base = cs; B.L = L; B.start = start_byte;
+
+  Uint64 deadline = 0;
+  if (budget > 0)
+    deadline = SDL_GetPerformanceCounter()
+             + (Uint64)(budget * (double)SDL_GetPerformanceFrequency());
 
   unsigned char out_state[MAX_SYN_DEPTH + 1];
-  int out_len = 0;
-  int ok = scan(&B, (const unsigned char *)state, (int)slen, out_state, &out_len);
+  int out_len = 0, incomplete = 0;
+  long out_byte = 0;
+  int ok = scan(&B, st, stlen, start_byte, deadline,
+                out_state, &out_len, &out_byte, &incomplete);
   if (B.md) pcre2_match_data_free(B.md);
   if (!ok) { free(B.v); lua_pushboolean(L, 0); return 1; }
 
   lua_pushboolean(L, 1);
-  lua_createtable(L, B.n * 2, 0);
-  long start = 0;
+
+  /* the token array: reuse resume.res, else a fresh one. If this first call
+     paused, the line will grow the array across many more calls -- size it
+     now from the token density we just saw, so it doesn't rehash each call. */
+  int prealloc = B.n * 2;
+  if (incomplete && !resuming && out_byte > start_byte) {
+    long est = (long)B.n * (long)(tlen - start_byte) / (out_byte - start_byte);
+    est = (est * 12) / 5 + 16;                     /* ~2.4x slack, in entries */
+    if (est > prealloc) prealloc = est > (1 << 26) ? (1 << 26) : (int)est;
+  }
+  int base_n = 0, merge_first = 0;
+  if (resuming) {
+    lua_getfield(L, 4, "res");
+    if (lua_type(L, -1) != LUA_TTABLE) { lua_pop(L, 1); lua_createtable(L, prealloc, 0); }
+    else {
+      base_n = pop_trailing_incomplete(L, lua_gettop(L));
+      /* Does the first new token merge into the last one already in `res`?
+         push_token's rule across the pause boundary: same type, or the
+         previous token is all whitespace. (The C core never emits
+         "incomplete", so that clause of the rule can't apply here.) */
+      if (base_n >= 2 && B.n > 0) {
+        lua_rawgeti(L, lua_gettop(L), base_n - 1);   /* prev type */
+        int same = lua_type(L, -1) == LUA_TSTRING
+                && strcmp(lua_tostring(L, -1), B.v[0].type) == 0;
+        lua_pop(L, 1);
+        int ws = 0;
+        lua_rawgeti(L, lua_gettop(L), base_n);       /* prev text */
+        size_t pn = 0; const char *pt = lua_tolstring(L, -1, &pn);
+        if (pt) { ws = 1; for (size_t z = 0; z < pn; z++) {
+          char pc = pt[z];
+          if (pc!=' '&&pc!='\t'&&pc!='\n'&&pc!='\v'&&pc!='\f'&&pc!='\r') { ws = 0; break; }
+        } }
+        lua_pop(L, 1);
+        merge_first = same || ws;
+      }
+    }
+  } else {
+    lua_createtable(L, prealloc, 0);
+  }
+  int rt = lua_gettop(L);
+
+  long start = start_byte;
   for (int k = 0; k < B.n; k++) {
+    if (k == 0 && merge_first) {
+      /* overwrite res[base_n-1 / base_n] with the merged token */
+      lua_pushstring(L, B.v[0].type);
+      lua_rawseti(L, rt, base_n - 1);
+      lua_rawgeti(L, rt, base_n);                    /* old text */
+      lua_pushlstring(L, text + start, B.v[0].end - start);
+      lua_concat(L, 2);
+      lua_rawseti(L, rt, base_n);
+      start = B.v[0].end;
+      base_n -= 2;                                   /* k>=1 lands right after */
+      continue;
+    }
     lua_pushstring(L, B.v[k].type);
-    lua_rawseti(L, -2, k * 2 + 1);
+    lua_rawseti(L, rt, base_n + k * 2 + 1);
     lua_pushlstring(L, text + start, B.v[k].end - start);
-    lua_rawseti(L, -2, k * 2 + 2);
+    lua_rawseti(L, rt, base_n + k * 2 + 2);
     start = B.v[k].end;
   }
   free(B.v);
+
+  if (incomplete) {
+    int n = (int)lua_rawlen(L, rt);
+    lua_pushstring(L, "incomplete");
+    lua_rawseti(L, rt, n + 1);
+    lua_pushlstring(L, text + out_byte, tlen - out_byte);
+    lua_rawseti(L, rt, n + 2);
+    lua_pushlstring(L, "\0", 1);                 /* new_state */
+    lua_createtable(L, 0, 3);                    /* resume */
+    lua_pushboolean(L, 1);          lua_setfield(L, -2, "c");
+    lua_pushinteger(L, out_byte);   lua_setfield(L, -2, "i");
+    lua_pushlstring(L, (const char *)out_state, out_len);
+    lua_setfield(L, -2, "state");
+    lua_pushvalue(L, rt);          lua_setfield(L, -2, "res");
+    return 4;
+  }
 
   lua_pushlstring(L, (const char *)out_state, out_len);
   return 3;

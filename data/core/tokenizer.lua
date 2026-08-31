@@ -414,11 +414,15 @@ tokenizer.tokenize_lua = tokenize
 ---@param text string
 ---@param state string
 function tokenizer.tokenize(incoming_syntax, text, state, resume)
-  if tokenizer_c and config.tokenizer_c ~= false and not resume
+  if tokenizer_c and config.tokenizer_c ~= false
+  and (resume == nil or resume.c)
   and #incoming_syntax.patterns > 0 then
-    local ok, tokens, cstate =
-      tokenizer_c.tokenize(incoming_syntax, text, state or "\0")
-    if ok then return tokens, cstate end
+    -- Cap a single call: like the Lua path, a pathological line pauses and
+    -- returns a `resume` rather than freezing the frame.
+    local budget = 0.5 / config.fps
+    local ok, tokens, cstate, cresume =
+      tokenizer_c.tokenize(incoming_syntax, text, state or "\0", resume, budget)
+    if ok then return tokens, cstate, cresume end
   end
   return tokenize(incoming_syntax, text, state, resume)
 end
