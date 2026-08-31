@@ -722,7 +722,8 @@ typedef struct MatchState {
   const char *src_init;  /* init of source string */
   const char *src_end;  /* end ('\0') of source string */
   const char *p_end;  /* end ('\0') of pattern */
-  lua_State *L;
+  lua_State *L;  /* NULL when invoked from lite_lua_pattern_match off the main thread */
+  int aborted;  /* set instead of raising when L == NULL; caller unwinds to "no match" */
   int level;  /* total number of captures (finished or unfinished) */
   struct {
     const char *init;
@@ -743,8 +744,10 @@ static const char *match (MatchState *ms, const char *s, const char *p);
 
 static int check_capture (MatchState *ms, int l) {
   l -= '1';
-  if (l < 0 || l >= ms->level || ms->capture[l].len == CAP_UNFINISHED)
-    return luaL_error(ms->L, "invalid capture index %%%d", l + 1);
+  if (l < 0 || l >= ms->level || ms->capture[l].len == CAP_UNFINISHED) {
+    if (ms->L) return luaL_error(ms->L, "invalid capture index %%%d", l + 1);
+    ms->aborted = 1; return 0;
+  }
   return l;
 }
 
@@ -752,7 +755,8 @@ static int capture_to_close (MatchState *ms) {
   int level = ms->level;
   while (--level >= 0)
     if (ms->capture[level].len == CAP_UNFINISHED) return level;
-  return luaL_error(ms->L, "invalid pattern capture");
+  if (ms->L) return luaL_error(ms->L, "invalid pattern capture");
+  ms->aborted = 1; return 0;
 }
 
 static const char *classend (MatchState *ms, const char *p) {
@@ -760,15 +764,19 @@ static const char *classend (MatchState *ms, const char *p) {
   p = utf8_lax_decode(p, &ch);
   switch (ch) {
     case L_ESC: {
-      if (p == ms->p_end)
-        luaL_error(ms->L, "malformed pattern (ends with " LUA_QL("%%") ")");
+      if (p == ms->p_end) {
+        if (ms->L) luaL_error(ms->L, "malformed pattern (ends with " LUA_QL("%%") ")");
+        else { ms->aborted = 1; return ms->p_end; }
+      }
       return utf8_next(p, ms->p_end);
     }
     case '[': {
       if (*p == '^') p++;
       do {  /* look for a `]' */
-        if (p == ms->p_end)
-          luaL_error(ms->L, "malformed pattern (missing " LUA_QL("]") ")");
+        if (p == ms->p_end) {
+          if (ms->L) luaL_error(ms->L, "malformed pattern (missing " LUA_QL("]") ")");
+          else { ms->aborted = 1; return ms->p_end; }
+        }
         if (*(p++) == L_ESC && p < ms->p_end)
           p++;  /* skip escapes (e.g. `%]') */
       } while (*p != ']');
@@ -842,9 +850,11 @@ static int singlematch (MatchState *ms, const char *s, const char *p, const char
 static const char *matchbalance (MatchState *ms, const char *s, const char **p) {
   utfint ch=0, begin=0, end=0;
   *p = utf8_lax_decode(*p, &begin);
-  if (*p >= ms->p_end)
-    luaL_error(ms->L, "malformed pattern "
+  if (*p >= ms->p_end) {
+    if (ms->L) luaL_error(ms->L, "malformed pattern "
                       "(missing arguments to " LUA_QL("%%b") ")");
+    else { ms->aborted = 1; return NULL; }
+  }
   *p = utf8_lax_decode(*p, &end);
   s = utf8_lax_decode(s, &ch);
   if (ch != begin) return NULL;
@@ -890,7 +900,10 @@ static const char *min_expand (MatchState *ms, const char *s, const char *p, con
 static const char *start_capture (MatchState *ms, const char *s, const char *p, int what) {
   const char *res;
   int level = ms->level;
-  if (level >= LUA_MAXCAPTURES) luaL_error(ms->L, "too many captures");
+  if (level >= LUA_MAXCAPTURES) {
+    if (ms->L) luaL_error(ms->L, "too many captures");
+    else { ms->aborted = 1; return NULL; }
+  }
   ms->capture[level].init = s;
   ms->capture[level].len = what;
   ms->level = level+1;
@@ -919,8 +932,10 @@ static const char *match_capture (MatchState *ms, const char *s, int l) {
 }
 
 static const char *match (MatchState *ms, const char *s, const char *p) {
-  if (ms->matchdepth-- == 0)
-    luaL_error(ms->L, "pattern too complex");
+  if (ms->matchdepth-- == 0) {
+    if (ms->L) luaL_error(ms->L, "pattern too complex");
+    ms->aborted = 1; ms->matchdepth++; return NULL;
+  }
   init: /* using goto's to optimize tail recursion */
   if (p != ms->p_end) {  /* end of pattern? */
     utfint ch = 0;
@@ -956,9 +971,11 @@ static const char *match (MatchState *ms, const char *s, const char *p) {
           }
           case 'f': {  /* frontier? */
             const char *ep; utfint previous = 0, current = 0;
-            if (*p != '[')
-              luaL_error(ms->L, "missing " LUA_QL("[") " after "
+            if (*p != '[') {
+              if (ms->L) luaL_error(ms->L, "missing " LUA_QL("[") " after "
                                  LUA_QL("%%f") " in pattern");
+              ms->aborted = 1; s = NULL; break;
+            }
             ep = classend(ms, p);  /* points to what is next */
             if (s != ms->src_init)
               utf8_decode(utf8_prev(ms->src_init, s), &previous, 0);
@@ -1190,6 +1207,7 @@ int lite_lua_pattern_match(lua_State *L,
   const char *init = (from <= subject_len) ? s + from : es;
   MatchState ms;
   ms.L = L;
+  ms.aborted = 0;
   ms.src_init = s;
   ms.src_end = es;
   ms.p_end = ep;
@@ -1197,7 +1215,7 @@ int lite_lua_pattern_match(lua_State *L,
   do {
     const char *res;
     ms.level = 0;
-    assert(ms.matchdepth == MAXCCALLS);
+    assert(ms.aborted || ms.matchdepth == MAXCCALLS);
     if ((res = match(&ms, init, p)) != NULL) {
       *match_start = (long)(init - s);
       *match_end = (long)(res - s);
@@ -1213,6 +1231,7 @@ int lite_lua_pattern_match(lua_State *L,
       }
       return 1;
     }
+    if (ms.aborted) return 0;  /* malformed / too-complex pattern, no lua_State to raise */
     if (init == es) break;
     init = utf8_next(init, es);
   } while (init <= es && !anchored);
