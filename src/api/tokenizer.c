@@ -17,6 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
+#include <stdint.h>
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -51,6 +53,189 @@ static const char *intern(const char *s, size_t n) {
   return g_intern[g_intern_n++].s;
 }
 
+/* -- symbols hash ------------------------------------------------------------ *
+ * `syntax.symbols` is a small text -> token-type map. Snapshot it into C so the
+ * per-token lookup in typed() costs no Lua calls. */
+
+typedef struct { char *key; size_t klen; const char *type; } syment;
+typedef struct { syment *slot; int mask; } symhash;   /* open addressing, cap = mask+1 */
+
+static const char *sym_get(const symhash *h, const char *s, size_t n) {
+  if (!h->slot) return NULL;
+  uint64_t g = 1469598103934665603ULL;
+  for (size_t k = 0; k < n; k++) g = (g ^ (unsigned char)s[k]) * 1099511628211ULL;
+  int idx = (int)(g & h->mask);
+  for (;;) {
+    syment *e = &h->slot[idx];
+    if (!e->key) return NULL;
+    if (e->klen == n && memcmp(e->key, s, n) == 0) return e->type;
+    idx = (idx + 1) & h->mask;
+  }
+}
+
+static void sym_put(symhash *h, const char *s, size_t n, const char *type) {
+  uint64_t g = 1469598103934665603ULL;
+  for (size_t k = 0; k < n; k++) g = (g ^ (unsigned char)s[k]) * 1099511628211ULL;
+  int idx = (int)(g & h->mask);
+  while (h->slot[idx].key) idx = (idx + 1) & h->mask;
+  char *c = malloc(n + 1);
+  if (!c) return;
+  memcpy(c, s, n); c[n] = 0;
+  h->slot[idx].key = c;
+  h->slot[idx].klen = n;
+  h->slot[idx].type = type;
+}
+
+static void sym_free(symhash *h) {
+  if (!h->slot) return;
+  for (int i = 0; i <= h->mask; i++) free(h->slot[i].key);
+  free(h->slot);
+  h->slot = NULL;
+}
+
+/* -- first-byte index ---------------------------------------------------- *
+ * A 256-bit set of bytes a pattern's open delimiter can begin a match on, so
+ * the scan can skip patterns that can't match at the current byte. Anything
+ * uncertain sets `fb_any` -> always try (never wrong, just not filtered). */
+
+typedef struct {
+  int is_regex;
+  int whole_line;
+  char *lua;            /* '^'-stripped Lua pattern body (is_regex == 0) */
+  size_t lua_len;
+  pcre2_code *rx;       /* borrowed from the Lua _compiled userdata (is_regex) */
+} delim;
+
+#define FB_SET(m, c)  ((m)[(unsigned char)(c) >> 3] |= (1u << ((unsigned char)(c) & 7)))
+#define FB_HAS(m, c)  ((m)[(unsigned char)(c) >> 3] &  (1u << ((unsigned char)(c) & 7)))
+
+static void fb_all(unsigned char *m) { memset(m, 0xff, 32); }
+
+static void fb_class(unsigned char *m, char cl) {
+  int lower = (cl >= 'a');
+  char c = lower ? cl : (char)(cl + 32);
+  for (int b = 0; b < 128; b++) {
+    int in;
+    switch (c) {
+      case 'a': in = isalpha(b); break;
+      case 'd': in = isdigit(b); break;
+      case 's': in = isspace(b); break;
+      case 'w': in = isalnum(b); break;
+      case 'l': in = islower(b); break;
+      case 'u': in = isupper(b); break;
+      case 'p': in = ispunct(b); break;
+      case 'x': in = isxdigit(b); break;
+      case 'c': in = iscntrl(b); break;
+      default: fb_all(m); return;
+    }
+    if (lower ? in : !in) FB_SET(m, b);
+  }
+  /* the matcher is Unicode-aware; any byte >= 0x80 might lead a multibyte
+     char that lands in (or, for %A etc., out of) the class -- be safe */
+  for (int b = 128; b < 256; b++) FB_SET(m, b);
+}
+
+static int fb_is_class(char c) {
+  return c && strchr("acdlpsuwxACDLPSUWX", c) != NULL;
+}
+
+/* parse a positive [set]; *pp points just past '[', leaves it past ']' */
+static void fb_set(unsigned char *m, const char **pp, const char *pe) {
+  const char *p = *pp;
+  int first = 1;
+  while (p < pe) {
+    char c = *p;
+    if (c == ']' && !first) { *pp = p + 1; return; }
+    first = 0;
+    if (c == '%' && p + 1 < pe) {
+      char cl = p[1];
+      if (fb_is_class(cl)) fb_class(m, cl); else FB_SET(m, cl);
+      p += 2;
+      continue;
+    }
+    if (p + 2 < pe && p[1] == '-' && p[2] != ']') {
+      for (int b = (unsigned char)c; b <= (unsigned char)p[2]; b++) FB_SET(m, b);
+      p += 3;
+      continue;
+    }
+    FB_SET(m, c);
+    p++;
+  }
+  *pp = p;
+}
+
+/* first-byte set of the leading item of a Lua pattern body; 0 -> uncertain */
+static int fb_lua_item(unsigned char *m, const char **pp, const char *pe) {
+  const char *p = *pp;
+  if (p >= pe) return 0;
+  char c = *p++;
+  if (c == '%') {
+    if (p >= pe) return 0;
+    char cl = *p++;
+    if (cl == 'f') {                     /* %f[set]: current byte must be in set */
+      if (p < pe && *p == '[') {
+        p++;
+        if (p < pe && *p == '^') return 0;
+        *pp = p;
+        fb_set(m, pp, pe);
+        return 1;
+      }
+      return 0;
+    }
+    if (cl == 'b') {                     /* %bxy balanced: starts with x */
+      if (p >= pe) return 0;
+      FB_SET(m, *p);
+      *pp = (p + 2 <= pe) ? p + 2 : pe;
+      return 1;
+    }
+    *pp = p;
+    if (fb_is_class(cl)) fb_class(m, cl); else FB_SET(m, cl);
+    return 1;
+  }
+  if (c == '.') { fb_all(m); *pp = p; return 1; }
+  if (c == '[') {
+    if (p < pe && *p == '^') return 0;        /* negated set: give up */
+    *pp = p;
+    fb_set(m, pp, pe);
+    return 1;
+  }
+  if (c == '(') {
+    if (p < pe && *p == ')') { *pp = p + 1; return fb_lua_item(m, pp, pe); }
+    return 0;                                 /* value capture: declined anyway */
+  }
+  if (c == '^' || c == '$' || c == ')' ||
+      c == '*' || c == '+' || c == '-' || c == '?')
+    return 0;
+  FB_SET(m, c);
+  *pp = p;
+  return 1;
+}
+
+static void fb_compute(unsigned char *m, int *any, delim *d) {
+  memset(m, 0, 32);
+  *any = 1;
+  if (d->is_regex) {
+    if (!d->rx) return;
+    const uint8_t *bitmap = NULL;
+    if (pcre2_pattern_info(d->rx, PCRE2_INFO_FIRSTBITMAP, &bitmap) == 0 && bitmap) {
+      memcpy(m, bitmap, 32); *any = 0; return;
+    }
+    /* pcre2_pattern_info returns 0 only when a fixed first code unit exists */
+    uint32_t fcu = 0;
+    if (pcre2_pattern_info(d->rx, PCRE2_INFO_FIRSTCODEUNIT, &fcu) == 0 && fcu < 256) {
+      FB_SET(m, fcu); *any = 0;
+    }
+    return;
+  }
+  const char *p = d->lua, *pe = p + d->lua_len;
+  if (p >= pe || *p == '^') return;
+  if (!fb_lua_item(m, &p, pe)) { memset(m, 0, 32); return; }
+  /* a *, - or ? on the leading item lets it match zero times -> the next item
+     could start the match; too involved to chase, so give up */
+  if (p < pe && (*p == '*' || *p == '-' || *p == '?')) { memset(m, 0, 32); return; }
+  *any = 0;
+}
+
 /* Lazily cache require("core.syntax").get for resolving a subsyntax by name. */
 static int g_syntax_get_ref = LUA_NOREF;
 static int push_syntax_get(lua_State *L) {
@@ -73,14 +258,6 @@ static int push_syntax_get(lua_State *L) {
 /* -- compiled syntax snapshot ------------------------------------------------ */
 
 typedef struct {
-  int is_regex;
-  int whole_line;
-  char *lua;            /* '^'-stripped Lua pattern body (is_regex == 0) */
-  size_t lua_len;
-  pcre2_code *rx;       /* borrowed from the Lua _compiled userdata (is_regex) */
-} delim;
-
-typedef struct {
   int disabled;
   int is_subsyntax;    /* entry has `.syntax` */
   int is_pair;         /* pattern/regex value is a {open, close} table */
@@ -95,13 +272,15 @@ typedef struct {
   int ntypes;
   const char **types;  /* interned; entry may be NULL ("normal") */
   const char *type0;   /* interned; when type is a plain string */
+  unsigned char fb[32];/* bytes the open delimiter can start a match on */
+  int fb_any;          /* 1 -> fb is not usable, always try the pattern */
 } cpattern;
 
 typedef struct {
   lua_State *L;
   int npat;
   cpattern *pat;
-  int symbols_ref;     /* registry ref to syntax.symbols, or LUA_NOREF */
+  symhash sym;         /* snapshot of syntax.symbols */
   int unusable;        /* snapshot hit something we don't model -> always bail */
 } csyntax;
 
@@ -117,8 +296,7 @@ static void free_csyntax(csyntax *cs) {
       luaL_unref(cs->L, LUA_REGISTRYINDEX, cs->pat[i].sub_ref);
   }
   free(cs->pat);
-  if (cs->symbols_ref != LUA_NOREF && cs->L)
-    luaL_unref(cs->L, LUA_REGISTRYINDEX, cs->symbols_ref);
+  sym_free(&cs->sym);
   cs->pat = NULL; cs->npat = 0;
 }
 
@@ -167,7 +345,6 @@ static csyntax *build_csyntax(lua_State *L, int synidx) {
   csyntax *cs = calloc(1, sizeof *cs);
   if (!cs) return NULL;
   cs->L = L;
-  cs->symbols_ref = LUA_NOREF;
 
   lua_getfield(L, synidx, "patterns");
   int patterns = lua_gettop(L);
@@ -240,6 +417,9 @@ static csyntax *build_csyntax(lua_State *L, int synidx) {
         if (bail) cp->usable = 0;
         lua_pop(L, 1);
       }
+      fb_compute(cp->fb, &cp->fb_any, &cp->open);
+    } else {
+      cp->fb_any = 1;
     }
 
     /* type: string, or array of strings */
@@ -273,14 +453,29 @@ static csyntax *build_csyntax(lua_State *L, int synidx) {
 
   lua_getfield(L, synidx, "symbols");
   if (lua_type(L, -1) == LUA_TTABLE) {
+    int count = 0;
     lua_pushnil(L);
-    int empty = (lua_next(L, -2) == 0);
-    if (!empty) lua_pop(L, 2);
-    cs->symbols_ref = empty ? (lua_pop(L, 1), LUA_NOREF)
-                            : luaL_ref(L, LUA_REGISTRYINDEX);
-  } else {
-    lua_pop(L, 1);
+    while (lua_next(L, -2)) { count++; lua_pop(L, 1); }
+    if (count > 0) {
+      int cap = 8;
+      while (cap < count * 2) cap <<= 1;
+      cs->sym.slot = calloc(cap, sizeof(syment));
+      cs->sym.mask = cap - 1;
+      lua_pushnil(L);
+      while (lua_next(L, -2)) {
+        if (lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING) {
+          size_t kn = 0, vn = 0;
+          const char *k = lua_tolstring(L, -2, &kn);
+          const char *v = lua_tolstring(L, -1, &vn);
+          const char *iv = intern(v, vn);
+          if (!iv) cs->unusable = 1;
+          else sym_put(&cs->sym, k, kn, iv);
+        }
+        lua_pop(L, 1);
+      }
+    }
   }
+  lua_pop(L, 1);
 
   return cs;
 }
@@ -332,6 +527,7 @@ typedef struct {
   int n, cap;
   csyntax *base;
   lua_State *L;
+  pcre2_match_data *md;   /* one per scan, reused across match attempts */
 } builder;
 
 static csyntax *resolve_sub(builder *B, cpattern *cp) {
@@ -374,22 +570,11 @@ static void push_token(builder *B, const char *type, long a, long b) {
   B->n++;
 }
 
-/* syn.symbols[text[a..b)] or fallback */
+/* syn.symbols[text[a..b)] or fallback -- a pure C lookup */
 static const char *typed(builder *B, csyntax *syn, long a, long b,
                          const char *fallback) {
-  if (syn->symbols_ref == LUA_NOREF) return fallback;
-  lua_State *L = B->L;
-  lua_rawgeti(L, LUA_REGISTRYINDEX, syn->symbols_ref);
-  lua_pushlstring(L, B->text + a, b - a);
-  lua_rawget(L, -2);
-  const char *r = fallback;
-  if (lua_type(L, -1) == LUA_TSTRING) {
-    size_t n = 0; const char *s = lua_tolstring(L, -1, &n);
-    const char *in = intern(s, n);
-    if (in) r = in;
-  }
-  lua_pop(L, 2);
-  return r;
+  const char *t = sym_get(&syn->sym, B->text + a, b - a);
+  return t ? t : fallback;
 }
 
 /* push_tokens: emit [a,b), split at the position captures in `pos`, each
@@ -430,12 +615,14 @@ static int find_text(builder *B, cpattern *cp, long from, int at_start,
     caps.n = 0;
 
     if (d->is_regex) {
-      pcre2_match_data *md = pcre2_match_data_create_from_pattern(d->rx, NULL);
-      int rc = pcre2_match(d->rx, (PCRE2_SPTR)B->text, B->len, (PCRE2_SIZE)cur,
-                           anchored ? PCRE2_ANCHORED : 0, md, NULL);
-      if (rc < 0) { pcre2_match_data_free(md); return 0; }
-      PCRE2_SIZE *ov = pcre2_get_ovector_pointer(md);
-      if (ov[0] > ov[1]) { pcre2_match_data_free(md); return 0; }
+      if (!B->md) B->md = pcre2_match_data_create(64, NULL);
+      int rc = B->md
+        ? pcre2_match(d->rx, (PCRE2_SPTR)B->text, B->len, (PCRE2_SIZE)cur,
+                      anchored ? PCRE2_ANCHORED : 0, B->md, NULL)
+        : PCRE2_ERROR_NOMEMORY;
+      if (rc <= 0) return 0;   /* no match, or >63 groups (not a real syntax) */
+      PCRE2_SIZE *ov = pcre2_get_ovector_pointer(B->md);
+      if (ov[0] > ov[1]) return 0;
       a = (long)ov[0]; b = (long)ov[1];
       caps.n = rc - 1;
       if (caps.n > LITE_PATTERN_MAXCAPTURES) caps.n = LITE_PATTERN_MAXCAPTURES;
@@ -444,7 +631,6 @@ static int find_text(builder *B, cpattern *cp, long from, int at_start,
         caps.start[i] = (long)gs;
         caps.len[i] = (gs == ge) ? -1 : (long)(ge - gs);
       }
-      pcre2_match_data_free(md);
     } else {
       if (!lite_lua_pattern_match(B->L, B->text, B->len, d->lua, d->lua_len,
                                   (size_t)cur, anchored, &a, &b, &caps))
@@ -603,10 +789,14 @@ static int scan(builder *B, const unsigned char *state, int state_len,
 
     /* --- try every pattern of the current syntax anchored at i --- */
     int matched = 0;
+    unsigned char c0 = (unsigned char)text[i];
     for (int n = 1; n <= S.cur->npat; n++) {
       cpattern *cp = &S.cur->pat[n - 1];
       if (cp->disabled) continue;
       if (!cp->usable) return 0;
+      /* a match here would start at text[i]; skip patterns that can't */
+      if (!cp->fb_any && !FB_HAS(cp->fb, c0)) continue;
+      if (cp->open.whole_line && i > 0) continue;
       if (!find_text(B, cp, i, 1, 0, &ms, &me, pos, &npos)) continue;
       if (npos < 0) return 0;
       if (me <= ms) continue;                        /* matched nothing */
@@ -667,6 +857,7 @@ static int f_tokenize(lua_State *L) {
   unsigned char out_state[MAX_SYN_DEPTH + 1];
   int out_len = 0;
   int ok = scan(&B, (const unsigned char *)state, (int)slen, out_state, &out_len);
+  if (B.md) pcre2_match_data_free(B.md);
   if (!ok) { free(B.v); lua_pushboolean(L, 0); return 1; }
 
   lua_pushboolean(L, 1);
