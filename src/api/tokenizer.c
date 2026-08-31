@@ -12,8 +12,10 @@
  * handles it itself.
  *
  * Each syntax table is snapshotted into a `csyntax` once, cached on the table
- * as a `__gc` userdata (`_ctok`), rebuilt if the pattern count changes.
- * Subsyntaxes are resolved lazily from a registry ref stored per pattern.
+ * as a `__gc` userdata (`_ctok`), rebuilt if the pattern count changes. Every
+ * reachable subsyntax is snapshotted and cross-linked up front (link_subs), so
+ * the scan itself never crosses into Lua -- a prerequisite for running it off
+ * the main thread.
  */
 
 #include <stdlib.h>
@@ -239,26 +241,40 @@ static void fb_compute(unsigned char *m, int *any, delim *d) {
   *any = 0;
 }
 
-/* Lazily cache require("core.syntax").get for resolving a subsyntax by name. */
-static int g_syntax_get_ref = LUA_NOREF;
-static int push_syntax_get(lua_State *L) {
-  if (g_syntax_get_ref != LUA_NOREF) {
-    lua_rawgeti(L, LUA_REGISTRYINDEX, g_syntax_get_ref);
+/* Lazily cache a function from core.syntax (e.g. "get", "precompile_pattern"),
+   pushing it on success. `*ref` is the per-function registry cache slot. */
+static int push_syntax_fn(lua_State *L, const char *name, int *ref) {
+  if (*ref != LUA_NOREF) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, *ref);
     return lua_isfunction(L, -1) ? 1 : (lua_pop(L, 1), 0);
   }
   lua_getglobal(L, "require");
   if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return 0; }
   lua_pushstring(L, "core.syntax");
   if (lua_pcall(L, 1, 1, 0) != LUA_OK) { lua_pop(L, 1); return 0; }
-  lua_getfield(L, -1, "get");
-  lua_remove(L, -2);                       /* drop the module, keep .get */
+  lua_getfield(L, -1, name);
+  lua_remove(L, -2);                       /* drop the module, keep the fn */
   if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return 0; }
   lua_pushvalue(L, -1);
-  g_syntax_get_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  *ref = luaL_ref(L, LUA_REGISTRYINDEX);
   return 1;
 }
 
+static int g_syntax_get_ref = LUA_NOREF;
+static int push_syntax_get(lua_State *L) {
+  return push_syntax_fn(L, "get", &g_syntax_get_ref);
+}
+
+/* core.syntax.precompile_pattern -- populate entry._compiled for a subsyntax
+   pattern the Lua tokenizer has not lazily reached yet. */
+static int g_syntax_precompile_ref = LUA_NOREF;
+static int push_syntax_precompile(lua_State *L) {
+  return push_syntax_fn(L, "precompile_pattern", &g_syntax_precompile_ref);
+}
+
 /* -- compiled syntax snapshot ------------------------------------------------ */
+
+typedef struct csyntax csyntax;
 
 typedef struct {
   int disabled;
@@ -266,6 +282,7 @@ typedef struct {
   int is_pair;         /* pattern/regex value is a {open, close} table */
   int usable;          /* 0 -> any use of this pattern makes the C core bail */
   int sub_ref;         /* registry ref to the resolved subsyntax table, or NOREF */
+  csyntax *sub;        /* the subsyntax, pre-resolved on the main thread; NULL until linked */
   delim open;
   int has_close;
   delim close;
@@ -279,13 +296,20 @@ typedef struct {
   int fb_any;          /* 1 -> fb is not usable, always try the pattern */
 } cpattern;
 
-typedef struct {
+struct csyntax {
   lua_State *L;
   int npat;
   cpattern *pat;
   symhash sym;         /* snapshot of syntax.symbols */
   int unusable;        /* snapshot hit something we don't model -> always bail */
-} csyntax;
+  int visiting;        /* re-entry guard while (re)linking subsyntax pointers */
+  unsigned linked_gen; /* g_build_gen at the last link_subs(); 0 = never linked */
+};
+
+/* Bumped whenever build_csyntax() produces a new snapshot. link_subs() skips a
+   csyntax whose links were refreshed at the current value -- so the steady
+   state (nothing rebuilt) costs one comparison per tokenize call. */
+static unsigned g_build_gen = 1;
 
 static void free_delim(delim *d) { free(d->lua); d->lua = NULL; }
 
@@ -360,6 +384,7 @@ static csyntax *build_csyntax(lua_State *L, int synidx) {
     cpattern *cp = &cs->pat[n - 1];
     cp->usable = 1;
     cp->sub_ref = LUA_NOREF;
+    cp->sub = NULL;
     lua_rawgeti(L, patterns, n);
     int ei = lua_gettop(L);
 
@@ -395,6 +420,17 @@ static csyntax *build_csyntax(lua_State *L, int synidx) {
 
     if (!cp->disabled) {
       lua_getfield(L, ei, "_compiled");
+      if (lua_type(L, -1) != LUA_TTABLE) {
+        /* An inline subsyntax the Lua tokenizer has not lazily precompiled
+           yet (it does so per-pattern on first scan). Do it now so the
+           snapshot is complete rather than caching an unusable pattern. */
+        lua_pop(L, 1);
+        if (push_syntax_precompile(L)) {
+          lua_pushvalue(L, ei);
+          if (lua_pcall(L, 1, 0, 0) != LUA_OK) lua_pop(L, 1);
+        }
+        lua_getfield(L, ei, "_compiled");
+      }
       if (lua_type(L, -1) != LUA_TTABLE) { cp->usable = 0; lua_pop(L, 1); }
       else {
         int ci = lua_gettop(L);
@@ -480,6 +516,7 @@ static csyntax *build_csyntax(lua_State *L, int synidx) {
   }
   lua_pop(L, 1);
 
+  g_build_gen++;
   return cs;
 }
 
@@ -487,6 +524,25 @@ static int csyntax_gc(lua_State *L) {
   csyntax **p = lua_touserdata(L, 1);
   if (p && *p) { free_csyntax(*p); free(*p); *p = NULL; }
   return 0;
+}
+
+/* Resolve every `.syntax` pattern to a csyntax*, recursing through nested
+   subsyntaxes, so scan() never has to touch Lua to enter a subsyntax. Safe to
+   call repeatedly: get_csyntax() rebuilds a sub whose pattern count changed and
+   this refreshes the stored pointer to match. `visiting` breaks the reference
+   cycles real grammars have (html -> js -> html, markdown -> markdown). */
+static void link_subs(lua_State *L, csyntax *cs) {
+  if (!cs || cs->visiting || cs->linked_gen == g_build_gen) return;
+  cs->visiting = 1;
+  for (int i = 0; i < cs->npat; i++) {
+    cpattern *cp = &cs->pat[i];
+    if (cp->sub_ref == LUA_NOREF) continue;
+    lua_rawgeti(L, LUA_REGISTRYINDEX, cp->sub_ref);
+    cp->sub = get_csyntax(L, -1);
+    lua_pop(L, 1);
+  }
+  cs->visiting = 0;
+  cs->linked_gen = g_build_gen;
 }
 
 /* Cached (or freshly built) csyntax for the syntax table at `synidx`.
@@ -502,8 +558,10 @@ static csyntax *get_csyntax(lua_State *L, int synidx) {
   lua_getfield(L, synidx, "_ctok");
   csyntax **box = lua_touserdata(L, -1);
   lua_pop(L, 1);
-  if (box && *box && (*box)->npat == np)
+  if (box && *box && (*box)->npat == np) {
+    link_subs(L, *box);
     return *box;
+  }
 
   csyntax *cs = build_csyntax(L, synidx);
   if (!cs) return NULL;
@@ -516,6 +574,7 @@ static csyntax *get_csyntax(lua_State *L, int synidx) {
   }
   lua_setmetatable(L, -2);
   lua_setfield(L, synidx, "_ctok");
+  link_subs(L, cs);
   return cs;
 }
 
@@ -534,12 +593,11 @@ typedef struct {
   pcre2_match_data *md;   /* one per scan, reused across match attempts */
 } builder;
 
+/* The subsyntax for a `.syntax` pattern, resolved by link_subs() on the main
+   thread before any scan runs -- so this is pure C and safe off-thread. */
 static csyntax *resolve_sub(builder *B, cpattern *cp) {
-  if (cp->sub_ref == LUA_NOREF) return NULL;
-  lua_rawgeti(B->L, LUA_REGISTRYINDEX, cp->sub_ref);
-  csyntax *sub = get_csyntax(B->L, -1);
-  lua_pop(B->L, 1);
-  return sub;
+  (void)B;
+  return cp->sub;
 }
 
 static int is_ws_run(const char *s, long a, long b) {
@@ -676,7 +734,8 @@ static int find_text(builder *B, cpattern *cp, long from, int at_start,
  * A mirror of tokenize()'s locals. `st` is the byte-string state stack; the
  * rest is what retrieve_syntax_state() derives from it. The `csyntax` a `cs`
  * points at stays reachable (anchored on syntax tables and per-pattern
- * `sub_ref`s) and is only rebuilt when its pattern count changes -- which the
+ * `sub_ref`s), its `sub` links are refreshed by link_subs() before the scan,
+ * and it is only rebuilt when its pattern count changes -- which the
  * highlighter never does mid-line -- so the pointers hold for one scan(). */
 
 typedef struct {
