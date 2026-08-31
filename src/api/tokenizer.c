@@ -582,7 +582,11 @@ static const char *typed(builder *B, csyntax *syn, long a, long b,
 static void push_tokens(builder *B, csyntax *syn, cpattern *cp, long a, long b,
                         long *pos, int npos) {
   if (npos == 0) {
-    push_token(B, typed(B, syn, a, b, cp->type0), a, b);
+    /* whole match, one token: a plain `type` string, or a `type` table's
+       first entry (see push_tokens in tokenizer.lua) */
+    const char *ft = cp->type0 ? cp->type0
+                   : (cp->ntypes > 0 ? cp->types[0] : NULL);
+    push_token(B, typed(B, syn, a, b, ft), a, b);
     return;
   }
   long prev = a;
@@ -757,8 +761,6 @@ static int scan(builder *B, const unsigned char *state, int state_len,
       }
       if (cont) {
         if (hit) {
-          if (npos == 0 && cp->type_is_table) return 0;   /* Lua pushes the
-              table itself as the token type here -- can't mirror, decline */
           if (ms > i) push_token(B, mid, i, ms);
           push_tokens(B, S.cur, cp, ms, me, pos, npos);
           set_ss_pat(&S, 0);
@@ -777,7 +779,6 @@ static int scan(builder *B, const unsigned char *state, int state_len,
       int hit = find_text(B, S.ss_info, i, 1, 1, &s, &e, p, &np);
       if (hit && np < 0) return 0;
       if (!hit) break;
-      if (np == 0 && S.ss_info->type_is_table) return 0;   /* see above */
       push_tokens(B, S.cur, S.ss_info, s, e, p, np);
       /* pop_subsyntax */
       S.level--;
@@ -800,7 +801,6 @@ static int scan(builder *B, const unsigned char *state, int state_len,
       if (!find_text(B, cp, i, 1, 0, &ms, &me, pos, &npos)) continue;
       if (npos < 0) return 0;
       if (me <= ms) continue;                        /* matched nothing */
-      if (npos == 0 && cp->type_is_table) return 0;  /* type/capture mismatch */
 
       push_tokens(B, S.cur, cp, ms, me, pos, npos);
 
