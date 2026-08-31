@@ -177,6 +177,11 @@ config.line_limit = 80
 ---@type boolean
 config.tokenizer_c = true
 
+---Run highlighting for a range of lines on a background thread (C core only).
+---Experimental: keeps the main thread free while a large file catches up.
+---@type boolean
+config.tokenizer_thread = false
+
 ---Enables/disables all transitions.
 ---
 ---Defaults to true.

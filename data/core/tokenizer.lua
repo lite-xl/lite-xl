@@ -428,6 +428,17 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
 end
 
 
+-- Background worker (C core only). tokenize a range of lines off the main
+-- thread; the highlighter uses this when config.tokenizer_thread is on. See
+-- src/api/tokenizer.c. Absent when the C core isn't built.
+if tokenizer_c and tokenizer_c.thread_submit then
+  tokenizer.thread_submit = tokenizer_c.thread_submit
+  tokenizer.thread_poll   = tokenizer_c.thread_poll
+  tokenizer.thread_cancel = tokenizer_c.thread_cancel
+  tokenizer.thread_busy   = tokenizer_c.thread_busy
+end
+
+
 local function iter(t, i)
   i = i + 2
   local type, text = t[i], t[i+1]
