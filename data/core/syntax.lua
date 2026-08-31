@@ -73,22 +73,13 @@ function syntax.precompile_pattern(entry)
 end
 
 function syntax.add(t)
-  if type(t.space_handling) ~= "boolean" then t.space_handling = true end
-
   if t.patterns then
-    -- the rule %s+ gives us a performance gain for the tokenizer in lines with
-    -- long amounts of consecutive spaces, can be disabled by plugins where it
-    -- causes conflicts by declaring the table property: space_handling = false
-    if t.space_handling then
-      table.insert(t.patterns, { pattern = "%s+", type = "normal" })
-    end
-
-    -- this rule gives us additional performance gain by matching every word
-    -- that was not matched by the syntax patterns as a single token, preventing
-    -- the tokenizer from iterating over each character individually which is a
-    -- lot slower since iteration occurs in lua instead of C and adding to that
-    -- it will also try to match every pattern to a single char (same as spaces)
-    table.insert(t.patterns, { pattern = "%w+%f[%s]", type = "normal" })
+    -- `syntax.add` used to append two `type = "normal"` catch-all patterns --
+    -- `%s+` (unless `space_handling = false`) and `%w+%f[%s]` -- so the Lua
+    -- tokenizer would not fall back to its slow per-character consume loop
+    -- over whitespace runs and unrecognised words. That fast skip now lives in
+    -- the tokenizer's consume path itself (still honouring `space_handling`),
+    -- and the C core doesn't need it, so the patterns are gone.
 
     -- compile every pattern up front, so the tokenizer never rewrites an entry
     -- mid-scan, and report the malformed ones

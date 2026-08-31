@@ -378,10 +378,23 @@ local function tokenize(incoming_syntax, text, state, resume)
       end
     end
 
-    -- consume character if we didn't match
+    -- nothing matched here: emit as "normal" and advance. Skip a whole run of
+    -- whitespace, or of word characters that ends at whitespace, in one step --
+    -- push_token merges it with the neighbours exactly as the old `%s+` /
+    -- `%w+%f[%s]` catch-all patterns did, without the per-character loop.
     if not matched then
-      push_token(res, "normal", text:usub(i, i))
-      i = i + 1
+      local last
+      if current_syntax.space_handling ~= false then
+        last = select(2, text:ufind("^%s+", i))
+      end
+      if not last then last = select(2, text:ufind("^%w+%f[%s]", i)) end
+      if last and last >= i then
+        push_token(res, "normal", text:usub(i, last))
+        i = last + 1
+      else
+        push_token(res, "normal", text:usub(i, i))
+        i = i + 1
+      end
     end
   end
 
