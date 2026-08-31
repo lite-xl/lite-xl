@@ -29,6 +29,7 @@
 #include <SDL3/SDL.h>
 
 #include "utf8.h"
+#include "custom_events.h"
 
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>
@@ -304,12 +305,18 @@ struct csyntax {
   int unusable;        /* snapshot hit something we don't model -> always bail */
   int visiting;        /* re-entry guard while (re)linking subsyntax pointers */
   unsigned linked_gen; /* g_build_gen at the last link_subs(); 0 = never linked */
+  int refs;            /* in-flight worker jobs holding this snapshot (main thread only) */
+  int zombie;          /* _ctok was replaced while refs > 0; free when refs hits 0 */
+  unsigned walk_epoch; /* visited marker for the retain/release graph walk */
 };
 
 /* Bumped whenever build_csyntax() produces a new snapshot. link_subs() skips a
    csyntax whose links were refreshed at the current value -- so the steady
    state (nothing rebuilt) costs one comparison per tokenize call. */
 static unsigned g_build_gen = 1;
+
+/* Bumped before each transitive retain/release walk of a csyntax graph. */
+static unsigned g_walk_epoch = 0;
 
 static void free_delim(delim *d) { free(d->lua); d->lua = NULL; }
 
@@ -522,7 +529,10 @@ static csyntax *build_csyntax(lua_State *L, int synidx) {
 
 static int csyntax_gc(lua_State *L) {
   csyntax **p = lua_touserdata(L, 1);
-  if (p && *p) { free_csyntax(*p); free(*p); *p = NULL; }
+  if (p && *p) {
+    if ((*p)->refs > 0) { (*p)->zombie = 1; return 0; }  /* a worker job still holds it */
+    free_csyntax(*p); free(*p); *p = NULL;
+  }
   return 0;
 }
 
@@ -576,6 +586,45 @@ static csyntax *get_csyntax(lua_State *L, int synidx) {
   lua_setfield(L, synidx, "_ctok");
   link_subs(L, cs);
   return cs;
+}
+
+/* -- cross-thread snapshot lifetime -------------------------------------- *
+ * A worker job runs scan() against a csyntax graph off the main thread. The
+ * main thread must not free any node in that graph until the job is done, even
+ * if get_csyntax() rebuilds a node (pattern count changed) in the meantime.
+ * At submit we snapshot every reachable node into the job and bump its `refs`;
+ * at collection we drop them and free any that turned into a zombie. All of
+ * this runs on the main thread -- the worker only ever reads the graph. */
+
+static void collect_graph(csyntax *cs, csyntax ***arr, int *n, int *cap) {
+  if (!cs || cs->walk_epoch == g_walk_epoch) return;
+  cs->walk_epoch = g_walk_epoch;
+  if (*n == *cap) {
+    *cap = *cap ? *cap * 2 : 8;
+    *arr = realloc(*arr, (size_t)*cap * sizeof(csyntax *));
+  }
+  (*arr)[(*n)++] = cs;
+  for (int i = 0; i < cs->npat; i++)
+    if (cs->pat[i].sub) collect_graph(cs->pat[i].sub, arr, n, cap);
+}
+
+/* Snapshot cs's reachable graph into *out (caller frees), refs++ each node. */
+static int retain_graph(csyntax *cs, csyntax ***out) {
+  csyntax **arr = NULL;
+  int n = 0, cap = 0;
+  g_walk_epoch++;
+  collect_graph(cs, &arr, &n, &cap);
+  for (int i = 0; i < n; i++) arr[i]->refs++;
+  *out = arr;
+  return n;
+}
+
+static void release_graph(csyntax **arr, int n) {
+  for (int i = 0; i < n; i++) {
+    csyntax *cs = arr[i];
+    if (--cs->refs == 0 && cs->zombie) { free_csyntax(cs); free(cs); }
+  }
+  free(arr);
 }
 
 /* -- the scan -------------------------------------------------------------- */
@@ -1064,10 +1113,424 @@ static int f_tokenize(lua_State *L) {
   return 3;
 }
 
+/* -- worker thread ------------------------------------------------------- *
+ * The scan is Lua-free (see link_subs / lite_lua_pattern_match), so a whole
+ * range of lines can be tokenized on a background thread. One singleton
+ * worker drains a FIFO of jobs; each job carries C-owned copies of the line
+ * texts and a pinned csyntax snapshot. The worker threads the state
+ * line-to-line and, every so often, wakes the main loop through the
+ * "tokenizer_c" custom event. thread_poll() on the main thread turns finished
+ * lines into Lua token arrays; thread_cancel(gen) bumps a generation the
+ * worker checks so an edit abandons in-flight work.
+ *
+ * All Lua and all refcount / free work stays on the main thread; the worker
+ * only reads the snapshot and writes its own per-job buffers. */
+
+typedef struct {
+  tok *tok;
+  int ntok;
+  unsigned char state[MAX_SYN_DEPTH + 1];
+  int state_len;
+  int ok;              /* 0 -> C declined; the main thread re-tokenizes in Lua */
+} tline;
+
+/* Everything shared between the worker and the main thread is guarded by
+   tqueue.lock -- SDL's atomics are not transparent to ThreadSanitizer, and a
+   per-line uncontended lock is cheap next to a scan(). `progress`, `produced`,
+   `taken`, `finished` and the list links are all lock-protected; `res[i]` and
+   `text[i]` for i < progress are published by the worker's lock release and
+   never touched again until job_free. */
+typedef struct tjob {
+  struct tjob *next;
+  int id;              /* thread_poll(id) / thread_cancel(id) target one job */
+  csyntax *cs;
+  csyntax **retained;  /* the snapshot graph this job pinned (refs++) */
+  int nretained;
+  int first_line;      /* 1-indexed doc line of text[0] */
+  int nlines;
+  char **text;         /* nlines NUL-terminated copies, no trailing newline */
+  size_t *tlen;
+  unsigned char start_state[MAX_SYN_DEPTH + 1];
+  int start_state_len;
+  tline *res;          /* nlines; res[i].tok owned here until thread_poll takes it */
+  int progress;        /* lines the worker has published, 0..nlines (lock) */
+  int produced;        /* final progress once finished (lock) */
+  int taken;           /* lines thread_poll has drained (main thread) */
+  int canceled;        /* the submitter dropped this job -- abandon + reap (lock) */
+  int finished;        /* worker done with this job (lock) */
+} tjob;
+
+typedef struct {
+  SDL_Thread *thread;
+  SDL_Mutex *lock;
+  SDL_Condition *wake;
+  tjob *head, *tail;   /* queued, not started */
+  tjob *active;        /* the job the worker is on */
+  tjob *done;          /* finished jobs, awaiting drain + free (linked via ->next) */
+  int next_id;         /* job id source (lock) */
+  int shutdown;        /* (lock) */
+} tqueue;
+
+static tqueue *g_tq;
+
+static void job_free(tjob *j) {
+  for (int i = 0; i < j->nlines; i++)
+    if (j->res && j->res[i].tok) free(j->res[i].tok);
+  for (int i = 0; i < j->nlines; i++) free(j->text[i]);
+  free(j->text); free(j->tlen); free(j->res);
+  if (j->retained) release_graph(j->retained, j->nretained);
+  free(j);
+}
+
+static void tok_wake_main(void) {
+  CustomEvent ev; SDL_zero(ev);
+  push_custom_event("tokenizer_c", &ev);
+}
+
+static int tok_worker(void *data) {
+  tqueue *q = data;
+  for (;;) {
+    SDL_LockMutex(q->lock);
+    while (!q->head && !q->shutdown)
+      SDL_WaitCondition(q->wake, q->lock);
+    if (q->shutdown) { SDL_UnlockMutex(q->lock); return 0; }
+    tjob *job = q->head;
+    q->head = job->next;
+    if (!q->head) q->tail = NULL;
+    job->next = NULL;
+    q->active = job;
+    int stop = job->canceled;
+    SDL_UnlockMutex(q->lock);
+
+    unsigned char st[MAX_SYN_DEPTH + 1];
+    int stlen = job->start_state_len;
+    if (stlen < 0 || stlen > MAX_SYN_DEPTH) stlen = 0;
+    memcpy(st, job->start_state, (size_t)stlen);
+
+    pcre2_match_data *md = NULL;
+    int produced = 0;
+    for (int i = 0; i < job->nlines && !stop; i++) {
+      builder B;
+      memset(&B, 0, sizeof B);
+      B.L = NULL; B.base = job->cs;
+      B.text = job->text[i]; B.len = job->tlen[i]; B.start = 0; B.md = md;
+
+      unsigned char os[MAX_SYN_DEPTH + 1];
+      int oslen = 0, inc = 0;
+      long ob = 0;
+      /* a per-line cap so a pathological line can't wedge the worker (and the
+         exit-time SDL_WaitThread): hand such a line back for the main thread's
+         resume path instead */
+      Uint64 deadline = SDL_GetPerformanceCounter()
+                      + 2 * SDL_GetPerformanceFrequency();
+      int ok = scan(&B, st, stlen, 0, deadline, os, &oslen, &ob, &inc);
+      md = B.md;
+
+      tline *r = &job->res[i];
+      if (ok && !inc) {
+        r->ok = 1;
+        r->tok = B.v; r->ntok = B.n;
+        if (oslen < 0 || oslen > MAX_SYN_DEPTH) oslen = 0;
+        memcpy(r->state, os, (size_t)oslen); r->state_len = oslen;
+        memcpy(st, os, (size_t)oslen); stlen = oslen;
+        produced = i + 1;
+      } else {
+        r->ok = 0;
+        free(B.v);
+        produced = i + 1;
+        break;   /* declined / too slow: state can't be threaded past here */
+      }
+
+      if ((i & 63) == 63) {
+        SDL_LockMutex(q->lock);
+        job->progress = produced;
+        stop = q->shutdown || job->canceled;
+        SDL_UnlockMutex(q->lock);
+        tok_wake_main();
+      }
+    }
+    if (md) pcre2_match_data_free(md);
+
+    SDL_LockMutex(q->lock);
+    job->produced = produced;
+    job->progress = produced;
+    job->finished = 1;
+    q->active = NULL;
+    if (!q->done) q->done = job;
+    else { tjob *t = q->done; while (t->next) t = t->next; t->next = job; }
+    SDL_UnlockMutex(q->lock);
+    tok_wake_main();
+  }
+}
+
+static tqueue *tq_get(void) {
+  if (g_tq) return g_tq;
+  tqueue *q = calloc(1, sizeof *q);
+  if (!q) return NULL;
+  q->lock = SDL_CreateMutex();
+  q->wake = SDL_CreateCondition();
+  if (!q->lock || !q->wake) {
+    if (q->lock) SDL_DestroyMutex(q->lock);
+    if (q->wake) SDL_DestroyCondition(q->wake);
+    free(q);
+    return NULL;
+  }
+  q->thread = SDL_CreateThread(tok_worker, "lite.tokenizer", q);
+  if (!q->thread) {
+    SDL_DestroyMutex(q->lock);
+    SDL_DestroyCondition(q->wake);
+    free(q);
+    return NULL;
+  }
+  g_tq = q;
+  return q;
+}
+
+/* thread_submit(syntax, lines, first, last, start_state) -> job id | nil
+   `lines` is the doc line array (1-indexed, strings with a trailing newline);
+   [first,last] inclusive. Returns an integer id for thread_poll(id) /
+   thread_cancel(id), or nil if the C core can't model this syntax or the
+   thread is unavailable (caller then stays on the synchronous path). */
+static int f_thread_submit(lua_State *L) {
+  luaL_checktype(L, 1, LUA_TTABLE);
+  luaL_checktype(L, 2, LUA_TTABLE);
+  int first = (int)luaL_checkinteger(L, 3);
+  int last = (int)luaL_checkinteger(L, 4);
+  size_t sslen = 0;
+  const char *ss = lua_tolstring(L, 5, &sslen);
+
+  if (first < 1 || last < first) { lua_pushnil(L); return 1; }
+
+  csyntax *cs = get_csyntax(L, 1);
+  if (!cs || cs->unusable) { lua_pushnil(L); return 1; }
+
+  tqueue *q = tq_get();
+  if (!q) { lua_pushnil(L); return 1; }
+
+  int n = last - first + 1;
+  tjob *job = calloc(1, sizeof *job);
+  if (!job) { lua_pushnil(L); return 1; }
+  job->cs = cs;
+  job->first_line = first;
+  job->nlines = n;
+  job->text = calloc((size_t)n, sizeof(char *));
+  job->tlen = calloc((size_t)n, sizeof(size_t));
+  job->res = calloc((size_t)n, sizeof(tline));
+  if (!job->text || !job->tlen || !job->res) {
+    free(job->text); free(job->tlen); free(job->res); free(job);
+    lua_pushnil(L); return 1;
+  }
+  if (ss && sslen <= MAX_SYN_DEPTH) {
+    memcpy(job->start_state, ss, sslen);
+    job->start_state_len = (int)sslen;
+  }
+
+  for (int i = 0; i < n; i++) {
+    lua_rawgeti(L, 2, first + i);
+    size_t ln = 0;
+    const char *lp = lua_tolstring(L, -1, &ln);
+    if (!lp) { lp = ""; ln = 0; }
+    /* the doc line, verbatim (trailing newline included) -- the synchronous
+       tokenizer.tokenize() gets it the same way, so the token streams match */
+    char *copy = malloc(ln + 1);
+    if (!copy) {
+      lua_pop(L, 1);
+      job->nlines = i;                                  /* free only what we filled */
+      job_free(job);
+      lua_pushnil(L); return 1;
+    }
+    memcpy(copy, lp, ln); copy[ln] = 0;
+    job->text[i] = copy;
+    job->tlen[i] = ln;
+    lua_pop(L, 1);
+  }
+
+  job->nretained = retain_graph(cs, &job->retained);
+
+  SDL_LockMutex(q->lock);
+  job->id = ++q->next_id;
+  if (q->tail) q->tail->next = job; else q->head = job;
+  q->tail = job;
+  SDL_SignalCondition(q->wake);
+  int id = job->id;
+  SDL_UnlockMutex(q->lock);
+
+  lua_pushinteger(L, id);
+  return 1;
+}
+
+/* thread_poll([id]) -> { {first_line=<n>, lines={ {ok=<bool>, tokens=<t>|nil,
+   state=<str>|nil}, ... }}, ... }  or nil.
+   With `id` (from thread_submit) only that job is drained, so several
+   highlighters can share the one worker. Lines come back in submission order
+   starting at first_line. */
+static int f_thread_poll(lua_State *L) {
+  int want = (int)luaL_optinteger(L, 1, 0);   /* 0 -> any job */
+  tqueue *q = g_tq;
+  if (!q) { lua_pushnil(L); return 1; }
+
+  /* Under the lock: snapshot which wanted, live jobs have undrained lines and
+     how far the worker has published; then reap finished jobs that are drained
+     or canceled. The worker never touches res[i] for i < progress again, so
+     the conversion below is safe once unlocked. */
+  SDL_LockMutex(q->lock);
+  struct { tjob *j; int from, to; } ready[16];
+  int nready = 0;
+  if (q->active && !q->active->canceled
+      && (want == 0 || q->active->id == want)
+      && q->active->progress > q->active->taken) {
+    ready[nready].j = q->active;
+    ready[nready].from = q->active->taken;
+    ready[nready].to = q->active->progress;
+    nready++;
+  }
+  for (tjob *j = q->done; j && nready < 16; j = j->next)
+    if (!j->canceled && (want == 0 || j->id == want)
+        && j->progress > j->taken) {
+      ready[nready].j = j;
+      ready[nready].from = j->taken;
+      ready[nready].to = j->progress;
+      nready++;
+    }
+  SDL_UnlockMutex(q->lock);
+
+  if (nready == 0) { lua_pushnil(L); return 1; }
+
+  lua_createtable(L, nready, 0);
+  for (int k = 0; k < nready; k++) {
+    tjob *j = ready[k].j;
+    int from = ready[k].from, to = ready[k].to;
+
+    lua_createtable(L, 0, 2);
+    lua_pushinteger(L, j->first_line + from);
+    lua_setfield(L, -2, "first_line");
+    lua_createtable(L, to - from, 0);
+    for (int i = from; i < to; i++) {
+      tline *r = &j->res[i];
+      lua_createtable(L, 0, 3);
+      lua_pushboolean(L, r->ok);
+      lua_setfield(L, -2, "ok");
+      if (r->ok) {
+        lua_createtable(L, r->ntok * 2, 0);
+        long start = 0;
+        for (int t = 0; t < r->ntok; t++) {
+          lua_pushstring(L, r->tok[t].type);
+          lua_rawseti(L, -2, t * 2 + 1);
+          lua_pushlstring(L, j->text[i] + start, (size_t)(r->tok[t].end - start));
+          lua_rawseti(L, -2, t * 2 + 2);
+          start = r->tok[t].end;
+        }
+        lua_setfield(L, -2, "tokens");
+        lua_pushlstring(L, (const char *)r->state, (size_t)r->state_len);
+        lua_setfield(L, -2, "state");
+        free(r->tok); r->tok = NULL;
+      }
+      lua_rawseti(L, -2, i - from + 1);
+    }
+    lua_setfield(L, -2, "lines");
+    lua_rawseti(L, -2, k + 1);
+    j->taken = to;
+  }
+
+  /* unlink finished jobs that are fully drained or canceled (nobody will ever
+     drain them); free them outside the lock */
+  SDL_LockMutex(q->lock);
+  tjob *reap = NULL, *keep_head = NULL, *keep_tail = NULL;
+  for (tjob *j = q->done; j; ) {
+    tjob *n = j->next;
+    if (j->finished && (j->canceled || j->taken >= j->produced)) {
+      j->next = reap; reap = j;
+    } else {
+      j->next = NULL;
+      if (keep_tail) keep_tail->next = j; else keep_head = j;
+      keep_tail = j;
+    }
+    j = n;
+  }
+  q->done = keep_head;
+  SDL_UnlockMutex(q->lock);
+  while (reap) { tjob *n = reap->next; job_free(reap); reap = n; }
+
+  return 1;
+}
+
+/* thread_cancel(id): abandon the job with this id -- the worker stops on it,
+   future polls skip it, and it is reaped. Call before submitting a replacement
+   or when the range it covers no longer matters. */
+static int f_thread_cancel(lua_State *L) {
+  int id = (int)luaL_checkinteger(L, 1);
+  tqueue *q = g_tq;
+  if (!q) return 0;
+  SDL_LockMutex(q->lock);
+  if (q->active && q->active->id == id) q->active->canceled = 1;
+  /* a still-queued match can be unlinked and freed right away */
+  tjob *drop = NULL, *kh = NULL, *kt = NULL;
+  for (tjob *j = q->head; j; ) {
+    tjob *n = j->next;
+    if (j->id == id) { j->next = drop; drop = j; }
+    else { j->next = NULL; if (kt) kt->next = j; else kh = j; kt = j; }
+    j = n;
+  }
+  q->head = kh; q->tail = kt;
+  for (tjob *j = q->done; j; j = j->next)
+    if (j->id == id) j->canceled = 1;
+  SDL_UnlockMutex(q->lock);
+  while (drop) { tjob *n = drop->next; job_free(drop); drop = n; }
+  return 0;
+}
+
+/* thread_busy() -> is there queued or in-flight work? */
+static int f_thread_busy(lua_State *L) {
+  tqueue *q = g_tq;
+  int busy = 0;
+  if (q) {
+    SDL_LockMutex(q->lock);
+    busy = q->head || q->active || q->done;
+    SDL_UnlockMutex(q->lock);
+  }
+  lua_pushboolean(L, busy);
+  return 1;
+}
+
+static int tq_shutdown_gc(lua_State *L) {
+  (void)L;
+  tqueue *q = g_tq;
+  if (!q) return 0;
+  SDL_LockMutex(q->lock);
+  q->shutdown = 1;
+  SDL_SignalCondition(q->wake);
+  SDL_UnlockMutex(q->lock);
+  SDL_WaitThread(q->thread, NULL);
+  for (tjob *j = q->head; j; ) { tjob *n = j->next; job_free(j); j = n; }
+  if (q->active) job_free(q->active);
+  for (tjob *j = q->done; j; ) { tjob *n = j->next; job_free(j); j = n; }
+  SDL_DestroyMutex(q->lock);
+  SDL_DestroyCondition(q->wake);
+  free(q);
+  g_tq = NULL;
+  return 0;
+}
+
 int luaopen_tokenizer_c(lua_State *L) {
   if (!g_normal) g_normal = intern("normal", 6);
+  register_custom_event("tokenizer_c", NULL);
+
+  /* a registry-held userdata whose __gc stops the worker at lua_close */
+  void *sentinel = lua_newuserdata(L, 1);
+  if (luaL_newmetatable(L, "tokenizer.worker")) {
+    lua_pushcfunction(L, tq_shutdown_gc);
+    lua_setfield(L, -2, "__gc");
+  }
+  lua_setmetatable(L, -2);
+  lua_rawsetp(L, LUA_REGISTRYINDEX, (void *)&g_tq);
+  (void)sentinel;
+
   static const luaL_Reg lib[] = {
-    { "tokenize", f_tokenize },
+    { "tokenize",      f_tokenize },
+    { "thread_submit", f_thread_submit },
+    { "thread_poll",   f_thread_poll },
+    { "thread_cancel", f_thread_cancel },
+    { "thread_busy",   f_thread_busy },
     { NULL, NULL }
   };
   luaL_newlib(L, lib);
