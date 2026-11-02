@@ -626,6 +626,10 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   y *= surface_scale;
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
+  const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
+  const uint32_t rs_ = surface_format->Rshift, gs_ = surface_format->Gshift, bs_ = surface_format->Bshift;
+  const uint32_t keep_mask = surface_format->Amask;
+  const uint32_t ca = color.a, cr = color.r * ca, cg = color.g * ca, cb = color.b * ca;
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
   RenFont* last = NULL;
@@ -634,7 +638,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
 
   while (text < end) {
-    unsigned int codepoint, r, g, b;
+    unsigned int codepoint;
     text = utf8_to_codepoint(text, end,  &codepoint);
     SDL_Surface *font_surface = NULL; GlyphMetric *metric = NULL;
     RenFont* font = font_group_get_glyph(fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &font_surface, &metric);
@@ -647,51 +651,45 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
+      const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
+      if (start_x + (glyph_end - glyph_start) >= clip_end_x)
+        glyph_end = glyph_start + (clip_end_x - start_x);
+      if (start_x < clip.x) {
+        int offset = clip.x - start_x;
+        start_x += offset;
+        glyph_start += offset;
+      }
+      const int count = glyph_end - glyph_start;
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line - metric->y0 + y - metric->bitmap_top + (fonts[0]->baseline * surface_scale);
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
           break;
-        if (start_x + (glyph_end - glyph_start) >= clip_end_x)
-          glyph_end = glyph_start + (clip_end_x - start_x);
-        if (start_x < clip.x) {
-          int offset = clip.x - start_x;
-          start_x += offset;
-          glyph_start += offset;
-        }
-        
-        const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
-        const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
 
         uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * surface_format->bytes_per_pixel]);
         uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface_format->bytes_per_pixel];
-        for (int x = glyph_start; x < glyph_end; ++x) {
-          uint32_t destination_color = *destination_pixel;
-          // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          SDL_Color dst = {
-            (destination_color & surface_format->Rmask) >> surface_format->Rshift,
-            (destination_color & surface_format->Gmask) >> surface_format->Gshift,
-            (destination_color & surface_format->Bmask) >> surface_format->Bshift,
-            (destination_color & surface_format->Amask) >> surface_format->Ashift};
-          SDL_Color src;
+        const uint8_t *restrict src = source_pixel;
+        uint32_t *restrict dst = destination_pixel;
 
-          if (metric->format == EGlyphFormatSubpixel) {
-            src.r = *(source_pixel++);
-            src.g = *(source_pixel++);
-          } else {
-            src.r = *(source_pixel);
-            src.g = *(source_pixel);
+        if (metric->format == EGlyphFormatSubpixel) {
+          for (int i = 0; i < count; ++i) {
+            uint32_t d = dst[i];
+            uint32_t sr = src[3 * i], sg = src[3 * i + 1], sb = src[3 * i + 2];
+            uint32_t r = (cr * sr + ((d >> rs_) & 0xFF) * (65025 - sr * ca) + 32767) / 65025;
+            uint32_t g = (cg * sg + ((d >> gs_) & 0xFF) * (65025 - sg * ca) + 32767) / 65025;
+            uint32_t b = (cb * sb + ((d >> bs_) & 0xFF) * (65025 - sb * ca) + 32767) / 65025;
+            dst[i] = (d & keep_mask) | r << rs_ | g << gs_ | b << bs_;
           }
-
-          src.b = *(source_pixel++);
-          src.a = 0xFF;
-
-          r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
-          g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
-          b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
-          // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          *destination_pixel++ = (unsigned int) dst.a << surface_format->Ashift | r << surface_format->Rshift | g << surface_format->Gshift | b << surface_format->Bshift;
+        } else {
+          for (int i = 0; i < count; ++i) {
+            uint32_t d = dst[i];
+            uint32_t s = src[i];
+            uint32_t r = (cr * s + ((d >> rs_) & 0xFF) * (65025 - s * ca) + 32767) / 65025;
+            uint32_t g = (cg * s + ((d >> gs_) & 0xFF) * (65025 - s * ca) + 32767) / 65025;
+            uint32_t b = (cb * s + ((d >> bs_) & 0xFF) * (65025 - s * ca) + 32767) / 65025;
+            dst[i] = (d & keep_mask) | r << rs_ | g << gs_ | b << bs_;
+          }
         }
       }
     }
