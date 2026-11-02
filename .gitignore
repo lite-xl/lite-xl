@@ -3,6 +3,7 @@ build*/
 lhelper/
 submodules/
 subprojects/*/
+!subprojects/packagefiles/
 /appimage*
 .vscode
 .cache
@@ -10,6 +11,7 @@ subprojects/*/
 .lite-debug.log
 .run*
 *.diff
+!subprojects/packagefiles/**/*.diff
 *.exe
 *.tar.gz
 *.zip
