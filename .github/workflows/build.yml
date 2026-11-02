@@ -80,8 +80,8 @@ jobs:
     strategy:
       matrix:
         config:
-          - { runner: macos-15-intel, arch: x86_64-darwin }
-          - { runner: macos-15, arch: aarch64-darwin }
+          - { runner: macos-26-intel, arch: x86_64-darwin }
+          - { runner: macos-26, arch: aarch64-darwin }
     runs-on: ${{ matrix.config.runner }}
     steps:
       - name: System Information
