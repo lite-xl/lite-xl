@@ -205,7 +205,7 @@ jobs:
 
   build_windows:
     name: Windows (x86_64) (MSYS)
-    runs-on: windows-2022
+    runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
@@ -213,7 +213,7 @@ jobs:
     steps:
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           install: >-
             git
             zip
@@ -272,7 +272,7 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-              
+
       - name: Install pkgconf
         env: { VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite" }
         run: vcpkg install pkgconf:x64-windows-release
