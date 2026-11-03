@@ -464,7 +464,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
   file = SDL_IOFromFile(path, "rb");
   if (!file) return NULL; // error set by SDL_IOFromFile
-  
+
   int len = strlen(path);
   font = check_alloc(SDL_calloc(1, sizeof(RenFont) + len + 1));
   strcpy(font->path, path);
@@ -627,9 +627,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
   const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
-  const uint32_t rs_ = surface_format->Rshift, gs_ = surface_format->Gshift, bs_ = surface_format->Bshift;
+  const uint8_t rshift = surface_format->Rshift, gshift = surface_format->Gshift, bshift = surface_format->Bshift;
   const uint32_t keep_mask = surface_format->Amask;
-  const uint32_t ca = color.a, cr = color.r * ca, cg = color.g * ca, cb = color.b * ca;
+  const uint32_t color_a = color.a, color_r = color.r, color_g = color.g, color_b = color.b;
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
   RenFont* last = NULL;
@@ -672,23 +672,24 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
         const uint8_t *restrict src = source_pixel;
         uint32_t *restrict dst = destination_pixel;
 
+        // from glyph_start to glyph_end
         if (metric->format == EGlyphFormatSubpixel) {
           for (int i = 0; i < count; ++i) {
-            uint32_t d = dst[i];
-            uint32_t sr = src[3 * i], sg = src[3 * i + 1], sb = src[3 * i + 2];
-            uint32_t r = (cr * sr + ((d >> rs_) & 0xFF) * (65025 - sr * ca) + 32767) / 65025;
-            uint32_t g = (cg * sg + ((d >> gs_) & 0xFF) * (65025 - sg * ca) + 32767) / 65025;
-            uint32_t b = (cb * sb + ((d >> bs_) & 0xFF) * (65025 - sb * ca) + 32767) / 65025;
-            dst[i] = (d & keep_mask) | r << rs_ | g << gs_ | b << bs_;
+            uint32_t dst_pixel = dst[i];
+            uint32_t src_r = src[3 * i], src_g = src[3 * i + 1], src_b = src[3 * i + 2];
+            uint32_t r = (color_r * src_r * color_a + ((dst_pixel >> rshift) & 0xFF) * (65025 - src_r * color_a) + 32767) / 65025;
+            uint32_t g = (color_g * src_g * color_a + ((dst_pixel >> gshift) & 0xFF) * (65025 - src_g * color_a) + 32767) / 65025;
+            uint32_t b = (color_b * src_b * color_a + ((dst_pixel >> bshift) & 0xFF) * (65025 - src_b * color_a) + 32767) / 65025;
+            dst[i] = (dst_pixel & keep_mask) | r << rshift | g << gshift | b << bshift;
           }
         } else {
           for (int i = 0; i < count; ++i) {
-            uint32_t d = dst[i];
-            uint32_t s = src[i];
-            uint32_t r = (cr * s + ((d >> rs_) & 0xFF) * (65025 - s * ca) + 32767) / 65025;
-            uint32_t g = (cg * s + ((d >> gs_) & 0xFF) * (65025 - s * ca) + 32767) / 65025;
-            uint32_t b = (cb * s + ((d >> bs_) & 0xFF) * (65025 - s * ca) + 32767) / 65025;
-            dst[i] = (d & keep_mask) | r << rs_ | g << gs_ | b << bs_;
+            uint32_t dst_pixel = dst[i];
+            uint32_t src_c = src[i]; // color is grayscale
+            uint32_t r = (color_r * src_c * color_a + ((dst_pixel >> rshift) & 0xFF) * (65025 - src_c * color_a) + 32767) / 65025;
+            uint32_t g = (color_g * src_c * color_a + ((dst_pixel >> gshift) & 0xFF) * (65025 - src_c * color_a) + 32767) / 65025;
+            uint32_t b = (color_b * src_c * color_a + ((dst_pixel >> bshift) & 0xFF) * (65025 - src_c * color_a) + 32767) / 65025;
+            dst[i] = (dst_pixel & keep_mask) | r << rshift | g << gshift | b << bshift;
           }
         }
       }
@@ -769,7 +770,7 @@ int video_init(void) {
   static int ren_inited = 0;
   if (!ren_inited) {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
-      return -1;     
+      return -1;
     SDL_EnableScreenSaver();
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
     SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
