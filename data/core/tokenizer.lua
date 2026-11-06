@@ -361,7 +361,10 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
             "Token type is a table, but a string was expected.")
           p.type = p.type[1]
         elseif #find_results - 1 > n_types then
-          report_bad_pattern(core.error, current_syntax, n,
+          -- The surplus captures fall through to the "normal" type (see
+          -- push_tokens), same graceful degradation as the too-many-types
+          -- branch below -- a plugin-authoring mistake, not an editor error.
+          report_bad_pattern(core.warn, current_syntax, n,
             "Not enough token types: got %d needed %d.", n_types, #find_results - 1)
         elseif #find_results - 1 < n_types then
           report_bad_pattern(core.warn, current_syntax, n,
