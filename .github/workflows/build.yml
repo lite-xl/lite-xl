@@ -261,6 +261,7 @@ jobs:
           if (-not $vsPath) { throw "Could not find a Visual Studio installation" }
 
           $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvarsall.bat"
+          cmd /s /c "`"$vcvars`" && set"
           cmd /s /c "`"$vcvars`" >nul && set" | ForEach-Object {
             if ($_ -match '^([^=]+)=(.*)$') {
               "$($matches[1])=$($matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
