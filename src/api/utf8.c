@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "../unidata.h"
+#include "utf8.h"
 
 /* UTF-8 string operations */
 
@@ -264,6 +265,23 @@ static const char *utf8_safe_decode (lua_State *L, const char *p, utfint *pval) 
   p = utf8_decode(p, pval, 0);
   if (p == NULL) luaL_error(L, "invalid UTF-8 code");
   return p;
+}
+
+/* Like utf8_safe_decode but never raises. An invalid sequence is reported as
+   one opaque codepoint equal to its lead byte, spanning the lead byte plus
+   any trailing continuation bytes -- the same span utf8_next() would walk, so
+   the two stay in step. The pattern matcher uses this so string.ufind /
+   string.umatch over a buffer that contains invalid UTF-8 (any real file may)
+   match over it rather than aborting tokenization. Relies on the input being
+   NUL-terminated, as Lua strings always are. */
+static const char *utf8_lax_decode (const char *p, utfint *pval) {
+  const char *np = utf8_decode(p, pval, 0);
+  if (np == NULL) {
+    *pval = (unsigned char)*p++;
+    while (iscont(p)) p++;
+    return p;
+  }
+  return np;
 }
 
 static void add_utf8char (luaL_Buffer *b, utfint ch) {
@@ -704,7 +722,8 @@ typedef struct MatchState {
   const char *src_init;  /* init of source string */
   const char *src_end;  /* end ('\0') of source string */
   const char *p_end;  /* end ('\0') of pattern */
-  lua_State *L;
+  lua_State *L;  /* NULL when invoked from lite_lua_pattern_match off the main thread */
+  int aborted;  /* set instead of raising when L == NULL; caller unwinds to "no match" */
   int level;  /* total number of captures (finished or unfinished) */
   struct {
     const char *init;
@@ -725,8 +744,10 @@ static const char *match (MatchState *ms, const char *s, const char *p);
 
 static int check_capture (MatchState *ms, int l) {
   l -= '1';
-  if (l < 0 || l >= ms->level || ms->capture[l].len == CAP_UNFINISHED)
-    return luaL_error(ms->L, "invalid capture index %%%d", l + 1);
+  if (l < 0 || l >= ms->level || ms->capture[l].len == CAP_UNFINISHED) {
+    if (ms->L) return luaL_error(ms->L, "invalid capture index %%%d", l + 1);
+    ms->aborted = 1; return 0;
+  }
   return l;
 }
 
@@ -734,23 +755,28 @@ static int capture_to_close (MatchState *ms) {
   int level = ms->level;
   while (--level >= 0)
     if (ms->capture[level].len == CAP_UNFINISHED) return level;
-  return luaL_error(ms->L, "invalid pattern capture");
+  if (ms->L) return luaL_error(ms->L, "invalid pattern capture");
+  ms->aborted = 1; return 0;
 }
 
 static const char *classend (MatchState *ms, const char *p) {
   utfint ch = 0;
-  p = utf8_safe_decode(ms->L, p, &ch);
+  p = utf8_lax_decode(p, &ch);
   switch (ch) {
     case L_ESC: {
-      if (p == ms->p_end)
-        luaL_error(ms->L, "malformed pattern (ends with " LUA_QL("%%") ")");
+      if (p == ms->p_end) {
+        if (ms->L) luaL_error(ms->L, "malformed pattern (ends with " LUA_QL("%%") ")");
+        else { ms->aborted = 1; return ms->p_end; }
+      }
       return utf8_next(p, ms->p_end);
     }
     case '[': {
       if (*p == '^') p++;
       do {  /* look for a `]' */
-        if (p == ms->p_end)
-          luaL_error(ms->L, "malformed pattern (missing " LUA_QL("]") ")");
+        if (p == ms->p_end) {
+          if (ms->L) luaL_error(ms->L, "malformed pattern (missing " LUA_QL("]") ")");
+          else { ms->aborted = 1; return ms->p_end; }
+        }
         if (*(p++) == L_ESC && p < ms->p_end)
           p++;  /* skip escapes (e.g. `%]') */
       } while (*p != ']');
@@ -785,16 +811,16 @@ static int matchbracketclass (MatchState *ms, utfint c, const char *p, const cha
   }
   while (p < ec) {
     utfint ch = 0;
-    p = utf8_safe_decode(ms->L, p, &ch);
+    p = utf8_lax_decode(p, &ch);
     if (ch == L_ESC) {
-      p = utf8_safe_decode(ms->L, p, &ch);
+      p = utf8_lax_decode(p, &ch);
       if (match_class(c, ch))
         return sig;
     } else {
       utfint next = 0;
-      const char *np = utf8_safe_decode(ms->L, p, &next);
+      const char *np = utf8_lax_decode(p, &next);
       if (next == '-' && np < ec) {
-        p = utf8_safe_decode(ms->L, np, &next);
+        p = utf8_lax_decode(np, &next);
         if (ch <= c && c <= next)
           return sig;
       }
@@ -809,11 +835,11 @@ static int singlematch (MatchState *ms, const char *s, const char *p, const char
     return 0;
   else {
     utfint ch=0, pch=0;
-    utf8_safe_decode(ms->L, s, &ch);
-    p = utf8_safe_decode(ms->L, p, &pch);
+    utf8_lax_decode(s, &ch);
+    p = utf8_lax_decode(p, &pch);
     switch (pch) {
       case '.': return 1;  /* matches any char */
-      case L_ESC: utf8_safe_decode(ms->L, p, &pch);
+      case L_ESC: utf8_lax_decode(p, &pch);
                   return match_class(ch, pch);
       case '[': return matchbracketclass(ms, ch, p-1, ep-1);
       default:  return pch == ch;
@@ -823,17 +849,19 @@ static int singlematch (MatchState *ms, const char *s, const char *p, const char
 
 static const char *matchbalance (MatchState *ms, const char *s, const char **p) {
   utfint ch=0, begin=0, end=0;
-  *p = utf8_safe_decode(ms->L, *p, &begin);
-  if (*p >= ms->p_end)
-    luaL_error(ms->L, "malformed pattern "
+  *p = utf8_lax_decode(*p, &begin);
+  if (*p >= ms->p_end) {
+    if (ms->L) luaL_error(ms->L, "malformed pattern "
                       "(missing arguments to " LUA_QL("%%b") ")");
-  *p = utf8_safe_decode(ms->L, *p, &end);
-  s = utf8_safe_decode(ms->L, s, &ch);
+    else { ms->aborted = 1; return NULL; }
+  }
+  *p = utf8_lax_decode(*p, &end);
+  s = utf8_lax_decode(s, &ch);
   if (ch != begin) return NULL;
   else {
     int cont = 1;
     while (s < ms->src_end) {
-      s = utf8_safe_decode(ms->L, s, &ch);
+      s = utf8_lax_decode(s, &ch);
       if (ch == end) {
         if (--cont == 0) return s;
       }
@@ -872,7 +900,10 @@ static const char *min_expand (MatchState *ms, const char *s, const char *p, con
 static const char *start_capture (MatchState *ms, const char *s, const char *p, int what) {
   const char *res;
   int level = ms->level;
-  if (level >= LUA_MAXCAPTURES) luaL_error(ms->L, "too many captures");
+  if (level >= LUA_MAXCAPTURES) {
+    if (ms->L) luaL_error(ms->L, "too many captures");
+    else { ms->aborted = 1; return NULL; }
+  }
   ms->capture[level].init = s;
   ms->capture[level].len = what;
   ms->level = level+1;
@@ -901,12 +932,14 @@ static const char *match_capture (MatchState *ms, const char *s, int l) {
 }
 
 static const char *match (MatchState *ms, const char *s, const char *p) {
-  if (ms->matchdepth-- == 0)
-    luaL_error(ms->L, "pattern too complex");
+  if (ms->matchdepth-- == 0) {
+    if (ms->L) luaL_error(ms->L, "pattern too complex");
+    ms->aborted = 1; ms->matchdepth++; return NULL;
+  }
   init: /* using goto's to optimize tail recursion */
   if (p != ms->p_end) {  /* end of pattern? */
     utfint ch = 0;
-    utf8_safe_decode(ms->L, p, &ch);
+    utf8_lax_decode(p, &ch);
     switch (ch) {
       case '(': {  /* start capture */
         if (*(p + 1) == ')')  /* position capture? */
@@ -927,7 +960,7 @@ static const char *match (MatchState *ms, const char *s, const char *p) {
       }
       case L_ESC: {  /* escaped sequence not in the format class[*+?-]? */
         const char *prev_p = p;
-        p = utf8_safe_decode(ms->L, p+1, &ch);
+        p = utf8_lax_decode(p+1, &ch);
         switch (ch) {
           case 'b': {  /* balanced string? */
             s = matchbalance(ms, s, &p);
@@ -938,9 +971,11 @@ static const char *match (MatchState *ms, const char *s, const char *p) {
           }
           case 'f': {  /* frontier? */
             const char *ep; utfint previous = 0, current = 0;
-            if (*p != '[')
-              luaL_error(ms->L, "missing " LUA_QL("[") " after "
+            if (*p != '[') {
+              if (ms->L) luaL_error(ms->L, "missing " LUA_QL("[") " after "
                                  LUA_QL("%%f") " in pattern");
+              ms->aborted = 1; s = NULL; break;
+            }
             ep = classend(ms, p);  /* points to what is next */
             if (s != ms->src_init)
               utf8_decode(utf8_prev(ms->src_init, s), &previous, 0);
@@ -1159,6 +1194,51 @@ static int gmatch_aux (lua_State *L) {
   return 0;  /* not found */
 }
 
+/* -- internal matcher entry point (see utf8.h) ----------------------------- */
+
+int lite_lua_pattern_match(lua_State *L,
+    const char *subject, size_t subject_len,
+    const char *pattern, size_t pattern_len,
+    size_t from, int anchored,
+    long *match_start, long *match_end,
+    lite_pattern_captures *caps) {
+  const char *s = subject, *es = subject + subject_len;
+  const char *p = pattern, *ep = pattern + pattern_len;
+  const char *init = (from <= subject_len) ? s + from : es;
+  MatchState ms;
+  ms.L = L;
+  ms.aborted = 0;
+  ms.src_init = s;
+  ms.src_end = es;
+  ms.p_end = ep;
+  ms.matchdepth = MAXCCALLS;
+  do {
+    const char *res;
+    ms.level = 0;
+    assert(ms.aborted || ms.matchdepth == MAXCCALLS);
+    if ((res = match(&ms, init, p)) != NULL) {
+      *match_start = (long)(init - s);
+      *match_end = (long)(res - s);
+      if (caps) {
+        int i, n = ms.level;
+        if (n > LITE_PATTERN_MAXCAPTURES) n = LITE_PATTERN_MAXCAPTURES;
+        caps->n = n;
+        for (i = 0; i < n; i++) {
+          caps->start[i] = (long)(ms.capture[i].init - s);
+          caps->len[i] = (ms.capture[i].len == CAP_POSITION)
+            ? -1 : (long)ms.capture[i].len;
+        }
+      }
+      return 1;
+    }
+    if (ms.aborted) return 0;  /* malformed / too-complex pattern, no lua_State to raise */
+    if (init == es) break;
+    init = utf8_next(init, es);
+  } while (init <= es && !anchored);
+  return 0;
+}
+
+
 static int Lutf8_gmatch (lua_State *L) {
   luaL_checkstring(L, 1);
   luaL_checkstring(L, 2);
@@ -1172,11 +1252,11 @@ static void add_s (MatchState *ms, luaL_Buffer *b, const char *s, const char *e)
   const char *new_end, *news = to_utf8(ms->L, 3, &new_end);
   while (news < new_end) {
     utfint ch = 0;
-    news = utf8_safe_decode(ms->L, news, &ch);
+    news = utf8_lax_decode(news, &ch);
     if (ch != L_ESC)
       add_utf8char(b, ch);
     else {
-      news = utf8_safe_decode(ms->L, news, &ch); /* skip ESC */
+      news = utf8_lax_decode(news, &ch); /* skip ESC */
       if (!utf8_isdigit(ch)) {
         if (ch != L_ESC)
           luaL_error(ms->L, "invalid use of " LUA_QL("%c")
