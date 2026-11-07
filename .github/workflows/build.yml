@@ -253,11 +253,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # https://www.scivision.dev/github-actions-use-msvc/
       - name: Setup MSVC
-        id: msvc-dev-cmd
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86_64
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -property installationPath
+          if (-not $vsPath) { throw "Could not find a Visual Studio installation" }
+          "VS=$vsPath"
+          "VS=$vsPath" >> $env:GITHUB_ENV
 
       - name: Setup Python
         uses: actions/setup-python@v7
