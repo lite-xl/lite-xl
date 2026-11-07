@@ -38,9 +38,11 @@ int get_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, in
 
 
 int translate_changes_dirmonitor(struct dirmonitor_internal* monitor, char* buffer, int length, int (*change_callback)(int, const char*, void*), void* data) {
-  for (struct inotify_event* info = (struct inotify_event*)buffer; (char*)info < buffer + length; info = (struct inotify_event*)((char*)info + sizeof(struct inotify_event))) {
+  for (char* p = buffer; p + sizeof(struct inotify_event) <= buffer + length; ) {
+    struct inotify_event* info = (struct inotify_event*)p;
     if ((info->mask & (~IN_IGNORED)) > 0)
       change_callback(info->wd, NULL, data);
+    p += sizeof(struct inotify_event) + info->len;
   }
   return 0;
 }
