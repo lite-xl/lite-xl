@@ -12,6 +12,11 @@ local function is_non_word(char)
 end
 
 
+local function is_whitespace(char)
+  return string.find(" \t", char, nil, true)
+end
+
+
 function translate.previous_char(doc, line, col)
   repeat
     line, col = doc:position_offset(line, col, -1)
@@ -76,6 +81,34 @@ function translate.end_of_word(doc, line, col)
     local line2, col2 = doc:position_offset(line, col, 1)
     local char = doc:get_char(line, col)
     if is_non_word(char)
+    or line == line2 and col == col2 then
+      break
+    end
+    line, col = line2, col2
+  end
+  return line, col
+end
+
+
+function translate.start_of_whitespace(doc, line, col)
+  while true do
+    local line2, col2 = doc:position_offset(line, col, -1)
+    local char = doc:get_char(line2, col2)
+    if not is_whitespace(char)
+    or line == line2 and col == col2 then
+      break
+    end
+    line, col = line2, col2
+  end
+  return line, col
+end
+
+
+function translate.end_of_whitespace(doc, line, col)
+  while true do
+    local line2, col2 = doc:position_offset(line, col, 1)
+    local char = doc:get_char(line, col)
+    if not is_whitespace(char)
     or line == line2 and col == col2 then
       break
     end
