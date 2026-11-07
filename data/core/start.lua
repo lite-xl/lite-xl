@@ -74,6 +74,11 @@ local require_stack = { "" }
 ---@return unknown loaderdata
 function require(modname, ...)
   if modname then
+    local plugin_name = modname:match("^plugins%.([^%.]+)")
+    if plugin_name then
+      local config = require "core.config"
+      assert(config.plugins[plugin_name] ~= false, "cannot require " .. plugin_name .. ", plugin has been disabled")
+    end
     local level, rel_path = string.match(modname, "^(%.*)(.*)")
     level = #(level or "")
     if level > 0 then
