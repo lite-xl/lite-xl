@@ -259,8 +259,13 @@ jobs:
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $vsPath = & $vswhere -latest -products * -property installationPath
           if (-not $vsPath) { throw "Could not find a Visual Studio installation" }
-          "VS=$vsPath"
-          "VS=$vsPath" >> $env:GITHUB_ENV
+
+          $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvarsall.bat"
+          cmd /s /c "`"$vcvars`" >nul && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              "$($matches[1])=$($matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            }
+          }
 
       - name: Setup Python
         uses: actions/setup-python@v7
