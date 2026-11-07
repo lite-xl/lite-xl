@@ -206,6 +206,48 @@ function Doc:get_selection_text(limit)
   return table.concat(result, "\n")
 end
 
+-- Holds selection range cache
+local sel_range_cache = setmetatable({}, { __mode = "k" })
+
+---Get selection size from given selection range parameters
+---@param line1 integer
+---@param col1 integer
+---@param line2 integer
+---@param col2 integer
+---@return integer sel_length
+function Doc:get_selection_size(line1, col1, line2, col2)
+	-- The selection cache gets invalidated when the document changes
+	local change_id = self:get_change_id()
+	if not sel_range_cache[self] or sel_range_cache[self].id ~= change_id then
+		sel_range_cache[self] = { id = change_id, selections = {} }
+	end
+
+	local sel_cache = sel_range_cache[self].selections
+	local selection_name = string.format("%d:%d-%d:%d", line1, col1, line2, col2)
+	if not sel_cache[selection_name] then
+		local total_len = 0
+		-- Calculate selection length by going through selected line/lines
+		for i = line1, line2 do
+			local len
+			if line1 == line2 then
+				len = col2 - col1
+			else
+				if i == line1 then
+					len = #self.lines[i] - col1
+				elseif i == line2 then
+					len = col2
+				else
+					len = #self.lines[i]
+				end
+			end
+			total_len = total_len + len
+		end
+		sel_cache[selection_name] = total_len
+	end
+
+	return sel_cache[selection_name]
+end
+
 function Doc:has_selection()
   local line1, col1, line2, col2 = self:get_selection(false)
   return line1 ~= line2 or col1 ~= col2
