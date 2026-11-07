@@ -77,7 +77,8 @@ typedef enum {
 typedef enum {
   EGlyphNone = 0,             // glyph is not loaded
   EGlyphXAdvance = (1 << 0L), // xadvance is loaded
-  EGlyphBitmap = (1 << 1L)    // bitmap is loaded
+  EGlyphBitmap = (1 << 1L),   // bitmap is loaded
+  EGlyphNoBitmap = (1 << 2L)  // glyph has no usable bitmap
 } ERenGlyphFlags;
 
 // metrics for a loaded glyph
@@ -312,7 +313,7 @@ static GlyphMetric *font_load_glyph_metric(RenFont *font, unsigned int glyph_id,
 
 static SDL_Surface *font_load_glyph_bitmap(RenFont *font, unsigned int glyph_id, unsigned int bitmap_idx) {
   GlyphMetric *metric = font_load_glyph_metric(font, glyph_id, bitmap_idx);
-  if (!metric) return NULL;
+  if (!metric || (metric->flags & EGlyphNoBitmap)) return NULL;
   if (metric->flags & EGlyphBitmap) return font->glyphs.atlas[metric->format][metric->atlas_idx].surfaces[metric->surface_idx];
 
   // render the glyph for a bitmap_idx
@@ -327,8 +328,10 @@ static SDL_Surface *font_load_glyph_bitmap(RenFont *font, unsigned int glyph_id,
   if (!slot->bitmap.width || !slot->bitmap.rows || !slot->bitmap.buffer ||
       (slot->bitmap.pixel_mode != FT_PIXEL_MODE_MONO
         && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY
-        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD))
+        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD)) {
+    metric->flags |= EGlyphNoBitmap;
     return NULL;
+  }
 
   unsigned int glyph_width = slot->bitmap.width / FONT_BITMAP_COUNT(font);
   // FT_PIXEL_MODE_MONO uses 1 bit per pixel packed bitmap
@@ -464,7 +467,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
   file = SDL_IOFromFile(path, "rb");
   if (!file) return NULL; // error set by SDL_IOFromFile
-  
+
   int len = strlen(path);
   font = check_alloc(SDL_calloc(1, sizeof(RenFont) + len + 1));
   strcpy(font->path, path);
@@ -626,6 +629,10 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   y *= surface_scale;
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
+  const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
+  const uint8_t rshift = surface_format->Rshift, gshift = surface_format->Gshift, bshift = surface_format->Bshift;
+  const uint32_t keep_mask = surface_format->Amask;
+  const uint32_t color_a = color.a, color_r = color.r, color_g = color.g, color_b = color.b;
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
   RenFont* last = NULL;
@@ -634,7 +641,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
 
   while (text < end) {
-    unsigned int codepoint, r, g, b;
+    unsigned int codepoint;
     text = utf8_to_codepoint(text, end,  &codepoint);
     SDL_Surface *font_surface = NULL; GlyphMetric *metric = NULL;
     RenFont* font = font_group_get_glyph(fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &font_surface, &metric);
@@ -647,51 +654,46 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
+      const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
+      if (start_x + (glyph_end - glyph_start) >= clip_end_x)
+        glyph_end = glyph_start + (clip_end_x - start_x);
+      if (start_x < clip.x) {
+        int offset = clip.x - start_x;
+        start_x += offset;
+        glyph_start += offset;
+      }
+      const int count = glyph_end - glyph_start;
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line - metric->y0 + y - metric->bitmap_top + (fonts[0]->baseline * surface_scale);
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
           break;
-        if (start_x + (glyph_end - glyph_start) >= clip_end_x)
-          glyph_end = glyph_start + (clip_end_x - start_x);
-        if (start_x < clip.x) {
-          int offset = clip.x - start_x;
-          start_x += offset;
-          glyph_start += offset;
-        }
-        
-        const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
-        const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
 
         uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * surface_format->bytes_per_pixel]);
         uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface_format->bytes_per_pixel];
-        for (int x = glyph_start; x < glyph_end; ++x) {
-          uint32_t destination_color = *destination_pixel;
-          // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          SDL_Color dst = {
-            (destination_color & surface_format->Rmask) >> surface_format->Rshift,
-            (destination_color & surface_format->Gmask) >> surface_format->Gshift,
-            (destination_color & surface_format->Bmask) >> surface_format->Bshift,
-            (destination_color & surface_format->Amask) >> surface_format->Ashift};
-          SDL_Color src;
+        const uint8_t *restrict src = source_pixel;
+        uint32_t *restrict dst = destination_pixel;
 
-          if (metric->format == EGlyphFormatSubpixel) {
-            src.r = *(source_pixel++);
-            src.g = *(source_pixel++);
-          } else {
-            src.r = *(source_pixel);
-            src.g = *(source_pixel);
+        // from glyph_start to glyph_end
+        if (metric->format == EGlyphFormatSubpixel) {
+          for (int i = 0; i < count; ++i) {
+            uint32_t dst_pixel = dst[i];
+            uint32_t src_r = src[3 * i], src_g = src[3 * i + 1], src_b = src[3 * i + 2];
+            uint32_t r = (color_r * src_r * color_a + ((dst_pixel >> rshift) & 0xFF) * (65025 - src_r * color_a) + 32767) / 65025;
+            uint32_t g = (color_g * src_g * color_a + ((dst_pixel >> gshift) & 0xFF) * (65025 - src_g * color_a) + 32767) / 65025;
+            uint32_t b = (color_b * src_b * color_a + ((dst_pixel >> bshift) & 0xFF) * (65025 - src_b * color_a) + 32767) / 65025;
+            dst[i] = (dst_pixel & keep_mask) | r << rshift | g << gshift | b << bshift;
           }
-
-          src.b = *(source_pixel++);
-          src.a = 0xFF;
-
-          r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
-          g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
-          b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
-          // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
-          *destination_pixel++ = (unsigned int) dst.a << surface_format->Ashift | r << surface_format->Rshift | g << surface_format->Gshift | b << surface_format->Bshift;
+        } else {
+          for (int i = 0; i < count; ++i) {
+            uint32_t dst_pixel = dst[i];
+            uint32_t src_c = src[i]; // color is grayscale
+            uint32_t r = (color_r * src_c * color_a + ((dst_pixel >> rshift) & 0xFF) * (65025 - src_c * color_a) + 32767) / 65025;
+            uint32_t g = (color_g * src_c * color_a + ((dst_pixel >> gshift) & 0xFF) * (65025 - src_c * color_a) + 32767) / 65025;
+            uint32_t b = (color_b * src_c * color_a + ((dst_pixel >> bshift) & 0xFF) * (65025 - src_c * color_a) + 32767) / 65025;
+            dst[i] = (dst_pixel & keep_mask) | r << rshift | g << gshift | b << bshift;
+          }
         }
       }
     }
@@ -771,7 +773,7 @@ int video_init(void) {
   static int ren_inited = 0;
   if (!ren_inited) {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
-      return -1;     
+      return -1;
     SDL_EnableScreenSaver();
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
     SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
