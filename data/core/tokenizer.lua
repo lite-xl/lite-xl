@@ -70,8 +70,8 @@ end
 -- last appended subsyntax and decreases the stack.
 
 local function retrieve_syntax_state(incoming_syntax, state)
-  local current_syntax, subsyntax_info, current_pattern_idx, current_level =
-    incoming_syntax, nil, state:byte(1) or 0, 1
+  local current_syntax, subsyntaxes_info, current_pattern_idx, current_level =
+    incoming_syntax, {}, state:byte(1) or 0, 1
   if
     current_pattern_idx > 0
     and
@@ -84,7 +84,8 @@ local function retrieve_syntax_state(incoming_syntax, state)
       local target = state:byte(i)
       if target ~= 0 then
         if current_syntax.patterns[target].syntax then
-          subsyntax_info = current_syntax.patterns[target]
+          local subsyntax_info = current_syntax.patterns[target]
+          table.insert(subsyntaxes_info, subsyntax_info)
           current_syntax = type(subsyntax_info.syntax) == "table" and
             subsyntax_info.syntax or syntax.get(subsyntax_info.syntax)
           current_pattern_idx = 0
@@ -98,7 +99,7 @@ local function retrieve_syntax_state(incoming_syntax, state)
       end
     end
   end
-  return current_syntax, subsyntax_info, current_pattern_idx, current_level
+  return current_syntax, subsyntaxes_info, current_pattern_idx, current_level
 end
 
 ---Return the list of syntaxes used in the specified state.
@@ -158,10 +159,10 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
   -- state              : a string of bytes representing syntax state (see above)
 
   -- current_syntax     : the syntax we're currently in.
-  -- subsyntax_info     : info about the delimiters of this subsyntax.
+  -- subsyntaxes_info   : info about the delimiters of all parent subsyntaxes.
   -- current_pattern_idx: the index of the pattern we're on for this syntax.
   -- current_level      : how many subsyntaxes deep we are.
-  local current_syntax, subsyntax_info, current_pattern_idx, current_level =
+  local current_syntax, subsyntaxes_info, current_pattern_idx, current_level =
     retrieve_syntax_state(incoming_syntax, state)
 
   -- Should be used to set the state variable. Don't modify it directly.
@@ -185,7 +186,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
   local function push_subsyntax(entering_syntax, pattern_idx)
     set_subsyntax_pattern_idx(pattern_idx)
     current_level = current_level + 1
-    subsyntax_info = entering_syntax
+    table.insert(subsyntaxes_info, entering_syntax)
     current_syntax = type(entering_syntax.syntax) == "table" and
       entering_syntax.syntax or syntax.get(entering_syntax.syntax)
     current_pattern_idx = 0
@@ -195,7 +196,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     current_level = current_level - 1
     state = string.sub(state, 1, current_level)
     set_subsyntax_pattern_idx(0)
-    current_syntax, subsyntax_info, current_pattern_idx, current_level =
+    current_syntax, subsyntaxes_info, current_pattern_idx, current_level =
       retrieve_syntax_state(incoming_syntax, state)
   end
 
@@ -295,16 +296,19 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
       -- If we're in subsyntax mode, always check to see if we end our syntax
       -- first, before the found delimeter, as ending the subsyntax takes
       -- precedence over ending the delimiter in the subsyntax.
-      if subsyntax_info then
-        local ss, se = find_text(text, subsyntax_info, i, false, true)
-        -- If we find that we end the subsyntax before the
-        -- delimiter, push the token, and signal we shouldn't
-        -- treat the bit after as a token to be normally parsed
-        -- (as it's the syntax delimiter).
-        if ss and (s == nil or ss < s) then
-          push_token(res, token_type, text:usub(i, ss - 1))
-          i = ss
-          cont = false
+      for _, subsyntax_info in ipairs(subsyntaxes_info) do
+        if subsyntax_info.hard_lexical_stop then
+          local ss, se = find_text(text, subsyntax_info, i, false, true)
+          -- If we find that we end the subsyntax before the
+          -- delimiter, push the token, and signal we shouldn't
+          -- treat the bit after as a token to be normally parsed
+          -- (as it's the syntax delimiter).
+          if ss and (s == nil or ss < s) then
+            push_token(res, token_type, text:usub(i, ss - 1))
+            i = ss
+            cont = false
+            break
+          end
         end
       end
       -- If we don't have any concerns about syntax delimiters,
@@ -328,19 +332,28 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     -- General end of syntax check. Applies in the case where
     -- we're ending early in the middle of a delimiter, or
     -- just normally, upon finding a token.
-    while subsyntax_info do
-      local find_results = { find_text(text, subsyntax_info, i, true, true) }
-      local s, e = find_results[1], find_results[2]
-      if s then
-        push_tokens(res, current_syntax, subsyntax_info, text, find_results)
-        -- On finding unescaped delimiter, pop it.
-        pop_subsyntax()
-        i = e + 1
-      else
+    while true do
+      local found_subsyntax = false
+      for idx, subsyntax_info in ipairs(subsyntaxes_info) do
+        if idx == #subsyntaxes_info or subsyntax_info.hard_lexical_stop then
+          local find_results = { find_text(text, subsyntax_info, i, true, true) }
+          local s, e = find_results[1], find_results[2]
+          if s then
+            push_tokens(res, current_syntax, subsyntax_info, text, find_results)
+            -- On finding unescaped delimiter, pop it.
+            for x = #subsyntaxes_info, idx, -1 do
+              pop_subsyntax()
+            end
+            i = e + 1
+            found_subsyntax = true
+            break
+          end
+        end
+      end
+      if not found_subsyntax then
         break
       end
     end
-
     -- find matching pattern
     local matched = false
     for n, p in ipairs(current_syntax.patterns) do
