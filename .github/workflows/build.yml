@@ -253,11 +253,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # https://www.scivision.dev/github-actions-use-msvc/
       - name: Setup MSVC
-        id: msvc-dev-cmd
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86_64
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -property installationPath
+          if (-not $vsPath) { throw "Could not find a Visual Studio installation" }
+
+          $before = @{}
+          Get-ChildItem env: | ForEach-Object { $before[$_.Name] = $_.Value }
+
+          $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvarsall.bat"
+          $after = cmd /s /c "`"$vcvars`" x64 >nul && set"
+
+          foreach ($line in $after) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              $name = $matches[1]; $value = $matches[2]
+              if (-not $before.ContainsKey($name) -or $before[$name] -ne $value) {
+                Write-Host "Setting $name=$value"
+                "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+              }
+            }
+          }
 
       - name: Setup Python
         uses: actions/setup-python@v7
