@@ -79,18 +79,23 @@ static int f_dirmonitor_new(lua_State* L) {
   memset(monitor, 0, sizeof(struct dirmonitor));
   monitor->mutex = SDL_CreateMutex();
   monitor->internal = init_dirmonitor();
+  if (!monitor->mutex || !monitor->internal)
+    return luaL_error(L, "cannot create directory monitor");
   return 1;
 }
 
 
 static int f_dirmonitor_gc(lua_State* L) {
   struct dirmonitor* monitor = luaL_checkudata(L, 1, API_TYPE_DIRMONITOR);
-  SDL_LockMutex(monitor->mutex);
-  monitor->length = -1;
-  deinit_dirmonitor(monitor->internal);
-  SDL_UnlockMutex(monitor->mutex);
-  SDL_WaitThread(monitor->thread, NULL);
-  SDL_free(monitor->internal);
+  // monitor->internal can be NULL if f_dirmonitor_new failed to initialize it
+  if (monitor->internal) {
+    SDL_LockMutex(monitor->mutex);
+    monitor->length = -1;
+    deinit_dirmonitor(monitor->internal);
+    SDL_UnlockMutex(monitor->mutex);
+    SDL_WaitThread(monitor->thread, NULL);
+    SDL_free(monitor->internal);
+  }
   SDL_DestroyMutex(monitor->mutex);
   return 0;
 }
