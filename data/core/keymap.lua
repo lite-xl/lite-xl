@@ -358,6 +358,7 @@ keymap.add_direct {
   ["ctrl+j"] = "doc:join-lines",
   ["ctrl+a"] = "doc:select-all",
   ["ctrl+d"] = { "find-replace:select-add-next", "doc:select-word" },
+  ["ctrl+k"] = "find-replace:select-skip-last",
   ["ctrl+f3"] = "find-replace:select-next",
   ["ctrl+shift+f3"] = "find-replace:select-previous",
   ["ctrl+l"] = "doc:select-lines",
