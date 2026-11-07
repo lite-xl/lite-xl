@@ -761,7 +761,7 @@ static void ren_remove_window(RenWindow *window_renderer) {
   for (size_t i = 0; i < window_count; ++i) {
     if (window_list[i] == window_renderer) {
       window_count -= 1;
-      memmove(&window_list[i], &window_list[i+1], window_count - i);
+      memmove(&window_list[i], &window_list[i+1], (window_count - i) * sizeof(RenWindow*));
       return;
     }
   }
