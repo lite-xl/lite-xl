@@ -62,7 +62,17 @@ syntax.add {
     { regex = regex_pattern, syntax = inner_regex_syntax,             type = {"string", "string"}  },
     { pattern = { '"', '"', '\\' },                                   type = "string"   },
     { pattern = { "'", "'", '\\' },                                   type = "string"   },
-    { pattern = { "`", "`", '\\' },                                   type = "string"   },
+    {
+      pattern = { "`", "`", "\\" },                                   type = "string",
+      syntax = {
+        symbols = {},
+        patterns = {
+          { pattern = { "%${", "}" }, type = "operator", syntax=".js" },
+          { pattern = "[^$`]+",       type = "string"                 },
+          { pattern = "[$`]",         type = "string"                 }
+        }
+      }
+    },
     -- Use (?:\/(?!\/|\*))? to avoid that a regex can start after a number, while also allowing // and /* comments
     { regex   = [[-?0[xXbBoO][\da-fA-F_]+n?()\s*()(?:\/(?!\/|\*))?]], type = {"number", "normal", "operator"}   },
     { regex   = [[-?\d+[0-9.eE_n]*()\s*()(?:\/(?!\/|\*))?]],          type = {"number", "normal", "operator"}   },
