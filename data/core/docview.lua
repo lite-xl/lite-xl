@@ -443,23 +443,91 @@ function DocView:draw_line_highlight(x, y)
 end
 
 
+-- Cumulative x-offset at the start of each token of `line` (entry 1 is 0,
+-- the last entry is the whole line width), plus, per token, the fixed
+-- character width when the token is drawn in a monospace font over plain
+-- ASCII (used to clip a pathologically long line to the viewport without
+-- measuring it). Cached on the highlighter's line record, so it is dropped
+-- when the line is re-tokenized; the guard fields catch a font or tab-width
+-- change.
+function DocView:get_line_token_offsets(line)
+  local hl_line = self.doc.highlighter:get_line(line)
+  local font = self:get_font()
+  local _, indent_size = self.doc:get_indent_info()
+  local size = font:get_size()
+  local cache = hl_line.token_offsets
+  if cache and cache.font == font and cache.size == size and cache.indent == indent_size then
+    return cache
+  end
+  font:set_tab_size(indent_size)
+  local mono_w
+  if font:get_width("i") == font:get_width("W") then mono_w = font:get_width("i") end
+  cache = { font = font, size = size, indent = indent_size, x = { 0 }, mono = {} }
+  local xoffset = 0
+  local opts = { tab_offset = 0 }
+  local k = 0
+  for _, type, text in self.doc.highlighter:each_token(line) do
+    k = k + 1
+    local tfont = style.syntax_fonts[type] or font
+    if tfont ~= font then tfont:set_tab_size(indent_size) end
+    opts.tab_offset = xoffset
+    xoffset = xoffset + tfont:get_width(text, opts)
+    cache.x[k + 1] = xoffset
+    if mono_w and tfont == font and not text:find("[\9\128-\255]") then
+      cache.mono[k] = mono_w
+    end
+  end
+  hl_line.token_offsets = cache
+  return cache
+end
+
+
 function DocView:draw_line_text(line, x, y)
   local default_font = self:get_font()
-  local tx, ty = x, y + self:get_line_text_y_offset()
-  local last_token = nil
+  local ty = y + self:get_line_text_y_offset()
   local tokens = self.doc.highlighter:get_line(line).tokens
   local tokens_count = #tokens
-  if string.sub(tokens[tokens_count], -1) == "\n" then
+  local last_token
+  if tokens_count > 0 and string.sub(tokens[tokens_count], -1) == "\n" then
     last_token = tokens_count - 1
   end
-  local start_tx = tx
+  local start_tx = x
+  local clip_left = x + self.scroll.x
+  local clip_right = self.position.x + self.size.x
+  local offsets = self:get_line_token_offsets(line)
+  local token_x = offsets.x
+  local opts = { tab_offset = 0 }
+  local k = 0
   for tidx, type, text in self.doc.highlighter:each_token(line) do
-    local color = style.syntax[type]
-    local font = style.syntax_fonts[type] or default_font
-    -- do not render newline, fixes issue #1164
-    if tidx == last_token then text = text:sub(1, -2) end
-    tx = renderer.draw_text(font, text, tx, ty, color, {tab_offset = tx - start_tx})
-    if tx > self.position.x + self.size.x then break end
+    k = k + 1
+    local tok_left = start_tx + token_x[k]
+    local tok_right = start_tx + token_x[k + 1]
+    if tok_left > clip_right then
+      break
+    elseif tok_right >= clip_left then
+      local color = style.syntax[type]
+      local font = style.syntax_fonts[type] or default_font
+      -- do not render newline, fixes issue #1164
+      if tidx == last_token then text = text:sub(1, -2) end
+      local tx = tok_left
+      -- A token far wider than the viewport (a minified line, a pg_dump
+      -- COPY block) is clipped to the visible window here so it is never
+      -- handed to the renderer whole. Only the monospace-ASCII case, where
+      -- the character width is constant, is handled; anything else falls
+      -- through and is drawn in full.
+      local cw = offsets.mono[k]
+      if cw and (tok_right - tok_left) > 2 * (clip_right - clip_left) then
+        -- a few characters of slack on each side so the clip rect, not this
+        -- estimate, decides the exact edge
+        local skip = tok_left < clip_left
+          and math.max(0, math.floor((clip_left - tok_left) / cw) - 3) or 0
+        local take = skip + math.ceil((clip_right - clip_left) / cw) + 6
+        text = text:sub(skip + 1, take)
+        tx = tok_left + skip * cw
+      end
+      opts.tab_offset = tx - start_tx
+      renderer.draw_text(font, text, tx, ty, color, opts)
+    end
   end
   return self:get_line_height()
 end
