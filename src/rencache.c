@@ -312,6 +312,11 @@ void rencache_end_frame(RenWindow *window_renderer) {
 
     cmd = NULL;
     while (next_command(window_renderer, &cmd)) {
+      /* commands whose bounds miss this dirty rect can only produce fully
+      ** clipped pixels -- skip their (often per-glyph) work. SET_CLIP still
+      ** runs so the clip state stays correct across the replay. */
+      if (cmd->type != SET_CLIP && !rects_overlap(r, cmd->command[0]))
+        continue;
       SetClipCommand *ccmd = (SetClipCommand*)&cmd->command;
       DrawRectCommand *rcmd = (DrawRectCommand*)&cmd->command;
       DrawTextCommand *tcmd = (DrawTextCommand*)&cmd->command;
