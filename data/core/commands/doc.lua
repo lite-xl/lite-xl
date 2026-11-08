@@ -105,10 +105,14 @@ local function split_cursor(dv, direction)
   local dv_translate = direction < 0
     and DocView.translate.previous_line
     or DocView.translate.next_line
-  for _, line1, col1 in dv.doc:get_selections() do
-    if line1 + direction >= 1 and line1 + direction <= #dv.doc.lines then
-      table.insert(new_cursors, { dv_translate(dv.doc, line1, col1, dv) })
+  local last_line = nil
+  for _, l1, c1 in dv.doc:get_selections(false, direction == 1 and true or false) do
+    if last_line == nil or last_line == l1 or last_line - direction ~= l1 then
+      if l1 + direction >= 1 and l1 + direction <= #dv.doc.lines then
+        table.insert(new_cursors, { dv_translate(dv.doc, l1, c1, dv) })
+      end
     end
+    last_line = l1
   end
   -- add selections in the order that will leave the "last" added one as doc.last_selection
   local start, stop = 1, #new_cursors
