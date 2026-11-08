@@ -153,7 +153,7 @@ end
 
 local function compare_score(a, b)
   if a.score == b.score then
-    return tostring(a.text) < tostring(b.text)
+    return a.text < b.text
   end
   return a.score > b.score
 end
@@ -162,14 +162,15 @@ local function fuzzy_match_items(items, needle, files)
   local res = {}
   needle = (PLATFORM == "Windows" and files) and needle:gsub('/', PATHSEP) or needle
   for _, item in ipairs(items) do
-    local score = system.fuzzy_match(tostring(item), needle, files)
+    local text = tostring(item)
+    local score = system.fuzzy_match(text, needle, files)
     if score then
-      table.insert(res, { text = item, score = score })
+      table.insert(res, { item = item, text = text, score = score })
     end
   end
   table.sort(res, compare_score)
   for i, item in ipairs(res) do
-    res[i] = item.text
+    res[i] = item.item
   end
   return res
 end
