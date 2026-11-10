@@ -206,7 +206,7 @@ init_lua:
     "end)\n"
     "return core and core.restart_request\n";
 
-  if (luaL_loadstring(L, init_lite_code)) {
+  if (luaL_loadbuffer(L, init_lite_code, SDL_strlen(init_lite_code), "=" __FILE__)) {
     fprintf(stderr, "internal error when starting the application\n");
     exit(1);
   }
