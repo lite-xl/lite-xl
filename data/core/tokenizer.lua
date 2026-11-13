@@ -5,6 +5,10 @@ local config = require "core.config"
 local tokenizer = {}
 local bad_patterns = {}
 
+-- Optional C tokenizer core. It reproduces tokenize() byte-for-byte for lines
+-- that don't touch a subsyntax, and declines (returns false) otherwise.
+local tokenizer_c = rawget(_G, "tokenizer_c")
+
 local function push_token(t, type, text)
   if not text or #text == 0 then return end
   type = type or "normal"
@@ -47,7 +51,14 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
   else
     local start, fin = find_results[1], find_results[2]
     local text = full_text:usub(start, fin)
-    push_token(t, syn.symbols[text] or pattern.type, text)
+    -- A delimited pair whose `type` is a table but whose matched delimiter has
+    -- no captures lands here (e.g. a subsyntax `{ "()def", ":" }` closing on
+    -- its `:`). Take the first declared type -- the same "fallback group"
+    -- convention the multi-capture branch and the subsyntax middle use -- so a
+    -- token type is always a string, never the type table itself.
+    local ptype = pattern.type
+    if type(ptype) == "table" then ptype = ptype[1] end
+    push_token(t, syn.symbols[text] or ptype, text)
   end
 end
 
@@ -131,7 +142,7 @@ end
 ---@param incoming_syntax table
 ---@param text string
 ---@param state string
-function tokenizer.tokenize(incoming_syntax, text, state, resume)
+local function tokenize(incoming_syntax, text, state, resume)
   local res
   local i = 1
 
@@ -200,57 +211,44 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
   end
 
   local function find_text(text, p, offset, at_start, close)
-    local target, res = p.pattern or p.regex, { 1, offset - 1 }
-    local p_idx = close and 2 or 1
-    local code = type(target) == "table" and target[p_idx] or target
     if p.disabled then return end
-
-    if p.whole_line == nil then p.whole_line = { } end
-    if p.whole_line[p_idx] == nil then
-      -- Match patterns that start with '^'
-      p.whole_line[p_idx] = code:umatch("^%^") and true or false
-      if p.whole_line[p_idx] then
-        -- Remove '^' from the beginning of the pattern
-        if type(target) == "table" then
-          target[p_idx] = code:usub(2)
-          code = target[p_idx]
-        else
-          p.pattern = p.pattern and code:usub(2)
-          p.regex = p.regex and code:usub(2)
-          code = p.pattern or p.regex
-        end
-      end
-    end
-
-    if p.regex and type(p.regex) ~= "table" then
-      p._regex = p._regex or regex.compile(p.regex)
-      code = p._regex
-    end
+    -- `syntax.add` compiles every pattern; a plugin that appends one after the
+    -- fact gets it compiled here on first use.
+    local c = p._compiled or syntax.precompile_pattern(p)
+    if p.disabled then return end
+    -- The compiled delimiter: [2] for the closing pattern of a pair, [1]
+    -- otherwise (a plain pattern has no [2], and used it for both ends).
+    local d = (close and c[2]) or c[1]
+    local anchored = at_start or d.whole_line
+    local res = { 1, offset - 1 }
 
     repeat
       local next = res[2] + 1
-      -- If the pattern contained '^', allow matching only the whole line
-      if p.whole_line[p_idx] and next > 1 then
+      -- A '^'-anchored pattern may only match at the very start of the line
+      if d.whole_line and next > 1 then
         return
       end
-      res = p.pattern and { text:ufind((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
-        or { regex.find(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
-      if p.regex and #res > 0 then -- set correct utf8 len for regex result
-        local char_pos_1 = res[1] > next and string.ulen(text:sub(1, res[1])) or next
-        local char_pos_2 = string.ulen(text:sub(1, res[2]))
-        for i=3,#res do
-          res[i] = string.ulen(text:sub(1, res[i] - 1)) + 1
+      if d.regex then
+        res = { regex.find(d.rx, text, text:ucharpos(next), anchored and regex.ANCHORED or 0) }
+        if #res > 0 then -- translate the byte offsets regex returns to utf8 offsets
+          local char_pos_1 = res[1] > next and string.ulen(text:sub(1, res[1])) or next
+          local char_pos_2 = string.ulen(text:sub(1, res[2]))
+          for i=3,#res do
+            res[i] = string.ulen(text:sub(1, res[i] - 1)) + 1
+          end
+          res[1] = char_pos_1
+          res[2] = char_pos_2
         end
-        res[1] = char_pos_1
-        res[2] = char_pos_2
+      else
+        res = { text:ufind(anchored and d.lua_anchored or d.lua, next) }
       end
       if not res[1] then return end
-      if res[1] and target[3] then
-        -- Check to see if the escaped character is there,
-        -- and if it is not itself escaped.
+      if c.esc_byte then
+        -- Confirm the match is not preceded by an odd number of escape
+        -- characters (i.e. is not itself escaped).
         local count = 0
         for i = res[1] - 1, 1, -1 do
-          if text:ubyte(i) ~= target[3]:ubyte() then break end
+          if text:ubyte(i) ~= c.esc_byte then break end
           count = count + 1
         end
         if count % 2 == 0 then
@@ -261,7 +259,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
           res[1] = false
         end
       end
-    until at_start or not close or not target[3]
+    until at_start or not close or not c.esc_byte
     return table.unpack(res)
   end
 
@@ -387,14 +385,57 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
       end
     end
 
-    -- consume character if we didn't match
+    -- nothing matched here: emit as "normal" and advance. Skip a whole run of
+    -- whitespace, or of word characters that ends at whitespace, in one step --
+    -- push_token merges it with the neighbours exactly as the old `%s+` /
+    -- `%w+%f[%s]` catch-all patterns did, without the per-character loop.
     if not matched then
-      push_token(res, "normal", text:usub(i, i))
-      i = i + 1
+      local last
+      if current_syntax.space_handling ~= false then
+        last = select(2, text:ufind("^%s+", i))
+      end
+      if not last then last = select(2, text:ufind("^%w+%f[%s]", i)) end
+      if last and last >= i then
+        push_token(res, "normal", text:usub(i, last))
+        i = last + 1
+      else
+        push_token(res, "normal", text:usub(i, i))
+        i = i + 1
+      end
     end
   end
 
   return res, state
+end
+
+tokenizer.tokenize_lua = tokenize
+
+---@param incoming_syntax table
+---@param text string
+---@param state string
+function tokenizer.tokenize(incoming_syntax, text, state, resume)
+  if tokenizer_c and config.tokenizer_c ~= false
+  and (resume == nil or resume.c)
+  and #incoming_syntax.patterns > 0 then
+    -- Cap a single call: like the Lua path, a pathological line pauses and
+    -- returns a `resume` rather than freezing the frame.
+    local budget = 0.5 / config.fps
+    local ok, tokens, cstate, cresume =
+      tokenizer_c.tokenize(incoming_syntax, text, state or "\0", resume, budget)
+    if ok then return tokens, cstate, cresume end
+  end
+  return tokenize(incoming_syntax, text, state, resume)
+end
+
+
+-- Background worker (C core only). tokenize a range of lines off the main
+-- thread; the highlighter uses this when config.tokenizer_thread is on. See
+-- src/api/tokenizer.c. Absent when the C core isn't built.
+if tokenizer_c and tokenizer_c.thread_submit then
+  tokenizer.thread_submit = tokenizer_c.thread_submit
+  tokenizer.thread_poll   = tokenizer_c.thread_poll
+  tokenizer.thread_cancel = tokenizer_c.thread_cancel
+  tokenizer.thread_busy   = tokenizer_c.thread_busy
 end
 
 

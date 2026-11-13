@@ -171,6 +171,17 @@ config.line_endings = PLATFORM == "Windows" and "crlf" or "lf"
 ---@type number
 config.line_limit = 80
 
+---Use the C tokenizer core when it can handle a line (no subsyntax involved).
+---It produces byte-identical tokens to the Lua tokenizer; set to `false` to
+---force the Lua path everywhere.
+---@type boolean
+config.tokenizer_c = true
+
+---Run highlighting for a range of lines on a background thread (C core only).
+---Experimental: keeps the main thread free while a large file catches up.
+---@type boolean
+config.tokenizer_thread = false
+
 ---Enables/disables all transitions.
 ---
 ---Defaults to true.

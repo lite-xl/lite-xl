@@ -7,15 +7,17 @@ int luaopen_regex(lua_State *L);
 int luaopen_process(lua_State *L);
 int luaopen_dirmonitor(lua_State* L);
 int luaopen_utf8extra(lua_State* L);
+int luaopen_tokenizer_c(lua_State* L);
 
 static const luaL_Reg libs[] = {
-  { "system",     luaopen_system     },
-  { "renderer",   luaopen_renderer   },
-  { "renwindow",  luaopen_renwindow  },
-  { "regex",      luaopen_regex      },
-  { "process",    luaopen_process    },
-  { "dirmonitor", luaopen_dirmonitor },
-  { "utf8extra",  luaopen_utf8extra  },
+  { "system",      luaopen_system      },
+  { "renderer",    luaopen_renderer    },
+  { "renwindow",   luaopen_renwindow   },
+  { "regex",       luaopen_regex       },
+  { "process",     luaopen_process     },
+  { "dirmonitor",  luaopen_dirmonitor  },
+  { "utf8extra",   luaopen_utf8extra   },
+  { "tokenizer_c", luaopen_tokenizer_c },
   { NULL, NULL }
 };
 
