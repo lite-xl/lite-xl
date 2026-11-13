@@ -47,7 +47,14 @@ local function push_tokens(t, syn, pattern, full_text, find_results)
   else
     local start, fin = find_results[1], find_results[2]
     local text = full_text:usub(start, fin)
-    push_token(t, syn.symbols[text] or pattern.type, text)
+    -- A delimited pair whose `type` is a table but whose matched delimiter has
+    -- no captures lands here (e.g. a subsyntax `{ "()def", ":" }` closing on
+    -- its `:`). Take the first declared type -- the same "fallback group"
+    -- convention the multi-capture branch and the subsyntax middle use -- so a
+    -- token type is always a string, never the type table itself.
+    local ptype = pattern.type
+    if type(ptype) == "table" then ptype = ptype[1] end
+    push_token(t, syn.symbols[text] or ptype, text)
   end
 end
 
