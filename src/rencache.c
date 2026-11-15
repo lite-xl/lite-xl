@@ -309,6 +309,8 @@ void rencache_end_frame(RenWindow *window_renderer) {
     /* draw */
     RenRect r = rect_buf[i];
     ren_set_clip_rect(window_renderer, r);
+    /* start from transparent so backgrounds with alpha don't blend over the last frame */
+    SDL_FillSurfaceRect(rs.surface, &(SDL_Rect) { r.x * rs.scale, r.y * rs.scale, r.width * rs.scale, r.height * rs.scale }, 0);
 
     cmd = NULL;
     while (next_command(window_renderer, &cmd)) {
