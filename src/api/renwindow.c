@@ -38,7 +38,7 @@ static int f_renwin_create(lua_State *L) {
 
   SDL_Window *window = SDL_CreateWindow(
     title, width, height,
-    SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN
+    SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN | SDL_WINDOW_TRANSPARENT
   );
   if (!window) {
     return luaL_error(L, "Error creating lite-xl window: %s", SDL_GetError());
