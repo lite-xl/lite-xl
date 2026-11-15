@@ -11,9 +11,10 @@ renwindow = {}
 ---@param title string the title given to the newly created window
 ---@param width integer? if nil or less than 1 will be calculated from display
 ---@param height integer? if nil or less than 1 will be calculated from display
+---@param transparent boolean? lets background colors with alpha show the desktop behind the window
 ---
 ---@return renwindow
-function renwindow.create(title, width, height) end
+function renwindow.create(title, width, height, transparent) end
 
 ---
 ---Get width and height of a window
