@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- a comment -->
+<root xmlns:x="urn:example" attr="value" x:other='single'>
+  <child>text &amp; more &#x1F600;</child>
+  <![CDATA[ raw <not a tag> & ampersand ]]>
+  <self-closing a="1" b="2"/>
+  <ns:qualified>content</ns:qualified>
+</root>

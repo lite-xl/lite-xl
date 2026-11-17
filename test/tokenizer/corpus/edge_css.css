@@ -1,0 +1,13 @@
+/* a comment spanning
+   two lines */
+:root {
+  --accent: #574fb0;
+  color: rgba(0, 0, 0, .5);
+}
+
+.foo > .bar + a[href^="https://"]:hover {
+  content: "a string with a } brace and /* not a comment */";
+  background: url(data:image/png;base64,iVBORw0KGgo=);
+}
+
+@media (min-width: 640px) { .x { margin: 0 auto } }
