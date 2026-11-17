@@ -7,6 +7,15 @@
 #include <pcre2.h>
 #include <stdbool.h>
 
+/* PCRE2_MATCH_INVALID_UTF (PCRE2 10.34+) lets a pattern match against a
+   subject that contains invalid UTF-8 -- any real file may -- instead of
+   returning a UTF error. Fall back to plain UTF validation on older libs. */
+#ifdef PCRE2_MATCH_INVALID_UTF
+  #define LITE_PCRE2_UTF (PCRE2_UTF | PCRE2_MATCH_INVALID_UTF)
+#else
+  #define LITE_PCRE2_UTF PCRE2_UTF
+#endif
+
 typedef struct RegexState {
   pcre2_code* re;
   pcre2_match_data* match_data;
@@ -33,7 +42,7 @@ static pcre2_code* regex_get_pattern(lua_State *L, bool* should_free) {
 
     re = pcre2_compile(
       (PCRE2_SPTR)pattern,
-      pattern_len, PCRE2_UTF,
+      pattern_len, LITE_PCRE2_UTF,
       &errornumber, &erroroffset, NULL
     );
 
@@ -141,7 +150,7 @@ static int f_pcre_compile(lua_State *L) {
   size_t len;
   PCRE2_SIZE errorOffset;
   int errorNumber;
-  int pattern = PCRE2_UTF;
+  int pattern = LITE_PCRE2_UTF;
   const char* str = luaL_checklstring(L, 1, &len);
   if (lua_gettop(L) > 1) {
     const char* options = luaL_checkstring(L, 2);
