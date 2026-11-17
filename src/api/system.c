@@ -1383,6 +1383,7 @@ static int open_dialog(lua_State* L, SDL_FileDialogType type) {
 
   DialogData *dd = SDL_calloc(1, sizeof(DialogData));
   if (dd == NULL) {
+    SDL_DestroyProperties(props);
     return luaL_error(L, "Unable to allocate DialogData memory");
   }
   dd->id = id;
@@ -1391,6 +1392,7 @@ static int open_dialog(lua_State* L, SDL_FileDialogType type) {
 
   if (dd->filters == NULL) {
     SDL_free(dd);
+    SDL_DestroyProperties(props);
     return luaL_error(L, "Unable to allocate SDL_DialogFileFilter memory");
   }
 
@@ -1403,6 +1405,7 @@ static int open_dialog(lua_State* L, SDL_FileDialogType type) {
       free_dialog_filters(dd->filters, i);
       SDL_free(dd->filters);
       SDL_free(dd);
+      SDL_DestroyProperties(props);
       return luaL_error(L, "Unable to allocate memory for SDL_DialogFileFilter values");
     }
   }
