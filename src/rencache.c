@@ -241,6 +241,13 @@ static void update_overlapping_cells(RenRect r, unsigned h) {
   int x2 = (r.x + r.width) / CELL_SIZE;
   int y2 = (r.y + r.height) / CELL_SIZE;
 
+  /* the cell grid is fixed-size; a window larger than CELLS_X*CELL_SIZE by
+  ** CELLS_Y*CELL_SIZE would otherwise index cells[] out of bounds */
+  if (x1 < 0) x1 = 0;
+  if (y1 < 0) y1 = 0;
+  if (x2 >= CELLS_X) x2 = CELLS_X - 1;
+  if (y2 >= CELLS_Y) y2 = CELLS_Y - 1;
+
   for (int y = y1; y <= y2; y++) {
     for (int x = x1; x <= x2; x++) {
       int idx = cell_idx(x, y);
@@ -282,6 +289,11 @@ void rencache_end_frame(RenWindow *window_renderer) {
   int rect_count = 0;
   int max_x = screen_rect.width / CELL_SIZE + 1;
   int max_y = screen_rect.height / CELL_SIZE + 1;
+  /* clamp to the fixed grid: a window past CELLS_X*CELL_SIZE / CELLS_Y*CELL_SIZE
+  ** would otherwise index cells[] out of bounds. Content past the grid isn't
+  ** change-tracked and repaints only on a full invalidation. */
+  if (max_x > CELLS_X) max_x = CELLS_X;
+  if (max_y > CELLS_Y) max_y = CELLS_Y;
   for (int y = 0; y < max_y; y++) {
     for (int x = 0; x < max_x; x++) {
       /* compare previous and current cell for change */
