@@ -33,7 +33,7 @@
 #define CMD_BUF_INIT_SIZE (1024 * 512)
 #define COMMAND_BARE_SIZE offsetof(Command, command)
 
-enum CommandType { SET_CLIP, DRAW_TEXT, DRAW_RECT };
+enum CommandType { SET_CLIP, DRAW_TEXT, DRAW_RECT, DRAW_CANVAS };
 
 typedef struct {
   enum CommandType type;
@@ -62,6 +62,12 @@ typedef struct {
   RenRect rect;
   RenColor color;
 } DrawRectCommand;
+
+typedef struct {
+  RenRect rect;
+  size_t version;
+  RenCanvasRef *canvas_ref;
+} DrawCanvasCommand;
 
 static unsigned cells_buf1[CELLS_X * CELLS_Y];
 static unsigned cells_buf2[CELLS_X * CELLS_Y];
@@ -215,6 +221,18 @@ double rencache_draw_text(RenWindow *window_renderer, RenFont **fonts, const cha
   return x + width;
 }
 
+void rencache_draw_canvas(RenWindow *window_renderer, RenRect rect, RenCanvasRef *canvas_ref, size_t version) {
+  if (rect.width == 0 || rect.height == 0 || !rects_overlap(last_clip_rect, rect)) {
+    return;
+  }
+  DrawCanvasCommand *cmd = push_command(window_renderer, DRAW_CANVAS, sizeof(DrawCanvasCommand));
+  if (cmd) {
+    cmd->rect = rect;
+    cmd->version = version;
+    cmd->canvas_ref = canvas_ref;
+    canvas_ref->render_ref_count++;
+  }
+}
 
 void rencache_invalidate(void) {
   memset(cells_prev, 0xff, sizeof(cells_buf1));
@@ -270,7 +288,15 @@ void rencache_end_frame(RenWindow *window_renderer) {
   RenRect cr = screen_rect;
   while (next_command(window_renderer, &cmd)) {
     /* cmd->command[0] should always be the Command rect */
-    if (cmd->type == SET_CLIP) { cr = cmd->command[0]; }
+    if (cmd->type == SET_CLIP) {
+      SetClipCommand *ccmd = (SetClipCommand*)&cmd->command;
+      cr = ccmd->rect;
+    } else if (cmd->type == DRAW_CANVAS) {
+      // We unref here because it's the only place where the command is scanned once,
+      // and won't give back control to the Lua side until it's done with the surface
+      DrawCanvasCommand *cvcmd = (DrawCanvasCommand*)&cmd->command;
+      cvcmd->canvas_ref->render_ref_count--;
+    }
     RenRect r = intersect_rects(cmd->command[0], cr);
     if (r.width == 0 || r.height == 0) { continue; }
     unsigned h = HASH_INITIAL;
@@ -315,23 +341,26 @@ void rencache_end_frame(RenWindow *window_renderer) {
       SetClipCommand *ccmd = (SetClipCommand*)&cmd->command;
       DrawRectCommand *rcmd = (DrawRectCommand*)&cmd->command;
       DrawTextCommand *tcmd = (DrawTextCommand*)&cmd->command;
+      DrawCanvasCommand *cvcmd = (DrawCanvasCommand*)&cmd->command;
       switch (cmd->type) {
         case SET_CLIP:
           ren_set_clip_rect(window_renderer, intersect_rects(ccmd->rect, r));
           break;
         case DRAW_RECT:
-          ren_draw_rect(&rs, rcmd->rect, rcmd->color);
+          ren_draw_rect(&rs, rcmd->rect, rcmd->color, false);
           break;
         case DRAW_TEXT:
           ren_font_group_set_tab_size(tcmd->fonts, tcmd->tab_size);
           ren_draw_text(&rs, tcmd->fonts, tcmd->text, tcmd->len, tcmd->text_x, tcmd->rect.y, tcmd->color, tcmd->tab);
           break;
+        case DRAW_CANVAS:
+          ren_draw_canvas(&rs, cvcmd->canvas_ref->surface, cvcmd->rect.x, cvcmd->rect.y);
       }
     }
 
     if (show_debug) {
       RenColor color = { rand(), rand(), rand(), 50 };
-      ren_draw_rect(&rs, r, color);
+      ren_draw_rect(&rs, r, color, false);
     }
   }
 

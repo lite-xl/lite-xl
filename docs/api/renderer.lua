@@ -31,6 +31,10 @@ renderer = {}
 renderer.font = {}
 
 ---
+---@class renderer.tab_data
+---@field public tab_offset? number Offset to a previous tab stop
+
+---
 ---Create a new font object.
 ---
 ---@param path string
@@ -70,9 +74,10 @@ function renderer.font:set_tab_size(chars) end
 ---rendered with this font.
 ---
 ---@param text string
+---@param tab_data? renderer.tab_data
 ---
 ---@return number
-function renderer.font:get_width(text) end
+function renderer.font:get_width(text, tab_data) end
 
 ---
 ---Get the height in pixels that occupies a single character
@@ -152,9 +157,27 @@ function renderer.draw_rect(x, y, width, height, color) end
 ---@param x number
 ---@param y number
 ---@param color renderer.color
+---@param tab_data? renderer.tab_data
 ---
 ---@return number x
-function renderer.draw_text(font, text, x, y, color) end
+function renderer.draw_text(font, text, x, y, color, tab_data) end
 
+---
+---Draw a Canvas.
+---
+---@param canvas canvas
+---@param x integer
+---@param y integer
+function renderer.draw_canvas(canvas, x, y) end
+
+---
+---Copy a portion of the window to a new Canvas.
+---
+---@param x integer
+---@param y integer
+---@param w integer
+---@param h integer
+---@return canvas canvas
+function renderer.to_canvas(x, y, w, h) end
 
 return renderer
