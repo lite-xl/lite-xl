@@ -236,10 +236,11 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
       res = p.pattern and { text:ufind((at_start or p.whole_line[p_idx]) and "^" .. code or code, next) }
         or { regex.find(code, text, text:ucharpos(next), (at_start or p.whole_line[p_idx]) and regex.ANCHORED or 0) }
       if p.regex and #res > 0 then -- set correct utf8 len for regex result
-        local char_pos_1 = res[1] > next and string.ulen(text:sub(1, res[1])) or next
-        local char_pos_2 = string.ulen(text:sub(1, res[2]))
+        -- `lax` so a stray invalid byte in the line is one character, not an error
+        local char_pos_1 = res[1] > next and string.ulen(text:sub(1, res[1]), 1, -1, true) or next
+        local char_pos_2 = string.ulen(text:sub(1, res[2]), 1, -1, true)
         for i=3,#res do
-          res[i] = string.ulen(text:sub(1, res[i] - 1)) + 1
+          res[i] = string.ulen(text:sub(1, res[i] - 1), 1, -1, true) + 1
         end
         res[1] = char_pos_1
         res[2] = char_pos_2
@@ -250,7 +251,7 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
         -- and if it is not itself escaped.
         local count = 0
         for i = res[1] - 1, 1, -1 do
-          if text:ubyte(i) ~= target[3]:ubyte() then break end
+          if text:usub(i, i) ~= target[3] then break end
           count = count + 1
         end
         if count % 2 == 0 then
@@ -265,7 +266,9 @@ function tokenizer.tokenize(incoming_syntax, text, state, resume)
     return table.unpack(res)
   end
 
-  local text_len = text:ulen()
+  -- `lax` so a line containing an invalid UTF-8 byte tokenizes (that byte
+  -- counts as one character) rather than returning nil and crashing the caller
+  local text_len = text:ulen(1, -1, true)
   local start_time = system.get_time()
   local starting_i = i
   while i <= text_len do
