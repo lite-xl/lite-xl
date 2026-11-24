@@ -912,8 +912,9 @@ end
 
 
 local function get_title_filename(view)
-  local doc_filename = view.get_filename and view:get_filename() or view:get_name()
-  if doc_filename ~= "---" then return doc_filename end
+  local doc_filename, doc_path
+  if view.get_filename then doc_filename, doc_path = view:get_filename() else doc_filename = view:get_name() end
+  if doc_filename ~= "---" then return doc_filename, doc_path end
   return ""
 end
 
@@ -962,9 +963,9 @@ function core.step()
   end
 
   -- update window title
-  local current_title = get_title_filename(core.active_view)
+  local current_title, current_path = get_title_filename(core.active_view)
   if current_title ~= nil and current_title ~= core.window_title then
-    system.set_window_title(core.window, core.compose_window_title(current_title))
+    system.set_window_title(core.window, core.compose_window_title(current_title), current_path)
     core.window_title = current_title
   end
 
