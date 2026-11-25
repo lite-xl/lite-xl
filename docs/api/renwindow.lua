@@ -6,15 +6,20 @@
 renwindow = {}
 
 ---
+---Window creation flags
+---@class renwindow.flags
+---@field transparent boolean? lets background colors with alpha show what is behind the window, if the platform supports it
+
+---
 ---Create a new window
 ---
 ---@param title string the title given to the newly created window
 ---@param width integer? if nil or less than 1 will be calculated from display
 ---@param height integer? if nil or less than 1 will be calculated from display
----@param transparent boolean? lets background colors with alpha show the desktop behind the window
+---@param flags renwindow.flags? window creation flags
 ---
 ---@return renwindow
-function renwindow.create(title, width, height, transparent) end
+function renwindow.create(title, width, height, flags) end
 
 ---
 ---Get width and height of a window

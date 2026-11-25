@@ -690,7 +690,9 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
-          // text coverage also raises alpha, so text stays opaque over a translucent background
+          // the surface has one alpha per pixel, so use the strongest subpixel coverage as the glyph's coverage
+          // and composite it "over" the destination alpha: a = coverage + dst.a * (1 - coverage).
+          // text stays opaque on a translucent background; on an opaque one dst.a is 255 and a stays 255
           unsigned int coverage = SDL_max(src.r, SDL_max(src.g, src.b)) * color.a;
           unsigned int a = (coverage * 255 + dst.a * (65025 - coverage) + 32767) / 65025;
           // the standard way of doing this would be SDL_GetRGBA, but that introduces a performance regression. needs to be investigated
@@ -724,6 +726,11 @@ static inline RenColor blend_pixel(RenColor dst, RenColor src) {
   dst.g = ((src.g * src.a) + (dst.g * ia)) >> 8;
   dst.b = ((src.b * src.a) + (dst.b * ia)) >> 8;
   return dst;
+}
+
+void ren_clear_rect(RenSurface *rs, RenRect rect) {
+  SDL_Rect dest_rect = { rect.x * rs->scale, rect.y * rs->scale, rect.width * rs->scale, rect.height * rs->scale };
+  SDL_FillSurfaceRect(rs->surface, &dest_rect, 0);
 }
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color) {

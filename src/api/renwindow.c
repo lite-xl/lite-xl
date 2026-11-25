@@ -21,7 +21,11 @@ static int f_renwin_create(lua_State *L) {
   const char *title = luaL_checkstring(L, 1);
   float width = luaL_optnumber(L, 2, 0);
   float height = luaL_optnumber(L, 3, 0);
-  bool transparent = lua_toboolean(L, 4);
+  bool transparent = false;
+  if (lua_istable(L, 4)) {
+    lua_getfield(L, 4, "transparent"); transparent = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
 
   if (video_init() != 0)
     return luaL_error(L, "Error creating lite-xl window: %s", SDL_GetError());
