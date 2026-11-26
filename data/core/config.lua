@@ -231,6 +231,17 @@ config.draw_whitespace = false
 ---@type boolean
 config.borderless = false
 
+---Lets background colors with alpha (e.g. style.background) show
+---the desktop behind the window; text stays opaque.
+---Best effort: depends on the platform/compositor; without one the window
+---stays opaque, with backgrounds drawn darker (blended over black).
+---Read when the window is created, so changing it
+---needs quitting and reopening Lite XL (core:restart keeps the window).
+---
+---Defaults to false.
+---@type boolean
+config.transparent = false
+
 ---Shows/hides the close buttons on tabs.
 ---When hidden, users can close tabs via keyboard shortcuts or commands.
 ---

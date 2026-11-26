@@ -41,6 +41,7 @@ double ren_font_group_get_width(RenFont **font, const char *text, size_t len, Re
 double ren_draw_text(RenSurface *rs, RenFont **font, const char *text, size_t len, float x, int y, RenColor color, RenTab tab);
 
 void ren_draw_rect(RenSurface *rs, RenRect rect, RenColor color);
+void ren_clear_rect(RenSurface *rs, RenRect rect);
 
 int video_init(void);
 int ren_init(void);
