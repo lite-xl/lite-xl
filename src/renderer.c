@@ -683,6 +683,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
             (destination_color & surface_format->Amask) >> surface_format->Ashift};
           SDL_Color src;
 
+          /* subpixel glyph has separate coverage for R, G and B, grayscale has 1 coverage for all */
           if (metric->format == EGlyphFormatSubpixel) {
             src.r = *(source_pixel++);
             src.g = *(source_pixel++);
@@ -694,6 +695,33 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           src.b = *(source_pixel++);
           src.a = 0xFF;
 
+          /*
+          ** Before we start, we need to clarify:
+          **   src:   The glyph coverage, as in **how much color** is applied to each pixel of the glyph.
+          **   dst:   The destination surface (the window)
+          **   color: The glyph color. If you want red text, this value is 255, 0, 0.
+          **
+          ** Let's consider a normal alpha blending formula (where values are between 0 and 1):
+          **
+          **   color.r * color.a + dst.r * (1 - color.a)
+          **
+          ** Combining color alpha and glyph coverage, we get this formula:
+          **
+          **   color.r * (src.r * color.a) + dst.r * (1 - (src.r * color.a))
+          **
+          ** Notice how the formula is the same as the original alpha blending formula,
+          ** except (src.r * color.a) replaces color.a as the "effective alpha".
+          **
+          ** Now then, we do not use floats (0-1) in the code, we use integers (0-255).
+          ** Therefore, src.r * color.a can go up to 65025 (255 * 255), so 65025 takes the place of 1.
+          ** Dividing the final sum by 65025 brings it back to 0-255.
+          **
+          ** The issue is that integer division truncates every fraction (199.9 becomes 199),
+          ** so to work around that we add half the divisor (65025/2) to ensure better rounding.
+          **
+          ** As for why we use 32767 instead of 32512, it could be an honest mistake since 32767 is approximately half of 256 * 256.
+          ** Plugging in all the numbers and integer division, we get the formula below:
+          */
           r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
