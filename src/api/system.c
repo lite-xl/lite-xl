@@ -907,23 +907,6 @@ static int f_sleep(lua_State *L) {
 }
 
 
-static int f_exec(lua_State *L) {
-  size_t len;
-  const char *cmd = luaL_checklstring(L, 1, &len);
-  char *buf = SDL_malloc(len + 32);
-  if (!buf) { luaL_error(L, "buffer allocation failed"); }
-#if _WIN32
-  sprintf(buf, "cmd /c \"%s\"", cmd);
-  WinExec(buf, SW_HIDE);
-#else
-  sprintf(buf, "%s &", cmd);
-  int res = system(buf);
-  (void) res;
-#endif
-  SDL_free(buf);
-  return 0;
-}
-
 static int f_fuzzy_match(lua_State *L) {
   size_t strLen, ptnLen;
   const char *str = luaL_checklstring(L, 1, &strLen);
@@ -1517,7 +1500,6 @@ static const luaL_Reg lib[] = {
   { "get_process_id",        f_get_process_id        },
   { "get_time",              f_get_time              },
   { "sleep",                 f_sleep                 },
-  { "exec",                  f_exec                  },
   { "fuzzy_match",           f_fuzzy_match           },
   { "set_window_opacity",    f_set_window_opacity    },
   { "load_native_plugin",    f_load_native_plugin    },

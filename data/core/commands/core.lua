@@ -140,7 +140,7 @@ local function open_project_directory(use_dialog)
       core.error("Directory %q is currently opened", abs_path[1])
       return
     end
-    system.exec(string.format("%q %q", EXEFILE, abs_path[1]))
+    process.start({ EXEFILE, abs_path[1] }, { detach = true })
   end)
 end
 
