@@ -77,7 +77,8 @@ typedef enum {
 typedef enum {
   EGlyphNone = 0,             // glyph is not loaded
   EGlyphXAdvance = (1 << 0L), // xadvance is loaded
-  EGlyphBitmap = (1 << 1L)    // bitmap is loaded
+  EGlyphBitmap = (1 << 1L),   // bitmap is loaded
+  EGlyphNoBitmap = (1 << 2L)  // no bitmap for this glyph
 } ERenGlyphFlags;
 
 // metrics for a loaded glyph
@@ -312,7 +313,7 @@ static GlyphMetric *font_load_glyph_metric(RenFont *font, unsigned int glyph_id,
 
 static SDL_Surface *font_load_glyph_bitmap(RenFont *font, unsigned int glyph_id, unsigned int bitmap_idx) {
   GlyphMetric *metric = font_load_glyph_metric(font, glyph_id, bitmap_idx);
-  if (!metric) return NULL;
+  if (!metric || (metric->flags & EGlyphNoBitmap)) return NULL;
   if (metric->flags & EGlyphBitmap) return font->glyphs.atlas[metric->format][metric->atlas_idx].surfaces[metric->surface_idx];
 
   // render the glyph for a bitmap_idx
@@ -327,8 +328,10 @@ static SDL_Surface *font_load_glyph_bitmap(RenFont *font, unsigned int glyph_id,
   if (!slot->bitmap.width || !slot->bitmap.rows || !slot->bitmap.buffer ||
       (slot->bitmap.pixel_mode != FT_PIXEL_MODE_MONO
         && slot->bitmap.pixel_mode != FT_PIXEL_MODE_GRAY
-        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD))
+        && slot->bitmap.pixel_mode != FT_PIXEL_MODE_LCD)) {
+    metric->flags |= EGlyphNoBitmap;
     return NULL;
+  }
 
   unsigned int glyph_width = slot->bitmap.width / FONT_BITMAP_COUNT(font);
   // FT_PIXEL_MODE_MONO uses 1 bit per pixel packed bitmap
@@ -464,7 +467,7 @@ RenFont* ren_font_load(const char* path, float size, ERenFontAntialiasing antial
 
   file = SDL_IOFromFile(path, "rb");
   if (!file) return NULL; // error set by SDL_IOFromFile
-  
+
   int len = strlen(path);
   font = check_alloc(SDL_calloc(1, sizeof(RenFont) + len + 1));
   strcpy(font->path, path);
@@ -626,12 +629,15 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   y *= surface_scale;
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
+  const SDL_PixelFormatDetails *surface_format = SDL_GetPixelFormatDetails(surface->format);
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
   RenFont* last = NULL;
   double last_pen_x = x;
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
+  SDL_Surface *last_font_surface = NULL;
+  const SDL_PixelFormatDetails *font_surface_format = NULL;
 
   while (text < end) {
     unsigned int codepoint, r, g, b;
@@ -640,6 +646,10 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     RenFont* font = font_group_get_glyph(fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &font_surface, &metric);
     if (!metric)
       break;
+    if (font_surface && font_surface != last_font_surface) {
+      last_font_surface = font_surface;
+      font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
+    }
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = metric->x1 + start_x; // x0 is assumed to be 0
     int glyph_end = metric->x1, glyph_start = 0;
@@ -647,23 +657,20 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
+      if (start_x + (glyph_end - glyph_start) >= clip_end_x)
+        glyph_end = glyph_start + (clip_end_x - start_x);
+      if (start_x < clip.x) {
+        int offset = clip.x - start_x;
+        start_x += offset;
+        glyph_start += offset;
+      }
+
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line - metric->y0 + y - metric->bitmap_top + (fonts[0]->baseline * surface_scale);
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
           break;
-        if (start_x + (glyph_end - glyph_start) >= clip_end_x)
-          glyph_end = glyph_start + (clip_end_x - start_x);
-        if (start_x < clip.x) {
-          int offset = clip.x - start_x;
-          start_x += offset;
-          glyph_start += offset;
-        }
-        
-        const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
-        const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
-
         uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * surface_format->bytes_per_pixel]);
         uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface_format->bytes_per_pixel];
         for (int x = glyph_start; x < glyph_end; ++x) {
@@ -676,6 +683,7 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
             (destination_color & surface_format->Amask) >> surface_format->Ashift};
           SDL_Color src;
 
+          /* subpixel glyph has separate coverage for R, G and B, grayscale has 1 coverage for all */
           if (metric->format == EGlyphFormatSubpixel) {
             src.r = *(source_pixel++);
             src.g = *(source_pixel++);
@@ -687,6 +695,33 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
           src.b = *(source_pixel++);
           src.a = 0xFF;
 
+          /*
+          ** Before we start, we need to clarify:
+          **   src:   The glyph coverage, as in **how much color** is applied to each pixel of the glyph.
+          **   dst:   The destination surface (the window)
+          **   color: The glyph color. If you want red text, this value is 255, 0, 0.
+          **
+          ** Let's consider a normal alpha blending formula (where values are between 0 and 1):
+          **
+          **   color.r * color.a + dst.r * (1 - color.a)
+          **
+          ** Combining color alpha and glyph coverage, we get this formula:
+          **
+          **   color.r * (src.r * color.a) + dst.r * (1 - (src.r * color.a))
+          **
+          ** Notice how the formula is the same as the original alpha blending formula,
+          ** except (src.r * color.a) replaces color.a as the "effective alpha".
+          **
+          ** Now then, we do not use floats (0-1) in the code, we use integers (0-255).
+          ** Therefore, src.r * color.a can go up to 65025 (255 * 255), so 65025 takes the place of 1.
+          ** Dividing the final sum by 65025 brings it back to 0-255.
+          **
+          ** The issue is that integer division truncates every fraction (199.9 becomes 199),
+          ** so to work around that we add half the divisor (65025/2) to ensure better rounding.
+          **
+          ** As for why we use 32767 instead of 32512, it could be an honest mistake since 32767 is approximately half of 256 * 256.
+          ** Plugging in all the numbers and integer division, we get the formula below:
+          */
           r = (color.r * src.r * color.a + dst.r * (65025 - src.r * color.a) + 32767) / 65025;
           g = (color.g * src.g * color.a + dst.g * (65025 - src.g * color.a) + 32767) / 65025;
           b = (color.b * src.b * color.a + dst.b * (65025 - src.b * color.a) + 32767) / 65025;
@@ -771,7 +806,7 @@ int video_init(void) {
   static int ren_inited = 0;
   if (!ren_inited) {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
-      return -1;     
+      return -1;
     SDL_EnableScreenSaver();
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
     SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
