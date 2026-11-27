@@ -1,14 +1,43 @@
 Here are a few ways you can help improve Lite-XL.
 
-First, please join the [Discord server](https://discord.gg/RWzqC3nx7K) or the [Matrix space](
-https://matrix.to/#/#lite-xl:matrix.org) where most of the coordination happens. Those spaces
-are bridged so you need only join one.
+# Getting in touch
+
+First, please join the [Discord server](https://discord.gg/RWzqC3nx7K) or the
+[Matrix space](https://matrix.to/#/#lite-xl:matrix.org) where most of the coordination happens.
+Those spaces are bridged so you need only join one.
+
+# Generative AI Policy
+
+tl;dr - Generative AI contributions are not accepted in this repository.
+
+You are not allowed to use GenAI for:
+1. Contributing code
+2. Creating Issues / Bug Reports / Pull Request descriptions
+3. Creating documentation
+
+You are allowed to use GenAI for:
+1. Code review
+2. Brainstorming
+3. Translation for English as Second Language (ESL) users
+4. Private use, (e.g. debugging, learning the codebase, or maintaining a private fork),
+   provided nothing generated is submitted upstream
+
+For these uses, you must **understand** and  **write the suggestions / ideas / code yourself**
+when opening issues or pull requests.
+
+We (Lite XL contributors) expect you to fully understand your contributions,
+and be able to _explain_ and _defend_ them during review; otherwise we will reject them.
+We also reserve the right to ignore any contribution or issue suspected of violating this policy
+unless clear justification is provided.
+
+Any attempt to circumvent this policy (such as by submitting generated output under another account)
+will result in us rejecting all future contributions from you.
 
 # State as of October 2025
 
-Work is mostly focused towards version 3 which includes some important rewrites to make the editor more robust, have a better plugin API, and add support for multiple windows. 
+Work is mostly focused towards version 3 which includes some important rewrites to make the editor more robust, have a better plugin API, and add support for multiple windows.
 
-As of 2025-10-25, only the core plugins are considered ported to the new plugin API. Some of the non-core ones have, but your mileage will vary a lot. 
+As of 2025-10-25, only the core plugins are considered ported to the new plugin API. Some of the non-core ones have, but your mileage will vary a lot.
 
 # Using the preview version
 
@@ -49,7 +78,7 @@ INSTALL_DIR=$HOME/.local
 # Installs the development version under ${INSTALL_DIR}/lite-xl-dev
 meson install --destdir "${INSTALL_DIR}" --skip-subprojects -C build-release
 
-# A convenient alias to run the dev version with a dedicated config directory, 
+# A convenient alias to run the dev version with a dedicated config directory,
 # to not conflict with the default one ($HOME/.config/lite-xl)
 alias lite-xl-dev="LITE_USERDIR=$HOME/.config/lite-xl-dev ${INSTALL_DIR}/lite-xl-dev/bin/lite-xl"
 ```
