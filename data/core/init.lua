@@ -590,6 +590,31 @@ function core.add_plugins(plugins)
 end
 
 
+local function load_project_module(plugin)
+  if core.root_project().trusted or config.always_trust_projects then return load_lua_plugin_if_exists(plugin) end
+  if system.get_file_info(plugin.file) and core.root_project().trusted == nil then
+    core.add_thread(function()
+      core.nag_view:show("Untrusted Project Module",
+        string.format("The project module located at %s is untrusted. Trust this file?", plugin.file),
+        {
+          { text = "Trust", default_no = true, command = "core:trust-project" },
+          { text = "Trust All", default_no = true, command = "core:trust-project" },
+          { text = "View File", default_no = true },
+          { text = "Don't Trust", default_yes = true, command = "core:untrust-project" }
+        }, function(item)
+          if item.text == "View File" then
+            core.add_thread(function()
+              core.root_view:open_doc(core.open_doc(plugin.file))
+            end)
+          else
+            command.perform(item.command)
+          end
+        end)
+      end)
+    end
+end
+
+
 function core.load_plugins()
   local no_errors = true
   local refused_list = {
@@ -598,7 +623,7 @@ function core.load_plugins()
   }
   local files, ordered = {}, {
     { priority = -2, load = load_lua_plugin_if_exists, version_match = true, file = USERDIR .. PATHSEP .. "init.lua", name = "User Module" },
-    { priority = -1, load = load_lua_plugin_if_exists, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
+    { priority = -1, load = load_project_module, version_match = true, file = core.root_project().path .. PATHSEP .. ".lite_project.lua", name = "Project Module" }
   }
   for _, root_dir in ipairs {DATADIR, USERDIR} do
     local plugin_dir = root_dir .. PATHSEP .. "plugins"
