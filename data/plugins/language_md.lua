@@ -67,11 +67,11 @@ syntax.add {
       type = "function"
     },
     -- Comments
-    { pattern = { "<!%-%-", "%-%->" },   type = "comment" },
+    { pattern = { "<!%-%-", "%-%->" },        type = "comment" },
     -- Tags
-    { pattern = "%f[^<]![%a_][%w_]*",    type = "keyword2" },
-    { pattern = "%f[^<][%a_][%w_]*",     type = "function" },
-    { pattern = "%f[^<]/[%a_][%w_]*",    type = "function" },
+    { pattern = "%f[^<]![%a_][%w_]*",         type = "keyword2" },
+    { pattern = "%f[^<][%a_][%w_]*",          type = "function" },
+    { pattern = "%f[^<]/[%a_][%w_]*",         type = "function" },
     -- Attributes
     {
       pattern = "[a-z%-]+%s*()=%s*()\".-\"",
@@ -86,80 +86,80 @@ syntax.add {
       type = { "keyword", "operator", "number" }
     },
     -- Entities
-    { pattern = "&#?[a-zA-Z0-9]+;",         type = "keyword2" },
+    { pattern = "&#?[a-zA-Z0-9]+;",           type = "keyword2" },
 
   ---- Markdown rules
     -- math
-    { pattern = { "%$%$", "%$%$", "\\"  },  type = "string", syntax = ".tex"},
+    { pattern = { "%$%$", "%$%$", "\\"  },    type = "string", syntax = ".tex"},
     { regex   = { "\\$", [[\$|(?=\\*\n)]], "\\" },  type = "string", syntax = ".tex"},
     -- code blocks
-    { pattern = { "```caddyfile", "```" },  type = "string", syntax = "Caddyfile" },
-    { pattern = { "```c++", "```" },        type = "string", syntax = ".cpp" },
-    { pattern = { "```cpp", "```" },        type = "string", syntax = ".cpp" },
-    { pattern = { "```python", "```" },     type = "string", syntax = ".py" },
-    { pattern = { "```ruby", "```" },       type = "string", syntax = ".rb" },
-    { pattern = { "```perl", "```" },       type = "string", syntax = ".pl" },
-    { pattern = { "```php", "```" },        type = "string", syntax = ".php" },
-    { pattern = { "```javascript", "```" }, type = "string", syntax = ".js" },
-    { pattern = { "```json", "```" },       type = "string", syntax = ".js" },
-    { pattern = { "```html", "```" },       type = "string", syntax = ".html" },
-    { pattern = { "```ini", "```" },        type = "string", syntax = ".ini" },
-    { pattern = { "```xml", "```" },        type = "string", syntax = ".xml" },
-    { pattern = { "```css", "```" },        type = "string", syntax = ".css" },
-    { pattern = { "```lua", "```" },        type = "string", syntax = ".lua" },
-    { pattern = { "```bash", "```" },       type = "string", syntax = ".sh" },
-    { pattern = { "```sh", "```" },         type = "string", syntax = ".sh" },
-    { pattern = { "```java", "```" },       type = "string", syntax = ".java" },
-    { pattern = { "```c#", "```" },         type = "string", syntax = ".cs" },
-    { pattern = { "```cmake", "```" },      type = "string", syntax = ".cmake" },
-    { pattern = { "```d", "```" },          type = "string", syntax = ".d" },
-    { pattern = { "```glsl", "```" },       type = "string", syntax = ".glsl" },
-    { pattern = { "```c", "```" },          type = "string", syntax = ".c" },
-    { pattern = { "```julia", "```" },      type = "string", syntax = ".jl" },
-    { pattern = { "```rust", "```" },       type = "string", syntax = ".rs" },
-    { pattern = { "```dart", "```" },       type = "string", syntax = ".dart" },
-    { pattern = { "```v", "```" },          type = "string", syntax = ".v" },
-    { pattern = { "```toml", "```" },       type = "string", syntax = ".toml" },
-    { pattern = { "```yaml", "```" },       type = "string", syntax = ".yaml" },
-    { pattern = { "```nim", "```" },        type = "string", syntax = ".nim" },
-    { pattern = { "```typescript", "```" }, type = "string", syntax = ".ts" },
-    { pattern = { "```rescript", "```" },   type = "string", syntax = ".res" },
-    { pattern = { "```moon", "```" },       type = "string", syntax = ".moon" },
-    { pattern = { "```go", "```" },         type = "string", syntax = ".go" },
-    { pattern = { "```lobster", "```" },    type = "string", syntax = ".lobster" },
-    { pattern = { "```liquid", "```" },     type = "string", syntax = ".liquid" },
-    { pattern = { "```nix", "```" },        type = "string", syntax = ".nix" },
-    { pattern = { "```", "```" },           type = "string" },
-    { pattern = { "``", "``" },             type = "string" },
-    { pattern = { "%f[\\`]%`[%S]", "`" },   type = "string" },
+    { pattern = { "```caddyfile", "```" },    type = "string", hard_lexical_stop = true, syntax = "Caddyfile" },
+    { pattern = { "```c++", "```" },          type = "string", hard_lexical_stop = true, syntax = ".cpp" },
+    { pattern = { "```cpp", "```" },          type = "string", hard_lexical_stop = true, syntax = ".cpp" },
+    { regex =   { "```py(?:thon)?$", "```" }, type = "string", hard_lexical_stop = true, syntax = ".py" },
+    { pattern = { "```ruby", "```" },         type = "string", hard_lexical_stop = true, syntax = ".rb" },
+    { pattern = { "```perl", "```" },         type = "string", hard_lexical_stop = true, syntax = ".pl" },
+    { pattern = { "```php", "```" },          type = "string", hard_lexical_stop = true, syntax = ".php" },
+    { pattern = { "```javascript", "```" },   type = "string", hard_lexical_stop = true, syntax = ".js" },
+    { pattern = { "```json", "```" },         type = "string", hard_lexical_stop = true, syntax = ".js" },
+    { pattern = { "```html", "```" },         type = "string", hard_lexical_stop = true, syntax = ".html" },
+    { pattern = { "```ini", "```" },          type = "string", hard_lexical_stop = true, syntax = ".ini" },
+    { pattern = { "```xml", "```" },          type = "string", hard_lexical_stop = true, syntax = ".xml" },
+    { pattern = { "```css", "```" },          type = "string", hard_lexical_stop = true, syntax = ".css" },
+    { pattern = { "```lua", "```" },          type = "string", hard_lexical_stop = true, syntax = ".lua" },
+    { pattern = { "```bash", "```" },         type = "string", hard_lexical_stop = true, syntax = ".sh" },
+    { pattern = { "```sh", "```" },           type = "string", hard_lexical_stop = true, syntax = ".sh" },
+    { pattern = { "```java", "```" },         type = "string", hard_lexical_stop = true, syntax = ".java" },
+    { pattern = { "```c#", "```" },           type = "string", hard_lexical_stop = true, syntax = ".cs" },
+    { pattern = { "```cmake", "```" },        type = "string", hard_lexical_stop = true, syntax = ".cmake" },
+    { pattern = { "```d", "```" },            type = "string", hard_lexical_stop = true, syntax = ".d" },
+    { pattern = { "```glsl", "```" },         type = "string", hard_lexical_stop = true, syntax = ".glsl" },
+    { pattern = { "```c", "```" },            type = "string", hard_lexical_stop = true, syntax = ".c" },
+    { pattern = { "```julia", "```" },        type = "string", hard_lexical_stop = true, syntax = ".jl" },
+    { pattern = { "```rust", "```" },         type = "string", hard_lexical_stop = true, syntax = ".rs" },
+    { pattern = { "```dart", "```" },         type = "string", hard_lexical_stop = true, syntax = ".dart" },
+    { pattern = { "```v", "```" },            type = "string", hard_lexical_stop = true, syntax = ".v" },
+    { pattern = { "```toml", "```" },         type = "string", hard_lexical_stop = true, syntax = ".toml" },
+    { pattern = { "```yaml", "```" },         type = "string", hard_lexical_stop = true, syntax = ".yaml" },
+    { pattern = { "```nim", "```" },          type = "string", hard_lexical_stop = true, syntax = ".nim" },
+    { pattern = { "```typescript", "```" },   type = "string", hard_lexical_stop = true, syntax = ".ts" },
+    { pattern = { "```rescript", "```" },     type = "string", hard_lexical_stop = true, syntax = ".res" },
+    { pattern = { "```moon", "```" },         type = "string", hard_lexical_stop = true, syntax = ".moon" },
+    { pattern = { "```go", "```" },           type = "string", hard_lexical_stop = true, syntax = ".go" },
+    { pattern = { "```lobster", "```" },      type = "string", hard_lexical_stop = true, syntax = ".lobster" },
+    { pattern = { "```liquid", "```" },       type = "string", hard_lexical_stop = true, syntax = ".liquid" },
+    { pattern = { "```nix", "```" },          type = "string", hard_lexical_stop = true, syntax = ".nix" },
+    { pattern = { "```", "```" },             type = "string", hard_lexical_stop = true },
+    { pattern = { "``", "``" },               type = "string" },
+    { pattern = { "%f[\\`]%`[%S]", "`" },     type = "string" },
     -- lines
-    { pattern = "^%-%-%-+\n" ,              type = "comment" },
-    { pattern = "^%*%*%*+\n",               type = "comment" },
-    { pattern = "^___+\n",                  type = "comment" },
-    { pattern = "^===+\n",                  type = "comment" },
+    { pattern = "^%-%-%-+\n" ,                type = "comment" },
+    { pattern = "^%*%*%*+\n",                 type = "comment" },
+    { pattern = "^___+\n",                    type = "comment" },
+    { pattern = "^===+\n",                    type = "comment" },
     -- strike
-    { pattern = { "~~", "~~" },             type = "keyword2" },
+    { pattern = { "~~", "~~" },               type = "keyword2" },
     -- highlight
-    { pattern = { "==", "==" },             type = "literal" },
+    { pattern = { "==", "==" },               type = "literal" },
     -- bold and italic
-    { pattern = { "%*%*%*%S", "%*%*%*" },   type = "markdown_bold_italic" },
-    { pattern = { "%*%*%S", "%*%*" },       type = "markdown_bold" },
+    { pattern = { "%*%*%*%S", "%*%*%*" },     type = "markdown_bold_italic" },
+    { pattern = { "%*%*%S", "%*%*" },         type = "markdown_bold" },
     -- handle edge case where asterisk can be at end of line and not close
     {
       pattern = { "%f[\\%*]%*[%S]", "%*%f[^%*]" },
       type = "markdown_italic"
     },
     -- alternative bold italic formats
-    { pattern = "^___[%s%p%w]+___" ,        type = "markdown_bold_italic" },
-    { pattern = "^__[%s%p%w]+__" ,          type = "markdown_bold" },
-    { pattern = "^_[%s%p%w]+_" ,            type = "markdown_italic" },
+    { pattern = "^___[%s%p%w]+___" ,          type = "markdown_bold_italic" },
+    { pattern = "^__[%s%p%w]+__" ,            type = "markdown_bold" },
+    { pattern = "^_[%s%p%w]+_" ,              type = "markdown_italic" },
     -- heading with custom id
     {
       pattern = "^#+%s[%w%s%p]+(){()#[%w%-]+()}",
       type = { "keyword", "function", "string", "function" }
     },
     -- headings
-    { pattern = "^#+%s.+\n",                type = "keyword" },
+    { pattern = "^#+%s.+\n",                  type = "keyword" },
     -- superscript and subscript
     {
       pattern = "%^()%d+()%^",
@@ -170,9 +170,9 @@ syntax.add {
       type = { "function", "number", "function" }
     },
     -- definitions
-    { pattern = "^:%s.+",                   type = "function" },
+    { pattern = "^:%s.+",                     type = "function" },
     -- emoji
-    { pattern = ":[a-zA-Z0-9_%-]+:",        type = "literal" },
+    { pattern = ":[a-zA-Z0-9_%-]+:",          type = "literal" },
     -- images and link
     {
       pattern = "!?%[!?%[()["..in_squares_match.."]+()%]%(()["..in_parenthesis_match.."]+()%)%]%(()["..in_parenthesis_match.."]+()%)",
@@ -196,10 +196,10 @@ syntax.add {
       pattern = "<[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+%.[a-zA-Z0-9-.]+>",
       type = "function"
     },
-    { pattern = "<https?://%S+>",           type = "function" },
-    { pattern = "https?://%S+",             type = "function" },
+    { pattern = "<https?://%S+>",             type = "function" },
+    { pattern = "https?://%S+",               type = "function" },
     -- optimize consecutive dashes used in tables
-    { pattern = "%-+",                      type = "normal" },
+    { pattern = "%-+",                        type = "normal" },
   },
   symbols = { },
 }
