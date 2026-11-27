@@ -629,12 +629,15 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
   y *= surface_scale;
   const char* end = text + len;
   uint8_t* destination_pixels = surface->pixels;
+  const SDL_PixelFormatDetails *surface_format = SDL_GetPixelFormatDetails(surface->format);
   int clip_end_x = clip.x + clip.w, clip_end_y = clip.y + clip.h;
 
   RenFont* last = NULL;
   double last_pen_x = x;
   bool underline = fonts[0]->style & FONT_STYLE_UNDERLINE;
   bool strikethrough = fonts[0]->style & FONT_STYLE_STRIKETHROUGH;
+  SDL_Surface *last_font_surface = NULL;
+  const SDL_PixelFormatDetails *font_surface_format = NULL;
 
   while (text < end) {
     unsigned int codepoint, r, g, b;
@@ -643,6 +646,10 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
     RenFont* font = font_group_get_glyph(fonts, codepoint, (int)(fmod(pen_x, 1.0) * SUBPIXEL_BITMAPS_CACHED), &font_surface, &metric);
     if (!metric)
       break;
+    if (font_surface && font_surface != last_font_surface) {
+      last_font_surface = font_surface;
+      font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
+    }
     int start_x = floor(pen_x) + metric->bitmap_left;
     int end_x = metric->x1 + start_x; // x0 is assumed to be 0
     int glyph_end = metric->x1, glyph_start = 0;
@@ -650,23 +657,20 @@ double ren_draw_text(RenSurface *rs, RenFont **fonts, const char *text, size_t l
       ren_draw_rect(rs, (RenRect){ start_x + 1, y, font->space_advance - 1, ren_font_group_get_height(fonts) }, color);
     if (!is_whitespace(codepoint) && font_surface && color.a > 0 && end_x >= clip.x && start_x < clip_end_x) {
       uint8_t* source_pixels = font_surface->pixels;
+      if (start_x + (glyph_end - glyph_start) >= clip_end_x)
+        glyph_end = glyph_start + (clip_end_x - start_x);
+      if (start_x < clip.x) {
+        int offset = clip.x - start_x;
+        start_x += offset;
+        glyph_start += offset;
+      }
+
       for (int line = metric->y0; line < metric->y1; ++line) {
         int target_y = line - metric->y0 + y - metric->bitmap_top + (fonts[0]->baseline * surface_scale);
         if (target_y < clip.y)
           continue;
         if (target_y >= clip_end_y)
           break;
-        if (start_x + (glyph_end - glyph_start) >= clip_end_x)
-          glyph_end = glyph_start + (clip_end_x - start_x);
-        if (start_x < clip.x) {
-          int offset = clip.x - start_x;
-          start_x += offset;
-          glyph_start += offset;
-        }
-
-        const SDL_PixelFormatDetails* surface_format = SDL_GetPixelFormatDetails(surface->format);
-        const SDL_PixelFormatDetails* font_surface_format = SDL_GetPixelFormatDetails(font_surface->format);
-
         uint32_t* destination_pixel = (uint32_t*)&(destination_pixels[surface->pitch * target_y + start_x * surface_format->bytes_per_pixel]);
         uint8_t* source_pixel = &source_pixels[line * font_surface->pitch + glyph_start * font_surface_format->bytes_per_pixel];
         for (int x = glyph_start; x < glyph_end; ++x) {
